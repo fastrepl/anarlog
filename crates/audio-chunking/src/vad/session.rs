@@ -14,6 +14,7 @@ pub struct VadChunkerConfig {
     pub min_speech_time: Duration,
     pub min_chunk_duration: Duration,
     pub target_chunk_duration: Duration,
+    pub max_chunk_duration: Duration,
     pub max_negative_threshold: f32,
 }
 
@@ -27,6 +28,7 @@ impl Default for VadChunkerConfig {
             min_speech_time: Duration::from_millis(90),
             min_chunk_duration: Duration::from_secs(3),
             target_chunk_duration: Duration::from_secs(20),
+            max_chunk_duration: Duration::from_secs(25),
             max_negative_threshold: 0.80,
         }
     }
@@ -80,6 +82,20 @@ impl VadChunkerConfig {
         if self.target_chunk_duration <= self.min_chunk_duration {
             return Err(crate::Error::InvalidConfig(
                 "target_chunk_duration must be greater than min_chunk_duration".into(),
+            ));
+        }
+
+        if self.max_chunk_duration <= self.target_chunk_duration {
+            return Err(crate::Error::InvalidConfig(
+                "max_chunk_duration must be greater than target_chunk_duration".into(),
+            ));
+        }
+
+        if self.max_chunk_duration <= self.redemption_time
+            || self.max_chunk_duration <= self.pre_speech_pad
+        {
+            return Err(crate::Error::InvalidConfig(
+                "max_chunk_duration must exceed redemption_time and pre_speech_pad".into(),
             ));
         }
 
@@ -271,6 +287,46 @@ impl VadSession {
         }
     }
 
+    fn maybe_force_speech_boundary(
+        &mut self,
+        start_sample: usize,
+        confirmed: bool,
+        speech_samples: usize,
+    ) -> Option<VadTransition> {
+        if !confirmed {
+            return None;
+        }
+
+        let max_chunk_samples = Self::duration_to_samples(self.config.max_chunk_duration);
+        if self.cursor_sample.saturating_sub(start_sample) < max_chunk_samples {
+            return None;
+        }
+
+        let context_samples =
+            Self::duration_to_samples(self.config.redemption_time.max(self.config.pre_speech_pad))
+                .max(CHUNK_SIZE_16KHZ);
+        let next_start_sample = self.cursor_sample.saturating_sub(context_samples);
+        if next_start_sample <= start_sample {
+            return None;
+        }
+
+        let transition = self.speech_end_transition(
+            start_sample,
+            next_start_sample,
+            speech_samples.saturating_sub(context_samples),
+        );
+
+        self.state = VadState::Speech {
+            start_sample: next_start_sample,
+            confirmed: true,
+            speech_samples: context_samples,
+        };
+        self.silent_samples = self.silent_samples.min(context_samples);
+        self.trim_buffer();
+
+        Some(transition)
+    }
+
     fn advance(&mut self, prob: f32) -> Option<VadTransition> {
         match self.state {
             VadState::Silence => {
@@ -323,6 +379,12 @@ impl VadSession {
                     );
                     self.reset_to_silence();
                     self.trim_buffer();
+                    return Some(transition);
+                }
+
+                if let Some(transition) =
+                    self.maybe_force_speech_boundary(start_sample, confirmed, speech_samples)
+                {
                     return Some(transition);
                 }
 
@@ -455,5 +517,64 @@ mod tests {
         let max_expected =
             VadSession::duration_to_samples(session.config.pre_speech_pad) + CHUNK_SIZE_16KHZ;
         assert!(session.retained_audio.len() <= max_expected);
+    }
+
+    #[test]
+    fn forced_speech_boundary_keeps_context_without_gaps_or_duplicate_audio() {
+        let config = VadChunkerConfig {
+            redemption_time: Duration::from_millis(100),
+            pre_speech_pad: Duration::from_millis(200),
+            min_chunk_duration: Duration::from_millis(500),
+            target_chunk_duration: Duration::from_secs(1),
+            max_chunk_duration: Duration::from_secs(2),
+            ..Default::default()
+        };
+        let max_samples = VadSession::duration_to_samples(config.max_chunk_duration);
+        let context_samples = VadSession::duration_to_samples(config.pre_speech_pad);
+        let mut session = VadSession::new(config).unwrap();
+        session.retained_audio = (0..max_samples).map(|sample| sample as f32).collect();
+        session.cursor_sample = max_samples;
+        session.state = VadState::Speech {
+            start_sample: 0,
+            confirmed: true,
+            speech_samples: max_samples - CHUNK_SIZE_16KHZ,
+        };
+
+        let first = session.advance(1.0).unwrap();
+        let VadTransition::SpeechEnd {
+            sample_start: first_start,
+            sample_end: first_end,
+            samples: first_samples,
+            ..
+        } = first
+        else {
+            panic!("expected forced speech end");
+        };
+
+        assert_eq!(first_start, 0);
+        assert_eq!(first_end, max_samples - context_samples);
+        assert_eq!(session.retained_audio.len(), context_samples);
+
+        let second = session.finish(&[]).unwrap().pop().unwrap();
+        let VadTransition::SpeechEnd {
+            sample_start: second_start,
+            sample_end: second_end,
+            samples: second_samples,
+            ..
+        } = second
+        else {
+            panic!("expected carried speech end");
+        };
+
+        assert_eq!(second_start, first_end);
+        assert_eq!(second_end, max_samples);
+        let reconstructed = first_samples
+            .into_iter()
+            .chain(second_samples)
+            .collect::<Vec<_>>();
+        let expected = (0..max_samples)
+            .map(|sample| sample as f32)
+            .collect::<Vec<_>>();
+        assert_eq!(reconstructed, expected);
     }
 }

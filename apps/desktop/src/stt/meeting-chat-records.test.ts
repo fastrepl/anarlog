@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import {
   formatMeetingChatContext,
   loadMeetingChatRecords,
+  MAX_MEETING_CHAT_RECORD_BYTES,
+  MAX_MEETING_CHAT_RECORDS,
   persistMeetingChatRecords,
   useMeetingChatRecords,
 } from "./meeting-chat-records";
@@ -84,6 +86,28 @@ describe("meeting chat records", () => {
       ...message,
       capturedAt: "2026-07-13T10:00:00.000Z",
     });
+  });
+
+  test("rejects an oversized record once without materializing or retrying it", async () => {
+    const sourceSignature = "zoom\nnative\noversized";
+
+    await expect(
+      persistMeetingChatRecords({
+        sessionId: "session-1",
+        entries: [
+          {
+            message: {
+              ...message,
+              id: "oversized",
+              text: "x".repeat(MAX_MEETING_CHAT_RECORD_BYTES * 4),
+            },
+            sourceSignature,
+          },
+        ],
+      }),
+    ).resolves.toEqual([sourceSignature]);
+
+    expect(executeTransactionMock).not.toHaveBeenCalled();
   });
 
   test.each(platformLabels)(
@@ -195,9 +219,53 @@ describe("meeting chat records", () => {
       },
     ]);
     expect(executeMock).toHaveBeenCalledWith(
-      expect.stringContaining("ORDER BY sort_order, created_at, id"),
+      expect.stringMatching(
+        new RegExp(
+          `length\\(CAST\\(body AS BLOB\\)\\) <= ${MAX_MEETING_CHAT_RECORD_BYTES}[\\s\\S]+LIMIT ${MAX_MEETING_CHAT_RECORDS}[\\s\\S]+ORDER BY sort_order, created_at, id`,
+        ),
+      ),
       ["session-1"],
     );
+  });
+
+  test("materializes only the newest bounded meeting-chat window", () => {
+    useLiveQueryMock.mockImplementation(
+      ({ mapRows }: { mapRows: (rows: unknown[]) => unknown }) => ({
+        data: mapRows(
+          Array.from({ length: MAX_MEETING_CHAT_RECORDS + 1 }, (_, index) => ({
+            id: `document-${index}`,
+            body: JSON.stringify({ ...message, id: `message-${index}` }),
+            created_at: "2026-07-13T10:00:00.000Z",
+          })),
+        ),
+      }),
+    );
+
+    const { result } = renderHook(() => useMeetingChatRecords("session-1"));
+
+    expect(result.current).toHaveLength(MAX_MEETING_CHAT_RECORDS);
+    expect(result.current[0]?.id).toBe("message-1");
+    expect(result.current[result.current.length - 1]?.id).toBe(
+      `message-${MAX_MEETING_CHAT_RECORDS}`,
+    );
+  });
+
+  test("drops oversized meeting-chat documents before parsing", () => {
+    useLiveQueryMock.mockImplementation(
+      ({ mapRows }: { mapRows: (rows: unknown[]) => unknown }) => ({
+        data: mapRows([
+          {
+            id: "oversized",
+            body: "x".repeat(MAX_MEETING_CHAT_RECORD_BYTES + 1),
+            created_at: "2026-07-13T10:00:00.000Z",
+          },
+        ]),
+      }),
+    );
+
+    const { result } = renderHook(() => useMeetingChatRecords("session-1"));
+
+    expect(result.current).toEqual([]);
   });
 
   test("formats a labeled meeting-chat context block", () => {

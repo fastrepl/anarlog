@@ -229,6 +229,61 @@ describe("useUploadFile", () => {
     expect(handleBatchFailedMock).not.toHaveBeenCalled();
   });
 
+  test("rejects oversized pathless audio before reading it into IPC memory", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    const file = {
+      name: "drop.wav",
+      type: "audio/wav",
+      size: 4 * 1024 * 1024 + 1,
+      arrayBuffer: vi.fn(),
+    } as unknown as File;
+
+    act(() => result.current.processAudioFile(file));
+
+    await waitFor(() => {
+      expect(handleBatchFailedMock).toHaveBeenCalledWith(
+        "session-1",
+        "Audio files without a native path must be smaller than 4 MB",
+      );
+    });
+    expect(file.arrayBuffer).not.toHaveBeenCalled();
+    expect(audioImportDataMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  test("validates actual audio bytes before expanding them for IPC", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const { result } = renderHook(() => useUploadFile("session-1"), {
+      wrapper: createWrapper(),
+    });
+    const file = {
+      name: "drop.wav",
+      type: "audio/wav",
+      size: 0,
+      arrayBuffer: vi
+        .fn()
+        .mockResolvedValue(new ArrayBuffer(4 * 1024 * 1024 + 1)),
+    } as unknown as File;
+
+    act(() => result.current.processAudioFile(file));
+
+    await waitFor(() => {
+      expect(handleBatchFailedMock).toHaveBeenCalledWith(
+        "session-1",
+        "Audio files without a native path must be smaller than 4 MB",
+      );
+    });
+    expect(audioImportDataMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   test("keeps CloudSync deferred until imported-audio summary scheduling settles", async () => {
     let finishSummaryScheduling: (() => void) | undefined;
     queueAutoEnhanceIfSummaryEmptyMock.mockReturnValueOnce(

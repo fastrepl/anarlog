@@ -1,5 +1,8 @@
 use anlg_api_auth::AuthContext;
-use axum::{Json, body::Bytes};
+use axum::{
+    Json,
+    body::{Body, Bytes},
+};
 use owhisper_client::{CallbackSttAdapter, DeepgramAdapter, Provider, SonioxAdapter};
 use owhisper_interface::ListenParams;
 use serde::{Deserialize, Serialize};
@@ -7,7 +10,8 @@ use serde::{Deserialize, Serialize};
 use crate::query_params::QueryParams;
 use crate::supabase::{PipelineStatus, SupabaseClient, TranscriptionJob};
 
-use super::super::{AppState, RouteError, parse_async_provider};
+use super::super::{AppState, MAX_BATCH_AUDIO_BODY_BYTES, RouteError, parse_async_provider};
+use super::BatchAudioWriteError;
 
 #[derive(Deserialize, utoipa::ToSchema)]
 pub struct ListenCallbackRequest {
@@ -136,6 +140,8 @@ async fn handle_sync_fallback(
     ),
     RouteError,
 > {
+    let _batch_slot = state.try_acquire_batch_slot()?;
+
     tracing::info!(
         anarlog.stt.provider.name = %provider_str,
         "local_url_detected, using sync transcription"
@@ -148,32 +154,50 @@ async fn handle_sync_fallback(
             .map_err(|e| RouteError::Internal(format!("failed to download audio: {e}")))?;
 
     let download_status = download_response.status();
-    let audio_bytes = download_response
-        .bytes()
-        .await
-        .map_err(|e| RouteError::Internal(format!("failed to read audio bytes: {e}")))?;
-
-    if !download_status.is_success() || audio_bytes.len() < 1024 {
+    if !download_status.is_success() {
         let redacted_audio_url = redact_url_for_telemetry(audio_url);
         tracing::error!(
             http.response.status_code = %download_status.as_u16(),
-            anarlog.audio.size_bytes = audio_bytes.len(),
+            anarlog.audio.size_bytes = download_response.content_length().unwrap_or_default(),
             anarlog.file.id = %file_id,
             url.full = %redacted_audio_url,
             "signed_url_download_failed"
         );
-        if !download_status.is_success() {
-            return Err(RouteError::Internal(format!(
-                "failed to download audio from storage: {download_status}"
-            )));
-        }
+        return Err(RouteError::Internal(format!(
+            "failed to download audio from storage: {download_status}"
+        )));
     }
 
     let content_type = content_type_from_filename(file_id);
+    if download_response
+        .content_length()
+        .is_some_and(|len| len > MAX_BATCH_AUDIO_BODY_BYTES as u64)
+    {
+        return Err(RouteError::BadRequest(format!(
+            "downloaded audio exceeds {MAX_BATCH_AUDIO_BODY_BYTES} bytes"
+        )));
+    }
+    let audio_file = super::write_body_to_temp_file(
+        Body::from_stream(download_response.bytes_stream()),
+        content_type,
+    )
+    .await
+    .map_err(callback_download_write_error)?;
+
+    if audio_file.len() < 1024 {
+        let redacted_audio_url = redact_url_for_telemetry(audio_url);
+        tracing::error!(
+            http.response.status_code = %download_status.as_u16(),
+            anarlog.audio.size_bytes = audio_file.len(),
+            anarlog.file.id = %file_id,
+            url.full = %redacted_audio_url,
+            "signed_url_download_failed"
+        );
+    }
 
     tracing::info!(
         anarlog.file.mime_type = %content_type,
-        anarlog.audio.size_bytes = audio_bytes.len(),
+        anarlog.audio.size_bytes = audio_file.len(),
         anarlog.file.id = %file_id,
         "sync_fallback_audio_downloaded"
     );
@@ -183,8 +207,6 @@ async fn handle_sync_fallback(
         .provider_selector()
         .select(Some(provider))
         .map_err(|_| RouteError::MissingConfig("api_key not configured for provider"))?;
-    let audio_file = super::write_bytes_to_temp_file(&audio_bytes, content_type)
-        .map_err(|e| RouteError::Internal(format!("failed to create temp audio file: {e}")))?;
 
     match super::sync::transcribe_with_provider(&selected, listen_params.clone(), audio_file.path())
         .await
@@ -206,6 +228,20 @@ async fn handle_sync_fallback(
                 None,
                 Some(e.message().to_string()),
             ))
+        }
+    }
+}
+
+fn callback_download_write_error(error: BatchAudioWriteError) -> RouteError {
+    match error {
+        BatchAudioWriteError::TooLarge => RouteError::BadRequest(format!(
+            "downloaded audio exceeds {MAX_BATCH_AUDIO_BODY_BYTES} bytes"
+        )),
+        BatchAudioWriteError::Body(error) => {
+            RouteError::Internal(format!("failed to download audio body: {error}"))
+        }
+        BatchAudioWriteError::Io(error) => {
+            RouteError::Internal(format!("failed to store downloaded audio: {error}"))
         }
     }
 }

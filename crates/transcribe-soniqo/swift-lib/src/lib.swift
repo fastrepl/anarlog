@@ -324,7 +324,13 @@ private struct FileTranscriptionPayload: Codable {
 
 private struct StatusPayload: Codable {
   var running: Bool
+  var sessionToken: String?
   var error: String?
+}
+
+private struct ModelLoad {
+  let generation: UInt64
+  let task: Task<LoadedSpeechModel, Error>
 }
 
 private func encodeJSON<T: Encodable>(_ value: T) -> String {
@@ -425,10 +431,22 @@ private func decodeFloatSamples(from data: Data) throws -> [Float] {
 private actor SoniqoBridge {
   static let shared = SoniqoBridge()
 
+  private static let modelIdleEvictionDelayNanoseconds: UInt64 = 60 * 1_000_000_000
+  private static let maxModelResetWaiters = 16
+
   private var loadedModels: [SpeechModelKind: LoadedSpeechModel] = [:]
-  private var modelTasks: [SpeechModelKind: Task<LoadedSpeechModel, Error>] = [:]
+  private var modelTasks: [SpeechModelKind: ModelLoad] = [:]
+  private var modelEvictionTasks: [SpeechModelKind: Task<Void, Never>] = [:]
+  private var modelEvictionGenerations: [SpeechModelKind: UInt64] = [:]
+  private var resettingModels: Set<SpeechModelKind> = []
+  private var modelResetWaiters: [SpeechModelKind: [CheckedContinuation<Void, Never>]] = [:]
+  private var nextModelLoadGeneration: UInt64 = 0
+  private var nextModelEvictionGeneration: UInt64 = 0
   private var downloadStates: [SpeechModelKind: ModelDownloadPayload] = [:]
   private var activeStreamingSessions: [TranscriptSource: StreamingSession] = [:]
+  private var activeStreamingModel: SpeechModelKind?
+  private var pendingStreamingModel: SpeechModelKind?
+  private var liveSessionIdentity = LiveSessionIdentity()
 
   func cacheDirectory(modelId: String) -> String {
     guard let kind = SpeechModelKind.resolve(modelId) else {
@@ -460,9 +478,12 @@ private actor SoniqoBridge {
     return encodeJSON(downloadState(for: kind))
   }
 
-  func startModelDownload(modelId: String) {
+  func startModelDownload(modelId: String) -> Bool {
     guard let kind = SpeechModelKind.resolve(modelId) else {
-      return
+      return false
+    }
+    guard !resettingModels.contains(kind) else {
+      return false
     }
 
     refreshReadyState(for: kind)
@@ -472,14 +493,14 @@ private actor SoniqoBridge {
       state.currentFile = nil
       state.error = nil
       downloadStates[kind] = state
-      return
+      return true
     }
 
     if modelTasks[kind] != nil {
       var state = downloadState(for: kind)
       state.status = "downloading"
       downloadStates[kind] = state
-      return
+      return true
     }
 
     var state = downloadState(for: kind)
@@ -489,11 +510,14 @@ private actor SoniqoBridge {
     state.error = nil
     downloadStates[kind] = state
 
+    nextModelLoadGeneration &+= 1
+    let generation = nextModelLoadGeneration
     let task = Task.detached(priority: .utility) {
       try await kind.load { fraction, status in
         Task {
           await SoniqoBridge.shared.updateDownloadProgress(
             kind: kind,
+            generation: generation,
             fraction: fraction,
             status: status
           )
@@ -501,25 +525,63 @@ private actor SoniqoBridge {
       }
     }
 
-    modelTasks[kind] = task
+    let load = ModelLoad(generation: generation, task: task)
+
+    modelTasks[kind] = load
 
     Task.detached {
       do {
         let model = try await task.value
-        await SoniqoBridge.shared.finishModelLoad(kind: kind, model: model)
+        await SoniqoBridge.shared.finishModelLoad(
+          kind: kind,
+          generation: load.generation,
+          model: model
+        )
       } catch {
-        await SoniqoBridge.shared.finishModelLoad(kind: kind, error: error)
+        await SoniqoBridge.shared.finishModelLoad(
+          kind: kind,
+          generation: load.generation,
+          error: error
+        )
       }
     }
+
+    return true
   }
 
-  func resetModel(modelId: String) {
+  func resetModel(modelId: String) async -> Bool {
     guard let kind = SpeechModelKind.resolve(modelId) else {
-      return
+      return false
+    }
+
+    if resettingModels.contains(kind) {
+      guard (modelResetWaiters[kind]?.count ?? 0) < Self.maxModelResetWaiters else {
+        return false
+      }
+      await withCheckedContinuation { continuation in
+        modelResetWaiters[kind, default: []].append(continuation)
+      }
+      return true
+    }
+    resettingModels.insert(kind)
+    if activeStreamingModel == kind || pendingStreamingModel == kind {
+      liveSessionIdentity.invalidate()
+      activeStreamingSessions = [:]
+      activeStreamingModel = nil
+      pendingStreamingModel = nil
+    }
+    cancelModelEviction(for: kind)
+    let load = modelTasks.removeValue(forKey: kind)
+    load?.task.cancel()
+    loadedModels[kind] = nil
+
+    if let load {
+      _ = try? await load.task.value
     }
 
     loadedModels[kind] = nil
     modelTasks[kind] = nil
+    resettingModels.remove(kind)
     refreshReadyState(for: kind)
 
     var state = downloadState(for: kind)
@@ -530,9 +592,25 @@ private actor SoniqoBridge {
     state.progressPercent = nil
     state.error = nil
     downloadStates[kind] = state
+
+    let waiters = modelResetWaiters.removeValue(forKey: kind) ?? []
+    for waiter in waiters {
+      waiter.resume()
+    }
+    return true
   }
 
   func startLiveJSON(modelId: String) async -> String {
+    let request = liveSessionIdentity.beginStart()
+
+    let previousKind = activeStreamingModel
+    activeStreamingSessions = [:]
+    activeStreamingModel = nil
+    pendingStreamingModel = nil
+    if let previousKind {
+      markModelIdle(previousKind)
+    }
+
     do {
       guard let kind = SpeechModelKind.resolve(modelId) else {
         throw SoniqoBridgeError.message("Unsupported Soniqo model: \(modelId)")
@@ -541,25 +619,94 @@ private actor SoniqoBridge {
         throw SoniqoBridgeError.message("\(kind.label) does not support realtime transcription.")
       }
 
+      pendingStreamingModel = kind
       let model = try await ensureModelLoaded(kind).asStreamingModel()
-      activeStreamingSessions = [
+      guard liveSessionIdentity.isCurrent(generation: request.generation) else {
+        if activeStreamingModel != kind && pendingStreamingModel != kind {
+          markModelIdle(kind)
+        }
+        return encodeJSON(
+          StatusPayload(
+            running: false,
+            sessionToken: nil,
+            error: "Soniqo live session start was superseded."
+          )
+        )
+      }
+
+      let sessions: [TranscriptSource: StreamingSession] = [
         .microphone: try model.createSession(),
         .system: try model.createSession(),
       ]
-      return encodeJSON(StatusPayload(running: true, error: nil))
+      guard
+        liveSessionIdentity.activate(
+          generation: request.generation,
+          token: request.token
+        )
+      else {
+        return encodeJSON(
+          StatusPayload(
+            running: false,
+            sessionToken: nil,
+            error: "Soniqo live session start was superseded."
+          )
+        )
+      }
+
+      activeStreamingSessions = sessions
+      activeStreamingModel = kind
+      pendingStreamingModel = nil
+      cancelModelEviction(for: kind)
+      return encodeJSON(StatusPayload(running: true, sessionToken: request.token, error: nil))
     } catch {
+      guard liveSessionIdentity.isCurrent(generation: request.generation) else {
+        return encodeJSON(
+          StatusPayload(
+            running: false,
+            sessionToken: nil,
+            error: "Soniqo live session start was superseded."
+          )
+        )
+      }
+
+      let kind = pendingStreamingModel
       activeStreamingSessions = [:]
-      return encodeJSON(StatusPayload(running: false, error: error.localizedDescription))
+      activeStreamingModel = nil
+      pendingStreamingModel = nil
+      if let kind {
+        markModelIdle(kind)
+      }
+      return encodeJSON(
+        StatusPayload(running: false, sessionToken: nil, error: error.localizedDescription)
+      )
     }
   }
 
-  func stopLiveJSON() -> String {
+  func stopLiveJSON(sessionToken: String) -> String {
+    guard liveSessionIdentity.deactivate(token: sessionToken) else {
+      return encodeJSON(
+        StatusPayload(
+          running: liveSessionIdentity.isActive,
+          sessionToken: nil,
+          error: "Soniqo live session is no longer active."
+        )
+      )
+    }
+
+    let kind = activeStreamingModel
     activeStreamingSessions = [:]
-    return encodeJSON(StatusPayload(running: false, error: nil))
+    activeStreamingModel = nil
+    if let kind {
+      markModelIdle(kind)
+    }
+    return encodeJSON(StatusPayload(running: false, sessionToken: nil, error: nil))
   }
 
-  func appendLiveJSON(source: String, samplesData: Data) -> String {
+  func appendLiveJSON(sessionToken: String, source: String, samplesData: Data) -> String {
     do {
+      guard liveSessionIdentity.matches(token: sessionToken) else {
+        throw SoniqoBridgeError.message("Soniqo live session is no longer active.")
+      }
       guard let transcriptSource = TranscriptSource(rawValue: source) else {
         throw SoniqoBridgeError.message("Unsupported Soniqo transcript source: \(source)")
       }
@@ -579,8 +726,11 @@ private actor SoniqoBridge {
     }
   }
 
-  func finalizeLiveJSON(source: String) -> String {
+  func finalizeLiveJSON(sessionToken: String, source: String) -> String {
     do {
+      guard liveSessionIdentity.matches(token: sessionToken) else {
+        throw SoniqoBridgeError.message("Soniqo live session is no longer active.")
+      }
       guard let transcriptSource = TranscriptSource(rawValue: source) else {
         throw SoniqoBridgeError.message("Unsupported Soniqo transcript source: \(source)")
       }
@@ -610,6 +760,7 @@ private actor SoniqoBridge {
 
       let samples = try decodeFloatSamples(from: samplesData)
       let pipeline = try await ensureModelLoaded(kind).asDiarizationPipeline()
+      defer { markModelIdle(kind) }
       let result = try pipeline.diarize(
         audio: samples,
         sampleRate: soniqoFileTranscriptionSampleRate,
@@ -635,6 +786,7 @@ private actor SoniqoBridge {
         targetSampleRate: soniqoFileTranscriptionSampleRate
       )
       let model = try await ensureModelLoaded(kind)
+      defer { markModelIdle(kind) }
       let text = try transcribeFileAudio(
         model: model,
         kind: kind,
@@ -807,25 +959,64 @@ private actor SoniqoBridge {
   }
 
   private func ensureModelLoaded(_ kind: SpeechModelKind) async throws -> LoadedSpeechModel {
+    guard !resettingModels.contains(kind) else {
+      throw SoniqoBridgeError.message("\(kind.label) is being reset.")
+    }
+
     refreshReadyState(for: kind)
+    cancelModelEviction(for: kind)
 
     if let model = loadedModels[kind] {
       return model
     }
 
-    if let task = modelTasks[kind] {
-      let loaded = try await task.value
-      loadedModels[kind] = loaded
-      return loaded
+    let load: ModelLoad
+    if let existing = modelTasks[kind] {
+      load = existing
+    } else {
+      nextModelLoadGeneration &+= 1
+      load = ModelLoad(
+        generation: nextModelLoadGeneration,
+        task: Task.detached(priority: .userInitiated) {
+          try await kind.load(progressHandler: nil)
+        }
+      )
+      modelTasks[kind] = load
     }
 
-    let loaded = try await kind.load(progressHandler: nil)
-    loadedModels[kind] = loaded
-    refreshReadyState(for: kind)
-    return loaded
+    do {
+      let loaded = try await load.task.value
+
+      if modelTasks[kind]?.generation == load.generation {
+        modelTasks[kind] = nil
+        cacheLoadedModel(loaded, kind: kind)
+        refreshReadyState(for: kind)
+        return loaded
+      }
+
+      if let cached = loadedModels[kind], !resettingModels.contains(kind) {
+        return cached
+      }
+
+      throw SoniqoBridgeError.message("Loading \(kind.label) was cancelled.")
+    } catch {
+      if modelTasks[kind]?.generation == load.generation {
+        modelTasks[kind] = nil
+      }
+      throw error
+    }
   }
 
-  private func updateDownloadProgress(kind: SpeechModelKind, fraction: Double, status: String) {
+  private func updateDownloadProgress(
+    kind: SpeechModelKind,
+    generation: UInt64,
+    fraction: Double,
+    status: String
+  ) {
+    guard modelTasks[kind]?.generation == generation, !resettingModels.contains(kind) else {
+      return
+    }
+
     var state = downloadState(for: kind)
     state.status = "downloading"
     state.localPath = kind.cacheDirectoryPath()
@@ -838,9 +1029,18 @@ private actor SoniqoBridge {
     downloadStates[kind] = state
   }
 
-  private func finishModelLoad(kind: SpeechModelKind, model: LoadedSpeechModel) {
-    loadedModels[kind] = model
+  private func finishModelLoad(
+    kind: SpeechModelKind,
+    generation: UInt64,
+    model: LoadedSpeechModel
+  ) {
+    guard modelTasks[kind]?.generation == generation, !resettingModels.contains(kind) else {
+      return
+    }
+
     modelTasks[kind] = nil
+    cacheLoadedModel(model, kind: kind)
+    markModelIdle(kind)
 
     var state = downloadState(for: kind)
     state.localPath = kind.cacheDirectoryPath()
@@ -851,7 +1051,11 @@ private actor SoniqoBridge {
     downloadStates[kind] = state
   }
 
-  private func finishModelLoad(kind: SpeechModelKind, error: Error) {
+  private func finishModelLoad(kind: SpeechModelKind, generation: UInt64, error: Error) {
+    guard modelTasks[kind]?.generation == generation else {
+      return
+    }
+
     modelTasks[kind] = nil
 
     var state = downloadState(for: kind)
@@ -861,6 +1065,56 @@ private actor SoniqoBridge {
     state.progressPercent = nil
     state.error = error.localizedDescription
     downloadStates[kind] = state
+  }
+
+  private func cacheLoadedModel(_ model: LoadedSpeechModel, kind: SpeechModelKind) {
+    loadedModels[kind] = model
+
+    for cachedKind in Array(loadedModels.keys)
+    where cachedKind != kind && cachedKind != activeStreamingModel {
+      cancelModelEviction(for: cachedKind)
+      loadedModels[cachedKind] = nil
+    }
+  }
+
+  private func markModelIdle(_ kind: SpeechModelKind) {
+    guard activeStreamingModel != kind, loadedModels[kind] != nil else {
+      return
+    }
+
+    for cachedKind in Array(loadedModels.keys)
+    where cachedKind != kind && cachedKind != activeStreamingModel {
+      cancelModelEviction(for: cachedKind)
+      loadedModels[cachedKind] = nil
+    }
+
+    cancelModelEviction(for: kind)
+    nextModelEvictionGeneration &+= 1
+    let generation = nextModelEvictionGeneration
+    modelEvictionGenerations[kind] = generation
+    modelEvictionTasks[kind] = Task.detached(priority: .utility) {
+      do {
+        try await Task.sleep(nanoseconds: SoniqoBridge.modelIdleEvictionDelayNanoseconds)
+      } catch {
+        return
+      }
+      await SoniqoBridge.shared.evictIdleModel(kind: kind, generation: generation)
+    }
+  }
+
+  private func cancelModelEviction(for kind: SpeechModelKind) {
+    modelEvictionTasks.removeValue(forKey: kind)?.cancel()
+    modelEvictionGenerations[kind] = nil
+  }
+
+  private func evictIdleModel(kind: SpeechModelKind, generation: UInt64) {
+    guard modelEvictionGenerations[kind] == generation, activeStreamingModel != kind else {
+      return
+    }
+
+    modelEvictionTasks[kind] = nil
+    modelEvictionGenerations[kind] = nil
+    loadedModels[kind] = nil
   }
 
   private func refreshReadyState(for kind: SpeechModelKind) {
@@ -882,7 +1136,10 @@ private actor SoniqoBridge {
       state.currentFile = nil
       state.progressPercent = nil
       state.error = nil
-      loadedModels[kind] = nil
+      if activeStreamingModel != kind {
+        cancelModelEviction(for: kind)
+        loadedModels[kind] = nil
+      }
     } else if state.localPath.isEmpty {
       state.status = "idle"
     }
@@ -933,7 +1190,6 @@ public func _soniqo_model_download_state(modelId: SRString) -> SRString {
 public func _soniqo_model_start_download(modelId: SRString) -> Bool {
   waitForValue {
     await SoniqoBridge.shared.startModelDownload(modelId: modelId.toString())
-    return true
   }
 }
 
@@ -941,7 +1197,6 @@ public func _soniqo_model_start_download(modelId: SRString) -> Bool {
 public func _soniqo_model_reset(modelId: SRString) -> Bool {
   waitForValue {
     await SoniqoBridge.shared.resetModel(modelId: modelId.toString())
-    return true
   }
 }
 
@@ -986,10 +1241,15 @@ public func _soniqo_live_start(modelId: SRString) -> SRString {
 }
 
 @_cdecl("_soniqo_live_append")
-public func _soniqo_live_append(source: SRString, samples: SRData) -> SRString {
+public func _soniqo_live_append(
+  sessionToken: SRString,
+  source: SRString,
+  samples: SRData
+) -> SRString {
   SRString(
     waitForValue {
       await SoniqoBridge.shared.appendLiveJSON(
+        sessionToken: sessionToken.toString(),
         source: source.toString(),
         samplesData: Data(samples.toArray())
       )
@@ -997,14 +1257,20 @@ public func _soniqo_live_append(source: SRString, samples: SRData) -> SRString {
 }
 
 @_cdecl("_soniqo_live_finalize")
-public func _soniqo_live_finalize(source: SRString) -> SRString {
+public func _soniqo_live_finalize(sessionToken: SRString, source: SRString) -> SRString {
   SRString(
     waitForValue {
-      await SoniqoBridge.shared.finalizeLiveJSON(source: source.toString())
+      await SoniqoBridge.shared.finalizeLiveJSON(
+        sessionToken: sessionToken.toString(),
+        source: source.toString()
+      )
     })
 }
 
 @_cdecl("_soniqo_live_stop")
-public func _soniqo_live_stop() -> SRString {
-  SRString(waitForValue { await SoniqoBridge.shared.stopLiveJSON() })
+public func _soniqo_live_stop(sessionToken: SRString) -> SRString {
+  SRString(
+    waitForValue {
+      await SoniqoBridge.shared.stopLiveJSON(sessionToken: sessionToken.toString())
+    })
 }

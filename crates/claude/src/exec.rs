@@ -2,14 +2,16 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::io::BufReader;
 use tokio::process::Command;
 use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
 use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 
-use anlg_cli_process::spawn_with_retry;
+use anlg_cli_process::{
+    MAX_PROCESS_STDOUT_BYTES, MAX_PROCESS_STDOUT_LINE_BYTES, collect_stderr, read_line_with_limit,
+    read_text_with_limit, spawn_stderr_reader, spawn_with_retry,
+};
 
 use crate::error::Error;
 use crate::events::{ClaudeEvent, EventStream};
@@ -90,17 +92,13 @@ impl ClaudeExec {
         let stderr = child.stderr.take();
         let cancellation_token = args.cancellation_token;
         let stderr_task = stderr.map(spawn_stderr_reader);
-        let mut stdout_text = String::new();
-
         let read_stdout = async {
-            let mut reader = BufReader::new(stdout);
-            reader
-                .read_to_string(&mut stdout_text)
+            read_text_with_limit(stdout, MAX_PROCESS_STDOUT_BYTES)
                 .await
                 .map_err(Error::StdoutRead)
         };
 
-        match cancellation_token.as_ref() {
+        let stdout_result = match cancellation_token.as_ref() {
             Some(token) => tokio::select! {
                 _ = token.cancelled() => {
                     kill_child(&mut child).await?;
@@ -108,13 +106,19 @@ impl ClaudeExec {
                     return Err(Error::Cancelled);
                 }
                 result = read_stdout => {
-                    result?;
+                    result
                 }
             },
-            None => {
-                read_stdout.await?;
+            None => read_stdout.await,
+        };
+        let stdout_text = match stdout_result {
+            Ok(output) => output,
+            Err(error) => {
+                kill_child(&mut child).await?;
+                let _ = collect_stderr(stderr_task).await;
+                return Err(error);
             }
-        }
+        };
 
         let status = match cancellation_token.as_ref() {
             Some(token) => tokio::select! {
@@ -162,9 +166,13 @@ impl ClaudeExec {
 
         tokio::spawn(async move {
             let result = async {
-                let mut lines = BufReader::new(stdout).lines();
+                let mut lines = BufReader::new(stdout);
                 loop {
-                    let next_line = async { lines.next_line().await.map_err(Error::StdoutRead) };
+                    let next_line = async {
+                        read_line_with_limit(&mut lines, MAX_PROCESS_STDOUT_LINE_BYTES)
+                            .await
+                            .map_err(Error::StdoutRead)
+                    };
                     let line = match cancellation_token.as_ref() {
                         Some(token) => tokio::select! {
                             _ = token.cancelled() => {
@@ -177,7 +185,14 @@ impl ClaudeExec {
                                 let _ = collect_stderr(stderr_task).await;
                                 return Ok(());
                             }
-                            line = next_line => line?,
+                            line = next_line => match line {
+                                Ok(line) => line,
+                                Err(error) => {
+                                    kill_child(&mut child).await?;
+                                    let _ = collect_stderr(stderr_task).await;
+                                    return Err(error);
+                                }
+                            },
                         },
                         None => tokio::select! {
                             _ = task_shutdown.cancelled() => {
@@ -185,7 +200,14 @@ impl ClaudeExec {
                                 let _ = collect_stderr(stderr_task).await;
                                 return Ok(());
                             }
-                            line = next_line => line?,
+                            line = next_line => match line {
+                                Ok(line) => line,
+                                Err(error) => {
+                                    kill_child(&mut child).await?;
+                                    let _ = collect_stderr(stderr_task).await;
+                                    return Err(error);
+                                }
+                            },
                         },
                     };
 
@@ -193,7 +215,14 @@ impl ClaudeExec {
                         break;
                     };
 
-                    let event = ClaudeEvent::from_value(serde_json::from_str(&line)?);
+                    let event = match serde_json::from_str(&line) {
+                        Ok(value) => ClaudeEvent::from_value(value),
+                        Err(error) => {
+                            kill_child(&mut child).await?;
+                            let _ = collect_stderr(stderr_task).await;
+                            return Err(error.into());
+                        }
+                    };
                     if tx.send(Ok(event)).await.is_err() {
                         kill_child(&mut child).await?;
                         let _ = collect_stderr(stderr_task).await;
@@ -395,22 +424,6 @@ async fn kill_child(child: &mut tokio::process::Child) -> Result<(), Error> {
 
     child.wait().await.map_err(Error::Wait)?;
     Ok(())
-}
-
-fn spawn_stderr_reader(stderr: tokio::process::ChildStderr) -> JoinHandle<String> {
-    tokio::spawn(async move {
-        let mut reader = BufReader::new(stderr);
-        let mut buf = String::new();
-        reader.read_to_string(&mut buf).await.ok();
-        buf
-    })
-}
-
-async fn collect_stderr(stderr_task: Option<JoinHandle<String>>) -> String {
-    match stderr_task {
-        Some(task) => task.await.unwrap_or_default(),
-        None => String::new(),
-    }
 }
 
 #[cfg(test)]

@@ -26,6 +26,11 @@ let package = Package(
       resources: [
         .process("Resources")
       ]
-    )
+    ),
+    .testTarget(
+      name: "swift-lib-tests",
+      dependencies: ["swift-lib"],
+      path: "tests"
+    ),
   ]
 )

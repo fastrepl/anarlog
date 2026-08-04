@@ -1,7 +1,7 @@
 pub mod async_callback;
 mod sync;
 
-use std::io::{self, Write};
+use std::io;
 use std::path::Path;
 
 use anlg_api_auth::AuthContext;
@@ -12,6 +12,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
+use bytes::BytesMut;
 use futures_util::StreamExt;
 use owhisper_client::normalize_listen_params;
 use owhisper_interface::ListenParams;
@@ -22,7 +23,7 @@ use anlg_audio_mime::content_type_to_extension;
 use crate::anarlog_routing::should_use_anarlog_routing;
 use crate::query_params::QueryParams;
 
-use super::{AppState, MAX_BATCH_AUDIO_BODY_BYTES};
+use super::{AppState, MAX_BATCH_AUDIO_BODY_BYTES, MAX_BATCH_CALLBACK_BODY_BYTES};
 
 pub async fn handler(
     State(state): State<AppState>,
@@ -32,9 +33,9 @@ pub async fn handler(
     body: Body,
 ) -> Response {
     if params.get_first("callback").is_some() {
-        let body = match axum::body::to_bytes(body, MAX_BATCH_AUDIO_BODY_BYTES).await {
+        let body = match read_callback_body(body).await {
             Ok(body) => body,
-            Err(error) => return body_read_error_response(error),
+            Err(error) => return callback_body_read_error_response(error),
         };
 
         if body.is_empty() {
@@ -45,6 +46,16 @@ pub async fn handler(
             .await
             .into_response();
     }
+
+    let _batch_slot = match state.try_acquire_batch_slot() {
+        Ok(slot) => slot,
+        Err(error) => return error.into_response(),
+    };
+
+    let max_response_bytes = params
+        .remove_first("max_response_bytes")
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0);
 
     let content_type = headers
         .get("content-type")
@@ -72,6 +83,7 @@ pub async fn handler(
             audio.path(),
             audio.len(),
             content_type,
+            max_response_bytes,
         )
         .await;
     }
@@ -95,7 +107,7 @@ pub async fn handler(
         .unwrap_or_default();
 
     match sync::transcribe_with_retry(&selected, listen_params, audio.path(), &retry_config).await {
-        Ok((response, _retries)) => Json(response).into_response(),
+        Ok((response, _retries)) => bounded_json_response(response, max_response_bytes),
         Err((e, _retries)) => {
             tracing::error!(
                 error = %e,
@@ -112,6 +124,37 @@ pub async fn handler(
                 .into_response()
         }
     }
+}
+
+pub(super) fn bounded_json_response<T: serde::Serialize>(
+    value: T,
+    max_response_bytes: Option<usize>,
+) -> Response {
+    let Some(max_response_bytes) = max_response_bytes else {
+        return Json(value).into_response();
+    };
+    let body = match serde_json::to_vec(&value) {
+        Ok(body) => body,
+        Err(error) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": "response_serialization_failed",
+                    "detail": error.to_string()
+                })),
+            )
+                .into_response();
+        }
+    };
+    if body.len() > max_response_bytes {
+        return StatusCode::PAYLOAD_TOO_LARGE.into_response();
+    }
+
+    (
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        body,
+    )
+        .into_response()
 }
 
 fn missing_audio_response() -> Response {
@@ -134,6 +177,44 @@ fn body_read_error_response(error: axum::Error) -> Response {
         })),
     )
         .into_response()
+}
+
+#[derive(Debug)]
+enum CallbackBodyReadError {
+    Body(axum::Error),
+    TooLarge,
+}
+
+fn callback_body_read_error_response(error: CallbackBodyReadError) -> Response {
+    match error {
+        CallbackBodyReadError::TooLarge => (
+            StatusCode::PAYLOAD_TOO_LARGE,
+            Json(serde_json::json!({
+                "error": "payload_too_large",
+                "detail": format!(
+                    "Callback request body exceeds {} bytes",
+                    MAX_BATCH_CALLBACK_BODY_BYTES
+                )
+            })),
+        )
+            .into_response(),
+        CallbackBodyReadError::Body(error) => body_read_error_response(error),
+    }
+}
+
+async fn read_callback_body(body: Body) -> Result<Bytes, CallbackBodyReadError> {
+    let mut stream = body.into_data_stream();
+    let mut bytes = BytesMut::with_capacity(MAX_BATCH_CALLBACK_BODY_BYTES.min(1024));
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(CallbackBodyReadError::Body)?;
+        if bytes.len().saturating_add(chunk.len()) > MAX_BATCH_CALLBACK_BODY_BYTES {
+            return Err(CallbackBodyReadError::TooLarge);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+
+    Ok(bytes.freeze())
 }
 
 pub(super) fn build_listen_params(params: &QueryParams) -> ListenParams {
@@ -207,25 +288,17 @@ fn audio_write_error_response(error: BatchAudioWriteError) -> Response {
     }
 }
 
-pub(super) fn write_bytes_to_temp_file(
-    bytes: &Bytes,
-    content_type: &str,
-) -> Result<tempfile::NamedTempFile, io::Error> {
-    let extension = content_type_to_extension(content_type);
-    let mut temp_file = tempfile::Builder::new()
-        .prefix("batch_audio_")
-        .suffix(&format!(".{}", extension))
-        .tempfile()?;
-
-    temp_file.write_all(bytes)?;
-    temp_file.flush()?;
-
-    Ok(temp_file)
-}
-
 async fn write_body_to_temp_file(
     body: Body,
     content_type: &str,
+) -> Result<BatchAudioFile, BatchAudioWriteError> {
+    write_body_to_temp_file_with_limit(body, content_type, MAX_BATCH_AUDIO_BODY_BYTES).await
+}
+
+async fn write_body_to_temp_file_with_limit(
+    body: Body,
+    content_type: &str,
+    max_bytes: usize,
 ) -> Result<BatchAudioFile, BatchAudioWriteError> {
     let extension = content_type_to_extension(content_type);
     let temp_file = tempfile::Builder::new()
@@ -239,7 +312,7 @@ async fn write_body_to_temp_file(
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(BatchAudioWriteError::Body)?;
         len += chunk.len() as u64;
-        if len > MAX_BATCH_AUDIO_BODY_BYTES as u64 {
+        if len > max_bytes as u64 {
             return Err(BatchAudioWriteError::TooLarge);
         }
 
@@ -328,5 +401,50 @@ mod tests {
 
         assert_eq!(audio.len(), 11);
         assert_eq!(tokio::fs::read(audio.path()).await.unwrap(), b"hello world");
+    }
+
+    #[tokio::test]
+    async fn test_write_body_to_temp_file_enforces_streaming_limit() {
+        let body = Body::from_stream(futures_util::stream::iter([
+            Ok::<_, io::Error>(Bytes::from_static(b"hello")),
+            Ok::<_, io::Error>(Bytes::from_static(b" world")),
+        ]));
+
+        let error = match write_body_to_temp_file_with_limit(body, "audio/wav", 10).await {
+            Ok(_) => panic!("oversized stream should be rejected"),
+            Err(error) => error,
+        };
+
+        assert!(matches!(error, BatchAudioWriteError::TooLarge));
+    }
+
+    #[tokio::test]
+    async fn test_read_callback_body_accepts_protocol_sized_json() {
+        let body = Body::from(r#"{"url":"recordings/meeting.wav"}"#);
+
+        let bytes = read_callback_body(body).await.unwrap();
+
+        assert_eq!(bytes, r#"{"url":"recordings/meeting.wav"}"#);
+    }
+
+    #[tokio::test]
+    async fn test_read_callback_body_rejects_oversized_payloads() {
+        let body = Body::from(vec![0; MAX_BATCH_CALLBACK_BODY_BYTES + 1]);
+
+        let error = read_callback_body(body).await.unwrap_err();
+
+        assert!(matches!(error, CallbackBodyReadError::TooLarge));
+    }
+
+    #[tokio::test]
+    async fn test_bounded_json_response_rejects_oversized_payloads() {
+        let response =
+            bounded_json_response(serde_json::json!({ "text": "x".repeat(128) }), Some(32));
+
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        assert!(body.len() <= 1024);
     }
 }

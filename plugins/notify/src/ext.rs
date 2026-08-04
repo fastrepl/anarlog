@@ -11,11 +11,58 @@ use crate::{FileChanged, WatcherState};
 
 const DEBOUNCE_DELAY_MS: u64 = 900;
 const OWN_WRITES_TTL_MS: u128 = (DEBOUNCE_DELAY_MS as u128) * 2 + 200;
+pub const MAX_OWN_WRITES_PER_BATCH: usize = 4096;
 
-fn is_external_path(path: &str, own_writes: &mut HashMap<String, Instant>, now: Instant) -> bool {
+fn compact_own_writes(own_writes: &mut HashMap<String, Instant>, now: Instant) {
     own_writes.retain(|_, timestamp| {
         now.saturating_duration_since(*timestamp).as_millis() < OWN_WRITES_TTL_MS
     });
+}
+
+#[derive(Debug, PartialEq)]
+enum MarkOwnWritesResult {
+    Marked,
+    Wait(Duration),
+    TooManyPaths,
+}
+
+fn try_mark_own_writes_at(
+    own_writes: &mut HashMap<String, Instant>,
+    paths: &[String],
+    now: Instant,
+) -> MarkOwnWritesResult {
+    compact_own_writes(own_writes, now);
+
+    if paths.len() > MAX_OWN_WRITES_PER_BATCH {
+        return MarkOwnWritesResult::TooManyPaths;
+    }
+    let unique_paths: HashSet<_> = paths.iter().map(String::as_str).collect();
+
+    let additional = unique_paths
+        .iter()
+        .filter(|path| !own_writes.contains_key(**path))
+        .count();
+    if own_writes.len() + additional <= MAX_OWN_WRITES_PER_BATCH {
+        for path in unique_paths {
+            own_writes.insert(path.to_string(), now);
+        }
+        return MarkOwnWritesResult::Marked;
+    }
+
+    let wait = own_writes
+        .values()
+        .map(|timestamp| {
+            Duration::from_millis(OWN_WRITES_TTL_MS as u64)
+                .saturating_sub(now.saturating_duration_since(*timestamp))
+        })
+        .min()
+        .unwrap_or(Duration::from_millis(1))
+        .max(Duration::from_millis(1));
+    MarkOwnWritesResult::Wait(wait)
+}
+
+fn is_external_path(path: &str, own_writes: &mut HashMap<String, Instant>, now: Instant) -> bool {
+    compact_own_writes(own_writes, now);
     !own_writes.contains_key(path)
 }
 
@@ -106,17 +153,33 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Notify<'a, R, M> {
 
     pub fn stop(&self) -> Result<(), crate::Error> {
         let state = self.manager.state::<WatcherState>();
-        let mut guard = state.debouncer.lock().unwrap();
-        *guard = None;
+        let debouncer = state.debouncer.lock().unwrap().take();
+        if let Some(debouncer) = debouncer {
+            debouncer.stop();
+        }
+        state.own_writes.lock().unwrap().clear();
         Ok(())
     }
 
-    pub fn mark_own_writes(&self, paths: &[String]) {
+    pub fn mark_own_writes(&self, paths: &[String]) -> bool {
         let state = self.manager.state::<WatcherState>();
-        let mut guard = state.own_writes.lock().unwrap();
-        let now = std::time::Instant::now();
-        for path in paths {
-            guard.insert(path.clone(), now);
+        loop {
+            let result = {
+                let mut guard = state.own_writes.lock().unwrap();
+                try_mark_own_writes_at(&mut guard, paths, Instant::now())
+            };
+            match result {
+                MarkOwnWritesResult::Marked => return true,
+                MarkOwnWritesResult::Wait(duration) => std::thread::sleep(duration),
+                MarkOwnWritesResult::TooManyPaths => {
+                    tracing::error!(
+                        count = paths.len(),
+                        capacity = MAX_OWN_WRITES_PER_BATCH,
+                        "own_write_batch_exceeds_capacity"
+                    );
+                    return false;
+                }
+            }
         }
     }
 }
@@ -171,5 +234,62 @@ mod tests {
             &mut HashMap::new(),
             Instant::now()
         ));
+    }
+
+    #[test]
+    fn marking_own_writes_prunes_expired_entries_without_watcher_events() {
+        let now = Instant::now();
+        let mut own_writes = HashMap::from([(
+            "expired.txt".to_string(),
+            now - Duration::from_millis(OWN_WRITES_TTL_MS as u64),
+        )]);
+
+        assert_eq!(
+            try_mark_own_writes_at(&mut own_writes, &["recent.txt".to_string()], now),
+            MarkOwnWritesResult::Marked
+        );
+
+        assert_eq!(own_writes.len(), 1);
+        assert!(own_writes.contains_key("recent.txt"));
+    }
+
+    #[test]
+    fn full_own_write_registry_waits_without_evicting_live_entries() {
+        let now = Instant::now();
+        let paths: Vec<_> = (0..MAX_OWN_WRITES_PER_BATCH)
+            .map(|index| format!("{index}.txt"))
+            .collect();
+        let mut own_writes = HashMap::new();
+        assert_eq!(
+            try_mark_own_writes_at(&mut own_writes, &paths, now),
+            MarkOwnWritesResult::Marked
+        );
+
+        let result = try_mark_own_writes_at(
+            &mut own_writes,
+            &["next.txt".to_string()],
+            now + Duration::from_millis(1),
+        );
+
+        assert!(matches!(result, MarkOwnWritesResult::Wait(_)));
+        assert_eq!(own_writes.len(), MAX_OWN_WRITES_PER_BATCH);
+        assert!(own_writes.contains_key("0.txt"));
+        assert!(!own_writes.contains_key("next.txt"));
+    }
+
+    #[test]
+    fn oversized_own_write_batch_is_rejected_without_mutation() {
+        let now = Instant::now();
+        let paths: Vec<_> = (0..=MAX_OWN_WRITES_PER_BATCH)
+            .map(|index| format!("{index}.txt"))
+            .collect();
+        let mut own_writes = HashMap::from([("existing.txt".to_string(), now)]);
+
+        assert_eq!(
+            try_mark_own_writes_at(&mut own_writes, &paths, now),
+            MarkOwnWritesResult::TooManyPaths
+        );
+        assert_eq!(own_writes.len(), 1);
+        assert!(own_writes.contains_key("existing.txt"));
     }
 }

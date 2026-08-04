@@ -10,7 +10,7 @@ use owhisper_client::{
     GladiaAdapter, MistralAdapter, OpenAIAdapter, RealtimeSttAdapter, SonioxAdapter, XaiAdapter,
     anlg_ws_client,
 };
-use owhisper_interface::stream::Extra;
+use owhisper_interface::stream::{Extra, StreamResponse};
 use owhisper_interface::{ControlMessage, MixedMessage};
 
 use super::stream::process_stream;
@@ -45,7 +45,7 @@ pub(super) async fn spawn_rx_task(
 ) -> Result<
     (
         ChannelSender,
-        tokio::task::JoinHandle<()>,
+        tokio::task::JoinHandle<Vec<StreamResponse>>,
         tokio::sync::oneshot::Sender<()>,
         String,
     ),
@@ -188,7 +188,7 @@ async fn spawn_soniqo_rx_task(
 ) -> Result<
     (
         ChannelSender,
-        tokio::task::JoinHandle<()>,
+        tokio::task::JoinHandle<Vec<StreamResponse>>,
         tokio::sync::oneshot::Sender<()>,
     ),
     ActorProcessingErr,
@@ -227,7 +227,7 @@ async fn spawn_soniqo_rx_task(
                 session_offset_secs,
                 extra,
             )
-            .await;
+            .await
         });
 
         Ok((ChannelSender::Dual(tx), rx_task, shutdown_tx))
@@ -268,7 +268,7 @@ async fn spawn_soniqo_rx_task(
                 session_offset_secs,
                 extra,
             )
-            .await;
+            .await
         });
 
         Ok((ChannelSender::Single(tx), rx_task, shutdown_tx))
@@ -299,7 +299,7 @@ async fn spawn_apple_speech_rx_task(
 ) -> Result<
     (
         ChannelSender,
-        tokio::task::JoinHandle<()>,
+        tokio::task::JoinHandle<Vec<StreamResponse>>,
         tokio::sync::oneshot::Sender<()>,
     ),
     ActorProcessingErr,
@@ -357,7 +357,7 @@ async fn spawn_apple_speech_rx_task(
                 session_offset_secs,
                 extra,
             )
-            .await;
+            .await
         });
 
         Ok((ChannelSender::Dual(tx), rx_task, shutdown_tx))
@@ -400,7 +400,7 @@ async fn spawn_apple_speech_rx_task(
                 session_offset_secs,
                 extra,
             )
-            .await;
+            .await
         });
 
         Ok((ChannelSender::Single(tx), rx_task, shutdown_tx))
@@ -475,7 +475,7 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
 ) -> Result<
     (
         ChannelSender,
-        tokio::task::JoinHandle<()>,
+        tokio::task::JoinHandle<Vec<StreamResponse>>,
         tokio::sync::oneshot::Sender<()>,
     ),
     ActorProcessingErr,
@@ -524,7 +524,7 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
             session_offset_secs,
             extra,
         )
-        .await;
+        .await
     });
 
     Ok((ChannelSender::Single(tx), rx_task, shutdown_tx))
@@ -536,7 +536,7 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
 ) -> Result<
     (
         ChannelSender,
-        tokio::task::JoinHandle<()>,
+        tokio::task::JoinHandle<Vec<StreamResponse>>,
         tokio::sync::oneshot::Sender<()>,
     ),
     ActorProcessingErr,
@@ -585,7 +585,7 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
             session_offset_secs,
             extra,
         )
-        .await;
+        .await
     });
 
     Ok((ChannelSender::Dual(tx), rx_task, shutdown_tx))

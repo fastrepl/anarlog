@@ -8,6 +8,9 @@ use crate::error::Error;
 use crate::types::{ChatCompletionChunk, ChatCompletionRequest, ChatCompletionResponse};
 use crate::types::{ResponsesRequest, ResponsesResponse, ResponsesStreamOutputItem};
 
+const MAX_SSE_LINE_BYTES: usize = 1024 * 1024;
+const MAX_ERROR_BODY_BYTES: usize = 64 * 1024;
+
 #[derive(Debug, Clone)]
 pub struct Client {
     api_key: String,
@@ -61,7 +64,7 @@ impl Client {
 
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
-            let message = resp.text().await.unwrap_or_default();
+            let message = error_body(resp).await;
             return Err(Error::Api { status, message });
         }
 
@@ -88,7 +91,7 @@ impl Client {
 
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
-            let message = resp.text().await.unwrap_or_default();
+            let message = error_body(resp).await;
             return Err(Error::Api { status, message });
         }
 
@@ -113,7 +116,7 @@ impl Client {
 
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
-            let message = resp.text().await.unwrap_or_default();
+            let message = error_body(resp).await;
             return Err(Error::Api { status, message });
         }
 
@@ -141,7 +144,7 @@ impl Client {
 
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
-            let message = resp.text().await.unwrap_or_default();
+            let message = error_body(resp).await;
             return Err(Error::Api { status, message });
         }
 
@@ -199,13 +202,47 @@ impl Client {
 
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
-            let message = resp.text().await.unwrap_or_default();
+            let message = error_body(resp).await;
             return Err(Error::Api { status, message });
         }
 
         let body: GenerationResponse = resp.json().await?;
         Ok(Some(body.data.total_cost))
     }
+}
+
+async fn error_body(mut response: reqwest::Response) -> String {
+    let mut body = Vec::with_capacity(
+        response
+            .content_length()
+            .and_then(|length| usize::try_from(length).ok())
+            .unwrap_or_default()
+            .min(MAX_ERROR_BODY_BYTES),
+    );
+    let mut truncated = response
+        .content_length()
+        .is_some_and(|length| length > MAX_ERROR_BODY_BYTES as u64);
+    while let Ok(Some(chunk)) = response.chunk().await {
+        let remaining = MAX_ERROR_BODY_BYTES.saturating_sub(body.len());
+        let keep = remaining.min(chunk.len());
+        body.extend_from_slice(&chunk[..keep]);
+        if keep < chunk.len() {
+            truncated = true;
+            break;
+        }
+        if body.len() == MAX_ERROR_BODY_BYTES {
+            if let Ok(Some(_)) = response.chunk().await {
+                truncated = true;
+            }
+            break;
+        }
+    }
+
+    let mut body = String::from_utf8_lossy(&body).into_owned();
+    if truncated {
+        body.push_str("\n[response body truncated]");
+    }
+    body
 }
 
 fn process_line(line: &str) -> Option<Result<ChatCompletionChunk, Error>> {
@@ -230,7 +267,7 @@ fn parse_sse_stream(
         let mut buffer = Vec::<u8>::new();
         futures_util::pin_mut!(byte_stream);
 
-        while let Some(chunk) = byte_stream.next().await {
+        'stream: while let Some(chunk) = byte_stream.next().await {
             let chunk = match chunk {
                 Ok(c) => c,
                 Err(e) => {
@@ -239,27 +276,48 @@ fn parse_sse_stream(
                 }
             };
 
-            buffer.extend_from_slice(&chunk);
+            let mut chunk_start = 0;
+            while let Some(relative_newline) = chunk[chunk_start..]
+                .iter()
+                .position(|&byte| byte == b'\n')
+            {
+                let newline_pos = chunk_start + relative_newline;
+                let segment = &chunk[chunk_start..newline_pos];
+                if buffer.len().saturating_add(segment.len()) > MAX_SSE_LINE_BYTES {
+                    yield Err(sse_line_too_long_error());
+                    buffer.clear();
+                    break 'stream;
+                }
+                buffer.extend_from_slice(segment);
 
-            while let Some(newline_pos) = buffer.iter().position(|&b| b == b'\n') {
-                let line_bytes = buffer[..newline_pos].to_vec();
-                buffer = buffer[newline_pos + 1..].to_vec();
-
-                let line = match std::str::from_utf8(&line_bytes) {
+                let result = match std::str::from_utf8(&buffer) {
                     Ok(s) => s,
                     Err(e) => {
                         yield Err(Error::Stream(e.to_string()));
+                        buffer.clear();
+                        chunk_start = newline_pos + 1;
                         continue;
                     }
                 };
 
-                if let Some(result) = process_line(line) {
+                let result = process_line(result);
+                buffer.clear();
+                if let Some(result) = result {
                     match result {
                         Ok(chunk) => yield Ok(chunk),
                         Err(e) => yield Err(e),
                     }
                 }
+                chunk_start = newline_pos + 1;
             }
+
+            let remainder = &chunk[chunk_start..];
+            if buffer.len().saturating_add(remainder.len()) > MAX_SSE_LINE_BYTES {
+                yield Err(sse_line_too_long_error());
+                buffer.clear();
+                break;
+            }
+            buffer.extend_from_slice(remainder);
         }
 
         if !buffer.is_empty()
@@ -271,6 +329,12 @@ fn parse_sse_stream(
                     }
                 }
     }
+}
+
+fn sse_line_too_long_error() -> Error {
+    Error::Stream(format!(
+        "SSE line exceeds the {MAX_SSE_LINE_BYTES}-byte limit"
+    ))
 }
 
 fn process_responses_line(line: &str) -> Option<Result<ResponsesStreamOutputItem, Error>> {
@@ -314,7 +378,7 @@ fn parse_responses_sse_stream(
         let mut buffer = Vec::<u8>::new();
         futures_util::pin_mut!(byte_stream);
 
-        while let Some(chunk) = byte_stream.next().await {
+        'stream: while let Some(chunk) = byte_stream.next().await {
             let chunk = match chunk {
                 Ok(c) => c,
                 Err(e) => {
@@ -323,27 +387,48 @@ fn parse_responses_sse_stream(
                 }
             };
 
-            buffer.extend_from_slice(&chunk);
+            let mut chunk_start = 0;
+            while let Some(relative_newline) = chunk[chunk_start..]
+                .iter()
+                .position(|&byte| byte == b'\n')
+            {
+                let newline_pos = chunk_start + relative_newline;
+                let segment = &chunk[chunk_start..newline_pos];
+                if buffer.len().saturating_add(segment.len()) > MAX_SSE_LINE_BYTES {
+                    yield Err(sse_line_too_long_error());
+                    buffer.clear();
+                    break 'stream;
+                }
+                buffer.extend_from_slice(segment);
 
-            while let Some(newline_pos) = buffer.iter().position(|&b| b == b'\n') {
-                let line_bytes = buffer[..newline_pos].to_vec();
-                buffer = buffer[newline_pos + 1..].to_vec();
-
-                let line = match std::str::from_utf8(&line_bytes) {
+                let result = match std::str::from_utf8(&buffer) {
                     Ok(s) => s,
                     Err(e) => {
                         yield Err(Error::Stream(e.to_string()));
+                        buffer.clear();
+                        chunk_start = newline_pos + 1;
                         continue;
                     }
                 };
 
-                if let Some(result) = process_responses_line(line) {
+                let result = process_responses_line(result);
+                buffer.clear();
+                if let Some(result) = result {
                     match result {
                         Ok(item) => yield Ok(item),
                         Err(e) => yield Err(e),
                     }
                 }
+                chunk_start = newline_pos + 1;
             }
+
+            let remainder = &chunk[chunk_start..];
+            if buffer.len().saturating_add(remainder.len()) > MAX_SSE_LINE_BYTES {
+                yield Err(sse_line_too_long_error());
+                buffer.clear();
+                break;
+            }
+            buffer.extend_from_slice(remainder);
         }
 
         if !buffer.is_empty()
@@ -354,5 +439,54 @@ fn parse_responses_sse_stream(
                         Err(e) => yield Err(e),
                     }
                 }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn oversized_line_stream()
+    -> impl Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send + 'static {
+        futures_util::stream::iter([
+            Ok(bytes::Bytes::from(vec![b'a'; MAX_SSE_LINE_BYTES])),
+            Ok(bytes::Bytes::from_static(b"a")),
+        ])
+    }
+
+    #[tokio::test]
+    async fn chat_sse_rejects_oversized_line_without_newline() {
+        let stream = parse_sse_stream(oversized_line_stream());
+        futures_util::pin_mut!(stream);
+
+        let error = stream
+            .next()
+            .await
+            .expect("stream should report an error")
+            .expect_err("oversized line should fail");
+
+        assert!(matches!(
+            error,
+            Error::Stream(message) if message.contains("SSE line exceeds")
+        ));
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn responses_sse_rejects_oversized_line_without_newline() {
+        let stream = parse_responses_sse_stream(oversized_line_stream());
+        futures_util::pin_mut!(stream);
+
+        let error = stream
+            .next()
+            .await
+            .expect("stream should report an error")
+            .expect_err("oversized line should fail");
+
+        assert!(matches!(
+            error,
+            Error::Stream(message) if message.contains("SSE line exceeds")
+        ));
+        assert!(stream.next().await.is_none());
     }
 }

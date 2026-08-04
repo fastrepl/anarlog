@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
 use serde_json::Value;
-use tauri_plugin_notify::NotifyPluginExt;
+use tauri_plugin_notify::{MAX_OWN_WRITES_PER_BATCH, NotifyPluginExt};
 use tauri_plugin_settings::SettingsPluginExt;
 
 use crate::FsSyncPluginExt;
@@ -37,6 +37,61 @@ fn resolve_vault_path(base: &Path, path: &str) -> Result<PathBuf, String> {
     crate::path::resolve_path_inside_base(base, Path::new(path)).map_err(|e| e.to_string())
 }
 
+fn process_bounded_batches<T, E>(
+    items: Vec<T>,
+    batch_size: usize,
+    mut process: impl FnMut(Vec<T>) -> Result<(), E>,
+) -> Result<(), E> {
+    assert!(batch_size > 0);
+    let mut items = items.into_iter();
+    loop {
+        let batch: Vec<_> = items.by_ref().take(batch_size).collect();
+        if batch.is_empty() {
+            return Ok(());
+        }
+        process(batch)?;
+    }
+}
+
+fn write_own_batches<R, T, F>(
+    app: &tauri::AppHandle<R>,
+    base_path: &Path,
+    items: Vec<(T, PathBuf)>,
+    write: F,
+) -> Result<(), String>
+where
+    R: tauri::Runtime,
+    T: Send,
+    F: Fn(T, PathBuf) -> Result<(), String> + Sync,
+{
+    process_bounded_batches(items, MAX_OWN_WRITES_PER_BATCH, |batch| {
+        batch.into_par_iter().try_for_each(|(item, path)| {
+            let relative_path = path
+                .strip_prefix(base_path)
+                .map_err(|error| {
+                    format!("failed to make {} vault-relative: {error}", path.display())
+                })?
+                .to_str()
+                .map(str::to_string)
+                .ok_or_else(|| format!("path is not valid UTF-8: {}", path.display()))?;
+            if !app
+                .notify()
+                .mark_own_writes(std::slice::from_ref(&relative_path))
+            {
+                return Err("failed to reserve own-write tracking capacity".to_string());
+            }
+
+            let result = write(item, path);
+            if result.is_ok() {
+                let _ = app
+                    .notify()
+                    .mark_own_writes(std::slice::from_ref(&relative_path));
+            }
+            result
+        })
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn deserialize(input: String) -> Result<ParsedDocument, String> {
@@ -63,20 +118,9 @@ pub(crate) async fn write_json_batch<R: tauri::Runtime>(
         })
         .collect::<Result<_, _>>()?;
 
-    let relative_paths: Vec<String> = items
-        .iter()
-        .filter_map(|(_, path)| {
-            path.strip_prefix(&base_path)
-                .ok()
-                .and_then(|p| p.to_str())
-                .map(|s| s.to_string())
-        })
-        .collect();
-
-    app.notify().mark_own_writes(&relative_paths);
-
+    let app_for_write = app.clone();
     spawn_blocking!({
-        items.into_par_iter().try_for_each(|(json, path)| {
+        write_own_batches(&app_for_write, &base_path, items, |json, path| {
             create_parent_dir_for_write(&path)?;
             let content = crate::json::serialize(json)
                 .map_err(|e| format!("failed to serialize json for {}: {e}", path.display()))?;
@@ -105,20 +149,9 @@ pub(crate) async fn write_document_batch<R: tauri::Runtime>(
         })
         .collect::<Result<_, _>>()?;
 
-    let relative_paths: Vec<String> = items
-        .iter()
-        .filter_map(|(_, path)| {
-            path.strip_prefix(&base_path)
-                .ok()
-                .and_then(|p| p.to_str())
-                .map(|s| s.to_string())
-        })
-        .collect();
-
-    app.notify().mark_own_writes(&relative_paths);
-
+    let app_for_write = app.clone();
     spawn_blocking!({
-        items.into_par_iter().try_for_each(|(doc, path)| {
+        write_own_batches(&app_for_write, &base_path, items, |doc, path| {
             create_parent_dir_for_write(&path)?;
             let content = doc
                 .render()
@@ -529,6 +562,26 @@ pub(crate) async fn attachment_remove<R: tauri::Runtime>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_batch_processing_preserves_every_item_in_order() {
+        let mut batches = Vec::new();
+
+        process_bounded_batches((0..10).collect(), 3, |batch| {
+            batches.push(batch);
+            Ok::<_, ()>(())
+        })
+        .unwrap();
+
+        assert_eq!(
+            batches.iter().map(Vec::len).collect::<Vec<_>>(),
+            [3, 3, 3, 1]
+        );
+        assert_eq!(
+            batches.into_iter().flatten().collect::<Vec<_>>(),
+            (0..10).collect::<Vec<_>>()
+        );
+    }
 
     #[test]
     fn audio_import_source_extension_uses_supported_filename_extension() {

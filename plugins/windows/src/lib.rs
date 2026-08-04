@@ -16,7 +16,7 @@ const PLUGIN_NAME: &str = "windows";
 use std::collections::HashMap;
 use std::sync::{
     Mutex,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 #[derive(Clone, Copy)]
@@ -30,8 +30,35 @@ pub struct SavedFrame {
 #[derive(Default)]
 pub struct SavedFrames(pub Mutex<HashMap<String, SavedFrame>>);
 
+impl SavedFrames {
+    fn take(&self, label: &str) -> Option<SavedFrame> {
+        self.0.lock().unwrap().remove(label)
+    }
+
+    fn remove(&self, label: &str) {
+        self.0.lock().unwrap().remove(label);
+    }
+}
+
 #[derive(Default)]
 pub struct WindowExpansions(pub Mutex<HashMap<String, Vec<(f64, f64, bool)>>>);
+
+impl WindowExpansions {
+    fn pop(&self, label: &str) -> Option<(f64, f64, bool)> {
+        let mut expansions = self.0.lock().unwrap();
+        let entry = expansions.get_mut(label).and_then(Vec::pop);
+
+        if expansions.get(label).is_some_and(Vec::is_empty) {
+            expansions.remove(label);
+        }
+
+        entry
+    }
+
+    fn remove(&self, label: &str) {
+        self.0.lock().unwrap().remove(label);
+    }
+}
 
 pub struct DockVisibilityState(AtomicBool);
 
@@ -60,20 +87,51 @@ pub struct WindowReadyState {
     // std::mpsc::Receiver::recv_timeout blocks the thread, which can deadlock
     // when on_webview_ready callback needs the blocked thread to signal.
     // tokio::oneshot allows async await with timeout that yields instead of blocking.
-    pending: Mutex<HashMap<String, oneshot::Sender<()>>>,
+    next_registration_id: AtomicU64,
+    pending: Mutex<HashMap<String, (u64, oneshot::Sender<()>)>>,
 }
 
 impl WindowReadyState {
-    pub fn register(&self, label: String) -> oneshot::Receiver<()> {
+    pub fn register(&self, label: String) -> (u64, oneshot::Receiver<()>) {
         let (tx, rx) = oneshot::channel();
-        self.pending.lock().unwrap().insert(label, tx);
-        rx
+        let registration_id = self.next_registration_id.fetch_add(1, Ordering::Relaxed);
+        self.pending
+            .lock()
+            .unwrap()
+            .insert(label, (registration_id, tx));
+        (registration_id, rx)
+    }
+
+    pub fn unregister(&self, label: &str, registration_id: u64) {
+        let mut pending = self.pending.lock().unwrap();
+        if pending
+            .get(label)
+            .is_some_and(|(current_id, _)| *current_id == registration_id)
+        {
+            pending.remove(label);
+        }
+    }
+
+    fn remove(&self, label: &str) {
+        self.pending.lock().unwrap().remove(label);
     }
 
     pub fn signal(&self, label: &str) {
-        if let Some(tx) = self.pending.lock().unwrap().remove(label) {
+        if let Some((_, tx)) = self.pending.lock().unwrap().remove(label) {
             let _ = tx.send(());
         }
+    }
+}
+
+pub(crate) fn clear_window_state(app: &tauri::AppHandle<tauri::Wry>, label: &str) {
+    if let Some(state) = app.try_state::<WindowReadyState>() {
+        state.remove(label);
+    }
+    if let Some(state) = app.try_state::<SavedFrames>() {
+        state.remove(label);
+    }
+    if let Some(state) = app.try_state::<WindowExpansions>() {
+        state.remove(label);
     }
 }
 
@@ -181,6 +239,52 @@ pub fn extend_builder(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tau
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[tokio::test]
+    async fn unregister_only_removes_matching_window_ready_registration() {
+        let state = WindowReadyState::default();
+        let (first_id, first_rx) = state.register("note-1".into());
+        let (second_id, second_rx) = state.register("note-1".into());
+
+        assert!(first_rx.await.is_err());
+        state.unregister("note-1", first_id);
+        state.signal("note-1");
+
+        assert!(second_rx.await.is_ok());
+        state.unregister("note-1", second_id);
+        assert!(state.pending.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn expansion_pop_removes_empty_window_entry() {
+        let expansions = WindowExpansions::default();
+        expansions
+            .0
+            .lock()
+            .unwrap()
+            .insert("note-1".into(), vec![(100.0, 120.0, false)]);
+
+        assert_eq!(expansions.pop("note-1"), Some((100.0, 120.0, false)));
+        assert!(expansions.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn saved_frame_take_consumes_window_entry() {
+        let frames = SavedFrames::default();
+        frames.0.lock().unwrap().insert(
+            "note-1".into(),
+            SavedFrame {
+                x: 1.0,
+                y: 2.0,
+                w: 3.0,
+                h: 4.0,
+            },
+        );
+
+        let frame = frames.take("note-1").unwrap();
+        assert_eq!((frame.x, frame.y, frame.w, frame.h), (1.0, 2.0, 3.0, 4.0));
+        assert!(frames.0.lock().unwrap().is_empty());
+    }
 
     #[test]
     fn export_types() {

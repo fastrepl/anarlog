@@ -104,6 +104,7 @@ pub(super) async fn handle_anarlog_batch(
     audio_path: &Path,
     audio_size_bytes: u64,
     content_type: &str,
+    max_response_bytes: Option<usize>,
 ) -> Response {
     let mut provider_chain =
         state.resolve_anarlog_provider_chain_for_mode(RoutingMode::Batch, params);
@@ -174,7 +175,7 @@ pub(super) async fn handle_anarlog_batch(
                 trace.outcome = "success".to_string();
                 log_batch_routing_trace(&trace, true);
 
-                return Json(response).into_response();
+                return super::bounded_json_response(response, max_response_bytes);
             }
             Err((e, retries)) => {
                 tracing::warn!(

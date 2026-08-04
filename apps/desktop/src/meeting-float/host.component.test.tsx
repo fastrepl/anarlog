@@ -121,7 +121,10 @@ describe("FloatingMeetingWindowHost", () => {
 
     await waitFor(() => {
       expect(mocks.floatingBarUpdate).toHaveBeenLastCalledWith(
-        expect.objectContaining({ liveCaptionMinimized: false }),
+        expect.objectContaining({
+          liveCaptionMinimized: false,
+          transcriptBubbles: null,
+        }),
       );
     });
     expect(mocks.floatingBarShow).toHaveBeenCalledOnce();

@@ -5,11 +5,78 @@ import {
 } from "./shared-notes.ts";
 
 const MAX_NOTE_CONTEXT_CHARS = 24_000;
+export const MAX_SHARED_NOTE_CHAT_MESSAGES = 40;
+export const MAX_SHARED_NOTE_CHAT_MESSAGE_CHARS = 8_000;
+export const MAX_SHARED_NOTE_CHAT_CONTEXT_CHARS = 64_000;
+export const MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS = 32_000;
+export const MAX_SHARED_NOTE_SSE_BUFFER_CHARS = 64_000;
 
 export type SharedNoteChatMessage = {
   role: "user" | "assistant";
   content: string;
 };
+
+function maxMessageChars(role: SharedNoteChatMessage["role"]) {
+  return role === "assistant"
+    ? MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS
+    : MAX_SHARED_NOTE_CHAT_MESSAGE_CHARS;
+}
+
+function sliceWithoutSplittingSurrogate(value: string, maxChars: number) {
+  if (value.length <= maxChars) return value;
+  let result = value.slice(0, maxChars);
+  const last = result.charCodeAt(result.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) {
+    result = result.slice(0, -1);
+  }
+  return result;
+}
+
+export function boundSharedNoteChatMessages(
+  messages: SharedNoteChatMessage[],
+): SharedNoteChatMessage[] {
+  const bounded: SharedNoteChatMessage[] = [];
+  let remainingChars = MAX_SHARED_NOTE_CHAT_CONTEXT_CHARS;
+
+  for (
+    let index = messages.length - 1;
+    index >= 0 && bounded.length < MAX_SHARED_NOTE_CHAT_MESSAGES;
+    index -= 1
+  ) {
+    if (remainingChars === 0) break;
+    const message = messages[index];
+    const content = sliceWithoutSplittingSurrogate(
+      message.content,
+      Math.min(maxMessageChars(message.role), remainingChars),
+    );
+    bounded.unshift({ role: message.role, content });
+    remainingChars -= content.length;
+  }
+
+  return bounded;
+}
+
+export function appendSharedNoteChatMessage(
+  messages: SharedNoteChatMessage[],
+  message: SharedNoteChatMessage,
+) {
+  const boundedMessage = {
+    ...message,
+    content: sliceWithoutSplittingSurrogate(
+      message.content,
+      maxMessageChars(message.role),
+    ),
+  };
+  return [...messages, boundedMessage].slice(-MAX_SHARED_NOTE_CHAT_MESSAGES);
+}
+
+export function appendSharedNoteChatResponse(current: string, delta: string) {
+  if (current.length >= MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS) return current;
+  return sliceWithoutSplittingSurrogate(
+    `${current}${delta}`,
+    MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS,
+  );
+}
 
 export class SharedNoteChatError extends Error {
   status: number;
@@ -68,7 +135,10 @@ export function parseSseLine(
 
 export function feedSseChunk(buffer: string, chunk: string) {
   const lines = `${buffer}${chunk}`.split("\n");
-  const rest = lines.pop() ?? "";
+  const rest = sliceWithoutSplittingSurrogate(
+    lines.pop() ?? "",
+    MAX_SHARED_NOTE_SSE_BUFFER_CHARS,
+  );
   const deltas: string[] = [];
   let done = false;
   for (const line of lines) {
@@ -117,7 +187,7 @@ export async function streamSharedNoteChat({
       stream: true,
       messages: [
         { role: "system", content: buildSharedNoteChatSystemPrompt(snapshot) },
-        ...messages,
+        ...boundSharedNoteChatMessages(messages),
       ],
     }),
     signal,
@@ -129,6 +199,14 @@ export async function streamSharedNoteChat({
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  let emittedChars = 0;
+  const emitDelta = (delta: string) => {
+    const remainingChars = MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS - emittedChars;
+    if (remainingChars <= 0) return;
+    const boundedDelta = sliceWithoutSplittingSurrogate(delta, remainingChars);
+    emittedChars += boundedDelta.length;
+    if (boundedDelta) onDelta(boundedDelta);
+  };
   while (true) {
     const { done, value } = await reader.read();
     if (done) {
@@ -140,7 +218,7 @@ export async function streamSharedNoteChat({
     );
     buffer = result.buffer;
     for (const delta of result.deltas) {
-      onDelta(delta);
+      emitDelta(delta);
     }
     if (result.done) {
       return;
@@ -148,6 +226,6 @@ export async function streamSharedNoteChat({
   }
   const tail = parseSseLine(buffer + decoder.decode());
   if (tail.type === "delta") {
-    onDelta(tail.content);
+    emitDelta(tail.content);
   }
 }

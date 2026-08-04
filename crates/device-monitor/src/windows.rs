@@ -2,7 +2,7 @@ use crate::{DeviceEvent, DeviceSwitch, DeviceUpdate};
 use std::sync::mpsc;
 
 pub(crate) fn monitor_device_change(
-    _event_tx: mpsc::Sender<DeviceSwitch>,
+    _event_tx: mpsc::SyncSender<DeviceSwitch>,
     stop_rx: mpsc::Receiver<()>,
 ) {
     tracing::warn!("device_monitoring_unsupported_on_windows");
@@ -17,7 +17,7 @@ pub(crate) fn monitor_volume_mute(
     let _ = stop_rx.recv();
 }
 
-pub(crate) fn monitor(_event_tx: mpsc::Sender<DeviceEvent>, stop_rx: mpsc::Receiver<()>) {
+pub(crate) fn monitor(_event_tx: mpsc::SyncSender<DeviceEvent>, stop_rx: mpsc::Receiver<()>) {
     tracing::warn!("device_monitoring_unsupported_on_windows");
     let _ = stop_rx.recv();
 }

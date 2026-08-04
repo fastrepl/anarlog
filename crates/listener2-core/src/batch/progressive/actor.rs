@@ -573,12 +573,7 @@ mod test {
         let mut shutdown_tx = Some(shutdown_tx);
         let mut task = tokio::spawn(std::future::pending::<()>());
 
-        stop_stream_task(
-            &mut shutdown_tx,
-            &mut task,
-            Duration::from_millis(10),
-        )
-        .await;
+        stop_stream_task(&mut shutdown_tx, &mut task, Duration::from_millis(10)).await;
 
         assert!(shutdown_tx.is_none());
         assert!(task.is_finished());

@@ -38,7 +38,14 @@ pub struct PluginState {
     pub app: tauri::AppHandle,
 }
 
-pub type SessionStateCache = Arc<StdMutex<HashMap<String, (bool, bool)>>>;
+#[derive(Default)]
+pub struct SessionStateSnapshot {
+    pub requested_live_transcription: bool,
+    pub live_transcription_active: bool,
+    pub live_segments: Vec<anlg_transcription_core::listener::LiveTranscriptSegment>,
+}
+
+pub type SessionStateCache = Arc<StdMutex<HashMap<String, SessionStateSnapshot>>>;
 
 pub struct BatchSessionRegistry {
     pub sessions: StdMutex<HashMap<String, BatchSessionEntry>>,
@@ -47,6 +54,7 @@ pub struct BatchSessionRegistry {
 pub struct BatchSessionEntry {
     pub control: Arc<BatchSessionControl>,
     pub abort_handle: Option<AbortHandle>,
+    pub wait_for_native_completion: bool,
 }
 
 pub struct BatchSessionControl {

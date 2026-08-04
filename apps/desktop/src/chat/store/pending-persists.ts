@@ -6,9 +6,10 @@
 // assistant, so a failed user persist can be repaired first.
 const pendingByGroup = new Map<string, Set<Promise<unknown>>>();
 
-// Group ids whose chat_groups row creation terminally failed. Persisting
-// messages into them would create permanent orphans that never appear in
-// history. Ids are never reused, so entries can live for the session.
+// Group ids whose chat_groups row creation terminally failed. Each marker is
+// consumed by that stream's finish path or cleared by a later successful
+// retry. Teardown cannot safely clear it because the SDK finish callback may
+// arrive after unmount.
 const failedGroupCreates = new Set<string>();
 
 export function trackPendingChatPersist(
@@ -54,4 +55,12 @@ export function clearFailedChatGroupCreate(chatGroupId: string) {
 
 export function isFailedChatGroupCreate(chatGroupId: string) {
   return failedGroupCreates.has(chatGroupId);
+}
+
+export function consumeFailedChatGroupCreate(chatGroupId: string) {
+  if (!failedGroupCreates.has(chatGroupId)) {
+    return false;
+  }
+  failedGroupCreates.delete(chatGroupId);
+  return true;
 }

@@ -4,6 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 import { env, requireEnv } from "@/env";
 import { listCatalogMediaItems } from "@/functions/media-catalog";
 import {
+  BoundedInFlightRequests,
+  getFreshCacheValue,
+  setExpiringCacheValue,
+  type ExpiringCacheEntry,
+} from "@/functions/media-list-cache";
+import {
   getMediaProxyUrl,
   getMimeTypeFromExtension,
   MEDIA_BUCKET_NAME,
@@ -12,14 +18,15 @@ import {
 import type { MediaItem } from "@/lib/media-library";
 
 const MEDIA_LIST_CACHE_TTL_MS = 30_000;
+const MEDIA_LIST_CACHE_MAX_ENTRIES = 100;
+const MEDIA_LIST_MAX_CONCURRENT_LOADS = 32;
 
 type MediaListResult = { items: MediaItem[]; error?: string };
 
-const mediaListCache = new Map<
-  string,
-  { expiresAt: number; result: MediaListResult }
->();
-const mediaListInFlight = new Map<string, Promise<MediaListResult>>();
+const mediaListCache = new Map<string, ExpiringCacheEntry<MediaListResult>>();
+const mediaListInFlight = new BoundedInFlightRequests<MediaListResult>(
+  MEDIA_LIST_MAX_CONCURRENT_LOADS,
+);
 let mediaListCacheVersion = 0;
 
 function getSupabaseClient() {
@@ -51,7 +58,7 @@ export function invalidateMediaListCache(paths: string[]) {
 
   if (targets.includes("")) {
     mediaListCache.clear();
-    mediaListInFlight.clear();
+    mediaListInFlight.clearKeys();
     return;
   }
 
@@ -61,11 +68,9 @@ export function invalidateMediaListCache(paths: string[]) {
     }
   }
 
-  for (const key of [...mediaListInFlight.keys()]) {
-    if (targets.some((target) => arePathsRelated(key, target))) {
-      mediaListInFlight.delete(key);
-    }
-  }
+  mediaListInFlight.deleteWhere((key) =>
+    targets.some((target) => arePathsRelated(key, target)),
+  );
 }
 
 async function resolveUploadPath(
@@ -230,38 +235,40 @@ export async function listMediaFiles(
 ): Promise<MediaListResult> {
   const normalizedPath = normalizePath(path);
   const now = Date.now();
-  const cached = mediaListCache.get(normalizedPath);
+  const cached = getFreshCacheValue(
+    mediaListCache,
+    normalizedPath,
+    now,
+    MEDIA_LIST_CACHE_MAX_ENTRIES,
+  );
 
-  if (cached && cached.expiresAt > now) {
-    return cached.result;
-  }
-
-  if (cached) {
-    mediaListCache.delete(normalizedPath);
-  }
-
-  const existingPromise = mediaListInFlight.get(normalizedPath);
-  if (existingPromise) {
-    return existingPromise;
+  if (cached !== undefined) {
+    return cached;
   }
 
   const cacheVersion = mediaListCacheVersion;
-  const promise = loadMediaFiles(normalizedPath)
-    .then((result) => {
-      if (!result.error && cacheVersion === mediaListCacheVersion) {
-        mediaListCache.set(normalizedPath, {
-          expiresAt: Date.now() + MEDIA_LIST_CACHE_TTL_MS,
-          result,
-        });
-      }
+  const promise = mediaListInFlight.getOrStart(normalizedPath, async () => {
+    const result = await loadMediaFiles(normalizedPath);
+    if (!result.error && cacheVersion === mediaListCacheVersion) {
+      setExpiringCacheValue(
+        mediaListCache,
+        normalizedPath,
+        result,
+        Date.now(),
+        MEDIA_LIST_CACHE_TTL_MS,
+        MEDIA_LIST_CACHE_MAX_ENTRIES,
+      );
+    }
 
-      return result;
-    })
-    .finally(() => {
-      mediaListInFlight.delete(normalizedPath);
-    });
+    return result;
+  });
 
-  mediaListInFlight.set(normalizedPath, promise);
+  if (!promise) {
+    return {
+      items: [],
+      error: "Too many concurrent media list requests",
+    };
+  }
   return promise;
 }
 

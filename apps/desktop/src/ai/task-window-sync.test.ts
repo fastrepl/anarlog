@@ -25,10 +25,14 @@ vi.mock("~/shared/utils", () => ({
 
 import {
   MAIN_AUTO_ENHANCE_TIMEOUT_MS,
+  MAX_SYNCED_ENHANCE_TASKS,
   handleMainAutoEnhanceRequest,
   handleMainEnhanceRequest,
   requestMainAutoEnhance,
+  serializeEnhanceTasks,
 } from "./task-window-sync";
+
+import { MAX_AI_TASK_STREAM_CHARACTERS } from "~/store/zustand/ai-task/tasks";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -91,6 +95,43 @@ describe("handleMainEnhanceRequest", () => {
 
     expect(enhance).toHaveBeenCalledWith("session-1", opts);
     expect(requestAutoEnhance).not.toHaveBeenCalled();
+  });
+});
+
+describe("serializeEnhanceTasks", () => {
+  it("serializes only a bounded recent enhance-task snapshot", () => {
+    const tasks = Object.fromEntries([
+      [
+        "title-task",
+        {
+          taskType: "title",
+          status: "success",
+          streamedText: "Title",
+          abortController: null,
+        },
+      ],
+      ...Array.from({ length: MAX_SYNCED_ENHANCE_TASKS + 1 }, (_, index) => [
+        `enhance-${index}`,
+        {
+          taskType: "enhance",
+          status: "success",
+          streamedText:
+            index === MAX_SYNCED_ENHANCE_TASKS
+              ? "x".repeat(MAX_AI_TASK_STREAM_CHARACTERS + 1)
+              : `summary-${index}`,
+          abortController: null,
+        },
+      ]),
+    ]) as any;
+
+    const serialized = serializeEnhanceTasks(tasks);
+
+    expect(Object.keys(serialized)).toHaveLength(MAX_SYNCED_ENHANCE_TASKS);
+    expect(serialized).not.toHaveProperty("title-task");
+    expect(serialized).not.toHaveProperty("enhance-0");
+    expect(
+      serialized[`enhance-${MAX_SYNCED_ENHANCE_TASKS}`]?.streamedText,
+    ).toHaveLength(MAX_AI_TASK_STREAM_CHARACTERS);
   });
 });
 

@@ -3,9 +3,11 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
+#[derive(Debug)]
 pub(crate) enum RouteError {
     MissingConfig(&'static str),
     Unauthorized(&'static str),
+    TooManyRequests(&'static str),
     BadRequest(String),
     NotFound(&'static str),
     BadGateway(String),
@@ -20,6 +22,7 @@ impl IntoResponse for RouteError {
                 (StatusCode::INTERNAL_SERVER_ERROR, m.into())
             }
             Self::Unauthorized(m) => (StatusCode::UNAUTHORIZED, m.into()),
+            Self::TooManyRequests(m) => (StatusCode::TOO_MANY_REQUESTS, m.into()),
             Self::BadRequest(m) => (StatusCode::BAD_REQUEST, m),
             Self::NotFound(m) => (StatusCode::NOT_FOUND, m.into()),
             Self::BadGateway(m) => (StatusCode::BAD_GATEWAY, m),

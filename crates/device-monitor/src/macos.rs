@@ -1,5 +1,9 @@
 use cidre::{core_audio as ca, ns, os};
-use std::sync::mpsc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+    mpsc,
+};
 
 use crate::{DeviceEvent, DeviceSwitch, DeviceUpdate};
 use anlg_audio_device::macos::is_headphone_from_default_output_device;
@@ -12,31 +16,57 @@ const SELECTORS: [ca::PropSelector; 3] = [
     ca::PropSelector::HW_DEVICES,
 ];
 
-trait EventSender: Clone {
-    fn send_switch(&self, switch: DeviceSwitch);
+static CALLBACK_REGISTRATION_POISONED: AtomicBool = AtomicBool::new(false);
+
+trait EventSender: Clone + Send + Sync + 'static {
+    fn send_switch(&self, switch: DeviceSwitch) -> bool;
     fn send_update(&self, update: DeviceUpdate);
 }
 
 impl EventSender for mpsc::Sender<DeviceSwitch> {
-    fn send_switch(&self, switch: DeviceSwitch) {
-        let _ = self.send(switch);
+    fn send_switch(&self, switch: DeviceSwitch) -> bool {
+        self.send(switch).is_ok()
+    }
+    fn send_update(&self, _update: DeviceUpdate) {}
+}
+
+impl EventSender for mpsc::SyncSender<DeviceSwitch> {
+    fn send_switch(&self, switch: DeviceSwitch) -> bool {
+        match self.try_send(switch) {
+            Ok(()) | Err(mpsc::TrySendError::Full(_)) => true,
+            Err(mpsc::TrySendError::Disconnected(_)) => false,
+        }
     }
     fn send_update(&self, _update: DeviceUpdate) {}
 }
 
 impl EventSender for mpsc::Sender<DeviceUpdate> {
-    fn send_switch(&self, _switch: DeviceSwitch) {}
+    fn send_switch(&self, _switch: DeviceSwitch) -> bool {
+        true
+    }
     fn send_update(&self, update: DeviceUpdate) {
         let _ = self.send(update);
     }
 }
 
 impl EventSender for mpsc::Sender<DeviceEvent> {
-    fn send_switch(&self, switch: DeviceSwitch) {
-        let _ = self.send(DeviceEvent::Switch(switch));
+    fn send_switch(&self, switch: DeviceSwitch) -> bool {
+        self.send(DeviceEvent::Switch(switch)).is_ok()
     }
     fn send_update(&self, update: DeviceUpdate) {
         let _ = self.send(DeviceEvent::Update(update));
+    }
+}
+
+impl EventSender for mpsc::SyncSender<DeviceEvent> {
+    fn send_switch(&self, switch: DeviceSwitch) -> bool {
+        match self.try_send(DeviceEvent::Switch(switch)) {
+            Ok(()) | Err(mpsc::TrySendError::Full(_)) => true,
+            Err(mpsc::TrySendError::Disconnected(_)) => false,
+        }
+    }
+    fn send_update(&self, update: DeviceUpdate) {
+        let _ = self.try_send(DeviceEvent::Update(update));
     }
 }
 
@@ -80,6 +110,8 @@ struct ListenerBase {
     device: ca::Device,
     listener: ListenerFn,
     ptr: *mut (),
+    active: Arc<AtomicBool>,
+    cleanup_failed: Arc<AtomicBool>,
 }
 
 impl ListenerBase {
@@ -90,15 +122,22 @@ impl ListenerBase {
     }
 
     fn remove(&self, addr: &ca::PropAddr) {
-        let _ = self
+        if let Err(error) = self
             .device
-            .remove_prop_listener(addr, self.listener, self.ptr);
+            .remove_prop_listener(addr, self.listener, self.ptr)
+        {
+            tracing::error!(?error, "device_listener_remove_failed");
+            deactivate_callbacks(&self.active);
+            self.cleanup_failed.store(true, Ordering::Release);
+            CALLBACK_REGISTRATION_POISONED.store(true, Ordering::Release);
+        }
     }
 }
 
 struct OutputListeners {
     base: ListenerBase,
     volume_elements: Vec<ca::PropElement>,
+    mute_registered: bool,
 }
 
 impl OutputListeners {
@@ -110,7 +149,13 @@ impl OutputListeners {
         ca::PropSelector::DEVICE_VOLUME_SCALAR.addr(ca::PropScope::OUTPUT, element)
     }
 
-    fn new(device: ca::Device, listener: ListenerFn, ptr: *mut ()) -> Option<Self> {
+    fn new(
+        device: ca::Device,
+        listener: ListenerFn,
+        ptr: *mut (),
+        active: Arc<AtomicBool>,
+        cleanup_failed: Arc<AtomicBool>,
+    ) -> Option<Self> {
         if device.is_unknown() {
             return None;
         }
@@ -119,25 +164,33 @@ impl OutputListeners {
             device,
             listener,
             ptr,
+            active,
+            cleanup_failed,
         };
-        let volume_elements = get_volume_elements(&base.device);
-
-        let volume_ok = volume_elements
-            .iter()
-            .all(|&e| base.add(&Self::volume_addr(e)));
-        if !volume_ok {
-            return None;
+        let mut volume_elements = Vec::new();
+        for element in get_volume_elements(&base.device) {
+            if !base.add(&Self::volume_addr(element)) {
+                for registered in volume_elements.drain(..) {
+                    base.remove(&Self::volume_addr(registered));
+                }
+                return None;
+            }
+            volume_elements.push(element);
         }
-        base.add(&Self::mute_addr());
+        let mute_registered = base.add(&Self::mute_addr());
 
         Some(Self {
             base,
             volume_elements,
+            mute_registered,
         })
     }
 
     fn update(&mut self) {
         self.remove_listeners();
+        if self.base.cleanup_failed.load(Ordering::Acquire) {
+            return;
+        }
 
         let Ok(device) = ca::System::default_output_device() else {
             return;
@@ -147,24 +200,25 @@ impl OutputListeners {
         }
 
         self.base.device = device;
-        self.volume_elements = get_volume_elements(&self.base.device);
-
-        let volume_ok = self
-            .volume_elements
-            .iter()
-            .all(|&e| self.base.add(&Self::volume_addr(e)));
-        if volume_ok {
-            self.base.add(&Self::mute_addr());
-        } else {
-            tracing::error!("device_listener_update_failed");
+        for element in get_volume_elements(&self.base.device) {
+            if !self.base.add(&Self::volume_addr(element)) {
+                self.remove_listeners();
+                tracing::error!("device_listener_update_failed");
+                return;
+            }
+            self.volume_elements.push(element);
         }
+        self.mute_registered = self.base.add(&Self::mute_addr());
     }
 
-    fn remove_listeners(&self) {
-        for &element in &self.volume_elements {
+    fn remove_listeners(&mut self) {
+        for element in self.volume_elements.drain(..) {
             self.base.remove(&Self::volume_addr(element));
         }
-        self.base.remove(&Self::mute_addr());
+        if self.mute_registered {
+            self.base.remove(&Self::mute_addr());
+            self.mute_registered = false;
+        }
     }
 }
 
@@ -176,6 +230,7 @@ impl Drop for OutputListeners {
 
 struct InputMuteListener {
     base: ListenerBase,
+    registered: bool,
 }
 
 impl InputMuteListener {
@@ -183,7 +238,13 @@ impl InputMuteListener {
         ca::PropSelector::DEVICE_MUTE.addr(ca::PropScope::INPUT, ca::PropElement::MAIN)
     }
 
-    fn new(device: ca::Device, listener: ListenerFn, ptr: *mut ()) -> Option<Self> {
+    fn new(
+        device: ca::Device,
+        listener: ListenerFn,
+        ptr: *mut (),
+        active: Arc<AtomicBool>,
+        cleanup_failed: Arc<AtomicBool>,
+    ) -> Option<Self> {
         if device.is_unknown() {
             return None;
         }
@@ -192,25 +253,40 @@ impl InputMuteListener {
             device,
             listener,
             ptr,
+            active,
+            cleanup_failed,
         };
-        base.add(&Self::mute_addr()).then_some(Self { base })
+        base.add(&Self::mute_addr()).then_some(Self {
+            base,
+            registered: true,
+        })
     }
 
     fn update(&mut self) {
-        self.base.remove(&Self::mute_addr());
+        self.remove_listener();
+        if self.base.cleanup_failed.load(Ordering::Acquire) {
+            return;
+        }
 
         if let Ok(device) = ca::System::default_input_device()
             && !device.is_unknown()
         {
             self.base.device = device;
-            self.base.add(&Self::mute_addr());
+            self.registered = self.base.add(&Self::mute_addr());
+        }
+    }
+
+    fn remove_listener(&mut self) {
+        if self.registered {
+            self.base.remove(&Self::mute_addr());
+            self.registered = false;
         }
     }
 }
 
 impl Drop for InputMuteListener {
     fn drop(&mut self) {
-        self.base.remove(&Self::mute_addr());
+        self.remove_listener();
     }
 }
 
@@ -279,11 +355,28 @@ fn handle_volume_mute_event<S: EventSender>(sender: &S, addr: &ca::PropAddr) {
 }
 
 struct MonitorContext<S> {
+    active: Arc<AtomicBool>,
     event_tx: S,
-    update_output_tx: mpsc::Sender<()>,
-    update_input_tx: mpsc::Sender<()>,
+    update_output_pending: AtomicBool,
+    update_input_pending: AtomicBool,
     listen_switch: bool,
     listen_volume_mute: bool,
+}
+
+fn callbacks_active(active: &AtomicBool) -> bool {
+    active.load(Ordering::Acquire)
+}
+
+fn deactivate_callbacks(active: &AtomicBool) {
+    active.store(false, Ordering::Release);
+}
+
+fn request_update(pending: &AtomicBool) {
+    pending.store(true, Ordering::Release);
+}
+
+fn take_update(pending: &AtomicBool) -> bool {
+    pending.swap(false, Ordering::AcqRel)
 }
 
 extern "C-unwind" fn system_listener<S: EventSender>(
@@ -293,35 +386,46 @@ extern "C-unwind" fn system_listener<S: EventSender>(
     client_data: *mut (),
 ) -> os::Status {
     let ctx = unsafe { &*(client_data as *const MonitorContext<S>) };
+    if !callbacks_active(&ctx.active) {
+        return os::Status::NO_ERR;
+    }
     let addresses = unsafe { std::slice::from_raw_parts(addresses, number_addresses as usize) };
 
     for addr in addresses {
         match addr.selector {
             ca::PropSelector::HW_DEFAULT_INPUT_DEVICE => {
-                if ctx.listen_switch {
-                    ctx.event_tx.send_switch(DeviceSwitch::DefaultInputChanged);
+                if ctx.listen_switch && !ctx.event_tx.send_switch(DeviceSwitch::DefaultInputChanged)
+                {
+                    deactivate_callbacks(&ctx.active);
+                    return os::Status::NO_ERR;
                 }
                 if ctx.listen_volume_mute {
-                    let _ = ctx.update_input_tx.send(());
+                    request_update(&ctx.update_input_pending);
                 }
             }
             ca::PropSelector::HW_DEFAULT_OUTPUT_DEVICE => {
                 if ctx.listen_switch {
                     let headphone = is_headphone_from_default_output_device();
-                    ctx.event_tx
-                        .send_switch(DeviceSwitch::DefaultOutputChanged { headphone });
+                    if !ctx
+                        .event_tx
+                        .send_switch(DeviceSwitch::DefaultOutputChanged { headphone })
+                    {
+                        deactivate_callbacks(&ctx.active);
+                        return os::Status::NO_ERR;
+                    }
                 }
                 if ctx.listen_volume_mute {
-                    let _ = ctx.update_output_tx.send(());
+                    request_update(&ctx.update_output_pending);
                 }
             }
             ca::PropSelector::HW_DEVICES => {
-                if ctx.listen_switch {
-                    ctx.event_tx.send_switch(DeviceSwitch::DeviceListChanged);
+                if ctx.listen_switch && !ctx.event_tx.send_switch(DeviceSwitch::DeviceListChanged) {
+                    deactivate_callbacks(&ctx.active);
+                    return os::Status::NO_ERR;
                 }
                 if ctx.listen_volume_mute {
-                    let _ = ctx.update_output_tx.send(());
-                    let _ = ctx.update_input_tx.send(());
+                    request_update(&ctx.update_output_pending);
+                    request_update(&ctx.update_input_pending);
                 }
             }
             _ => {}
@@ -336,11 +440,14 @@ extern "C-unwind" fn device_listener<S: EventSender>(
     addresses: *const ca::PropAddr,
     client_data: *mut (),
 ) -> os::Status {
-    let sender = unsafe { &*(client_data as *const S) };
+    let ctx = unsafe { &*(client_data as *const MonitorContext<S>) };
+    if !callbacks_active(&ctx.active) {
+        return os::Status::NO_ERR;
+    }
     let addresses = unsafe { std::slice::from_raw_parts(addresses, number_addresses as usize) };
 
     for addr in addresses {
-        handle_volume_mute_event(sender, addr);
+        handle_volume_mute_event(&ctx.event_tx, addr);
     }
     os::Status::NO_ERR
 }
@@ -352,18 +459,24 @@ fn monitor_internal<S: EventSender>(
     listen_volume_mute: bool,
     name: &str,
 ) {
-    let (update_output_tx, update_output_rx) = mpsc::channel();
-    let (update_input_tx, update_input_rx) = mpsc::channel();
+    if CALLBACK_REGISTRATION_POISONED.load(Ordering::Acquire) {
+        tracing::error!("device_monitor_callbacks_poisoned");
+        return;
+    }
 
-    let context = MonitorContext {
-        event_tx: event_tx.clone(),
-        update_output_tx,
-        update_input_tx,
+    let active = Arc::new(AtomicBool::new(true));
+
+    let callback_context = Box::new(MonitorContext {
+        active: active.clone(),
+        event_tx,
+        update_output_pending: AtomicBool::new(false),
+        update_input_pending: AtomicBool::new(false),
         listen_switch,
         listen_volume_mute,
-    };
-    let context_ptr = as_ptr(&context);
-    let event_tx_ptr = as_ptr(&event_tx);
+    });
+    let context_ptr = as_ptr(callback_context.as_ref());
+    let cleanup_failed = Arc::new(AtomicBool::new(false));
+    let mut registered_selectors: Vec<ca::PropSelector> = Vec::new();
 
     for selector in SELECTORS {
         if let Err(e) = ca::System::OBJ.add_prop_listener(
@@ -372,17 +485,45 @@ fn monitor_internal<S: EventSender>(
             context_ptr,
         ) {
             tracing::error!("system_listener_add_failed: {:?}", e);
+            deactivate_callbacks(&active);
+            for registered in registered_selectors.drain(..) {
+                if let Err(error) = ca::System::OBJ.remove_prop_listener(
+                    &registered.global_addr(),
+                    system_listener::<S>,
+                    context_ptr,
+                ) {
+                    tracing::error!(?error, "system_listener_rollback_failed");
+                    cleanup_failed.store(true, Ordering::Release);
+                    CALLBACK_REGISTRATION_POISONED.store(true, Ordering::Release);
+                }
+            }
+            if cleanup_failed.load(Ordering::Acquire) {
+                std::mem::forget(callback_context);
+            }
             return;
         }
+        registered_selectors.push(selector);
     }
 
     let (mut output_listeners, mut input_listener) = if listen_volume_mute {
-        let output = ca::System::default_output_device()
-            .ok()
-            .and_then(|d| OutputListeners::new(d, device_listener::<S>, event_tx_ptr));
-        let input = ca::System::default_input_device()
-            .ok()
-            .and_then(|d| InputMuteListener::new(d, device_listener::<S>, event_tx_ptr));
+        let output = ca::System::default_output_device().ok().and_then(|d| {
+            OutputListeners::new(
+                d,
+                device_listener::<S>,
+                context_ptr,
+                active.clone(),
+                cleanup_failed.clone(),
+            )
+        });
+        let input = ca::System::default_input_device().ok().and_then(|d| {
+            InputMuteListener::new(
+                d,
+                device_listener::<S>,
+                context_ptr,
+                active.clone(),
+                cleanup_failed.clone(),
+            )
+        });
         (output, input)
     } else {
         (None, None)
@@ -391,43 +532,67 @@ fn monitor_internal<S: EventSender>(
     tracing::info!("{}_started", name);
 
     run_event_loop(stop_rx, || {
+        if cleanup_failed.load(Ordering::Acquire) {
+            return false;
+        }
+
         if listen_volume_mute {
-            if update_output_rx.try_recv().is_ok() {
+            if take_update(&callback_context.update_output_pending) {
                 if let Some(ref mut l) = output_listeners {
                     l.update();
                 } else if let Ok(device) = ca::System::default_output_device() {
-                    output_listeners =
-                        OutputListeners::new(device, device_listener::<S>, event_tx_ptr);
+                    output_listeners = OutputListeners::new(
+                        device,
+                        device_listener::<S>,
+                        context_ptr,
+                        active.clone(),
+                        cleanup_failed.clone(),
+                    );
                 }
             }
-            if update_input_rx.try_recv().is_ok() {
+            if take_update(&callback_context.update_input_pending) {
                 if let Some(ref mut l) = input_listener {
                     l.update();
                 } else if let Ok(device) = ca::System::default_input_device() {
-                    input_listener =
-                        InputMuteListener::new(device, device_listener::<S>, event_tx_ptr);
+                    input_listener = InputMuteListener::new(
+                        device,
+                        device_listener::<S>,
+                        context_ptr,
+                        active.clone(),
+                        cleanup_failed.clone(),
+                    );
                 }
             }
         }
-        true
+        !cleanup_failed.load(Ordering::Acquire)
     });
 
+    deactivate_callbacks(&active);
     drop(output_listeners);
     drop(input_listener);
 
-    for selector in SELECTORS {
-        let _ = ca::System::OBJ.remove_prop_listener(
+    for selector in registered_selectors {
+        if let Err(error) = ca::System::OBJ.remove_prop_listener(
             &selector.global_addr(),
             system_listener::<S>,
             context_ptr,
-        );
+        ) {
+            tracing::error!(?error, "system_listener_remove_failed");
+            cleanup_failed.store(true, Ordering::Release);
+            CALLBACK_REGISTRATION_POISONED.store(true, Ordering::Release);
+        }
+    }
+
+    if cleanup_failed.load(Ordering::Acquire) {
+        tracing::error!("device_monitor_callback_context_retained");
+        std::mem::forget(callback_context);
     }
 
     tracing::info!("{}_stopped", name);
 }
 
 pub(crate) fn monitor_device_change(
-    event_tx: mpsc::Sender<DeviceSwitch>,
+    event_tx: mpsc::SyncSender<DeviceSwitch>,
     stop_rx: mpsc::Receiver<()>,
 ) {
     monitor_internal(event_tx, stop_rx, true, false, "monitor_device_change");
@@ -440,6 +605,40 @@ pub(crate) fn monitor_volume_mute(
     monitor_internal(event_tx, stop_rx, false, true, "monitor_volume_mute");
 }
 
-pub(crate) fn monitor(event_tx: mpsc::Sender<DeviceEvent>, stop_rx: mpsc::Receiver<()>) {
+pub(crate) fn monitor(event_tx: mpsc::SyncSender<DeviceEvent>, stop_rx: mpsc::Receiver<()>) {
     monitor_internal(event_tx, stop_rx, true, true, "monitor");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn callback_activity_stays_disabled_after_teardown() {
+        let active = AtomicBool::new(true);
+        assert!(callbacks_active(&active));
+
+        deactivate_callbacks(&active);
+
+        assert!(!callbacks_active(&active));
+    }
+
+    #[test]
+    fn repeated_update_requests_are_coalesced() {
+        let pending = AtomicBool::new(false);
+        request_update(&pending);
+        request_update(&pending);
+
+        assert!(take_update(&pending));
+        assert!(!take_update(&pending));
+    }
+
+    #[test]
+    fn bounded_switch_sender_treats_full_as_coalesced_and_disconnect_as_inactive() {
+        let (tx, rx) = mpsc::sync_channel::<DeviceSwitch>(1);
+        assert!(tx.send_switch(DeviceSwitch::DefaultInputChanged));
+        assert!(tx.send_switch(DeviceSwitch::DeviceListChanged));
+        drop(rx);
+        assert!(!tx.send_switch(DeviceSwitch::DefaultInputChanged));
+    }
 }

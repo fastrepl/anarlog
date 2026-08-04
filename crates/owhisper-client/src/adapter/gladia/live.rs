@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
@@ -14,34 +15,74 @@ use crate::adapter::parsing::WordBuilder;
 
 struct SessionChannels;
 
+struct SessionChannelEntry {
+    channels: u8,
+    inserted_at: Instant,
+}
+
+const SESSION_CHANNEL_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+const MAX_SESSION_CHANNELS: usize = 64;
+
 impl SessionChannels {
-    fn store() -> &'static Mutex<HashMap<String, u8>> {
-        static SESSION_CHANNELS: OnceLock<Mutex<HashMap<String, u8>>> = OnceLock::new();
+    fn store() -> &'static Mutex<HashMap<String, SessionChannelEntry>> {
+        static SESSION_CHANNELS: OnceLock<Mutex<HashMap<String, SessionChannelEntry>>> =
+            OnceLock::new();
         SESSION_CHANNELS.get_or_init(|| Mutex::new(HashMap::new()))
     }
 
     fn insert(session_id: String, channels: u8) {
         if let Ok(mut map) = Self::store().lock() {
-            map.insert(session_id, channels);
+            Self::prune(&mut map);
+            if !map.contains_key(&session_id)
+                && map.len() >= MAX_SESSION_CHANNELS
+                && let Some(oldest) = map
+                    .iter()
+                    .min_by_key(|(_, entry)| entry.inserted_at)
+                    .map(|(id, _)| id.clone())
+            {
+                map.remove(&oldest);
+            }
+            map.insert(
+                session_id,
+                SessionChannelEntry {
+                    channels,
+                    inserted_at: Instant::now(),
+                },
+            );
         }
     }
 
     fn get(session_id: &str) -> Option<u8> {
-        Self::store()
-            .lock()
-            .ok()
-            .and_then(|map| map.get(session_id).copied())
+        let mut map = Self::store().lock().ok()?;
+        Self::prune(&mut map);
+        map.get(session_id).map(|entry| entry.channels)
     }
 
     fn remove(session_id: &str) -> Option<u8> {
         Self::store()
             .lock()
             .ok()
-            .and_then(|mut map| map.remove(session_id))
+            .and_then(|mut map| map.remove(session_id).map(|entry| entry.channels))
+    }
+
+    #[cfg(test)]
+    fn clear() {
+        if let Ok(mut map) = Self::store().lock() {
+            map.clear();
+        }
     }
 
     fn get_or_infer(session_id: &str, channel_idx: i32) -> u8 {
         Self::get(session_id).unwrap_or_else(|| (channel_idx + 1).max(1) as u8)
+    }
+
+    fn prune(map: &mut HashMap<String, SessionChannelEntry>) {
+        map.retain(|_, entry| entry.inserted_at.elapsed() < SESSION_CHANNEL_TTL);
+    }
+
+    #[cfg(test)]
+    fn len() -> usize {
+        Self::store().lock().map(|map| map.len()).unwrap_or(0)
     }
 }
 
@@ -191,9 +232,9 @@ impl RealtimeSttAdapter for GladiaAdapter {
                 }
             };
 
+            let url = url::Url::parse(&url).ok()?;
             SessionChannels::insert(id, channels);
-
-            url::Url::parse(&url).ok()
+            Some(url)
         }
     }
 
@@ -261,7 +302,14 @@ impl RealtimeSttAdapter for GladiaAdapter {
             GladiaMessage::SpeechEnd { .. } => vec![],
             GladiaMessage::StartRecording { .. } => vec![],
             GladiaMessage::EndRecording { .. } => vec![],
-            GladiaMessage::Error { message, code } => {
+            GladiaMessage::Error {
+                message,
+                code,
+                session_id,
+            } => {
+                if let Some(session_id) = session_id {
+                    SessionChannels::remove(&session_id);
+                }
                 tracing::error!(error = %message, error.code = ?code, "gladia_error");
                 vec![StreamResponse::ErrorResponse {
                     error_code: code,
@@ -422,6 +470,8 @@ enum GladiaMessage {
         message: String,
         #[serde(default)]
         code: Option<i32>,
+        #[serde(default, alias = "id")]
+        session_id: Option<String>,
     },
     #[serde(other)]
     Unknown,
@@ -531,8 +581,9 @@ impl GladiaAdapter {
 mod tests {
     use anlg_language::ISO639;
 
-    use super::{GladiaAdapter, LanguageConfig};
+    use super::{GladiaAdapter, LanguageConfig, MAX_SESSION_CHANNELS, SessionChannels};
     use crate::ListenClient;
+    use crate::RealtimeSttAdapter;
     use crate::test_utils::{UrlTestCase, run_dual_test, run_single_test, run_url_test_cases};
 
     const API_BASE: &str = "https://api.gladia.io";
@@ -629,6 +680,30 @@ mod tests {
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains("\"code_switching\":false"));
         assert!(json.contains("\"languages\":[\"en\",\"fr\"]"));
+    }
+
+    #[test]
+    fn session_channels_clean_up_terminal_messages_and_stay_bounded() {
+        SessionChannels::clear();
+        SessionChannels::insert("session-1".to_string(), 2);
+        SessionChannels::insert("session-2".to_string(), 1);
+
+        GladiaAdapter
+            .parse_response(r#"{"type":"error","message":"closed","session_id":"session-1"}"#);
+        assert_eq!(SessionChannels::get("session-1"), None);
+        assert_eq!(SessionChannels::get("session-2"), Some(1));
+
+        GladiaAdapter.parse_response(r#"{"type":"end_session","id":"session-2"}"#);
+        assert_eq!(SessionChannels::len(), 0);
+
+        for index in 0..=MAX_SESSION_CHANNELS {
+            SessionChannels::insert(format!("session-{index}"), 2);
+        }
+        assert_eq!(SessionChannels::len(), MAX_SESSION_CHANNELS);
+
+        GladiaAdapter.parse_response(r#"{"type":"error","message":"closed"}"#);
+        assert_eq!(SessionChannels::len(), MAX_SESSION_CHANNELS);
+        SessionChannels::clear();
     }
 
     macro_rules! single_test {

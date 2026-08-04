@@ -7,6 +7,7 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { useListener } from "./contexts";
 import { cancelMeetingRecordingDisclosure } from "./meeting-disclosure";
 import { persistTranscriptWrite } from "./persist-retry";
+import { createTranscriptPersistenceWorker } from "./transcript-persistence-worker";
 import {
   canRunBatchTranscription,
   isStoppedTranscriptionError,
@@ -216,7 +217,6 @@ export function useCaptureLifecycle(sessionId: string) {
         : preserveExistingTranscript
           ? getExistingAudioDurationMs(sessionId)
           : Promise.resolve(0);
-      let lastTranscriptWrite = Promise.resolve();
       let transcriptWriteError: unknown;
       let cloudsyncLeaseActive = false;
       let cloudsyncLeaseAcquire: Promise<void> | null = null;
@@ -283,14 +283,36 @@ export function useCaptureLifecycle(sessionId: string) {
           throw error;
         }
       };
-      const trackTranscriptWrite = (write: () => Promise<void>) => {
-        lastTranscriptWrite = lastTranscriptWrite
-          .then(() => persistTranscriptWrite(write))
-          .catch((error) => {
-            transcriptWriteError = error;
-            console.error("[listener] failed to persist transcript", error);
-          });
-      };
+      const transcriptPersistence = createTranscriptPersistenceWorker(
+        (delta) =>
+          persistTranscriptWrite(async () => {
+            transcriptCreated ??= await transcriptExists(transcriptId);
+            if (!transcriptCreated) {
+              await createLiveTranscript(
+                {
+                  id: transcriptId,
+                  sessionId,
+                  ownerUserId,
+                  createdAt,
+                  startedAt,
+                  memo: memoMd,
+                  source: "live_capture",
+                  provider,
+                  model,
+                },
+                delta,
+              );
+              transcriptCreated = true;
+              return;
+            }
+
+            await applyLiveTranscriptDeltaToDatabase(transcriptId, delta);
+          }),
+        (error) => {
+          transcriptWriteError = error;
+          console.error("[listener] failed to persist transcript", error);
+        },
+      );
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
         version: 1,
         phase: capturePhase,
@@ -350,7 +372,7 @@ export function useCaptureLifecycle(sessionId: string) {
             console.error("[listener] failed to catalog recorded audio", error);
           }
         }
-        await lastTranscriptWrite;
+        await transcriptPersistence.flush();
         transcriptCreated ??= await transcriptExists(transcriptId);
 
         const postCaptureAction = pendingSummaryMode
@@ -669,29 +691,7 @@ export function useCaptureLifecycle(sessionId: string) {
         }
 
         transcriptTouched = true;
-        trackTranscriptWrite(async () => {
-          transcriptCreated ??= await transcriptExists(transcriptId);
-          if (!transcriptCreated) {
-            await createLiveTranscript(
-              {
-                id: transcriptId,
-                sessionId,
-                ownerUserId,
-                createdAt,
-                startedAt,
-                memo: memoMd,
-                source: "live_capture",
-                provider,
-                model,
-              },
-              delta,
-            );
-            transcriptCreated = true;
-            return;
-          }
-
-          await applyLiveTranscriptDeltaToDatabase(transcriptId, delta);
-        });
+        transcriptPersistence.enqueue(delta);
       };
 
       return {
@@ -706,7 +706,7 @@ export function useCaptureLifecycle(sessionId: string) {
           });
         },
         cleanupFailedStart: async () => {
-          await lastTranscriptWrite;
+          await transcriptPersistence.flush();
           await clearCaptureLifecycleMarker(sessionId, transcriptId);
           if (transcriptCreated) {
             await softDeleteTranscript(transcriptId);

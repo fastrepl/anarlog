@@ -449,4 +449,15 @@ describe("in-memory task storage", () => {
       },
     ]);
   });
+
+  it("releases an inactive source snapshot after its last listener leaves", () => {
+    const storage = createInMemoryTaskStorage();
+    const source = { type: "daily_note", id: "2026-04-06" };
+    const firstSnapshot = storage.getTasksForSource(source);
+    const unsubscribe = storage.subscribeSource(source, () => {});
+
+    unsubscribe();
+
+    expect(storage.getTasksForSource(source)).not.toBe(firstSnapshot);
+  });
 });

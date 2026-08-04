@@ -21,8 +21,8 @@ import {
   type GuardedChatPreflight,
 } from "~/chat/store/cloudsync-activity";
 import {
+  consumeFailedChatGroupCreate,
   hasPendingChatPersist,
-  isFailedChatGroupCreate,
   waitForPendingChatPersists,
 } from "~/chat/store/pending-persists";
 import {
@@ -314,7 +314,7 @@ function ChatSessionLifecycle({
 
               // The group row was never created; persisting into it would
               // produce orphaned rows that never appear in history.
-              if (isFailedChatGroupCreate(targetChatGroupId)) {
+              if (consumeFailedChatGroupCreate(targetChatGroupId)) {
                 return;
               }
 
@@ -420,12 +420,12 @@ function ChatSessionLifecycle({
         console.error("Failed to stop chat response during cleanup", error);
       }
       const cleanup = Promise.resolve().then(async () => {
-        await Promise.resolve();
-        await Promise.allSettled([
-          ...pendingFinishedChatPersistsRef.current.values(),
-          ...[...pendingChatGroupIds].map(waitForPendingChatPersists),
-        ]);
         try {
+          await Promise.resolve();
+          await Promise.allSettled([
+            ...pendingFinishedChatPersistsRef.current.values(),
+            ...[...pendingChatGroupIds].map(waitForPendingChatPersists),
+          ]);
           await flushDatabaseWritesByPrefix(["chat:"]);
         } catch (error) {
           console.error("Failed to flush chat writes during cleanup", error);

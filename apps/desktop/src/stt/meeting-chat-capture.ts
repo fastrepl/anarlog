@@ -7,6 +7,7 @@ import { resolveConfigValue } from "~/shared/config";
 import { persistMeetingChatRecords } from "~/stt/meeting-chat-records";
 
 const MEETING_CHAT_CAPTURE_INTERVAL_MS = 5_000;
+const MAX_CAPTURED_CHAT_WINDOW = 1_000;
 
 export function startMeetingChatCapture({
   sessionId,
@@ -78,17 +79,22 @@ export function startMeetingChatCapture({
         return;
       }
 
-      const messages = result.data.messages.filter(
-        (message) => !excludedMessages.has(normalizeMessageText(message.text)),
-      );
+      const messages = result.data.messages
+        .filter(
+          (message) =>
+            !excludedMessages.has(normalizeMessageText(message.text)),
+        )
+        .slice(-MAX_CAPTURED_CHAT_WINDOW);
       if (
         !baselineContext ||
         baselineContext.bundleId !== bundleId ||
         baselineContext.contextId !== contextId
       ) {
         baselineContext = { bundleId, contextId };
+        seenSignatures.clear();
         for (const message of messages) {
-          seenSignatures.add(
+          rememberSignature(
+            seenSignatures,
             getCapturedMeetingChatSignature(contextId, message),
           );
         }
@@ -147,7 +153,7 @@ export function startMeetingChatCapture({
         return;
       }
       for (const signature of persistedSignatures) {
-        seenSignatures.add(signature);
+        rememberSignature(seenSignatures, signature);
       }
     } catch (error) {
       console.warn("[listener] failed to capture meeting chat", error);
@@ -178,6 +184,18 @@ export function startMeetingChatCapture({
     clearInterval(interval);
     await pendingPersistence;
   };
+}
+
+function rememberSignature(signatures: Set<string>, signature: string) {
+  signatures.delete(signature);
+  signatures.add(signature);
+  while (signatures.size > MAX_CAPTURED_CHAT_WINDOW) {
+    const oldestSignature = signatures.values().next().value;
+    if (oldestSignature === undefined) {
+      break;
+    }
+    signatures.delete(oldestSignature);
+  }
 }
 
 function showCaptureWarning(warnings: string[], previousWarning: string) {
@@ -211,8 +229,22 @@ function getCapturedMeetingChatSignature(
         message.surface,
         message.sender ?? "",
         message.timestamp ?? "",
-        message.text,
+        message.text.length,
+        hashMeetingChatText(message.text),
       ].join("\n");
+}
+
+function hashMeetingChatText(text: string) {
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  for (let index = 0; index < text.length; index += 1) {
+    const code = text.charCodeAt(index);
+    first = Math.imul(first ^ code, 0x01000193);
+    second = Math.imul(second ^ code, 0x85ebca6b);
+  }
+  return [first, second]
+    .map((hash) => (hash >>> 0).toString(16).padStart(8, "0"))
+    .join("");
 }
 
 function normalizeMessageText(text: string) {

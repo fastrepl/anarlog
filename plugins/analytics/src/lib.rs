@@ -1,5 +1,7 @@
 use tauri::Manager;
 
+const MAX_CONCURRENT_FIRE_AND_FORGET_EVENTS: usize = 32;
+
 mod commands;
 mod error;
 mod ext;
@@ -15,6 +17,7 @@ pub use anlg_analytics::*;
 
 pub struct ManagedState {
     client: anlg_analytics::AnalyticsClient,
+    fire_and_forget_slots: std::sync::Arc<tokio::sync::Semaphore>,
     groups: std::sync::Mutex<std::collections::HashMap<String, String>>,
     session: std::sync::Mutex<SessionTracker>,
 }
@@ -23,6 +26,9 @@ impl ManagedState {
     fn new(client: anlg_analytics::AnalyticsClient) -> Self {
         Self {
             client,
+            fire_and_forget_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(
+                MAX_CONCURRENT_FIRE_AND_FORGET_EVENTS,
+            )),
             groups: std::sync::Mutex::new(std::collections::HashMap::new()),
             session: std::sync::Mutex::new(SessionTracker::new(std::time::SystemTime::now())),
         }
@@ -140,5 +146,33 @@ mod test {
             let bundle_id = app.config().identifier.clone();
             println!("bundle_id: {}", bundle_id);
         }
+    }
+
+    #[test]
+    fn fire_and_forget_admission_is_bounded() {
+        let state = ManagedState::new(AnalyticsClientBuilder::default().build());
+        let permits = (0..MAX_CONCURRENT_FIRE_AND_FORGET_EVENTS)
+            .map(|_| {
+                state
+                    .fire_and_forget_slots
+                    .clone()
+                    .try_acquire_owned()
+                    .expect("slot should be available")
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            state
+                .fire_and_forget_slots
+                .clone()
+                .try_acquire_owned()
+                .is_err()
+        );
+
+        drop(permits);
+        assert_eq!(
+            state.fire_and_forget_slots.available_permits(),
+            MAX_CONCURRENT_FIRE_AND_FORGET_EVENTS
+        );
     }
 }

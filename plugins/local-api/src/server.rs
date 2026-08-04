@@ -11,6 +11,9 @@ use sqlx::SqlitePool;
 
 use crate::{CreatedWebhook, WebhookInfo, dispatch};
 
+static CREATE_ENDPOINT_LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> =
+    std::sync::OnceLock::new();
+
 pub struct ServerHandle {
     pub port: u16,
     shutdown: tokio::sync::oneshot::Sender<()>,
@@ -77,6 +80,7 @@ enum ApiError {
     Unauthorized,
     NotFound(String),
     BadRequest(String),
+    Busy(String),
     Internal(String),
 }
 
@@ -105,6 +109,7 @@ impl IntoResponse for ApiError {
             ),
             Self::NotFound(message) => (StatusCode::NOT_FOUND, "not_found", message),
             Self::BadRequest(message) => (StatusCode::BAD_REQUEST, "invalid_request", message),
+            Self::Busy(message) => (StatusCode::TOO_MANY_REQUESTS, "busy", message),
             Self::Internal(message) => {
                 tracing::error!("[local-api] internal error: {message}");
                 (
@@ -291,6 +296,10 @@ pub(crate) async fn create_endpoint(
     url: &str,
     events: &[String],
 ) -> Result<CreatedWebhook, String> {
+    let _guard = CREATE_ENDPOINT_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
     let url = url.trim();
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err("url must start with http:// or https://".to_string());
@@ -302,6 +311,16 @@ pub(crate) async fn create_endpoint(
         return Err(format!(
             "unknown event '{unknown}'; known events: {}",
             dispatch::KNOWN_EVENTS.join(", ")
+        ));
+    }
+    let endpoint_count = anlg_db_app::list_webhook_endpoints(pool)
+        .await
+        .map_err(|error| error.to_string())?
+        .len();
+    if endpoint_count >= dispatch::MAX_WEBHOOK_ENDPOINTS {
+        return Err(format!(
+            "at most {} webhook endpoints can be configured",
+            dispatch::MAX_WEBHOOK_ENDPOINTS
         ));
     }
 
@@ -353,6 +372,50 @@ async fn test_webhook(
     let endpoint = anlg_db_app::get_webhook_endpoint(&pool, &webhook_id)
         .await?
         .ok_or_else(|| ApiError::NotFound(format!("webhook '{webhook_id}' not found")))?;
-    let delivery = dispatch::send_test(&pool, &endpoint).await;
+    let delivery = dispatch::send_test(&pool, &endpoint)
+        .await
+        .map_err(ApiError::Busy)?;
     Ok(Json(delivery).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn endpoint_creation_stops_at_the_fanout_limit() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+
+        for index in 0..dispatch::MAX_WEBHOOK_ENDPOINTS {
+            anlg_db_app::insert_webhook_endpoint(
+                db.pool(),
+                &format!("webhook-{index}"),
+                "https://example.com",
+                "whsec_test",
+                "[]",
+            )
+            .await
+            .unwrap();
+        }
+
+        let error = create_endpoint(db.pool(), "https://example.com", &[])
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            format!(
+                "at most {} webhook endpoints can be configured",
+                dispatch::MAX_WEBHOOK_ENDPOINTS
+            )
+        );
+        assert_eq!(
+            anlg_db_app::list_webhook_endpoints(db.pool())
+                .await
+                .unwrap()
+                .len(),
+            dispatch::MAX_WEBHOOK_ENDPOINTS
+        );
+    }
 }

@@ -217,6 +217,19 @@ function isStopped(signal: AbortSignal | undefined, generation: number) {
 function excludeDisconnectedConnections(
   providerConnections: Awaited<ReturnType<typeof getProviderConnections>>,
 ) {
+  const discoveredConnectionKeys = new Set(
+    providerConnections.flatMap(({ provider, connection_ids }) =>
+      connection_ids.map((connectionId) =>
+        connectionKey(provider, connectionId),
+      ),
+    ),
+  );
+  for (const key of disconnectedCalendarConnections) {
+    if (!discoveredConnectionKeys.has(key)) {
+      disconnectedCalendarConnections.delete(key);
+    }
+  }
+
   return providerConnections.flatMap(({ provider, connection_ids }) => {
     const activeConnectionIds = connection_ids.filter(
       (connectionId) =>

@@ -24,6 +24,8 @@ pub enum Error {
     Timeout(String),
     #[error("API error (status {0}): {1}")]
     Api(u16, String),
+    #[error("API response exceeded the {limit}-byte limit")]
+    ResponseTooLarge { limit: usize },
 
     #[error(transparent)]
     Request(#[from] reqwest::Error),

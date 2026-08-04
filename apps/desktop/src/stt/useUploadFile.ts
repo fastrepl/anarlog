@@ -37,6 +37,7 @@ export const AUDIO_EXTENSIONS = [
 ];
 const AUDIO_TRANSFER_EXTENSIONS = [...AUDIO_EXTENSIONS, "qta"];
 const TRANSCRIPT_EXTENSIONS = ["vtt", "srt"];
+const MAX_IPC_AUDIO_BYTES = 4 * 1024 * 1024;
 
 function fileExtension(value: string) {
   const extension = value.toLowerCase().split(".").pop();
@@ -372,7 +373,7 @@ export function useUploadFile(sessionId: string) {
             );
           }
 
-          const data = Array.from(new Uint8Array(await file.arrayBuffer()));
+          const data = await readIpcAudioData(file);
           return importWithProgress(() =>
             fsSyncCommands.audioImportData(
               sessionId,
@@ -439,4 +440,19 @@ export function useUploadFile(sessionId: string) {
 function audioUploadFilePath(file: File) {
   const value = (file as { path?: unknown }).path;
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function assertIpcAudioSize(size: number) {
+  if (size > MAX_IPC_AUDIO_BYTES) {
+    throw new Error(
+      "Audio files without a native path must be smaller than 4 MB",
+    );
+  }
+}
+
+async function readIpcAudioData(file: File) {
+  assertIpcAudioSize(file.size);
+  const arrayBuffer = await file.arrayBuffer();
+  assertIpcAudioSize(arrayBuffer.byteLength);
+  return Array.from(new Uint8Array(arrayBuffer));
 }

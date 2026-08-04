@@ -229,6 +229,8 @@ impl AppWindow {
             window.destroy()?;
         }
 
+        crate::clear_window_state(app, &self.label());
+
         Ok(())
     }
 
@@ -354,14 +356,28 @@ impl AppWindow {
         let window = if let Some(window) = self.try_show_existing(app)? {
             window
         } else {
+            let label = self.label();
             let ready_rx = app
                 .try_state::<WindowReadyState>()
-                .map(|state| state.register(self.label()));
+                .map(|state| state.register(label.clone()));
 
-            let window = self.build_window(app)?;
+            let window = match self.build_window(app) {
+                Ok(window) => window,
+                Err(error) => {
+                    if let Some((registration_id, _)) = ready_rx
+                        && let Some(state) = app.try_state::<WindowReadyState>()
+                    {
+                        state.unregister(&label, registration_id);
+                    }
+                    return Err(error);
+                }
+            };
 
-            if let Some(rx) = ready_rx {
+            if let Some((registration_id, rx)) = ready_rx {
                 let _ = tokio::time::timeout(std::time::Duration::from_secs(2), rx).await;
+                if let Some(state) = app.try_state::<WindowReadyState>() {
+                    state.unregister(&label, registration_id);
+                }
             }
 
             self.finalize_show(app, &window)?;

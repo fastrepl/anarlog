@@ -186,7 +186,7 @@ pub async fn test_webhook<R: tauri::Runtime>(
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("webhook '{id}' not found"))?;
-    Ok(dispatch::send_test(&pool, &endpoint).await)
+    dispatch::send_test(&pool, &endpoint).await
 }
 
 #[tauri::command]

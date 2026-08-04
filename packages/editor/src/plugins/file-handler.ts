@@ -17,6 +17,7 @@ export type FileHandlerConfig = {
   ) => FileDropResult;
   onPaste?: (files: File[], items?: DataTransferItemList) => FileDropResult;
   onFileUpload?: (file: File) => Promise<FileUploadResult>;
+  onFileUploadError?: (error: unknown, file: File) => void;
 };
 
 const IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
@@ -97,6 +98,7 @@ export function fileHandlerPlugin(config: FileHandlerConfig) {
           }
         } catch (error) {
           console.error("Failed to upload file:", error);
+          config.onFileUploadError?.(error, file);
         }
       } else if (isImageFile(file)) {
         const reader = new FileReader();

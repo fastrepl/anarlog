@@ -187,6 +187,7 @@ export function createSqliteTaskStorage(
         currentSubscription.active = false;
         if (subscriptions.get(sourceKey) === currentSubscription) {
           subscriptions.delete(sourceKey);
+          releaseSourceSnapshot(source);
         }
         void currentSubscription.unsubscribePromise
           .then((unsubscribe) => unsubscribe())
@@ -299,6 +300,21 @@ export function createSqliteTaskStorage(
       );
     },
   };
+
+  function releaseSourceSnapshot(source: TaskSource) {
+    const sourceKey = createTaskSourceKey(source);
+    const tasks = sourceSnapshots.get(sourceKey);
+    sourceSnapshots.delete(sourceKey);
+    for (const task of tasks ?? []) {
+      const cachedTask = taskSnapshots.get(task.taskId);
+      if (
+        cachedTask?.sourceType === source.type &&
+        cachedTask.sourceId === source.id
+      ) {
+        taskSnapshots.delete(task.taskId);
+      }
+    }
+  }
 }
 
 function persistTaskStatements(

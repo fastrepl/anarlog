@@ -45,6 +45,14 @@ import {
   findMention,
   mentionSkipPlugin,
 } from "../widgets";
+import {
+  canRetainChatImage,
+  CHAT_ATTACHMENT_OVERHEAD_BYTES,
+  estimateImageDataUrlBytes,
+  MAX_CHAT_DRAFT_BYTES,
+  MAX_CHAT_IMAGE_BYTES,
+  utf8Length,
+} from "./attachment-limits";
 import { chatSchema } from "./schema";
 
 export { chatSchema };
@@ -74,6 +82,7 @@ interface ChatEditorProps {
   onUpdate?: (json: JSONContent) => void;
   onSubmit?: () => void;
   onHistoryNavigate?: (direction: "prev" | "next") => boolean;
+  onAttachmentError?: (message: string) => void;
 }
 
 const nodeViews = {
@@ -103,7 +112,9 @@ const mac =
     ? /Mac|iP(hone|[oa]d)/.test(navigator.platform)
     : false;
 
-function fileHandlerPlugin() {
+function fileHandlerPlugin(onAttachmentError: (message: string) => void) {
+  const pendingImages = { bytes: 0 };
+
   return new Plugin({
     key: new PluginKey("chatFileHandler"),
     props: {
@@ -111,32 +122,77 @@ function fileHandlerPlugin() {
         const files = Array.from(event.dataTransfer?.files ?? []);
         if (files.length === 0) return false;
         event.preventDefault();
-        insertFiles(view, files);
+        insertFiles(view, files, pendingImages, onAttachmentError);
         return true;
       },
       handlePaste(view, event) {
         const files = Array.from(event.clipboardData?.files ?? []);
         if (files.length === 0) return false;
-        insertFiles(view, files);
+        insertFiles(view, files, pendingImages, onAttachmentError);
         return true;
       },
     },
   });
 }
 
-function insertFiles(view: EditorView, files: File[]) {
+function insertFiles(
+  view: EditorView,
+  files: File[],
+  pendingImages: { bytes: number },
+  onAttachmentError: (message: string) => void,
+) {
   for (const file of files) {
     if (file.type.startsWith("image/")) {
+      if (file.size > MAX_CHAT_IMAGE_BYTES) {
+        onAttachmentError("Images must be 8 MB or smaller.");
+        continue;
+      }
+      const currentDraftBytes = utf8Length(
+        JSON.stringify(view.state.doc.toJSON()),
+      );
+      if (
+        !canRetainChatImage({
+          fileSize: file.size,
+          mimeType: file.type,
+          currentDraftBytes,
+          pendingImageBytes: pendingImages.bytes,
+        })
+      ) {
+        onAttachmentError(
+          "This image would make the chat draft too large. Remove another image and try again.",
+        );
+        continue;
+      }
+
+      const reservedBytes =
+        estimateImageDataUrlBytes(file.size, file.type) +
+        CHAT_ATTACHMENT_OVERHEAD_BYTES;
+      pendingImages.bytes += reservedBytes;
       const reader = new FileReader();
       reader.readAsDataURL(file);
       reader.onload = () => {
+        pendingImages.bytes -= reservedBytes;
+        const url = reader.result as string;
+        const nextDraftBytes =
+          utf8Length(JSON.stringify(view.state.doc.toJSON())) +
+          utf8Length(url) +
+          CHAT_ATTACHMENT_OVERHEAD_BYTES;
+        if (nextDraftBytes > MAX_CHAT_DRAFT_BYTES) {
+          onAttachmentError(
+            "This image would make the chat draft too large. Remove another image and try again.",
+          );
+          return;
+        }
         insertAttachmentNode(view, {
           id: crypto.randomUUID(),
           name: file.name,
           mimeType: file.type,
-          url: reader.result as string,
+          url,
           size: file.size,
         });
+      };
+      reader.onerror = reader.onabort = () => {
+        pendingImages.bytes -= reservedBytes;
       };
     } else {
       insertAttachmentNode(view, {
@@ -180,6 +236,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
       onUpdate,
       onSubmit,
       onHistoryNavigate,
+      onAttachmentError,
     } = props;
 
     const viewRef = useRef<EditorView | null>(null);
@@ -189,6 +246,8 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
     onUpdateRef.current = onUpdate;
     const onHistoryNavigateRef = useRef(onHistoryNavigate);
     onHistoryNavigateRef.current = onHistoryNavigate;
+    const onAttachmentErrorRef = useRef(onAttachmentError);
+    onAttachmentErrorRef.current = onAttachmentError;
 
     useImperativeHandle(
       ref,
@@ -311,7 +370,7 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
         history(),
         placeholderPlugin(placeholder),
         ...(mentionConfig ? [mentionSkipPlugin()] : []),
-        fileHandlerPlugin(),
+        fileHandlerPlugin((message) => onAttachmentErrorRef.current?.(message)),
       ];
     }, [mentionConfig, placeholder, submitShortcut]);
 

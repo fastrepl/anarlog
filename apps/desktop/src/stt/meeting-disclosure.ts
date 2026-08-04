@@ -6,6 +6,7 @@ export const MEETING_DISCLOSURE_MESSAGE =
 
 const MEETING_DISCLOSURE_MAX_ATTEMPTS = 30;
 const MEETING_DISCLOSURE_RETRY_INTERVAL_MS = 1_000;
+export const MAX_SENT_MEETING_DISCLOSURE_SESSIONS = 256;
 const SLACK_BUNDLE_IDS = new Set([
   "com.slack.Slack",
   "com.tinyspeck.slackmacgap",
@@ -24,10 +25,36 @@ type MeetingDisclosureAttemptOutcome =
 type MeetingDisclosureTask = {
   cancelled: boolean;
   restartWhenSettled?: () => boolean;
-  status: "sending" | "sent";
 };
 
 const meetingDisclosureTasks = new Map<string, MeetingDisclosureTask>();
+const sentMeetingDisclosureSessionIds = new Set<string>();
+
+function hasSentMeetingDisclosure(sessionId: string) {
+  if (!sentMeetingDisclosureSessionIds.has(sessionId)) {
+    return false;
+  }
+
+  sentMeetingDisclosureSessionIds.delete(sessionId);
+  sentMeetingDisclosureSessionIds.add(sessionId);
+  return true;
+}
+
+function rememberSentMeetingDisclosure(sessionId: string) {
+  sentMeetingDisclosureSessionIds.delete(sessionId);
+  sentMeetingDisclosureSessionIds.add(sessionId);
+  while (
+    sentMeetingDisclosureSessionIds.size > MAX_SENT_MEETING_DISCLOSURE_SESSIONS
+  ) {
+    const oldestSessionId = sentMeetingDisclosureSessionIds
+      .values()
+      .next().value;
+    if (oldestSessionId === undefined) {
+      break;
+    }
+    sentMeetingDisclosureSessionIds.delete(oldestSessionId);
+  }
+}
 
 function meetingDisclosureFailure(reason: unknown): MeetingDisclosureOutcome {
   const detail = reason instanceof Error ? reason.message : String(reason);
@@ -149,9 +176,13 @@ export function startMeetingRecordingDisclosure(
   sessionId: string,
   isListening: () => boolean,
 ) {
+  if (hasSentMeetingDisclosure(sessionId)) {
+    return;
+  }
+
   const existingTask = meetingDisclosureTasks.get(sessionId);
   if (existingTask) {
-    if (existingTask.status === "sending" && existingTask.cancelled) {
+    if (existingTask.cancelled) {
       existingTask.restartWhenSettled = isListening;
     }
     return;
@@ -159,32 +190,36 @@ export function startMeetingRecordingDisclosure(
 
   const task: MeetingDisclosureTask = {
     cancelled: false,
-    status: "sending",
   };
   meetingDisclosureTasks.set(sessionId, task);
 
   void sendMeetingRecordingDisclosure({
     isCancelled: () => task.cancelled || !isListening(),
-  }).then((outcome) => {
-    if (meetingDisclosureTasks.get(sessionId) !== task) {
-      return;
-    }
+  }).then(
+    (outcome) => {
+      if (meetingDisclosureTasks.get(sessionId) !== task) {
+        return;
+      }
 
-    if (outcome.status === "sent") {
-      task.status = "sent";
-    } else {
       const restartWhenSettled = task.restartWhenSettled;
       meetingDisclosureTasks.delete(sessionId);
-      if (restartWhenSettled?.()) {
+      if (outcome.status === "sent") {
+        rememberSentMeetingDisclosure(sessionId);
+      } else if (restartWhenSettled?.()) {
         startMeetingRecordingDisclosure(sessionId, restartWhenSettled);
       }
-    }
-  });
+    },
+    () => {
+      if (meetingDisclosureTasks.get(sessionId) === task) {
+        meetingDisclosureTasks.delete(sessionId);
+      }
+    },
+  );
 }
 
 export function cancelMeetingRecordingDisclosure(sessionId: string) {
   const task = meetingDisclosureTasks.get(sessionId);
-  if (!task || task.status === "sent") {
+  if (!task) {
     return;
   }
 

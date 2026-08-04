@@ -3,6 +3,8 @@ use serde::de::DeserializeOwned;
 use crate::token::{Exe0Token, NAMESPACE_API};
 
 pub const DEFAULT_API_BASE: &str = "https://exe.dev";
+const MAX_EXEC_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_ERROR_RESPONSE_BYTES: usize = 64 * 1024;
 
 #[derive(Default)]
 pub struct ExedevClientBuilder {
@@ -121,10 +123,76 @@ impl ExedevClient {
 
 pub(crate) async fn parse_text(response: reqwest::Response) -> Result<String, crate::Error> {
     let status = response.status();
-    let body = response.text().await?;
+    let limit = if status.is_success() {
+        MAX_EXEC_RESPONSE_BYTES
+    } else {
+        MAX_ERROR_RESPONSE_BYTES
+    };
+    let (mut body, truncated) = read_text_prefix(response, limit).await?;
     if status.is_success() {
+        if truncated {
+            return Err(crate::Error::ResponseTooLarge { limit });
+        }
         Ok(body)
     } else {
+        if truncated {
+            body.push_str("\n[response body truncated]");
+        }
         Err(crate::Error::from_status(status.as_u16(), body))
+    }
+}
+
+async fn read_text_prefix(
+    mut response: reqwest::Response,
+    limit: usize,
+) -> Result<(String, bool), reqwest::Error> {
+    let mut body = Vec::with_capacity(
+        response
+            .content_length()
+            .and_then(|length| usize::try_from(length).ok())
+            .unwrap_or_default()
+            .min(limit),
+    );
+    let mut truncated = response
+        .content_length()
+        .is_some_and(|length| length > limit as u64);
+    while let Some(chunk) = response.chunk().await? {
+        let remaining = limit.saturating_sub(body.len());
+        let keep = remaining.min(chunk.len());
+        body.extend_from_slice(&chunk[..keep]);
+        if keep < chunk.len() {
+            truncated = true;
+            break;
+        }
+        if body.len() == limit {
+            if response.chunk().await?.is_some() {
+                truncated = true;
+            }
+            break;
+        }
+    }
+    Ok((String::from_utf8_lossy(&body).into_owned(), truncated))
+}
+
+#[cfg(test)]
+mod tests {
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
+
+    use super::read_text_prefix;
+
+    #[tokio::test]
+    async fn response_reader_only_retains_the_configured_prefix() {
+        let server = MockServer::start().await;
+        Mock::given(path("/large"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 17]))
+            .mount(&server)
+            .await;
+        let response = reqwest::get(format!("{}/large", server.uri()))
+            .await
+            .unwrap();
+
+        let (body, truncated) = read_text_prefix(response, 16).await.unwrap();
+        assert_eq!(body, "x".repeat(16));
+        assert!(truncated);
     }
 }

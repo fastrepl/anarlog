@@ -45,7 +45,7 @@ const useNavigationEvents = () => {
   const openNewNote = useNewNote({ behavior: "new" });
 
   useMountEffect(() => {
-    (window as any).__ANARLOG_NAVIGATE__ = (path: string) => {
+    const navigateFromNative = (path: string) => {
       const match = path.match(/^\/app\/([^/]+)\/(.+)$/);
       if (!match) return;
       const [, type, id] = match;
@@ -63,9 +63,11 @@ const useNavigationEvents = () => {
         });
       }
     };
+    (window as any).__ANARLOG_NAVIGATE__ = navigateFromNative;
 
     let unlistenNavigate: (() => void) | undefined;
     let unlistenOpenTab: (() => void) | undefined;
+    let cancelled = false;
 
     const webview = getCurrentWebviewWindow();
 
@@ -115,7 +117,11 @@ const useNavigationEvents = () => {
         }
       })
       .then((fn) => {
-        unlistenNavigate = fn;
+        if (cancelled) {
+          fn();
+        } else {
+          unlistenNavigate = fn;
+        }
       });
 
     void windowsEvents
@@ -130,11 +136,18 @@ const useNavigationEvents = () => {
         }
       })
       .then((fn) => {
-        unlistenOpenTab = fn;
+        if (cancelled) {
+          fn();
+        } else {
+          unlistenOpenTab = fn;
+        }
       });
 
     return () => {
-      delete (window as any).__ANARLOG_NAVIGATE__;
+      cancelled = true;
+      if ((window as any).__ANARLOG_NAVIGATE__ === navigateFromNative) {
+        delete (window as any).__ANARLOG_NAVIGATE__;
+      }
       unlistenNavigate?.();
       unlistenOpenTab?.();
     };

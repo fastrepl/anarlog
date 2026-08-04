@@ -1,18 +1,22 @@
+use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use anlg_audio_utils::{Source, f32_to_i16_bytes, resample_audio, source_from_path};
+use anlg_audio_utils::{
+    Source, f32_to_i16_bytes, for_each_resampled_channel_block, source_from_path,
+};
 use futures_util::StreamExt;
 use owhisper_interface::batch::Response as BatchResponse;
 use owhisper_interface::batch_stream::BatchStreamEvent;
 use owhisper_interface::stream::StreamResponse;
 use owhisper_interface::{ControlMessage, ListenParams, MixedMessage};
+use tokio::io::AsyncReadExt;
 use tokio_stream::StreamExt as TokioStreamExt;
 
-use crate::ListenClientBuilder;
 use crate::adapter::deepgram_compat::build_batch_url;
 use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware};
 use crate::error::Error;
+use crate::{ListenClientBuilder, ListenClientInput};
 
 use super::{ArgmaxAdapter, keywords::ArgmaxKeywordStrategy, language::ArgmaxLanguageStrategy};
 
@@ -49,7 +53,8 @@ async fn do_transcribe_file(
     params: &ListenParams,
     file_path: PathBuf,
 ) -> Result<BatchResponse, Error> {
-    let (audio_data, sample_rate) = decode_audio_to_linear16(file_path).await?;
+    let prepared = prepare_linear16(file_path, ChannelLayout::Mono).await?;
+    let sample_rate = prepared.sample_rate;
 
     let url = {
         let mut url = build_batch_url(
@@ -65,12 +70,15 @@ async fn do_transcribe_file(
 
     let content_type = format!("audio/raw;encoding=linear16;rate={}", sample_rate);
 
+    let content_length = prepared.byte_len;
+    let audio_file = tokio::fs::File::from_std(prepared.file);
     let response = client
         .post(url)
         .header("Authorization", format!("Token {}", api_key))
         .header("Accept", "application/json")
         .header("Content-Type", content_type)
-        .body(audio_data)
+        .header("Content-Length", content_length.to_string())
+        .body(audio_file)
         .send()
         .await?;
 
@@ -80,52 +88,100 @@ async fn do_transcribe_file(
     } else {
         Err(Error::UnexpectedStatus {
             status,
-            body: response.text().await.unwrap_or_default(),
+            body: crate::adapter::http::error_body(response).await,
         })
     }
 }
 
-async fn decode_audio_to_linear16(path: PathBuf) -> Result<(bytes::Bytes, u32), Error> {
-    tokio::task::spawn_blocking(move || -> Result<(bytes::Bytes, u32), Error> {
-        let decoder =
-            source_from_path(&path).map_err(|err| Error::AudioProcessing(err.to_string()))?;
+#[derive(Clone, Copy)]
+enum ChannelLayout {
+    Mono,
+    Interleaved,
+}
 
-        let channels: u16 = decoder.channels().into();
-        let sample_rate: u32 = decoder.sample_rate().into();
+struct PreparedLinear16 {
+    file: std::fs::File,
+    sample_rate: u32,
+    channel_count: usize,
+    frame_count: usize,
+    byte_len: u64,
+}
 
-        let samples = resample_audio(decoder, sample_rate)
-            .map_err(|err| Error::AudioProcessing(err.to_string()))?;
+#[derive(Debug, thiserror::Error)]
+enum PrepareLinear16Error {
+    #[error(transparent)]
+    Audio(#[from] anlg_audio_utils::Error),
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
 
-        let samples = if channels == 1 {
-            samples
-        } else {
-            let channels_usize = channels as usize;
-            let mut mono = Vec::with_capacity(samples.len() / channels_usize);
-            for frame in samples.chunks(channels_usize) {
-                if frame.is_empty() {
-                    continue;
-                }
-                let sum: f32 = frame.iter().copied().sum();
-                mono.push(sum / frame.len() as f32);
-            }
-            mono
-        };
+async fn prepare_linear16(path: PathBuf, layout: ChannelLayout) -> Result<PreparedLinear16, Error> {
+    tokio::task::spawn_blocking(move || prepare_linear16_blocking(&path, layout))
+        .await?
+        .map_err(|error| Error::AudioProcessing(error.to_string()))
+}
 
-        if samples.is_empty() {
-            return Err(Error::AudioProcessing(
-                "audio file contains no samples".to_string(),
-            ));
-        }
+fn prepare_linear16_blocking(
+    path: &Path,
+    layout: ChannelLayout,
+) -> Result<PreparedLinear16, PrepareLinear16Error> {
+    let decoder = source_from_path(path)?;
+    let sample_rate: u32 = decoder.sample_rate().into();
+    let mut file = tempfile::tempfile()?;
+    let info = write_linear16(decoder, sample_rate, layout, &mut file)?;
 
-        let bytes = f32_to_i16_bytes(samples.into_iter());
+    if info.frame_count == 0 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "audio file contains no samples",
+        )
+        .into());
+    }
 
-        Ok((bytes, sample_rate))
+    let byte_len = file.stream_position()?;
+    file.seek(SeekFrom::Start(0))?;
+
+    Ok(PreparedLinear16 {
+        file,
+        sample_rate: info.sample_rate,
+        channel_count: match layout {
+            ChannelLayout::Mono => 1,
+            ChannelLayout::Interleaved => info.channels,
+        },
+        frame_count: info.frame_count,
+        byte_len,
     })
-    .await?
+}
+
+fn write_linear16<S, W>(
+    source: S,
+    sample_rate: u32,
+    layout: ChannelLayout,
+    writer: &mut W,
+) -> Result<anlg_audio_utils::ResampledAudioInfo, PrepareLinear16Error>
+where
+    S: Source,
+    W: Write,
+{
+    for_each_resampled_channel_block(source, sample_rate, |channels| {
+        let frame_count = channels.first().map_or(0, |channel| channel.len());
+        let samples = match layout {
+            ChannelLayout::Mono => f32_to_i16_bytes((0..frame_count).map(|frame| {
+                channels.iter().map(|channel| channel[frame]).sum::<f32>() / channels.len() as f32
+            })),
+            ChannelLayout::Interleaved => f32_to_i16_bytes(
+                (0..frame_count)
+                    .flat_map(|frame| channels.iter().map(move |channel| channel[frame])),
+            ),
+        };
+        writer.write_all(&samples)?;
+        Ok(())
+    })
 }
 
 const DEFAULT_CHUNK_MS: u64 = 500;
 const DEFAULT_DELAY_MS: u64 = 20;
+const MAX_STREAMING_CHUNK_BYTES: usize = 256 * 1024;
 
 #[derive(Clone, Copy)]
 pub struct StreamingBatchConfig {
@@ -168,26 +224,17 @@ impl ArgmaxAdapter {
         let config = config.unwrap_or_default();
         let path = file_path.as_ref().to_path_buf();
 
-        let chunked_audio = tokio::task::spawn_blocking({
-            let chunk_ms = config.chunk_ms;
-            move || anlg_audio_utils::chunk_audio_file(path, chunk_ms)
-        })
-        .await
-        .map_err(|e| Error::AudioProcessing(format!("chunk task panicked: {:?}", e)))?
-        .map_err(|e| Error::AudioProcessing(format!("{:?}", e)))?;
-
-        let frame_count = chunked_audio.frame_count;
-        let metadata = chunked_audio.metadata;
-        let audio_duration_secs = if frame_count == 0 || metadata.sample_rate == 0 {
+        let prepared = prepare_linear16(path, ChannelLayout::Interleaved).await?;
+        let audio_duration_secs = if prepared.sample_rate == 0 {
             0.0
         } else {
-            frame_count as f64 / metadata.sample_rate as f64
+            prepared.frame_count as f64 / prepared.sample_rate as f64
         };
 
-        let channel_count = metadata.channels.clamp(1, 2);
+        let channel_count = prepared.channel_count.clamp(1, 2) as u8;
         let listen_params = ListenParams {
             channels: channel_count,
-            sample_rate: metadata.sample_rate,
+            sample_rate: prepared.sample_rate,
             ..params.clone()
         };
 
@@ -199,8 +246,13 @@ impl ArgmaxAdapter {
             .build_with_channels(channel_count)
             .await?;
 
+        let chunk_bytes = streaming_chunk_bytes(
+            prepared.sample_rate,
+            prepared.channel_count,
+            config.chunk_ms,
+        );
         let audio_stream =
-            tokio_stream::iter(chunked_audio.chunks.into_iter().map(MixedMessage::Audio));
+            linear16_file_stream(tokio::fs::File::from_std(prepared.file), chunk_bytes);
         let finalize_stream =
             tokio_stream::iter(vec![MixedMessage::Control(ControlMessage::Finalize)]);
         let outbound = TokioStreamExt::throttle(
@@ -224,6 +276,39 @@ impl ArgmaxAdapter {
 
         Ok(Box::pin(mapped_stream))
     }
+}
+
+fn streaming_chunk_bytes(sample_rate: u32, channel_count: usize, chunk_ms: u64) -> usize {
+    let bytes_per_frame = channel_count.max(1).saturating_mul(size_of::<i16>());
+    let frames = (chunk_ms as u128)
+        .saturating_mul(sample_rate as u128)
+        .div_ceil(1000)
+        .max(1);
+    let requested = frames
+        .saturating_mul(bytes_per_frame as u128)
+        .min(usize::MAX as u128) as usize;
+
+    requested.clamp(bytes_per_frame, MAX_STREAMING_CHUNK_BYTES) / bytes_per_frame * bytes_per_frame
+}
+
+fn linear16_file_stream(
+    file: tokio::fs::File,
+    chunk_bytes: usize,
+) -> impl futures_util::Stream<Item = ListenClientInput> + Send {
+    futures_util::stream::unfold(file, move |mut file| async move {
+        let mut bytes = vec![0; chunk_bytes];
+        match file.read(&mut bytes).await {
+            Ok(0) => None,
+            Ok(read) => {
+                bytes.truncate(read);
+                Some((MixedMessage::Audio(bytes.into()), file))
+            }
+            Err(error) => {
+                tracing::warn!(error.message = %error, "argmax_linear16_spool_read_failed");
+                None
+            }
+        }
+    })
 }
 
 fn to_batch_stream_event(response: StreamResponse, percentage: f64) -> BatchStreamEvent {
@@ -295,6 +380,155 @@ fn transcript_end_from_response(response: &StreamResponse) -> Option<f64> {
 mod tests {
     use super::*;
     use crate::http_client::create_client;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[derive(Default)]
+    struct TrackingWriter {
+        total_bytes: usize,
+        max_write_bytes: usize,
+        write_count: usize,
+    }
+
+    impl Write for TrackingWriter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.total_bytes += bytes.len();
+            self.max_write_bytes = self.max_write_bytes.max(bytes.len());
+            self.write_count += 1;
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn long_linear16_input_is_written_in_bounded_blocks() {
+        let frame_count = 16_000 * 60;
+        let source = rodio::source::Zero::new_samples(
+            rodio::nz!(2u16),
+            rodio::nz!(16_000u32),
+            frame_count * 2,
+        );
+        let mut writer = TrackingWriter::default();
+
+        let info = write_linear16(source, 16_000, ChannelLayout::Mono, &mut writer).unwrap();
+
+        assert_eq!(info.frame_count, frame_count);
+        assert_eq!(writer.total_bytes, frame_count * size_of::<i16>());
+        assert!(writer.write_count > 100);
+        assert!(writer.max_write_bytes <= 1024 * size_of::<i16>());
+    }
+
+    #[test]
+    fn linear16_writer_preserves_interleaved_channel_order() {
+        let source = rodio::buffer::SamplesBuffer::new(
+            rodio::nz!(2u16),
+            rodio::nz!(16_000u32),
+            vec![0.25, -0.25, 0.5, -0.5],
+        );
+        let mut output = Vec::new();
+
+        let info = write_linear16(source, 16_000, ChannelLayout::Interleaved, &mut output).unwrap();
+        let samples = output
+            .chunks_exact(2)
+            .map(|bytes| i16::from_le_bytes([bytes[0], bytes[1]]))
+            .collect::<Vec<_>>();
+
+        assert_eq!(info.channels, 2);
+        assert_eq!(info.frame_count, 2);
+        assert_eq!(samples, vec![8192, -8192, 16384, -16384]);
+    }
+
+    #[tokio::test]
+    async fn progressive_file_stream_keeps_chunks_bounded_and_ordered() {
+        let total_bytes = MAX_STREAMING_CHUNK_BYTES * 3 + 124;
+        let mut file = tempfile::tempfile().unwrap();
+        for offset in (0..total_bytes).step_by(4096) {
+            let write_len = (total_bytes - offset).min(4096);
+            let bytes = (offset..offset + write_len)
+                .map(|index| index as u8)
+                .collect::<Vec<_>>();
+            file.write_all(&bytes).unwrap();
+        }
+        file.seek(SeekFrom::Start(0)).unwrap();
+
+        let mut stream = Box::pin(linear16_file_stream(
+            tokio::fs::File::from_std(file),
+            MAX_STREAMING_CHUNK_BYTES,
+        ));
+        let mut offset = 0usize;
+        let mut chunk_count = 0usize;
+
+        while let Some(message) = futures_util::StreamExt::next(&mut stream).await {
+            let MixedMessage::Audio(bytes) = message else {
+                panic!("file stream emitted a control message");
+            };
+            assert!(bytes.len() <= MAX_STREAMING_CHUNK_BYTES);
+            for (index, byte) in bytes.iter().enumerate() {
+                assert_eq!(*byte, (offset + index) as u8);
+            }
+            offset += bytes.len();
+            chunk_count += 1;
+        }
+
+        assert_eq!(offset, total_bytes);
+        assert_eq!(chunk_count, 4);
+    }
+
+    #[test]
+    fn streaming_chunk_size_is_capped_and_frame_aligned() {
+        let chunk_bytes = streaming_chunk_bytes(192_000, 8, u64::MAX);
+
+        assert!(chunk_bytes <= MAX_STREAMING_CHUNK_BYTES);
+        assert_eq!(chunk_bytes % (8 * size_of::<i16>()), 0);
+    }
+
+    #[tokio::test]
+    async fn batch_request_streams_exact_linear16_body_length() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/listen"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "metadata": {},
+                "results": { "channels": [] }
+            })))
+            .mount(&server)
+            .await;
+
+        do_transcribe_file(
+            &create_client(),
+            &server.uri(),
+            "test-key",
+            &ListenParams::default(),
+            anlg_data::english_1::AUDIO_PATH.into(),
+        )
+        .await
+        .unwrap();
+
+        let request = server.received_requests().await.unwrap().pop().unwrap();
+        let content_length = request.headers["content-length"]
+            .to_str()
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let content_type = request.headers["content-type"].to_str().unwrap();
+        let sample_rate = request
+            .url
+            .query_pairs()
+            .find(|(key, _)| key == "sample_rate")
+            .map(|(_, value)| value.into_owned())
+            .unwrap();
+
+        assert!(!request.body.is_empty());
+        assert_eq!(content_length, request.body.len());
+        assert_eq!(
+            content_type,
+            format!("audio/raw;encoding=linear16;rate={sample_rate}")
+        );
+        assert_eq!(request.body.len() % size_of::<i16>(), 0);
+    }
 
     #[tokio::test]
     #[ignore]

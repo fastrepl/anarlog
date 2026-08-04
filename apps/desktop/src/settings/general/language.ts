@@ -1,3 +1,4 @@
+const MAX_DISPLAY_NAME_LOCALES = 16;
 const displayNamesByLocale = new Map<string, Intl.DisplayNames>();
 
 export const CORE_TRANSCRIPTION_LANGUAGE_CODES = [
@@ -116,11 +117,20 @@ function getDisplayNames(displayLocale: string) {
   const existing = displayNamesByLocale.get(locale);
 
   if (existing) {
+    displayNamesByLocale.delete(locale);
+    displayNamesByLocale.set(locale, existing);
     return existing;
   }
 
   const displayNames = new Intl.DisplayNames([locale], { type: "language" });
   displayNamesByLocale.set(locale, displayNames);
+  while (displayNamesByLocale.size > MAX_DISPLAY_NAME_LOCALES) {
+    const oldestLocale = displayNamesByLocale.keys().next().value;
+    if (oldestLocale === undefined) {
+      break;
+    }
+    displayNamesByLocale.delete(oldestLocale);
+  }
 
   return displayNames;
 }

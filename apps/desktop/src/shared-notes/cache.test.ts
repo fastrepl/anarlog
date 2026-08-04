@@ -359,6 +359,25 @@ describe("durable shared-note cache", () => {
     expect(mocks.executeTransaction).not.toHaveBeenCalled();
   });
 
+  it("skips a guarded replacement after its viewer is evicted", async () => {
+    const snapshot = parseDurableSharedNoteSnapshots([serverRow])[0]!;
+    const capturedVersion =
+      captureDurableSharedNoteCacheMutationVersion("evicted-viewer");
+    for (let index = 0; index < 64; index += 1) {
+      captureDurableSharedNoteCacheMutationVersion(`newer-viewer-${index}`);
+    }
+    mocks.executeTransaction.mockClear();
+
+    await expect(
+      replaceDurableSharedNoteCache(
+        "evicted-viewer",
+        [snapshot],
+        capturedVersion,
+      ),
+    ).resolves.toBe(false);
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
   it("maps raw SQLite JSON and boolean values", () => {
     expect(
       mapSharedNoteLiveRows([

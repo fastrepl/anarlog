@@ -5716,6 +5716,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "url",
+ "wiremock",
 ]
 
 [[package]]
@@ -10689,6 +10690,7 @@ dependencies = [
  "owhisper-interface",
  "ractor",
  "reqwest-middleware",
+ "rodio",
  "serde",
  "serde_json",
  "specta",
@@ -12781,6 +12783,7 @@ dependencies = [
  "serde_json",
  "soniox",
  "strum 0.28.0",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-stream",
@@ -18575,6 +18578,7 @@ version = "0.1.0"
 dependencies = [
  "agent-access",
  "axum 0.8.9",
+ "bytes",
  "chrono",
  "db-app",
  "db-core",
@@ -20549,6 +20553,7 @@ dependencies = [
  "data",
  "dirs 6.0.0",
  "futures-util",
+ "hound",
  "model-manager",
  "owhisper-client",
  "owhisper-interface",

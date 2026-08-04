@@ -166,10 +166,6 @@ impl GladiaAdapter {
     ) -> Result<BatchResponse, Error> {
         let base_url = Self::batch_api_url(api_base);
 
-        let file_bytes = tokio::fs::read(&file_path)
-            .await
-            .map_err(|e| Error::AudioProcessing(format!("failed to read file: {}", e)))?;
-
         let file_name = file_path
             .file_name()
             .and_then(|n| n.to_str())
@@ -188,13 +184,13 @@ impl GladiaAdapter {
 
         let mut upload_url = base_url.clone();
         append_path_if_missing(&mut upload_url, "upload");
-        let form = reqwest::multipart::Form::new().part(
-            "audio",
-            reqwest::multipart::Part::bytes(file_bytes)
-                .file_name(file_name)
-                .mime_str(mime_type)
-                .map_err(|e| Error::AudioProcessing(e.to_string()))?,
-        );
+        let file_part = reqwest::multipart::Part::file(&file_path)
+            .await
+            .map_err(|e| Error::AudioProcessing(format!("failed to open file: {e}")))?
+            .file_name(file_name)
+            .mime_str(mime_type)
+            .map_err(|e| Error::AudioProcessing(e.to_string()))?;
+        let form = reqwest::multipart::Form::new().part("audio", file_part);
 
         let upload_response = client
             .post(upload_url.to_string())
@@ -207,7 +203,7 @@ impl GladiaAdapter {
         if !upload_status.is_success() {
             return Err(Error::UnexpectedStatus {
                 status: upload_status,
-                body: upload_response.text().await.unwrap_or_default(),
+                body: crate::adapter::http::error_body(upload_response).await,
             });
         }
 
@@ -257,7 +253,7 @@ impl GladiaAdapter {
         if !create_status.is_success() {
             return Err(Error::UnexpectedStatus {
                 status: create_status,
-                body: create_response.text().await.unwrap_or_default(),
+                body: crate::adapter::http::error_body(create_response).await,
             });
         }
 
@@ -283,7 +279,7 @@ impl GladiaAdapter {
                 if !poll_status.is_success() {
                     return Err(Error::UnexpectedStatus {
                         status: poll_status,
-                        body: poll_response.text().await.unwrap_or_default(),
+                        body: crate::adapter::http::error_body(poll_response).await,
                     });
                 }
 

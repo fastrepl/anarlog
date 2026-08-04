@@ -357,7 +357,25 @@ export function SelectProviderAndModel() {
 
 const TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID =
   "transcription-language-warning";
+const MAX_DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS = 128;
 const dismissedTranscriptionLanguageWarningKeys = new Set<string>();
+
+function rememberDismissedTranscriptionLanguageWarning(warningKey: string) {
+  dismissedTranscriptionLanguageWarningKeys.delete(warningKey);
+  dismissedTranscriptionLanguageWarningKeys.add(warningKey);
+  while (
+    dismissedTranscriptionLanguageWarningKeys.size >
+    MAX_DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS
+  ) {
+    const oldestWarningKey = dismissedTranscriptionLanguageWarningKeys
+      .values()
+      .next().value;
+    if (oldestWarningKey === undefined) {
+      break;
+    }
+    dismissedTranscriptionLanguageWarningKeys.delete(oldestWarningKey);
+  }
+}
 
 function TranscriptionLanguageWarningToast() {
   const { i18n, t } = useLingui();
@@ -414,7 +432,7 @@ function TranscriptionLanguageWarningToastLifecycle({
       action: {
         label: actionLabel,
         onClick: () => {
-          dismissedTranscriptionLanguageWarningKeys.add(warningKey);
+          rememberDismissedTranscriptionLanguageWarning(warningKey);
           clearTranscriptionLanguageWarningToast();
         },
       },

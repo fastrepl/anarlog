@@ -74,15 +74,21 @@ async fn do_transcribe_file(
         }
     }
 
-    let bytes = tokio::fs::read(&file_path)
+    let file = tokio::fs::File::open(&file_path)
         .await
-        .map_err(|e| Error::AudioProcessing(format!("failed to read file: {e}")))?;
+        .map_err(|e| Error::AudioProcessing(format!("failed to open file: {e}")))?;
+    let content_length = file
+        .metadata()
+        .await
+        .map_err(|e| Error::AudioProcessing(format!("failed to inspect file: {e}")))?
+        .len();
 
     let response = client
         .post(url.to_string())
         .header("Authorization", format!("Bearer {api_key}"))
         .header("Content-Type", mime_type_from_extension(&file_path))
-        .body(bytes)
+        .header("Content-Length", content_length)
+        .body(file)
         .send()
         .await?;
 
@@ -92,7 +98,7 @@ async fn do_transcribe_file(
     } else {
         Err(Error::UnexpectedStatus {
             status,
-            body: response.text().await.unwrap_or_default(),
+            body: crate::adapter::http::error_body(response).await,
         })
     }
 }

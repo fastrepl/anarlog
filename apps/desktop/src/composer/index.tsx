@@ -12,6 +12,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
 import type { PlaceholderFunction } from "@anlg/editor/plugins";
 import { commands as windowsCommands } from "@anlg/plugin-windows";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { useLanguageModel } from "~/ai/hooks";
@@ -243,6 +244,7 @@ function ComposerInput({
 
       <ChatEditor
         ref={editorRef}
+        onAttachmentError={(message) => sonnerToast.error(message)}
         className={cn([
           "text-primary-foreground max-h-[88px] min-h-[34px] overflow-y-auto text-[15px] leading-6",
           "[&_.ProseMirror]:min-h-[34px] [&_.ProseMirror]:outline-none",

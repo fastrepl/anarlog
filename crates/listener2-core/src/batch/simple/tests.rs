@@ -208,34 +208,172 @@ async fn direct_provider_timeout_cancels_non_responding_request() {
 }
 
 #[test]
-fn collapses_effectively_identical_stereo_channels() {
-    let channels =
-        collapse_identical_channels(vec![vec![0.1, 0.2, 0.3], vec![0.1001, 0.2001, 0.3001]]);
-
-    assert_eq!(channels, vec![vec![0.1, 0.2, 0.3]]);
-}
-
-#[test]
-fn keeps_distinct_stereo_channels() {
-    let channels = collapse_identical_channels(vec![vec![0.1, 0.2], vec![0.9, 0.8]]);
-
-    assert_eq!(channels, vec![vec![0.1, 0.2], vec![0.9, 0.8]]);
-}
-
-#[test]
-fn parakeet_batch_uses_fixed_audio_windows() {
-    let samples = vec![0.0; SONIQO_PARAKEET_MAX_CHUNK_SAMPLES * 2 + TARGET_SAMPLE_RATE as usize];
+fn parakeet_batch_reads_bounded_contiguous_chunks_from_disk() {
+    let file = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    let total_samples = SONIQO_PARAKEET_MAX_CHUNK_SAMPLES * 2 + TARGET_SAMPLE_RATE as usize;
+    write_test_wav_samples(file.path(), total_samples);
     let chunks =
-        soniqo_channel_chunks(anlg_transcribe_soniqo::SoniqoModel::ParakeetBatch, &samples)
-            .unwrap();
+        FixedSoniqoFileChunkIterator::new(file, SONIQO_PARAKEET_MAX_CHUNK_SAMPLES).unwrap();
+    let mut previous_end = 0usize;
+    let mut chunk_count = 0usize;
 
-    assert_eq!(chunks.len(), 3);
-    assert_eq!(chunks[0].sample_start, 0);
-    assert_eq!(chunks[0].sample_end, SONIQO_PARAKEET_MAX_CHUNK_SAMPLES);
-    assert_eq!(chunks[1].sample_start, chunks[0].sample_end);
-    assert_eq!(chunks[1].sample_end, SONIQO_PARAKEET_MAX_CHUNK_SAMPLES * 2);
-    assert_eq!(chunks[2].sample_start, chunks[1].sample_end);
-    assert_eq!(chunks[2].samples.len(), TARGET_SAMPLE_RATE as usize);
+    for chunk in chunks {
+        let chunk = chunk.unwrap();
+        assert_eq!(chunk.sample_start, previous_end);
+        assert!(chunk.samples.len() <= SONIQO_PARAKEET_MAX_CHUNK_SAMPLES);
+        previous_end = chunk.sample_end;
+        chunk_count += 1;
+    }
+
+    assert_eq!(chunk_count, 3);
+    assert_eq!(previous_end, total_samples);
+}
+
+#[test]
+fn soniqo_chunk_strategy_preserves_each_model_input_contract() {
+    for model in [
+        anlg_transcribe_soniqo::SoniqoModel::ParakeetStreaming,
+        anlg_transcribe_soniqo::SoniqoModel::ParakeetBatch,
+    ] {
+        assert_eq!(
+            soniqo_chunk_strategy(model),
+            SoniqoChunkStrategy::Fixed {
+                max_samples: SONIQO_PARAKEET_MAX_CHUNK_SAMPLES,
+            }
+        );
+    }
+
+    for model in [
+        anlg_transcribe_soniqo::SoniqoModel::Omnilingual,
+        anlg_transcribe_soniqo::SoniqoModel::Qwen3Small,
+        anlg_transcribe_soniqo::SoniqoModel::Qwen3Large,
+    ] {
+        assert_eq!(
+            soniqo_chunk_strategy(model),
+            SoniqoChunkStrategy::SpeechAware
+        );
+    }
+}
+
+#[test]
+fn channel_spooling_stops_cooperatively_when_cancelled() {
+    let source_file = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_test_wav_samples(source_file.path(), TARGET_SAMPLE_RATE as usize);
+    let source = anlg_audio_utils::source_from_path(source_file.path()).unwrap();
+    let cancellation_checks = std::cell::Cell::new(0usize);
+
+    let error = resample_audio_to_channel_files_until("source.wav", source, || {
+        let current = cancellation_checks.get();
+        cancellation_checks.set(current + 1);
+        current > 0
+    })
+    .expect_err("resampling should stop after cancellation");
+
+    assert!(error.contains(LOCAL_BATCH_CANCELLED));
+    assert!(cancellation_checks.get() >= 2);
+}
+
+#[test]
+fn long_exact_speaker_diarization_fails_before_loading_samples() {
+    assert!(ensure_soniqo_diarization_within_limit(SONIQO_DIARIZATION_MAX_SAMPLES).is_ok());
+    let error =
+        ensure_soniqo_diarization_within_limit(SONIQO_DIARIZATION_MAX_SAMPLES + 1).unwrap_err();
+
+    assert!(error.contains("10 minutes"));
+    assert!(error.contains("without an exact speaker count"));
+
+    let long_channel = [SONIQO_DIARIZATION_MAX_SAMPLES + 1];
+    assert!(ensure_soniqo_diarization_plan_within_limit(&long_channel, None).is_ok());
+    assert!(ensure_soniqo_diarization_plan_within_limit(&long_channel, Some(2)).is_err());
+    let long_stereo = [
+        SONIQO_DIARIZATION_MAX_SAMPLES + 1,
+        SONIQO_DIARIZATION_MAX_SAMPLES + 1,
+    ];
+    assert!(ensure_soniqo_diarization_plan_within_limit(&long_stereo, Some(2)).is_ok());
+    assert!(ensure_soniqo_diarization_plan_within_limit(&long_stereo, Some(3)).is_err());
+}
+
+#[test]
+fn channel_spooling_preserves_channel_order_without_retaining_audio() {
+    let directory = tempfile::tempdir().unwrap();
+    let source_path = directory.path().join("source.wav");
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(&source_path, spec).unwrap();
+    for sample in [0.1, 0.9, 0.2, 0.8] {
+        writer.write_sample(sample).unwrap();
+    }
+    writer.finalize().unwrap();
+    let source = anlg_audio_utils::source_from_path(&source_path).unwrap();
+
+    let channels = resample_audio_to_channel_files(source_path.to_str().unwrap(), source).unwrap();
+
+    assert_eq!(channels.len(), 2);
+    assert_eq!(channels[0].sample_count, 2);
+    assert_eq!(channels[0].file.path().parent(), Some(directory.path()));
+    let read = channels
+        .iter()
+        .map(|channel| {
+            hound::WavReader::open(channel.file.path())
+                .unwrap()
+                .samples::<f32>()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(read, vec![vec![0.1, 0.2], vec![0.9, 0.8]]);
+}
+
+#[test]
+fn channel_spooling_discards_effectively_identical_duplicate_channel() {
+    let directory = tempfile::tempdir().unwrap();
+    let source_path = directory.path().join("source.wav");
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writer = hound::WavWriter::create(&source_path, spec).unwrap();
+    for sample in [0.1, 0.1001, 0.2, 0.2001] {
+        writer.write_sample(sample).unwrap();
+    }
+    writer.finalize().unwrap();
+    let source = anlg_audio_utils::source_from_path(&source_path).unwrap();
+
+    let channels = resample_audio_to_channel_files(source_path.to_str().unwrap(), source).unwrap();
+
+    assert_eq!(channels.len(), 1);
+    assert_eq!(channels[0].sample_count, 2);
+}
+
+#[test]
+fn channel_spooling_rejects_unsupported_channel_count_before_reading_audio() {
+    let source_file = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    let writer = hound::WavWriter::create(
+        source_file.path(),
+        hound::WavSpec {
+            channels: (MAX_LOCAL_BATCH_CHANNELS + 1) as u16,
+            sample_rate: TARGET_SAMPLE_RATE,
+            bits_per_sample: 32,
+            sample_format: hound::SampleFormat::Float,
+        },
+    )
+    .unwrap();
+    writer.finalize().unwrap();
+    let source = anlg_audio_utils::source_from_path(source_file.path()).unwrap();
+
+    let error = match resample_audio_to_channel_files("source.wav", source) {
+        Ok(_) => panic!("unsupported channel count should fail"),
+        Err(error) => error,
+    };
+
+    assert!(error.contains("at most 8 audio channels"));
+    assert!(error.contains("declares 9"));
 }
 
 #[test]
@@ -260,16 +398,6 @@ fn soniqo_language_hint_uses_base_language_code() {
     assert_eq!(soniqo_language_hint(Some(" fr ")).as_deref(), Some("fr"));
     assert_eq!(soniqo_language_hint(Some("")).as_deref(), None);
     assert_eq!(soniqo_language_hint(None).as_deref(), None);
-}
-
-#[test]
-fn parakeet_batch_uses_resilient_chunking() {
-    assert!(uses_resilient_soniqo_chunking(
-        anlg_transcribe_soniqo::SoniqoModel::ParakeetBatch
-    ));
-    assert!(!uses_resilient_soniqo_chunking(
-        anlg_transcribe_soniqo::SoniqoModel::Omnilingual
-    ));
 }
 
 #[test]

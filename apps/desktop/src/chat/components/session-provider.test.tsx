@@ -90,6 +90,11 @@ vi.mock("~/shared/owner-user", () => ({
 import { ChatSession, type ChatSessionRenderProps } from "./session-provider";
 
 import {
+  clearFailedChatGroupCreate,
+  isFailedChatGroupCreate,
+  markFailedChatGroupCreate,
+} from "~/chat/store/pending-persists";
+import {
   buildPersistedChatMessage,
   type ChatMessageRecord,
 } from "~/chat/store/persisted-messages";
@@ -1875,6 +1880,24 @@ describe("ChatSession", () => {
 
     expect(mocks.upsertChatMessage).not.toHaveBeenCalled();
     expect(mocks.endCloudsyncActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains a failed new-group marker for a finish callback after teardown", async () => {
+    const groupId = "failed-group-after-unmount";
+    markFailedChatGroupCreate(groupId);
+    const view = render(
+      <ChatSession chatGroupId={groupId} sessionId="session-1">
+        {() => null}
+      </ChatSession>,
+    );
+
+    view.unmount();
+    await waitFor(() =>
+      expect(mocks.flushDatabaseWritesByPrefix).toHaveBeenCalledWith(["chat:"]),
+    );
+
+    expect(isFailedChatGroupCreate(groupId)).toBe(true);
+    clearFailedChatGroupCreate(groupId);
   });
 
   it("can start chat after StrictMode replays mount cleanup", async () => {

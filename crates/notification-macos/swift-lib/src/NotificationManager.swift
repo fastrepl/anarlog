@@ -35,15 +35,29 @@ class NotificationManager {
   }
 
   func dismissAll() {
-    activeNotifications.values.forEach { $0.dismiss() }
+    let dismiss = { [self] in
+      Array(activeNotifications.values).forEach { $0.dismiss() }
+    }
+    if Thread.isMainThread {
+      dismiss()
+    } else {
+      DispatchQueue.main.sync(execute: dismiss)
+    }
   }
 
-  func removeNotification(_ notification: NotificationInstance) {
+  func dismissExistingNotification(forKey key: String) {
+    activeNotifications[key]?.dismiss()
+  }
+
+  @discardableResult
+  func removeNotification(_ notification: NotificationInstance) -> Bool {
+    guard activeNotifications[notification.key] === notification else { return false }
     activeNotifications.removeValue(forKey: notification.key)
     hoverStates.removeValue(forKey: notification.key)
     repositionNotifications()
     stopMouseMonitorsIfNeeded()
     stopNativeNotificationMonitorIfNeeded()
+    return true
   }
 
   func setupApplicationIfNeeded() {
@@ -56,7 +70,10 @@ class NotificationManager {
   func manageNotificationLimit() {
     while activeNotifications.count >= maxNotifications {
       if let oldest = activeNotifications.values.min(by: { $0.creationIndex < $1.creationIndex }) {
+        removeNotification(oldest)
         oldest.dismiss()
+      } else {
+        break
       }
     }
   }

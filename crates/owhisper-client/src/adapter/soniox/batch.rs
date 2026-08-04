@@ -25,18 +25,8 @@ impl SonioxAdapter {
             .unwrap_or("audio.wav")
             .to_string();
 
-        let file_bytes = tokio::fs::read(file_path).await.map_err(|e| {
-            Error::AudioProcessing(format!(
-                "failed to read file {}: {}",
-                file_path.display(),
-                e
-            ))
-        })?;
-
         tracing::info!(anarlog.file.path = %file_path.display(), "uploading_file_to_soniox");
-        let file_id = soniox::upload_file(&client, &file_name, file_bytes, api_key)
-            .await
-            .map_err(soniox_err)?;
+        let file_id = upload_file(&client, file_path, file_name, api_key).await?;
 
         tracing::info!(anarlog.file.id = %file_id, "soniox_file_uploaded");
         let result = Self::transcribe_and_fetch(&client, api_key, params, &file_id).await;
@@ -148,6 +138,39 @@ impl SonioxAdapter {
             },
         }
     }
+}
+
+async fn upload_file(
+    client: &reqwest::Client,
+    file_path: &Path,
+    file_name: String,
+    api_key: &str,
+) -> Result<String, Error> {
+    let part = reqwest::multipart::Part::file(file_path)
+        .await
+        .map_err(|e| Error::AudioProcessing(format!("failed to open file: {e}")))?
+        .file_name(file_name);
+    let form = reqwest::multipart::Form::new().part("file", part);
+    let response = client
+        .post(format!("{}/v1/files", soniox::API_HOST))
+        .header("Authorization", format!("Bearer {api_key}"))
+        .multipart(form)
+        .send()
+        .await?;
+    let status = response.status();
+    if !status.is_success() {
+        return Err(Error::UnexpectedStatus {
+            status,
+            body: crate::adapter::http::error_body(response).await,
+        });
+    }
+
+    #[derive(serde::Deserialize)]
+    struct FileUploadResponse {
+        id: String,
+    }
+
+    Ok(response.json::<FileUploadResponse>().await?.id)
 }
 
 fn soniox_err(e: soniox::Error) -> Error {

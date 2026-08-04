@@ -11,6 +11,10 @@ import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
 type WordsByChannel = Record<number, WordLike[]>;
 type LiveCaptionFinalWord = LiveTranscriptDelta["new_words"][number];
+const LIVE_CAPTION_HISTORY_CHARACTERS = 2048;
+const LIVE_CAPTION_HISTORY_WORDS = 2048;
+// The database retains the complete transcript; UI/native previews only need recent context.
+export const LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT = 200;
 
 export type BatchPersistCallback = (
   words: WordLike[],
@@ -35,7 +39,6 @@ export type OnStoppedCallback = (
 
 export type TranscriptState = {
   liveSegments: LiveTranscriptSegment[];
-  liveSegmentsById: Record<string, LiveTranscriptSegment>;
   liveCaptionFinalWordsById: Record<string, LiveCaptionFinalWord>;
   liveCaptionText: string;
   partialWordsByChannel: WordsByChannel;
@@ -62,7 +65,6 @@ export type TranscriptActions = {
 
 const initialState: TranscriptState = {
   liveSegments: [],
-  liveSegmentsById: {},
   liveCaptionFinalWordsById: {},
   liveCaptionText: "",
   partialWordsByChannel: {},
@@ -130,15 +132,7 @@ export const createTranscriptSlice = <
   handleTranscriptSegmentDelta: (delta) => {
     set((state) =>
       mutate(state, (draft) => {
-        for (const removedId of delta.removed_ids) {
-          delete draft.liveSegmentsById[removedId];
-        }
-        for (const segment of delta.upserts) {
-          draft.liveSegmentsById[segment.id] = segment;
-        }
-        draft.liveSegments = Object.values(draft.liveSegmentsById).sort(
-          (a, b) => a.start_ms - b.start_ms,
-        );
+        draft.liveSegments = applyLiveSegmentDelta(draft.liveSegments, delta);
       }),
     );
   },
@@ -156,7 +150,6 @@ export const createTranscriptSlice = <
     set((state) =>
       mutate(state, (draft) => {
         draft.liveSegments = [];
-        draft.liveSegmentsById = {};
         draft.liveCaptionFinalWordsById = {};
         draft.liveCaptionText = "";
         draft.partialWordsByChannel = {};
@@ -204,16 +197,16 @@ function getCaptionTextFromDelta(
   finalWordsById: Record<string, LiveCaptionFinalWord>,
   currentCaptionText: string,
 ): string {
-  const finalWords = Object.values(finalWordsById).sort(
-    (a, b) => a.start_ms - b.start_ms,
-  );
+  const finalWords = Object.values(finalWordsById);
 
   if (delta.partials.length > 0) {
-    return wordsToText([...finalWords, ...delta.partials]);
+    return trimLiveCaptionHistory(
+      wordsToText([...finalWords, ...delta.partials]),
+    );
   }
 
   if (finalWords.length > 0) {
-    return wordsToText(finalWords);
+    return trimLiveCaptionHistory(wordsToText(finalWords));
   }
 
   return currentCaptionText;
@@ -228,7 +221,23 @@ function updateLiveCaptionFinalWords(
   }
 
   for (const word of delta.new_words) {
-    finalWordsById[word.id] = word;
+    const text = trimLiveCaptionHistory(word.text);
+    finalWordsById[word.id] = text === word.text ? word : { ...word, text };
+  }
+
+  const newestWords = Object.values(finalWordsById).sort(
+    (a, b) => b.start_ms - a.start_ms,
+  );
+  let retainedCharacters = 0;
+
+  for (const [index, word] of newestWords.entries()) {
+    retainedCharacters += word.text.length;
+    if (
+      index >= LIVE_CAPTION_HISTORY_WORDS ||
+      (retainedCharacters > LIVE_CAPTION_HISTORY_CHARACTERS && index > 0)
+    ) {
+      delete finalWordsById[word.id];
+    }
   }
 }
 
@@ -240,4 +249,45 @@ function wordsToText(words: Array<{ text: string; start_ms: number }>): string {
     .join("")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function trimLiveCaptionHistory(text: string): string {
+  if (text.length <= LIVE_CAPTION_HISTORY_CHARACTERS) {
+    return text;
+  }
+
+  let start = text.length - LIVE_CAPTION_HISTORY_CHARACTERS;
+  const firstCodeUnit = text.charCodeAt(start);
+  const previousCodeUnit = text.charCodeAt(start - 1);
+  if (
+    firstCodeUnit >= 0xdc00 &&
+    firstCodeUnit <= 0xdfff &&
+    previousCodeUnit >= 0xd800 &&
+    previousCodeUnit <= 0xdbff
+  ) {
+    start += 1;
+  }
+
+  return text.slice(start);
+}
+
+function applyLiveSegmentDelta(
+  segments: LiveTranscriptSegment[],
+  delta: LiveTranscriptSegmentDelta,
+): LiveTranscriptSegment[] {
+  const changedIds = new Set([
+    ...delta.removed_ids,
+    ...delta.upserts.map((segment) => segment.id),
+  ]);
+  const nextSegments = segments.filter(
+    (segment) => !changedIds.has(segment.id),
+  );
+  nextSegments.push(...delta.upserts);
+  nextSegments.sort(
+    (a, b) =>
+      a.start_ms - b.start_ms ||
+      a.end_ms - b.end_ms ||
+      a.id.localeCompare(b.id),
+  );
+  return nextSegments.slice(-LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT);
 }

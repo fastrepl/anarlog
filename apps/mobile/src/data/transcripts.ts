@@ -11,7 +11,19 @@ export type TranscriptSegment = {
   text: string;
 };
 
+const MAX_REPORTED_INVALID_ROWS = 1_000;
 const reportedInvalidRows = new Set<string>();
+
+function rememberInvalidRow(rowId: string) {
+  reportedInvalidRows.add(rowId);
+  while (reportedInvalidRows.size > MAX_REPORTED_INVALID_ROWS) {
+    const oldestRowId = reportedInvalidRows.values().next().value;
+    if (oldestRowId === undefined) {
+      break;
+    }
+    reportedInvalidRows.delete(oldestRowId);
+  }
+}
 
 function mapTranscriptRows(rows: TranscriptRow[]): TranscriptSegment[] {
   return rows
@@ -26,7 +38,7 @@ function mapTranscriptRows(rows: TranscriptRow[]): TranscriptSegment[] {
           .trim();
       } catch (error) {
         if (!reportedInvalidRows.has(row.id)) {
-          reportedInvalidRows.add(row.id);
+          rememberInvalidRow(row.id);
           captureOperationalError(error, {
             operation: "transcript_words_parse",
             level: "warning",

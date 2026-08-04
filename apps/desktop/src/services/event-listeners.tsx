@@ -309,6 +309,7 @@ function useUpdaterEvents() {
     }
 
     let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
 
     void updaterEvents.updatedEvent
       .listen(({ payload: { previous, current } }) => {
@@ -318,11 +319,16 @@ function useUpdaterEvents() {
         });
       })
       .then(async (f) => {
+        if (cancelled) {
+          f();
+          return;
+        }
         unlisten = f;
         await updaterCommands.maybeEmitUpdated();
       });
 
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   });

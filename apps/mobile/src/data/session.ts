@@ -220,6 +220,7 @@ ON CONFLICT(id) DO UPDATE SET
 const SESSION_TITLE_UPDATE_SQL =
   "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL";
 const NOTE_EDIT_ANALYTICS_SESSION_MS = 30 * 60 * 1_000;
+const MAX_TRACKED_NOTE_EDIT_SESSIONS = 512;
 const lastTrackedNoteEditAt = new Map<string, number>();
 
 function captureNoteEditOnce(
@@ -234,10 +235,20 @@ function captureNoteEditOnce(
     lastTrackedAt !== undefined &&
     now - lastTrackedAt < NOTE_EDIT_ANALYTICS_SESSION_MS
   ) {
+    lastTrackedNoteEditAt.delete(key);
+    lastTrackedNoteEditAt.set(key, lastTrackedAt);
     return;
   }
 
+  lastTrackedNoteEditAt.delete(key);
   lastTrackedNoteEditAt.set(key, now);
+  while (lastTrackedNoteEditAt.size > MAX_TRACKED_NOTE_EDIT_SESSIONS) {
+    const oldestKey = lastTrackedNoteEditAt.keys().next().value;
+    if (oldestKey === undefined) {
+      break;
+    }
+    lastTrackedNoteEditAt.delete(oldestKey);
+  }
   captureAnalytics("note_edited", {
     edit_type: editType,
     ...(bodyFormat ? { body_format: bodyFormat } : {}),

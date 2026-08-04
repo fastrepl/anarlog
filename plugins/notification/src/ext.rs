@@ -163,6 +163,7 @@ fn should_show_windows_notification(key: Option<&str>) -> bool {
         tracing::info!(key, "skipping_notification");
         return false;
     }
+
     true
 }
 
@@ -370,19 +371,26 @@ mod tests {
 
     #[test]
     fn recent_windows_notifications_stay_bounded() {
-        let mut recent = HashMap::new();
         let now = Instant::now();
-
-        for index in 0..=MAX_RECENT_WINDOWS_NOTIFICATIONS {
-            assert!(register_recent_windows_notification(
-                &mut recent,
-                &format!("notification-{index}"),
-                now + Duration::from_millis(index as u64),
-            ));
+        let mut recent = HashMap::new();
+        for index in 0..MAX_RECENT_WINDOWS_NOTIFICATIONS {
+            recent.insert(
+                format!("notification-{index}"),
+                now - Duration::from_millis(index as u64 + 1),
+            );
         }
 
+        assert!(register_recent_windows_notification(
+            &mut recent,
+            "newest",
+            now,
+        ));
         assert_eq!(recent.len(), MAX_RECENT_WINDOWS_NOTIFICATIONS);
-        assert!(!recent.contains_key("notification-0"));
+        assert!(recent.contains_key("newest"));
+        assert!(!recent.contains_key(&format!(
+            "notification-{}",
+            MAX_RECENT_WINDOWS_NOTIFICATIONS - 1
+        )));
     }
 
     #[test]

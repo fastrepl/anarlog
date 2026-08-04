@@ -1,4 +1,5 @@
 use crate::{FakeWindowBounds, OverlayBound};
+use tauri::Manager;
 
 async fn update_bounds(
     window: &tauri::Window,
@@ -16,19 +17,20 @@ async fn remove_bounds(
     window: &tauri::Window,
     state: &tauri::State<'_, FakeWindowBounds>,
     name: String,
-) -> Result<(), String> {
+) -> Result<bool, String> {
     let mut state = state.0.write().await;
     let Some(map) = state.get_mut(window.label()) else {
-        return Ok(());
+        return Ok(true);
     };
 
     map.remove(&name);
 
     if map.is_empty() {
         state.remove(window.label());
+        return Ok(true);
     }
 
-    Ok(())
+    Ok(false)
 }
 
 #[tauri::command]
@@ -49,5 +51,9 @@ pub async fn remove_fake_window(
     name: String,
     state: tauri::State<'_, FakeWindowBounds>,
 ) -> Result<(), String> {
-    remove_bounds(&window, &state, name).await
+    if remove_bounds(&window, &state, name).await? {
+        crate::abort_overlay_listener(window.app_handle(), window.label()).await;
+    }
+
+    Ok(())
 }

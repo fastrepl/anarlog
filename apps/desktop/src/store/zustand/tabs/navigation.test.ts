@@ -3,6 +3,7 @@ import "./test-matchers";
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { useTabs } from ".";
+import { MAX_TAB_HISTORY_ENTRIES } from "./navigation";
 import { createSessionTab, resetTabsStore } from "./test-utils";
 
 describe("navigation", () => {
@@ -111,6 +112,32 @@ describe("navigation", () => {
 
     useTabs.getState().goBack();
     expect(useTabs.getState()).toHaveCurrentTab({ id: tab1.id });
+  });
+
+  test("keeps only the most recent navigation entries per slot", () => {
+    const firstTab = createSessionTab();
+    useTabs.getState().openNew(firstTab);
+
+    for (let index = 1; index <= MAX_TAB_HISTORY_ENTRIES; index += 1) {
+      useTabs.getState().openCurrent({
+        type: "sessions",
+        id: `session-${index}`,
+      });
+    }
+
+    const history = [...useTabs.getState().history.values()][0];
+    expect(history.stack).toHaveLength(MAX_TAB_HISTORY_ENTRIES);
+    expect(history.stack[0]).toMatchObject({ id: "session-1" });
+    expect(history.stack[history.stack.length - 1]).toMatchObject({
+      id: `session-${MAX_TAB_HISTORY_ENTRIES}`,
+    });
+    expect(history.currentIndex).toBe(MAX_TAB_HISTORY_ENTRIES - 1);
+
+    for (let index = 1; index < MAX_TAB_HISTORY_ENTRIES; index += 1) {
+      useTabs.getState().goBack();
+    }
+    expect(useTabs.getState()).toHaveCurrentTab({ id: "session-1" });
+    expect(useTabs.getState().canGoBack).toBe(false);
   });
 
   test("each slot maintains independent history", () => {

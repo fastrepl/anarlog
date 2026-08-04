@@ -8,6 +8,7 @@
     "android": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --android",
     "ios": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --ios",
     "test:error-reporting": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/lib/error-sanitization.test.mjs",
+    "test:transcription-limits": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/data/transcription-limits.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

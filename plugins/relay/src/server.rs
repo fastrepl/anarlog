@@ -89,8 +89,7 @@ async fn do_proxy(url: &str) -> Result<Response, String> {
         builder = builder.header(key, value);
     }
 
-    let body = resp.bytes().await.map_err(|e| e.to_string())?;
     builder
-        .body(axum::body::Body::from(body))
+        .body(axum::body::Body::from_stream(resp.bytes_stream()))
         .map_err(|e| e.to_string())
 }

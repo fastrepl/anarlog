@@ -30,7 +30,7 @@ pub enum SourceMsg {
     PrepareListenerRefresh(RpcReplyPort<ListenerRefreshReplay>),
     SetListenerRouting(ListenerRouting),
     SetRecorder(Option<ActorRef<RecMsg>>),
-    Frame(SourceFrame),
+    CaptureFramesReady,
     StreamFailed(String),
 }
 
@@ -70,6 +70,8 @@ pub struct SourceState {
     pub(super) mic_muted: Arc<AtomicBool>,
     pub(super) run_task: Option<tokio::task::JoinHandle<()>>,
     pub(super) stream_cancel_token: Option<CancellationToken>,
+    pub(super) capture_frames: Option<tokio::sync::mpsc::Receiver<SourceFrame>>,
+    pub(super) capture_wake_pending: Arc<AtomicBool>,
     pub(super) current_mode: ChannelMode,
     pub(super) pipeline: Pipeline,
     pub(super) listener_routing: ListenerRouting,
@@ -80,6 +82,8 @@ pub struct SourceState {
 
 pub struct SourceActor;
 
+const MAX_CAPTURE_FRAMES_PER_TICK: usize = 4;
+
 struct DeviceChangeWatcher {
     _handle: DeviceMonitorHandle,
     _thread: std::thread::JoinHandle<()>,
@@ -87,8 +91,8 @@ struct DeviceChangeWatcher {
 
 impl DeviceChangeWatcher {
     fn spawn(actor: ActorRef<SourceMsg>) -> Self {
-        let (event_tx, event_rx) = mpsc::channel();
-        let handle = DeviceSwitchMonitor::spawn_debounced(event_tx);
+        let (event_tx, event_rx) = mpsc::sync_channel(1);
+        let handle = DeviceSwitchMonitor::spawn_debounced_bounded(event_tx);
         let thread = std::thread::spawn(move || Self::event_loop(event_rx, actor));
 
         Self {
@@ -154,6 +158,8 @@ impl Actor for SourceActor {
                 mic_muted: Arc::new(AtomicBool::new(false)),
                 run_task: None,
                 stream_cancel_token: None,
+                capture_frames: None,
+                capture_wake_pending: Arc::new(AtomicBool::new(false)),
                 _device_watcher: Some(device_watcher),
                 _silence_stream_tx: silence_stream_tx,
                 current_mode: ChannelMode::MicAndSpeaker,
@@ -207,13 +213,51 @@ impl Actor for SourceActor {
             SourceMsg::SetRecorder(recorder) => {
                 st.recorder = recorder;
             }
-            SourceMsg::Frame(frame) => {
-                st.pipeline.dispatch_frame(
-                    frame,
-                    st.current_mode,
-                    &st.listener_routing,
-                    st.recorder.as_ref(),
-                );
+            SourceMsg::CaptureFramesReady => {
+                st.capture_wake_pending.store(false, Ordering::Release);
+
+                for _ in 0..MAX_CAPTURE_FRAMES_PER_TICK {
+                    let frame = st
+                        .capture_frames
+                        .as_mut()
+                        .and_then(|frames| frames.try_recv().ok());
+                    let Some(frame) = frame else {
+                        break;
+                    };
+
+                    if let Err(reason) = st
+                        .pipeline
+                        .dispatch_frame(
+                            frame,
+                            st.current_mode,
+                            &st.listener_routing,
+                            st.recorder.as_ref(),
+                        )
+                        .await
+                    {
+                        tracing::error!(%reason, "recorder_audio_write_failed");
+                        st.runtime.emit_error(SessionErrorEvent::AudioError {
+                            session_id: st.session_id.clone(),
+                            error: reason.clone(),
+                            device: st.mic_device.clone(),
+                            is_fatal: true,
+                        });
+                        return Err(std::io::Error::other(reason).into());
+                    }
+                }
+
+                let has_more = st
+                    .capture_frames
+                    .as_ref()
+                    .is_some_and(|frames| !frames.is_empty());
+                if has_more
+                    && !st.capture_wake_pending.swap(true, Ordering::AcqRel)
+                    && myself.cast(SourceMsg::CaptureFramesReady).is_err()
+                {
+                    return Err(
+                        std::io::Error::other("failed to schedule queued capture frames").into(),
+                    );
+                }
             }
             SourceMsg::StreamFailed(reason) => {
                 tracing::error!(%reason, "source_stream_failed_stopping");
@@ -238,6 +282,7 @@ impl Actor for SourceActor {
         if let Some(cancel_token) = st.stream_cancel_token.take() {
             cancel_token.cancel();
         }
+        st.capture_frames.take();
         if let Some(task) = st.run_task.take() {
             task.abort();
         }
@@ -269,6 +314,7 @@ mod tests {
 
     struct TestRuntime {
         progress_tx: mpsc::UnboundedSender<SessionProgressEvent>,
+        error_tx: Option<mpsc::UnboundedSender<SessionErrorEvent>>,
     }
 
     impl anlg_storage::StorageRuntime for TestRuntime {
@@ -288,7 +334,11 @@ mod tests {
             let _ = self.progress_tx.send(event);
         }
 
-        fn emit_error(&self, _event: SessionErrorEvent) {}
+        fn emit_error(&self, event: SessionErrorEvent) {
+            if let Some(error_tx) = &self.error_tx {
+                let _ = error_tx.send(event);
+            }
+        }
 
         fn emit_data(&self, _event: SessionDataEvent) {}
     }
@@ -296,12 +346,17 @@ mod tests {
     struct TestAudio {
         capture_tx: mpsc::UnboundedSender<Option<String>>,
         default_device_name_calls: AtomicUsize,
+        end_immediately: bool,
     }
 
     impl AudioProvider for TestAudio {
         fn open_capture(&self, config: CaptureConfig) -> Result<CaptureStream, Error> {
             let _ = self.capture_tx.send(config.mic_device);
-            Ok(CaptureStream::new(stream::pending()))
+            if self.end_immediately {
+                Ok(CaptureStream::new(stream::empty()))
+            } else {
+                Ok(CaptureStream::new(stream::pending()))
+            }
         }
 
         fn open_speaker_capture(
@@ -356,6 +411,7 @@ mod tests {
         let audio = Arc::new(TestAudio {
             capture_tx,
             default_device_name_calls: AtomicUsize::new(0),
+            end_immediately: false,
         });
         let expected = mic_device.map(str::to_string);
         let (actor, handle) = Actor::spawn(
@@ -364,7 +420,10 @@ mod tests {
             SourceArgs {
                 mic_device: expected.clone(),
                 onboarding: false,
-                runtime: Arc::new(TestRuntime { progress_tx }),
+                runtime: Arc::new(TestRuntime {
+                    progress_tx,
+                    error_tx: None,
+                }),
                 audio: audio.clone(),
                 session_id: "test-session".to_string(),
                 listener_routing: ListenerRouting::Dropped,
@@ -404,5 +463,53 @@ mod tests {
     #[tokio::test]
     async fn explicit_mic_selection_is_preserved() {
         assert_source_uses_mic_device(Some("external-mic")).await;
+    }
+
+    #[tokio::test]
+    async fn capture_stream_eof_reports_a_restartable_failure() {
+        let (progress_tx, _progress_rx) = mpsc::unbounded_channel();
+        let (error_tx, mut error_rx) = mpsc::unbounded_channel();
+        let (capture_tx, _capture_rx) = mpsc::unbounded_channel();
+        let audio = Arc::new(TestAudio {
+            capture_tx,
+            default_device_name_calls: AtomicUsize::new(0),
+            end_immediately: true,
+        });
+        let (_actor, handle) = Actor::spawn(
+            None,
+            SourceActor,
+            SourceArgs {
+                mic_device: None,
+                onboarding: false,
+                runtime: Arc::new(TestRuntime {
+                    progress_tx,
+                    error_tx: Some(error_tx),
+                }),
+                audio,
+                session_id: "finite-stream".to_string(),
+                listener_routing: ListenerRouting::Dropped,
+                recorder: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let event = tokio::time::timeout(std::time::Duration::from_secs(1), error_rx.recv())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            event,
+            SessionErrorEvent::AudioError {
+                error,
+                is_fatal: true,
+                ..
+            } if error == "capture stream ended unexpectedly"
+        ));
+
+        tokio::time::timeout(std::time::Duration::from_secs(1), handle)
+            .await
+            .unwrap()
+            .unwrap();
     }
 }

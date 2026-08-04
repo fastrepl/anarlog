@@ -15,6 +15,18 @@ use crate::adapter::parsing::{WordBuilder, ms_to_secs};
 const VAD_THRESHOLD: f32 = 0.4;
 const VAD_PREFIX_PADDING_MS: u32 = 300;
 const VAD_SILENCE_DURATION_MS: u32 = 350;
+const MAX_LIVE_ITEMS: usize = 64;
+const MAX_BLOCKED_COMPLETED_ITEMS: usize = 16;
+const MAX_ITEM_ID_BYTES: usize = 1_024;
+const MAX_ITEM_TRANSCRIPT_BYTES: usize = 64 * 1_024;
+const MAX_RETAINED_TRANSCRIPT_BYTES: usize = 512 * 1_024;
+
+type CompletedLiveItem = (String, u64, u64);
+
+struct LiveStateReset {
+    completed: Vec<CompletedLiveItem>,
+    reason: &'static str,
+}
 
 impl RealtimeSttAdapter for OpenAIAdapter {
     fn fork_session(&self) -> Self {
@@ -191,9 +203,8 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 vec![]
             }
             ServerEvent::InputAudioBufferCommitted { item_id, .. } => {
-                self.ensure_item(&item_id);
                 tracing::debug!(anarlog.stt.item.id = %item_id, "openai_audio_buffer_committed");
-                vec![]
+                Self::finish_state_update(self.ensure_item(&item_id))
             }
             ServerEvent::InputAudioBufferCleared { .. } => {
                 tracing::debug!("openai_audio_buffer_cleared");
@@ -204,26 +215,24 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 audio_start_ms,
                 ..
             } => {
-                self.record_item_start(&item_id, audio_start_ms);
                 tracing::debug!(
                     anarlog.stt.item.id = %item_id,
                     anarlog.stt.audio_start_ms = audio_start_ms,
                     "openai_speech_started"
                 );
-                vec![]
+                Self::finish_state_update(self.record_item_start(&item_id, audio_start_ms))
             }
             ServerEvent::InputAudioBufferSpeechStopped {
                 item_id,
                 audio_end_ms,
                 ..
             } => {
-                self.record_item_end(&item_id, audio_end_ms);
                 tracing::debug!(
                     anarlog.stt.item.id = %item_id,
                     anarlog.stt.audio_end_ms = audio_end_ms,
                     "openai_speech_stopped"
                 );
-                vec![]
+                Self::finish_state_update(self.record_item_end(&item_id, audio_end_ms))
             }
             ServerEvent::InputAudioBufferTimeoutTriggered {
                 item_id,
@@ -231,14 +240,17 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 audio_end_ms,
                 ..
             } => {
-                self.record_item_span(&item_id, audio_start_ms, audio_end_ms);
                 tracing::debug!(
                     anarlog.stt.item.id = %item_id,
                     anarlog.stt.audio_start_ms = audio_start_ms,
                     anarlog.stt.audio_end_ms = audio_end_ms,
                     "openai_audio_buffer_timeout_triggered"
                 );
-                vec![]
+                Self::finish_state_update(self.record_item_span(
+                    &item_id,
+                    audio_start_ms,
+                    audio_end_ms,
+                ))
             }
             ServerEvent::ConversationItemInputAudioTranscriptionCompleted {
                 item_id,
@@ -252,12 +264,10 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                     anarlog.transcript.char_count = transcript.chars().count() as u64,
                     "openai_transcription_completed"
                 );
-                self.complete_items(&item_id, &transcript)
-                    .into_iter()
-                    .flat_map(|(transcript, start_ms, end_ms)| {
-                        Self::build_transcript_response(&transcript, true, true, start_ms, end_ms)
-                    })
-                    .collect()
+                match self.complete_items(&item_id, &transcript) {
+                    Ok(completed) => Self::completed_responses(completed),
+                    Err(reset) => Self::reset_responses(reset),
+                }
             }
             ServerEvent::ConversationItemInputAudioTranscriptionDelta {
                 item_id,
@@ -266,7 +276,6 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 obfuscation,
                 ..
             } => {
-                let (transcript, start_ms, end_ms) = self.append_item_delta(&item_id, &delta);
                 tracing::debug!(
                     anarlog.stt.item.id = %item_id,
                     anarlog.stt.content_index = content_index.unwrap_or_default(),
@@ -276,7 +285,12 @@ impl RealtimeSttAdapter for OpenAIAdapter {
                 if let Some(obfuscation) = obfuscation {
                     tracing::trace!(anarlog.stt.obfuscation = %obfuscation);
                 }
-                Self::build_transcript_response(&transcript, false, false, start_ms, end_ms)
+                match self.append_item_delta(&item_id, &delta) {
+                    Ok((transcript, start_ms, end_ms)) => {
+                        Self::build_transcript_response(&transcript, false, false, start_ms, end_ms)
+                    }
+                    Err(reset) => Self::reset_responses(reset),
+                }
             }
             ServerEvent::ConversationItemInputAudioTranscriptionFailed {
                 item_id, error, ..
@@ -324,54 +338,100 @@ impl RealtimeSttAdapter for OpenAIAdapter {
 }
 
 impl OpenAIAdapter {
-    fn item_mut<'a>(state: &'a mut OpenAILiveState, item_id: &str) -> &'a mut OpenAILiveItem {
-        if !state.items.contains_key(item_id) {
-            state.item_order.push_back(item_id.to_string());
+    fn prepare_item(state: &mut OpenAILiveState, item_id: &str) -> Result<(), LiveStateReset> {
+        if state.items.contains_key(item_id) {
+            return Ok(());
         }
-        state.items.entry(item_id.to_string()).or_default()
+        if item_id.len() > MAX_ITEM_ID_BYTES {
+            return Err(Self::reset_live_state(state, "item ID exceeded 1 KiB"));
+        }
+        if state.items.len() >= MAX_LIVE_ITEMS {
+            return Err(Self::reset_live_state(
+                state,
+                "more than 64 transcription items remained pending",
+            ));
+        }
+
+        state.item_order.push_back(item_id.to_string());
+        state
+            .items
+            .insert(item_id.to_string(), OpenAILiveItem::default());
+        Ok(())
     }
 
-    fn ensure_item(&self, item_id: &str) {
+    fn ensure_item(&self, item_id: &str) -> Result<(), LiveStateReset> {
         let mut state = self
             .live_state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        Self::item_mut(&mut state, item_id);
+        Self::prepare_item(&mut state, item_id)
     }
 
-    fn record_item_start(&self, item_id: &str, start_ms: u64) {
+    fn record_item_start(&self, item_id: &str, start_ms: u64) -> Result<(), LiveStateReset> {
         let mut state = self
             .live_state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        Self::item_mut(&mut state, item_id).start_ms = Some(start_ms);
+        Self::prepare_item(&mut state, item_id)?;
+        state.items.get_mut(item_id).unwrap().start_ms = Some(start_ms);
+        Ok(())
     }
 
-    fn record_item_end(&self, item_id: &str, end_ms: u64) {
+    fn record_item_end(&self, item_id: &str, end_ms: u64) -> Result<(), LiveStateReset> {
         let mut state = self
             .live_state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        Self::item_mut(&mut state, item_id).end_ms = Some(end_ms);
+        Self::prepare_item(&mut state, item_id)?;
+        state.items.get_mut(item_id).unwrap().end_ms = Some(end_ms);
+        Ok(())
     }
 
-    fn record_item_span(&self, item_id: &str, start_ms: u64, end_ms: u64) {
+    fn record_item_span(
+        &self,
+        item_id: &str,
+        start_ms: u64,
+        end_ms: u64,
+    ) -> Result<(), LiveStateReset> {
         let mut state = self
             .live_state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let item = Self::item_mut(&mut state, item_id);
+        Self::prepare_item(&mut state, item_id)?;
+        let item = state.items.get_mut(item_id).unwrap();
         item.start_ms = Some(start_ms);
         item.end_ms = Some(end_ms);
+        Ok(())
     }
 
-    fn append_item_delta(&self, item_id: &str, delta: &str) -> (String, u64, u64) {
+    fn append_item_delta(
+        &self,
+        item_id: &str,
+        delta: &str,
+    ) -> Result<(String, u64, u64), LiveStateReset> {
         let mut state = self
             .live_state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
+        Self::prepare_item(&mut state, item_id)?;
+
+        let item_bytes = state.items.get(item_id).unwrap().transcript.len();
+        let retained_bytes = Self::retained_transcript_bytes(&state);
+        if delta.len() > MAX_ITEM_TRANSCRIPT_BYTES.saturating_sub(item_bytes) {
+            return Err(Self::reset_live_state(
+                &mut state,
+                "one transcription item exceeded 64 KiB",
+            ));
+        }
+        if delta.len() > MAX_RETAINED_TRANSCRIPT_BYTES.saturating_sub(retained_bytes) {
+            return Err(Self::reset_live_state(
+                &mut state,
+                "retained transcription text exceeded 512 KiB",
+            ));
+        }
+
         let fallback_start_ms = state.fallback_end_ms;
-        let item = Self::item_mut(&mut state, item_id);
+        let item = state.items.get_mut(item_id).unwrap();
         item.transcript.push_str(delta);
 
         let transcript = item.transcript.clone();
@@ -379,19 +439,52 @@ impl OpenAIAdapter {
         let end_ms = item
             .end_ms
             .unwrap_or_else(|| synthetic_end_ms(start_ms, &transcript));
-        (transcript, start_ms, end_ms)
+        Ok((transcript, start_ms, end_ms))
     }
 
-    fn complete_items(&self, item_id: &str, transcript: &str) -> Vec<(String, u64, u64)> {
+    fn complete_items(
+        &self,
+        item_id: &str,
+        transcript: &str,
+    ) -> Result<Vec<CompletedLiveItem>, LiveStateReset> {
         let mut state = self
             .live_state
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        Self::item_mut(&mut state, item_id).completed_transcript = Some(transcript.to_string());
-        Self::drain_completed(&mut state)
+        Self::prepare_item(&mut state, item_id)?;
+
+        let item = state.items.get(item_id).unwrap();
+        let retained_without_item = Self::retained_transcript_bytes(&state)
+            .saturating_sub(item.transcript.len())
+            .saturating_sub(item.completed_transcript.as_ref().map_or(0, String::len));
+        if transcript.len() > MAX_ITEM_TRANSCRIPT_BYTES {
+            return Err(Self::reset_live_state(
+                &mut state,
+                "one completed transcription item exceeded 64 KiB",
+            ));
+        }
+        if transcript.len() > MAX_RETAINED_TRANSCRIPT_BYTES.saturating_sub(retained_without_item) {
+            return Err(Self::reset_live_state(
+                &mut state,
+                "retained transcription text exceeded 512 KiB",
+            ));
+        }
+
+        let item = state.items.get_mut(item_id).unwrap();
+        item.transcript = String::new();
+        item.completed_transcript = Some(transcript.to_string());
+
+        if Self::blocked_completed_items(&state) >= MAX_BLOCKED_COMPLETED_ITEMS {
+            return Err(Self::reset_live_state(
+                &mut state,
+                "16 completed items were blocked behind an unfinished item",
+            ));
+        }
+
+        Ok(Self::drain_completed(&mut state))
     }
 
-    fn drain_completed(state: &mut OpenAILiveState) -> Vec<(String, u64, u64)> {
+    fn drain_completed(state: &mut OpenAILiveState) -> Vec<CompletedLiveItem> {
         let mut completed = Vec::new();
         loop {
             let Some(next_item_id) = state.item_order.front() else {
@@ -407,21 +500,113 @@ impl OpenAIAdapter {
             }
 
             let next_item_id = state.item_order.pop_front().unwrap();
-            let item = state.items.remove(&next_item_id).unwrap();
-            let transcript = item.completed_transcript.unwrap();
-            let observed_start_ms = item.start_ms.unwrap_or(state.fallback_end_ms);
-            let start_ms = observed_start_ms.max(state.fallback_end_ms);
-            let observed_duration_ms = item
-                .end_ms
-                .unwrap_or_else(|| synthetic_end_ms(observed_start_ms, &transcript))
-                .saturating_sub(observed_start_ms);
-            let end_ms =
-                (start_ms + observed_duration_ms).max(synthetic_end_ms(start_ms, &transcript));
-            state.fallback_end_ms = end_ms;
-            completed.push((transcript, start_ms, end_ms));
+            let mut item = state.items.remove(&next_item_id).unwrap();
+            let transcript = item.completed_transcript.take().unwrap();
+            completed.push(Self::finish_item(state, item, transcript));
         }
 
         completed
+    }
+
+    fn finish_item(
+        state: &mut OpenAILiveState,
+        item: OpenAILiveItem,
+        transcript: String,
+    ) -> CompletedLiveItem {
+        let observed_start_ms = item.start_ms.unwrap_or(state.fallback_end_ms);
+        let start_ms = observed_start_ms.max(state.fallback_end_ms);
+        let observed_duration_ms = item
+            .end_ms
+            .unwrap_or_else(|| synthetic_end_ms(observed_start_ms, &transcript))
+            .saturating_sub(observed_start_ms);
+        let end_ms = (start_ms + observed_duration_ms).max(synthetic_end_ms(start_ms, &transcript));
+        state.fallback_end_ms = end_ms;
+        (transcript, start_ms, end_ms)
+    }
+
+    fn retained_transcript_bytes(state: &OpenAILiveState) -> usize {
+        state
+            .items
+            .values()
+            .map(|item| {
+                item.transcript.len() + item.completed_transcript.as_ref().map_or(0, String::len)
+            })
+            .sum()
+    }
+
+    fn blocked_completed_items(state: &OpenAILiveState) -> usize {
+        let Some(head_id) = state.item_order.front() else {
+            return 0;
+        };
+        if state
+            .items
+            .get(head_id)
+            .and_then(|item| item.completed_transcript.as_ref())
+            .is_some()
+        {
+            return 0;
+        }
+
+        state
+            .item_order
+            .iter()
+            .skip(1)
+            .filter(|item_id| {
+                state
+                    .items
+                    .get(*item_id)
+                    .and_then(|item| item.completed_transcript.as_ref())
+                    .is_some()
+            })
+            .count()
+    }
+
+    fn reset_live_state(state: &mut OpenAILiveState, reason: &'static str) -> LiveStateReset {
+        let mut completed = Vec::new();
+        while let Some(item_id) = state.item_order.pop_front() {
+            let Some(mut item) = state.items.remove(&item_id) else {
+                continue;
+            };
+            let transcript = item.completed_transcript.take().or_else(|| {
+                (!item.transcript.trim().is_empty()).then(|| std::mem::take(&mut item.transcript))
+            });
+            if let Some(transcript) = transcript {
+                completed.push(Self::finish_item(state, item, transcript));
+            }
+        }
+        state.items.clear();
+
+        LiveStateReset { completed, reason }
+    }
+
+    fn finish_state_update(result: Result<(), LiveStateReset>) -> Vec<StreamResponse> {
+        match result {
+            Ok(()) => Vec::new(),
+            Err(reset) => Self::reset_responses(reset),
+        }
+    }
+
+    fn completed_responses(completed: Vec<CompletedLiveItem>) -> Vec<StreamResponse> {
+        completed
+            .into_iter()
+            .flat_map(|(transcript, start_ms, end_ms)| {
+                Self::build_transcript_response(&transcript, true, true, start_ms, end_ms)
+            })
+            .collect()
+    }
+
+    fn reset_responses(reset: LiveStateReset) -> Vec<StreamResponse> {
+        tracing::warn!(reason = reset.reason, "openai_live_state_limit_exceeded");
+        let mut responses = Self::completed_responses(reset.completed);
+        responses.push(StreamResponse::ErrorResponse {
+            error_code: None,
+            error_message: format!(
+                "OpenAI realtime state limit exceeded: {}; reconnecting to preserve transcript order",
+                reset.reason
+            ),
+            provider: "openai".to_string(),
+        });
+        responses
     }
 
     fn discard_item(&self, item_id: &str) -> Vec<(String, u64, u64)> {
@@ -686,6 +871,126 @@ mod tests {
         assert_eq!(transcript(&responses), "Later turn");
     }
 
+    #[test]
+    fn stalled_head_releases_bounded_completed_backlog_before_reconnect() {
+        let adapter = OpenAIAdapter::default();
+        adapter.parse_response(
+            r#"{"type":"input_audio_buffer.speech_started","event_id":"head-start","item_id":"head","audio_start_ms":0}"#,
+        );
+        adapter.parse_response(
+            r#"{"type":"conversation.item.input_audio_transcription.delta","event_id":"head-delta","item_id":"head","content_index":0,"delta":"Head partial","logprobs":[]}"#,
+        );
+
+        let mut recovered = Vec::new();
+        for index in 0..MAX_BLOCKED_COMPLETED_ITEMS {
+            let item_id = format!("later-{index}");
+            let started = serde_json::json!({
+                "type": "input_audio_buffer.speech_started",
+                "event_id": format!("start-{index}"),
+                "item_id": item_id,
+                "audio_start_ms": (index as u64 + 1) * 1_000,
+            });
+            assert!(adapter.parse_response(&started.to_string()).is_empty());
+
+            let completed = serde_json::json!({
+                "type": "conversation.item.input_audio_transcription.completed",
+                "event_id": format!("done-{index}"),
+                "item_id": item_id,
+                "content_index": 0,
+                "transcript": format!("Later {index}"),
+                "logprobs": [],
+            });
+            recovered = adapter.parse_response(&completed.to_string());
+            if index + 1 < MAX_BLOCKED_COMPLETED_ITEMS {
+                assert!(recovered.is_empty());
+            }
+        }
+
+        assert_eq!(
+            recovered.len(),
+            MAX_BLOCKED_COMPLETED_ITEMS + 2,
+            "best-known head, completed backlog, then terminal recovery error"
+        );
+        assert_eq!(transcript_at(&recovered, 0), "Head partial");
+        for index in 0..MAX_BLOCKED_COMPLETED_ITEMS {
+            assert_eq!(
+                transcript_at(&recovered, index + 1),
+                format!("Later {index}")
+            );
+        }
+        assert!(is_state_limit_error(recovered.last().unwrap()));
+
+        let state = adapter.live_state.lock().unwrap();
+        assert!(state.items.is_empty());
+        assert!(state.item_order.is_empty());
+    }
+
+    #[test]
+    fn cumulative_deltas_are_bounded_and_recovered_before_terminal_error() {
+        let adapter = OpenAIAdapter::default();
+        adapter.parse_response(
+            r#"{"type":"input_audio_buffer.speech_started","event_id":"start","item_id":"item-1","audio_start_ms":0}"#,
+        );
+        let chunk = "x".repeat(1_024);
+        for index in 0..(MAX_ITEM_TRANSCRIPT_BYTES / chunk.len()) {
+            let delta = serde_json::json!({
+                "type": "conversation.item.input_audio_transcription.delta",
+                "event_id": format!("delta-{index}"),
+                "item_id": "item-1",
+                "content_index": 0,
+                "delta": chunk,
+                "logprobs": [],
+            });
+            let responses = adapter.parse_response(&delta.to_string());
+            assert_eq!(responses.len(), 1);
+        }
+        let overflow = serde_json::json!({
+            "type": "conversation.item.input_audio_transcription.delta",
+            "event_id": "overflow",
+            "item_id": "item-1",
+            "content_index": 0,
+            "delta": "y",
+            "logprobs": [],
+        });
+
+        let responses = adapter.parse_response(&overflow.to_string());
+
+        assert_eq!(responses.len(), 2);
+        assert_eq!(transcript(&responses).len(), MAX_ITEM_TRANSCRIPT_BYTES);
+        assert!(is_state_limit_error(&responses[1]));
+        let state = adapter.live_state.lock().unwrap();
+        assert!(state.items.is_empty());
+        assert!(state.item_order.is_empty());
+    }
+
+    #[test]
+    fn pending_item_count_is_bounded_and_fails_explicitly() {
+        let adapter = OpenAIAdapter::default();
+        for index in 0..MAX_LIVE_ITEMS {
+            let started = serde_json::json!({
+                "type": "input_audio_buffer.speech_started",
+                "event_id": format!("start-{index}"),
+                "item_id": format!("item-{index}"),
+                "audio_start_ms": index as u64,
+            });
+            assert!(adapter.parse_response(&started.to_string()).is_empty());
+        }
+
+        let overflow = serde_json::json!({
+            "type": "input_audio_buffer.speech_started",
+            "event_id": "overflow",
+            "item_id": "item-overflow",
+            "audio_start_ms": MAX_LIVE_ITEMS as u64,
+        });
+        let responses = adapter.parse_response(&overflow.to_string());
+
+        assert_eq!(responses.len(), 1);
+        assert!(is_state_limit_error(&responses[0]));
+        let state = adapter.live_state.lock().unwrap();
+        assert!(state.items.is_empty());
+        assert!(state.item_order.is_empty());
+    }
+
     fn transcript(responses: &[StreamResponse]) -> &str {
         transcript_at(responses, 0)
     }
@@ -709,5 +1014,13 @@ mod tests {
             panic!("expected transcript response");
         };
         channel.alternatives[0].words.last().unwrap().end
+    }
+
+    fn is_state_limit_error(response: &StreamResponse) -> bool {
+        matches!(
+            response,
+            StreamResponse::ErrorResponse { error_message, provider, .. }
+                if provider == "openai" && error_message.contains("state limit exceeded")
+        )
     }
 }

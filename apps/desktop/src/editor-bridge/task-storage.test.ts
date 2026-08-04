@@ -113,6 +113,24 @@ describe("SQLite task storage", () => {
 
     unsubscribe();
     await vi.waitFor(() => expect(harness.unsubscribe).toHaveBeenCalledOnce());
+    expect(storage.getTasksForSource(sessionSource)).toEqual([]);
+    expect(storage.getTask("task-1")).toBeNull();
+  });
+
+  it("retains a shared task snapshot until its final source unsubscribes", () => {
+    const harness = createHarness();
+    const storage = createSqliteTaskStorage("user-1", harness.dependencies);
+    const firstUnsubscribe = storage.subscribeSource(sessionSource, vi.fn());
+    const secondUnsubscribe = storage.subscribeSource(sessionSource, vi.fn());
+    harness.subscriptions[0].onData([sqliteTaskRow()]);
+
+    firstUnsubscribe();
+    expect(storage.getTasksForSource(sessionSource)).toEqual([task]);
+    expect(storage.getTask("task-1")).toEqual(task);
+
+    secondUnsubscribe();
+    expect(storage.getTasksForSource(sessionSource)).toEqual([]);
+    expect(storage.getTask("task-1")).toBeNull();
   });
 
   it("atomically tombstones removed rows and upserts the source snapshot", async () => {

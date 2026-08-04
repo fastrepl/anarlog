@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::routes::{ApiKeyInfo, CloudApiSettings, SnapshotReceipt};
 
+const MAX_RPC_RESPONSE_BYTES: usize = 64 * 1024 * 1024;
+const MAX_RPC_ERROR_BYTES: usize = 64 * 1024;
+
 #[derive(Clone)]
 pub struct CloudApiConfig {
     supabase_url: String,
@@ -44,6 +47,8 @@ pub(crate) enum StoreError {
     Response { status: StatusCode, body: String },
     #[error("cloud data response was invalid: {0}")]
     InvalidResponse(#[from] serde_json::Error),
+    #[error("cloud data response exceeded the {limit}-byte limit")]
+    ResponseTooLarge { limit: usize },
 }
 
 #[derive(Deserialize)]
@@ -82,7 +87,12 @@ impl AppState {
             .send()
             .await?;
         let status = response.status();
-        let bytes = response.bytes().await?;
+        let response_limit = if status.is_success() {
+            MAX_RPC_RESPONSE_BYTES
+        } else {
+            MAX_RPC_ERROR_BYTES
+        };
+        let bytes = read_response_body(response, response_limit).await?;
         if !status.is_success() {
             return Err(StoreError::Response {
                 status,
@@ -262,5 +272,56 @@ impl AppState {
             )
             .await?;
         Ok(rows.pop())
+    }
+}
+
+async fn read_response_body(
+    mut response: reqwest::Response,
+    limit: usize,
+) -> Result<Vec<u8>, StoreError> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > limit as u64)
+    {
+        return Err(StoreError::ResponseTooLarge { limit });
+    }
+
+    let mut bytes = Vec::with_capacity(
+        response
+            .content_length()
+            .and_then(|length| usize::try_from(length).ok())
+            .unwrap_or_default()
+            .min(limit),
+    );
+    while let Some(chunk) = response.chunk().await? {
+        if bytes.len().saturating_add(chunk.len()) > limit {
+            return Err(StoreError::ResponseTooLarge { limit });
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
+}
+
+#[cfg(test)]
+mod tests {
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
+
+    use super::{StoreError, read_response_body};
+
+    #[tokio::test]
+    async fn rejects_response_bodies_over_the_limit() {
+        let server = MockServer::start().await;
+        Mock::given(path("/large"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![b'x'; 17]))
+            .mount(&server)
+            .await;
+
+        let response = reqwest::get(format!("{}/large", server.uri()))
+            .await
+            .unwrap();
+        let error = read_response_body(response, 16)
+            .await
+            .expect_err("oversized response must fail");
+        assert!(matches!(error, StoreError::ResponseTooLarge { limit: 16 }));
     }
 }

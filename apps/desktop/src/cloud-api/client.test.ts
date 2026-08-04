@@ -321,4 +321,51 @@ describe("cloud API client", () => {
       deletes: [],
     });
   });
+
+  it("aborts a hung snapshot request and allows a later sync", async () => {
+    vi.useFakeTimers();
+    try {
+      mocks.getSession.mockResolvedValue(authSession("user-timeout"));
+      mocks.fetch.mockImplementation(
+        (input: string | URL | Request, init?: RequestInit) => {
+          if (String(input).endsWith("/v1/cloud-api/settings")) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({ enabled: true, updated_at: null }),
+                { status: 200 },
+              ),
+            );
+          }
+          const signal = init?.signal;
+          return new Promise<Response>((_, reject) => {
+            signal?.addEventListener("abort", () => reject(signal.reason), {
+              once: true,
+            });
+          });
+        },
+      );
+
+      const firstSync = syncCloudApiSnapshot("meeting-timeout");
+      const timedOut = expect(firstSync).rejects.toEqual(
+        expect.objectContaining<Partial<CloudApiClientError>>({
+          code: "request_timeout",
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(30_000);
+      await timedOut;
+      const uploadRequest = mocks.fetch.mock.calls.find(
+        ([input]) => !String(input).endsWith("/v1/cloud-api/settings"),
+      );
+      expect(
+        (uploadRequest?.[1] as RequestInit | undefined)?.signal?.aborted,
+      ).toBe(true);
+
+      mocks.fetch.mockResolvedValue(new Response(null, { status: 204 }));
+      await expect(
+        syncCloudApiSnapshot("meeting-timeout"),
+      ).resolves.toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

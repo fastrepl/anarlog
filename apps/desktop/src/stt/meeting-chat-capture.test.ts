@@ -347,6 +347,34 @@ describe("startMeetingChatCapture", () => {
     expect(persistMeetingChatRecordsMock).toHaveBeenCalledTimes(2);
   });
 
+  test("uses a bounded signature and does not retry a rejected oversized message", async () => {
+    captureMeetingChatMessagesMock.mockResolvedValue(captureResult([]));
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    const oversizedMessage = {
+      ...capturedMessage,
+      id: "",
+      text: "x".repeat(100_000),
+    };
+    captureMeetingChatMessagesMock.mockResolvedValue(
+      captureResult([oversizedMessage]),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(5_000);
+    stop();
+
+    expect(persistMeetingChatRecordsMock).toHaveBeenCalledOnce();
+    const sourceSignature =
+      persistMeetingChatRecordsMock.mock.calls[0]?.[0].entries[0]
+        .sourceSignature;
+    expect(sourceSignature.length).toBeLessThan(100);
+    expect(sourceSignature).not.toContain(oversizedMessage.text);
+  });
+
   test("waits for an in-flight persistence write when capture stops", async () => {
     captureMeetingChatMessagesMock.mockResolvedValue(captureResult([]));
     const stop = startMeetingChatCapture({

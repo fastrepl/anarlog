@@ -23,7 +23,8 @@ const MAX_SHARED_ATTACHMENT_BYTES = 512 * 1024 * 1024;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const cacheMutationVersions = new Map<string, number>();
+const MAX_CACHE_MUTATION_VIEWERS = 64;
+const cacheMutationTokens = new Map<string, symbol>();
 const EMPTY_SESSION_IDS = new Set<string>();
 
 export type SharedNoteCapability = "viewer" | "commenter" | "editor";
@@ -106,7 +107,7 @@ export function parseDurableSharedNoteSnapshots(
 export async function replaceDurableSharedNoteCache(
   viewerUserId: string,
   snapshots: SharedNoteSnapshot[],
-  expectedMutationVersion?: number,
+  expectedMutationToken?: symbol,
 ): Promise<boolean> {
   requireIdentity(viewerUserId, "viewer user");
 
@@ -165,8 +166,8 @@ export async function replaceDurableSharedNoteCache(
     sharedNoteCacheWriteKey(viewerUserId),
     async () => {
       if (
-        expectedMutationVersion !== undefined &&
-        expectedMutationVersion !== currentCacheMutationVersion(viewerUserId)
+        expectedMutationToken !== undefined &&
+        expectedMutationToken !== cacheMutationTokens.get(viewerUserId)
       ) {
         return false;
       }
@@ -180,7 +181,9 @@ export function captureDurableSharedNoteCacheMutationVersion(
   viewerUserId: string,
 ) {
   requireIdentity(viewerUserId, "viewer user");
-  return currentCacheMutationVersion(viewerUserId);
+  const token = cacheMutationTokens.get(viewerUserId) ?? Symbol();
+  setCacheMutationToken(viewerUserId, token);
+  return token;
 }
 
 export function enqueueDurableSharedNoteCacheMutation<T>(
@@ -188,11 +191,20 @@ export function enqueueDurableSharedNoteCacheMutation<T>(
   write: () => Promise<T>,
 ): Promise<T> {
   requireIdentity(viewerUserId, "viewer user");
-  cacheMutationVersions.set(
-    viewerUserId,
-    currentCacheMutationVersion(viewerUserId) + 1,
-  );
+  setCacheMutationToken(viewerUserId, Symbol());
   return enqueueDatabaseWrite(sharedNoteCacheWriteKey(viewerUserId), write);
+}
+
+function setCacheMutationToken(viewerUserId: string, token: symbol) {
+  cacheMutationTokens.delete(viewerUserId);
+  cacheMutationTokens.set(viewerUserId, token);
+  while (cacheMutationTokens.size > MAX_CACHE_MUTATION_VIEWERS) {
+    const oldestViewerUserId = cacheMutationTokens.keys().next().value;
+    if (oldestViewerUserId === undefined) {
+      break;
+    }
+    cacheMutationTokens.delete(oldestViewerUserId);
+  }
 }
 
 function sessionShareSyncStatePruneStatement(
@@ -368,10 +380,6 @@ export async function removeDurableSharedNoteCache(
       },
     ]),
   );
-}
-
-function currentCacheMutationVersion(viewerUserId: string) {
-  return cacheMutationVersions.get(viewerUserId) ?? 0;
 }
 
 export function sharedNoteCacheWriteKey(viewerUserId: string) {

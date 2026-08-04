@@ -37,9 +37,9 @@ function observe(type: string, handle: (entries: PerformanceEntry[]) => void) {
       handle(list.getEntries()),
     );
     observer.observe({ type, buffered: true } as PerformanceObserverInit);
-    return true;
+    return () => observer.disconnect();
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -79,26 +79,41 @@ function reportSlowEvents(entries: PerformanceEntry[]) {
 
 /** Fallback for engines without Long Animation Frames (WebKit). */
 function watchKeystrokes() {
-  window.addEventListener(
-    "keydown",
-    (event) => {
-      const start = performance.now();
-      requestAnimationFrame(() => {
-        const blocked = performance.now() - start;
-        if (blocked < SLOW_KEYSTROKE_MS) return;
-        console.warn(
-          `[perf] keydown "${event.key}" blocked ${Math.round(blocked)}ms before the next frame`,
-        );
-      });
-    },
-    { capture: true },
-  );
+  const pendingFrames = new Set<number>();
+  const handleKeydown = (event: KeyboardEvent) => {
+    const start = performance.now();
+    const key = event.key;
+    const frameId = requestAnimationFrame(() => {
+      pendingFrames.delete(frameId);
+      const blocked = performance.now() - start;
+      if (blocked < SLOW_KEYSTROKE_MS) return;
+      console.warn(
+        `[perf] keydown "${key}" blocked ${Math.round(blocked)}ms before the next frame`,
+      );
+    });
+    pendingFrames.add(frameId);
+  };
+  window.addEventListener("keydown", handleKeydown, { capture: true });
+
+  return () => {
+    window.removeEventListener("keydown", handleKeydown, { capture: true });
+    pendingFrames.forEach(cancelAnimationFrame);
+    pendingFrames.clear();
+  };
 }
 
-export function startInteractionProfiler() {
-  if (!import.meta.env.DEV) return;
+let stopInteractionProfiler: (() => void) | null = null;
 
-  const hasLoaf = observe("long-animation-frame", reportLongAnimationFrames);
+export function startInteractionProfiler(): () => void {
+  if (!import.meta.env.DEV) return () => {};
+
+  stopInteractionProfiler?.();
+  const cleanups: Array<() => void> = [];
+
+  const stopLoaf = observe("long-animation-frame", reportLongAnimationFrames);
+  if (stopLoaf) {
+    cleanups.push(stopLoaf);
+  }
 
   try {
     const observer = new PerformanceObserver((list) =>
@@ -109,17 +124,31 @@ export function startInteractionProfiler() {
       durationThreshold: SLOW_FRAME_MS,
       buffered: true,
     } as PerformanceObserverInit);
+    cleanups.push(() => observer.disconnect());
   } catch {
     // Event Timing unavailable; the keystroke watcher still reports blocking.
   }
 
-  watchKeystrokes();
+  cleanups.push(watchKeystrokes());
 
-  if (!hasLoaf) {
+  if (!stopLoaf) {
     console.info(
       "[perf] Long Animation Frames unsupported (WebKit). Slow keystrokes will be " +
         "reported without attribution -- run `pnpm -F @anlg/desktop dev` in Chrome, " +
         "or profile with Safari Web Inspector, to name the function.",
     );
   }
+
+  const stop = () => {
+    cleanups.forEach((cleanup) => cleanup());
+    if (stopInteractionProfiler === stop) {
+      stopInteractionProfiler = null;
+    }
+  };
+  stopInteractionProfiler = stop;
+  return stop;
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => stopInteractionProfiler?.());
 }

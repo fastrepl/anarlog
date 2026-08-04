@@ -5,6 +5,8 @@ import { commands as localApiCommands } from "@anlg/plugin-local-api";
 import { supabase } from "~/auth/client";
 import { env } from "~/env";
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 export type CloudApiSettings = {
   enabled: boolean;
   updated_at: string | null;
@@ -40,8 +42,25 @@ export class CloudApiClientError extends Error {
 let cachedEnabled: boolean | null = null;
 let cachedUserId: string | null = null;
 let backfillRetryTimer: ReturnType<typeof setTimeout> | null = null;
-const snapshotIntents = new Map<string, "delete" | "upsert">();
+type SnapshotIntent = { kind: "delete" | "upsert" };
+const snapshotIntents = new Map<string, SnapshotIntent>();
 const snapshotSyncs = new Map<string, Promise<void>>();
+
+function setSnapshotIntent(sessionId: string, kind: SnapshotIntent["kind"]) {
+  const intent = { kind };
+  snapshotIntents.set(sessionId, intent);
+  return intent;
+}
+
+function clearSnapshotIntent(sessionId: string, expected: SnapshotIntent) {
+  if (snapshotIntents.get(sessionId) === expected) {
+    snapshotIntents.delete(sessionId);
+  }
+}
+
+function hasSnapshotIntent(sessionId: string, kind: SnapshotIntent["kind"]) {
+  return snapshotIntents.get(sessionId)?.kind === kind;
+}
 
 async function session() {
   if (!supabase) {
@@ -86,10 +105,13 @@ async function request(
   if (init.body) {
     headers.set("Content-Type", "application/json");
   }
-  const response = await fetch(new URL(path, env.VITE_API_URL).toString(), {
-    ...init,
-    headers,
-  });
+  const response = await fetchWithTimeout(
+    new URL(path, env.VITE_API_URL).toString(),
+    {
+      ...init,
+      headers,
+    },
+  );
   if (response.status === 401 && retryAuth && supabase) {
     const { error } = await supabase.auth.refreshSession();
     if (!error) {
@@ -113,6 +135,40 @@ async function request(
     );
   }
   return response;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit) {
+  const controller = new AbortController();
+  const externalSignal = init.signal;
+  const abortFromCaller = () => controller.abort(externalSignal?.reason);
+  if (externalSignal?.aborted) {
+    abortFromCaller();
+  } else {
+    externalSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      const error = new CloudApiClientError(
+        "request_timeout",
+        "Cloud API request timed out.",
+      );
+      controller.abort(error);
+      reject(error);
+    }, REQUEST_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([
+      fetch(url, { ...init, signal: controller.signal }),
+      timeoutPromise,
+    ]);
+  } finally {
+    if (timeout !== null) {
+      clearTimeout(timeout);
+    }
+    externalSignal?.removeEventListener("abort", abortFromCaller);
+  }
 }
 
 async function json<T>(
@@ -200,9 +256,13 @@ async function cloudApiEnabled(userId: string): Promise<boolean> {
 }
 
 export async function syncCloudApiSnapshot(sessionId: string): Promise<void> {
-  snapshotIntents.set(sessionId, "upsert");
-  const current = await session();
-  await syncCloudApiSnapshotForUser(sessionId, current.user.id);
+  const intent = setSnapshotIntent(sessionId, "upsert");
+  try {
+    const current = await session();
+    await syncCloudApiSnapshotForUser(sessionId, current.user.id);
+  } finally {
+    clearSnapshotIntent(sessionId, intent);
+  }
 }
 
 async function syncCloudApiSnapshotForUser(
@@ -235,16 +295,20 @@ async function performCloudApiSnapshotSync(
   const result = await localApiCommands.getCloudSnapshot(sessionId);
   if (result.status === "error") {
     if (await localSnapshotIsMissing(sessionId)) {
-      snapshotIntents.set(sessionId, "delete");
+      const deleteIntent = setSnapshotIntent(sessionId, "delete");
       cancelScheduledSnapshotSync(sessionId);
       addPendingChange(userId, sessionId, "deletes");
-      await deleteCloudApiSnapshotForUser(sessionId, userId);
-      removePendingChange(userId, sessionId, "upserts");
+      try {
+        await deleteCloudApiSnapshotForUser(sessionId, userId);
+        removePendingChange(userId, sessionId, "upserts");
+      } finally {
+        clearSnapshotIntent(sessionId, deleteIntent);
+      }
       return;
     }
     throw new CloudApiClientError("local_snapshot_unavailable", result.error);
   }
-  if (snapshotIntents.get(sessionId) === "delete") {
+  if (hasSnapshotIntent(sessionId, "delete")) {
     return;
   }
   await request(
@@ -261,15 +325,19 @@ async function performCloudApiSnapshotSync(
 }
 
 export async function deleteCloudApiSnapshot(sessionId: string): Promise<void> {
-  snapshotIntents.set(sessionId, "delete");
+  const intent = setSnapshotIntent(sessionId, "delete");
   cancelScheduledSnapshotSync(sessionId);
-  const current = await session();
-  addPendingChange(current.user.id, sessionId, "deletes");
-  await waitForSnapshotSync(sessionId, current.user.id);
-  if (snapshotIntents.get(sessionId) !== "delete") {
-    return;
+  try {
+    const current = await session();
+    addPendingChange(current.user.id, sessionId, "deletes");
+    await waitForSnapshotSync(sessionId, current.user.id);
+    if (snapshotIntents.get(sessionId) !== intent) {
+      return;
+    }
+    await deleteCloudApiSnapshotForUser(sessionId, current.user.id);
+  } finally {
+    clearSnapshotIntent(sessionId, intent);
   }
-  await deleteCloudApiSnapshotForUser(sessionId, current.user.id);
 }
 
 async function deleteCloudApiSnapshotForUser(
@@ -302,7 +370,7 @@ export async function backfillCloudApiSnapshots(): Promise<number> {
   let uploaded = 0;
   let retryableError: unknown;
   for (const sessionId of result.data) {
-    if (snapshotIntents.get(sessionId) === "delete") {
+    if (hasSnapshotIntent(sessionId, "delete")) {
       continue;
     }
     try {
@@ -338,56 +406,57 @@ export async function initializeCloudApiBackfill(): Promise<void> {
 }
 
 export function syncCloudApiSnapshotBestEffort(sessionId: string): void {
-  snapshotIntents.set(sessionId, "upsert");
+  const intent = setSnapshotIntent(sessionId, "upsert");
   void session()
-    .then((current) => {
-      if (snapshotIntents.get(sessionId) !== "upsert") {
+    .then(async (current) => {
+      if (snapshotIntents.get(sessionId) !== intent) {
         return;
       }
       addPendingChange(current.user.id, sessionId, "upserts");
-      void syncCloudApiSnapshotForUser(sessionId, current.user.id).catch(
-        (error: unknown) => {
-          if (shouldRetry(error)) {
-            addPendingChange(current.user.id, sessionId, "upserts");
-          }
-          reportBackgroundError(error);
-        },
-      );
+      try {
+        await syncCloudApiSnapshotForUser(sessionId, current.user.id);
+      } catch (error) {
+        if (shouldRetry(error)) {
+          addPendingChange(current.user.id, sessionId, "upserts");
+        }
+        reportBackgroundError(error);
+      }
     })
-    .catch(reportBackgroundError);
+    .catch(reportBackgroundError)
+    .finally(() => clearSnapshotIntent(sessionId, intent));
 }
 
 export function deleteCloudApiSnapshotBestEffort(sessionId: string): void {
-  snapshotIntents.set(sessionId, "delete");
+  const intent = setSnapshotIntent(sessionId, "delete");
   cancelScheduledSnapshotSync(sessionId);
   void session()
-    .then((current) => {
-      if (snapshotIntents.get(sessionId) !== "delete") {
+    .then(async (current) => {
+      if (snapshotIntents.get(sessionId) !== intent) {
         return;
       }
       addPendingChange(current.user.id, sessionId, "deletes");
-      void waitForSnapshotSync(sessionId, current.user.id)
-        .then(() => {
-          if (snapshotIntents.get(sessionId) !== "delete") {
-            return;
-          }
-          return deleteCloudApiSnapshotForUser(sessionId, current.user.id);
-        })
-        .catch((error: unknown) => {
-          if (shouldRetry(error)) {
-            addPendingChange(current.user.id, sessionId, "deletes");
-          }
-          reportBackgroundError(error);
-        });
+      try {
+        await waitForSnapshotSync(sessionId, current.user.id);
+        if (snapshotIntents.get(sessionId) !== intent) {
+          return;
+        }
+        await deleteCloudApiSnapshotForUser(sessionId, current.user.id);
+      } catch (error) {
+        if (shouldRetry(error)) {
+          addPendingChange(current.user.id, sessionId, "deletes");
+        }
+        reportBackgroundError(error);
+      }
     })
-    .catch(reportBackgroundError);
+    .catch(reportBackgroundError)
+    .finally(() => clearSnapshotIntent(sessionId, intent));
 }
 
 export function scheduleCloudApiSnapshotSync(sessionId: string): void {
-  snapshotIntents.set(sessionId, "upsert");
+  const intent = setSnapshotIntent(sessionId, "upsert");
   void session()
     .then((current) => {
-      if (snapshotIntents.get(sessionId) !== "upsert") {
+      if (snapshotIntents.get(sessionId) !== intent) {
         return;
       }
       addPendingChange(current.user.id, sessionId, "upserts");
@@ -395,21 +464,24 @@ export function scheduleCloudApiSnapshotSync(sessionId: string): void {
       window.clearTimeout(snapshotTimers.get(timerKey)?.timeoutId);
       const timeoutId = window.setTimeout(() => {
         snapshotTimers.delete(timerKey);
-        if (snapshotIntents.get(sessionId) !== "upsert") {
+        if (snapshotIntents.get(sessionId) !== intent) {
           return;
         }
-        void syncCloudApiSnapshotForUser(sessionId, current.user.id).catch(
-          (error: unknown) => {
+        void syncCloudApiSnapshotForUser(sessionId, current.user.id)
+          .catch((error: unknown) => {
             if (shouldRetry(error)) {
               addPendingChange(current.user.id, sessionId, "upserts");
             }
             reportBackgroundError(error);
-          },
-        );
+          })
+          .finally(() => clearSnapshotIntent(sessionId, intent));
       }, 1500);
       snapshotTimers.set(timerKey, { sessionId, timeoutId });
     })
-    .catch(reportBackgroundError);
+    .catch((error) => {
+      clearSnapshotIntent(sessionId, intent);
+      reportBackgroundError(error);
+    });
 }
 
 export function scheduleCloudApiBackfillRetry(): void {
@@ -513,7 +585,7 @@ function addPendingChange(
   updatePendingChanges(userId, (pending) => {
     if (
       kind === "upserts" &&
-      (snapshotIntents.get(sessionId) === "delete" ||
+      (hasSnapshotIntent(sessionId, "delete") ||
         pending.deletes.includes(sessionId))
     ) {
       return pending;

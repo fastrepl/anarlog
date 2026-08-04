@@ -29,6 +29,7 @@ export interface TaskStorage {
 }
 
 const emptyTasks: TaskRecord[] = [];
+const MAX_INACTIVE_SOURCE_SNAPSHOTS = 256;
 
 const TaskStorageContext = createContext<TaskStorage | null>(null);
 
@@ -45,6 +46,7 @@ export function createInMemoryTaskStorage(): TaskStorage {
 
   const refreshSourceSnapshot = (source: TaskSource) => {
     const sourceKey = createTaskSourceKey(source);
+    sourceSnapshots.delete(sourceKey);
     sourceSnapshots.set(
       sourceKey,
       [...tasksById.values()]
@@ -54,6 +56,15 @@ export function createInMemoryTaskStorage(): TaskStorage {
         )
         .sort((left, right) => left.sourceOrder - right.sourceOrder),
     );
+    if (sourceSnapshots.size <= MAX_INACTIVE_SOURCE_SNAPSHOTS) {
+      return;
+    }
+    for (const cachedSourceKey of sourceSnapshots.keys()) {
+      if (!listenersBySource.has(cachedSourceKey)) {
+        sourceSnapshots.delete(cachedSourceKey);
+        break;
+      }
+    }
   };
 
   const getTasksForSource = (source: TaskSource): TaskRecord[] => {
@@ -80,6 +91,7 @@ export function createInMemoryTaskStorage(): TaskStorage {
         listeners.delete(listener);
         if (listeners.size === 0) {
           listenersBySource.delete(sourceKey);
+          sourceSnapshots.delete(sourceKey);
         }
       };
     },

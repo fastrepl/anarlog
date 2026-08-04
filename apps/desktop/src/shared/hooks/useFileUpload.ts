@@ -12,13 +12,13 @@ export type FileUploadResult = AttachmentSaveResult & {
   url: string;
 };
 
+const MAX_IPC_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+
 export function useFileUpload(sessionId: string) {
   return useCallback(
     async (file: File): Promise<FileUploadResult> => {
       const filename = file.name;
-      const arrayBuffer = await file.arrayBuffer();
-      const sha256 = await sha256Hex(arrayBuffer);
-      const data = Array.from(new Uint8Array(arrayBuffer));
+      const { data, sha256, sizeBytes } = await prepareIpcAttachment(file);
 
       const result = await fsSyncCommands.attachmentSave(
         sessionId,
@@ -37,7 +37,7 @@ export function useFileUpload(sessionId: string) {
           attachmentId,
           filename,
           contentType: file.type,
-          sizeBytes: arrayBuffer.byteLength,
+          sizeBytes,
           sha256,
         });
       } catch (error) {
@@ -58,4 +58,22 @@ export function useFileUpload(sessionId: string) {
     },
     [sessionId],
   );
+}
+
+function assertIpcAttachmentSize(size: number) {
+  if (size > MAX_IPC_ATTACHMENT_BYTES) {
+    throw new Error("Attachments must be smaller than 4 MB");
+  }
+}
+
+async function prepareIpcAttachment(file: File) {
+  assertIpcAttachmentSize(file.size);
+  const arrayBuffer = await file.arrayBuffer();
+  assertIpcAttachmentSize(arrayBuffer.byteLength);
+  const sha256 = await sha256Hex(arrayBuffer);
+  return {
+    data: Array.from(new Uint8Array(arrayBuffer)),
+    sha256,
+    sizeBytes: arrayBuffer.byteLength,
+  };
 }

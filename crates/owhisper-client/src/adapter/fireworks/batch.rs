@@ -54,15 +54,17 @@ impl FireworksAdapter {
             .unwrap_or("audio.wav")
             .to_string();
 
-        let file_bytes = tokio::fs::read(file_path).await.map_err(|e| {
-            Error::AudioProcessing(format!(
-                "failed to read file {}: {}",
-                file_path.display(),
-                e
-            ))
-        })?;
+        let file_part = reqwest::multipart::Part::file(file_path)
+            .await
+            .map_err(|e| {
+                Error::AudioProcessing(format!(
+                    "failed to open file {}: {}",
+                    file_path.display(),
+                    e
+                ))
+            })?
+            .file_name(file_name);
 
-        let file_part = reqwest::multipart::Part::bytes(file_bytes).file_name(file_name);
         let mut form = reqwest::multipart::Form::new().part("file", file_part);
 
         let default = crate::providers::Provider::Fireworks.default_batch_model();
@@ -94,7 +96,7 @@ impl FireworksAdapter {
 
         let status = response.status();
         if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
+            let body = crate::adapter::http::error_body(response).await;
             return Err(Error::UnexpectedStatus { status, body });
         }
 

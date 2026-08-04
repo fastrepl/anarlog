@@ -56,7 +56,12 @@ export function SharedNoteCommentRail({
     const cached = measureRefs.current.get(id);
     if (cached) return cached;
     const ref = (element: HTMLDivElement | null) => {
-      if (!element) return;
+      if (!element) {
+        if (measureRefs.current.get(id) === ref) {
+          measureRefs.current.delete(id);
+        }
+        return;
+      }
       const observer = new ResizeObserver(() => {
         const height = element.getBoundingClientRect().height;
         setHeights((previous) =>
@@ -68,6 +73,9 @@ export function SharedNoteCommentRail({
       observer.observe(element);
       return () => {
         observer.disconnect();
+        if (measureRefs.current.get(id) === ref) {
+          measureRefs.current.delete(id);
+        }
         setHeights((previous) => {
           if (!previous.has(id)) return previous;
           const next = new Map(previous);

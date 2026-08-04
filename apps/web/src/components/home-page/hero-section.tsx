@@ -15,6 +15,7 @@ import {
   detectDesktopPlatform,
   getOrderedDesktopDownloadSections,
 } from "@/lib/download";
+import { createTrackedTimers } from "@/lib/tracked-timers";
 
 import { CredibilityLogoMarquee } from "./social-proof-sections";
 
@@ -51,13 +52,7 @@ function HeroWorkflowDemo() {
   const text2 = "stakehlder mtg";
 
   useMountEffect(() => {
-    const timeouts: ReturnType<typeof setTimeout>[] = [];
-    const intervals: ReturnType<typeof setInterval>[] = [];
-
-    const queueTimeout = (callback: () => void, delay: number) => {
-      const timeout = setTimeout(callback, delay);
-      timeouts.push(timeout);
-    };
+    const timers = createTrackedTimers();
 
     const runAnimation = () => {
       setTypedText1("");
@@ -66,37 +61,37 @@ function HeroWorkflowDemo() {
       setIsTypingActive(false);
 
       let currentIndex1 = 0;
-      queueTimeout(() => {
+      timers.setTimeout(() => {
         setIsTypingActive(true);
-        const interval1 = setInterval(() => {
+        const interval1 = timers.setInterval(() => {
           if (currentIndex1 < text1.length) {
             setTypedText1(text1.slice(0, currentIndex1 + 1));
             currentIndex1++;
           } else {
-            clearInterval(interval1);
+            timers.clearInterval(interval1);
 
             let currentIndex2 = 0;
-            const interval2 = setInterval(() => {
+            const interval2 = timers.setInterval(() => {
               if (currentIndex2 < text2.length) {
                 setTypedText2(text2.slice(0, currentIndex2 + 1));
                 currentIndex2++;
               } else {
-                clearInterval(interval2);
+                timers.clearInterval(interval2);
                 setIsTypingActive(false);
 
-                queueTimeout(() => {
+                timers.setTimeout(() => {
                   setEnhancedLines(1);
-                  queueTimeout(() => {
+                  timers.setTimeout(() => {
                     setEnhancedLines(2);
-                    queueTimeout(() => {
+                    timers.setTimeout(() => {
                       setEnhancedLines(3);
-                      queueTimeout(() => {
+                      timers.setTimeout(() => {
                         setEnhancedLines(4);
-                        queueTimeout(() => {
+                        timers.setTimeout(() => {
                           setEnhancedLines(5);
-                          queueTimeout(() => {
+                          timers.setTimeout(() => {
                             setEnhancedLines(6);
-                            queueTimeout(() => runAnimation(), 3000);
+                            timers.setTimeout(() => runAnimation(), 3000);
                           }, 800);
                         }, 800);
                       }, 800);
@@ -105,18 +100,15 @@ function HeroWorkflowDemo() {
                 }, 500);
               }
             }, 50);
-            intervals.push(interval2);
           }
         }, 50);
-        intervals.push(interval1);
       }, 500);
     };
 
     runAnimation();
 
     return () => {
-      timeouts.forEach(clearTimeout);
-      intervals.forEach(clearInterval);
+      timers.clear();
     };
   });
 

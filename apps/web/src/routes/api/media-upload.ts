@@ -1,14 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { getGitHubCredentials } from "@/functions/github-content";
+import {
+  getDecodedBase64Size,
+  MAX_BASE64_LENGTH,
+  MAX_MEDIA_BYTES,
+  readBoundedBody,
+} from "@/lib/media-upload-request";
 
 const GITHUB_REPO = "fastrepl/char";
 const GITHUB_BRANCH = "main";
+const MAX_FILENAME_LENGTH = 255;
 const ALLOWED_FOLDERS = [
   "apps/web/public/images",
   "apps/web/public/images/blog",
   "apps/web/public/images/handbook",
 ];
+
+function createGitHubUploadBody(message: string, content: string) {
+  return new Blob([
+    `{"message":${JSON.stringify(message)},"content":"`,
+    content,
+    `","branch":${JSON.stringify(GITHUB_BRANCH)}}`,
+  ]);
+}
 
 export const Route = createFileRoute("/api/media-upload")({
   server: {
@@ -26,9 +41,19 @@ export const Route = createFileRoute("/api/media-upload")({
         }
         const { token: githubToken } = credentials;
 
-        let body: { filename: string; content: string; folder: string };
+        let body: unknown;
         try {
-          body = await request.json();
+          const text = await readBoundedBody(request);
+          if (text === null) {
+            return new Response(
+              JSON.stringify({ error: "Request body too large" }),
+              {
+                status: 413,
+                headers: { "Content-Type": "application/json" },
+              },
+            );
+          }
+          body = JSON.parse(text);
         } catch {
           return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
             status: 400,
@@ -36,9 +61,19 @@ export const Route = createFileRoute("/api/media-upload")({
           });
         }
 
-        const { filename, content, folder } = body;
+        const { filename, content, folder } = (body ?? {}) as Record<
+          string,
+          unknown
+        >;
 
-        if (!filename || !content || !folder) {
+        if (
+          typeof filename !== "string" ||
+          !filename ||
+          typeof content !== "string" ||
+          !content ||
+          typeof folder !== "string" ||
+          !folder
+        ) {
           return new Response(
             JSON.stringify({
               error: "Missing required fields: filename, content, folder",
@@ -48,6 +83,13 @@ export const Route = createFileRoute("/api/media-upload")({
               headers: { "Content-Type": "application/json" },
             },
           );
+        }
+
+        if (filename.length > MAX_FILENAME_LENGTH) {
+          return new Response(JSON.stringify({ error: "Filename too long" }), {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          });
         }
 
         if (!ALLOWED_FOLDERS.includes(folder)) {
@@ -85,9 +127,40 @@ export const Route = createFileRoute("/api/media-upload")({
           );
         }
 
+        if (content.length > MAX_BASE64_LENGTH) {
+          return new Response(
+            JSON.stringify({ error: "Image exceeds the 10 MiB limit" }),
+            {
+              status: 413,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const mediaBytes = getDecodedBase64Size(content);
+        if (mediaBytes === null) {
+          return new Response(
+            JSON.stringify({ error: "Invalid base64 data" }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        if (mediaBytes > MAX_MEDIA_BYTES) {
+          return new Response(
+            JSON.stringify({ error: "Image exceeds the 10 MiB limit" }),
+            {
+              status: 413,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
         const path = `${folder}/${sanitizedFilename}`;
 
         try {
+          const message = `Upload ${sanitizedFilename} via Admin`;
           const response = await fetch(
             `https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`,
             {
@@ -97,11 +170,7 @@ export const Route = createFileRoute("/api/media-upload")({
                 "Content-Type": "application/json",
                 Accept: "application/vnd.github.v3+json",
               },
-              body: JSON.stringify({
-                message: `Upload ${sanitizedFilename} via Admin`,
-                content,
-                branch: GITHUB_BRANCH,
-              }),
+              body: createGitHubUploadBody(message, content),
             },
           );
 

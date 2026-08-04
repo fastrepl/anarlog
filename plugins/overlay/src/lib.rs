@@ -3,15 +3,41 @@ mod ext;
 
 pub use ext::*;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+};
 use tauri::{AppHandle, Manager, WebviewWindow};
-use tokio::{sync::RwLock, task::JoinHandle, time::sleep};
+use tokio::{
+    sync::{Mutex, RwLock, oneshot},
+    task::JoinHandle,
+    time::{sleep, timeout},
+};
 
 #[cfg(target_os = "macos")]
-fn is_window_focused_on_main_thread(app: &AppHandle, window: &WebviewWindow) -> bool {
+const MAIN_THREAD_FOCUS_TIMEOUT: std::time::Duration = std::time::Duration::from_millis(250);
+const OVERLAY_SHUTDOWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(1);
+
+#[cfg(target_os = "macos")]
+async fn receive_main_thread_focus(rx: oneshot::Receiver<bool>, wait: std::time::Duration) -> bool {
+    match timeout(wait, rx).await {
+        Ok(Ok(focused)) => focused,
+        Ok(Err(_)) => false,
+        Err(_) => {
+            tracing::warn!("checking_overlay_focus_on_main_thread_timed_out");
+            false
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+async fn is_window_focused_on_main_thread(app: &AppHandle, window: &WebviewWindow) -> bool {
     let lookup_app = app.clone();
     let label = window.label().to_string();
-    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    let (tx, rx) = oneshot::channel();
 
     if app
         .run_on_main_thread(move || {
@@ -26,7 +52,7 @@ fn is_window_focused_on_main_thread(app: &AppHandle, window: &WebviewWindow) -> 
         return false;
     }
 
-    rx.recv().unwrap_or(false)
+    receive_main_thread_focus(rx, MAIN_THREAD_FOCUS_TIMEOUT).await
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize, specta::Type, Clone, Copy)]
@@ -45,11 +71,32 @@ impl Default for FakeWindowBounds {
     }
 }
 
-pub struct OverlayListenerHandles(pub Arc<RwLock<HashMap<String, JoinHandle<()>>>>);
+struct OverlayListenerHandle {
+    id: u64,
+    task: JoinHandle<()>,
+}
+
+pub struct OverlayListenerHandles {
+    handles: RwLock<HashMap<String, OverlayListenerHandle>>,
+    lifecycle: Mutex<()>,
+    next_id: AtomicU64,
+}
 
 impl Default for OverlayListenerHandles {
     fn default() -> Self {
-        Self(Arc::new(RwLock::new(HashMap::new())))
+        Self {
+            handles: RwLock::new(HashMap::new()),
+            lifecycle: Mutex::new(()),
+            next_id: AtomicU64::new(1),
+        }
+    }
+}
+
+impl Drop for OverlayListenerHandles {
+    fn drop(&mut self) {
+        for (_, handle) in self.handles.get_mut().drain() {
+            handle.task.abort();
+        }
     }
 }
 
@@ -58,12 +105,60 @@ pub struct OverlayOptions {
     pub steal_focus: bool,
 }
 
+async fn take_overlay_listener(
+    handles: &OverlayListenerHandles,
+    window_label: &str,
+) -> Option<OverlayListenerHandle> {
+    handles.handles.write().await.remove(window_label)
+}
+
+async fn stop_overlay_listener(handle: Option<OverlayListenerHandle>) {
+    if let Some(handle) = handle {
+        handle.task.abort();
+        if timeout(OVERLAY_SHUTDOWN_TIMEOUT, handle.task)
+            .await
+            .is_err()
+        {
+            tracing::warn!("overlay_listener_shutdown_timed_out");
+        }
+    }
+}
+
+async fn remove_overlay_state(app: &AppHandle, window_label: &str) {
+    let state = app.state::<FakeWindowBounds>();
+    state.0.write().await.remove(window_label);
+}
+
+async fn finish_overlay_listener(app: &AppHandle, window_label: &str, id: u64) {
+    let handles = app.state::<OverlayListenerHandles>();
+    let _lifecycle = handles.lifecycle.lock().await;
+    let removed = {
+        let mut handles_map = handles.handles.write().await;
+        if handles_map
+            .get(window_label)
+            .is_some_and(|handle| handle.id == id)
+        {
+            handles_map.remove(window_label);
+            true
+        } else {
+            false
+        }
+    };
+
+    if removed {
+        remove_overlay_state(app, window_label).await;
+    }
+}
+
 pub async fn abort_overlay_listener(app: &AppHandle, window_label: &str) {
     let handles = app.state::<OverlayListenerHandles>();
-    let mut handles_map = handles.0.write().await;
-    if let Some(handle) = handles_map.remove(window_label) {
-        handle.abort();
-    }
+    let handle = {
+        let _lifecycle = handles.lifecycle.lock().await;
+        let handle = take_overlay_listener(&handles, window_label).await;
+        remove_overlay_state(app, window_label).await;
+        handle
+    };
+    stop_overlay_listener(handle).await;
 }
 
 pub async fn spawn_overlay_listener(
@@ -72,13 +167,23 @@ pub async fn spawn_overlay_listener(
     options: OverlayOptions,
 ) {
     let window_label = window.label().to_string();
+    let handles = app.state::<OverlayListenerHandles>();
+    let lifecycle = handles.lifecycle.lock().await;
 
-    abort_overlay_listener(&app, &window_label).await;
+    let replaced_handle = take_overlay_listener(&handles, &window_label).await;
 
     window.set_ignore_cursor_events(true).ok();
 
+    let id = handles.next_id.fetch_add(1, Ordering::Relaxed);
+    let task_window_label = window_label.clone();
     let app_clone = app.clone();
+    let (start_tx, start_rx) = oneshot::channel();
     let handle = tokio::spawn(async move {
+        if start_rx.await.is_err() {
+            finish_overlay_listener(&app_clone, &task_window_label, id).await;
+            return;
+        }
+
         let state = app_clone.state::<FakeWindowBounds>();
         let mut last_ignore_state = true;
         let mut last_focus_state = false;
@@ -86,9 +191,13 @@ pub async fn spawn_overlay_listener(
         loop {
             sleep(std::time::Duration::from_millis(1000 / 20)).await;
 
+            if app_clone.get_webview_window(&task_window_label).is_none() {
+                break;
+            }
+
             let map = state.0.read().await;
 
-            let Some(windows) = map.get(window.label()) else {
+            let Some(windows) = map.get(&task_window_label) else {
                 if !last_ignore_state {
                     window.set_ignore_cursor_events(true).ok();
                     last_ignore_state = true;
@@ -145,7 +254,7 @@ pub async fn spawn_overlay_listener(
 
             if options.steal_focus {
                 #[cfg(target_os = "macos")]
-                let focused = is_window_focused_on_main_thread(&app_clone, &window);
+                let focused = is_window_focused_on_main_thread(&app_clone, &window).await;
 
                 #[cfg(not(target_os = "macos"))]
                 let focused = window.is_focused().unwrap_or(false);
@@ -158,11 +267,18 @@ pub async fn spawn_overlay_listener(
                 }
             }
         }
+
+        finish_overlay_listener(&app_clone, &task_window_label, id).await;
     });
 
-    let handles = app.state::<OverlayListenerHandles>();
-    let mut handles_map = handles.0.write().await;
-    handles_map.insert(window_label, handle);
+    handles
+        .handles
+        .write()
+        .await
+        .insert(window_label, OverlayListenerHandle { id, task: handle });
+    let _ = start_tx.send(());
+    drop(lifecycle);
+    stop_overlay_listener(replaced_handle).await;
 }
 
 const PLUGIN_NAME: &str = "overlay";
@@ -193,6 +309,44 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn main_thread_focus_receive_is_bounded() {
+        tauri::async_runtime::block_on(async {
+            let (_tx, rx) = oneshot::channel();
+
+            assert!(!receive_main_thread_focus(rx, std::time::Duration::ZERO).await);
+        });
+    }
+
+    #[test]
+    fn stopping_an_overlay_listener_aborts_its_task() {
+        tauri::async_runtime::block_on(async {
+            struct DropSignal(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+            impl Drop for DropSignal {
+                fn drop(&mut self) {
+                    self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+                }
+            }
+
+            let dropped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let task_dropped = dropped.clone();
+            let (started_tx, started_rx) = oneshot::channel();
+            let task = tokio::spawn(async move {
+                let _drop_signal = DropSignal(task_dropped);
+                let _ = started_tx.send(());
+                std::future::pending::<()>().await;
+            });
+            started_rx.await.unwrap();
+            let handle = OverlayListenerHandle { id: 1, task };
+
+            stop_overlay_listener(Some(handle)).await;
+
+            assert!(dropped.load(std::sync::atomic::Ordering::SeqCst));
+        });
+    }
 
     #[test]
     fn export_types() {

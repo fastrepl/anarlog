@@ -19,6 +19,7 @@ anlg-db-app = { workspace = true }
 tauri-plugin-db = { workspace = true }
 
 axum = { workspace = true }
+bytes = { workspace = true }
 chrono = { workspace = true }
 hmac = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }

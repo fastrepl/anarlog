@@ -360,7 +360,7 @@ export type FloatingBarState = {
   liveCaptionPosition: LiveCaptionPosition;
   liveCaptionMinimized: boolean;
   liveCaptionToggleVisible: boolean;
-  transcriptBubbles: FloatingTranscriptBubble[];
+  transcriptBubbles?: FloatingTranscriptBubble[] | null;
 };
 export type FloatingBarStatus = "recording" | "error";
 export type FloatingBarStop = Record<string, never>;

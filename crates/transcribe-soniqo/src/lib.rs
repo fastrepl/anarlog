@@ -156,6 +156,7 @@ pub fn diarize_samples(
 
 pub struct LiveTranscriptionSession {
     model: SoniqoModel,
+    session_token: String,
     stopped: bool,
 }
 
@@ -170,9 +171,10 @@ impl LiveTranscriptionSession {
             )));
         }
 
-        platform::live_start(model)?;
+        let session_token = platform::live_start(model)?;
         Ok(Self {
             model,
+            session_token,
             stopped: false,
         })
     }
@@ -182,11 +184,11 @@ impl LiveTranscriptionSession {
         source: TranscriptSource,
         samples: &[f32],
     ) -> Result<Vec<LivePartial>> {
-        platform::live_append(source, samples)
+        platform::live_append(&self.session_token, source, samples)
     }
 
     pub fn finalize(&mut self, source: TranscriptSource) -> Result<Vec<LivePartial>> {
-        platform::live_finalize(source)
+        platform::live_finalize(&self.session_token, source)
     }
 
     pub fn model(&self) -> SoniqoModel {
@@ -195,14 +197,14 @@ impl LiveTranscriptionSession {
 
     pub fn stop(mut self) -> Result<()> {
         self.stopped = true;
-        platform::live_stop()
+        platform::live_stop(&self.session_token)
     }
 }
 
 impl Drop for LiveTranscriptionSession {
     fn drop(&mut self) {
         if !self.stopped {
-            let _ = platform::live_stop();
+            let _ = platform::live_stop(&self.session_token);
         }
     }
 }

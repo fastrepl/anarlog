@@ -5,6 +5,7 @@ extension NotificationManager {
     guard let screen = getTargetScreen() else { return }
     let hasFooter = payload.footer != nil
 
+    dismissExistingNotification(forKey: payload.key)
     manageNotificationLimit()
 
     let yPosition = calculateYPosition(screen: screen, hasFooter: hasFooter)

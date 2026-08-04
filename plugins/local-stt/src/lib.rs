@@ -4,6 +4,7 @@ use ractor::{ActorCell, ActorRef};
 use tauri::{Manager, Wry};
 
 mod commands;
+mod download_pollers;
 mod error;
 mod ext;
 mod model;
@@ -25,6 +26,7 @@ pub struct State {
     pub stt_supervisor: Option<ActorRef<DynamicSupervisorMsg>>,
     pub supervisor_handle: Option<SupervisorHandle>,
     pub model_downloader: ModelDownloadManager<LocalModel>,
+    pub(crate) download_pollers: download_pollers::DownloadPollers,
 }
 
 #[derive(Default)]
@@ -75,6 +77,7 @@ pub fn init<R: tauri::Runtime>(options: InitOptions) -> tauri::plugin::TauriPlug
                 stt_supervisor: None,
                 supervisor_handle: None,
                 model_downloader,
+                download_pollers: download_pollers::DownloadPollers::default(),
             }));
 
             app.manage(state.clone());

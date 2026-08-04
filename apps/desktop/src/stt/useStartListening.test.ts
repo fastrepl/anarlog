@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
+import {
+  MAX_SENT_MEETING_DISCLOSURE_SESSIONS,
+  startMeetingRecordingDisclosure,
+} from "./meeting-disclosure";
 import { getSessionKeywords } from "./useKeywords";
 import {
   getPostCaptureAction,
@@ -3264,6 +3268,37 @@ describe("useStartListening", () => {
       expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(1);
     });
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("bounds completed meeting disclosure history", async () => {
+    const sessionIds = Array.from(
+      { length: MAX_SENT_MEETING_DISCLOSURE_SESSIONS + 1 },
+      (_, index) => `bounded-disclosure-session-${index}`,
+    );
+
+    for (const sessionId of sessionIds) {
+      startMeetingRecordingDisclosure(sessionId, () => true);
+    }
+
+    await waitFor(() => {
+      expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(
+        sessionIds.length,
+      );
+    });
+
+    startMeetingRecordingDisclosure(
+      sessionIds[sessionIds.length - 1]!,
+      () => true,
+    );
+    await Promise.resolve();
+    expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(sessionIds.length);
+
+    startMeetingRecordingDisclosure(sessionIds[0]!, () => true);
+    await waitFor(() => {
+      expect(sendMeetingChatMessageMock).toHaveBeenCalledTimes(
+        sessionIds.length + 1,
+      );
+    });
   });
 
   test("retries until Slack becomes mic-active without reporting intermediate failures", async () => {

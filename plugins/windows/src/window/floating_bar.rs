@@ -45,7 +45,8 @@ pub struct FloatingBarState {
     pub live_caption_position: LiveCaptionPosition,
     pub live_caption_minimized: bool,
     pub live_caption_toggle_visible: bool,
-    pub transcript_bubbles: Vec<FloatingTranscriptBubble>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transcript_bubbles: Option<Vec<FloatingTranscriptBubble>>,
 }
 
 #[cfg(target_os = "macos")]

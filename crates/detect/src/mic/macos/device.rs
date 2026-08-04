@@ -22,6 +22,9 @@ pub(super) extern "C-unwind" fn device_listener(
     client_data: *mut (),
 ) -> os::Status {
     let data = unsafe { &*(client_data as *const ListenerData) };
+    if !data.ctx.listener_callbacks_active() {
+        return os::Status::NO_ERR;
+    }
     let addresses = unsafe { std::slice::from_raw_parts(addresses, number_addresses as usize) };
 
     for addr in addresses {
@@ -45,6 +48,9 @@ pub(super) extern "C-unwind" fn system_listener(
     client_data: *mut (),
 ) -> os::Status {
     let data = unsafe { &*(client_data as *const ListenerData) };
+    if !data.ctx.listener_callbacks_active() {
+        return os::Status::NO_ERR;
+    }
     let addresses = unsafe { std::slice::from_raw_parts(addresses, number_addresses as usize) };
 
     for addr in addresses {
@@ -56,12 +62,16 @@ pub(super) extern "C-unwind" fn system_listener(
             continue;
         };
 
-        if let Some(old_device) = device_guard.take() {
-            let _ = old_device.remove_prop_listener(
+        if let Some(old_device) = device_guard.take()
+            && let Err(error) = old_device.remove_prop_listener(
                 &DEVICE_IS_RUNNING_SOMEWHERE,
                 device_listener,
                 data.device_listener_ptr,
-            );
+            )
+        {
+            tracing::error!(?error, "removing_previous_device_listener_failed");
+            *device_guard = Some(old_device);
+            continue;
         }
 
         let Ok(new_device) = ca::System::default_input_device() else {
@@ -83,6 +93,8 @@ pub(super) extern "C-unwind" fn system_listener(
             if let Some(running) = mic_in_use {
                 data.ctx.handle_mic_change(running);
             }
+        } else {
+            tracing::error!("adding_replacement_device_listener_failed");
         }
     }
 

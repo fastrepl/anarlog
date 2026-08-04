@@ -6,6 +6,7 @@ import {
 } from "./settings";
 
 import type { ListenerStore } from "~/store/zustand/listener";
+import { LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT } from "~/store/zustand/listener/transcript";
 import { SegmentKeyUtils, type RenderLabelContext } from "~/stt/live-segment";
 
 export type ListenerState = ReturnType<ListenerStore["getState"]>;
@@ -63,6 +64,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible = false,
     sessionTitle,
     speakerLabelContext,
+    transcriptBubbles,
   }: {
     sessionId?: string;
     colorScheme?: FloatingBarColorScheme;
@@ -70,6 +72,7 @@ export function getFloatingRouteState(
     liveCaptionToggleVisible?: boolean;
     sessionTitle?: string | null;
     speakerLabelContext?: RenderLabelContext;
+    transcriptBubbles?: FloatingTranscriptBubble[];
   } = {},
 ): FloatingRouteState | null {
   if (state.live.status !== "active") {
@@ -100,10 +103,9 @@ export function getFloatingRouteState(
     liveCaptionPosition: settings.liveCaptionPosition,
     liveCaptionMinimized: settings.liveCaptionMinimized,
     liveCaptionToggleVisible,
-    transcriptBubbles: getFloatingTranscriptBubbles(
-      state.liveSegments,
-      speakerLabelContext,
-    ),
+    transcriptBubbles:
+      transcriptBubbles ??
+      getFloatingTranscriptBubbles(state.liveSegments, speakerLabelContext),
   };
 }
 
@@ -124,6 +126,7 @@ export function getFloatingTranscriptBubbles(
         a.end_ms - b.end_ms ||
         a.id.localeCompare(b.id),
     )
+    .slice(-LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT)
     .map((segment) => {
       const text = getFloatingSegmentText(segment);
       if (!text) {
@@ -144,15 +147,8 @@ export function getFloatingTranscriptBubbles(
     })
     .filter((bubble): bubble is FloatingTranscriptBubble => bubble !== null);
 
-  return bubbles.map((bubble, index) => ({
-    ...bubble,
-    overlapsPrevious: bubbles
-      .slice(0, index)
-      .some((previous) => doFloatingTranscriptBubblesOverlap(previous, bubble)),
-    overlapsNext: bubbles
-      .slice(index + 1)
-      .some((next) => doFloatingTranscriptBubblesOverlap(bubble, next)),
-  }));
+  markFloatingTranscriptOverlaps(bubbles);
+  return bubbles;
 }
 
 function getFloatingSegmentText(
@@ -196,20 +192,91 @@ function isFloatingSelfSpeaker(
   return key.channel === "DirectMic";
 }
 
-function doFloatingTranscriptBubblesOverlap(
-  left: FloatingTranscriptBubble,
-  right: FloatingTranscriptBubble,
-) {
-  if (
-    left.isSelf === right.isSelf &&
-    left.speakerLabel === right.speakerLabel
-  ) {
-    return false;
+type RankedOverlapBoundary = {
+  isSelf: boolean;
+  speakerLabel: string;
+  value: number;
+};
+
+function markFloatingTranscriptOverlaps(bubbles: FloatingTranscriptBubble[]) {
+  const latestEnds: RankedOverlapBoundary[] = [];
+  for (const bubble of bubbles) {
+    const latestOtherEnd = getOtherSpeakerBoundary(latestEnds, bubble);
+    bubble.overlapsPrevious =
+      bubble.endMs - bubble.startMs >=
+        FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS &&
+      latestOtherEnd !== undefined &&
+      latestOtherEnd >=
+        bubble.startMs + FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS;
+    updateRankedBoundaries(latestEnds, bubble, bubble.endMs, "largest");
   }
 
-  const overlapMs =
-    Math.min(left.endMs, right.endMs) - Math.max(left.startMs, right.startMs);
-  return overlapMs >= FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS;
+  const earliestStarts: RankedOverlapBoundary[] = [];
+  for (let index = bubbles.length - 1; index >= 0; index -= 1) {
+    const bubble = bubbles[index]!;
+    const earliestOtherStart = getOtherSpeakerBoundary(earliestStarts, bubble);
+    bubble.overlapsNext =
+      earliestOtherStart !== undefined &&
+      earliestOtherStart <=
+        bubble.endMs - FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS;
+
+    if (
+      bubble.endMs - bubble.startMs >=
+      FLOATING_TRANSCRIPT_OVERLAP_THRESHOLD_MS
+    ) {
+      updateRankedBoundaries(
+        earliestStarts,
+        bubble,
+        bubble.startMs,
+        "smallest",
+      );
+    }
+  }
+}
+
+function getOtherSpeakerBoundary(
+  boundaries: RankedOverlapBoundary[],
+  bubble: FloatingTranscriptBubble,
+) {
+  return boundaries.find(
+    (boundary) =>
+      boundary.isSelf !== bubble.isSelf ||
+      boundary.speakerLabel !== bubble.speakerLabel,
+  )?.value;
+}
+
+function updateRankedBoundaries(
+  boundaries: RankedOverlapBoundary[],
+  bubble: FloatingTranscriptBubble,
+  value: number,
+  ranking: "largest" | "smallest",
+) {
+  const existing = boundaries.find(
+    (boundary) =>
+      boundary.isSelf === bubble.isSelf &&
+      boundary.speakerLabel === bubble.speakerLabel,
+  );
+  const isBetter =
+    ranking === "largest"
+      ? (candidate: number, current: number) => candidate > current
+      : (candidate: number, current: number) => candidate < current;
+
+  if (existing) {
+    if (isBetter(value, existing.value)) {
+      existing.value = value;
+    }
+  } else {
+    boundaries.push({
+      isSelf: bubble.isSelf,
+      speakerLabel: bubble.speakerLabel,
+      value,
+    });
+  }
+
+  boundaries.sort((left, right) =>
+    ranking === "largest" ? right.value - left.value : left.value - right.value,
+  );
+  boundaries.splice(2);
 }
 
 export function shouldShowFloatingLiveCaptionToggle({

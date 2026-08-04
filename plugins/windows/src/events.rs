@@ -8,6 +8,11 @@ use crate::AppWindow;
 pub fn on_window_event(window: &tauri::Window<tauri::Wry>, event: &tauri::WindowEvent) {
     let app = window.app_handle();
 
+    if matches!(event, tauri::WindowEvent::Destroyed) {
+        crate::clear_window_state(app, window.label());
+        return;
+    }
+
     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
         match window.label().parse::<AppWindow>() {
             Err(e) => tracing::warn!("window_parse_error: {:?}", e),

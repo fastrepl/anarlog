@@ -35,12 +35,18 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
             return;
         }
 
+        let state = self.manager.state::<crate::ManagedState>();
+        let Ok(permit) = state.fire_and_forget_slots.clone().try_acquire_owned() else {
+            return;
+        };
+
         Self::enrich_payload(self.manager, &mut payload);
 
         let machine_id = anlg_host::fingerprint();
-        let client = self.manager.state::<crate::ManagedState>().client.clone();
+        let client = state.client.clone();
 
         tauri::async_runtime::spawn(async move {
+            let _permit = permit;
             let _ = client.event(machine_id, payload).await;
         });
     }

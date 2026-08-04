@@ -107,7 +107,7 @@ fn cleanup_pulseaudio(mainloop: Rc<RefCell<Mainloop>>, context: Rc<RefCell<Conte
 }
 
 pub(crate) fn monitor_device_change(
-    event_tx: mpsc::Sender<DeviceSwitch>,
+    event_tx: mpsc::SyncSender<DeviceSwitch>,
     stop_rx: mpsc::Receiver<()>,
 ) {
     let Some((mainloop, context)) = setup_pulseaudio(&stop_rx) else {
@@ -127,24 +127,24 @@ pub(crate) fn monitor_device_change(
     context.borrow_mut().set_subscribe_callback(Some(Box::new(
         move |facility, operation, _index| match (facility, operation) {
             (Some(Facility::Server), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.send(DeviceSwitch::DefaultInputChanged);
-                let _ = event_tx_for_callback.send(DeviceSwitch::DefaultOutputChanged {
+                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultInputChanged);
+                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultOutputChanged {
                     headphone: is_headphone_from_default_output_device(),
                 });
             }
             (Some(Facility::Sink), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.send(DeviceSwitch::DefaultOutputChanged {
+                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultOutputChanged {
                     headphone: is_headphone_from_default_output_device(),
                 });
             }
             (Some(Facility::Sink), Some(Operation::New | Operation::Removed)) => {
-                let _ = event_tx_for_callback.send(DeviceSwitch::DeviceListChanged);
+                let _ = event_tx_for_callback.try_send(DeviceSwitch::DeviceListChanged);
             }
             (Some(Facility::Source), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.send(DeviceSwitch::DefaultInputChanged);
+                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultInputChanged);
             }
             (Some(Facility::Source), Some(Operation::New | Operation::Removed)) => {
-                let _ = event_tx_for_callback.send(DeviceSwitch::DeviceListChanged);
+                let _ = event_tx_for_callback.try_send(DeviceSwitch::DeviceListChanged);
             }
             _ => {}
         },
@@ -169,7 +169,7 @@ pub(crate) fn monitor_volume_mute(
     let _ = stop_rx.recv();
 }
 
-pub(crate) fn monitor(event_tx: mpsc::Sender<DeviceEvent>, stop_rx: mpsc::Receiver<()>) {
+pub(crate) fn monitor(event_tx: mpsc::SyncSender<DeviceEvent>, stop_rx: mpsc::Receiver<()>) {
     let Some((mainloop, context)) = setup_pulseaudio(&stop_rx) else {
         return;
     };
@@ -188,15 +188,15 @@ pub(crate) fn monitor(event_tx: mpsc::Sender<DeviceEvent>, stop_rx: mpsc::Receiv
         move |facility, operation, _index| match (facility, operation) {
             (Some(Facility::Server), Some(Operation::Changed)) => {
                 let _ = event_tx_for_callback
-                    .send(DeviceEvent::Switch(DeviceSwitch::DefaultInputChanged));
-                let _ = event_tx_for_callback.send(DeviceEvent::Switch(
+                    .try_send(DeviceEvent::Switch(DeviceSwitch::DefaultInputChanged));
+                let _ = event_tx_for_callback.try_send(DeviceEvent::Switch(
                     DeviceSwitch::DefaultOutputChanged {
                         headphone: is_headphone_from_default_output_device(),
                     },
                 ));
             }
             (Some(Facility::Sink), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.send(DeviceEvent::Switch(
+                let _ = event_tx_for_callback.try_send(DeviceEvent::Switch(
                     DeviceSwitch::DefaultOutputChanged {
                         headphone: is_headphone_from_default_output_device(),
                     },
@@ -204,15 +204,15 @@ pub(crate) fn monitor(event_tx: mpsc::Sender<DeviceEvent>, stop_rx: mpsc::Receiv
             }
             (Some(Facility::Sink), Some(Operation::New | Operation::Removed)) => {
                 let _ = event_tx_for_callback
-                    .send(DeviceEvent::Switch(DeviceSwitch::DeviceListChanged));
+                    .try_send(DeviceEvent::Switch(DeviceSwitch::DeviceListChanged));
             }
             (Some(Facility::Source), Some(Operation::Changed)) => {
                 let _ = event_tx_for_callback
-                    .send(DeviceEvent::Switch(DeviceSwitch::DefaultInputChanged));
+                    .try_send(DeviceEvent::Switch(DeviceSwitch::DefaultInputChanged));
             }
             (Some(Facility::Source), Some(Operation::New | Operation::Removed)) => {
                 let _ = event_tx_for_callback
-                    .send(DeviceEvent::Switch(DeviceSwitch::DeviceListChanged));
+                    .try_send(DeviceEvent::Switch(DeviceSwitch::DeviceListChanged));
             }
             _ => {}
         },

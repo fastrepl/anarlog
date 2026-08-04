@@ -17,6 +17,7 @@ import {
   type CaptureParams,
   type CaptureStatusEvent,
   type LiveTranscriptDelta,
+  type LiveTranscriptSegment,
   type LiveTranscriptSegmentDelta,
 } from "@anlg/plugin-transcription";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
@@ -36,11 +37,12 @@ import {
   updateLiveAmplitude,
   updateLiveProgress,
 } from "./general-shared";
-import type {
-  LiveTranscriptPersistCallback,
-  OnStoppedCallback,
-  TranscriptActions,
-  TranscriptState,
+import {
+  LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT,
+  type LiveTranscriptPersistCallback,
+  type OnStoppedCallback,
+  type TranscriptActions,
+  type TranscriptState,
 } from "./transcript";
 
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
@@ -54,6 +56,86 @@ type EventListeners = {
 };
 
 type LiveStore = GeneralState & TranscriptState & TranscriptActions;
+
+const CAPTURE_SNAPSHOT_HYDRATION_TIMEOUT_MS = 5_000;
+
+const createLiveSegmentDeltaBuffer = () => ({
+  removedIds: new Set<string>(),
+  upsertsById: new Map<string, LiveTranscriptSegment>(),
+});
+
+const trimLiveSegmentDeltaBuffer = (
+  entries: Map<string, LiveTranscriptSegment> | Set<string>,
+) => {
+  while (entries.size > LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT) {
+    const oldest = entries.keys().next();
+    if (oldest.done) {
+      return;
+    }
+    entries.delete(oldest.value);
+  }
+};
+
+const bufferLiveSegmentDelta = (
+  buffer: ReturnType<typeof createLiveSegmentDeltaBuffer>,
+  delta: LiveTranscriptSegmentDelta,
+) => {
+  delta.removed_ids.forEach((id) => {
+    buffer.upsertsById.delete(id);
+    buffer.removedIds.delete(id);
+    buffer.removedIds.add(id);
+  });
+  delta.upserts.forEach((segment) => {
+    buffer.removedIds.delete(segment.id);
+    buffer.upsertsById.delete(segment.id);
+    buffer.upsertsById.set(segment.id, segment);
+  });
+  trimLiveSegmentDeltaBuffer(buffer.removedIds);
+  trimLiveSegmentDeltaBuffer(buffer.upsertsById);
+};
+
+const takeLiveSegmentDelta = (
+  buffer: ReturnType<typeof createLiveSegmentDeltaBuffer>,
+): LiveTranscriptSegmentDelta => ({
+  removed_ids: [...buffer.removedIds],
+  upserts: [...buffer.upsertsById.values()],
+});
+
+const getCaptureSnapshotWithTimeout = (): ReturnType<
+  typeof listenerCommands.getCaptureSnapshot
+> =>
+  new Promise((resolve) => {
+    let settled = false;
+    const finish = (
+      result: Awaited<ReturnType<typeof listenerCommands.getCaptureSnapshot>>,
+    ) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeoutId);
+      resolve(result);
+    };
+    const timeoutId = setTimeout(
+      () =>
+        finish({
+          status: "error",
+          error: `capture snapshot hydration timed out after ${CAPTURE_SNAPSHOT_HYDRATION_TIMEOUT_MS}ms`,
+        }),
+      CAPTURE_SNAPSHOT_HYDRATION_TIMEOUT_MS,
+    );
+
+    void (async () => {
+      try {
+        finish(await listenerCommands.getCaptureSnapshot());
+      } catch (error) {
+        finish({
+          status: "error",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+  });
 
 const listenToAllSessionEvents = (
   handlers: EventListeners,
@@ -151,6 +233,9 @@ const createSessionEventHandlers = <T extends LiveStore>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
   targetSessionId: string,
+  handleTranscriptSegmentDelta: (
+    delta: LiveTranscriptSegmentDelta,
+  ) => void = get().handleTranscriptSegmentDelta,
 ): EventListeners => ({
   lifecycle: (payload) => {
     if (payload.session_id !== targetSessionId) {
@@ -330,7 +415,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
         return;
       }
 
-      get().handleTranscriptSegmentDelta(
+      handleTranscriptSegmentDelta(
         payload.delta as unknown as LiveTranscriptSegmentDelta,
       );
       return;
@@ -507,15 +592,20 @@ export const attachLiveSession = <T extends LiveStore>(
       return Promise.resolve("attached");
     }
 
-    return listenerCommands
-      .getCaptureSnapshot()
+    return getCaptureSnapshotWithTimeout()
       .then((result) => {
         if (result.status === "error") {
+          console.error(
+            "[listener] capture snapshot unavailable:",
+            result.error,
+          );
           return "error";
         }
 
         const snapshot = result.data;
-        applyCaptureSnapshot(set, get, targetSessionId, snapshot);
+        applyCaptureSnapshot(set, get, targetSessionId, snapshot, {
+          hydrateLiveSegments: false,
+        });
         const isAttached =
           (snapshot.state === "active" &&
             snapshot.activeSessionId === targetSessionId) ||
@@ -540,7 +630,32 @@ export const attachLiveSession = <T extends LiveStore>(
     }
   });
 
-  const handlers = createSessionEventHandlers(set, get, targetSessionId);
+  let bufferedSegmentDeltas: ReturnType<
+    typeof createLiveSegmentDeltaBuffer
+  > | null = createLiveSegmentDeltaBuffer();
+  const replayBufferedSegmentDeltas = () => {
+    const buffer = bufferedSegmentDeltas;
+    bufferedSegmentDeltas = null;
+    if (!buffer) {
+      return;
+    }
+    const delta = takeLiveSegmentDelta(buffer);
+    if (delta.removed_ids.length > 0 || delta.upserts.length > 0) {
+      get().handleTranscriptSegmentDelta(delta);
+    }
+  };
+  const handlers = createSessionEventHandlers(
+    set,
+    get,
+    targetSessionId,
+    (delta) => {
+      if (bufferedSegmentDeltas) {
+        bufferLiveSegmentDelta(bufferedSegmentDeltas, delta);
+        return;
+      }
+      get().handleTranscriptSegmentDelta(delta);
+    },
+  );
 
   const program = Effect.gen(function* () {
     const unlisteners = yield* listenToAllSessionEvents(handlers);
@@ -558,26 +673,19 @@ export const attachLiveSession = <T extends LiveStore>(
       live.eventUnlistenersBySession[targetSessionId] = unlisteners;
     });
 
-    const snapshotResult = yield* Effect.promise(async () => {
-      try {
-        return await listenerCommands.getCaptureSnapshot();
-      } catch (error) {
-        return {
-          status: "error" as const,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    });
+    const snapshotResult = yield* Effect.promise(getCaptureSnapshotWithTimeout);
     if (snapshotResult.status === "error") {
       console.error(
         "[listener] capture snapshot unavailable:",
         snapshotResult.error,
       );
+      replayBufferedSegmentDeltas();
       return "error" as const;
     }
 
     const snapshot = snapshotResult.data;
     applyCaptureSnapshot(set, get, targetSessionId, snapshot);
+    replayBufferedSegmentDeltas();
     const isAttached =
       (snapshot.state === "active" &&
         snapshot.activeSessionId === targetSessionId) ||
@@ -615,12 +723,24 @@ export const attachLiveSession = <T extends LiveStore>(
   );
 };
 
-function applyCaptureSnapshot<T extends GeneralState>(
+function applyCaptureSnapshot<T extends LiveStore>(
   set: StoreApi<T>["setState"],
   get: StoreApi<T>["getState"],
   targetSessionId: string,
   snapshot: CaptureSnapshot,
+  options?: { hydrateLiveSegments?: boolean },
 ) {
+  if (
+    options?.hydrateLiveSegments !== false &&
+    snapshot.liveSegmentsSessionId === targetSessionId &&
+    snapshot.liveSegments
+  ) {
+    get().handleTranscriptSegmentDelta({
+      upserts: snapshot.liveSegments,
+      removed_ids: get().liveSegments.map((segment) => segment.id),
+    });
+  }
+
   if (
     snapshot.state === "active" &&
     snapshot.activeSessionId === targetSessionId

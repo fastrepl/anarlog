@@ -2,6 +2,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";
+import {
+  createClarityFallback,
+  disableClarity,
+  type ClarityFunction,
+} from "@/lib/clarity-queue";
 import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 import { PostHogProvider } from "@/providers/posthog";
 import { bootstrapBrowserTelemetry, stopBrowserTelemetry } from "@/telemetry";
@@ -11,9 +16,6 @@ const GOOGLE_ANALYTICS_ID = "G-4CDGPKJ8JB";
 const MICROSOFT_CLARITY_SCRIPT_ID = "microsoft-clarity-script";
 const MICROSOFT_CLARITY_TAG_ID = "wcjttoibok";
 
-type ClarityFunction = ((...args: unknown[]) => void) & {
-  q?: IArguments[];
-};
 type ClarityWindow = Window &
   typeof globalThis & {
     clarity?: ClarityFunction;
@@ -84,17 +86,7 @@ function MicrosoftClarityScript() {
     }
 
     const clarityWindow = window as ClarityWindow;
-    clarityWindow.clarity =
-      clarityWindow.clarity ??
-      function clarity() {
-        const queuedClarity = clarityWindow.clarity;
-        if (!queuedClarity) {
-          return;
-        }
-
-        queuedClarity.q = queuedClarity.q ?? [];
-        queuedClarity.q.push(arguments);
-      };
+    clarityWindow.clarity = clarityWindow.clarity ?? createClarityFallback();
 
     clarityWindow.clarity("consentv2", {
       ad_Storage: "denied",
@@ -183,10 +175,5 @@ function disableMicrosoftClarity() {
     return;
   }
 
-  const clarity = (window as ClarityWindow).clarity;
-  clarity?.("consentv2", {
-    ad_Storage: "denied",
-    analytics_Storage: "denied",
-  });
-  clarity?.("stop");
+  disableClarity((window as ClarityWindow).clarity);
 }

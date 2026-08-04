@@ -33,7 +33,7 @@ async fn submit(
     if !response.status().is_success() {
         return Err(Error::UnexpectedStatus {
             status: response.status(),
-            body: response.text().await.unwrap_or_default(),
+            body: crate::adapter::http::error_body(response).await,
         });
     }
 

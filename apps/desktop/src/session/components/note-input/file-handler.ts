@@ -10,6 +10,7 @@ import {
 } from "react";
 
 import type { FileHandlerConfig } from "@anlg/editor/note";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useFileUpload } from "~/shared/hooks/useFileUpload";
 import { isAudioUploadFile, useUploadFile } from "~/stt/useUploadFile";
@@ -57,6 +58,11 @@ export function useNoteFileHandlerConfig(sessionId: string) {
       handleDrop(files, undefined, items),
     [handleDrop],
   );
+  const handleFileUploadError = useCallback((error: unknown) => {
+    sonnerToast.error(
+      error instanceof Error ? error.message : "Could not add this attachment.",
+    );
+  }, []);
 
   const resetAudioDrag = useCallback(() => {
     audioDragDepthRef.current = 0;
@@ -155,8 +161,13 @@ export function useNoteFileHandlerConfig(sessionId: string) {
   );
 
   const fileHandlerConfig = useMemo<FileHandlerConfig>(
-    () => ({ onFileUpload, onDrop: handleDrop, onPaste: handlePaste }),
-    [handleDrop, handlePaste, onFileUpload],
+    () => ({
+      onFileUpload,
+      onFileUploadError: handleFileUploadError,
+      onDrop: handleDrop,
+      onPaste: handlePaste,
+    }),
+    [handleDrop, handleFileUploadError, handlePaste, onFileUpload],
   );
 
   const audioDropTargetProps = useMemo<HTMLAttributes<HTMLDivElement>>(

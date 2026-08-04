@@ -7,7 +7,5 @@ edition = "2024"
 anlg-audio-utils = { workspace = true }
 hound = { workspace = true }
 mp3lame-encoder = { workspace = true }
-thiserror = { workspace = true }
-
-[dev-dependencies]
 tempfile = { workspace = true }
+thiserror = { workspace = true }

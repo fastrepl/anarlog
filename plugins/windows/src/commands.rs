@@ -163,13 +163,7 @@ pub async fn window_restore_frame_animated(
     app: tauri::AppHandle<tauri::Wry>,
     window: AppWindow,
 ) -> Result<(), String> {
-    let saved = app
-        .state::<SavedFrames>()
-        .0
-        .lock()
-        .unwrap()
-        .get(&window.label())
-        .copied();
+    let saved = app.state::<SavedFrames>().take(&window.label());
 
     if let Some(saved) = saved {
         app.windows()
@@ -306,13 +300,7 @@ pub async fn window_restore_width(
     app: tauri::AppHandle<tauri::Wry>,
     window: tauri::Window<tauri::Wry>,
 ) -> Result<(), String> {
-    let entry = app
-        .state::<crate::WindowExpansions>()
-        .0
-        .lock()
-        .unwrap()
-        .get_mut(&window.label().to_string())
-        .and_then(|stack| stack.pop());
+    let entry = app.state::<crate::WindowExpansions>().pop(window.label());
 
     let Some((previous_w, expanded_w, expand_left)) = entry else {
         return Ok(());

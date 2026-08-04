@@ -5,7 +5,7 @@ mod model_resolution;
 pub mod status;
 pub mod streaming;
 
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use axum::{
     Router,
@@ -15,6 +15,7 @@ use axum::{
     routing::{get, post},
 };
 use owhisper_client::Provider;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use crate::anarlog_routing::{AnarlogRouter, RoutingMode, should_use_anarlog_routing};
 use crate::config::SttProxyConfig;
@@ -25,6 +26,11 @@ use crate::supabase::SupabaseClient;
 pub(crate) use error::{RouteError, parse_async_provider};
 
 const MAX_BATCH_AUDIO_BODY_BYTES: usize = 512 * 1024 * 1024;
+const MAX_BATCH_CALLBACK_BODY_BYTES: usize = 64 * 1024;
+const MAX_CONCURRENT_BATCH_REQUESTS: usize = 4;
+
+static BATCH_REQUEST_SLOTS: LazyLock<Arc<Semaphore>> =
+    LazyLock::new(|| Arc::new(Semaphore::new(MAX_CONCURRENT_BATCH_REQUESTS)));
 
 #[derive(Clone)]
 pub(crate) struct AppState {
@@ -32,6 +38,7 @@ pub(crate) struct AppState {
     pub selector: ProviderSelector,
     pub router: Option<Arc<AnarlogRouter>>,
     pub client: reqwest::Client,
+    batch_requests: Arc<Semaphore>,
 }
 
 impl FromRequestParts<AppState> for SupabaseClient {
@@ -61,6 +68,13 @@ impl FromRequestParts<AppState> for SupabaseClient {
 }
 
 impl AppState {
+    pub fn try_acquire_batch_slot(&self) -> Result<OwnedSemaphorePermit, RouteError> {
+        self.batch_requests
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| RouteError::TooManyRequests("too many concurrent batch requests"))
+    }
+
     #[allow(clippy::result_large_err)]
     pub fn resolve_provider(&self, params: &mut QueryParams) -> Result<SelectedProvider, Response> {
         let provider_param = params.remove_first("provider");
@@ -149,6 +163,7 @@ fn make_state(config: SttProxyConfig) -> AppState {
         selector,
         router,
         client: reqwest::Client::new(),
+        batch_requests: BATCH_REQUEST_SLOTS.clone(),
     }
 }
 
@@ -215,5 +230,19 @@ mod tests {
         let selected = state.resolve_provider(&mut params).unwrap();
 
         assert_eq!(selected.provider(), Provider::Deepgram);
+    }
+
+    #[test]
+    fn batch_admission_is_bounded_and_shared_across_router_states() {
+        let first = test_state();
+        let second = test_state();
+        let permits: Vec<_> = (0..MAX_CONCURRENT_BATCH_REQUESTS)
+            .map(|_| first.try_acquire_batch_slot().unwrap())
+            .collect();
+
+        assert!(first.try_acquire_batch_slot().is_err());
+        assert!(second.try_acquire_batch_slot().is_err());
+        drop(permits);
+        assert!(second.try_acquire_batch_slot().is_ok());
     }
 }

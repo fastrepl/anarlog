@@ -104,4 +104,38 @@ describe("useFileUpload", () => {
     expect(mocks.attachmentSave).not.toHaveBeenCalled();
     expect(mocks.catalogLocalNoteAttachment).not.toHaveBeenCalled();
   });
+
+  it("rejects oversized files before reading them into IPC memory", async () => {
+    const file = {
+      name: "recording.wav",
+      type: "audio/wav",
+      size: 4 * 1024 * 1024 + 1,
+      arrayBuffer: vi.fn(),
+    } as unknown as File;
+    const { result } = renderHook(() => useFileUpload("session-1"));
+
+    await expect(result.current(file)).rejects.toThrow(
+      "Attachments must be smaller than 4 MB",
+    );
+    expect(file.arrayBuffer).not.toHaveBeenCalled();
+    expect(mocks.attachmentSave).not.toHaveBeenCalled();
+  });
+
+  it("validates actual attachment bytes before expanding them for IPC", async () => {
+    const file = {
+      name: "recording.wav",
+      type: "audio/wav",
+      size: 0,
+      arrayBuffer: vi
+        .fn()
+        .mockResolvedValue(new ArrayBuffer(4 * 1024 * 1024 + 1)),
+    } as unknown as File;
+    const { result } = renderHook(() => useFileUpload("session-1"));
+
+    await expect(result.current(file)).rejects.toThrow(
+      "Attachments must be smaller than 4 MB",
+    );
+    expect(mocks.sha256Hex).not.toHaveBeenCalled();
+    expect(mocks.attachmentSave).not.toHaveBeenCalled();
+  });
 });

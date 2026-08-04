@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufWriter, Seek, Write};
+use std::io::{BufReader, BufWriter, Seek, Write};
 use std::path::Path;
 
 use hound::SampleFormat;
@@ -10,31 +10,49 @@ use crate::{Error, MonoStreamEncoder, StereoStreamEncoder};
 const CHUNK_FRAMES: usize = 4096;
 
 pub fn concat_files(paths: &[&Path], output: &Path) -> Result<(), Error> {
-    let file = File::create(output)?;
-    let mut writer = BufWriter::new(file);
-
-    for path in paths {
-        let bytes = std::fs::read(path)?;
-        writer.write_all(&bytes)?;
-    }
-
-    writer.flush()?;
-    Ok(())
+    write_atomic(output, |writer| {
+        for path in paths {
+            let mut reader = BufReader::new(File::open(path)?);
+            std::io::copy(&mut reader, writer)?;
+        }
+        Ok(())
+    })
 }
 
 pub fn encode_wav(wav_path: &Path, mp3_path: &Path) -> Result<(), Error> {
     let mut reader = hound::WavReader::open(wav_path)?;
     let spec = reader.spec();
-    let mut mp3_out = Vec::new();
-
-    match spec.channels {
-        1 => encode_mono_wav(&mut reader, spec, &mut mp3_out)?,
-        2 => encode_stereo_wav(&mut reader, spec, &mut mp3_out)?,
-        count => return Err(Error::UnsupportedChannelCount(count)),
+    if !matches!(spec.channels, 1 | 2) {
+        return Err(Error::UnsupportedChannelCount(spec.channels));
     }
 
-    std::fs::write(mp3_path, &mp3_out)?;
-    Ok(())
+    write_atomic(mp3_path, |mp3_out| match spec.channels {
+        1 => encode_mono_wav(&mut reader, spec, mp3_out),
+        2 => encode_stereo_wav(&mut reader, spec, mp3_out),
+        _ => unreachable!(),
+    })
+}
+
+fn write_atomic(
+    output: &Path,
+    write: impl FnOnce(&mut BufWriter<&mut File>) -> Result<(), Error>,
+) -> Result<(), Error> {
+    let parent = output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
+    {
+        let mut writer = BufWriter::new(temporary.as_file_mut());
+        write(&mut writer)?;
+        writer.flush()?;
+        writer.get_ref().sync_all()?;
+    }
+
+    temporary
+        .persist(output)
+        .map(|_| ())
+        .map_err(|error| Error::Io(error.error))
 }
 
 pub fn decode_to_wav(mp3_path: &Path, wav_path: &Path) -> Result<(), Error> {
@@ -59,12 +77,13 @@ pub fn decode_to_wav(mp3_path: &Path, wav_path: &Path) -> Result<(), Error> {
     Ok(())
 }
 
-fn encode_mono_wav<R: std::io::Read + Seek>(
+fn encode_mono_wav<R: std::io::Read + Seek, W: Write>(
     reader: &mut hound::WavReader<R>,
     spec: hound::WavSpec,
-    mp3_out: &mut Vec<u8>,
+    mp3_out: &mut W,
 ) -> Result<(), Error> {
     let mut encoder = MonoStreamEncoder::new(spec.sample_rate)?;
+    let mut encoded = Vec::new();
 
     match spec.sample_format {
         SampleFormat::Float => {
@@ -73,39 +92,60 @@ fn encode_mono_wav<R: std::io::Read + Seek>(
             }
 
             encode_mono_samples(reader.samples::<f32>(), f32_to_i16, |chunk| {
-                encoder.encode_i16(chunk, mp3_out)
+                encoded.clear();
+                encoder.encode_i16(chunk, &mut encoded)?;
+                mp3_out.write_all(&encoded)?;
+                Ok(())
             })?;
         }
         SampleFormat::Int => match spec.bits_per_sample {
             1..=8 => encode_mono_samples(
                 reader.samples::<i8>(),
                 |sample| int_to_i16(sample as i32, spec.bits_per_sample),
-                |chunk| encoder.encode_i16(chunk, mp3_out),
+                |chunk| {
+                    encoded.clear();
+                    encoder.encode_i16(chunk, &mut encoded)?;
+                    mp3_out.write_all(&encoded)?;
+                    Ok(())
+                },
             )?,
             9..=16 => encode_mono_samples(
                 reader.samples::<i16>(),
                 |sample| int_to_i16(sample as i32, spec.bits_per_sample),
-                |chunk| encoder.encode_i16(chunk, mp3_out),
+                |chunk| {
+                    encoded.clear();
+                    encoder.encode_i16(chunk, &mut encoded)?;
+                    mp3_out.write_all(&encoded)?;
+                    Ok(())
+                },
             )?,
             17..=32 => encode_mono_samples(
                 reader.samples::<i32>(),
                 |sample| int_to_i16(sample, spec.bits_per_sample),
-                |chunk| encoder.encode_i16(chunk, mp3_out),
+                |chunk| {
+                    encoded.clear();
+                    encoder.encode_i16(chunk, &mut encoded)?;
+                    mp3_out.write_all(&encoded)?;
+                    Ok(())
+                },
             )?,
             bits => return Err(Error::UnsupportedIntBitDepth(bits)),
         },
     }
 
-    encoder.flush(mp3_out)?;
+    encoded.clear();
+    encoder.flush(&mut encoded)?;
+    mp3_out.write_all(&encoded)?;
     Ok(())
 }
 
-fn encode_stereo_wav<R: std::io::Read + Seek>(
+fn encode_stereo_wav<R: std::io::Read + Seek, W: Write>(
     reader: &mut hound::WavReader<R>,
     spec: hound::WavSpec,
-    mp3_out: &mut Vec<u8>,
+    mp3_out: &mut W,
 ) -> Result<(), Error> {
     let mut encoder = StereoStreamEncoder::new(spec.sample_rate)?;
+    let mut encoded = Vec::new();
 
     match spec.sample_format {
         SampleFormat::Float => {
@@ -114,30 +154,50 @@ fn encode_stereo_wav<R: std::io::Read + Seek>(
             }
 
             encode_stereo_samples(reader.samples::<f32>(), f32_to_i16, |left, right| {
-                encoder.encode_i16(left, right, mp3_out)
+                encoded.clear();
+                encoder.encode_i16(left, right, &mut encoded)?;
+                mp3_out.write_all(&encoded)?;
+                Ok(())
             })?;
         }
         SampleFormat::Int => match spec.bits_per_sample {
             1..=8 => encode_stereo_samples(
                 reader.samples::<i8>(),
                 |sample| int_to_i16(sample as i32, spec.bits_per_sample),
-                |left, right| encoder.encode_i16(left, right, mp3_out),
+                |left, right| {
+                    encoded.clear();
+                    encoder.encode_i16(left, right, &mut encoded)?;
+                    mp3_out.write_all(&encoded)?;
+                    Ok(())
+                },
             )?,
             9..=16 => encode_stereo_samples(
                 reader.samples::<i16>(),
                 |sample| int_to_i16(sample as i32, spec.bits_per_sample),
-                |left, right| encoder.encode_i16(left, right, mp3_out),
+                |left, right| {
+                    encoded.clear();
+                    encoder.encode_i16(left, right, &mut encoded)?;
+                    mp3_out.write_all(&encoded)?;
+                    Ok(())
+                },
             )?,
             17..=32 => encode_stereo_samples(
                 reader.samples::<i32>(),
                 |sample| int_to_i16(sample, spec.bits_per_sample),
-                |left, right| encoder.encode_i16(left, right, mp3_out),
+                |left, right| {
+                    encoded.clear();
+                    encoder.encode_i16(left, right, &mut encoded)?;
+                    mp3_out.write_all(&encoded)?;
+                    Ok(())
+                },
             )?,
             bits => return Err(Error::UnsupportedIntBitDepth(bits)),
         },
     }
 
-    encoder.flush(mp3_out)?;
+    encoded.clear();
+    encoder.flush(&mut encoded)?;
+    mp3_out.write_all(&encoded)?;
     Ok(())
 }
 
@@ -268,6 +328,24 @@ mod tests {
         concat_files(&[&first, &second], &output)?;
 
         assert_eq!(std::fs::read(output)?, vec![1, 2, 3, 4, 5, 6]);
+        Ok(())
+    }
+
+    #[test]
+    fn atomic_write_cleans_partial_temp_and_preserves_output() -> Result<(), Error> {
+        let dir = tempdir()?;
+        let output = dir.path().join("out.mp3");
+        std::fs::write(&output, b"existing")?;
+
+        let error = write_atomic(&output, |writer| {
+            writer.write_all(b"partial")?;
+            Err(Error::LameEncode("injected failure".to_string()))
+        })
+        .expect_err("injected write should fail");
+
+        assert!(matches!(error, Error::LameEncode(_)));
+        assert_eq!(std::fs::read(&output)?, b"existing");
+        assert_eq!(std::fs::read_dir(dir.path())?.count(), 1);
         Ok(())
     }
 }

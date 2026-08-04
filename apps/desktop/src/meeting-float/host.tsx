@@ -28,10 +28,10 @@ import {
   type FloatingOverlaySettings,
 } from "./settings";
 import {
+  createFloatingMeetingWindowSynchronizer,
   hideFloatingMeetingPanel,
   hideLiveCaptionPanel,
   showFloatingMeetingWindow,
-  syncFloatingMeetingWindow,
 } from "./window-panel";
 
 import {
@@ -174,88 +174,50 @@ function FloatingMeetingWindowSync({
 
   useMountEffect(() => {
     let meetingData: MeetingFloatData = { sessions: {}, humanNames: {} };
+    const initialListenerState = listenerStore.getState();
     let routeState = getCurrentFloatingRouteState(
-      listenerStore.getState(),
+      initialListenerState,
       undefined,
       settingsRef.current,
-      getFloatingLiveCaptionToggleVisible(listenerStore.getState()),
+      getFloatingLiveCaptionToggleVisible(initialListenerState),
       meetingData,
     );
-    let syncQueued = false;
     let cancelled = false;
-    let shownSessionId: string | null = null;
-    let nativeCommandsUnavailable = false;
+    const windowSynchronizer = createFloatingMeetingWindowSynchronizer();
     let unsubscribeMeetingData: (() => Promise<void>) | null = null;
     const unlisteners: Array<() => void> = [];
 
-    const shouldContinue = () => !cancelled;
     const updateRouteState = (nextRouteState: FloatingRouteState | null) => {
       if (isSameFloatingRouteState(nextRouteState, routeState)) {
         return;
       }
 
       routeState = nextRouteState;
-      scheduleSync();
+      windowSynchronizer.update(routeState);
     };
-    const refreshCurrentRouteState = () => {
+    const refreshCurrentRouteState = (refreshTranscriptBubbles = false) => {
+      const state = listenerStore.getState();
+      const transcriptBubbles =
+        !refreshTranscriptBubbles &&
+        routeState?.sessionId === state.live.sessionId
+          ? routeState.transcriptBubbles
+          : undefined;
       updateRouteState(
         getCurrentFloatingRouteState(
-          listenerStore.getState(),
+          state,
           undefined,
           settingsRef.current,
-          getFloatingLiveCaptionToggleVisible(listenerStore.getState()),
+          getFloatingLiveCaptionToggleVisible(state),
           meetingData,
+          transcriptBubbles,
         ),
       );
     };
     refreshSettingsRef.current = refreshCurrentRouteState;
 
-    const sync = async () => {
-      if (!shouldContinue()) {
-        return;
-      }
-
-      if (nativeCommandsUnavailable && routeState) {
-        return;
-      }
-
-      const nextShownSessionId = await syncFloatingMeetingWindow(
-        routeState,
-        shownSessionId,
-        shouldContinue,
-      );
-      if (!shouldContinue()) {
-        await hideFloatingMeetingPanel();
-        return;
-      }
-
-      if (nextShownSessionId === "unavailable") {
-        nativeCommandsUnavailable = true;
-        return;
-      }
-
-      shownSessionId = nextShownSessionId;
-    };
-
-    const scheduleSync = () => {
-      if (syncQueued) {
-        return;
-      }
-
-      syncQueued = true;
-      queueMicrotask(() => {
-        syncQueued = false;
-        if (cancelled) {
-          return;
-        }
-
-        void sync();
-      });
-    };
-
     windowsEvents.floatingBarStop
       .listen(() => {
-        void hideFloatingMeetingPanel();
+        windowSynchronizer.update(null);
         listenerStore.getState().stop();
       })
       .then((unlisten) => {
@@ -280,38 +242,23 @@ function FloatingMeetingWindowSync({
         unlisteners.push(unlisten);
       });
 
-    scheduleSync();
+    windowSynchronizer.update(routeState);
 
     const unsubscribe = listenerStore.subscribe((state, previousState) => {
-      const colorScheme = getCurrentFloatingBarColorScheme();
-      const nextRouteState = getFloatingRouteState(state, {
-        colorScheme,
-        settings: settingsRef.current,
-        liveCaptionToggleVisible: getFloatingLiveCaptionToggleVisible(state),
-        sessionTitle: getFloatingSessionTitle(state, meetingData),
-        speakerLabelContext: getFloatingSpeakerLabelContext(state, meetingData),
-      });
-      const previousRouteState = getFloatingRouteState(previousState, {
-        colorScheme,
-        settings: settingsRef.current,
-        liveCaptionToggleVisible:
-          getFloatingLiveCaptionToggleVisible(previousState),
-        sessionTitle: getFloatingSessionTitle(previousState, meetingData),
-        speakerLabelContext: getFloatingSpeakerLabelContext(
-          previousState,
-          meetingData,
-        ),
-      });
-
-      if (!isSameFloatingRouteState(nextRouteState, previousRouteState)) {
-        updateRouteState(nextRouteState);
+      if (!haveFloatingRouteInputsChanged(state, previousState)) {
+        return;
       }
+
+      refreshCurrentRouteState(
+        state.liveSegments !== previousState.liveSegments ||
+          state.live.sessionId !== previousState.live.sessionId,
+      );
     });
 
     void subscribeMeetingFloatData(
       (nextData) => {
         meetingData = nextData;
-        refreshCurrentRouteState();
+        refreshCurrentRouteState(true);
       },
       (error) => {
         console.error("Failed to read floating meeting data:", error);
@@ -339,7 +286,7 @@ function FloatingMeetingWindowSync({
       unsubscribeAppliedTheme();
       void unsubscribeMeetingData?.();
       unlisteners.forEach((unlisten) => unlisten());
-      void hideFloatingMeetingPanel();
+      void windowSynchronizer.dispose();
     };
   });
 
@@ -366,6 +313,7 @@ function getCurrentFloatingRouteState(
   settings: FloatingOverlaySettings = DEFAULT_FLOATING_OVERLAY_SETTINGS,
   liveCaptionToggleVisible = false,
   meetingData?: MeetingFloatData,
+  transcriptBubbles?: FloatingRouteState["transcriptBubbles"],
 ): FloatingRouteState | null {
   return getFloatingRouteState(state, {
     sessionId,
@@ -374,7 +322,25 @@ function getCurrentFloatingRouteState(
     liveCaptionToggleVisible,
     sessionTitle: getFloatingSessionTitle(state, meetingData),
     speakerLabelContext: getFloatingSpeakerLabelContext(state, meetingData),
+    transcriptBubbles,
   });
+}
+
+function haveFloatingRouteInputsChanged(
+  state: ListenerState,
+  previousState: ListenerState,
+) {
+  return (
+    state.live.status !== previousState.live.status ||
+    state.live.sessionId !== previousState.live.sessionId ||
+    state.live.amplitude.mic !== previousState.live.amplitude.mic ||
+    state.live.amplitude.speaker !== previousState.live.amplitude.speaker ||
+    Boolean(state.live.degraded) !== Boolean(previousState.live.degraded) ||
+    Boolean(state.live.lastError) !== Boolean(previousState.live.lastError) ||
+    state.live.liveTranscriptionActive !==
+      previousState.live.liveTranscriptionActive ||
+    state.liveSegments !== previousState.liveSegments
+  );
 }
 
 function getFloatingSessionTitle(

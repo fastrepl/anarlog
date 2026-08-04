@@ -5,6 +5,8 @@ import { TASK_CONFIGS } from "./task-configs";
 import {
   createTasksSlice,
   extractUnderlyingError,
+  MAX_AI_TASK_STREAM_CHARACTERS,
+  MAX_RETAINED_AI_TASKS,
   TASK_STREAM_IDLE_TIMEOUT_MS,
   TASK_STREAM_START_TIMEOUT_MS,
 } from "./tasks";
@@ -62,6 +64,54 @@ describe("createTasksSlice", () => {
       currentStep: { type: "generating" },
       abortController: null,
     });
+  });
+
+  it("retains only the newest bounded remote task snapshots", () => {
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    for (let index = 0; index <= MAX_RETAINED_AI_TASKS; index += 1) {
+      state.syncRemoteTask(`summary-${index}-enhance`, {
+        taskType: "enhance",
+        status: "success",
+        streamedText: `summary-${index}`,
+      });
+    }
+
+    expect(Object.keys(state.tasks)).toHaveLength(MAX_RETAINED_AI_TASKS);
+    expect(state.tasks["summary-0-enhance"]).toBeUndefined();
+    expect(
+      state.tasks[`summary-${MAX_RETAINED_AI_TASKS}-enhance`]?.streamedText,
+    ).toBe(`summary-${MAX_RETAINED_AI_TASKS}`);
+  });
+
+  it("caps synchronized task text", () => {
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    state.syncRemoteTask("summary-1-enhance", {
+      taskType: "enhance",
+      status: "success",
+      streamedText: "x".repeat(MAX_AI_TASK_STREAM_CHARACTERS + 1),
+    });
+
+    expect(state.tasks["summary-1-enhance"]?.streamedText).toHaveLength(
+      MAX_AI_TASK_STREAM_CHARACTERS,
+    );
   });
 
   it("keeps a task generating until onSuccess finishes", async () => {
@@ -395,6 +445,44 @@ describe("createTasksSlice", () => {
       status: "error",
       error: expect.objectContaining({
         message: "AI generation did not return any text.",
+      }),
+    });
+  });
+
+  it("stops generation before retaining an oversized output", async () => {
+    let state: ReturnType<typeof createTasksSlice>;
+    const set = (updater: any) => {
+      state =
+        typeof updater === "function"
+          ? updater(state)
+          : { ...state, ...updater };
+    };
+    const get = () => state;
+    state = createTasksSlice(set, get);
+
+    TASK_CONFIGS.enhance.transformArgs = vi.fn(async () => ({}) as any);
+    TASK_CONFIGS.enhance.transforms = [];
+    TASK_CONFIGS.enhance.executeWorkflow = vi.fn(async function* () {
+      yield {
+        type: "text-delta",
+        text: "x".repeat(MAX_AI_TASK_STREAM_CHARACTERS + 1),
+      } as any;
+    });
+    TASK_CONFIGS.enhance.onSuccess = vi.fn(async () => {});
+
+    const taskId = "oversized-enhance" as const;
+    await state.generate(taskId, {
+      model: {} as any,
+      taskType: "enhance",
+      args: { sessionId: "session-1", enhancedNoteId: "note-1" },
+    });
+
+    expect(TASK_CONFIGS.enhance.onSuccess).not.toHaveBeenCalled();
+    expect(state.tasks[taskId]).toMatchObject({
+      status: "error",
+      streamedText: "",
+      error: expect.objectContaining({
+        message: "AI generation exceeded the safe output limit.",
       }),
     });
   });

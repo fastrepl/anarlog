@@ -81,6 +81,8 @@ const initialState: TasksState = {
 
 export const TASK_STREAM_IDLE_TIMEOUT_MS = 15_000;
 export const TASK_STREAM_START_TIMEOUT_MS = 60_000;
+export const MAX_RETAINED_AI_TASKS = 256;
+export const MAX_AI_TASK_STREAM_CHARACTERS = 256 * 1024;
 
 const DATABASE_LOCK_RETRY_DELAYS_MS = [
   250, 500, 1_000, 2_000, 4_000, 8_000, 16_000, 30_000,
@@ -234,14 +236,9 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
   ) => {
     set((state) =>
       mutate(state, (draft) => {
-        draft.tasks[taskId] = {
-          taskType: task.taskType,
-          status: task.status,
-          streamedText: task.streamedText,
-          error: task.error ? createSyncedTaskError(task.error) : undefined,
-          abortController: null,
-          currentStep: task.currentStep,
-        };
+        draft.tasks = setBoundedTaskState(draft.tasks, taskId, {
+          ...toSyncedTaskState(task),
+        });
       }),
     );
   },
@@ -249,17 +246,9 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
     set((state) =>
       mutate(state, (draft) => {
         draft.tasks = Object.fromEntries(
-          Object.entries(tasks).map(([taskId, task]) => [
-            taskId,
-            {
-              taskType: task.taskType,
-              status: task.status,
-              streamedText: task.streamedText,
-              error: task.error ? createSyncedTaskError(task.error) : undefined,
-              abortController: null,
-              currentStep: task.currentStep,
-            },
-          ]),
+          Object.entries(tasks)
+            .slice(-MAX_RETAINED_AI_TASKS)
+            .map(([taskId, task]) => [taskId, toSyncedTaskState(task)]),
         );
       }),
     );
@@ -284,14 +273,14 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
     try {
       set((state) =>
         mutate(state, (draft) => {
-          draft.tasks[taskId] = {
+          draft.tasks = setBoundedTaskState(draft.tasks, taskId, {
             taskType: config.taskType,
             status: "generating",
             streamedText: "",
             error: undefined,
             abortController,
             currentStep: undefined,
-          };
+          });
         }),
       );
 
@@ -368,6 +357,13 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
           if (chunk.type === "error") {
             throw chunk.error;
           } else if (chunk.type === "text-delta") {
+            if (
+              fullText.length + chunk.text.length >
+              MAX_AI_TASK_STREAM_CHARACTERS
+            ) {
+              workflowAbortController.abort();
+              throw new Error("AI generation exceeded the safe output limit.");
+            }
             fullText += chunk.text;
 
             set((state) =>
@@ -470,6 +466,42 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
     }
   },
 });
+
+function setBoundedTaskState(
+  tasks: Record<string, TaskState>,
+  taskId: string,
+  nextTask: TaskState,
+): Record<string, TaskState> {
+  const entries = Object.entries(tasks).filter(([id]) => id !== taskId);
+  entries.push([taskId, nextTask]);
+
+  while (entries.length > MAX_RETAINED_AI_TASKS) {
+    let removeIndex = entries.findIndex(
+      ([id, task]) => id !== taskId && task.status !== "generating",
+    );
+    if (removeIndex === -1) {
+      removeIndex = entries.findIndex(([id]) => id !== taskId);
+    }
+    if (removeIndex === -1) {
+      break;
+    }
+    entries[removeIndex]?.[1].abortController?.abort();
+    entries.splice(removeIndex, 1);
+  }
+
+  return Object.fromEntries(entries);
+}
+
+function toSyncedTaskState(task: RemoteTaskState): TaskState {
+  return {
+    taskType: task.taskType,
+    status: task.status,
+    streamedText: task.streamedText.slice(0, MAX_AI_TASK_STREAM_CHARACTERS),
+    error: task.error ? createSyncedTaskError(task.error) : undefined,
+    abortController: null,
+    currentStep: task.currentStep,
+  };
+}
 
 function createSyncedTaskError(error: { name?: string; message: string }) {
   const synced = new Error(error.message);

@@ -17,3 +17,4 @@ url = { workspace = true }
 [dev-dependencies]
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 tokio = { workspace = true, features = ["rt", "macros"] }
+wiremock = { workspace = true }

@@ -17,6 +17,10 @@ pub struct CaptureSnapshot {
     pub finalizing_session_ids: Vec<String>,
     pub requested_live_transcription: Option<bool>,
     pub live_transcription_active: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_segments_session_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub live_segments: Option<Vec<listener::LiveTranscriptSegment>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
@@ -285,6 +289,8 @@ impl From<listener::Snapshot> for CaptureSnapshot {
             finalizing_session_ids: value.finalizing_session_ids,
             requested_live_transcription: None,
             live_transcription_active: None,
+            live_segments_session_id: None,
+            live_segments: None,
         }
     }
 }

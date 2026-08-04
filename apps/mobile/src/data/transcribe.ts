@@ -10,6 +10,16 @@ import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { id, nowIso } from "@/lib/ids";
 
+import { TranscriptionAdmission } from "./transcription-admission";
+import {
+  assertBoundedTranscriptionResponse,
+  boundedSyntheticTokens,
+  MAX_TRANSCRIPTION_AUDIO_BYTES,
+  MAX_TRANSCRIPTION_RESPONSE_BYTES,
+  MAX_TRANSCRIPTION_WORDS,
+  readBoundedTranscriptionResponse,
+} from "./transcription-response";
+
 // Client-driven batch STT, mirroring desktop's useRunBatch: POST the audio to
 // the transcribe proxy, then persist the transcript exactly like desktop's
 // createTranscript (source batch_transcription, whole-session replace).
@@ -18,10 +28,28 @@ export type TranscriptionState = "idle" | "running" | "failed";
 const states = new Map<string, TranscriptionState>();
 const inflight = new Map<string, Promise<void>>();
 const listeners = new Set<() => void>();
+const MAX_RETAINED_FAILED_STATES = 100;
+const transcriptionAdmission = new TranscriptionAdmission(2, 32);
 
 function setState(sessionId: string, state: TranscriptionState) {
-  if (state === "idle") states.delete(sessionId);
-  else states.set(sessionId, state);
+  states.delete(sessionId);
+  if (state !== "idle") {
+    states.set(sessionId, state);
+  }
+  if (state === "failed") {
+    let retainedFailures = [...states.values()].filter(
+      (value) => value === "failed",
+    ).length;
+    for (const [retainedSessionId, retainedState] of states) {
+      if (retainedFailures <= MAX_RETAINED_FAILED_STATES) {
+        break;
+      }
+      if (retainedState === "failed") {
+        states.delete(retainedSessionId);
+        retainedFailures -= 1;
+      }
+    }
+  }
   for (const listener of listeners) listener();
 }
 
@@ -115,8 +143,12 @@ type HintRecord = {
 // providers like OpenAI/Mistral may return a transcript with no word timings.
 const SYNTHETIC_TEXT_WORD_MS = 400;
 
-function syntheticWords(transcript: string, channel: number): WordRecord[] {
-  const tokens = transcript.trim().split(/\s+/).filter(Boolean);
+function syntheticWords(
+  transcript: string,
+  channel: number,
+  remainingWords: number,
+): WordRecord[] {
+  const tokens = boundedSyntheticTokens(transcript, remainingWords);
   const durationMs = tokens.length * SYNTHETIC_TEXT_WORD_MS;
   return tokens.map((token, index) => ({
     id: id(),
@@ -149,6 +181,13 @@ function mapBatchResponse(payload: unknown): {
     const channelWordCount = words.length;
     for (const word of alternative?.words ?? []) {
       if (typeof word?.word !== "string" || word.word === "") continue;
+      if (words.length >= MAX_TRANSCRIPTION_WORDS) {
+        throw transcriptionFailure(
+          "STT response has too many words",
+          "response",
+          { code: "stt_response_too_large" },
+        );
+      }
       const wordId = id();
       const wordChannel =
         typeof word.channel === "number" ? word.channel : channelIndex;
@@ -184,7 +223,13 @@ function mapBatchResponse(payload: unknown): {
       typeof alternative?.transcript === "string" &&
       alternative.transcript.trim() !== ""
     ) {
-      words.push(...syntheticWords(alternative.transcript, channelIndex));
+      words.push(
+        ...syntheticWords(
+          alternative.transcript,
+          channelIndex,
+          MAX_TRANSCRIPTION_WORDS - words.length,
+        ),
+      );
     }
   });
   return { words, hints };
@@ -250,16 +295,15 @@ function requestTimeoutMs(sizeBytes: number): number {
 }
 
 // Native uses File.upload (streams from disk, honors explicit Content-Type,
-// iOS background session survives the 60s idle timeout); expo/fetch there
-// would buffer the file in memory and override Content-Type with the
-// extension-inferred MIME. Web keeps fetch with a bytes body (no override).
+// iOS background session survives the 60s idle timeout). Web passes the Blob
+// directly so the browser can stream it without first materializing its bytes.
 async function requestTranscription(
   file: File,
   contentType: string,
   token: string | undefined,
   timeoutMs: number,
 ): Promise<{ status: number; body: string }> {
-  const url = `${env.apiUrl}/stt/listen?provider=anarlog`;
+  const url = `${env.apiUrl}/stt/listen?provider=anarlog&max_response_bytes=${MAX_TRANSCRIPTION_RESPONSE_BYTES}`;
   const headers = {
     "Content-Type": contentType,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -274,16 +318,28 @@ async function requestTranscription(
       const response = await fetch(url, {
         method: "POST",
         headers,
-        body: new Uint8Array(await file.arrayBuffer()),
+        body: file,
         signal: controller.signal,
       });
-      return { status: response.status, body: await response.text() };
+      return {
+        status: response.status,
+        body: await readBoundedTranscriptionResponse(response),
+      };
     }
+    // Expo's native upload API streams the request from disk but returns the
+    // response as one materialized string and exposes no response-size option.
+    // The proxy cap is therefore the hard native boundary; this assertion also
+    // rejects a misconfigured or older proxy after it returns.
     const result = await file.upload(url, {
       httpMethod: "POST",
       headers,
       signal: controller.signal,
     });
+    const contentLength =
+      Object.entries(result.headers).find(
+        ([name]) => name.toLowerCase() === "content-length",
+      )?.[1] ?? null;
+    assertBoundedTranscriptionResponse(result.body, contentLength);
     return { status: result.status, body: result.body };
   } finally {
     clearTimeout(timer);
@@ -305,6 +361,12 @@ async function runTranscription(sessionId: string): Promise<void> {
       code: "audio_missing",
     });
   }
+  const sizeBytes = Math.max(audio.size_bytes, file.size);
+  if (sizeBytes > MAX_TRANSCRIPTION_AUDIO_BYTES) {
+    throw transcriptionFailure("Audio file is too large", "load_audio", {
+      code: "audio_too_large",
+    });
+  }
 
   const auth = await supabase?.auth.getSession();
   if (auth?.error) {
@@ -317,11 +379,17 @@ async function runTranscription(sessionId: string): Promise<void> {
     file,
     audio.content_type || "application/octet-stream",
     token,
-    requestTimeoutMs(audio.size_bytes),
+    requestTimeoutMs(sizeBytes),
   ).catch((error) => {
     throw withTranscriptionStage(error, "request");
   });
   if (response.status < 200 || response.status >= 300) {
+    if (response.status === 413) {
+      throw transcriptionFailure("STT response is too large", "response", {
+        code: "stt_response_too_large",
+        status: response.status,
+      });
+    }
     throw transcriptionFailure("STT request failed", "response", {
       code: "stt_http_error",
       status: response.status,
@@ -334,7 +402,9 @@ async function runTranscription(sessionId: string): Promise<void> {
   } catch (error) {
     throw withTranscriptionStage(error, "response");
   }
+  response.body = "";
   const { words, hints } = mapBatchResponse(payload);
+  payload = null;
   if (words.length === 0) {
     // Never mark complete on an empty result — transcript_status stays
     // 'processing' so the tap-to-retry affordance remains reachable.
@@ -344,6 +414,10 @@ async function runTranscription(sessionId: string): Promise<void> {
   }
   const now = nowIso();
   const attachmentId = `session-audio:${sessionId}`;
+  const wordsJson = JSON.stringify(words);
+  words.length = 0;
+  const hintsJson = JSON.stringify(hints);
+  hints.length = 0;
   await executeTransaction([
     {
       sql: TRANSCRIPT_TOMBSTONE_SQL,
@@ -355,8 +429,8 @@ async function runTranscription(sessionId: string): Promise<void> {
         id(),
         "",
         startedAtMs,
-        JSON.stringify(words),
-        JSON.stringify(hints),
+        wordsJson,
+        hintsJson,
         now,
         now,
         sessionId,
@@ -375,33 +449,49 @@ export function transcribeSession(sessionId: string): Promise<void> {
   const existing = inflight.get(sessionId);
   if (existing) return existing;
 
-  setState(sessionId, "running");
-  const task = runTranscription(sessionId)
-    .then(() => {
-      captureAnalytics("transcription_completed", {
-        mode: "batch",
-        entry_point: "mobile_audio",
-      });
-      clearStateSilently(sessionId);
-    })
-    .catch((error: unknown) => {
-      captureOperationalError(error, {
-        operation: "transcription_batch",
-        tags: {
+  const admitted = transcriptionAdmission.schedule(() =>
+    runTranscription(sessionId)
+      .then(() => {
+        captureAnalytics("transcription_completed", {
           mode: "batch",
-          stage: transcriptionStage(error),
-        },
-      });
-      captureAnalytics("transcription_failed", {
-        mode: "batch",
-        entry_point: "mobile_audio",
-        failure_stage: "transcription",
-      });
-      setState(sessionId, "failed");
-    })
-    .finally(() => {
-      inflight.delete(sessionId);
+          entry_point: "mobile_audio",
+        });
+        clearStateSilently(sessionId);
+      })
+      .catch((error: unknown) => {
+        captureOperationalError(error, {
+          operation: "transcription_batch",
+          tags: {
+            mode: "batch",
+            stage: transcriptionStage(error),
+          },
+        });
+        captureAnalytics("transcription_failed", {
+          mode: "batch",
+          entry_point: "mobile_audio",
+          failure_stage: "transcription",
+        });
+        setState(sessionId, "failed");
+      }),
+  );
+  if (!admitted) {
+    const error = transcriptionFailure(
+      "Too many transcriptions are already queued",
+      "request",
+      { code: "stt_admission_full" },
+    );
+    captureOperationalError(error, {
+      operation: "transcription_batch",
+      tags: { mode: "batch", stage: "request" },
     });
+    setState(sessionId, "failed");
+    return Promise.resolve();
+  }
+
+  setState(sessionId, "running");
+  const task = admitted.finally(() => {
+    inflight.delete(sessionId);
+  });
   inflight.set(sessionId, task);
   return task;
 }

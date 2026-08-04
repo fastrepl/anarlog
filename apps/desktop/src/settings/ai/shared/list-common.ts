@@ -34,6 +34,8 @@ export const DEFAULT_RESULT: ListModelsResult = {
   metadata: {},
 };
 export const REQUEST_TIMEOUT = "5 seconds";
+const MAX_MODEL_RESPONSE_BYTES = 8 * 1024 * 1024;
+const MAX_ERROR_RESPONSE_BYTES = 64 * 1024;
 
 const commonIgnoreKeywords = [
   "embed",
@@ -83,13 +85,57 @@ export const fetchJson = (url: string, headers: Record<string, string>) =>
     try: async () => {
       const r = await tauriFetch(url, { method: "GET", headers });
       if (!r.ok) {
-        const errorBody = await r.text();
+        const errorBody = await readResponseTextWithLimit(
+          r,
+          MAX_ERROR_RESPONSE_BYTES,
+        );
         throw new Error(`HTTP ${r.status}: ${errorBody}`);
       }
-      return r.json();
+      return JSON.parse(
+        await readResponseTextWithLimit(r, MAX_MODEL_RESPONSE_BYTES),
+      ) as unknown;
     },
     catch: (e) => e,
   });
+
+export async function readResponseTextWithLimit(
+  response: Response,
+  limit: number,
+): Promise<string> {
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > limit) {
+    throw new Error(`Response body exceeds ${limit} bytes`);
+  }
+
+  if (!response.body) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > limit) {
+      throw new Error(`Response body exceeds ${limit} bytes`);
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > limit) {
+        await reader.cancel();
+        throw new Error(`Response body exceeds ${limit} bytes`);
+      }
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+    chunks.push(decoder.decode());
+    return chunks.join("");
+  } finally {
+    reader.releaseLock();
+  }
+}
 
 export const shouldIgnoreCommonKeywords = (id: string): boolean => {
   const lowerId = id.toLowerCase();

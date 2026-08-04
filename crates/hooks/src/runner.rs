@@ -1,10 +1,17 @@
 use std::ffi::OsString;
 use std::time::Duration;
 
+use futures_util::StreamExt;
+use tokio::io::{AsyncRead, AsyncReadExt};
+
 use crate::config::HooksConfig;
 use crate::event::HookEvent;
 
 const HOOK_TIMEOUT: Duration = Duration::from_secs(5);
+const HOOK_OUTPUT_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(1);
+const MAX_HOOKS_PER_EVENT: usize = 32;
+const MAX_CONCURRENT_HOOKS: usize = 4;
+const MAX_HOOK_OUTPUT_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct HookResult {
@@ -23,16 +30,19 @@ pub async fn run_hooks_for_event(config: &HooksConfig, event: HookEvent) -> Vec<
         return vec![];
     };
 
-    let futures: Vec<_> = hooks
+    let commands = hooks
         .iter()
-        .map(|hook_def| {
-            let command = hook_def.command.clone();
-            let args = cli_args.clone();
-            async move { execute_hook(&command, &args).await }
-        })
-        .collect();
+        .take(MAX_HOOKS_PER_EVENT)
+        .map(|hook| hook.command.clone())
+        .collect::<Vec<_>>();
 
-    futures_util::future::join_all(futures).await
+    futures_util::stream::iter(commands.into_iter().map(|command| {
+        let args = cli_args.clone();
+        async move { execute_hook(&command, &args).await }
+    }))
+    .buffered(MAX_CONCURRENT_HOOKS)
+    .collect()
+    .await
 }
 
 async fn execute_hook(command: &str, args: &[OsString]) -> HookResult {
@@ -63,6 +73,7 @@ async fn execute_hook(command: &str, args: &[OsString]) -> HookResult {
     let mut child = match cmd
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
         .spawn()
     {
         Ok(child) => child,
@@ -77,24 +88,13 @@ async fn execute_hook(command: &str, args: &[OsString]) -> HookResult {
         }
     };
 
+    let stdout_task = child.stdout.take().map(spawn_output_reader);
+    let stderr_task = child.stderr.take().map(spawn_output_reader);
+
     match tokio::time::timeout(HOOK_TIMEOUT, child.wait()).await {
         Ok(Ok(status)) => {
-            let stdout = match child.stdout.take() {
-                Some(mut stdout) => {
-                    let mut buf = Vec::new();
-                    let _ = tokio::io::AsyncReadExt::read_to_end(&mut stdout, &mut buf).await;
-                    String::from_utf8_lossy(&buf).to_string()
-                }
-                None => String::new(),
-            };
-            let stderr = match child.stderr.take() {
-                Some(mut stderr) => {
-                    let mut buf = Vec::new();
-                    let _ = tokio::io::AsyncReadExt::read_to_end(&mut stderr, &mut buf).await;
-                    String::from_utf8_lossy(&buf).to_string()
-                }
-                None => String::new(),
-            };
+            let stdout = collect_output(stdout_task).await;
+            let stderr = collect_output(stderr_task).await;
             HookResult {
                 command: command.to_string(),
                 success: status.success(),
@@ -103,16 +103,24 @@ async fn execute_hook(command: &str, args: &[OsString]) -> HookResult {
                 stderr,
             }
         }
-        Ok(Err(e)) => HookResult {
-            command: command.to_string(),
-            success: false,
-            exit_code: None,
-            stdout: String::new(),
-            stderr: format!("failed to wait for command: {}", e),
-        },
+        Ok(Err(e)) => {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+            let _ = collect_output(stdout_task).await;
+            let _ = collect_output(stderr_task).await;
+            HookResult {
+                command: command.to_string(),
+                success: false,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: format!("failed to wait for command: {}", e),
+            }
+        }
         Err(_) => {
             let _ = child.kill().await;
             let _ = child.wait().await;
+            let _ = collect_output(stdout_task).await;
+            let _ = collect_output(stderr_task).await;
             HookResult {
                 command: command.to_string(),
                 success: false,
@@ -124,9 +132,67 @@ async fn execute_hook(command: &str, args: &[OsString]) -> HookResult {
     }
 }
 
+fn spawn_output_reader(
+    reader: impl AsyncRead + Unpin + Send + 'static,
+) -> tokio::task::JoinHandle<String> {
+    tokio::spawn(read_output_prefix(reader, MAX_HOOK_OUTPUT_BYTES))
+}
+
+async fn collect_output(task: Option<tokio::task::JoinHandle<String>>) -> String {
+    let Some(mut task) = task else {
+        return String::new();
+    };
+
+    match tokio::time::timeout(HOOK_OUTPUT_SHUTDOWN_TIMEOUT, &mut task).await {
+        Ok(Ok(output)) => output,
+        Ok(Err(error)) => format!("[failed to collect hook output: {error}]"),
+        Err(_) => {
+            task.abort();
+            "[hook output did not close]".to_string()
+        }
+    }
+}
+
+async fn read_output_prefix(mut reader: impl AsyncRead + Unpin, limit: usize) -> String {
+    let mut retained = Vec::with_capacity(limit.min(8 * 1024));
+    let mut chunk = [0_u8; 8 * 1024];
+    let mut truncated = false;
+
+    loop {
+        let read = match reader.read(&mut chunk).await {
+            Ok(read) => read,
+            Err(error) => {
+                let mut output = String::from_utf8_lossy(&retained).into_owned();
+                output.push_str(&format!("\n[failed to read hook output: {error}]"));
+                return output;
+            }
+        };
+        if read == 0 {
+            break;
+        }
+
+        let remaining = limit.saturating_sub(retained.len());
+        let keep = remaining.min(read);
+        retained.extend_from_slice(&chunk[..keep]);
+        truncated |= keep < read;
+    }
+
+    let mut output = String::from_utf8_lossy(&retained).into_owned();
+    if truncated {
+        output.push_str("\n[hook output truncated]");
+    }
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn hook_output_is_drained_but_retained_within_the_limit() {
+        let output = read_output_prefix(&b"abcdefgh"[..], 4).await;
+        assert_eq!(output, "abcd\n[hook output truncated]");
+    }
 
     #[tokio::test]
     async fn empty_command() {

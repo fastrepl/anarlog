@@ -76,7 +76,7 @@ async fn do_transcribe_file(
     } else {
         Err(Error::UnexpectedStatus {
             status,
-            body: response.text().await.unwrap_or_default(),
+            body: crate::adapter::http::error_body(response).await,
         })
     }
 }

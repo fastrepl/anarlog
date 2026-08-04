@@ -11,6 +11,7 @@ use anlg_model_downloader::{DownloadStatus, ModelDownloadManager, ModelDownloade
 #[cfg(feature = "whisper-cpp")]
 use crate::server::internal;
 use crate::{
+    download_pollers::{DownloadPoller, DownloadPollers},
     model::{APPLE_SPEECH_DEFAULT_LOCALE, LocalModel},
     server::{ServerInfo, ServerStatus, ServerType, external, supervisor},
     types::DownloadProgressPayload,
@@ -106,6 +107,11 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             .stt_supervisor
             .clone()
             .ok_or(crate::Error::SupervisorNotFound)
+    }
+
+    async fn download_pollers(&self) -> DownloadPollers {
+        let state = self.manager.state::<crate::SharedState>();
+        state.lock().await.download_pollers.clone()
     }
 
     pub async fn is_model_downloaded(&self, model: &LocalModel) -> Result<bool, crate::Error> {
@@ -338,18 +344,41 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
         Self::ensure_stt_model(&model)?;
 
         if let LocalModel::Soniqo(soniqo_model) = model.clone() {
-            run_soniqo_blocking(
+            let pollers = self.download_pollers().await;
+            let Some(poller) = pollers.reserve(model.clone()) else {
+                return Ok(());
+            };
+            let Some(native_job) = poller.acquire_native_job().await else {
+                return Ok(());
+            };
+
+            run_soniqo_blocking_with_permit(
+                native_job,
                 move || anlg_transcribe_soniqo::start_model_download(soniqo_model),
                 crate::Error::ServerStartFailed,
             )
             .await?;
 
-            spawn_soniqo_progress_poller(self.manager.app_handle().clone(), model, soniqo_model);
+            spawn_soniqo_progress_poller(
+                self.manager.app_handle().clone(),
+                model,
+                soniqo_model,
+                poller,
+            );
             return Ok(());
         }
 
         if matches!(model, LocalModel::AppleSpeech(_)) {
-            run_apple_speech_blocking(
+            let pollers = self.download_pollers().await;
+            let Some(poller) = pollers.reserve(model.clone()) else {
+                return Ok(());
+            };
+            let Some(native_job) = poller.acquire_native_job().await else {
+                return Ok(());
+            };
+
+            run_apple_speech_blocking_with_permit(
+                native_job,
                 move || {
                     anlg_transcribe_speechanalyzer::start_model_download(
                         APPLE_SPEECH_DEFAULT_LOCALE,
@@ -359,7 +388,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             )
             .await?;
 
-            spawn_apple_speech_progress_poller(self.manager.app_handle().clone(), model);
+            spawn_apple_speech_progress_poller(self.manager.app_handle().clone(), model, poller);
             return Ok(());
         }
 
@@ -377,6 +406,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
         Self::ensure_stt_model(&model)?;
 
         if matches!(model, LocalModel::Soniqo(_) | LocalModel::AppleSpeech(_)) {
+            self.download_pollers().await.cancel(&model);
             return Ok(false);
         }
 
@@ -413,6 +443,9 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
         Self::ensure_stt_model(model)?;
 
         if let LocalModel::Soniqo(model) = model {
+            self.download_pollers()
+                .await
+                .cancel(&LocalModel::Soniqo(*model));
             let model = *model;
             return run_soniqo_blocking(
                 move || anlg_transcribe_soniqo::delete_model(model),
@@ -422,6 +455,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
         }
 
         if matches!(model, LocalModel::AppleSpeech(_)) {
+            self.download_pollers().await.cancel(model);
             return run_apple_speech_blocking(
                 move || anlg_transcribe_speechanalyzer::release_locale(APPLE_SPEECH_DEFAULT_LOCALE),
                 crate::Error::ServerStopFailed,
@@ -452,6 +486,23 @@ where
         .map_err(|e| map_error(e.to_string()))
 }
 
+async fn run_soniqo_blocking_with_permit<T>(
+    native_job: tokio::sync::OwnedSemaphorePermit,
+    task: impl FnOnce() -> anlg_transcribe_soniqo::Result<T> + Send + 'static,
+    map_error: fn(String) -> crate::Error,
+) -> Result<T, crate::Error>
+where
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(move || {
+        let _native_job = native_job;
+        task()
+    })
+    .await
+    .map_err(|e| map_error(e.to_string()))?
+    .map_err(|e| map_error(e.to_string()))
+}
+
 async fn soniqo_download_state(
     model: anlg_transcribe_soniqo::SoniqoModel,
 ) -> Result<anlg_transcribe_soniqo::ModelDownloadState, crate::Error> {
@@ -475,6 +526,23 @@ where
         .map_err(|e| map_error(e.to_string()))
 }
 
+async fn run_apple_speech_blocking_with_permit<T>(
+    native_job: tokio::sync::OwnedSemaphorePermit,
+    task: impl FnOnce() -> anlg_transcribe_speechanalyzer::Result<T> + Send + 'static,
+    map_error: fn(String) -> crate::Error,
+) -> Result<T, crate::Error>
+where
+    T: Send + 'static,
+{
+    tokio::task::spawn_blocking(move || {
+        let _native_job = native_job;
+        task()
+    })
+    .await
+    .map_err(|e| map_error(e.to_string()))?
+    .map_err(|e| map_error(e.to_string()))
+}
+
 async fn apple_speech_download_state()
 -> Result<anlg_transcribe_speechanalyzer::ModelDownloadState, crate::Error> {
     run_apple_speech_blocking(
@@ -487,13 +555,26 @@ async fn apple_speech_download_state()
 fn spawn_apple_speech_progress_poller<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     model: LocalModel,
+    poller: DownloadPoller,
 ) {
     tokio::spawn(async move {
         for _ in 0..7200 {
+            if poller.is_cancelled() {
+                return;
+            }
+
+            let Some(native_job) = poller.acquire_native_job().await else {
+                return;
+            };
             let status = tokio::task::spawn_blocking(move || {
+                let _native_job = native_job;
                 anlg_transcribe_speechanalyzer::model_download_state(APPLE_SPEECH_DEFAULT_LOCALE)
             })
             .await;
+
+            if poller.is_cancelled() {
+                return;
+            }
 
             let download_status = match status {
                 Ok(Ok(state)) => match state.status.as_str() {
@@ -526,7 +607,10 @@ fn spawn_apple_speech_progress_poller<R: Runtime>(
                 return;
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            tokio::select! {
+                _ = poller.cancelled() => return,
+                _ = tokio::time::sleep(std::time::Duration::from_millis(250)) => {}
+            }
         }
 
         tracing::error!("apple_speech_asset_install_timed_out");
@@ -542,13 +626,26 @@ fn spawn_soniqo_progress_poller<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     model: LocalModel,
     soniqo_model: anlg_transcribe_soniqo::SoniqoModel,
+    poller: DownloadPoller,
 ) {
     tokio::spawn(async move {
         for _ in 0..7200 {
+            if poller.is_cancelled() {
+                return;
+            }
+
+            let Some(native_job) = poller.acquire_native_job().await else {
+                return;
+            };
             let status = tokio::task::spawn_blocking(move || {
+                let _native_job = native_job;
                 anlg_transcribe_soniqo::model_download_state(soniqo_model)
             })
             .await;
+
+            if poller.is_cancelled() {
+                return;
+            }
 
             let download_status = match status {
                 Ok(Ok(state)) => match state.status.as_str() {
@@ -585,7 +682,10 @@ fn spawn_soniqo_progress_poller<R: Runtime>(
                 return;
             }
 
-            tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+            tokio::select! {
+                _ = poller.cancelled() => return,
+                _ = tokio::time::sleep(std::time::Duration::from_millis(250)) => {}
+            }
         }
 
         tracing::error!(

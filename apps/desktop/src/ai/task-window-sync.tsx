@@ -1,12 +1,16 @@
 import { emit, emitTo, listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { useEffect } from "react";
 
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 
 import { type EnhancerService, getEnhancerService } from "~/services/enhancer";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { id } from "~/shared/utils";
 import type { AITaskStore } from "~/store/zustand/ai-task";
-import type { RemoteTaskState, TaskState } from "~/store/zustand/ai-task/tasks";
+import {
+  MAX_AI_TASK_STREAM_CHARACTERS,
+  type RemoteTaskState,
+  type TaskState,
+} from "~/store/zustand/ai-task/tasks";
 
 const TASK_SYNC_EVENT = "anlg:ai-task-sync";
 const TASK_SYNC_REQUEST_EVENT = "anlg:ai-task-sync-request";
@@ -15,6 +19,7 @@ const TASK_ENHANCE_EVENT = "anlg:ai-task-enhance";
 const TASK_AUTO_ENHANCE_REQUEST_EVENT = "anlg:ai-task-auto-enhance-request";
 const TASK_AUTO_ENHANCE_RESULT_EVENT = "anlg:ai-task-auto-enhance-result";
 export const MAIN_AUTO_ENHANCE_TIMEOUT_MS = 30_000;
+export const MAX_SYNCED_ENHANCE_TASKS = 64;
 
 type TaskSyncPayload = {
   sourceLabel: string;
@@ -198,7 +203,7 @@ export function AITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
 }
 
 function MainAITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
-  useEffect(() => {
+  useMountEffect(() => {
     const sourceLabel = getCurrentWebviewWindowLabel();
     let active = true;
     let syncRequestUnlisten: UnlistenFn | null = null;
@@ -310,13 +315,13 @@ function MainAITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
       enhanceUnlisten?.();
       autoEnhanceRequestUnlisten?.();
     };
-  }, [store]);
+  });
 
   return null;
 }
 
 function RemoteAITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
-  useEffect(() => {
+  useMountEffect(() => {
     const sourceLabel = getCurrentWebviewWindowLabel();
     let active = true;
     let syncUnlisten: UnlistenFn | null = null;
@@ -346,21 +351,25 @@ function RemoteAITaskWindowSyncBridge({ store }: { store: AITaskStore }) {
       active = false;
       syncUnlisten?.();
     };
-  }, [store]);
+  });
 
   return null;
 }
 
-function serializeEnhanceTasks(tasks: Record<string, TaskState>) {
+export function serializeEnhanceTasks(tasks: Record<string, TaskState>) {
   return Object.fromEntries(
     Object.entries(tasks)
       .filter(([, task]) => task.taskType === "enhance")
+      .slice(-MAX_SYNCED_ENHANCE_TASKS)
       .map(([taskId, task]) => [
         taskId,
         {
           taskType: task.taskType,
           status: task.status,
-          streamedText: task.streamedText,
+          streamedText: task.streamedText.slice(
+            0,
+            MAX_AI_TASK_STREAM_CHARACTERS,
+          ),
           error: task.error
             ? { name: task.error.name, message: task.error.message }
             : undefined,

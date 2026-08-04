@@ -4,9 +4,24 @@ import {
   isDateSnapshot,
   isNonStreamingModel,
   isOldModel,
+  readResponseTextWithLimit,
   removeNonStreamingModels,
   sortModelsByRecency,
 } from "./list-common";
+
+describe("readResponseTextWithLimit", () => {
+  test("reads a response within the byte limit", async () => {
+    await expect(
+      readResponseTextWithLimit(new Response("hello"), 5),
+    ).resolves.toBe("hello");
+  });
+
+  test("cancels a response that exceeds the byte limit", async () => {
+    await expect(
+      readResponseTextWithLimit(new Response("toolong"), 6),
+    ).rejects.toThrow("Response body exceeds 6 bytes");
+  });
+});
 
 describe("isDateSnapshot", () => {
   test("keeps provider version and context suffixes", () => {

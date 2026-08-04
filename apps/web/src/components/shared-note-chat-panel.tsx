@@ -14,6 +14,9 @@ import { cn } from "@anlg/utils";
 import { sharedPrimaryButtonClassName } from "@/components/shared-note-viewer";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
+  appendSharedNoteChatMessage,
+  appendSharedNoteChatResponse,
+  MAX_SHARED_NOTE_CHAT_MESSAGE_CHARS,
   SharedNoteChatError,
   type SharedNoteChatMessage,
   streamSharedNoteChat,
@@ -69,7 +72,10 @@ export function SharedNoteChatPanel({
         signal: controller.signal,
         onDelta: (delta) => {
           if (abortRef.current !== controller) return;
-          streamingRef.current += delta;
+          streamingRef.current = appendSharedNoteChatResponse(
+            streamingRef.current,
+            delta,
+          );
           setStreaming(streamingRef.current);
           scrollToBottom();
         },
@@ -82,7 +88,12 @@ export function SharedNoteChatPanel({
       if (abortRef.current !== context.controller) return;
       const reply = streamingRef.current;
       if (reply) {
-        setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+        setMessages((previous) =>
+          appendSharedNoteChatMessage(previous, {
+            role: "assistant",
+            content: reply,
+          }),
+        );
       }
     },
     onSettled: (_data, _error, _history, context) => {
@@ -104,7 +115,10 @@ export function SharedNoteChatPanel({
       return;
     }
     sendInFlightRef.current = true;
-    const history = [...messages, { role: "user" as const, content }];
+    const history = appendSharedNoteChatMessage(messages, {
+      role: "user",
+      content,
+    });
     setMessages(history);
     setDraft("");
     sendMutation.mutate(history);
@@ -255,6 +269,7 @@ function ChatBody({
               autoFocus
               className="surface-subtle text-color placeholder:text-color-muted min-h-11 flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm leading-6 focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden"
               placeholder="Ask anything"
+              maxLength={MAX_SHARED_NOTE_CHAT_MESSAGE_CHARS}
               rows={Math.min(3, draft.split("\n").length)}
               value={draft}
               onChange={(event) => onDraftChange(event.target.value)}

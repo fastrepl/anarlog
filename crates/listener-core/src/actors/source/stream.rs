@@ -1,5 +1,6 @@
 use futures_util::StreamExt;
 use ractor::{ActorProcessingErr, ActorRef};
+use std::sync::atomic::Ordering;
 use tokio_util::sync::CancellationToken;
 
 use crate::{SessionProgressEvent, actors::ChannelMode};
@@ -7,6 +8,8 @@ use anlg_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream};
 use anlg_audio_utils::chunk_size_for_stt;
 
 use super::{SourceFrame, SourceMsg, SourceState};
+
+const CAPTURE_FRAME_QUEUE_CAPACITY: usize = 8;
 
 pub(super) async fn start_source_loop(
     myself: &ActorRef<SourceMsg>,
@@ -42,6 +45,10 @@ async fn start_streams(
     let mic_muted = st.mic_muted.clone();
     let mic_device = st.mic_device.clone();
     let audio = st.audio.clone();
+    let (frame_tx, frame_rx) = tokio::sync::mpsc::channel(CAPTURE_FRAME_QUEUE_CAPACITY);
+    let wake_pending = st.capture_wake_pending.clone();
+    wake_pending.store(false, Ordering::Release);
+    st.capture_frames = Some(frame_rx);
 
     let stream_cancel_token = CancellationToken::new();
     st.stream_cancel_token = Some(stream_cancel_token.clone());
@@ -53,6 +60,8 @@ async fn start_streams(
             mic_muted,
             mic_device,
             audio,
+            frame_tx,
+            wake_pending,
         };
 
         run_stream_loop(ctx, mode).await;
@@ -68,6 +77,8 @@ struct StreamContext {
     mic_muted: std::sync::Arc<std::sync::atomic::AtomicBool>,
     mic_device: Option<String>,
     audio: std::sync::Arc<dyn AudioProvider>,
+    frame_tx: tokio::sync::mpsc::Sender<SourceFrame>,
+    wake_pending: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl StreamContext {
@@ -122,7 +133,7 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
     loop {
         let result = tokio::select! {
             _ = ctx.cancel_token.cancelled() => StreamResult::Stop,
-            item = capture_stream.next() => handle_capture_item(&ctx, item)
+            item = capture_stream.next() => handle_capture_item(&ctx, item).await
         };
 
         if matches!(result, StreamResult::Stop) {
@@ -131,7 +142,7 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
     }
 }
 
-fn handle_capture_item(
+async fn handle_capture_item(
     ctx: &StreamContext,
     item: Option<Result<CaptureFrame, anlg_audio::Error>>,
 ) -> StreamResult {
@@ -141,9 +152,23 @@ fn handle_capture_item(
                 capture: frame,
                 mic_muted: ctx.mic_muted.load(std::sync::atomic::Ordering::Relaxed),
             };
-            if ctx.actor.cast(SourceMsg::Frame(frame)).is_err() {
+
+            let send_result = tokio::select! {
+                _ = ctx.cancel_token.cancelled() => return StreamResult::Stop,
+                result = ctx.frame_tx.send(frame) => result,
+            };
+            if send_result.is_err() {
                 if !ctx.is_cancelled() {
-                    tracing::debug!("failed_to_cast_capture_frame");
+                    tracing::debug!("capture_frame_queue_closed");
+                }
+                return StreamResult::Stop;
+            }
+
+            if !ctx.wake_pending.swap(true, Ordering::AcqRel)
+                && ctx.actor.cast(SourceMsg::CaptureFramesReady).is_err()
+            {
+                if !ctx.is_cancelled() {
+                    tracing::debug!("failed_to_schedule_capture_frames");
                 }
                 return StreamResult::Stop;
             }
@@ -154,6 +179,9 @@ fn handle_capture_item(
             ctx.report_failure(error.to_string());
             StreamResult::Stop
         }
-        None => StreamResult::Stop,
+        None => {
+            ctx.report_failure("capture stream ended unexpectedly");
+            StreamResult::Stop
+        }
     }
 }

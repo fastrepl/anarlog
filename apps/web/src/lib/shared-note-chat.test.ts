@@ -2,9 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  appendSharedNoteChatMessage,
+  appendSharedNoteChatResponse,
+  boundSharedNoteChatMessages,
   buildSharedNoteChatSystemPrompt,
   feedSseChunk,
+  MAX_SHARED_NOTE_CHAT_CONTEXT_CHARS,
+  MAX_SHARED_NOTE_CHAT_MESSAGES,
+  MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS,
+  MAX_SHARED_NOTE_SSE_BUFFER_CHARS,
   parseSseLine,
+  type SharedNoteChatMessage,
   SharedNoteChatError,
 } from "./shared-note-chat.ts";
 import type { SharedNoteSnapshot } from "./shared-notes.ts";
@@ -100,4 +108,60 @@ test("SharedNoteChatError surfaces the response status", () => {
   assert.ok(error instanceof Error);
   assert.equal(error.name, "SharedNoteChatError");
   assert.equal(error.status, 429);
+});
+
+test("chat history retains only the newest bounded context", () => {
+  const messages = Array.from({ length: 100 }, (_, index) => ({
+    role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+    content: `${index}:`.padEnd(2_000, "x"),
+  }));
+
+  const bounded = boundSharedNoteChatMessages(messages);
+  const chars = bounded.reduce(
+    (total, message) => total + message.content.length,
+    0,
+  );
+
+  assert.ok(bounded.length <= MAX_SHARED_NOTE_CHAT_MESSAGES);
+  assert.ok(chars <= MAX_SHARED_NOTE_CHAT_CONTEXT_CHARS);
+  assert.ok(bounded.at(-1)?.content.startsWith("99:"));
+  assert.ok(!bounded.some((message) => message.content.startsWith("0:")));
+});
+
+test("appending messages and streamed output stays bounded", () => {
+  let messages: SharedNoteChatMessage[] = [];
+  for (let index = 0; index < 100; index += 1) {
+    messages = appendSharedNoteChatMessage(messages, {
+      role: "user",
+      content: `${index}`.repeat(1_000),
+    });
+  }
+  assert.ok(messages.length <= MAX_SHARED_NOTE_CHAT_MESSAGES);
+
+  const response = appendSharedNoteChatResponse(
+    "x".repeat(MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS - 1),
+    "y".repeat(1_000),
+  );
+  assert.equal(response.length, MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS);
+});
+
+test("settled assistant replies retain the full streamed response", () => {
+  const response = "x".repeat(MAX_SHARED_NOTE_CHAT_RESPONSE_CHARS);
+
+  const messages = appendSharedNoteChatMessage([], {
+    role: "assistant",
+    content: response,
+  });
+
+  assert.equal(messages[0]?.content, response);
+  assert.equal(boundSharedNoteChatMessages(messages)[0]?.content, response);
+});
+
+test("unterminated SSE lines cannot grow the carry buffer indefinitely", () => {
+  const result = feedSseChunk(
+    "",
+    "x".repeat(MAX_SHARED_NOTE_SSE_BUFFER_CHARS * 2),
+  );
+
+  assert.equal(result.buffer.length, MAX_SHARED_NOTE_SSE_BUFFER_CHARS);
 });

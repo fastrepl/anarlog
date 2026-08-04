@@ -15,6 +15,25 @@ fn capture_snapshot_from_result<E: std::fmt::Debug>(
     })
 }
 
+fn hydrate_session_state(
+    snapshot: &mut CaptureSnapshot,
+    session_id: String,
+    cached: Option<(
+        bool,
+        bool,
+        Vec<anlg_transcription_core::listener::LiveTranscriptSegment>,
+    )>,
+) {
+    snapshot.live_segments_session_id = Some(session_id);
+    if let Some((requested, active, segments)) = cached {
+        snapshot.requested_live_transcription = Some(requested);
+        snapshot.live_transcription_active = Some(active);
+        snapshot.live_segments = Some(segments);
+    } else {
+        snapshot.live_segments = Some(Vec::new());
+    }
+}
+
 pub struct Listener<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     #[allow(unused)]
     manager: &'a M,
@@ -66,15 +85,22 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
         let session_id = snapshot
             .active_session_id
             .as_ref()
-            .or_else(|| snapshot.finalizing_session_ids.first());
-        if let Some(session_id) = session_id
-            && let Some((requested, active)) = self
+            .or_else(|| snapshot.finalizing_session_ids.first())
+            .cloned();
+        if let Some(session_id) = session_id {
+            let cached = self
                 .manager
                 .try_state::<SessionStateCache>()
-                .and_then(|cache| cache.lock().ok()?.get(session_id).copied())
-        {
-            snapshot.requested_live_transcription = Some(requested);
-            snapshot.live_transcription_active = Some(active);
+                .and_then(|cache| {
+                    let cache = cache.lock().ok()?;
+                    let state = cache.get(&session_id)?;
+                    Some((
+                        state.requested_live_transcription,
+                        state.live_transcription_active,
+                        state.live_segments.clone(),
+                    ))
+                });
+            hydrate_session_state(&mut snapshot, session_id, cached);
         }
 
         Ok(snapshot)
@@ -144,6 +170,27 @@ mod tests {
             .expect_err("snapshot failure must remain retryable");
 
         assert!(matches!(error, crate::Error::CaptureSnapshotUnavailable));
+    }
+
+    #[test]
+    fn hydrated_segments_are_labeled_with_their_session() {
+        let mut snapshot = CaptureSnapshot {
+            state: CaptureState::Finalizing,
+            active_session_id: None,
+            finalizing_session_ids: vec!["session-a".to_string()],
+            requested_live_transcription: None,
+            live_transcription_active: None,
+            live_segments_session_id: None,
+            live_segments: None,
+        };
+
+        hydrate_session_state(&mut snapshot, "session-a".to_string(), None);
+
+        assert_eq!(
+            snapshot.live_segments_session_id.as_deref(),
+            Some("session-a")
+        );
+        assert_eq!(snapshot.live_segments, Some(Vec::new()));
     }
 }
 

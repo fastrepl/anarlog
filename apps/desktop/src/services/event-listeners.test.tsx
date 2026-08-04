@@ -515,4 +515,22 @@ describe("EventListeners notification events", () => {
       }),
     );
   });
+
+  test("cleans up an updater subscription that resolves after unmount", async () => {
+    let resolveUpdater: ((unlisten: () => void) => void) | undefined;
+    updaterListenMock.mockReturnValue(
+      new Promise<() => void>((resolve) => {
+        resolveUpdater = resolve;
+      }),
+    );
+    const unlisten = vi.fn();
+
+    const { unmount } = render(<EventListeners />);
+    await vi.waitFor(() => expect(updaterListenMock).toHaveBeenCalledOnce());
+    unmount();
+    resolveUpdater?.(unlisten);
+
+    await vi.waitFor(() => expect(unlisten).toHaveBeenCalledOnce());
+    expect(maybeEmitUpdatedMock).not.toHaveBeenCalled();
+  });
 });

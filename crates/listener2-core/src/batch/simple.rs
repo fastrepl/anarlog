@@ -11,10 +11,13 @@ use direct::{
 };
 #[cfg(test)]
 use local::{
-    SONIQO_DIRECT_MIC_MIN_RMS, SONIQO_PARAKEET_MAX_CHUNK_SAMPLES, SONIQO_PROGRESS_MAX,
-    SONIQO_PROGRESS_PLANNED, audio_rms, collapse_identical_channels,
-    collect_soniqo_channel_transcripts, soniqo_batch_progress, soniqo_channel_chunks,
-    soniqo_diarization_speaker_count, soniqo_language_hint, uses_resilient_soniqo_chunking,
+    FixedSoniqoFileChunkIterator, LOCAL_BATCH_CANCELLED, MAX_LOCAL_BATCH_CHANNELS,
+    SONIQO_DIARIZATION_MAX_SAMPLES, SONIQO_DIRECT_MIC_MIN_RMS, SONIQO_PARAKEET_MAX_CHUNK_SAMPLES,
+    SONIQO_PROGRESS_MAX, SONIQO_PROGRESS_PLANNED, SoniqoChunkStrategy, audio_rms,
+    collect_soniqo_channel_transcripts, ensure_soniqo_diarization_plan_within_limit,
+    ensure_soniqo_diarization_within_limit, resample_audio_to_channel_files,
+    resample_audio_to_channel_files_until, soniqo_batch_progress, soniqo_chunk_strategy,
+    soniqo_diarization_speaker_count, soniqo_language_hint,
 };
 
 #[cfg(test)]

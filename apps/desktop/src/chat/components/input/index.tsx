@@ -7,6 +7,7 @@ import { useMemo, useRef } from "react";
 import { ChatEditor, type ChatEditorHandle } from "@anlg/editor/chat";
 import type { PlaceholderFunction } from "@anlg/editor/plugins";
 import { Button } from "@anlg/ui/components/ui/button";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import {
@@ -125,6 +126,7 @@ export function ChatMessageInput({
             mentionConfig={mentionConfig}
             placeholder={placeholder}
             submitShortcut="enter"
+            onAttachmentError={(message) => sonnerToast.error(message)}
             onUpdate={handleEditorUpdate}
             onSubmit={handleSubmit}
             onHistoryNavigate={history.navigate}

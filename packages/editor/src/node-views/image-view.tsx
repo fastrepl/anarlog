@@ -18,6 +18,40 @@ const MIN_IMAGE_WIDTH = 15;
 const MAX_IMAGE_WIDTH = 100;
 const DEFAULT_IMAGE_WIDTH = 80;
 
+export function listenForImageResize({
+  onCancel,
+  onCommit,
+  onMove,
+}: {
+  onCancel: () => void;
+  onCommit: () => void;
+  onMove: (event: PointerEvent) => void;
+}) {
+  let active = true;
+  const cleanup = () => {
+    if (!active) return;
+    active = false;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", handleCommit);
+    window.removeEventListener("pointercancel", handleCancel);
+    window.removeEventListener("blur", handleCancel);
+  };
+  const handleCommit = () => {
+    cleanup();
+    onCommit();
+  };
+  const handleCancel = () => {
+    cleanup();
+    onCancel();
+  };
+
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", handleCommit);
+  window.addEventListener("pointercancel", handleCancel);
+  window.addEventListener("blur", handleCancel);
+  return cleanup;
+}
+
 function clampImageWidth(value: number) {
   if (Number.isNaN(value)) return DEFAULT_IMAGE_WIDTH;
   return Math.min(
@@ -108,6 +142,24 @@ export const ResizableImageView = forwardRef<
   const [draftWidth, setDraftWidth] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const activeResizeCleanupRef = useRef<(() => void) | null>(null);
+  const attachContainer = useCallback((element: HTMLDivElement | null) => {
+    if (!element) {
+      activeResizeCleanupRef.current?.();
+      activeResizeCleanupRef.current = null;
+      containerRef.current = null;
+      return;
+    }
+
+    containerRef.current = element;
+    return () => {
+      activeResizeCleanupRef.current?.();
+      activeResizeCleanupRef.current = null;
+      if (containerRef.current === element) {
+        containerRef.current = null;
+      }
+    };
+  }, []);
   const updateAttributes = useEditorEventCallback(
     (view, attrs: Record<string, unknown>) => {
       if (!view) return;
@@ -139,6 +191,8 @@ export const ResizableImageView = forwardRef<
 
       event.preventDefault();
       event.stopPropagation();
+      activeResizeCleanupRef.current?.();
+      activeResizeCleanupRef.current = null;
 
       const editorEl = containerEl.closest(".ProseMirror");
       const maxWidth =
@@ -157,20 +211,31 @@ export const ResizableImageView = forwardRef<
         setDraftWidth(currentWidth);
       };
 
-      const handlePointerUp = () => {
-        window.removeEventListener("pointermove", handlePointerMove);
-        window.removeEventListener("pointerup", handlePointerUp);
-
-        updateAttributes({
-          editorWidth: clampImageWidth((currentWidth / maxWidth) * 100),
-        });
-
+      const resetDraft = () => {
         setIsResizing(false);
         setDraftWidth(null);
       };
-
-      window.addEventListener("pointermove", handlePointerMove);
-      window.addEventListener("pointerup", handlePointerUp);
+      let releaseListeners = () => {};
+      const clearActiveResize = () => {
+        if (activeResizeCleanupRef.current === releaseListeners) {
+          activeResizeCleanupRef.current = null;
+        }
+      };
+      releaseListeners = listenForImageResize({
+        onMove: handlePointerMove,
+        onCommit: () => {
+          clearActiveResize();
+          updateAttributes({
+            editorWidth: clampImageWidth((currentWidth / maxWidth) * 100),
+          });
+          resetDraft();
+        },
+        onCancel: () => {
+          clearActiveResize();
+          resetDraft();
+        },
+      });
+      activeResizeCleanupRef.current = releaseListeners;
     },
     [attachmentEditingEnabled, updateAttributes],
   );
@@ -188,7 +253,7 @@ export const ResizableImageView = forwardRef<
       className="relative overflow-visible select-none [&_*::selection]:bg-transparent [&::selection]:bg-transparent"
     >
       <div
-        ref={containerRef}
+        ref={attachContainer}
         className="relative inline-block w-fit max-w-full overflow-visible"
         style={imageWidth ? { width: imageWidth } : undefined}
         onMouseEnter={() => setIsHovered(true)}

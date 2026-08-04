@@ -41,6 +41,7 @@ function scheduleImportRetry(recording: PendingWatchRecording): void {
 
   const attempt = (importRetryAttempts.get(recording.id) ?? 0) + 1;
   if (attempt > MAX_IMPORT_RETRIES) {
+    clearImportRetry(recording.id);
     return;
   }
   importRetryAttempts.set(recording.id, attempt);

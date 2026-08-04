@@ -7,8 +7,8 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { clearContentMock, editorState, focusMock, shellState } = vi.hoisted(
-  () => ({
+const { clearContentMock, editorState, focusMock, shellState, toastError } =
+  vi.hoisted(() => ({
     clearContentMock: vi.fn(),
     editorState: {
       json: undefined as unknown,
@@ -17,6 +17,7 @@ const { clearContentMock, editorState, focusMock, shellState } = vi.hoisted(
       onHistoryNavigate: undefined as
         | undefined
         | ((direction: "prev" | "next") => boolean),
+      onAttachmentError: undefined as undefined | ((message: string) => void),
       initialContent: undefined as unknown,
       replacementSelections: [] as Array<"start" | "end">,
       submitShortcut: undefined as undefined | "mod-enter" | "enter",
@@ -28,8 +29,8 @@ const { clearContentMock, editorState, focusMock, shellState } = vi.hoisted(
         | "FloatingOpen"
         | "RightPanelOpen",
     },
-  }),
-);
+    toastError: vi.fn(),
+  }));
 
 vi.mock("@anlg/editor/chat", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
@@ -48,6 +49,7 @@ vi.mock("@anlg/editor/chat", async () => {
         onSubmit: () => void;
         onUpdate: (json: unknown) => void;
         onHistoryNavigate?: (direction: "prev" | "next") => boolean;
+        onAttachmentError?: (message: string) => void;
         placeholder: (props: {
           node: { type: { name: string } };
           pos: number;
@@ -61,6 +63,7 @@ vi.mock("@anlg/editor/chat", async () => {
         onSubmit,
         onUpdate,
         onHistoryNavigate,
+        onAttachmentError,
         placeholder,
         submitShortcut,
       },
@@ -69,6 +72,7 @@ vi.mock("@anlg/editor/chat", async () => {
       editorState.onSubmit = onSubmit;
       editorState.onUpdate = onUpdate;
       editorState.onHistoryNavigate = onHistoryNavigate;
+      editorState.onAttachmentError = onAttachmentError;
       editorState.initialContent = initialContent;
       editorState.submitShortcut = submitShortcut;
 
@@ -104,6 +108,10 @@ vi.mock("@anlg/plugin-analytics", () => ({
   commands: {
     event: vi.fn(() => Promise.resolve()),
   },
+}));
+
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  sonnerToast: { error: toastError },
 }));
 
 vi.mock("~/contexts/shell", () => ({
@@ -150,10 +158,27 @@ describe("ChatMessageInput", () => {
     editorState.onSubmit = undefined;
     editorState.onUpdate = undefined;
     editorState.onHistoryNavigate = undefined;
+    editorState.onAttachmentError = undefined;
     editorState.initialContent = undefined;
     editorState.replacementSelections = [];
     editorState.submitShortcut = undefined;
     shellState.mode = "FloatingOpen";
+    toastError.mockClear();
+  });
+
+  it("surfaces attachment rejection messages", () => {
+    render(
+      <ChatMessageInput
+        draftKey="chat-input-attachment-error"
+        onSendMessage={vi.fn()}
+      />,
+    );
+
+    act(() => {
+      editorState.onAttachmentError?.("Images must be 8 MB or smaller.");
+    });
+
+    expect(toastError).toHaveBeenCalledWith("Images must be 8 MB or smaller.");
   });
 
   it("disables send until the draft has content", () => {

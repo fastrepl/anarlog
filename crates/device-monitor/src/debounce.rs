@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+use crate::EventOutput;
+
 struct PendingEvent<T, K> {
     event: T,
     key: K,
@@ -59,16 +61,18 @@ where
     }
 }
 
-pub fn spawn_debounced_by_key<T, K, F>(
+pub(crate) fn spawn_debounced_by_key<T, K, F, S>(
     delay: Duration,
     raw_rx: mpsc::Receiver<T>,
-    debounced_tx: mpsc::Sender<T>,
+    debounced_tx: S,
     key_fn: F,
 ) where
     T: Send + 'static,
     K: PartialEq + Send + 'static,
     F: Fn(&T) -> K + Send + 'static,
+    S: Into<EventOutput<T>>,
 {
+    let debounced_tx = debounced_tx.into();
     std::thread::spawn(move || {
         let mut buffer = EventBuffer::new(delay, key_fn);
 
@@ -100,12 +104,25 @@ pub fn spawn_debounced_by_key<T, K, F>(
     });
 }
 
+pub(crate) fn spawn_forwarder<T: Send + 'static>(
+    raw_rx: mpsc::Receiver<T>,
+    output: EventOutput<T>,
+) {
+    std::thread::spawn(move || {
+        while let Ok(event) = raw_rx.recv() {
+            if output.send(event).is_err() {
+                break;
+            }
+        }
+    });
+}
+
 use crate::{DeviceEvent, DeviceSwitch};
 
-pub fn spawn_device_event_debouncer(
+pub(crate) fn spawn_device_event_debouncer(
     delay: Duration,
     raw_rx: mpsc::Receiver<DeviceEvent>,
-    debounced_tx: mpsc::Sender<DeviceEvent>,
+    debounced_tx: EventOutput<DeviceEvent>,
 ) {
     std::thread::spawn(move || {
         let mut buffer: EventBuffer<DeviceSwitch, u8, _> =

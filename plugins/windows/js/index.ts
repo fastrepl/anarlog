@@ -60,7 +60,15 @@ export async function dismissInstruction() {
   await commands.windowRestoreFrameAnimated({ type: "main" });
 }
 
+const DROP_PREVENTION_CLEANUP_KEY =
+  "__ANARLOG_WINDOWS_DROP_PREVENTION_CLEANUP__";
+
 export const init = () => {
+  const host = window as typeof window & {
+    [DROP_PREVENTION_CLEANUP_KEY]?: () => void;
+  };
+  host[DROP_PREVENTION_CLEANUP_KEY]?.();
+
   const allowDropAttribute = "[data-allow-file-drop='true']";
   const shouldAllow = (event: DragEvent) => {
     if (!(event.target instanceof Element)) {
@@ -96,4 +104,16 @@ export const init = () => {
   document.addEventListener("drop", preventUnlessAllowed);
   document.addEventListener("dragenter", preventUnlessAllowed);
   document.addEventListener("dragleave", preventUnlessAllowed);
+
+  const cleanup = () => {
+    document.removeEventListener("dragover", preventUnlessAllowed);
+    document.removeEventListener("drop", preventUnlessAllowed);
+    document.removeEventListener("dragenter", preventUnlessAllowed);
+    document.removeEventListener("dragleave", preventUnlessAllowed);
+    if (host[DROP_PREVENTION_CLEANUP_KEY] === cleanup) {
+      delete host[DROP_PREVENTION_CLEANUP_KEY];
+    }
+  };
+  host[DROP_PREVENTION_CLEANUP_KEY] = cleanup;
+  return cleanup;
 };

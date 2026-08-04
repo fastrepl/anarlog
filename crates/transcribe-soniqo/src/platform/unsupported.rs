@@ -41,18 +41,25 @@ pub(crate) fn diarize_samples(
     Err(Error::UnsupportedPlatform)
 }
 
-pub(crate) fn live_start(_model: SoniqoModel) -> Result<()> {
+pub(crate) fn live_start(_model: SoniqoModel) -> Result<String> {
     Err(Error::UnsupportedPlatform)
 }
 
-pub(crate) fn live_append(_source: TranscriptSource, _samples: &[f32]) -> Result<Vec<LivePartial>> {
+pub(crate) fn live_append(
+    _session_token: &str,
+    _source: TranscriptSource,
+    _samples: &[f32],
+) -> Result<Vec<LivePartial>> {
     Err(Error::UnsupportedPlatform)
 }
 
-pub(crate) fn live_finalize(_source: TranscriptSource) -> Result<Vec<LivePartial>> {
+pub(crate) fn live_finalize(
+    _session_token: &str,
+    _source: TranscriptSource,
+) -> Result<Vec<LivePartial>> {
     Err(Error::UnsupportedPlatform)
 }
 
-pub(crate) fn live_stop() -> Result<()> {
+pub(crate) fn live_stop(_session_token: &str) -> Result<()> {
     Ok(())
 }

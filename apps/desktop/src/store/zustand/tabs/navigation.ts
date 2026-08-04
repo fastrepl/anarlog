@@ -147,6 +147,7 @@ export const createNavigationSlice = <T extends NavigationState & BasicState>(
 export type SlotId = string;
 export type TabHistory = { stack: Tab[]; currentIndex: number };
 export type HistoryMap = Map<SlotId, TabHistory>;
+export const MAX_TAB_HISTORY_ENTRIES = 100;
 
 export const computeHistoryFlags = (
   history: Map<string, TabHistory>,
@@ -177,9 +178,10 @@ export const pushHistory = (
   const slotId = tab.slotId;
   const existing = newHistory.get(slotId);
 
-  const stack = existing
+  const expandedStack = existing
     ? [...existing.stack.slice(0, existing.currentIndex + 1), tab]
     : [tab];
+  const stack = expandedStack.slice(-MAX_TAB_HISTORY_ENTRIES);
 
   newHistory.set(slotId, { stack, currentIndex: stack.length - 1 });
   return newHistory;

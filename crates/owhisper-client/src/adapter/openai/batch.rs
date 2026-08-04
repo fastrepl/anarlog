@@ -22,6 +22,9 @@ use super::OpenAIAdapter;
 
 const DEFAULT_API_BASE: &str = "https://api.openai.com/v1";
 const OPENAI_PROGRESS_CAP: f64 = 0.99;
+const MAX_SSE_FRAME_BYTES: usize = 8 * 1_024 * 1_024;
+const MAX_SSE_DELIMITER_BYTES: usize = 4;
+const SSE_READ_AHEAD_BYTES: usize = 64 * 1_024;
 
 impl BatchSttAdapter for OpenAIAdapter {
     fn provider_name(&self) -> &'static str {
@@ -74,7 +77,7 @@ impl OpenAIAdapter {
         if !status.is_success() {
             return Err(Error::UnexpectedStatus {
                 status,
-                body: response.text().await.unwrap_or_default(),
+                body: crate::adapter::http::error_body(response).await,
             });
         }
 
@@ -86,11 +89,24 @@ impl OpenAIAdapter {
                     if let Some(event) = state.pending_events.pop_front() {
                         return Some((event, state));
                     }
+                    state.fill_pending_event();
+                    if let Some(event) = state.pending_events.pop_front() {
+                        return Some((event, state));
+                    }
+                    if state.terminated {
+                        return None;
+                    }
+                    if state.stream_finished {
+                        state.finish();
+                        if let Some(event) = state.pending_events.pop_front() {
+                            return Some((event, state));
+                        }
+                        return None;
+                    }
 
                     match state.stream.next().await {
                         Some(Ok(chunk)) => {
-                            state.buffer.extend_from_slice(&chunk);
-                            state.parse_buffer();
+                            state.push_chunk(chunk);
                         }
                         Some(Err(error)) => {
                             return Some((
@@ -99,13 +115,7 @@ impl OpenAIAdapter {
                             ));
                         }
                         None => {
-                            if !state.buffer.is_empty() {
-                                state.parse_buffer();
-                                if let Some(event) = state.pending_events.pop_front() {
-                                    return Some((event, state));
-                                }
-                            }
-                            return None;
+                            state.stream_finished = true;
                         }
                     }
                 }
@@ -142,7 +152,7 @@ async fn do_transcribe_file(
     } else {
         Err(Error::UnexpectedStatus {
             status,
-            body: response.text().await.unwrap_or_default(),
+            body: crate::adapter::http::error_body(response).await,
         })
     }
 }
@@ -216,8 +226,12 @@ struct OpenAISseParserState<S> {
     stream: S,
     buffer: Vec<u8>,
     pending_events: std::collections::VecDeque<Result<StreamingBatchEvent, Error>>,
+    pending_chunk: Option<bytes::Bytes>,
+    pending_chunk_offset: usize,
     parser: TranscriptionStreamEventParser,
     progress: OpenAISyntheticProgress,
+    stream_finished: bool,
+    terminated: bool,
 }
 
 impl<S> OpenAISseParserState<S> {
@@ -226,24 +240,111 @@ impl<S> OpenAISseParserState<S> {
             stream,
             buffer: Vec::new(),
             pending_events: std::collections::VecDeque::new(),
+            pending_chunk: None,
+            pending_chunk_offset: 0,
             parser: TranscriptionStreamEventParser::new(),
             progress: OpenAISyntheticProgress::default(),
+            stream_finished: false,
+            terminated: false,
         }
     }
 
-    fn parse_buffer(&mut self) {
-        while let Ok(text) = std::str::from_utf8(&self.buffer) {
-            let Some((end, delimiter_len)) = find_sse_block_end(text) else {
-                break;
+    fn push_chunk(&mut self, chunk: bytes::Bytes) {
+        if self.terminated {
+            return;
+        }
+        debug_assert!(self.pending_chunk.is_none());
+        self.pending_chunk = Some(chunk);
+        self.pending_chunk_offset = 0;
+        self.fill_pending_event();
+    }
+
+    fn fill_pending_event(&mut self) {
+        while self.pending_events.is_empty() && !self.terminated {
+            if let Some(event) = self.parse_next_buffer_event() {
+                self.pending_events.push_back(event);
+                return;
+            }
+
+            let Some(chunk) = self.pending_chunk.as_ref() else {
+                return;
             };
+            if self.pending_chunk_offset >= chunk.len() {
+                self.pending_chunk = None;
+                self.pending_chunk_offset = 0;
+                continue;
+            }
+
+            let capacity =
+                (MAX_SSE_FRAME_BYTES + MAX_SSE_DELIMITER_BYTES).saturating_sub(self.buffer.len());
+            if capacity == 0 {
+                self.fail("OpenAI batch SSE frame exceeded 8 MiB");
+                return;
+            }
+
+            let end = self.pending_chunk_offset + capacity.min(SSE_READ_AHEAD_BYTES);
+            let end = end.min(chunk.len());
+            self.buffer
+                .extend_from_slice(&chunk[self.pending_chunk_offset..end]);
+            self.pending_chunk_offset = end;
+            if end == chunk.len() {
+                self.pending_chunk = None;
+                self.pending_chunk_offset = 0;
+            }
+        }
+    }
+
+    fn parse_next_buffer_event(&mut self) -> Option<Result<StreamingBatchEvent, Error>> {
+        while !self.terminated {
+            let text = match std::str::from_utf8(&self.buffer) {
+                Ok(text) => text,
+                Err(error) if error.error_len().is_none() => return None,
+                Err(_) => {
+                    self.fail("OpenAI batch SSE frame contained invalid UTF-8");
+                    return None;
+                }
+            };
+            let (end, delimiter_len) = find_sse_block_end(text)?;
+            if end > MAX_SSE_FRAME_BYTES {
+                self.fail("OpenAI batch SSE frame exceeded 8 MiB");
+                return None;
+            }
 
             let block = text[..end].to_string();
             self.buffer.drain(..end + delimiter_len);
 
             if let Some(event) = self.parse_sse_block(&block) {
-                self.pending_events.push_back(event);
+                return Some(event);
             }
         }
+        None
+    }
+
+    fn finish(&mut self) {
+        if self.terminated {
+            return;
+        }
+        self.fill_pending_event();
+        if !self.pending_events.is_empty() {
+            return;
+        }
+        if !self.buffer.is_empty() {
+            self.fail("OpenAI batch SSE stream ended with an incomplete frame");
+        } else {
+            self.terminated = true;
+        }
+    }
+
+    fn fail(&mut self, message: &'static str) {
+        if self.terminated {
+            return;
+        }
+        self.buffer = Vec::new();
+        self.pending_chunk = None;
+        self.pending_chunk_offset = 0;
+        self.terminated = true;
+        self.pending_events
+            .push_back(Err(Error::WebSocket(message.to_string())));
     }
 
     fn parse_sse_block(&mut self, block: &str) -> Option<Result<StreamingBatchEvent, Error>> {
@@ -650,7 +751,7 @@ mod tests {
         state.buffer =
             b"data: {\"type\":\"transcript.text.delta\",\"delta\":\"hello\"}\r\n\r\n".to_vec();
 
-        state.parse_buffer();
+        state.fill_pending_event();
 
         let event = state
             .pending_events
@@ -667,6 +768,64 @@ mod tests {
                 ..
             } if text == "hello" && percentage > 0.0
         ));
+    }
+
+    #[test]
+    fn incomplete_sse_frame_at_eof_is_a_terminal_error() {
+        let mut state = OpenAISseParserState::new(());
+        state.push_chunk(bytes::Bytes::from_static(
+            b"data: {\"type\":\"transcript.text.delta\",\"delta\":\"hello\"}",
+        ));
+
+        state.finish();
+
+        assert!(state.terminated);
+        assert!(state.buffer.is_empty());
+        let error = state
+            .pending_events
+            .pop_front()
+            .expect("expected terminal error")
+            .expect_err("incomplete frame must fail");
+        assert!(error.to_string().contains("incomplete frame"));
+    }
+
+    #[test]
+    fn oversized_sse_frame_is_rejected_without_retaining_the_frame() {
+        let mut state = OpenAISseParserState::new(());
+        let oversized = vec![b'x'; MAX_SSE_FRAME_BYTES + MAX_SSE_DELIMITER_BYTES + 1];
+
+        state.push_chunk(oversized.into());
+
+        assert!(state.terminated);
+        assert!(state.buffer.is_empty());
+        let error = state
+            .pending_events
+            .pop_front()
+            .expect("expected terminal error")
+            .expect_err("oversized frame must fail");
+        assert!(error.to_string().contains("exceeded 8 MiB"));
+        state.push_chunk(bytes::Bytes::from_static(b"data: ignored\n\n"));
+        assert!(state.pending_events.is_empty());
+    }
+
+    #[test]
+    fn one_chunk_queues_only_one_sse_event_at_a_time() {
+        let mut state = OpenAISseParserState::new(());
+        let frame = "data: {\"type\":\"transcript.text.delta\",\"delta\":\"x\"}\n\n";
+        let event_count = 2_048;
+        state.push_chunk(frame.repeat(event_count).into());
+        assert!(state.pending_chunk.is_some());
+        assert!(state.buffer.len() <= SSE_READ_AHEAD_BYTES);
+
+        for _ in 0..event_count {
+            assert_eq!(state.pending_events.len(), 1);
+            state.pending_events.pop_front().unwrap().unwrap();
+            state.fill_pending_event();
+        }
+
+        assert!(state.pending_events.is_empty());
+        assert!(state.buffer.is_empty());
+        assert!(state.pending_chunk.is_none());
     }
 
     #[test]

@@ -36,6 +36,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             .clone();
         let session_id = params.session_id.clone();
         let idle_timeout = batch_idle_timeout(&params);
+        let wait_for_native_completion = matches!(
+            &params.provider,
+            core::BatchProvider::Soniqo | core::BatchProvider::AppleSpeech
+        );
 
         let (last_activity_tx, _) = tokio::sync::watch::channel(Instant::now());
         let control = Arc::new(BatchSessionControl {
@@ -44,7 +48,12 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             terminal_state: std::sync::Mutex::new(BatchTerminalState::Running),
         });
 
-        reserve_batch_session(&registry, &session_id, control.clone())?;
+        reserve_batch_session(
+            &registry,
+            &session_id,
+            control.clone(),
+            wait_for_native_completion,
+        )?;
 
         let runtime = Arc::new(TauriBatchRuntime {
             app: app.clone(),
@@ -96,7 +105,9 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
         };
 
         if !is_running {
-            remove_batch_session(&registry, &session_id, &control);
+            if !wait_for_native_completion {
+                remove_batch_session(&registry, &session_id, &control);
+            }
             return Ok(());
         }
 
@@ -206,6 +217,10 @@ impl core::BatchRuntime for TauriBatchRuntime {
         }
         let _ = TranscriptionEvent::from(event).emit(&self.app);
     }
+
+    fn is_cancelled(&self) -> bool {
+        self.control.cancellation_token.is_cancelled()
+    }
 }
 
 struct TauriDenoiseRuntime {
@@ -245,26 +260,29 @@ fn reserve_batch_session(
     registry: &BatchSessionRegistry,
     session_id: &str,
     control: Arc<BatchSessionControl>,
+    wait_for_native_completion: bool,
 ) -> Result<(), core::Error> {
     let mut sessions = lock_batch_sessions(registry)?;
-    let at_capacity = sessions.len() >= MAX_ACTIVE_BATCH_SESSIONS;
-    match sessions.entry(session_id.to_string()) {
-        std::collections::hash_map::Entry::Occupied(_) => Err(core::Error::BatchError(
+    if sessions.contains_key(session_id) {
+        return Err(core::Error::BatchError(
             "session already running".to_string(),
-        )),
-        std::collections::hash_map::Entry::Vacant(_) if at_capacity => {
-            Err(core::Error::BatchError(format!(
-                "too many active transcription sessions (maximum {MAX_ACTIVE_BATCH_SESSIONS})"
-            )))
-        }
-        std::collections::hash_map::Entry::Vacant(entry) => {
-            entry.insert(BatchSessionEntry {
-                control,
-                abort_handle: None,
-            });
-            Ok(())
-        }
+        ));
     }
+    if sessions.len() >= MAX_ACTIVE_BATCH_SESSIONS {
+        return Err(core::Error::BatchError(format!(
+            "too many active transcription sessions (maximum {MAX_ACTIVE_BATCH_SESSIONS})"
+        )));
+    }
+
+    sessions.insert(
+        session_id.to_string(),
+        BatchSessionEntry {
+            control,
+            abort_handle: None,
+            wait_for_native_completion,
+        },
+    );
+    Ok(())
 }
 
 fn should_emit_event(control: &BatchSessionControl, event: &core::BatchEvent) -> bool {
@@ -336,31 +354,41 @@ fn abort_batch_entry(entry: BatchSessionEntry) {
     }
 }
 
+fn prepare_batch_stop(
+    registry: &BatchSessionRegistry,
+    session_id: &str,
+) -> Option<(Arc<BatchSessionControl>, Option<BatchSessionEntry>)> {
+    let mut sessions = lock_batch_sessions(registry).ok()?;
+    let entry = sessions.get(session_id)?;
+
+    if entry.wait_for_native_completion {
+        Some((entry.control.clone(), None))
+    } else {
+        sessions
+            .remove(session_id)
+            .map(|entry| (entry.control.clone(), Some(entry)))
+    }
+}
+
 fn stop_batch_session(
     app: &tauri::AppHandle,
     registry: &Arc<BatchSessionRegistry>,
     session_id: &str,
 ) {
-    let entry = {
-        let Ok(mut sessions) = lock_batch_sessions(registry) else {
-            return;
-        };
-
-        sessions.remove(session_id)
-    };
-
-    let Some(entry) = entry else {
+    let Some((control, abort_entry)) = prepare_batch_stop(registry, session_id) else {
         return;
     };
 
-    if mark_terminal_state(&entry.control, BatchTerminalState::Stopped) {
+    if mark_terminal_state(&control, BatchTerminalState::Stopped) {
         let _ = TranscriptionEvent::Stopped {
             session_id: session_id.to_string(),
         }
         .emit(app);
     }
 
-    abort_batch_entry(entry);
+    if let Some(entry) = abort_entry {
+        abort_batch_entry(entry);
+    }
 }
 
 fn batch_idle_timeout(params: &TranscriptionParams) -> Option<Duration> {
@@ -435,6 +463,7 @@ mod tests {
                 BatchSessionEntry {
                     control,
                     abort_handle: None,
+                    wait_for_native_completion: false,
                 },
             )])),
         })
@@ -540,7 +569,7 @@ mod tests {
         let original = make_control();
         let registry = make_registry(original.clone());
 
-        let error = reserve_batch_session(&registry, "session-1", make_control())
+        let error = reserve_batch_session(&registry, "session-1", make_control(), false)
             .expect_err("duplicate session should be rejected");
 
         assert!(error.to_string().contains("session already running"));
@@ -561,10 +590,16 @@ mod tests {
         });
 
         for index in 0..MAX_ACTIVE_BATCH_SESSIONS {
-            reserve_batch_session(&registry, &format!("session-{index}"), make_control()).unwrap();
+            reserve_batch_session(
+                &registry,
+                &format!("session-{index}"),
+                make_control(),
+                false,
+            )
+            .unwrap();
         }
 
-        let error = reserve_batch_session(&registry, "one-too-many", make_control())
+        let error = reserve_batch_session(&registry, "one-too-many", make_control(), false)
             .expect_err("session beyond capacity should be rejected");
         assert!(
             error
@@ -582,6 +617,51 @@ mod tests {
     }
 
     #[test]
+    fn stopped_native_sessions_hold_admission_until_workers_finish() {
+        let registry = Arc::new(BatchSessionRegistry {
+            sessions: std::sync::Mutex::new(std::collections::HashMap::new()),
+        });
+        let mut controls = Vec::new();
+
+        for index in 0..MAX_ACTIVE_BATCH_SESSIONS {
+            let session_id = format!("native-{index}");
+            let control = make_control();
+            reserve_batch_session(&registry, &session_id, control.clone(), true).unwrap();
+
+            let (stopped_control, abort_entry) = prepare_batch_stop(&registry, &session_id)
+                .expect("native session should still be registered");
+            assert!(abort_entry.is_none());
+            assert!(Arc::ptr_eq(&stopped_control, &control));
+            assert!(mark_terminal_state(
+                &stopped_control,
+                BatchTerminalState::Stopped
+            ));
+
+            let (_, repeated_abort_entry) = prepare_batch_stop(&registry, &session_id)
+                .expect("repeated stop should retain native session");
+            assert!(repeated_abort_entry.is_none());
+            assert!(!mark_terminal_state(
+                &stopped_control,
+                BatchTerminalState::Stopped
+            ));
+            controls.push((session_id, control));
+        }
+
+        let error = reserve_batch_session(&registry, "replacement", make_control(), true)
+            .expect_err("stopped native workers must continue occupying admission");
+        assert!(
+            error
+                .to_string()
+                .contains("too many active transcription sessions")
+        );
+
+        let (finished_id, finished_control) = &controls[0];
+        finish_batch_session(&registry, finished_id, finished_control);
+        reserve_batch_session(&registry, "replacement", make_control(), true)
+            .expect("admission should reopen after the native worker exits");
+    }
+
+    #[test]
     fn concurrent_same_id_reservation_admits_exactly_one_session() {
         let registry = Arc::new(BatchSessionRegistry {
             sessions: std::sync::Mutex::new(std::collections::HashMap::new()),
@@ -594,7 +674,7 @@ mod tests {
                 std::thread::spawn(move || {
                     let control = make_control();
                     barrier.wait();
-                    reserve_batch_session(&registry, "same-id", control).is_ok()
+                    reserve_batch_session(&registry, "same-id", control, false).is_ok()
                 })
             })
             .collect::<Vec<_>>();
@@ -668,6 +748,7 @@ mod tests {
         abort_batch_entry(BatchSessionEntry {
             control: make_control(),
             abort_handle: Some(task.abort_handle()),
+            wait_for_native_completion: false,
         });
 
         assert!(

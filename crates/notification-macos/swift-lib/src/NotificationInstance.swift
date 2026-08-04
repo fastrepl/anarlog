@@ -13,6 +13,7 @@ class NotificationInstance {
 
   var isExpanded: Bool = false
   var isAnimating: Bool = false
+  private var isDismissing: Bool = false
   var compactContentView: NSView?
   var expandedContentView: NSView?
   weak var effectView: NSVisualEffectView?
@@ -171,6 +172,8 @@ class NotificationInstance {
   }
 
   func dismiss() {
+    guard !isDismissing else { return }
+    isDismissing = true
     dismissTimer?.invalidate()
     dismissTimer = nil
     stopCountdownTimer?.invalidate()
@@ -179,6 +182,7 @@ class NotificationInstance {
     remainingDismissSeconds = 0
     compactActionButton?.resetProgress()
     stopScheduleUpdates()
+    NotificationManager.shared.removeNotification(self)
 
     NSAnimationContext.runAnimationGroup({ context in
       context.duration = Timing.dismiss
@@ -186,7 +190,6 @@ class NotificationInstance {
       self.panel.animator().alphaValue = 0
     }) {
       self.panel.close()
-      NotificationManager.shared.removeNotification(self)
     }
   }
 

@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createStore } from "zustand";
 
-import type { LiveTranscriptDelta } from "@anlg/plugin-transcription";
+import type {
+  LiveTranscriptDelta,
+  LiveTranscriptSegment,
+} from "@anlg/plugin-transcription";
 
 import {
   createTranscriptSlice,
+  LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT,
   type TranscriptActions,
   type TranscriptState,
 } from "./transcript";
@@ -238,6 +242,137 @@ describe("transcript slice", () => {
     });
 
     expect(store.getState().liveCaptionText).toBe("hello remote again");
+  });
+
+  test("bounds retained finalized words to the live-caption history", () => {
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: Array.from({ length: 1000 }, (_, index) => ({
+        id: `word-${index}`,
+        text: ` word-${index}`,
+        start_ms: index * 100,
+        end_ms: index * 100 + 50,
+        channel: 0,
+        state: "final" as const,
+        speaker_index: null,
+      })),
+      replaced_ids: [],
+      partials: [],
+    });
+
+    expect(
+      Object.keys(store.getState().liveCaptionFinalWordsById).length,
+    ).toBeLessThan(1000);
+    expect(store.getState().liveCaptionText.length).toBeLessThanOrEqual(2048);
+    expect(store.getState().liveCaptionText).toContain("word-999");
+  });
+
+  test("bounds one giant finalized word without splitting Unicode", () => {
+    const originalText = ` prefix ${"🙂".repeat(3000)}`;
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: [
+        {
+          id: "giant-word",
+          text: originalText,
+          start_ms: 0,
+          end_ms: 100,
+          channel: 0,
+          state: "final",
+          speaker_index: null,
+        },
+      ],
+      replaced_ids: [],
+      partials: [],
+    });
+
+    const retained =
+      store.getState().liveCaptionFinalWordsById["giant-word"]?.text;
+    expect(retained?.length).toBeLessThanOrEqual(2048);
+    expect(retained).not.toBe(originalText);
+    expect([...(retained ?? "")].every((character) => character === "🙂")).toBe(
+      true,
+    );
+  });
+
+  test("bounds finalized-word state even when provider words are empty", () => {
+    store.getState().handleTranscriptDelta("session-1", {
+      new_words: Array.from({ length: 3000 }, (_, index) => ({
+        id: `empty-${index}`,
+        text: "",
+        start_ms: index,
+        end_ms: index + 1,
+        channel: 0,
+        state: "final" as const,
+        speaker_index: null,
+      })),
+      replaced_ids: [],
+      partials: [],
+    });
+
+    expect(
+      Object.keys(store.getState().liveCaptionFinalWordsById),
+    ).toHaveLength(2048);
+    expect(store.getState().liveCaptionFinalWordsById).toHaveProperty(
+      "empty-2999",
+    );
+    expect(store.getState().liveCaptionFinalWordsById).not.toHaveProperty(
+      "empty-0",
+    );
+  });
+
+  test("applies segment deltas without retaining a second segment index", () => {
+    const segment = (id: string, startMs: number): LiveTranscriptSegment => ({
+      id,
+      key: {
+        channel: "DirectMic",
+        speaker_index: null,
+        speaker_human_id: null,
+      },
+      start_ms: startMs,
+      end_ms: startMs + 100,
+      text: id,
+      words: [],
+    });
+
+    store.getState().handleTranscriptSegmentDelta({
+      upserts: [segment("later", 200), segment("earlier", 100)],
+      removed_ids: [],
+    });
+    store.getState().handleTranscriptSegmentDelta({
+      upserts: [segment("later", 150)],
+      removed_ids: ["earlier"],
+    });
+
+    expect(store.getState().liveSegments).toEqual([segment("later", 150)]);
+    expect(store.getState()).not.toHaveProperty("liveSegmentsById");
+  });
+
+  test("bounds the retained segment preview independently of persistence", () => {
+    const segmentCount = LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT + 5;
+    const segments: LiveTranscriptSegment[] = Array.from(
+      { length: segmentCount },
+      (_, index) => ({
+        id: `segment-${index}`,
+        key: {
+          channel: "DirectMic",
+          speaker_index: null,
+          speaker_human_id: null,
+        },
+        start_ms: index * 100,
+        end_ms: index * 100 + 50,
+        text: `segment ${index}`,
+        words: [],
+      }),
+    );
+
+    store.getState().handleTranscriptSegmentDelta({
+      upserts: segments,
+      removed_ids: [],
+    });
+
+    expect(store.getState().liveSegments).toHaveLength(
+      LIVE_TRANSCRIPT_PREVIEW_SEGMENT_LIMIT,
+    );
+    expect(store.getState().liveSegments[0]?.id).toBe("segment-5");
   });
 
   test("can persist deltas without replacing the active live preview", () => {

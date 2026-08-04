@@ -245,7 +245,7 @@ describe("syncCalendarEventsForRange", () => {
     );
   });
 
-  test("disconnect invalidates remote work before it can restore stale data", async () => {
+  test("disconnect invalidates stale work and releases its guard after deletion is observed", async () => {
     let resolveConnections:
       | ((
           connections: Array<{ provider: string; connection_ids: string[] }>,
@@ -279,11 +279,15 @@ describe("syncCalendarEventsForRange", () => {
     ctxMocks.syncCalendars.mockClear();
     await syncCalendarEventsForRange({ from: ctx.from, to: ctx.to });
     expect(ctxMocks.syncCalendars).toHaveBeenCalledWith(
-      [],
+      [{ provider: "google", connection_ids: ["conn-1"] }],
       undefined,
       expect.any(Function),
     );
-    expect(ctxMocks.createCtx).not.toHaveBeenCalled();
+    expect(ctxMocks.createCtx).toHaveBeenCalledWith(
+      "google",
+      "conn-1",
+      expect.anything(),
+    );
   });
 
   test("ignores a stale connection without syncing provider inventory", async () => {

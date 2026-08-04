@@ -3,12 +3,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatEditorHandle, JSONContent } from "@anlg/editor/chat";
 import { EMPTY_DOC } from "@anlg/editor/markdown";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
+import { DraftCache, type DraftRetentionFailure } from "./draft-cache";
 import { pushSentMessage, sentMessageAt, sentMessageCount } from "./history";
 
 import type { ContextRef } from "~/chat/context/entities";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
-const draftsByKey = new Map<string, JSONContent>();
+const draftCache = new DraftCache();
 
 export function useDraftState({
   draftKey,
@@ -23,24 +26,36 @@ export function useDraftState({
   onUserEdit?: () => void;
   shouldPersistUpdate?: () => boolean;
 }) {
-  const initialContent = useRef(draftsByKey.get(draftKey) ?? EMPTY_DOC);
+  const initialContent = useRef(draftCache.peek(draftKey) ?? EMPTY_DOC);
   const [hasContent, setHasContent] = useState(() =>
     hasTextContent(initialContent.current),
   );
 
-  useEffect(() => {
+  useMountEffect(() => {
+    draftCache.acquire(
+      draftKey,
+      hasDraftContent(initialContent.current)
+        ? initialContent.current
+        : undefined,
+    );
     onDraftContentChange?.(hasDraftContent(initialContent.current));
     onContextRefsChange?.(
       extractContextRefsFromTiptapJson(initialContent.current),
     );
-  }, [onDraftContentChange, onContextRefsChange]);
+    return () => {
+      const failure = draftCache.release(draftKey);
+      if (failure) {
+        sonnerToast.error(draftRetentionFailureMessage(failure));
+      }
+    };
+  });
 
   const handleEditorUpdate = useCallback(
     (json: JSONContent) => {
       setHasContent(hasTextContent(json));
       const shouldPersist = shouldPersistUpdate?.() ?? true;
       if (shouldPersist) {
-        draftsByKey.set(draftKey, json);
+        draftCache.update(draftKey, hasDraftContent(json) ? json : undefined);
       }
       onDraftContentChange?.(hasDraftContent(json));
       onContextRefsChange?.(extractContextRefsFromTiptapJson(json));
@@ -98,7 +113,7 @@ export function useSubmit({
     void analyticsCommands.event({ event: "message_sent" });
     onSendMessage(text, [{ type: "text", text }], mentionRefs);
     editorRef.current?.clearContent();
-    draftsByKey.delete(draftKey);
+    draftCache.delete(draftKey);
     onDraftContentChange?.(false);
     onContextRefsChange?.([]);
     onSubmitted?.(json);
@@ -277,6 +292,19 @@ function hasAttachmentNode(json: JSONContent | undefined): boolean {
   }
 
   return Array.isArray(json.content) && json.content.some(hasAttachmentNode);
+}
+
+function draftRetentionFailureMessage(failure: DraftRetentionFailure) {
+  if (failure.reason === "draft-too-large") {
+    return "This unsent chat draft is too large to keep after closing the editor.";
+  }
+  if (failure.reason === "older-draft-removed") {
+    return failure.removedDraftCount === 1
+      ? "An older unsent chat draft was removed to keep your current draft."
+      : `${failure.removedDraftCount} older unsent chat drafts were removed to keep your current draft.`;
+  }
+
+  return "This unsent chat draft could not be kept because draft storage is full.";
 }
 
 function extractContextRefsFromTiptapJson(

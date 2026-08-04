@@ -1,15 +1,17 @@
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
+use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
+use futures_util::{Stream, StreamExt};
 use owhisper_interface::batch_stream::BatchStreamEvent;
 use tracing::Instrument;
 
-use anlg_audio_chunking::AudioChunk;
+use anlg_audio_chunking::{AudioChunk, SpeechChunkExt, SpeechChunkingConfig};
 use anlg_audio_utils::Source;
-use anlg_transcribe_core::{
-    TARGET_SAMPLE_RATE, channel_duration_sec, chunk_channel_audio, split_resampled_channels,
-};
+use anlg_transcribe_core::TARGET_SAMPLE_RATE;
 
 use super::super::{
     BatchParams, BatchRunMode, BatchRunOutput, format_user_friendly_error, session_span,
@@ -17,10 +19,140 @@ use super::super::{
 use crate::{BatchEvent, BatchRuntime};
 
 pub(super) const SONIQO_PARAKEET_MAX_CHUNK_SAMPLES: usize = TARGET_SAMPLE_RATE as usize * 59 / 2;
+pub(super) const SONIQO_DIARIZATION_MAX_SAMPLES: usize = TARGET_SAMPLE_RATE as usize * 10 * 60;
 pub(super) const SONIQO_PROGRESS_PLANNED: f64 = 0.05;
 const SONIQO_PROGRESS_RANGE: f64 = 0.90;
 pub(super) const SONIQO_PROGRESS_MAX: f64 = 0.95;
 pub(super) const SONIQO_DIRECT_MIC_MIN_RMS: f64 = 0.0008;
+pub(super) const MAX_LOCAL_BATCH_CHANNELS: usize = 8;
+const SONIQO_SPEECH_REDEMPTION_TIME: Duration = Duration::from_millis(150);
+pub(super) const LOCAL_BATCH_CANCELLED: &str = "Local transcription was cancelled.";
+
+#[derive(Debug)]
+pub(super) struct ResampledChannelFile {
+    pub(super) file: tempfile::NamedTempFile,
+    pub(super) sample_count: usize,
+}
+
+#[cfg(test)]
+pub(super) fn resample_audio_to_channel_files<S>(
+    source_path: &str,
+    source: S,
+) -> std::result::Result<Vec<ResampledChannelFile>, String>
+where
+    S: Source,
+{
+    resample_audio_to_channel_files_until(source_path, source, || false)
+}
+
+pub(super) fn resample_audio_to_channel_files_until<S, F>(
+    source_path: &str,
+    source: S,
+    mut is_cancelled: F,
+) -> std::result::Result<Vec<ResampledChannelFile>, String>
+where
+    S: Source,
+    F: FnMut() -> bool,
+{
+    if is_cancelled() {
+        return Err(LOCAL_BATCH_CANCELLED.to_string());
+    }
+
+    let channel_count = u16::from(source.channels()) as usize;
+    if channel_count > MAX_LOCAL_BATCH_CHANNELS {
+        return Err(format!(
+            "Local transcription supports at most {MAX_LOCAL_BATCH_CHANNELS} audio channels; the recording declares {channel_count}."
+        ));
+    }
+    let parent = Path::new(source_path).parent();
+    let mut files = (0..channel_count)
+        .map(|_| create_channel_tempfile(parent))
+        .collect::<std::io::Result<Vec<_>>>()
+        .map_err(|e| e.to_string())?;
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: TARGET_SAMPLE_RATE,
+        bits_per_sample: 32,
+        sample_format: hound::SampleFormat::Float,
+    };
+    let mut writers = files
+        .iter()
+        .map(|file| {
+            file.reopen()
+                .map(BufWriter::new)
+                .map_err(anlg_audio_utils::Error::from)
+                .and_then(|file| hound::WavWriter::new(file, spec).map_err(Into::into))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e: anlg_audio_utils::Error| e.to_string())?;
+    let mut stereo_difference = 0.0f64;
+    let mut stereo_samples = 0usize;
+
+    let info = anlg_audio_utils::for_each_resampled_channel_block::<_, anlg_audio_utils::Error>(
+        source,
+        TARGET_SAMPLE_RATE,
+        |channels| {
+            if is_cancelled() {
+                return Err(std::io::Error::other(LOCAL_BATCH_CANCELLED).into());
+            }
+            for (writer, channel) in writers.iter_mut().zip(channels) {
+                for sample in *channel {
+                    writer.write_sample(*sample)?;
+                }
+            }
+            if channels.len() == 2 {
+                stereo_difference += channels[0]
+                    .iter()
+                    .zip(channels[1])
+                    .map(|(left, right)| f64::from((left - right).abs()))
+                    .sum::<f64>();
+                stereo_samples += channels[0].len().min(channels[1].len());
+            }
+            Ok(())
+        },
+    )
+    .map_err(|e| e.to_string())?;
+
+    for writer in writers {
+        writer.finalize().map_err(|e| e.to_string())?;
+    }
+
+    if is_cancelled() {
+        return Err(LOCAL_BATCH_CANCELLED.to_string());
+    }
+
+    if files.len() == 2
+        && stereo_samples > 0
+        && stereo_difference / (stereo_samples as f64) < 0.0005
+    {
+        files.truncate(1);
+    }
+
+    Ok(files
+        .into_iter()
+        .map(|file| ResampledChannelFile {
+            file,
+            sample_count: info.frame_count,
+        })
+        .collect())
+}
+
+fn create_channel_tempfile(parent: Option<&Path>) -> std::io::Result<tempfile::NamedTempFile> {
+    let in_parent = parent.and_then(|parent| {
+        tempfile::Builder::new()
+            .prefix("anarlog_channel_")
+            .suffix(".wav")
+            .tempfile_in(parent)
+            .ok()
+    });
+    match in_parent {
+        Some(file) => Ok(file),
+        None => tempfile::Builder::new()
+            .prefix("anarlog_channel_")
+            .suffix(".wav")
+            .tempfile(),
+    }
+}
 
 pub(in crate::batch) async fn run_apple_speech_batch(
     runtime: Arc<dyn BatchRuntime>,
@@ -99,11 +231,12 @@ fn transcribe_apple_speech_file(
     locale: &str,
     progress: Option<&SoniqoProgressReporter>,
 ) -> std::result::Result<Vec<anlg_transcribe_speechanalyzer::FileTranscript>, String> {
+    ensure_local_batch_running(progress)?;
     let source = anlg_audio_utils::source_from_path(file_path).map_err(|e| e.to_string())?;
-    let channel_count = u16::from(source.channels()).max(1) as usize;
-    let samples =
-        anlg_audio_utils::resample_audio(source, TARGET_SAMPLE_RATE).map_err(|e| e.to_string())?;
-    let channels = collapse_identical_channels(split_resampled_channels(&samples, channel_count));
+    let channels = resample_audio_to_channel_files_until(file_path, source, || {
+        local_batch_is_cancelled(progress)
+    })?;
+    ensure_local_batch_running(progress)?;
 
     if let Some(progress) = progress {
         progress.emit(SONIQO_PROGRESS_PLANNED);
@@ -113,8 +246,11 @@ fn transcribe_apple_speech_file(
     let mut transcripts = Vec::with_capacity(channels.len());
 
     for (index, channel) in channels.into_iter().enumerate() {
-        let transcript = anlg_transcribe_speechanalyzer::transcribe_samples(&channel, locale)
-            .map_err(|e| e.to_string())?;
+        ensure_local_batch_running(progress)?;
+        let transcript =
+            anlg_transcribe_speechanalyzer::transcribe_file(channel.file.path(), locale)
+                .map_err(|e| e.to_string())?;
+        ensure_local_batch_running(progress)?;
         transcripts.push(transcript);
 
         if let Some(progress) = progress {
@@ -173,6 +309,7 @@ pub(in crate::batch) async fn run_soniqo_batch(
         );
 
         let session_id = params.session_id.clone();
+        let async_runtime = tokio::runtime::Handle::current();
         let transcribed = tokio::task::spawn_blocking(move || {
             let progress = SoniqoProgressReporter {
                 runtime,
@@ -184,6 +321,7 @@ pub(in crate::batch) async fn run_soniqo_batch(
                 language_hint.as_deref(),
                 num_speakers,
                 Some(&progress),
+                &async_runtime,
             )
         })
         .await
@@ -240,7 +378,9 @@ fn transcribe_soniqo_file(
     language: Option<&str>,
     num_speakers: Option<u32>,
     progress: Option<&SoniqoProgressReporter>,
+    async_runtime: &tokio::runtime::Handle,
 ) -> std::result::Result<Vec<anlg_transcribe_soniqo::FileTranscript>, String> {
+    ensure_local_batch_running(progress)?;
     let source = anlg_audio_utils::source_from_path(file_path).map_err(|e| e.to_string())?;
     let channel_count = u16::from(source.channels()).max(1) as usize;
     let sample_rate = u32::from(source.sample_rate());
@@ -259,116 +399,88 @@ fn transcribe_soniqo_file(
         "soniqo_audio_file_loaded"
     );
 
-    if channel_count <= 1 && !uses_resilient_soniqo_chunking(model) {
-        if let Some(progress) = progress {
-            progress.emit(SONIQO_PROGRESS_PLANNED);
-        }
-        tracing::info!(
-            anarlog.stt.provider.name = "soniqo",
-            anarlog.stt.model = %model,
-            "soniqo_single_channel_native_inference_start"
-        );
-        return anlg_transcribe_soniqo::transcribe_file(model, file_path, language)
-            .map(|transcript| {
-                if let Some(progress) = progress {
-                    progress.emit(SONIQO_PROGRESS_MAX);
-                }
-                vec![transcript]
-            })
-            .map_err(|e| e.to_string());
-    }
-
     let resample_started_at = Instant::now();
-    let samples =
-        anlg_audio_utils::resample_audio(source, TARGET_SAMPLE_RATE).map_err(|e| e.to_string())?;
+    let channel_files = resample_audio_to_channel_files_until(file_path, source, || {
+        local_batch_is_cancelled(progress)
+    })?;
+    ensure_local_batch_running(progress)?;
+    let resampled_sample_count = channel_files
+        .iter()
+        .map(|channel| channel.sample_count)
+        .sum::<usize>();
     tracing::info!(
         anarlog.stt.provider.name = "soniqo",
         anarlog.stt.model = %model,
         elapsed_ms = resample_started_at.elapsed().as_millis() as u64,
         audio.source_sample_rate_hz = sample_rate,
         audio.target_sample_rate_hz = TARGET_SAMPLE_RATE,
-        audio.resampled_sample_count = samples.len(),
+        audio.resampled_sample_count = resampled_sample_count,
         "soniqo_audio_resampled"
     );
 
-    let channel_samples =
-        collapse_identical_channels(split_resampled_channels(&samples, channel_count));
     tracing::info!(
         anarlog.stt.provider.name = "soniqo",
         anarlog.stt.model = %model,
         audio.source_channel_count = channel_count,
-        audio.transcribed_channel_count = channel_samples.len(),
+        audio.transcribed_channel_count = channel_files.len(),
         "soniqo_channels_prepared"
     );
 
-    let transcribed_channel_count = channel_samples.len();
-    let plans = channel_samples
+    let transcribed_channel_count = channel_files.len();
+    let channel_sample_counts = channel_files
         .iter()
-        .enumerate()
-        .map(|(channel_index, samples)| {
-            soniqo_channel_plan(
-                model,
-                channel_index,
-                samples,
-                transcribed_channel_count == 2 && channel_index == 0,
-            )
-        })
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-    let total_chunks = plans.iter().map(|plan| plan.chunks.len()).sum::<usize>();
-    let mut completed_chunks = 0usize;
-
+        .map(|channel| channel.sample_count)
+        .collect::<Vec<_>>();
+    ensure_soniqo_diarization_plan_within_limit(&channel_sample_counts, num_speakers)?;
     if let Some(progress) = progress {
-        progress.emit(soniqo_batch_progress(0, total_chunks));
+        progress.emit(soniqo_batch_progress(0, transcribed_channel_count));
     }
 
-    let mut transcripts = collect_soniqo_channel_transcripts(plans.into_iter().map(|plan| {
-        transcribe_soniqo_channel_chunks(model, plan, language, || {
-            completed_chunks += 1;
-            if let Some(progress) = progress {
-                progress.emit(soniqo_batch_progress(completed_chunks, total_chunks));
-            }
-        })
-    }))?;
-
-    for (channel_index, (transcript, samples)) in transcripts
-        .iter_mut()
-        .zip(channel_samples.iter())
-        .enumerate()
-    {
-        let Some(speaker_count) =
-            soniqo_diarization_speaker_count(num_speakers, channel_samples.len(), channel_index)
-        else {
-            continue;
+    let mut channel_results = Vec::with_capacity(transcribed_channel_count);
+    let mut channel_speaker_segments = Vec::with_capacity(transcribed_channel_count);
+    for (channel_index, channel) in channel_files.into_iter().enumerate() {
+        ensure_local_batch_running(progress)?;
+        let speaker_segments = match soniqo_diarization_speaker_count(
+            num_speakers,
+            transcribed_channel_count,
+            channel_index,
+        ) {
+            Some(speaker_count) => diarize_soniqo_channel_file(
+                model,
+                channel_index,
+                &channel,
+                speaker_count,
+                progress,
+            )?,
+            None => Vec::new(),
         };
+        let plan = soniqo_channel_plan(
+            model,
+            channel_index,
+            channel,
+            transcribed_channel_count == 2 && channel_index == 0,
+        );
+        let channel_result =
+            transcribe_soniqo_channel_chunks(model, plan, language, progress, async_runtime);
+        ensure_local_batch_running(progress)?;
+        channel_results.push(channel_result);
+        channel_speaker_segments.push(speaker_segments);
 
-        let started_at = Instant::now();
-        match anlg_transcribe_soniqo::diarize_samples(model, samples, speaker_count) {
-            Ok(segments) => {
-                tracing::info!(
-                    anarlog.stt.provider.name = "soniqo",
-                    anarlog.stt.model = %model,
-                    channel.index = channel_index,
-                    speaker.count = speaker_count,
-                    segment.count = segments.len(),
-                    elapsed_ms = started_at.elapsed().as_millis() as u64,
-                    "soniqo_channel_diarization_completed"
-                );
-                transcript.speaker_segments = segments;
-            }
-            Err(error) => {
-                tracing::warn!(
-                    anarlog.stt.provider.name = "soniqo",
-                    anarlog.stt.model = %model,
-                    channel.index = channel_index,
-                    speaker.count = speaker_count,
-                    elapsed_ms = started_at.elapsed().as_millis() as u64,
-                    error = %error,
-                    "soniqo_channel_diarization_failed"
-                );
-            }
+        if let Some(progress) = progress {
+            progress.emit(soniqo_batch_progress(
+                channel_index + 1,
+                transcribed_channel_count,
+            ));
         }
     }
 
+    let mut transcripts = collect_soniqo_channel_transcripts(channel_results)?;
+    for (transcript, speaker_segments) in transcripts
+        .iter_mut()
+        .zip(channel_speaker_segments.into_iter())
+    {
+        transcript.speaker_segments = speaker_segments;
+    }
     Ok(transcripts)
 }
 
@@ -387,13 +499,163 @@ impl SoniqoProgressReporter {
             },
         });
     }
+
+    fn is_cancelled(&self) -> bool {
+        self.runtime.is_cancelled()
+    }
+}
+
+fn local_batch_is_cancelled(progress: Option<&SoniqoProgressReporter>) -> bool {
+    progress.is_some_and(SoniqoProgressReporter::is_cancelled)
+}
+
+fn ensure_local_batch_running(
+    progress: Option<&SoniqoProgressReporter>,
+) -> std::result::Result<(), String> {
+    if local_batch_is_cancelled(progress) {
+        Err(LOCAL_BATCH_CANCELLED.to_string())
+    } else {
+        Ok(())
+    }
 }
 
 struct SoniqoChannelPlan {
     channel_index: usize,
     duration_seconds: f64,
     is_direct_mic: bool,
-    chunks: Vec<AudioChunk>,
+    chunk_strategy: SoniqoChunkStrategy,
+    channel: ResampledChannelFile,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SoniqoChunkStrategy {
+    Fixed { max_samples: usize },
+    SpeechAware,
+}
+
+pub(super) struct FixedSoniqoFileChunkIterator {
+    reader: hound::WavReader<BufReader<File>>,
+    _file: tempfile::NamedTempFile,
+    max_samples: usize,
+    next_start: usize,
+    finished: bool,
+}
+
+impl FixedSoniqoFileChunkIterator {
+    pub(super) fn new(
+        file: tempfile::NamedTempFile,
+        max_samples: usize,
+    ) -> std::result::Result<Self, String> {
+        let reader = hound::WavReader::open(file.path()).map_err(|e| e.to_string())?;
+        Ok(Self {
+            reader,
+            _file: file,
+            max_samples,
+            next_start: 0,
+            finished: false,
+        })
+    }
+}
+
+impl Iterator for FixedSoniqoFileChunkIterator {
+    type Item = std::result::Result<AudioChunk, String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        let samples = match self
+            .reader
+            .samples::<f32>()
+            .take(self.max_samples)
+            .collect::<Result<Vec<_>, _>>()
+        {
+            Ok(samples) => samples,
+            Err(error) => {
+                self.finished = true;
+                return Some(Err(error.to_string()));
+            }
+        };
+        if samples.is_empty() {
+            self.finished = true;
+            return None;
+        }
+        let sample_start = self.next_start;
+        let sample_end = sample_start + samples.len();
+        self.next_start = sample_end;
+        Some(Ok(AudioChunk {
+            samples,
+            sample_start,
+            sample_end,
+        }))
+    }
+}
+
+struct SpeechSoniqoFileChunkIterator {
+    chunks: Pin<Box<dyn Stream<Item = Result<AudioChunk, anlg_audio_chunking::Error>>>>,
+    async_runtime: tokio::runtime::Handle,
+    _file: tempfile::NamedTempFile,
+}
+
+impl SpeechSoniqoFileChunkIterator {
+    fn new(
+        file: tempfile::NamedTempFile,
+        async_runtime: &tokio::runtime::Handle,
+    ) -> std::result::Result<Self, String> {
+        let source = anlg_audio_utils::source_from_path(file.path()).map_err(|e| e.to_string())?;
+        let chunks =
+            source.speech_chunks(SpeechChunkingConfig::speech(SONIQO_SPEECH_REDEMPTION_TIME));
+
+        Ok(Self {
+            chunks: Box::pin(chunks),
+            async_runtime: async_runtime.clone(),
+            _file: file,
+        })
+    }
+}
+
+impl Iterator for SpeechSoniqoFileChunkIterator {
+    type Item = std::result::Result<AudioChunk, String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.async_runtime
+            .block_on(self.chunks.as_mut().next())
+            .map(|chunk| chunk.map_err(|error| error.to_string()))
+    }
+}
+
+enum SoniqoFileChunkIterator {
+    Fixed(FixedSoniqoFileChunkIterator),
+    SpeechAware(SpeechSoniqoFileChunkIterator),
+}
+
+impl SoniqoFileChunkIterator {
+    fn new(
+        file: tempfile::NamedTempFile,
+        strategy: SoniqoChunkStrategy,
+        async_runtime: &tokio::runtime::Handle,
+    ) -> std::result::Result<Self, String> {
+        match strategy {
+            SoniqoChunkStrategy::Fixed { max_samples } => {
+                FixedSoniqoFileChunkIterator::new(file, max_samples).map(Self::Fixed)
+            }
+            SoniqoChunkStrategy::SpeechAware => {
+                SpeechSoniqoFileChunkIterator::new(file, async_runtime).map(Self::SpeechAware)
+            }
+        }
+    }
+}
+
+impl Iterator for SoniqoFileChunkIterator {
+    type Item = std::result::Result<AudioChunk, String>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Fixed(chunks) => chunks.next(),
+            Self::SpeechAware(chunks) => chunks.next(),
+        }
+    }
 }
 
 pub(super) fn soniqo_language_hint(language: Option<&str>) -> Option<String> {
@@ -407,10 +669,6 @@ pub(super) fn soniqo_language_hint(language: Option<&str>) -> Option<String> {
         .next()
         .filter(|value| !value.is_empty())
         .map(|value| value.to_lowercase())
-}
-
-pub(super) fn uses_resilient_soniqo_chunking(model: anlg_transcribe_soniqo::SoniqoModel) -> bool {
-    matches!(model, anlg_transcribe_soniqo::SoniqoModel::ParakeetBatch)
 }
 
 pub(super) fn soniqo_batch_progress(completed_chunks: usize, total_chunks: usize) -> f64 {
@@ -481,48 +739,194 @@ where
 fn soniqo_channel_plan(
     model: anlg_transcribe_soniqo::SoniqoModel,
     channel_index: usize,
-    samples: &[f32],
+    channel: ResampledChannelFile,
     is_direct_mic: bool,
-) -> std::result::Result<SoniqoChannelPlan, String> {
-    let duration_seconds = channel_duration_sec(samples);
-    let chunks = soniqo_channel_chunks(model, samples)?;
+) -> SoniqoChannelPlan {
+    let duration_seconds = channel.sample_count as f64 / TARGET_SAMPLE_RATE as f64;
+    let sample_count = channel.sample_count;
+    let chunk_strategy = soniqo_chunk_strategy(model);
+    let (strategy_label, chunk_count) = match chunk_strategy {
+        SoniqoChunkStrategy::Fixed { max_samples } => {
+            ("fixed", Some(sample_count.div_ceil(max_samples)))
+        }
+        SoniqoChunkStrategy::SpeechAware => ("speech-aware", None),
+    };
     tracing::info!(
         anarlog.stt.provider.name = "soniqo",
         anarlog.stt.model = %model,
         channel.index = channel_index,
         channel.duration_seconds = duration_seconds,
-        channel.sample_count = samples.len(),
-        chunk.count = chunks.len(),
+        channel.sample_count = sample_count,
+        chunk.strategy = strategy_label,
+        chunk.count = chunk_count.unwrap_or_default(),
+        chunk.count_known = chunk_count.is_some(),
         "soniqo_channel_chunked"
     );
 
-    Ok(SoniqoChannelPlan {
+    SoniqoChannelPlan {
         channel_index,
         duration_seconds,
         is_direct_mic,
-        chunks,
-    })
+        chunk_strategy,
+        channel,
+    }
+}
+
+pub(super) fn soniqo_chunk_strategy(
+    model: anlg_transcribe_soniqo::SoniqoModel,
+) -> SoniqoChunkStrategy {
+    if model.batch_model() == anlg_transcribe_soniqo::SoniqoModel::ParakeetBatch {
+        SoniqoChunkStrategy::Fixed {
+            max_samples: SONIQO_PARAKEET_MAX_CHUNK_SAMPLES,
+        }
+    } else {
+        SoniqoChunkStrategy::SpeechAware
+    }
+}
+
+fn diarize_soniqo_channel_file(
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    channel_index: usize,
+    channel: &ResampledChannelFile,
+    speaker_count: usize,
+    progress: Option<&SoniqoProgressReporter>,
+) -> std::result::Result<Vec<anlg_transcribe_soniqo::DiarizationSegment>, String> {
+    ensure_local_batch_running(progress)?;
+    ensure_soniqo_diarization_within_limit(channel.sample_count)?;
+    let mut reader = hound::WavReader::open(channel.file.path()).map_err(|e| e.to_string())?;
+    let samples = reader
+        .samples::<f32>()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    ensure_local_batch_running(progress)?;
+    let segments = diarize_soniqo_channel(model, channel_index, &samples, speaker_count);
+    ensure_local_batch_running(progress)?;
+    Ok(segments)
+}
+
+pub(super) fn ensure_soniqo_diarization_within_limit(
+    sample_count: usize,
+) -> std::result::Result<(), String> {
+    if sample_count <= SONIQO_DIARIZATION_MAX_SAMPLES {
+        return Ok(());
+    }
+    Err(
+        "Soniqo speaker diarization is limited to recordings up to 10 minutes to prevent excessive memory use. Retry without an exact speaker count or use another transcription provider."
+            .to_string(),
+    )
+}
+
+pub(super) fn ensure_soniqo_diarization_plan_within_limit(
+    channel_sample_counts: &[usize],
+    num_speakers: Option<u32>,
+) -> std::result::Result<(), String> {
+    for (channel_index, sample_count) in channel_sample_counts.iter().enumerate() {
+        if soniqo_diarization_speaker_count(
+            num_speakers,
+            channel_sample_counts.len(),
+            channel_index,
+        )
+        .is_some()
+        {
+            ensure_soniqo_diarization_within_limit(*sample_count)?;
+        }
+    }
+    Ok(())
+}
+
+fn diarize_soniqo_channel(
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    channel_index: usize,
+    samples: &[f32],
+    speaker_count: usize,
+) -> Vec<anlg_transcribe_soniqo::DiarizationSegment> {
+    let started_at = Instant::now();
+    match anlg_transcribe_soniqo::diarize_samples(model, samples, speaker_count) {
+        Ok(segments) => {
+            tracing::info!(
+                anarlog.stt.provider.name = "soniqo",
+                anarlog.stt.model = %model,
+                channel.index = channel_index,
+                speaker.count = speaker_count,
+                segment.count = segments.len(),
+                elapsed_ms = started_at.elapsed().as_millis() as u64,
+                "soniqo_channel_diarization_completed"
+            );
+            segments
+        }
+        Err(error) => {
+            tracing::warn!(
+                anarlog.stt.provider.name = "soniqo",
+                anarlog.stt.model = %model,
+                channel.index = channel_index,
+                speaker.count = speaker_count,
+                elapsed_ms = started_at.elapsed().as_millis() as u64,
+                error = %error,
+                "soniqo_channel_diarization_failed"
+            );
+            Vec::new()
+        }
+    }
 }
 
 fn transcribe_soniqo_channel_chunks(
     model: anlg_transcribe_soniqo::SoniqoModel,
     plan: SoniqoChannelPlan,
     language: Option<&str>,
-    mut on_chunk_completed: impl FnMut(),
+    progress: Option<&SoniqoProgressReporter>,
+    async_runtime: &tokio::runtime::Handle,
 ) -> std::result::Result<anlg_transcribe_soniqo::FileTranscript, String> {
-    let mut texts = Vec::new();
+    transcribe_soniqo_channel_chunks_with(
+        model,
+        plan,
+        language,
+        progress,
+        async_runtime,
+        transcribe_soniqo_samples,
+    )
+}
+
+fn transcribe_soniqo_channel_chunks_with<F>(
+    model: anlg_transcribe_soniqo::SoniqoModel,
+    plan: SoniqoChannelPlan,
+    language: Option<&str>,
+    progress: Option<&SoniqoProgressReporter>,
+    async_runtime: &tokio::runtime::Handle,
+    mut transcribe: F,
+) -> std::result::Result<anlg_transcribe_soniqo::FileTranscript, String>
+where
+    F: FnMut(
+        anlg_transcribe_soniqo::SoniqoModel,
+        &[f32],
+        Option<&str>,
+    ) -> std::result::Result<anlg_transcribe_soniqo::FileTranscript, String>,
+{
     let mut transcript_chunks = Vec::new();
     let mut successful_chunks = 0usize;
     let mut failed_chunks = 0usize;
-    let channel_index = plan.channel_index;
-    let is_direct_mic = plan.is_direct_mic;
+    let SoniqoChannelPlan {
+        channel_index,
+        duration_seconds,
+        is_direct_mic,
+        chunk_strategy,
+        channel,
+    } = plan;
+    let mut chunks = SoniqoFileChunkIterator::new(channel.file, chunk_strategy, async_runtime)?;
+    let mut next_chunk_index = 0usize;
 
-    for (chunk_index, chunk) in plan.chunks.into_iter().enumerate() {
+    loop {
+        ensure_local_batch_running(progress)?;
+        let Some(chunk) = chunks.next() else {
+            break;
+        };
+        ensure_local_batch_running(progress)?;
+        let chunk = chunk?;
+        let chunk_index = next_chunk_index;
+        next_chunk_index += 1;
         let chunk_duration_ms =
             (chunk.sample_end - chunk.sample_start) * 1000 / TARGET_SAMPLE_RATE as usize;
         let chunk_rms = audio_rms(&chunk.samples);
         if is_direct_mic && chunk_rms < SONIQO_DIRECT_MIC_MIN_RMS {
-            on_chunk_completed();
             tracing::info!(
                 anarlog.stt.provider.name = "soniqo",
                 anarlog.stt.model = %model,
@@ -548,7 +952,9 @@ fn transcribe_soniqo_channel_chunks(
             "soniqo_chunk_native_inference_start"
         );
 
-        let text = match transcribe_soniqo_samples(model, &chunk.samples, language) {
+        let transcribed = transcribe(model, &chunk.samples, language);
+        ensure_local_batch_running(progress)?;
+        let text = match transcribed {
             Ok(transcript) => {
                 successful_chunks += 1;
                 transcript.text
@@ -564,11 +970,9 @@ fn transcribe_soniqo_channel_chunks(
                     error = %e,
                     "soniqo_chunk_native_inference_failed"
                 );
-                on_chunk_completed();
                 continue;
             }
         };
-        on_chunk_completed();
 
         tracing::info!(
             anarlog.stt.provider.name = "soniqo",
@@ -582,7 +986,6 @@ fn transcribe_soniqo_channel_chunks(
 
         let text = text.trim();
         if !text.is_empty() {
-            texts.push(text.to_string());
             transcript_chunks.push(anlg_transcribe_soniqo::FileTranscriptChunk {
                 text: text.to_string(),
                 start_seconds: chunk.sample_start as f64 / TARGET_SAMPLE_RATE as f64,
@@ -611,14 +1014,14 @@ fn transcribe_soniqo_channel_chunks(
 
     if transcript_chunks.is_empty() {
         return Ok(anlg_transcribe_soniqo::FileTranscript::new(
-            texts.join(" "),
-            plan.duration_seconds,
+            String::new(),
+            duration_seconds,
         ));
     }
 
     Ok(anlg_transcribe_soniqo::FileTranscript::from_chunks(
         transcript_chunks,
-        plan.duration_seconds,
+        duration_seconds,
     ))
 }
 
@@ -662,60 +1065,79 @@ fn transcribe_soniqo_samples(
     anlg_transcribe_soniqo::transcribe_file(model, file.path(), language).map_err(|e| e.to_string())
 }
 
-pub(super) fn soniqo_channel_chunks(
-    model: anlg_transcribe_soniqo::SoniqoModel,
-    samples: &[f32],
-) -> std::result::Result<Vec<AudioChunk>, String> {
-    if model == anlg_transcribe_soniqo::SoniqoModel::ParakeetBatch {
-        return Ok(split_audio_samples(
-            samples,
-            SONIQO_PARAKEET_MAX_CHUNK_SAMPLES,
-        ));
+#[cfg(test)]
+mod cancellation_tests {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use super::*;
+
+    struct TestRuntime {
+        cancelled: Arc<AtomicBool>,
     }
 
-    chunk_channel_audio::<anlg_audio_chunking::Error>(samples).map_err(|e| e.to_string())
-}
+    impl BatchRuntime for TestRuntime {
+        fn emit(&self, _event: BatchEvent) {}
 
-fn split_audio_samples(samples: &[f32], max_samples: usize) -> Vec<AudioChunk> {
-    samples
-        .chunks(max_samples)
-        .enumerate()
-        .map(|(index, window)| {
-            let sample_start = index * max_samples;
-            let sample_end = sample_start + window.len();
-            AudioChunk {
-                samples: window.to_vec(),
-                sample_start,
-                sample_end,
-            }
-        })
-        .collect()
-}
-
-pub(super) fn collapse_identical_channels(channels: Vec<Vec<f32>>) -> Vec<Vec<f32>> {
-    if channels.len() != 2 || !channels_are_effectively_identical(&channels[0], &channels[1]) {
-        return channels;
+        fn is_cancelled(&self) -> bool {
+            self.cancelled.load(Ordering::Acquire)
+        }
     }
 
-    channels.into_iter().take(1).collect()
-}
+    #[tokio::test]
+    async fn cancellation_after_native_inference_skips_remaining_chunks() {
+        let file = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+        let mut writer = hound::WavWriter::create(
+            file.path(),
+            hound::WavSpec {
+                channels: 1,
+                sample_rate: TARGET_SAMPLE_RATE,
+                bits_per_sample: 32,
+                sample_format: hound::SampleFormat::Float,
+            },
+        )
+        .unwrap();
+        for sample in [0.1f32, 0.2, 0.3] {
+            writer.write_sample(sample).unwrap();
+        }
+        writer.finalize().unwrap();
 
-fn channels_are_effectively_identical(left: &[f32], right: &[f32]) -> bool {
-    if left.len().abs_diff(right.len()) > 1 {
-        return false;
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let progress = SoniqoProgressReporter {
+            runtime: Arc::new(TestRuntime {
+                cancelled: cancelled.clone(),
+            }),
+            session_id: "cancel-test".to_string(),
+        };
+        let plan = SoniqoChannelPlan {
+            channel_index: 0,
+            duration_seconds: 3.0 / TARGET_SAMPLE_RATE as f64,
+            is_direct_mic: false,
+            chunk_strategy: SoniqoChunkStrategy::Fixed { max_samples: 1 },
+            channel: ResampledChannelFile {
+                file,
+                sample_count: 3,
+            },
+        };
+        let mut calls = 0usize;
+
+        let error = transcribe_soniqo_channel_chunks_with(
+            anlg_transcribe_soniqo::SoniqoModel::ParakeetBatch,
+            plan,
+            None,
+            Some(&progress),
+            &tokio::runtime::Handle::current(),
+            |_, _, _| {
+                calls += 1;
+                cancelled.store(true, Ordering::Release);
+                Ok(anlg_transcribe_soniqo::FileTranscript::new(
+                    "first".to_string(),
+                    1.0,
+                ))
+            },
+        )
+        .expect_err("cancellation should stop before the next chunk");
+
+        assert_eq!(calls, 1);
+        assert_eq!(error, LOCAL_BATCH_CANCELLED);
     }
-
-    let compared = left.len().min(right.len());
-    if compared == 0 {
-        return true;
-    }
-
-    let mean_abs_diff = left
-        .iter()
-        .zip(right.iter())
-        .map(|(a, b)| (a - b).abs())
-        .sum::<f32>()
-        / compared as f32;
-
-    mean_abs_diff < 0.0005
 }

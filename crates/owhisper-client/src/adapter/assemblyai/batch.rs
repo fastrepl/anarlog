@@ -171,9 +171,14 @@ impl AssemblyAIAdapter {
     ) -> Result<BatchResponse, Error> {
         let base_url = Self::batch_api_url(api_base);
 
-        let audio_data = tokio::fs::read(&file_path)
+        let audio_file = tokio::fs::File::open(&file_path)
             .await
-            .map_err(|e| Error::AudioProcessing(format!("failed to read file: {}", e)))?;
+            .map_err(|e| Error::AudioProcessing(format!("failed to open file: {}", e)))?;
+        let content_length = audio_file
+            .metadata()
+            .await
+            .map_err(|e| Error::AudioProcessing(format!("failed to inspect file: {}", e)))?
+            .len();
 
         let content_type = match file_path.extension().and_then(|e| e.to_str()) {
             Some("wav") => "audio/wav",
@@ -191,7 +196,8 @@ impl AssemblyAIAdapter {
             .post(upload_url.to_string())
             .header("Authorization", api_key)
             .header("Content-Type", content_type)
-            .body(audio_data)
+            .header("Content-Length", content_length)
+            .body(audio_file)
             .send()
             .await?;
 

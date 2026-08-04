@@ -23,9 +23,13 @@ swift!(fn _soniqo_diarize_audio(
     exact_speakers: &SRString
 ) -> SRString);
 swift!(fn _soniqo_live_start(model_id: &SRString) -> SRString);
-swift!(fn _soniqo_live_append(source: &SRString, samples: &SRData) -> SRString);
-swift!(fn _soniqo_live_finalize(source: &SRString) -> SRString);
-swift!(fn _soniqo_live_stop() -> SRString);
+swift!(fn _soniqo_live_append(
+    session_token: &SRString,
+    source: &SRString,
+    samples: &SRData
+) -> SRString);
+swift!(fn _soniqo_live_finalize(session_token: &SRString, source: &SRString) -> SRString);
+swift!(fn _soniqo_live_stop(session_token: &SRString) -> SRString);
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,8 +54,10 @@ struct DiarizationPayload {
 }
 
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct StatusPayload {
     running: bool,
+    session_token: Option<String>,
     error: Option<String>,
 }
 
@@ -162,13 +168,19 @@ pub(crate) fn diarize_samples(
     Ok(result.segments)
 }
 
-pub(crate) fn live_start(model: SoniqoModel) -> Result<()> {
+pub(crate) fn live_start(model: SoniqoModel) -> Result<String> {
     let model_id = sr_string(model.as_str());
     let payload = unsafe { _soniqo_live_start(&model_id) };
     let result: StatusPayload = serde_json::from_str(payload.as_str())?;
 
+    live_start_result(result)
+}
+
+fn live_start_result(result: StatusPayload) -> Result<String> {
     if result.running {
-        Ok(())
+        result.session_token.ok_or_else(|| {
+            Error::Bridge("Soniqo live session started without a session token".to_string())
+        })
     } else {
         Err(Error::Bridge(result.error.unwrap_or_else(|| {
             "failed to start Soniqo live session".to_string()
@@ -176,10 +188,15 @@ pub(crate) fn live_start(model: SoniqoModel) -> Result<()> {
     }
 }
 
-pub(crate) fn live_append(source: TranscriptSource, samples: &[f32]) -> Result<Vec<LivePartial>> {
+pub(crate) fn live_append(
+    session_token: &str,
+    source: TranscriptSource,
+    samples: &[f32],
+) -> Result<Vec<LivePartial>> {
+    let session_token = sr_string(session_token);
     let source = sr_string(source.as_str());
     let samples = floats_to_sr_data(samples);
-    let payload = unsafe { _soniqo_live_append(&source, &samples) };
+    let payload = unsafe { _soniqo_live_append(&session_token, &source, &samples) };
     let result: LiveAppendPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
@@ -189,9 +206,13 @@ pub(crate) fn live_append(source: TranscriptSource, samples: &[f32]) -> Result<V
     Ok(result.partials)
 }
 
-pub(crate) fn live_finalize(source: TranscriptSource) -> Result<Vec<LivePartial>> {
+pub(crate) fn live_finalize(
+    session_token: &str,
+    source: TranscriptSource,
+) -> Result<Vec<LivePartial>> {
+    let session_token = sr_string(session_token);
     let source = sr_string(source.as_str());
-    let payload = unsafe { _soniqo_live_finalize(&source) };
+    let payload = unsafe { _soniqo_live_finalize(&session_token, &source) };
     let result: LiveAppendPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
@@ -201,8 +222,9 @@ pub(crate) fn live_finalize(source: TranscriptSource) -> Result<Vec<LivePartial>
     Ok(result.partials)
 }
 
-pub(crate) fn live_stop() -> Result<()> {
-    let payload = unsafe { _soniqo_live_stop() };
+pub(crate) fn live_stop(session_token: &str) -> Result<()> {
+    let session_token = sr_string(session_token);
+    let payload = unsafe { _soniqo_live_stop(&session_token) };
     let result: StatusPayload = serde_json::from_str(payload.as_str())?;
 
     if let Some(error) = result.error {
@@ -222,4 +244,43 @@ fn floats_to_sr_data(samples: &[f32]) -> SRData {
         .flat_map(|sample| sample.to_bits().to_le_bytes())
         .collect::<Vec<_>>();
     SRData::from(bytes.as_slice())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{StatusPayload, live_start_result};
+
+    #[test]
+    fn live_start_requires_session_token() {
+        let result = live_start_result(StatusPayload {
+            running: true,
+            session_token: None,
+            error: None,
+        });
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Soniqo bridge failed: Soniqo live session started without a session token"
+        );
+    }
+
+    #[test]
+    fn live_start_returns_session_token() {
+        let token = live_start_result(StatusPayload {
+            running: true,
+            session_token: Some("42".to_string()),
+            error: None,
+        })
+        .unwrap();
+
+        assert_eq!(token, "42");
+    }
+
+    #[test]
+    fn live_start_decodes_swift_camel_case_token() {
+        let payload: StatusPayload =
+            serde_json::from_str(r#"{"running":true,"sessionToken":"42","error":null}"#).unwrap();
+
+        assert_eq!(live_start_result(payload).unwrap(), "42");
+    }
 }

@@ -3,10 +3,12 @@ import { open as selectFile } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
 import { useShallow } from "zustand/shallow";
 
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
+
 import { createSession } from "~/session/queries";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { useTabs } from "~/store/zustand/tabs";
-import { setPendingUpload } from "~/stt/pending-upload";
+import { reservePendingUpload } from "~/stt/pending-upload";
 
 export function useNewNote({
   behavior = "new",
@@ -118,13 +120,29 @@ export function useNewNoteAndUpload() {
         return;
       }
 
-      const sessionId = await createSession();
-      setPendingUpload(sessionId, { kind, filePath });
-      openNew({
-        type: "sessions",
-        id: sessionId,
-        state: { view: null, autoStart: null },
-      });
+      const reservation = reservePendingUpload({ kind, filePath });
+      if (!reservation) {
+        sonnerToast.error(
+          "Too many uploads are waiting. Open an existing upload and try again.",
+        );
+        return;
+      }
+
+      try {
+        const sessionId = await createSession();
+        if (!reservation.commit(sessionId)) {
+          sonnerToast.error("Could not prepare this upload. Please try again.");
+          return;
+        }
+        openNew({
+          type: "sessions",
+          id: sessionId,
+          state: { view: null, autoStart: null },
+        });
+      } catch (error) {
+        reservation.cancel();
+        throw error;
+      }
     },
     [openNew],
   );

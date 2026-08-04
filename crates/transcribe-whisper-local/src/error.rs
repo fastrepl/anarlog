@@ -9,6 +9,9 @@ pub enum Error {
     Audio(#[from] anlg_audio_utils::Error),
 
     #[error(transparent)]
+    Wav(#[from] hound::Error),
+
+    #[error(transparent)]
     Whisper(#[from] anlg_whisper_local::Error),
 
     #[error(transparent)]

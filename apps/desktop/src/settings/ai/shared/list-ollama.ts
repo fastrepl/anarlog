@@ -66,7 +66,7 @@ const fetchOllamaInventory = (ollama: Ollama) =>
           ),
         ),
       ],
-      { concurrency: "unbounded" },
+      { concurrency: 2 },
     ),
     Effect.map(([listResponse, psResponse]) => ({
       models: listResponse.models,
@@ -98,7 +98,7 @@ const fetchOllamaDetails = (
         ),
       ),
     ),
-    { concurrency: "unbounded" },
+    { concurrency: 4 },
   );
 
 const summarizeOllamaDetails = (

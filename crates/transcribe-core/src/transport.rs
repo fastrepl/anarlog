@@ -10,9 +10,10 @@ use axum::{
     },
 };
 use futures_util::{SinkExt, stream::SplitSink};
-use owhisper_interface::batch_sse::{BatchSseMessage, EVENT_NAME};
+use owhisper_interface::batch_sse::EVENT_NAME;
 use owhisper_interface::stream::StreamResponse;
-use tokio::sync::mpsc;
+
+use crate::BatchEventReceiver;
 
 pub type WsSender = SplitSink<WebSocket, Message>;
 
@@ -51,7 +52,7 @@ pub fn json_error_response(status: StatusCode, error: &str, detail: impl Into<St
         .into_response()
 }
 
-pub fn batch_sse_response(event_rx: mpsc::UnboundedReceiver<BatchSseMessage>) -> Response {
+pub fn batch_sse_response(event_rx: BatchEventReceiver) -> Response {
     let events_stream = futures_util::stream::unfold(event_rx, |mut rx| async move {
         rx.recv().await.map(|message| {
             let event = match Event::default().event(EVENT_NAME).json_data(&message) {
