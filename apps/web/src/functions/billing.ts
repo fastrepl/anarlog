@@ -551,9 +551,22 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       });
     }
 
-    const subscriptionItemId = activeSubscription.items.data[0].id;
-
+    const subscriptionItem = activeSubscription.items.data[0];
+    const targetPriceId = getProPriceId(data.targetPeriod);
     const returnUrl = getBillingReturnUrl(data.scheme);
+
+    // Stripe rejects a subscription_update_confirm flow that changes nothing.
+    // Legacy desktop builds link here with the default monthly period, so a
+    // monthly subscriber lands on a no-op switch.
+    if (subscriptionItem.price.id === targetPriceId) {
+      const portalSession = await stripe.billingPortal.sessions.create({
+        customer: stripeCustomerId,
+        return_url: returnUrl,
+      });
+
+      return { url: portalSession.url };
+    }
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
       return_url: returnUrl,
@@ -563,8 +576,8 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
           subscription: activeSubscription.id,
           items: [
             {
-              id: subscriptionItemId,
-              price: getProPriceId(data.targetPeriod),
+              id: subscriptionItem.id,
+              price: targetPriceId,
             },
           ],
         },
