@@ -18061,6 +18061,7 @@ dependencies = [
  "tauri-specta",
  "tokio",
  "tracing",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]

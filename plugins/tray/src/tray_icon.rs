@@ -10,7 +10,6 @@ pub const RECORDING_FRAMES: &[&[u8]] = &[
     include_bytes!("../icons/tray_recording_0.png"),
     include_bytes!("../icons/tray_recording_1.png"),
     include_bytes!("../icons/tray_recording_2.png"),
-    include_bytes!("../icons/tray_recording_3.png"),
 ];
 
 impl TrayIconState {

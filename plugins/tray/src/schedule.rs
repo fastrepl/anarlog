@@ -1,6 +1,8 @@
 const DISPLAY_HORIZON_MS: f64 = 24.0 * 60.0 * 60.0 * 1000.0;
-const MAX_AGENDA_LABEL_CHARS: usize = 24;
-const MAX_MENU_BAR_LABEL_CHARS: usize = 30;
+const MAX_AGENDA_LABEL_WIDTH: usize = 24;
+const MAX_MENU_BAR_LABEL_WIDTH: usize = 30;
+
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 #[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -128,11 +130,11 @@ pub fn menu_bar_title(
 }
 
 fn menu_bar_label(title: &str, suffix: &str) -> String {
-    let title_limit = MAX_MENU_BAR_LABEL_CHARS.saturating_sub(suffix.chars().count());
+    let title_limit = MAX_MENU_BAR_LABEL_WIDTH.saturating_sub(suffix.width());
     format!("{}{suffix}", compact_title(title, title_limit))
 }
 
-fn compact_title(title: &str, max_chars: usize) -> String {
+fn compact_title(title: &str, max_width: usize) -> String {
     let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
     let title = if title.is_empty() {
         "Untitled event".to_string()
@@ -140,15 +142,26 @@ fn compact_title(title: &str, max_chars: usize) -> String {
         title
     };
 
-    if title.chars().count() <= max_chars {
+    if title.width() <= max_width {
         return title;
     }
 
-    if max_chars <= 1 {
+    if max_width <= 1 {
         return "…".to_string();
     }
 
-    format!("{}…", title.chars().take(max_chars - 1).collect::<String>())
+    let mut compact = String::new();
+    let mut width = 0;
+    for character in title.chars() {
+        let character_width = character.width().unwrap_or(0);
+        if width + character_width >= max_width {
+            break;
+        }
+        compact.push(character);
+        width += character_width;
+    }
+
+    format!("{compact}…")
 }
 
 fn compact_agenda_label(event: &TrayScheduleEvent) -> String {
@@ -159,7 +172,7 @@ fn compact_agenda_label(event: &TrayScheduleEvent) -> String {
         .unwrap_or_default()
         .trim();
     let suffix = format!(" · {start_time}");
-    let title_limit = MAX_AGENDA_LABEL_CHARS.saturating_sub(suffix.chars().count());
+    let title_limit = MAX_AGENDA_LABEL_WIDTH.saturating_sub(suffix.width());
 
     format!("{}{suffix}", compact_title(&event.title, title_limit))
 }
@@ -250,8 +263,23 @@ mod tests {
         );
         assert_eq!(
             menu_bar_title(&events, now, true).unwrap().chars().count(),
-            MAX_MENU_BAR_LABEL_CHARS
+            MAX_MENU_BAR_LABEL_WIDTH
         );
+    }
+
+    #[test]
+    fn caps_wide_menu_bar_titles_by_display_width() {
+        let now = 1_000_000.0;
+        let events = vec![event(
+            "[실뻘한] char 정치현 대표님 컨콜",
+            now + 29.0 * 60.0 * 1000.0,
+            None,
+        )];
+
+        let title = menu_bar_title(&events, now, true).unwrap();
+
+        assert_eq!(title, "[실뻘한] char 정치현… • in 29m");
+        assert_eq!(title.width(), MAX_MENU_BAR_LABEL_WIDTH);
     }
 
     #[test]
@@ -321,7 +349,7 @@ mod tests {
         ));
 
         assert_eq!(label, "Sprint retros… · 9:00 AM");
-        assert_eq!(label.chars().count(), MAX_AGENDA_LABEL_CHARS);
+        assert_eq!(label.width(), MAX_AGENDA_LABEL_WIDTH);
     }
 
     #[test]
