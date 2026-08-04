@@ -124,6 +124,20 @@ const getBillingReturnUrl = (scheme?: z.infer<typeof desktopSchemeSchema>) => {
   return `${appOrigin}/app/account`;
 };
 
+export const portalIntentSchema = z.enum(["manage", "payment_method_update"]);
+
+// Cardless trials cancel unless a card is added, so add-card CTAs must land on
+// the card form. The portal home page leads with "Cancel subscription".
+const paymentMethodUpdateFlow = (
+  returnUrl: string,
+): Stripe.BillingPortal.SessionCreateParams.FlowData => ({
+  type: "payment_method_update",
+  after_completion: {
+    type: "redirect",
+    redirect: { return_url: returnUrl },
+  },
+});
+
 const getProPriceId = (period: "monthly" | "yearly") => {
   if (period === "yearly") {
     return requireEnv(env.STRIPE_YEARLY_PRICE_ID, "STRIPE_YEARLY_PRICE_ID");
@@ -422,11 +436,15 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           if (reservationId) {
             await releaseTrialReservation(user.id, reservationId);
           }
+          const returnUrl = data.scheme
+            ? getBillingReturnUrl(data.scheme)
+            : toAbsoluteInternalReturnUrl(getRequestAppOrigin(), returnTo);
           const portalSession = await stripe.billingPortal.sessions.create({
             customer: stripeCustomerId,
-            return_url: data.scheme
-              ? getBillingReturnUrl(data.scheme)
-              : toAbsoluteInternalReturnUrl(getRequestAppOrigin(), returnTo),
+            return_url: returnUrl,
+            ...(activeSubscription.status === "trialing"
+              ? { flow_data: paymentMethodUpdateFlow(returnUrl) }
+              : {}),
           });
           return { url: portalSession.url };
         }
@@ -562,6 +580,7 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
 
 const createPortalSessionInput = z.object({
   scheme: desktopSchemeSchema.optional(),
+  intent: portalIntentSchema.default("manage"),
 });
 
 export const createPortalSession = createServerFn({ method: "POST" })
@@ -587,9 +606,13 @@ export const createPortalSession = createServerFn({ method: "POST" })
       throw new Error("No Stripe customer found");
     }
 
+    const returnUrl = getBillingReturnUrl(data.scheme);
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: stripeCustomerId,
-      return_url: getBillingReturnUrl(data.scheme),
+      return_url: returnUrl,
+      ...(data.intent === "payment_method_update"
+        ? { flow_data: paymentMethodUpdateFlow(returnUrl) }
+        : {}),
     });
 
     return { url: portalSession.url };

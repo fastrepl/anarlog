@@ -1,12 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { createPortalSession } from "@/functions/billing";
+import { createPortalSession, portalIntentSchema } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { captureOperationalError } from "@/lib/error-reporting";
 
 const validateSearch = z.object({
   scheme: desktopSchemeSchema.optional(),
+  intent: portalIntentSchema.catch("manage").optional(),
 });
 
 export const Route = createFileRoute("/_view/app/portal")({
@@ -15,7 +16,7 @@ export const Route = createFileRoute("/_view/app/portal")({
     let url: string | null | undefined;
     try {
       ({ url } = await createPortalSession({
-        data: { scheme: search.scheme },
+        data: { scheme: search.scheme, intent: search.intent ?? "manage" },
       }));
     } catch (e) {
       captureOperationalError(e, {
