@@ -204,6 +204,7 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
+          CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -219,6 +220,43 @@ jobs:
           VITE_API_URL: "https://api.anarlog.so"
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - if: ${{ inputs.channel == 'stable' }}
+        id: macos-symbols
+        name: Generate and verify macOS debug symbols
+        run: |
+          shopt -s nullglob
+          app_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          apps=("$app_dir"/*.app)
+          if [[ ${#apps[@]} -ne 1 ]]; then
+            echo "::error::Expected one macOS app for ${{ matrix.target }}, found ${#apps[@]}"
+            exit 1
+          fi
+
+          binary="${apps[0]}/Contents/MacOS/anarlog"
+          dsym="apps/desktop/src-tauri/target/${{ matrix.target }}/release/anarlog.dSYM"
+          dsymutil "$binary" -o "$dsym"
+
+          binary_uuid=$(dwarfdump --uuid "$binary" | awk '{print $2}')
+          dsym_uuid=$(dwarfdump --uuid "$dsym" | awk '{print $2}')
+          if [[ -z "$binary_uuid" || "$binary_uuid" != "$dsym_uuid" ]]; then
+            echo "::error::dSYM UUID does not match the packaged binary"
+            exit 1
+          fi
+
+          echo "Verified dSYM UUID $dsym_uuid"
+          echo "path=$dsym" >> "$GITHUB_OUTPUT"
+      - if: ${{ inputs.channel == 'stable' }}
+        uses: ./.github/actions/sentry_cli
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Upload macOS debug symbols to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          sentry-cli debug-files upload \
+            --org fastrepl \
+            --project hyprnote2 \
+            --include-sources \
+            "${{ steps.macos-symbols.outputs.path }}"
       - if: ${{ inputs.channel == 'stable' }}
         name: Verify macOS updater signature
         run: |
