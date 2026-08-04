@@ -246,21 +246,23 @@ jobs:
           echo "Verified dSYM UUID $dsym_uuid"
           echo "path=$dsym" >> "$GITHUB_OUTPUT"
       - if: ${{ inputs.channel == 'stable' }}
-        id: sentry-secrets
-        name: Load Sentry upload token
-        uses: ./.github/actions/infisical_export
-        with:
-          project-id: ${{ secrets.INFISICAL_PROJECT_ID }}
-          folder: /anarlog/github
-          env: prod
-        env:
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
-      - if: ${{ inputs.channel == 'stable' }}
         uses: ./.github/actions/sentry_cli
       - if: ${{ inputs.channel == 'stable' }}
         name: Upload macOS debug symbols to Sentry
+        env:
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
         run: |
-          if ! SENTRY_AUTH_TOKEN=$(jq -er '.SENTRY_AUTH_TOKEN | select(length > 0)' "${{ steps.sentry-secrets.outputs.secrets_file }}"); then
+          response=$(
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $INFISICAL_TOKEN" \
+              --data-urlencode "projectId=$INFISICAL_PROJECT_ID" \
+              --data-urlencode "environment=prod" \
+              --data-urlencode "secretPath=/anarlog/github" \
+              --data-urlencode "expandSecretReferences=false" \
+              "https://app.infisical.com/api/v4/secrets/SENTRY_AUTH_TOKEN"
+          )
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.secret.secretValue | select(length > 0)' <<< "$response"); then
             echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
             exit 1
           fi
