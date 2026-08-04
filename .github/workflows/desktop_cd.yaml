@@ -254,7 +254,7 @@ jobs:
           folder: /anarlog/github
           env: prod
         env:
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
       - if: ${{ inputs.channel == 'stable' }}
         uses: ./.github/actions/sentry_cli
       - if: ${{ inputs.channel == 'stable' }}
