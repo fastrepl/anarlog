@@ -2,6 +2,7 @@ import { type ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
 
+import { AutomationsNav } from "./automations";
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
 import { SettingsNav } from "./settings";
@@ -26,8 +27,13 @@ export function LeftSidebar({
   const isCalendarMode = currentTab?.type === "calendar";
   const isContactsMode = currentTab?.type === "contacts";
   const isTemplatesMode = currentTab?.type === "templates";
+  const isAutomationsMode = currentTab?.type === "automations";
   const isSpecialMode =
-    isSettingsMode || isCalendarMode || isContactsMode || isTemplatesMode;
+    isSettingsMode ||
+    isCalendarMode ||
+    isContactsMode ||
+    isTemplatesMode ||
+    isAutomationsMode;
   const isTimelineSidebarLayout = !isSpecialMode;
 
   return (
@@ -49,6 +55,8 @@ export function LeftSidebar({
             <ContactsNav />
           ) : isTemplatesMode ? (
             <TemplatesNav />
+          ) : isAutomationsMode ? (
+            <AutomationsNav />
           ) : (
             <div className="flex h-full min-h-0 flex-col">
               <SharedNotesNav />

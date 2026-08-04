@@ -7,6 +7,7 @@ const CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
   "settings",
   "contacts",
   "templates",
+  "automations",
 ];
 
 const LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
@@ -14,6 +15,7 @@ const LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
   "settings",
   "contacts",
   "templates",
+  "automations",
 ];
 
 export function hasCustomSidebarTab(tab: Tab | null): boolean {

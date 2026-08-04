@@ -9,7 +9,7 @@ const hoisted = vi.hoisted(() => ({
 const { setExpanded, setLocked } = hoisted;
 
 let mockCurrentTab: {
-  type: "settings" | "empty" | "onboarding" | "calendar";
+  type: "settings" | "empty" | "onboarding" | "calendar" | "automations";
 } | null = { type: "empty" };
 const mockLeftSidebar = {
   expanded: false,
@@ -72,6 +72,15 @@ describe("ClassicMainSidebar", () => {
 
     expect(setLocked).toHaveBeenLastCalledWith(false);
     expect(setExpanded).toHaveBeenLastCalledWith(false);
+  });
+
+  it("forces the Automations navigator open", () => {
+    mockCurrentTab = { type: "automations" };
+
+    render(<ClassicMainSidebar />);
+
+    expect(setExpanded).toHaveBeenCalledWith(true);
+    expect(setLocked).toHaveBeenCalledWith(true);
   });
 
   it("renders the default timeline sidebar when expanded", () => {

@@ -41,6 +41,7 @@ import {
   setChatGroupTitleIfCurrent,
   upsertChatMessage,
   useChatGroup,
+  useChatGroups,
   usePersistedChatMessages,
   useRecentChatGroups,
 } from "./queries";
@@ -107,6 +108,15 @@ describe("chat SQLite queries", () => {
     expect(automationsQuery).toMatch(/AND\s+EXISTS/);
     expect(generalQuery).toContain("'$.chatScope'");
     expect(automationsQuery).toContain("'$.chatScope'");
+  });
+
+  it("loads the complete automation history for the sidebar", () => {
+    renderHook(() => useChatGroups("automations"));
+    const automationsQuery = mocks.liveQueries[mocks.liveQueries.length - 1];
+
+    expect(automationsQuery?.sql).not.toContain("LIMIT");
+    expect(automationsQuery?.params).toEqual([]);
+    expect(automationsQuery?.sql).toContain("'$.chatScope'");
   });
 
   it("maps chat messages in their durable order", () => {

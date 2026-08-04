@@ -383,6 +383,7 @@ describe("ClassicMainBody", () => {
     ["calendar", {}],
     ["contacts", { state: { selected: null } }],
     ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
+    ["automations", {}],
   ])("keeps the %s left sidebar fixed", (type, extraTabState) => {
     mocks.currentTab = {
       active: true,
@@ -440,6 +441,7 @@ describe("ClassicMainBody", () => {
     ["windows", "settings", { state: { tab: "app" } }],
     ["windows", "calendar", {}],
     ["windows", "contacts", { state: { selected: null } }],
+    ["windows", "automations", {}],
     [
       "windows",
       "templates",
@@ -448,6 +450,7 @@ describe("ClassicMainBody", () => {
     ["linux", "settings", { state: { tab: "app" } }],
     ["linux", "calendar", {}],
     ["linux", "contacts", { state: { selected: null } }],
+    ["linux", "automations", {}],
     [
       "linux",
       "templates",

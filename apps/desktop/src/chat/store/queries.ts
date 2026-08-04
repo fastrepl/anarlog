@@ -32,6 +32,17 @@ export function useRecentChatGroups(
   chatScope: ChatScope,
   limit = 5,
 ): ChatGroupRecord[] {
+  return useChatGroupsQuery(chatScope, limit);
+}
+
+export function useChatGroups(chatScope: ChatScope): ChatGroupRecord[] {
+  return useChatGroupsQuery(chatScope);
+}
+
+function useChatGroupsQuery(
+  chatScope: ChatScope,
+  limit?: number,
+): ChatGroupRecord[] {
   const { data = EMPTY_CHAT_GROUPS } = useLiveQuery<
     ChatGroupSqlRow,
     ChatGroupRecord[]
@@ -42,9 +53,9 @@ export function useRecentChatGroups(
       WHERE g.deleted_at IS NULL
         AND ${chatGroupScopePredicate(chatScope)}
       ORDER BY g.created_at DESC, g.id DESC
-      LIMIT ?
+      ${limit === undefined ? "" : "LIMIT ?"}
     `,
-    params: [limit],
+    params: limit === undefined ? [] : [limit],
     mapRows: (rows) => rows.map(mapChatGroupRow),
   });
 
