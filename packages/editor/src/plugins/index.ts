@@ -35,6 +35,7 @@ export {
 } from "./link-open";
 export {
   type PlaceholderFunction,
+  type PersistentPlaceholderFunction,
   placeholderPlugin,
   placeholderPluginKey,
 } from "./placeholder";

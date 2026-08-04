@@ -1,3 +1,4 @@
+import { useLingui } from "@lingui/react/macro";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useCallback, useMemo, useRef } from "react";
 
@@ -25,6 +26,7 @@ import { hasStoredNoteContent } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateSession } from "~/session/queries";
 import {
+  createDocumentBodyPlaceholder,
   ensureFirstLineTitle,
   extractFirstLineTitle,
   documentTitlePlaceholder,
@@ -60,6 +62,7 @@ export const RawEditor = forwardRef<
     },
     ref,
   ) => {
+    const { t } = useLingui();
     const updateSession = useUpdateSession(sessionId);
     const resolveAttachment = useAttachmentResolver(sessionId);
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
@@ -124,6 +127,10 @@ export const RawEditor = forwardRef<
           : undefined,
       [syncTasks, sessionId],
     );
+    const persistentPlaceholderComponent = useMemo(
+      () => createDocumentBodyPlaceholder(t`Meeting notes`),
+      [t],
+    );
     return (
       <AudioDropTarget
         targetProps={audioDropTargetProps}
@@ -138,6 +145,7 @@ export const RawEditor = forwardRef<
             resolveAttachment={resolveAttachment}
             handleChange={handleChange}
             placeholderComponent={documentTitlePlaceholder}
+            persistentPlaceholderComponent={persistentPlaceholderComponent}
             mentionConfig={mentionConfig}
             sessionMentionDropConfig={sessionMentionDropConfig}
             onNavigateToTitle={onNavigateToTitle}

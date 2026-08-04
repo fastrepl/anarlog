@@ -54,6 +54,27 @@ describe("placeholderPlugin", () => {
     expect(plugin.props.decorations?.(state)?.find()).toHaveLength(0);
   });
 
+  it("decorates a persistent empty block without moving the selection", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("heading", { level: 1 }, [schema.text("Planning")]),
+      schema.node("paragraph"),
+    ]);
+    const bodyPos = doc.firstChild!.nodeSize;
+    const plugin = placeholderPlugin(undefined, ({ node, pos }) =>
+      node.type === schema.nodes.paragraph && pos === bodyPos
+        ? "Start writing..."
+        : "",
+    );
+    const state = EditorState.create({ schema, doc, plugins: [plugin] });
+
+    const decorations = plugin.props.decorations?.(state)?.find() ?? [];
+    expect(decorations).toHaveLength(1);
+    expect(decorations[0].from).toBe(bodyPos);
+    expect(decorations[0].type.attrs["data-placeholder"]).toBe(
+      "Start writing...",
+    );
+  });
+
   it("adds the editor-empty class for an empty document", () => {
     const plugin = placeholderPlugin(() => "Memo");
     const state = EditorState.create({

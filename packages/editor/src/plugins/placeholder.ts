@@ -8,6 +8,12 @@ export type PlaceholderFunction = (props: {
   hasAnchor: boolean;
 }) => string;
 
+export type PersistentPlaceholderFunction = (props: {
+  doc: PMNode;
+  node: PMNode;
+  pos: number;
+}) => string;
+
 export const placeholderPluginKey = new PluginKey("placeholder");
 
 function getPlaceholderTarget(doc: PMNode, $anchor: ResolvedPos) {
@@ -38,7 +44,10 @@ function getPlaceholderTarget(doc: PMNode, $anchor: ResolvedPos) {
   return null;
 }
 
-export function placeholderPlugin(placeholder?: PlaceholderFunction) {
+export function placeholderPlugin(
+  placeholder?: PlaceholderFunction,
+  persistentPlaceholder?: PersistentPlaceholderFunction,
+) {
   return new Plugin({
     key: placeholderPluginKey,
     props: {
@@ -47,39 +56,54 @@ export function placeholderPlugin(placeholder?: PlaceholderFunction) {
         const { $anchor } = selection;
 
         const target = getPlaceholderTarget(doc, $anchor);
-        if (!target) {
-          return DecorationSet.empty;
-        }
-
-        const { pos, node } = target;
-        const isEmpty = !node.isLeaf && node.content.size === 0;
-
-        if (!isEmpty) {
-          return DecorationSet.empty;
-        }
-
         const isEmptyDoc =
           doc.childCount === 1 &&
           doc.firstChild!.isTextblock &&
           doc.firstChild!.content.size === 0;
+        const decorations: Decoration[] = [];
+        const decoratedPositions = new Set<number>();
 
-        const classes = ["is-empty"];
-        if (isEmptyDoc) classes.push("is-editor-empty");
+        const addDecoration = (node: PMNode, pos: number, text: string) => {
+          if (!text || node.isLeaf || node.content.size > 0) {
+            return;
+          }
 
-        const text = placeholder
-          ? placeholder({ node, pos, hasAnchor: true })
-          : "";
+          const classes = ["is-empty"];
+          if (isEmptyDoc) classes.push("is-editor-empty");
+          decorations.push(
+            Decoration.node(pos, pos + node.nodeSize, {
+              class: classes.join(" "),
+              "data-placeholder": text,
+            }),
+          );
+          decoratedPositions.add(pos);
+        };
 
-        if (!text) {
-          return DecorationSet.empty;
+        if (target && placeholder) {
+          addDecoration(
+            target.node,
+            target.pos,
+            placeholder({
+              node: target.node,
+              pos: target.pos,
+              hasAnchor: true,
+            }),
+          );
         }
 
-        return DecorationSet.create(doc, [
-          Decoration.node(pos, pos + node.nodeSize, {
-            class: classes.join(" "),
-            "data-placeholder": text,
-          }),
-        ]);
+        if (persistentPlaceholder) {
+          doc.descendants((node, pos) => {
+            if (decoratedPositions.has(pos)) {
+              return;
+            }
+
+            addDecoration(node, pos, persistentPlaceholder({ doc, node, pos }));
+          });
+        }
+
+        return decorations.length > 0
+          ? DecorationSet.create(doc, decorations)
+          : DecorationSet.empty;
       },
     },
   });

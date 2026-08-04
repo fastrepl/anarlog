@@ -1403,6 +1403,7 @@ msgstr ""
 msgid "Meeting ends"
 msgstr ""
 
+#: src/session/components/note-input/raw.tsx
 #: src/templates/auto-form.tsx
 msgid "Meeting notes"
 msgstr ""

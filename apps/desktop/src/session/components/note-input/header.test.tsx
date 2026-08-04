@@ -43,6 +43,7 @@ const hoisted = vi.hoisted(() => ({
   transcriptRenderDataCalls: 0,
   transcriptSegments: [{ speaker: "Speaker 1", text: "Hello transcript" }],
   isGenerating: false,
+  sessionTitle: "Weekly planning",
   nativeContextMenus: [] as CapturedMenuItem[][],
   userTemplates: [] as Array<{
     id: string;
@@ -189,7 +190,7 @@ vi.mock("~/session/queries", () => ({
     title: "Summary",
   }),
   useEnhancedNoteRecords: () => [{ id: "note-1" }],
-  useSession: () => ({ raw_md: "" }),
+  useSession: () => ({ raw_md: "", title: hoisted.sessionTitle }),
 }));
 
 vi.mock("~/session/components/note-input/transcript/actions", () => ({
@@ -334,6 +335,7 @@ describe("Header", () => {
       { speaker: "Speaker 1", text: "Hello transcript" },
     ];
     hoisted.isGenerating = false;
+    hoisted.sessionTitle = "Weekly planning";
     hoisted.nativeContextMenus = [];
     hoisted.userTemplates = [];
   });
@@ -458,7 +460,7 @@ describe("Header", () => {
       />,
     );
 
-    const memoTab = screen.getByRole("button", { name: "Memos" });
+    const memoTab = screen.getByRole("button", { name: "Weekly planning" });
     const viewSwitcher = screen.getByRole("group", {
       name: "Session note views",
     });
@@ -466,7 +468,9 @@ describe("Header", () => {
     expect(viewSwitcher.className).not.toContain("h-[30px]");
     expect(viewSwitcher.className).not.toContain("bg-foreground/10");
     expect(viewSwitcher.className).not.toContain("rounded-full");
-    expect(memoTab.textContent).toBe("Memos");
+    expect(memoTab.textContent).toBe("Weekly planning");
+    expect(memoTab.getAttribute("title")).toBe("Weekly planning");
+    expect(memoTab.querySelector("span")?.className).toContain("truncate");
     expect(memoTab.className).toContain("h-7");
     expect(memoTab.className).toContain("bg-white");
     expect(memoTab.className).toContain("border-0");

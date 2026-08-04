@@ -25,10 +25,14 @@ export function HeaderViewRaw({
   sessionId: string;
   standalone?: boolean;
 }) {
+  const session = useSession(sessionId);
+  const standaloneLabel = standalone ? session?.title.trim() : undefined;
+
   if (!isActive) {
     return (
       <HeaderViewRawButton
         isActive={isActive}
+        label={standaloneLabel}
         onClick={onClick}
         standalone={standalone}
       />
@@ -38,7 +42,9 @@ export function HeaderViewRaw({
   return (
     <HeaderViewRawActive
       isActive={isActive}
+      label={standaloneLabel}
       onClick={onClick}
+      rawMd={session?.raw_md}
       sessionId={sessionId}
       standalone={standalone}
     />
@@ -47,11 +53,13 @@ export function HeaderViewRaw({
 
 function HeaderViewRawButton({
   isActive,
+  label,
   onClick,
   onContextMenu,
   standalone,
 }: {
   isActive: boolean;
+  label?: string;
   onClick?: () => void;
   onContextMenu?: React.MouseEventHandler<HTMLButtonElement>;
   standalone: boolean;
@@ -61,11 +69,12 @@ function HeaderViewRawButton({
   return (
     <IconHeaderView
       isActive={isActive}
-      label={t`Memos`}
+      label={label || t`Memos`}
       icon={<TextAlignLeft className="size-4" />}
       onClick={onClick}
       onContextMenu={onContextMenu}
       size={standalone ? "standalone" : "tray"}
+      title={label}
       className={standalone ? "border-0 shadow-none" : undefined}
     />
   );
@@ -73,16 +82,19 @@ function HeaderViewRawButton({
 
 function HeaderViewRawActive({
   isActive,
+  label,
   onClick,
+  rawMd,
   sessionId,
   standalone,
 }: {
   isActive: boolean;
+  label?: string;
   onClick?: () => void;
+  rawMd?: string;
   sessionId: string;
   standalone: boolean;
 }) {
-  const rawMd = useSession(sessionId)?.raw_md;
   const memoMarkdown = useMemo(() => getStoredNoteMarkdown(rawMd), [rawMd]);
   const contextMenu = useMemo<MenuItemDef[]>(
     () => [
@@ -105,6 +117,7 @@ function HeaderViewRawActive({
   return (
     <HeaderViewRawButton
       isActive={isActive}
+      label={label}
       onClick={onClick}
       onContextMenu={showContextMenu}
       standalone={standalone}

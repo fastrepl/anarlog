@@ -65,6 +65,7 @@ import {
   linkBoundaryGuardPlugin,
   linkOpenPlugin,
   placeholderPlugin,
+  type PersistentPlaceholderFunction,
   searchPlugin,
   searchReplaceAll,
   searchReplaceCurrent,
@@ -99,7 +100,12 @@ import {
   trailingEmptyLineClickPlugin,
 } from "./trailing-empty-line-click";
 
-export type { MentionConfig, FileHandlerConfig, PlaceholderFunction };
+export type {
+  MentionConfig,
+  FileHandlerConfig,
+  PlaceholderFunction,
+  PersistentPlaceholderFunction,
+};
 export { normalizePortableAttachmentUrls } from "./portable-attachments";
 export { schema };
 export {
@@ -173,6 +179,7 @@ export interface NoteEditorProps {
   resolveAttachment?: AttachmentResolver;
   mentionConfig?: MentionConfig;
   placeholderComponent?: PlaceholderFunction;
+  persistentPlaceholderComponent?: PersistentPlaceholderFunction;
   fileHandlerConfig?: FileHandlerConfig;
   onNavigateToTitle?: (pixelWidth?: number) => void;
   onLinkOpen?: LinkOpenHandler;
@@ -581,6 +588,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       resolveAttachment,
       mentionConfig,
       placeholderComponent,
+      persistentPlaceholderComponent,
       fileHandlerConfig,
       onNavigateToTitle,
       onLinkOpen,
@@ -733,7 +741,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
           : []),
         imageTrailingParagraphPlugin(),
         searchPlugin(),
-        placeholderPlugin(placeholderComponent),
+        placeholderPlugin(placeholderComponent, persistentPlaceholderComponent),
         clearMarksOnEnterPlugin(),
         clipPastePlugin(),
         autolinkPlugin(),
@@ -747,6 +755,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       ],
       [
         placeholderComponent,
+        persistentPlaceholderComponent,
         fileHandlerConfig,
         mentionConfig,
         sessionMentionDropConfig,

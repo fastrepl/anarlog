@@ -1403,6 +1403,7 @@ msgstr "Meeting details access turned on"
 msgid "Meeting ends"
 msgstr "Meeting ends"
 
+#: src/session/components/note-input/raw.tsx
 #: src/templates/auto-form.tsx
 msgid "Meeting notes"
 msgstr "Meeting notes"

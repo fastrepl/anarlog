@@ -39,6 +39,12 @@ vi.mock("@anlg/editor/markdown", () => ({
   parseJsonContent: (value: string) => JSON.parse(value),
 }));
 
+vi.mock("@lingui/react/macro", () => ({
+  useLingui: () => ({
+    t: (input: TemplateStringsArray) => input.join(""),
+  }),
+}));
+
 vi.mock("@anlg/editor/note", () => ({
   normalizePortableAttachmentUrls: (value: unknown) => value,
   NoteEditor: (props: Record<string, unknown>) => {
@@ -171,6 +177,7 @@ describe("RawEditor", () => {
     expect(props?.className).toContain("session-note-editor");
     expect(props?.className).toContain("custom-editor-class");
     expect(props?.placeholderComponent).toEqual(expect.any(Function));
+    expect(props?.persistentPlaceholderComponent).toEqual(expect.any(Function));
     expect(props?.initialContent).toMatchObject({
       type: "doc",
       content: [

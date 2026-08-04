@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { schema } from "@anlg/editor/note";
 
 import {
+  createDocumentBodyPlaceholder,
   documentTitlePlaceholder,
   ensureFirstLineTitle,
   ensureMarkdownFirstLineTitle,
@@ -23,6 +24,42 @@ describe("documentTitlePlaceholder", () => {
         node: schema.node("paragraph"),
         pos: 2,
         hasAnchor: true,
+      }),
+    ).toBe("");
+  });
+});
+
+describe("createDocumentBodyPlaceholder", () => {
+  it("shows a prompt only in the sole empty body block", () => {
+    const title = schema.node("heading", { level: 1 }, [
+      schema.text("Planning"),
+    ]);
+    const body = schema.node("paragraph");
+    const doc = schema.node("doc", null, [title, body]);
+    const placeholder = createDocumentBodyPlaceholder("Start writing...");
+
+    expect(placeholder({ doc, node: body, pos: title.nodeSize })).toBe(
+      "Start writing...",
+    );
+    expect(placeholder({ doc, node: title, pos: 0 })).toBe("");
+  });
+
+  it("hides the prompt once the note has another body block", () => {
+    const title = schema.node("heading", { level: 1 }, [
+      schema.text("Planning"),
+    ]);
+    const body = schema.node("paragraph");
+    const doc = schema.node("doc", null, [
+      title,
+      body,
+      schema.node("paragraph", null, [schema.text("Follow up")]),
+    ]);
+
+    expect(
+      createDocumentBodyPlaceholder("Start writing...")({
+        doc,
+        node: body,
+        pos: title.nodeSize,
       }),
     ).toBe("");
   });

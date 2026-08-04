@@ -1,9 +1,32 @@
-import type { JSONContent, PlaceholderFunction } from "@anlg/editor/note";
+import type {
+  JSONContent,
+  PersistentPlaceholderFunction,
+  PlaceholderFunction,
+} from "@anlg/editor/note";
 
 export const documentTitlePlaceholder: PlaceholderFunction = ({ node, pos }) =>
   pos === 0 && node.type.name === "heading" && node.attrs.level === 1
     ? "Untitled"
     : "";
+
+export function createDocumentBodyPlaceholder(
+  label: string,
+): PersistentPlaceholderFunction {
+  return ({ doc, node, pos }) => {
+    const title = doc.firstChild;
+    const isOnlyBodyBlock =
+      doc.childCount === 2 &&
+      title?.type.name === "heading" &&
+      title.attrs.level === 1 &&
+      pos === title.nodeSize;
+
+    return isOnlyBodyBlock &&
+      node.type.name === "paragraph" &&
+      node.content.size === 0
+      ? label
+      : "";
+  };
+}
 
 export function extractFirstLineTitle(content: JSONContent) {
   const firstBlock = content.content?.[0];
