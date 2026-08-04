@@ -8,8 +8,8 @@ import {
 } from "@/functions/desktop-flow";
 import { getGitHubStats } from "@/functions/github";
 import {
-  ANARLOG_SITE_URL,
   ROOT_DESCRIPTION,
+  getCanonicalUrl,
   getOrganizationJsonLd,
   getSoftwareApplicationJsonLd,
   getStructuredDataGraph,
@@ -92,7 +92,7 @@ export const Route = createFileRoute("/")({
     };
   },
   head: () => ({
-    links: [{ rel: "canonical", href: ANARLOG_SITE_URL }],
+    links: [{ rel: "canonical", href: getCanonicalUrl() }],
     scripts: [
       {
         type: "application/ld+json",

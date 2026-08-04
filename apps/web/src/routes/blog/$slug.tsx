@@ -14,7 +14,7 @@ import {
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
 import { formatBlogDate } from "@/lib/blog-date";
-import { ANARLOG_SITE_URL, getBlogOgImageUrl } from "@/lib/seo";
+import { getBlogOgImageUrl, getCanonicalUrl } from "@/lib/seo";
 
 const blogMdxComponents = {
   ...mdxComponents,
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/blog/$slug")({
   head: ({ loaderData }) => {
     const article = loaderData?.article;
     if (!article) return {};
-    const url = `${ANARLOG_SITE_URL}/blog/${article.slug}`;
+    const url = getCanonicalUrl(`/blog/${article.slug}`);
     const imageUrl = getBlogOgImageUrl(article.slug);
     return {
       links: [{ rel: "canonical", href: url }],

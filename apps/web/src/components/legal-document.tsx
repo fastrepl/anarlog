@@ -4,12 +4,12 @@ import type { Legal } from "content-collections";
 
 import { cn } from "@anlg/utils";
 
-import { ANARLOG_SITE_URL } from "@/lib/seo";
+import { getCanonicalUrl } from "@/lib/seo";
 
 import { mdxComponents } from "./mdx-components";
 
 export function legalHead(doc: Legal, path: "/privacy" | "/terms") {
-  const url = `${ANARLOG_SITE_URL}${path}`;
+  const url = getCanonicalUrl(path);
 
   return {
     links: [{ rel: "canonical", href: url }],

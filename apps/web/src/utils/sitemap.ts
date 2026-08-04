@@ -18,21 +18,8 @@ function getArticleSlugs(): string[] {
   }
 }
 
-function getChangelogVersions(): string[] {
-  const dir = path.resolve(process.cwd(), "../../packages/changelog/content");
-  try {
-    return fs
-      .readdirSync(dir)
-      .filter((f) => f.endsWith(".md"))
-      .map((f) => f.replace(/\.md$/, ""));
-  } catch {
-    return [];
-  }
-}
-
 export function getSitemap(): Sitemap<TRoutes> {
   const slugs = getArticleSlugs();
-  const changelogVersions = getChangelogVersions();
 
   return {
     siteUrl: "https://anarlog.so",
@@ -55,13 +42,11 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.9,
         changeFrequency: "weekly",
       },
-      "/changelog/$version": changelogVersions.map((version) => ({
-        path: `/changelog/${version}`,
-        priority: 0.5,
-        changeFrequency: "monthly" as const,
-      })),
+      // Per-version release notes are noindex (see routes/changelog/$version),
+      // so listing them here would contradict the directive.
+      "/changelog/$version": [],
       "/blog/$slug": slugs.map((slug) => ({
-        path: `/blog/${slug}`,
+        path: `/blog/${slug}/`,
         priority: 0.6,
         changeFrequency: "monthly" as const,
       })),

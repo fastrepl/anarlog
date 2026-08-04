@@ -4,7 +4,7 @@ import { ChangelogContent } from "@anlg/changelog";
 
 import { SiteFooter } from "@/components/site-footer";
 import { formatChangelogDate, getChangelogEntry } from "@/lib/changelog";
-import { ANARLOG_SITE_URL } from "@/lib/seo";
+import { getCanonicalUrl } from "@/lib/seo";
 
 export const Route = createFileRoute("/changelog/$version")({
   component: Component,
@@ -19,13 +19,17 @@ export const Route = createFileRoute("/changelog/$version")({
     const entry = loaderData?.entry;
     if (!entry) return {};
 
-    const url = `${ANARLOG_SITE_URL}/changelog/${entry.version}`;
+    const url = getCanonicalUrl(`/changelog/${entry.version}`);
     const description =
       entry.summary ?? `Release notes for Anarlog v${entry.version}.`;
 
     return {
       links: [{ rel: "canonical", href: url }],
       meta: [
+        // Per-version release notes are reference material for existing users,
+        // not search targets. Indexing ~90 near-identical thin pages spends
+        // crawl budget that belongs to the blog; /changelog/ stays the hub.
+        { name: "robots", content: "noindex, follow" },
         { title: `Anarlog v${entry.version} Changelog` },
         {
           name: "description",

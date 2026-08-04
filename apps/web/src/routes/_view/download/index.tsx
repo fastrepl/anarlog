@@ -5,7 +5,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteFooter } from "@/components/site-footer";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { comingSoonPlatforms, desktopDownloadSections } from "@/lib/download";
-import { ANARLOG_SITE_URL } from "@/lib/seo";
+import { getCanonicalUrl } from "@/lib/seo";
 
 const platformIcons = {
   macOS: "simple-icons:apple",
@@ -16,7 +16,7 @@ const platformIcons = {
 export const Route = createFileRoute("/_view/download/")({
   component: Component,
   head: () => ({
-    links: [{ rel: "canonical", href: `${ANARLOG_SITE_URL}/download` }],
+    links: [{ rel: "canonical", href: getCanonicalUrl("/download") }],
     meta: [
       { title: "Download Anarlog" },
       {
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_view/download/")({
           "Download Anarlog for macOS. Linux and Windows are coming soon.",
       },
       { property: "og:title", content: "Download Anarlog" },
-      { property: "og:url", content: `${ANARLOG_SITE_URL}/download` },
+      { property: "og:url", content: getCanonicalUrl("/download") },
     ],
   }),
 });

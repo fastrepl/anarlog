@@ -1,5 +1,16 @@
 export const ANARLOG_SITE_URL = "https://anarlog.so";
 export const DEFAULT_OG_IMAGE_URL = `${ANARLOG_SITE_URL}/og.jpg`;
+
+/**
+ * The site serves every page at a trailing-slash URL and 307-redirects the
+ * bare form, so canonical tags, og:url, and sitemap entries must all carry the
+ * slash or they point at a redirect.
+ */
+export function getCanonicalUrl(path = "/") {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  const withSlash = normalized.endsWith("/") ? normalized : `${normalized}/`;
+  return `${ANARLOG_SITE_URL}${withSlash}`;
+}
 export const ROOT_TITLE = "AI notepad for private meetings.";
 export const ROOT_DESCRIPTION =
   "Anarlog is the open-source, privacy-first, local-first alternative to Granola AI. Take notes during private meetings, turn them into editable summaries, and keep your local meeting data and AI stack under your control.";
@@ -27,13 +38,13 @@ export function getOrganizationJsonLd() {
   return {
     "@type": "Organization",
     name: "Anarlog",
-    url: ANARLOG_SITE_URL,
+    url: getCanonicalUrl(),
     logo: `${ANARLOG_SITE_URL}/logo.svg`,
   };
 }
 
 export function getSoftwareApplicationJsonLd({
-  url = ANARLOG_SITE_URL,
+  url = getCanonicalUrl(),
   description,
   featureList,
   aggregateOffer,
@@ -54,7 +65,7 @@ export function getSoftwareApplicationJsonLd({
     description,
     applicationCategory: "ProductivityApplication",
     operatingSystem: ["macOS"],
-    downloadUrl: `${ANARLOG_SITE_URL}/download`,
+    downloadUrl: getCanonicalUrl("/download"),
     publisher: getOrganizationJsonLd(),
     ...(featureList ? { featureList } : {}),
     ...(aggregateOffer

@@ -4,12 +4,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteFooter } from "@/components/site-footer";
 import { changelogEntries, formatChangelogDate } from "@/lib/changelog";
 import { getEntrySummary } from "@/lib/changelog-summary";
-import { ANARLOG_SITE_URL } from "@/lib/seo";
+import { getCanonicalUrl } from "@/lib/seo";
 
 export const Route = createFileRoute("/changelog/")({
   component: Component,
   head: () => ({
-    links: [{ rel: "canonical", href: `${ANARLOG_SITE_URL}/changelog` }],
+    links: [{ rel: "canonical", href: getCanonicalUrl("/changelog") }],
     meta: [
       { title: "Anarlog Changelog" },
       {
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/changelog/")({
           "See the latest Anarlog desktop app updates, fixes, and product changes.",
       },
       { property: "og:title", content: "Anarlog Changelog" },
-      { property: "og:url", content: `${ANARLOG_SITE_URL}/changelog` },
+      { property: "og:url", content: getCanonicalUrl("/changelog") },
     ],
   }),
 });

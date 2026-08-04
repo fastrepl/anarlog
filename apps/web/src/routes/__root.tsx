@@ -18,6 +18,7 @@ import {
   ROOT_DESCRIPTION,
   ROOT_KEYWORDS,
   ROOT_TITLE,
+  getCanonicalUrl,
 } from "@/lib/seo";
 import appCss from "@/styles.css?url";
 
@@ -47,7 +48,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { property: "og:type", content: "website" },
       { property: "og:title", content: ROOT_TITLE },
       { property: "og:description", content: ROOT_DESCRIPTION },
-      { property: "og:url", content: ANARLOG_SITE_URL },
+      { property: "og:url", content: getCanonicalUrl() },
       {
         property: "og:image",
         content: DEFAULT_OG_IMAGE_URL,
@@ -59,7 +60,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { name: "twitter:creator", content: "@anarlog" },
       { name: "twitter:title", content: ROOT_TITLE },
       { name: "twitter:description", content: ROOT_DESCRIPTION },
-      { name: "twitter:url", content: ANARLOG_SITE_URL },
+      { name: "twitter:url", content: getCanonicalUrl() },
       {
         name: "twitter:image",
         content: DEFAULT_OG_IMAGE_URL,
