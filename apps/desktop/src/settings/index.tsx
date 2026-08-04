@@ -3,6 +3,8 @@ import { cn } from "@anlg/utils";
 import {
   SettingsAccount,
   SettingsApp,
+  SettingsAudio,
+  SettingsMeetings,
   SettingsNotifications,
   SettingsPermissions,
 } from "./general";
@@ -47,6 +49,10 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsAccount />;
       case "app":
         return <SettingsApp />;
+      case "meetings":
+        return <SettingsMeetings />;
+      case "audio":
+        return <SettingsAudio />;
       case "appearance":
         return <SettingsAppearance />;
       case "notifications":

@@ -8,11 +8,13 @@ import { commands as listenerCommands } from "@anlg/plugin-transcription";
 
 export { SettingsAccount } from "./account";
 import { AppSettingsView } from "./app-settings";
+import { AudioSettingsView } from "./audio-settings";
 import {
   CORE_TRANSCRIPTION_LANGUAGE_CODES,
   getAdditionalSpokenLanguages,
 } from "./language";
 import { MainLanguageView } from "./main-language";
+import { MeetingSettingsView } from "./meeting-settings";
 import { NotificationSettingsView } from "./notification";
 import { Permissions } from "./permissions";
 import { SpokenLanguagesView } from "./spoken-languages";
@@ -139,7 +141,21 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
   return { form, value: settingsValue };
 }
 
+type SettingsSection = "app" | "audio" | "meetings";
+
 export function SettingsApp() {
+  return <SettingsSectionPage section="app" />;
+}
+
+export function SettingsMeetings() {
+  return <SettingsSectionPage section="meetings" />;
+}
+
+export function SettingsAudio() {
+  return <SettingsSectionPage section="audio" />;
+}
+
+function SettingsSectionPage({ section }: { section: SettingsSection }) {
   const { data, isLoading, error } = useStoredSettingValuesQuery();
 
   if (error) {
@@ -156,12 +172,14 @@ export function SettingsApp() {
     );
   }
 
-  return <SettingsAppContent storedSettings={data} />;
+  return <SettingsSectionContent section={section} storedSettings={data} />;
 }
 
-function SettingsAppContent({
+function SettingsSectionContent({
+  section,
   storedSettings,
 }: {
+  section: SettingsSection;
   storedSettings: StoredSettingValues;
 }) {
   const { form } = useSettingsForm(storedSettings);
@@ -181,230 +199,162 @@ function SettingsAppContent({
       }
       return result.data;
     },
+    enabled: section === "audio",
     refetchInterval: 3_000,
   });
+
   return (
     <div className="flex flex-col gap-8">
-      <SettingsPageTitle title={<Trans>App</Trans>} />
-      <div className="flex flex-col gap-4">
-        <form.Field name="autostart">
-          {(autostartField) => (
-            <form.Field name="automatic_updates">
-              {(automaticUpdatesField) => (
-                <form.Field name="auto_join_scheduled_meetings">
-                  {(autoJoinScheduledMeetingsField) => (
-                    <form.Field name="auto_start_scheduled_meetings">
-                      {(autoStartScheduledMeetingsField) => (
-                        <form.Field name="auto_stop_meetings">
-                          {(autoStopMeetingsField) => (
-                            <form.Field name="floating_bar_enabled">
-                              {(floatingBarEnabledField) => (
-                                <form.Field name="show_app_in_dock">
-                                  {(showAppInDockField) => (
-                                    <form.Field name="show_tray_icon">
-                                      {(showTrayIconField) => (
-                                        <form.Field name="telemetry_consent">
-                                          {(telemetryConsentField) => (
-                                            <form.Field name="consent_auto_send_chat">
-                                              {(
-                                                meetingDisclosureAutoPostField,
-                                              ) => (
-                                                <form.Field name="capture_meeting_chat">
-                                                  {(
-                                                    captureMeetingChatField,
-                                                  ) => (
-                                                    <AppSettingsView
-                                                      autostart={{
-                                                        value:
-                                                          autostartField.state
-                                                            .value,
-                                                        onChange: (val) =>
-                                                          autostartField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      automaticUpdates={{
-                                                        value:
-                                                          automaticUpdatesField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          automaticUpdatesField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      autoJoinScheduledMeetings={{
-                                                        value:
-                                                          autoJoinScheduledMeetingsField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          autoJoinScheduledMeetingsField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      autoStartScheduledMeetings={{
-                                                        value:
-                                                          autoStartScheduledMeetingsField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          autoStartScheduledMeetingsField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      autoStopMeetings={{
-                                                        value:
-                                                          autoStopMeetingsField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          autoStopMeetingsField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      floatingBar={{
-                                                        value:
-                                                          floatingBarEnabledField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          floatingBarEnabledField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      showAppInDock={{
-                                                        value:
-                                                          showAppInDockField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          showAppInDockField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      showTrayIcon={{
-                                                        value:
-                                                          showTrayIconField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          showTrayIconField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      telemetryConsent={{
-                                                        value:
-                                                          telemetryConsentField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          telemetryConsentField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      meetingDisclosureAutoPost={{
-                                                        value:
-                                                          meetingDisclosureAutoPostField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          meetingDisclosureAutoPostField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      captureMeetingChat={{
-                                                        value:
-                                                          captureMeetingChatField
-                                                            .state.value,
-                                                        onChange: (val) =>
-                                                          captureMeetingChatField.handleChange(
-                                                            val,
-                                                          ),
-                                                      }}
-                                                      audioRetention={{
-                                                        value: audioRetention,
-                                                        onChange: (val) =>
-                                                          setSettingValues({
-                                                            audio_retention:
-                                                              val,
-                                                            save_recordings:
-                                                              val !== "none",
-                                                          }),
-                                                      }}
-                                                      microphoneDevice={{
-                                                        value: microphoneDevice,
-                                                        devices:
-                                                          microphoneDevicesQuery.data ??
-                                                          [],
-                                                        onChange: (val) =>
-                                                          setSettingValues({
-                                                            microphone_device:
-                                                              val,
-                                                          }),
-                                                      }}
-                                                    />
-                                                  )}
-                                                </form.Field>
-                                              )}
-                                            </form.Field>
-                                          )}
-                                        </form.Field>
-                                      )}
-                                    </form.Field>
-                                  )}
-                                </form.Field>
-                              )}
-                            </form.Field>
-                          )}
-                        </form.Field>
-                      )}
-                    </form.Field>
-                  )}
-                </form.Field>
-              )}
-            </form.Field>
-          )}
-        </form.Field>
-      </div>
+      <SettingsPageTitle
+        title={
+          section === "app" ? (
+            <Trans>General</Trans>
+          ) : section === "meetings" ? (
+            <Trans>Meetings</Trans>
+          ) : (
+            <Trans>Audio</Trans>
+          )
+        }
+      />
 
-      <div>
-        <h2 className="mb-4 font-sans text-lg font-semibold">
-          <Trans>Language &amp; Region</Trans>
-        </h2>
-        <div className="flex flex-col gap-6">
-          <form.Field name="ai_language">
-            {(field) => (
-              <MainLanguageView
-                value={field.state.value}
-                onChange={(val) => {
-                  field.handleChange(val);
-                  form.setFieldValue(
-                    "spoken_languages",
-                    getAdditionalSpokenLanguages(
-                      val,
-                      form.state.values.spoken_languages,
-                    ),
-                  );
+      {section === "app" && (
+        <>
+          <form.Subscribe selector={(state) => state.values}>
+            {(values) => (
+              <AppSettingsView
+                autostart={{
+                  value: values.autostart,
+                  onChange: (value) => form.setFieldValue("autostart", value),
                 }}
-                supportedLanguages={CORE_TRANSCRIPTION_LANGUAGE_CODES}
+                automaticUpdates={{
+                  value: values.automatic_updates,
+                  onChange: (value) =>
+                    form.setFieldValue("automatic_updates", value),
+                }}
+                showAppInDock={{
+                  value: values.show_app_in_dock,
+                  onChange: (value) =>
+                    form.setFieldValue("show_app_in_dock", value),
+                }}
+                showTrayIcon={{
+                  value: values.show_tray_icon,
+                  onChange: (value) =>
+                    form.setFieldValue("show_tray_icon", value),
+                }}
+                telemetryConsent={{
+                  value: values.telemetry_consent,
+                  onChange: (value) =>
+                    form.setFieldValue("telemetry_consent", value),
+                }}
               />
             )}
-          </form.Field>
-          <TimezoneSelector />
-          <WeekStartSelector />
-          <form.Field name="spoken_languages">
-            {(field) => (
-              <SpokenLanguagesView
-                mainLanguage={form.state.values.ai_language}
-                value={field.state.value}
-                onChange={(val) =>
-                  field.handleChange(
-                    getAdditionalSpokenLanguages(
-                      form.state.values.ai_language,
-                      val,
-                    ),
-                  )
-                }
-                supportedLanguages={CORE_TRANSCRIPTION_LANGUAGE_CODES}
-              />
-            )}
-          </form.Field>
-        </div>
-      </div>
+          </form.Subscribe>
 
-      <StorageSettingsView />
+          <div>
+            <h2 className="mb-4 font-sans text-lg font-semibold">
+              <Trans>Language &amp; Region</Trans>
+            </h2>
+            <div className="flex flex-col gap-6">
+              <form.Field name="ai_language">
+                {(field) => (
+                  <MainLanguageView
+                    value={field.state.value}
+                    onChange={(val) => {
+                      field.handleChange(val);
+                      form.setFieldValue(
+                        "spoken_languages",
+                        getAdditionalSpokenLanguages(
+                          val,
+                          form.state.values.spoken_languages,
+                        ),
+                      );
+                    }}
+                    supportedLanguages={CORE_TRANSCRIPTION_LANGUAGE_CODES}
+                  />
+                )}
+              </form.Field>
+              <TimezoneSelector />
+              <WeekStartSelector />
+              <form.Field name="spoken_languages">
+                {(field) => (
+                  <SpokenLanguagesView
+                    mainLanguage={form.state.values.ai_language}
+                    value={field.state.value}
+                    onChange={(val) =>
+                      field.handleChange(
+                        getAdditionalSpokenLanguages(
+                          form.state.values.ai_language,
+                          val,
+                        ),
+                      )
+                    }
+                    supportedLanguages={CORE_TRANSCRIPTION_LANGUAGE_CODES}
+                  />
+                )}
+              </form.Field>
+            </div>
+          </div>
+
+          <StorageSettingsView />
+        </>
+      )}
+
+      {section === "meetings" && (
+        <form.Subscribe selector={(state) => state.values}>
+          {(values) => (
+            <MeetingSettingsView
+              autoJoinScheduledMeetings={{
+                value: values.auto_join_scheduled_meetings,
+                onChange: (value) =>
+                  form.setFieldValue("auto_join_scheduled_meetings", value),
+              }}
+              autoStartScheduledMeetings={{
+                value: values.auto_start_scheduled_meetings,
+                onChange: (value) =>
+                  form.setFieldValue("auto_start_scheduled_meetings", value),
+              }}
+              autoStopMeetings={{
+                value: values.auto_stop_meetings,
+                onChange: (value) =>
+                  form.setFieldValue("auto_stop_meetings", value),
+              }}
+              floatingBar={{
+                value: values.floating_bar_enabled,
+                onChange: (value) =>
+                  form.setFieldValue("floating_bar_enabled", value),
+              }}
+              meetingDisclosureAutoPost={{
+                value: values.consent_auto_send_chat,
+                onChange: (value) =>
+                  form.setFieldValue("consent_auto_send_chat", value),
+              }}
+              captureMeetingChat={{
+                value: values.capture_meeting_chat,
+                onChange: (value) =>
+                  form.setFieldValue("capture_meeting_chat", value),
+              }}
+            />
+          )}
+        </form.Subscribe>
+      )}
+
+      {section === "audio" && (
+        <AudioSettingsView
+          audioRetention={{
+            value: audioRetention,
+            onChange: (value) =>
+              setSettingValues({
+                audio_retention: value,
+                save_recordings: value !== "none",
+              }),
+          }}
+          microphoneDevice={{
+            value: microphoneDevice,
+            devices: microphoneDevicesQuery.data ?? [],
+            onChange: (value) => setSettingValues({ microphone_device: value }),
+          }}
+        />
+      )}
     </div>
   );
 }

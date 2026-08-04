@@ -1,20 +1,17 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ArrowsClockwise,
-  ArrowUpRight,
   Bell,
   BookOpen,
-  BookOpenText,
-  CalendarBlank,
   Code,
   Gear,
-  Lightning,
   type Icon,
   Lock,
+  Microphone,
   Sparkle,
   Sun,
   User,
-  Users,
+  VideoCamera,
   Waveform,
 } from "@phosphor-icons/react";
 import { useCallback } from "react";
@@ -24,30 +21,17 @@ import { cn } from "@anlg/utils";
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
 import { type SettingsTab, useTabs } from "~/store/zustand/tabs";
-import { AUTO_TEMPLATE_ID, useOpenTemplatesTab } from "~/templates";
 
-type SettingsNavItem =
-  | { id: SettingsTab; label: string; icon: Icon }
-  | {
-      action:
-        | "open-automations"
-        | "open-templates"
-        | "open-calendar"
-        | "open-contacts";
-      label: string;
-      icon: Icon;
-    };
+type SettingsNavItem = { id: SettingsTab; label: string; icon: Icon };
 
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
 export function SettingsNav() {
   const { t } = useLingui();
   const currentTab = useTabs((state) => state.currentTab);
-  const openNew = useTabs((state) => state.openNew);
   const updateSettingsTabState = useTabs(
     (state) => state.updateSettingsTabState,
   );
-  const openTemplatesTab = useOpenTemplatesTab();
 
   const activeTab =
     currentTab?.type === "settings" ? (currentTab.state.tab ?? "app") : "app";
@@ -61,75 +45,41 @@ export function SettingsNav() {
     [currentTab, updateSettingsTabState],
   );
 
-  const handleOpenAutomations = useCallback(() => {
-    openNew({ type: "automations" });
-  }, [openNew]);
-
-  const handleOpenTemplates = useCallback(() => {
-    openTemplatesTab({
-      showHomepage: false,
-      isWebMode: false,
-      selectedMineId: AUTO_TEMPLATE_ID,
-      selectedWebIndex: null,
-    });
-  }, [openTemplatesTab]);
-
-  const handleOpenCalendar = useCallback(() => {
-    openNew({ type: "calendar" });
-  }, [openNew]);
-
-  const handleOpenContacts = useCallback(() => {
-    openNew({ type: "contacts", state: { selected: null } });
-  }, [openNew]);
-
   const groups: SettingsNavGroup[] = [
     {
-      label: t`General`,
+      label: t`App`,
       items: [
-        { id: "app", label: t`App`, icon: Gear },
+        { id: "app", label: t`General`, icon: Gear },
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "account", label: t`Account`, icon: User },
         { id: "sync", label: t`Sync`, icon: ArrowsClockwise },
-        {
-          action: "open-automations",
-          label: t`Automations`,
-          icon: Lightning,
-        },
         { id: "notifications", label: t`Notifications`, icon: Bell },
-        { id: "permissions", label: t`Permissions`, icon: Lock },
-        { id: "developers", label: t`Developers`, icon: Code },
       ],
     },
     {
-      label: t`Context`,
+      label: t`Recording`,
       items: [
-        {
-          action: "open-calendar",
-          label: t`Calendar`,
-          icon: CalendarBlank,
-        },
-        {
-          action: "open-contacts",
-          label: t`Contacts`,
-          icon: Users,
-        },
+        { id: "meetings", label: t`Meetings`, icon: VideoCamera },
+        { id: "audio", label: t`Audio`, icon: Microphone },
+        { id: "transcription", label: t`Transcription`, icon: Waveform },
       ],
     },
     {
       label: "AI",
       items: [
-        { id: "transcription", label: t`Transcription`, icon: Waveform },
         { id: "intelligence", label: t`Intelligence`, icon: Sparkle },
         {
           id: "dictionary",
           label: t`Dictionary`,
           icon: BookOpen,
         },
-        {
-          action: "open-templates",
-          label: t`Templates`,
-          icon: BookOpenText,
-        },
+      ],
+    },
+    {
+      label: t`Advanced`,
+      items: [
+        { id: "permissions", label: t`Permissions`, icon: Lock },
+        { id: "developers", label: t`Developers`, icon: Code },
       ],
     },
   ];
@@ -145,31 +95,14 @@ export function SettingsNav() {
                 {group.label}
               </span>
               {group.items.map((item) => {
-                const isSettingsItem = "id" in item;
-
                 return (
                   <button
-                    key={isSettingsItem ? item.id : item.action}
-                    onClick={() => {
-                      if (!isSettingsItem) {
-                        if (item.action === "open-automations") {
-                          handleOpenAutomations();
-                        } else if (item.action === "open-templates") {
-                          handleOpenTemplates();
-                        } else if (item.action === "open-calendar") {
-                          handleOpenCalendar();
-                        } else {
-                          handleOpenContacts();
-                        }
-                        return;
-                      }
-
-                      setActiveTab(item.id as SettingsTab);
-                    }}
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id)}
                     className={cn([
                       "flex w-full items-center gap-2 rounded-full px-3 py-2 text-left text-sm",
                       "transition-colors",
-                      isSettingsItem && activeTab === item.id
+                      activeTab === item.id
                         ? "bg-sidebar-accent text-foreground font-medium"
                         : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
                     ])}
@@ -177,16 +110,11 @@ export function SettingsNav() {
                     <item.icon
                       size={15}
                       className="shrink-0"
-                      data-testid={`settings-nav-icon-${
-                        isSettingsItem ? item.id : item.action
-                      }`}
+                      data-testid={`settings-nav-icon-${item.id}`}
                     />
                     <span className="min-w-0 flex-1 truncate">
                       {item.label}
                     </span>
-                    {!isSettingsItem ? (
-                      <ArrowUpRight size={13} className="shrink-0" />
-                    ) : null}
                   </button>
                 );
               })}

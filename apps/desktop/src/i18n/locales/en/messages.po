@@ -17,7 +17,7 @@ msgstr ""
 msgid "(default)"
 msgstr "(default)"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "(Unavailable — using current default)"
 msgstr "(Unavailable — using current default)"
 
@@ -43,19 +43,19 @@ msgstr "{trialDaysRemaining} day left"
 msgid "{trialDaysRemaining} days left"
 msgstr "{trialDaysRemaining} days left"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "1 day"
 msgstr "1 day"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "1 month"
 msgstr "1 month"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "1 week"
 msgstr "1 week"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "3 days"
 msgstr "3 days"
 
@@ -176,6 +176,7 @@ msgid "Additional spoken languages"
 msgstr "Additional spoken languages"
 
 #: src/settings/ai/shared/index.tsx
+#: src/sidebar/settings.tsx
 msgid "Advanced"
 msgstr "Advanced"
 
@@ -300,7 +301,6 @@ msgstr "API Key"
 msgid "API key saved"
 msgstr "API key saved"
 
-#: src/settings/general/index.tsx
 #: src/sidebar/settings.tsx
 msgid "App"
 msgstr "App"
@@ -347,11 +347,13 @@ msgstr "Ask anything"
 msgid "Assignees:"
 msgstr "Assignees:"
 
+#: src/settings/general/index.tsx
 #: src/settings/general/permissions.tsx
+#: src/sidebar/settings.tsx
 msgid "Audio"
 msgstr "Audio"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "Audio file retention"
 msgstr "Audio file retention"
 
@@ -376,7 +378,6 @@ msgid "Automation draft saved"
 msgstr "Automation draft saved"
 
 #: src/settings/automations/index.tsx
-#: src/sidebar/settings.tsx
 msgid "Automations"
 msgstr "Automations"
 
@@ -410,7 +411,6 @@ msgstr "Browser handoff not working? Paste the callback link instead"
 #: src/calendar/components/sidebar.tsx
 #: src/settings/general/permissions.tsx
 #: src/sidebar/calendar.tsx
-#: src/sidebar/settings.tsx
 msgid "Calendar"
 msgstr "Calendar"
 
@@ -435,7 +435,7 @@ msgstr "Cancel"
 msgid "Cancel date edit"
 msgstr "Cancel date edit"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Capture meeting chat in Memos"
 msgstr "Capture meeting chat in Memos"
 
@@ -491,7 +491,7 @@ msgstr "Choose how Anarlog appears in the Dock."
 msgid "Choose how Anarlog looks on this device."
 msgstr "Choose how Anarlog looks on this device."
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "Choose how long recordings stay on this device."
 msgstr "Choose how long recordings stay on this device."
 
@@ -503,7 +503,7 @@ msgstr "Choose storage location"
 msgid "Choose template icon"
 msgstr "Choose template icon"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "Choose the microphone that captures your voice."
 msgstr "Choose the microphone that captures your voice."
 
@@ -704,13 +704,8 @@ msgid "Connecting..."
 msgstr "Connecting..."
 
 #: src/sidebar/contacts.tsx
-#: src/sidebar/settings.tsx
 msgid "Contacts"
 msgstr "Contacts"
-
-#: src/sidebar/settings.tsx
-msgid "Context"
-msgstr "Context"
 
 #: src/templates/auto-form.tsx
 msgid "Context always provided"
@@ -724,7 +719,7 @@ msgstr "Continue"
 msgid "Continuing without trial"
 msgstr "Continuing without trial"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Control listening without reopening Anarlog."
 msgstr "Control listening without reopening Anarlog."
 
@@ -777,7 +772,7 @@ msgstr "Create template"
 msgid "Created"
 msgstr "Created"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
 msgid "Current default"
 msgstr "Current default"
@@ -892,7 +887,7 @@ msgstr "Disconnect"
 msgid "Disconnect private repo access."
 msgstr "Disconnect private repo access."
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "Don't save"
 msgstr "Don't save"
 
@@ -1084,7 +1079,7 @@ msgstr "Food & Drink"
 msgid "For enabled notifications"
 msgstr "For enabled notifications"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 msgid "Forever"
 msgstr "Forever"
 
@@ -1101,6 +1096,7 @@ msgstr "Frequently used"
 msgid "Full access"
 msgstr "Full access"
 
+#: src/settings/general/index.tsx
 #: src/sidebar/settings.tsx
 msgid "General"
 msgstr "General"
@@ -1261,7 +1257,7 @@ msgstr "Join meeting and record"
 msgid "Join our community and stay updated:"
 msgstr "Join our community and stay updated:"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Join scheduled meetings"
 msgstr "Join scheduled meetings"
 
@@ -1401,7 +1397,8 @@ msgstr "Meeting ends"
 msgid "Meeting notes"
 msgstr "Meeting notes"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/index.tsx
+#: src/sidebar/settings.tsx
 msgid "Meetings"
 msgstr "Meetings"
 
@@ -1430,7 +1427,7 @@ msgid "Metadata"
 msgstr "Metadata"
 
 #: src/onboarding/permissions.tsx
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/audio-settings.tsx
 #: src/settings/general/permissions.tsx
 msgid "Microphone"
 msgstr "Microphone"
@@ -1680,7 +1677,7 @@ msgstr "Open on GitHub"
 msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Open the meeting link when listening starts."
 msgstr "Open the meeting link when listening starts."
 
@@ -1767,7 +1764,7 @@ msgstr "Plans"
 msgid "Post a meeting recap to a Slack channel."
 msgstr "Post a meeting recap to a Slack channel."
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Post recording disclosure in meeting chat"
 msgstr "Post recording disclosure in meeting chat"
 
@@ -1856,6 +1853,10 @@ msgstr "Record other participants in meetings."
 #: src/settings/general/permissions.tsx
 msgid "Record your voice in meetings and calls."
 msgstr "Record your voice in meetings and calls."
+
+#: src/sidebar/settings.tsx
+msgid "Recording"
+msgstr "Recording"
 
 #: src/settings/general/account.tsx
 msgid "Refresh billing status"
@@ -2009,7 +2010,7 @@ msgstr "Save draft"
 msgid "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
 msgstr "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Save visible chat from supported meetings using Accessibility."
 msgstr "Save visible chat from supported meetings using Accessibility."
 
@@ -2257,7 +2258,7 @@ msgstr "Show Deleted Events"
 msgid "Show Event"
 msgstr "Show Event"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Show floating bar"
 msgstr "Show floating bar"
 
@@ -2406,7 +2407,7 @@ msgstr "Start a Pro trial or add your own LLM API key to generate a summary from
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog at login"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Start listening when a scheduled meeting begins."
 msgstr "Start listening when a scheduled meeting begins."
 
@@ -2414,7 +2415,7 @@ msgstr "Start listening when a scheduled meeting begins."
 msgid "Start Recording"
 msgstr "Start Recording"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Start when meeting begins"
 msgstr "Start when meeting begins"
 
@@ -2451,7 +2452,7 @@ msgstr "Stop"
 msgid "Stop listening"
 msgstr "Stop listening"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Stop listening when your call ends."
 msgstr "Stop listening when your call ends."
 
@@ -2463,7 +2464,7 @@ msgstr "Stop response"
 msgid "Stop transcription"
 msgstr "Stop transcription"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Stop when meeting ends"
 msgstr "Stop when meeting ends"
 
@@ -2564,7 +2565,7 @@ msgstr "System audio"
 msgid "System audio enabled"
 msgstr "System audio enabled"
 
-#: src/settings/general/app-settings.tsx
+#: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
 msgstr "Tell participants when listening starts; this does not confirm consent."
 
@@ -2577,7 +2578,6 @@ msgstr "Template actions"
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr "Template content with Jinja2: {{ variable }}, {% if condition %}"
 
-#: src/sidebar/settings.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Templates"
 msgstr "Templates"

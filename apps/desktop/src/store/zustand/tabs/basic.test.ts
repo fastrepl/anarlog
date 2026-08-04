@@ -387,6 +387,20 @@ describe("Basic Tab Actions", () => {
     });
   });
 
+  test.each(["meetings", "audio"] as const)(
+    "openNew preserves %s settings tab requests",
+    (settingsTab) => {
+      useTabs
+        .getState()
+        .openNew({ type: "settings", state: { tab: settingsTab } });
+
+      expect(useTabs.getState()).toHaveCurrentTab({
+        type: "settings",
+        state: { tab: settingsTab },
+      });
+    },
+  );
+
   test("select toggles active flag without changing history", () => {
     const tabA = createSessionTab({ active: true });
     const tabB = createSessionTab({ active: false });

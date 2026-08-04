@@ -112,25 +112,28 @@ describe("SettingsNav", () => {
     render(<SettingsNav />);
 
     [
-      "General",
       "App",
+      "General",
       "Appearance",
       "Account",
       "Sync",
-      "Automations",
       "Notifications",
-      "Developers",
-      "Permissions",
-      "Context",
-      "Calendar",
-      "Contacts",
-      "AI",
+      "Recording",
+      "Meetings",
+      "Audio",
       "Transcription",
+      "AI",
       "Intelligence",
       "Dictionary",
-      "Templates",
+      "Advanced",
+      "Permissions",
+      "Developers",
     ].forEach((label) => {
       expect(screen.getByText(label)).toBeTruthy();
+    });
+
+    ["Automations", "Calendar", "Contacts", "Templates"].forEach((label) => {
+      expect(screen.queryByText(label)).toBeNull();
     });
   });
 
@@ -158,7 +161,7 @@ describe("SettingsNav", () => {
     );
   });
 
-  it("places dictionary and templates in the AI section", () => {
+  it("places dictionary in the AI section", () => {
     render(<SettingsNav />);
 
     expect(
@@ -170,48 +173,26 @@ describe("SettingsNav", () => {
     expect(screen.queryByText("Personalization")).toBeNull();
   });
 
-  it("opens Templates with Auto selected", () => {
+  it("opens Meetings inside settings", () => {
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Templates" }));
+    fireEvent.click(screen.getByRole("button", { name: "Meetings" }));
 
-    expect(mocks.openNew).toHaveBeenCalledWith({
-      type: "templates",
-      state: {
-        showHomepage: false,
-        isWebMode: false,
-        selectedMineId: "__auto__",
-        selectedWebIndex: null,
-      },
-    });
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "meetings" },
+    );
   });
 
-  it("selects Auto when reusing the Templates tab", () => {
-    const templatesTab = {
-      active: false,
-      pinned: false,
-      slotId: "templates-slot",
-      type: "templates" as const,
-      state: {
-        showHomepage: false,
-        isWebMode: false,
-        selectedMineId: "template-1",
-        selectedWebIndex: null,
-      },
-    };
-    mocks.tabs = [templatesTab];
+  it("opens Audio inside settings", () => {
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Templates" }));
+    fireEvent.click(screen.getByRole("button", { name: "Audio" }));
 
-    expect(mocks.updateTemplatesTabState).toHaveBeenCalledWith(templatesTab, {
-      showHomepage: false,
-      isWebMode: false,
-      selectedMineId: "__auto__",
-      selectedWebIndex: null,
-    });
-    expect(mocks.select).toHaveBeenCalledWith(templatesTab);
-    expect(mocks.openNew).not.toHaveBeenCalled();
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "audio" },
+    );
   });
 
   it("opens Dictionary inside settings", () => {
@@ -234,16 +215,5 @@ describe("SettingsNav", () => {
       mocks.currentTab,
       { tab: "sync" },
     );
-  });
-
-  it("opens Automations as a separate page", () => {
-    render(<SettingsNav />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Automations" }));
-
-    expect(mocks.openNew).toHaveBeenCalledWith({
-      type: "automations",
-    });
-    expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
   });
 });
