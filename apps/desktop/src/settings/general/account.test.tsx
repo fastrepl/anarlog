@@ -13,6 +13,15 @@ const mocks = vi.hoisted(() => ({
   analyticsSetProperties: vi.fn(() => Promise.resolve()),
   signIn: vi.fn(() => Promise.resolve()),
   signOut: vi.fn(() => Promise.resolve()),
+  buildWebAppUrl: vi.fn(() => Promise.resolve("https://anarlog.so/app/portal")),
+  billing: {
+    canStartTrial: { data: false, isPending: false },
+    hasPaymentMethod: false,
+    isPaid: false,
+    isTrialing: false,
+    plan: "free",
+    trialDaysRemaining: null as number | null,
+  },
 }));
 
 vi.mock("@anlg/plugin-analytics", () => ({
@@ -41,20 +50,41 @@ vi.mock("~/auth", () => ({
 }));
 
 vi.mock("~/auth/billing-context", () => ({
-  useBillingAccess: () => ({
-    canStartTrial: false,
-    isPaid: false,
-    isTrialing: false,
-    plan: "free",
-    trialDaysRemaining: null,
-  }),
+  useBillingAccess: () => mocks.billing,
+}));
+
+vi.mock("~/shared/utils", () => ({
+  buildWebAppUrl: mocks.buildWebAppUrl,
 }));
 
 import { SettingsAccount } from "./account";
 
+const renderAccount = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SettingsAccount />
+    </QueryClientProvider>,
+  );
+};
+
 describe("SettingsAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.billing = {
+      canStartTrial: { data: false, isPending: false },
+      hasPaymentMethod: false,
+      isPaid: false,
+      isTrialing: false,
+      plan: "free",
+      trialDaysRemaining: null,
+    };
     globalThis.ResizeObserver = class {
       observe() {}
       unobserve() {}
@@ -65,17 +95,7 @@ describe("SettingsAccount", () => {
   afterEach(cleanup);
 
   it("confirms sign-out before ending the session", async () => {
-    const queryClient = new QueryClient({
-      defaultOptions: {
-        mutations: { retry: false },
-        queries: { retry: false },
-      },
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <SettingsAccount />
-      </QueryClientProvider>,
-    );
+    renderAccount();
 
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
@@ -98,5 +118,51 @@ describe("SettingsAccount", () => {
     expect(mocks.analyticsEvent).toHaveBeenCalledWith({
       event: "user_signed_out",
     });
+  });
+
+  it("offers to add a payment method during a cardless trial", async () => {
+    mocks.billing = {
+      canStartTrial: { data: false, isPending: false },
+      hasPaymentMethod: false,
+      isPaid: true,
+      isTrialing: true,
+      plan: "trial",
+      trialDaysRemaining: 3,
+    };
+
+    renderAccount();
+
+    expect(screen.queryByText("Cancel")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add payment method" }));
+
+    await waitFor(() =>
+      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/portal", {
+        intent: "payment_method_update",
+      }),
+    );
+    expect(mocks.analyticsEvent).toHaveBeenCalledWith({
+      event: "trial_payment_method_clicked",
+      days_remaining: 3,
+      source: "settings",
+    });
+  });
+
+  it("keeps the manage-plan control once the trial has a payment method", () => {
+    mocks.billing = {
+      canStartTrial: { data: false, isPending: false },
+      hasPaymentMethod: true,
+      isPaid: true,
+      isTrialing: true,
+      plan: "trial",
+      trialDaysRemaining: 3,
+    };
+
+    renderAccount();
+
+    expect(
+      screen.queryByRole("button", { name: "Add payment method" }),
+    ).toBeNull();
+    expect(screen.getByText("Current plan")).toBeTruthy();
   });
 });

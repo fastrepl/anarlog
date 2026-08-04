@@ -159,6 +159,10 @@ msgstr "Add notes about this contact..."
 msgid "Add organization"
 msgstr "Add organization"
 
+#: src/settings/general/account.tsx
+msgid "Add payment method"
+msgstr "Add payment method"
+
 #: src/contacts/new-person-form.tsx
 msgid "Add person"
 msgstr "Add person"

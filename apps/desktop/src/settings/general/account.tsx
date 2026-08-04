@@ -186,9 +186,14 @@ function PlanBillingSection({
   isPaid: boolean;
 }) {
   const { t } = useLingui();
-  const { canStartTrial: canStartTrialQuery } = useBillingAccess();
+  const { canStartTrial: canStartTrialQuery, hasPaymentMethod } =
+    useBillingAccess();
 
   const [actionPending, setActionPending] = useState(false);
+
+  // A cardless trial cancels at the end unless a card is added, so the plan
+  // control has to be "Add payment method" rather than hover-to-Cancel.
+  const needsPaymentMethod = isTrialing && !hasPaymentMethod;
 
   const openBillingUrl = useCallback(
     async (buildUrl: () => Promise<string>) => {
@@ -226,10 +231,48 @@ function PlanBillingSection({
     void openBillingUrl(() => buildWebAppUrl("/app/portal"));
   }, [openBillingUrl]);
 
+  const handleAddPaymentMethod = useCallback(() => {
+    void analyticsCommands.event({
+      event: "trial_payment_method_clicked",
+      days_remaining: trialDaysRemaining,
+      source: "settings",
+    });
+
+    void openBillingUrl(() =>
+      buildWebAppUrl("/app/portal", { intent: "payment_method_update" }),
+    );
+  }, [openBillingUrl, trialDaysRemaining]);
+
   const renderAction = (action: TierAction, compact: boolean) => {
     if (action == null) return null;
 
     if (action.style === "current") {
+      if (needsPaymentMethod) {
+        if (compact) {
+          return (
+            <button
+              type="button"
+              onClick={handleAddPaymentMethod}
+              disabled={actionPending}
+              className="text-foreground hover:text-foreground text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              <Trans>Add payment method</Trans>
+            </button>
+          );
+        }
+
+        return (
+          <button
+            type="button"
+            onClick={handleAddPaymentMethod}
+            disabled={actionPending}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-8 w-full cursor-pointer items-center justify-center rounded-full text-xs font-medium shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
+          >
+            <Trans>Add payment method</Trans>
+          </button>
+        );
+      }
+
       if (compact) {
         if (!isPaid) {
           return (

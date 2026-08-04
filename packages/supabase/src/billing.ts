@@ -9,6 +9,7 @@ export type BillingInfo = {
   isLite: boolean;
   isPaid: boolean;
   isTrialing: boolean;
+  hasPaymentMethod: boolean;
   trialEnd: Date | null;
   trialDaysRemaining: number | null;
   plan: Plan;
@@ -55,6 +56,7 @@ export function deriveBillingInfo(
     isLite,
     isPaid,
     isTrialing,
+    hasPaymentMethod: payload?.has_payment_method === true,
     trialEnd,
     trialDaysRemaining,
     plan,

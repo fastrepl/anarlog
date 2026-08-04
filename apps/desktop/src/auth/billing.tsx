@@ -283,7 +283,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
             ? 7
             : null;
 
-      if (reminderThreshold && !claimsQuery.data?.has_payment_method) {
+      if (reminderThreshold && !billing.hasPaymentMethod) {
         const reminderKey = `${TRIAL_PAYMENT_REMINDER_SEEN_PREFIX}${userId}:${reminderThreshold}`;
         if (!readSeen(reminderKey)) {
           setTrialPaymentReminderThreshold(reminderThreshold);
@@ -336,7 +336,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     auth?.session?.user.id,
     billing.isTrialing,
     billing.trialDaysRemaining,
-    claimsQuery.data?.has_payment_method,
+    billing.hasPaymentMethod,
     hasTrial,
     billing.isPaid,
     isReady,
@@ -364,7 +364,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         open={trialStartedOpen}
         onOpenChange={setTrialStartedOpen}
         trialDaysRemaining={billing.trialDaysRemaining}
-        hasPaymentMethod={claimsQuery.data?.has_payment_method === true}
+        hasPaymentMethod={billing.hasPaymentMethod}
       />
       <TrialPaymentReminderDialog
         open={trialPaymentReminderOpen}
