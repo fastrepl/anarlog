@@ -246,12 +246,27 @@ jobs:
           echo "Verified dSYM UUID $dsym_uuid"
           echo "path=$dsym" >> "$GITHUB_OUTPUT"
       - if: ${{ inputs.channel == 'stable' }}
+        id: sentry-secrets
+        name: Load Sentry upload token
+        uses: ./.github/actions/infisical_export
+        with:
+          project-id: ${{ secrets.INFISICAL_PROJECT_ID }}
+          folder: /anarlog/github
+          env: prod
+        env:
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
+      - if: ${{ inputs.channel == 'stable' }}
         uses: ./.github/actions/sentry_cli
       - if: ${{ inputs.channel == 'stable' }}
         name: Upload macOS debug symbols to Sentry
         env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_AUTH_TOKEN: ${{ fromJSON(steps.sentry-secrets.outputs.secrets).SENTRY_AUTH_TOKEN }}
         run: |
+          if [[ -z "$SENTRY_AUTH_TOKEN" ]]; then
+            echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
+            exit 1
+          fi
+
           sentry-cli debug-files upload \
             --org fastrepl \
             --project hyprnote2 \
