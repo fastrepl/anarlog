@@ -9,6 +9,7 @@ import { useSyncExternalStore } from "react";
 
 import { cn } from "@anlg/utils";
 
+import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SharedNoteAudioPlayer } from "@/components/shared-note-audio-player";
 import {
   type SharedAttachmentResolver,
@@ -233,12 +234,8 @@ function SharedNoteShell({
           headerHidden && "-translate-y-full",
         ])}
       >
-        <a
-          href="/"
-          aria-label="Anarlog home"
-          className="font-hand text-[27px] leading-none font-semibold text-stone-900"
-        >
-          anarlog
+        <a href="/" aria-label="Anarlog home" className="inline-flex">
+          <AnarlogLogo className="h-7 w-auto" />
         </a>
         {topActions ?? (
           <span className="text-xs text-stone-500">Shared with Anarlog</span>
