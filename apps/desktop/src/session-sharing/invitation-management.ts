@@ -5,6 +5,7 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import {
   createSessionAccessInvitation,
   resendSessionAccessInvitation,
+  revokeSessionAccessInvitation,
   sendSessionAccessInvitationEmail,
   type SessionAccessCapability,
   type ShareManagementContext,
@@ -42,6 +43,7 @@ export async function deliverSessionShareInvitation({
   noteTitle,
   signal,
   requireActive,
+  allowClipboardFallback,
 }: {
   context: ShareManagementContext;
   shareId: string;
@@ -50,6 +52,7 @@ export async function deliverSessionShareInvitation({
   noteTitle: string;
   signal: AbortSignal;
   requireActive: () => void;
+  allowClipboardFallback: boolean;
 }) {
   let invitation = await createSessionAccessInvitation(context, {
     shareId,
@@ -77,6 +80,14 @@ export async function deliverSessionShareInvitation({
       signal,
     });
   } catch {
+    requireActive();
+    if (!allowClipboardFallback) {
+      await revokeSessionAccessInvitation(
+        withoutSignal(context),
+        invitation.invitationId,
+      ).catch(() => undefined);
+      throw new ShareManagementError();
+    }
     await copyInvitationOrRevoke(
       withoutSignal(context),
       {
@@ -110,12 +121,14 @@ export async function deliverSessionShareInvitations({
   requireActive: () => void;
 }): Promise<SessionShareInvitationDelivery[]> {
   const deliveries: SessionShareInvitationDelivery[] = [];
+  const allowClipboardFallback = emails.length === 1;
   for (const email of emails) {
     invitation.requireActive();
     try {
       const { deliveredBy } = await deliverSessionShareInvitation({
         ...invitation,
         email,
+        allowClipboardFallback,
       });
       deliveries.push({ email, deliveredBy });
     } catch (error) {

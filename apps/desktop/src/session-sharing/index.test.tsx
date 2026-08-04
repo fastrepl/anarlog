@@ -1638,6 +1638,32 @@ describe("SessionShareButton", () => {
     );
   });
 
+  it("does not overwrite clipboard fallback links for multiple invitations", async () => {
+    mocks.participants = [
+      { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
+      { id: "p2", source: "auto", name: "Yujong Lee", email: "yujong@e.com" },
+    ];
+    mocks.sendSessionAccessInvitationEmail.mockRejectedValue(
+      new Error("mail unavailable"),
+    );
+    mocks.revokeSessionAccessInvitation.mockResolvedValue({
+      invitationId: INVITATION_ID,
+      revokedAt: "2026-08-04T00:00:00Z",
+    });
+    renderShareButton();
+    await openSharePopover();
+
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Could not create these invitations.",
+      ),
+    );
+    expect(mocks.clipboardWriteText).not.toHaveBeenCalled();
+    expect(mocks.revokeSessionAccessInvitation).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps an emailed invitation when the popover closes", async () => {
     let resolveEmail: (() => void) | undefined;
     mocks.sendSessionAccessInvitationEmail.mockReturnValueOnce(
