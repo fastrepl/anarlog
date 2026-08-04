@@ -231,7 +231,9 @@ export QA_SYSTEM_SINK=qa_system
 export RUST_LOG="info,sqlx=warn,hyper=warn"
 
 set +e
-pnpm -F e2e-blackbox e2e 2>&1 | tee "$artifact_dir/e2e.log"
+pnpm -F e2e-blackbox e2e \
+  --spec ./tests/linux-virtual-audio.spec.ts \
+  2>&1 | tee "$artifact_dir/e2e.log"
 e2e_status=${PIPESTATUS[0]}
 set -e
 
