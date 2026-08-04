@@ -41,7 +41,7 @@ export const config = {
   framework: "mocha",
   mochaOpts: {
     ui: "bdd",
-    timeout: 60000,
+    timeout: process.env.E2E_VIRTUAL_AUDIO === "1" ? 180_000 : 60_000,
   },
   autoCompileOpts: {
     autoCompile: true,

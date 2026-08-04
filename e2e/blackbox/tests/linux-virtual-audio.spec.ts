@@ -8,9 +8,7 @@ const virtualAudioEnabled = process.env.E2E_VIRTUAL_AUDIO === "1";
 const describeVirtualAudio = virtualAudioEnabled ? describe : describe.skip;
 
 describeVirtualAudio("Linux virtual audio capture", () => {
-  it("persists separated microphone and system-audio tracks", async function () {
-    this.timeout(180_000);
-
+  it("persists separated microphone and system-audio tracks", async () => {
     if (process.platform !== "linux") {
       throw new Error("E2E_VIRTUAL_AUDIO is only supported on Linux");
     }
