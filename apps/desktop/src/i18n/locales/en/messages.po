@@ -196,10 +196,6 @@ msgstr "AI step"
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "All notes"
-msgstr "All notes"
-
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
 msgstr "All Notes"
@@ -1595,7 +1591,6 @@ msgid "No results found."
 msgstr "No results found."
 
 #: src/sidebar/shared-notes.tsx
-#: src/sidebar/timeline/index.tsx
 msgid "No shared notes"
 msgstr "No shared notes"
 
@@ -2218,13 +2213,14 @@ msgid "Share usage data"
 msgstr "Share usage data"
 
 #: src/sidebar/note-filter-menu.tsx
-msgid "Shared by me"
-msgstr "Shared by me"
+msgid "Shared"
+msgstr "Shared"
 
 #: src/shared-notes/index.tsx
 msgid "Shared link · View only"
 msgstr "Shared link · View only"
 
+#: src/sidebar/shared-notes.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Shared note"
 msgstr "Shared note"
@@ -2240,11 +2236,6 @@ msgstr "Shared note unavailable"
 #: src/shared-notes/index.tsx
 msgid "Shared notes are tied to the account they were shared with."
 msgstr "Shared notes are tied to the account they were shared with."
-
-#: src/sidebar/note-filter-menu.tsx
-#: src/sidebar/shared-notes.tsx
-msgid "Shared with me"
-msgstr "Shared with me"
 
 #: src/shared-notes/index.tsx
 msgid "Shared with me · Can comment"

@@ -501,7 +501,9 @@ describe("TimelineItemComponent", () => {
       </ManagedSharedSessionIdsContext.Provider>,
     );
 
-    expect(screen.getByLabelText("Shared note")).not.toBeNull();
+    const sharedIcon = screen.getByLabelText("Shared note");
+
+    expect(sharedIcon.parentElement?.lastElementChild).toBe(sharedIcon);
   });
 
   it("opens the current tab after a single-click on a session row", () => {

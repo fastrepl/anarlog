@@ -43,22 +43,17 @@ import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
-import type { SidebarNoteFilter } from "~/sidebar/note-filter";
 import { useTabs } from "~/store/zustand/tabs";
 import { useTimelineSelection } from "~/store/zustand/timeline-selection";
 import { useListener } from "~/stt/contexts";
 
-const EMPTY_TIMELINE_EVENTS = {};
-
 export const TimelineView = memo(function TimelineView({
-  noteFilter = "all",
   showOpenCalendarButton = true,
   showIgnoredEvents,
   onShowIgnoredEventsChange,
   topChipsOverlapHeader = false,
   topChromeInset = false,
 }: {
-  noteFilter?: SidebarNoteFilter;
   showOpenCalendarButton?: boolean;
   showIgnoredEvents?: boolean;
   onShowIgnoredEventsChange?: (showIgnored: boolean) => void;
@@ -70,19 +65,6 @@ export const TimelineView = memo(function TimelineView({
   const { session } = useAuth();
   const managedSharedSessionIds = useActivatedSessionShareIds(session?.user.id);
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
-  const filteredTimelineSessionsTable = useMemo(() => {
-    if (noteFilter !== "shared-by-me" || !timelineSessionsTable) {
-      return timelineSessionsTable;
-    }
-
-    return Object.fromEntries(
-      Object.entries(timelineSessionsTable).filter(([sessionId]) =>
-        managedSharedSessionIds.has(sessionId),
-      ),
-    );
-  }, [managedSharedSessionIds, noteFilter, timelineSessionsTable]);
-  const filteredTimelineEventsTable =
-    noteFilter === "shared-by-me" ? EMPTY_TIMELINE_EVENTS : timelineEventsTable;
   const [uncontrolledShowIgnored, setUncontrolledShowIgnored] = useState(false);
   const showIgnored = showIgnoredEvents ?? uncontrolledShowIgnored;
   const [isScrolledToTop, setIsScrolledToTop] = useState(true);
@@ -92,8 +74,8 @@ export const TimelineView = memo(function TimelineView({
   const { buckets, hasMoreFutureItems } = useTimelineData({
     isEventIgnored: isIgnored,
     showIgnored,
-    timelineEventsTable: filteredTimelineEventsTable,
-    timelineSessionsTable: filteredTimelineSessionsTable,
+    timelineEventsTable,
+    timelineSessionsTable,
     timezone,
   });
   const openNew = useTabs((state) => state.openNew);
@@ -501,13 +483,7 @@ export const TimelineView = memo(function TimelineView({
           <TimelineBuckets
             bucketHeaderTopClassName={bucketHeaderTopClassName}
             buckets={buckets}
-            emptyTodayLabel={
-              noteFilter === "shared-by-me" ? (
-                <Trans>No shared notes</Trans>
-              ) : (
-                <Trans>No items today</Trans>
-              )
-            }
+            emptyTodayLabel={<Trans>No items today</Trans>}
             getFlatItemKeys={getFlatItemKeys}
             hasActiveVisibleSession={hasActiveVisibleSession}
             hasToday={hasToday}

@@ -5,10 +5,7 @@ import { cn } from "@anlg/utils";
 import { AutomationsNav } from "./automations";
 import { CalendarNav } from "./calendar";
 import { ContactsNav } from "./contacts";
-import {
-  sidebarNoteFilterShowsTimeline,
-  type SidebarNoteFilter,
-} from "./note-filter";
+import type { SidebarNoteFilter } from "./note-filter";
 import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
 import { TemplatesNav } from "./templates";
@@ -17,7 +14,7 @@ import { TimelineView } from "./timeline";
 import { useTabs } from "~/store/zustand/tabs";
 
 export function LeftSidebar({
-  noteFilter = "all",
+  noteFilter = "mine",
   timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
@@ -41,8 +38,6 @@ export function LeftSidebar({
     isTemplatesMode ||
     isAutomationsMode;
   const isTimelineSidebarLayout = !isSpecialMode;
-  const showTimeline = sidebarNoteFilterShowsTimeline(noteFilter);
-
   return (
     <div
       className={cn([
@@ -66,11 +61,9 @@ export function LeftSidebar({
             <AutomationsNav />
           ) : (
             <div className="flex h-full min-h-0 flex-col">
-              <SharedNotesNav filter={noteFilter} />
-              {showTimeline ? (
+              {noteFilter === "mine" ? (
                 <div className="relative min-h-0 flex-1">
                   <TimelineView
-                    noteFilter={noteFilter}
                     showIgnoredEvents={showIgnoredTimelineEvents}
                     onShowIgnoredEventsChange={
                       onShowIgnoredTimelineEventsChange
@@ -81,7 +74,9 @@ export function LeftSidebar({
                     }
                   />
                 </div>
-              ) : null}
+              ) : (
+                <SharedNotesNav />
+              )}
             </div>
           )}
         </div>

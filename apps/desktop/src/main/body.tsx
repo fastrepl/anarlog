@@ -78,7 +78,7 @@ export function ClassicMainBody() {
   const syncDefaultLeftSidebarPanelSizeRef = useRef<() => void>(() => {});
   const [showIgnoredTimelineEvents, setShowIgnoredTimelineEvents] =
     useState(false);
-  const [noteFilter, setNoteFilter] = useState<SidebarNoteFilter>("all");
+  const [noteFilter, setNoteFilter] = useState<SidebarNoteFilter>("mine");
   const showWindowControlsGutter = useWindowControlsGutter();
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
 

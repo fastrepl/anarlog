@@ -219,21 +219,13 @@ const ItemBase = memo(function ItemBase({
       >
         <div className="flex items-center gap-2">
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div
-                className={cn(
-                  "pointer-events-none min-w-0 truncate text-sm font-normal",
-                  ignored && "line-through",
-                )}
-              >
-                {title || t`Untitled`}
-              </div>
-              {isShared ? (
-                <Users
-                  aria-label={t`Shared note`}
-                  className="text-muted-foreground size-3.5 shrink-0"
-                />
-              ) : null}
+            <div
+              className={cn(
+                "pointer-events-none min-w-0 truncate text-sm font-normal",
+                ignored && "line-through",
+              )}
+            >
+              {title || t`Untitled`}
             </div>
             {displayTime && (
               <div
@@ -248,6 +240,12 @@ const ItemBase = memo(function ItemBase({
               </div>
             )}
           </div>
+          {isShared ? (
+            <Users
+              aria-label={t`Shared note`}
+              className="text-muted-foreground size-3.5 shrink-0"
+            />
+          ) : null}
         </div>
       </InteractiveButton>
       {showUpcomingGauge ? (

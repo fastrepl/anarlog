@@ -196,10 +196,6 @@ msgstr ""
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr ""
 
-#: src/sidebar/note-filter-menu.tsx
-msgid "All notes"
-msgstr ""
-
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
 msgstr ""
@@ -1595,7 +1591,6 @@ msgid "No results found."
 msgstr ""
 
 #: src/sidebar/shared-notes.tsx
-#: src/sidebar/timeline/index.tsx
 msgid "No shared notes"
 msgstr ""
 
@@ -2218,13 +2213,14 @@ msgid "Share usage data"
 msgstr "பயன்பாட்டுத் தரவைப் பகிரவும்"
 
 #: src/sidebar/note-filter-menu.tsx
-msgid "Shared by me"
+msgid "Shared"
 msgstr ""
 
 #: src/shared-notes/index.tsx
 msgid "Shared link · View only"
 msgstr ""
 
+#: src/sidebar/shared-notes.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Shared note"
 msgstr ""
@@ -2239,11 +2235,6 @@ msgstr ""
 
 #: src/shared-notes/index.tsx
 msgid "Shared notes are tied to the account they were shared with."
-msgstr ""
-
-#: src/sidebar/note-filter-menu.tsx
-#: src/sidebar/shared-notes.tsx
-msgid "Shared with me"
 msgstr ""
 
 #: src/shared-notes/index.tsx

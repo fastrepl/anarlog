@@ -4,10 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   onValueChange: vi.fn(),
-  workspaces: [
-    { id: "workspace-1", name: "Fastrepl" },
-    { id: "workspace-2", name: "Design partners" },
-  ],
 }));
 
 vi.mock("@lingui/react/macro", () => ({
@@ -22,14 +18,6 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-vi.mock("~/auth", () => ({
-  useAuth: () => ({ session: { user: { id: "user-1" } } }),
-}));
-
-vi.mock("~/session-sharing/source", () => ({
-  useAvailableShareWorkspaces: () => mocks.workspaces,
-}));
-
 import { SidebarNoteFilterMenu } from "./note-filter-menu";
 
 describe("SidebarNoteFilterMenu", () => {
@@ -38,9 +26,12 @@ describe("SidebarNoteFilterMenu", () => {
     vi.clearAllMocks();
   });
 
-  it("offers personal, sharing, and workspace views", () => {
+  it("offers personal and received sharing views", () => {
     render(
-      <SidebarNoteFilterMenu value="all" onValueChange={mocks.onValueChange} />,
+      <SidebarNoteFilterMenu
+        value="mine"
+        onValueChange={mocks.onValueChange}
+      />,
     );
 
     const trigger = screen.getByRole("button", { name: "Filter notes" });
@@ -48,24 +39,11 @@ describe("SidebarNoteFilterMenu", () => {
     fireEvent.click(trigger);
 
     expect(
-      screen.getByRole("menuitemradio", { name: "All notes" }),
-    ).toBeTruthy();
-    expect(
       screen.getByRole("menuitemradio", { name: "My notes" }),
     ).toBeTruthy();
-    expect(
-      screen.getByRole("menuitemradio", { name: "Shared by me" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("menuitemradio", { name: "Shared with me" }),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("menuitemradio", { name: "Fastrepl" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("menuitemradio", { name: "Shared" })).toBeTruthy();
 
-    fireEvent.click(
-      screen.getByRole("menuitemradio", { name: "Design partners" }),
-    );
-    expect(mocks.onValueChange).toHaveBeenCalledWith("workspace:workspace-2");
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Shared" }));
+    expect(mocks.onValueChange).toHaveBeenCalledWith("shared");
   });
 });

@@ -51,7 +51,7 @@ describe("SharedNotesNav", () => {
 
   afterEach(cleanup);
 
-  it("shows accessible shared notes with a dedicated people affordance", () => {
+  it("shows received notes as regular rows with a trailing people icon", () => {
     mocks.notes = [
       {
         shareId: "share-1",
@@ -86,40 +86,31 @@ describe("SharedNotesNav", () => {
 
     render(<SharedNotesNav />);
 
-    expect(screen.getByText("Shared with me")).toBeTruthy();
-    expect(screen.getByText("Shared plan")).toBeTruthy();
+    expect(screen.queryByText("Shared with me")).toBeNull();
+    const sharedPlan = screen.getByText("Shared plan");
+    const sharedPlanButton = sharedPlan.closest("button");
+    const sharedIcon = sharedPlanButton?.querySelector(
+      '[aria-label="Shared note"]',
+    );
+
+    expect(sharedPlanButton?.className).toContain("rounded-lg");
+    expect(sharedIcon).toBe(
+      sharedPlanButton?.firstElementChild?.nextElementSibling,
+    );
     expect(screen.queryByText("Owned")).toBeNull();
     expect(screen.getByText("Admin remote")).toBeTruthy();
     expect(screen.getByText("Viewer local")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Shared plan" }));
+    fireEvent.click(sharedPlanButton!);
     expect(mocks.openCurrent).toHaveBeenCalledWith({
       type: "shared_sessions",
       id: "share-1",
     });
   });
 
-  it("filters received notes by workspace", () => {
-    mocks.notes = [
-      {
-        shareId: "share-1",
-        sessionId: "session-1",
-        title: "Fastrepl planning",
-        manageAccess: false,
-        workspaceId: "workspace-1",
-      },
-      {
-        shareId: "share-2",
-        sessionId: "session-2",
-        title: "Partner research",
-        manageAccess: false,
-        workspaceId: "workspace-2",
-      },
-    ];
+  it("shows an empty state when no notes were shared to the user", () => {
+    render(<SharedNotesNav />);
 
-    render(<SharedNotesNav filter="workspace:workspace-2" />);
-
-    expect(screen.queryByText("Fastrepl planning")).toBeNull();
-    expect(screen.getByText("Partner research")).toBeTruthy();
+    expect(screen.getByText("No shared notes")).toBeTruthy();
   });
 });

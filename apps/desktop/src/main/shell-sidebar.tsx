@@ -11,7 +11,7 @@ import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainSidebar({
   forceMount = false,
-  noteFilter = "all",
+  noteFilter = "mine",
   timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
