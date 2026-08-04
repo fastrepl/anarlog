@@ -1,4 +1,3 @@
-import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
@@ -93,6 +92,76 @@ export async function deliverSessionShareInvitation({
   return { deliveredBy: "email" as const };
 }
 
+export type SessionShareInvitationDelivery = {
+  email: string;
+  deliveredBy: "email" | "clipboard" | null;
+};
+
+export async function deliverSessionShareInvitations({
+  emails,
+  ...invitation
+}: {
+  context: ShareManagementContext;
+  shareId: string;
+  emails: string[];
+  capability: SessionAccessCapability;
+  noteTitle: string;
+  signal: AbortSignal;
+  requireActive: () => void;
+}): Promise<SessionShareInvitationDelivery[]> {
+  const deliveries: SessionShareInvitationDelivery[] = [];
+  for (const email of emails) {
+    invitation.requireActive();
+    try {
+      const { deliveredBy } = await deliverSessionShareInvitation({
+        ...invitation,
+        email,
+      });
+      deliveries.push({ email, deliveredBy });
+    } catch (error) {
+      if (invitation.signal.aborted) throw error;
+      console.error("[session-sharing] could not invite", email, error);
+      deliveries.push({ email, deliveredBy: null });
+    }
+  }
+  return deliveries;
+}
+
+export function reportSessionShareInvitations(
+  deliveries: SessionShareInvitationDelivery[],
+  capability: SessionAccessCapability,
+) {
+  const sent = deliveries.filter((delivery) => delivery.deliveredBy);
+  for (const delivery of sent) {
+    trackAnalyticsEvent("share_invitation_sent", {
+      delivery_method: delivery.deliveredBy,
+      capability,
+    });
+  }
+  const failed = deliveries.length - sent.length;
+  if (!sent.length) {
+    sonnerToast.error(
+      deliveries.length > 1
+        ? "Could not create these invitations."
+        : "Could not create this invitation.",
+    );
+    return;
+  }
+  if (failed) {
+    sonnerToast.error(
+      `Invited ${sent.length}. Could not invite ${failed}. Try again.`,
+    );
+    return;
+  }
+  sonnerToast.success(
+    sent.some((delivery) => delivery.deliveredBy === "clipboard")
+      ? "Email unavailable. Invite link copied instead."
+      : sent.length > 1
+        ? "Invitations sent."
+        : "Invitation sent.",
+  );
+}
+
 export function useSessionInvitationManagement({
   identity,
   managementAvailable,
@@ -112,22 +181,9 @@ export function useSessionInvitationManagement({
   onActivated: () => Promise<unknown>;
   onChanged: () => Promise<unknown>;
 }) {
-  const inviteForm = useForm({
-    defaultValues: {
-      email: "",
-      capability: "viewer" as SessionAccessCapability,
-    },
-    onSubmit: ({ value }) => {
-      inviteMutation.mutate({
-        email: value.email,
-        capability: value.capability,
-      });
-    },
-  });
-
   const inviteMutation = useMutation({
     mutationFn: (input: {
-      email: string;
+      emails: string[];
       capability: SessionAccessCapability;
     }) =>
       runOperation(async (signal) => {
@@ -136,10 +192,10 @@ export function useSessionInvitationManagement({
         }
         const published = await publishLatest(signal);
         const context = requireActiveContext(signal);
-        const delivery = await deliverSessionShareInvitation({
+        const deliveries = await deliverSessionShareInvitations({
           context,
           shareId: identity.shareId,
-          email: input.email,
+          emails: input.emails,
           capability: input.capability,
           noteTitle: published.title,
           signal,
@@ -148,26 +204,21 @@ export function useSessionInvitationManagement({
           },
         });
         await onActivated();
-        return delivery;
+        return deliveries;
       }),
-    onSuccess: ({ deliveredBy }, input) => {
-      trackAnalyticsEvent("share_invitation_sent", {
-        delivery_method: deliveredBy,
-        capability: input.capability,
-      });
-      inviteForm.reset();
-      sonnerToast.success(
-        deliveredBy === "email"
-          ? "Invitation sent."
-          : "Email unavailable. Invite link copied instead.",
-      );
+    onSuccess: (deliveries, input) => {
+      reportSessionShareInvitations(deliveries, input.capability);
     },
-    onError: (error) => {
+    onError: (error, input) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not create this invitation.");
+      sonnerToast.error(
+        input.emails.length > 1
+          ? "Could not create these invitations."
+          : "Could not create this invitation.",
+      );
     },
     onSettled: onChanged,
   });
 
-  return { inviteForm, inviteMutation };
+  return { inviteMutation };
 }

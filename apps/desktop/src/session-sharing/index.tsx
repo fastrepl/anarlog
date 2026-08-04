@@ -23,7 +23,11 @@ import {
 import { type DraftShareAction, SessionShareDraftContent } from "./draft-panel";
 import { flushCanonicalSessionEditorChanges } from "./editor-activity";
 import { generalAccessWorkspaceId } from "./general-access";
-import { deliverSessionShareInvitation } from "./invitation-management";
+import {
+  deliverSessionShareInvitations,
+  reportSessionShareInvitations,
+  type SessionShareInvitationDelivery,
+} from "./invitation-management";
 import {
   copySessionShareUrl,
   enableAndCopySessionShareLink,
@@ -263,25 +267,23 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           context = requireActivePrepareContext(identity, signal);
         }
         let actionResult:
-          | { type: "invite"; deliveredBy: "email" | "clipboard" }
+          | { type: "invite"; deliveries: SessionShareInvitationDelivery[] }
           | { type: "copy-link" }
           | { type: "scope"; copied: boolean };
         if (action.type === "invite") {
           actionResult = {
             type: "invite",
-            deliveredBy: (
-              await deliverSessionShareInvitation({
-                context,
-                shareId: share.shareId,
-                email: action.email,
-                capability: "viewer",
-                noteTitle: source.title,
-                signal,
-                requireActive: () => {
-                  requireActivePrepareContext(identity, signal);
-                },
-              })
-            ).deliveredBy,
+            deliveries: await deliverSessionShareInvitations({
+              context,
+              shareId: share.shareId,
+              emails: action.emails,
+              capability: "viewer",
+              noteTitle: source.title,
+              signal,
+              requireActive: () => {
+                requireActivePrepareContext(identity, signal);
+              },
+            }),
           };
         } else if (action.type === "copy-link") {
           await copySessionShareUrl(share.shareId, () =>
@@ -356,15 +358,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         queryKey: ["durable-shared-note-cache", identity.ownerUserId],
       });
       if (actionResult.type === "invite") {
-        trackAnalyticsEvent("share_invitation_sent", {
-          delivery_method: actionResult.deliveredBy,
-          capability: "viewer",
-        });
-        sonnerToast.success(
-          actionResult.deliveredBy === "email"
-            ? "Invitation sent."
-            : "Email unavailable. Invite link copied instead.",
-        );
+        reportSessionShareInvitations(actionResult.deliveries, "viewer");
       } else if (actionResult.type === "copy-link") {
         trackAnalyticsEvent("share_link_copied", {
           entry_point: "share_panel",
@@ -396,7 +390,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       console.error("[session-sharing] could not activate share", error);
       sonnerToast.error(
         variables.action.type === "invite"
-          ? "Could not create this invitation."
+          ? variables.action.emails.length > 1
+            ? "Could not create these invitations."
+            : "Could not create this invitation."
           : variables.action.type === "scope"
             ? "Could not update general access."
             : "Could not copy the share link.",
@@ -579,6 +575,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         />
       ) : activeSharePreparationIdentity ? (
         <SessionShareDraftContent
+          sessionId={activeSharePreparationIdentity.sessionId}
           disabled={
             managedNoteQuery.isLoading || !billing.isReady || !billing.isPaid
           }

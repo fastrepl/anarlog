@@ -11,7 +11,6 @@ import { type MutableRefObject, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
-import { Input } from "@anlg/ui/components/ui/input";
 import {
   AppFloatingPanel,
   PopoverContent,
@@ -35,10 +34,8 @@ import {
   type GeneralAccessTarget,
   type GeneralAccessValue,
 } from "./general-access";
-import {
-  isInviteEmail,
-  useSessionInvitationManagement,
-} from "./invitation-management";
+import { useSessionInvitationManagement } from "./invitation-management";
+import { ShareInviteForm, useShareInvite } from "./invite-recipients";
 import {
   copyPublicSessionShareUrl,
   copySessionShareUrl,
@@ -133,7 +130,7 @@ export function SessionSharePopoverContent({
     requireActiveContext,
     onChanged,
   });
-  const { inviteForm, inviteMutation } = useSessionInvitationManagement({
+  const { inviteMutation } = useSessionInvitationManagement({
     identity,
     managementAvailable: Boolean(management),
     canExpand,
@@ -332,24 +329,14 @@ export function SessionSharePopoverContent({
       : typeof ownerMetadata?.name === "string" && ownerMetadata.name
         ? ownerMetadata.name
         : ownerEmail || "You";
-  const existingEmails = new Set(
-    data?.access
-      .map((entry) => entry.userEmail?.toLowerCase())
-      .filter((email): email is string => Boolean(email)) ?? [],
-  );
-  const suggestedContacts = (query: string) => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized || isInviteEmail(normalized)) return [];
-    return humans
-      .filter(
-        (human) =>
-          human.email &&
-          !existingEmails.has(human.email.toLowerCase()) &&
-          human.email.toLowerCase() !== ownerEmail.toLowerCase() &&
-          `${human.name}\n${human.email}`.toLowerCase().includes(normalized),
-      )
-      .slice(0, 4);
-  };
+  const invite = useShareInvite({
+    sessionId,
+    ownerEmail,
+    invitedEmails:
+      data?.access
+        .map((entry) => entry.userEmail ?? "")
+        .filter((email) => Boolean(email)) ?? [],
+  });
 
   return (
     <PopoverContent
@@ -455,94 +442,14 @@ export function SessionSharePopoverContent({
                 <h3 id="invite-people-heading" className="sr-only">
                   <Trans>People with access</Trans>
                 </h3>
-                <form
-                  className="flex items-center gap-2"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void inviteForm.handleSubmit();
-                  }}
-                >
-                  <inviteForm.Field name="email">
-                    {(field) => (
-                      <Input
-                        type="text"
-                        aria-label="Invitee email"
-                        autoComplete="email"
-                        required
-                        value={field.state.value}
-                        disabled={!canPublish || inviteMutation.isPending}
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        placeholder="Email or name"
-                        className="h-8 min-w-0 flex-1 rounded-md text-xs"
-                      />
-                    )}
-                  </inviteForm.Field>
-                  <inviteForm.Subscribe
-                    selector={(state) => state.values.email}
-                  >
-                    {(email) => (
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={
-                          !canPublish ||
-                          !isInviteEmail(email) ||
-                          inviteMutation.isPending
-                        }
-                        className="h-8 shrink-0 rounded-md px-3"
-                      >
-                        {inviteMutation.isPending ? (
-                          <CircleNotch
-                            className="size-3.5 animate-spin"
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                        <Trans>Invite</Trans>
-                      </Button>
-                    )}
-                  </inviteForm.Subscribe>
-                </form>
-
-                <inviteForm.Subscribe selector={(state) => state.values.email}>
-                  {(query) => {
-                    const suggestions = suggestedContacts(query);
-                    return suggestions.length ? (
-                      <div className="mt-1 space-y-0.5 rounded-lg border p-1">
-                        {suggestions.map((contact) => {
-                          return (
-                            <button
-                              key={contact.id}
-                              type="button"
-                              className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1 text-left"
-                              onClick={() =>
-                                inviteForm.setFieldValue("email", contact.email)
-                              }
-                            >
-                              <ContactFacehash
-                                name={contact.name || contact.email}
-                                size={22}
-                              />
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-xs font-medium">
-                                  {contact.name || contact.email}
-                                </span>
-                                {contact.name ? (
-                                  <span className="text-muted-foreground block truncate text-[10px]">
-                                    {contact.email}
-                                  </span>
-                                ) : null}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null;
-                  }}
-                </inviteForm.Subscribe>
+                <ShareInviteForm
+                  invite={invite}
+                  disabled={!canPublish || inviteMutation.isPending}
+                  pending={inviteMutation.isPending}
+                  onSubmit={(emails) =>
+                    inviteMutation.mutate({ emails, capability: "viewer" })
+                  }
+                />
 
                 <div className="mt-2 space-y-0.5">
                   <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">

@@ -1,9 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, Copy } from "@phosphor-icons/react";
-import { useForm } from "@tanstack/react-form";
 
 import { Button } from "@anlg/ui/components/ui/button";
-import { Input } from "@anlg/ui/components/ui/input";
 import {
   AppFloatingPanel,
   PopoverContent,
@@ -13,37 +11,31 @@ import {
   GeneralAccessSelector,
   type GeneralAccessTarget,
 } from "./general-access";
-import { isInviteEmail } from "./invitation-management";
+import { ShareInviteForm, useShareInvite } from "./invite-recipients";
 import type { AvailableShareWorkspace } from "./source";
 
 import { useAuth } from "~/auth";
-import { useHumans } from "~/contacts/queries";
 import { ContactFacehash } from "~/contacts/shared";
 
 export type DraftShareAction =
-  | { type: "invite"; email: string }
+  | { type: "invite"; emails: string[] }
   | { type: "copy-link" }
   | { type: "scope"; target: GeneralAccessTarget };
 
 export function SessionShareDraftContent({
+  sessionId,
   disabled,
   pendingAction,
   workspaces,
   onAction,
 }: {
+  sessionId: string;
   disabled: boolean;
   pendingAction: DraftShareAction | null;
   workspaces: AvailableShareWorkspace[];
   onAction: (action: DraftShareAction) => void;
 }) {
   const auth = useAuth();
-  const humans = useHumans();
-  const form = useForm({
-    defaultValues: { email: "" },
-    onSubmit: ({ value }) => {
-      onAction({ type: "invite", email: value.email.trim() });
-    },
-  });
   const ownerEmail = auth.session?.user.email ?? "";
   const ownerMetadata = auth.session?.user.user_metadata;
   const ownerName =
@@ -52,18 +44,7 @@ export function SessionShareDraftContent({
       : typeof ownerMetadata?.name === "string" && ownerMetadata.name
         ? ownerMetadata.name
         : ownerEmail || "You";
-  const suggestedContacts = (query: string) => {
-    const normalized = query.trim().toLowerCase();
-    if (!normalized || isInviteEmail(normalized)) return [];
-    return humans
-      .filter(
-        (human) =>
-          human.email &&
-          human.email.toLowerCase() !== ownerEmail.toLowerCase() &&
-          `${human.name}\n${human.email}`.toLowerCase().includes(normalized),
-      )
-      .slice(0, 4);
-  };
+  const invite = useShareInvite({ sessionId, ownerEmail, invitedEmails: [] });
   const actionPending = pendingAction !== null;
   const generalAccessValue =
     pendingAction?.type === "scope" ? pendingAction.target : "restricted";
@@ -96,88 +77,12 @@ export function SessionShareDraftContent({
               <h3 id="invite-people-heading" className="sr-only">
                 <Trans>People with access</Trans>
               </h3>
-              <form
-                className="flex items-center gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  void form.handleSubmit();
-                }}
-              >
-                <form.Field name="email">
-                  {(field) => (
-                    <Input
-                      type="text"
-                      aria-label="Invitee email"
-                      autoComplete="email"
-                      required
-                      value={field.state.value}
-                      disabled={disabled || actionPending}
-                      onBlur={field.handleBlur}
-                      onChange={(event) =>
-                        field.handleChange(event.target.value)
-                      }
-                      placeholder="Email or name"
-                      className="h-8 min-w-0 flex-1 rounded-md text-xs"
-                    />
-                  )}
-                </form.Field>
-                <form.Subscribe selector={(state) => state.values.email}>
-                  {(email) => (
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={
-                        disabled || actionPending || !isInviteEmail(email)
-                      }
-                      className="h-8 shrink-0 rounded-md px-3"
-                    >
-                      {pendingAction?.type === "invite" ? (
-                        <CircleNotch
-                          className="size-3.5 animate-spin"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                      <Trans>Invite</Trans>
-                    </Button>
-                  )}
-                </form.Subscribe>
-              </form>
-
-              <form.Subscribe selector={(state) => state.values.email}>
-                {(query) => {
-                  const suggestions = suggestedContacts(query);
-                  return suggestions.length ? (
-                    <div className="mt-1 space-y-0.5 rounded-lg border p-1">
-                      {suggestions.map((contact) => (
-                        <button
-                          key={contact.id}
-                          type="button"
-                          className="hover:bg-accent flex w-full items-center gap-2 rounded-md px-2 py-1 text-left"
-                          onClick={() =>
-                            form.setFieldValue("email", contact.email)
-                          }
-                        >
-                          <ContactFacehash
-                            name={contact.name || contact.email}
-                            size={22}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-xs font-medium">
-                              {contact.name || contact.email}
-                            </span>
-                            {contact.name ? (
-                              <span className="text-muted-foreground block truncate text-[10px]">
-                                {contact.email}
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null;
-                }}
-              </form.Subscribe>
+              <ShareInviteForm
+                invite={invite}
+                disabled={disabled || actionPending}
+                pending={pendingAction?.type === "invite"}
+                onSubmit={(emails) => onAction({ type: "invite", emails })}
+              />
 
               <div className="mt-2 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
                 <ContactFacehash name={ownerName} size={24} />
