@@ -446,9 +446,20 @@ export function SessionSharePopoverContent({
                   invite={invite}
                   disabled={!canPublish || inviteMutation.isPending}
                   pending={inviteMutation.isPending}
-                  onSubmit={(emails) =>
-                    inviteMutation.mutate({ emails, capability: "viewer" })
-                  }
+                  onSubmit={(emails) => {
+                    inviteMutation.mutate(
+                      { emails, capability: "viewer" },
+                      {
+                        onSuccess: (deliveries) => {
+                          for (const delivery of deliveries) {
+                            if (delivery.deliveredBy) {
+                              invite.remove(delivery.email);
+                            }
+                          }
+                        },
+                      },
+                    );
+                  }}
                 />
 
                 <div className="mt-2 space-y-0.5">

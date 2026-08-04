@@ -1565,6 +1565,26 @@ describe("SessionShareButton", () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Invitations sent.");
   });
 
+  it("clears successfully invited participants from the field", async () => {
+    mocks.participants = [
+      { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
+    ];
+    renderShareButton();
+    await openSharePopover();
+
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Remove Sungbin Jo" }),
+      ).toBeNull(),
+    );
+    expect(
+      (screen.getByRole("button", { name: "Invite" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
   it("drops a removed participant from the invitation", async () => {
     mocks.managedNote = null;
     mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
