@@ -3,6 +3,7 @@ import { ArrowRight } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
+import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
 import { MANIFESTO_SIGNERS } from "@/lib/team";
 
 import { HeroSection } from "./hero-section";
@@ -70,7 +71,11 @@ export function HomePage({
                           className="block rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
                         >
                           <img
-                            src={member.avatar}
+                            src={getResizedImageUrl(member.avatar, {
+                              width: 30,
+                              height: 30,
+                            })}
+                            srcSet={getResizedImageSrcSet(member.avatar, 30)}
                             alt=""
                             width={30}
                             height={30}
@@ -87,7 +92,11 @@ export function HomePage({
                           role="img"
                         >
                           <img
-                            src={member.avatar}
+                            src={getResizedImageUrl(member.avatar, {
+                              width: 30,
+                              height: 30,
+                            })}
+                            srcSet={getResizedImageSrcSet(member.avatar, 30)}
                             alt=""
                             width={30}
                             height={30}

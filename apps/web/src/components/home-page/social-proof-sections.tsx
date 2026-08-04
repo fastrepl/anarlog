@@ -5,6 +5,8 @@ import { type CSSProperties, useState } from "react";
 
 import { cn } from "@anlg/utils";
 
+import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
+
 const credibilityLogos = [
   { name: "Databricks", src: "/icons/databricks.svg", className: "max-h-5" },
   { name: "Cloudflare", src: "/icons/cloudflare.png" },
@@ -165,9 +167,17 @@ function TestimonialTweetCard({
         <figcaption className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
             <img
-              src={testimonial.avatar}
+              src={getResizedImageUrl(testimonial.avatar, {
+                width: 48,
+                height: 48,
+              })}
+              srcSet={getResizedImageSrcSet(testimonial.avatar, 48)}
               alt={`${testimonial.author} profile photo`}
+              width={48}
+              height={48}
               className="size-12 rounded-full object-cover shadow-sm"
+              decoding="async"
+              loading="lazy"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-[#181613]">

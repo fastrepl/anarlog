@@ -8,6 +8,22 @@ const STORAGE_BUCKETS = {
 
 const SAFE_SEGMENT = /^[A-Za-z0-9._+\- ]+$/;
 
+const DEFAULT_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
+// Supabase sends `max-age=undefined` for objects uploaded without an explicit
+// cacheControl, which browsers reject and treat as uncacheable. Only forward an
+// upstream value when it actually parses.
+function getCacheControl(upstream: string | null) {
+  if (!upstream) return DEFAULT_CACHE_CONTROL;
+
+  const maxAge = upstream.match(/max-age=([^,\s]+)/i)?.[1];
+  if (maxAge && !/^\d+$/.test(maxAge)) {
+    return DEFAULT_CACHE_CONTROL;
+  }
+
+  return upstream;
+}
+
 function sanitizePath(raw: string | undefined): string[] | null {
   if (!raw) return null;
 
@@ -80,16 +96,14 @@ export const Route = createFileRoute("/api/assets/$")({
         }
 
         const contentType = response.headers.get("content-type");
-        const cacheControl = response.headers.get("cache-control");
 
-        const headers: HeadersInit = {};
+        const headers: HeadersInit = {
+          "Cache-Control": getCacheControl(
+            response.headers.get("cache-control"),
+          ),
+        };
         if (contentType) {
           headers["Content-Type"] = contentType;
-        }
-        if (cacheControl) {
-          headers["Cache-Control"] = cacheControl;
-        } else {
-          headers["Cache-Control"] = "public, max-age=31536000, immutable";
         }
 
         return new Response(response.body, {
