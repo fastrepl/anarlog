@@ -528,6 +528,7 @@ msgid "Cleaning up..."
 msgstr "Cleaning up..."
 
 #: src/contacts/shared.tsx
+#: src/sidebar/settings.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Clear search"
 msgstr "Clear search"
@@ -1589,6 +1590,7 @@ msgstr "No related notes found"
 
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/general/searchable-select.tsx
+#: src/sidebar/settings.tsx
 msgid "No results found."
 msgstr "No results found."
 
@@ -2071,6 +2073,10 @@ msgstr "Search or type owner/repo"
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Search people"
 msgstr "Search people"
+
+#: src/sidebar/settings.tsx
+msgid "Search settings..."
+msgstr "Search settings..."
 
 #: src/session/components/note-input/template-picker.tsx
 #: src/templates/template-sidebar.tsx

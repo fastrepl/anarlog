@@ -216,4 +216,61 @@ describe("SettingsNav", () => {
       { tab: "sync" },
     );
   });
+
+  it("filters nav items by search query", () => {
+    render(<SettingsNav />);
+
+    fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
+      target: { value: "appear" },
+    });
+
+    expect(screen.getByText("Appearance")).toBeTruthy();
+    expect(screen.queryByText("Meetings")).toBeNull();
+    expect(screen.queryByText("Developers")).toBeNull();
+  });
+
+  it("keeps a whole group visible when its label matches", () => {
+    render(<SettingsNav />);
+
+    fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
+      target: { value: "recording" },
+    });
+
+    ["Meetings", "Audio", "Transcription"].forEach((label) => {
+      expect(screen.getByText(label)).toBeTruthy();
+    });
+    expect(screen.queryByText("Appearance")).toBeNull();
+  });
+
+  it("shows an empty state when no settings match", () => {
+    render(<SettingsNav />);
+
+    fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
+      target: { value: "zzzzzz" },
+    });
+
+    expect(screen.getByText("No results found.")).toBeTruthy();
+  });
+
+  it("restores the full list when search is cleared", () => {
+    render(<SettingsNav />);
+
+    const input = screen.getByPlaceholderText("Search settings...");
+    fireEvent.change(input, { target: { value: "audio" } });
+    expect(screen.queryByText("Appearance")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+
+    expect(screen.getByText("Appearance")).toBeTruthy();
+  });
+
+  it("clears the search on Escape", () => {
+    render(<SettingsNav />);
+
+    const input = screen.getByPlaceholderText("Search settings...");
+    fireEvent.change(input, { target: { value: "audio" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(screen.getByText("Appearance")).toBeTruthy();
+  });
 });
