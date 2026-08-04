@@ -164,7 +164,7 @@ export function NotificationSettingsView() {
           <SettingSwitchRow
             title={<Trans>Event notifications</Trans>}
             description={
-              <Trans>Get notified 5 minutes before calendar events start</Trans>
+              <Trans>Prepare for events with a 5-minute reminder.</Trans>
             }
             checked={field.state.value}
             onChange={field.handleChange}
@@ -179,10 +179,7 @@ export function NotificationSettingsView() {
               <SettingSwitchRow
                 title={<Trans>Microphone detection</Trans>}
                 description={
-                  <Trans>
-                    Automatically detect when a meeting starts based on
-                    microphone activity.
-                  </Trans>
+                  <Trans>Detect meetings from microphone activity.</Trans>
                 }
                 checked={field.state.value}
                 onChange={field.handleChange}
@@ -199,7 +196,8 @@ export function NotificationSettingsView() {
                           </h4>
                           <p className="text-muted-foreground text-xs">
                             <Trans>
-                              How long the mic must be active before triggering
+                              Wait before treating microphone activity as a
+                              meeting.
                             </Trans>
                           </p>
                         </div>
@@ -231,8 +229,7 @@ export function NotificationSettingsView() {
                     </h4>
                     <p className="text-muted-foreground text-xs">
                       <Trans>
-                        Search installed apps to exclude them. Click an excluded
-                        app to include it again.
+                        Prevent selected apps from triggering meeting detection.
                       </Trans>
                     </p>
                   </div>
@@ -404,10 +401,7 @@ export function NotificationSettingsView() {
                   <SettingSwitchRow
                     title={<Trans>Respect Do-Not-Disturb mode</Trans>}
                     description={
-                      <Trans>
-                        Don't show notifications when Do-Not-Disturb is enabled
-                        on your system
-                      </Trans>
+                      <Trans>Pause alerts while Do Not Disturb is on.</Trans>
                     }
                     checked={field.state.value}
                     onChange={field.handleChange}

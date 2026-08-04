@@ -131,8 +131,7 @@ function CliSection({
             <div className="min-w-0">
               <h3 className="font-medium">Anarlog CLI</h3>
               <p className="text-muted-foreground mt-1 text-sm leading-5">
-                Browse notes, summaries, transcripts, and recurring meetings
-                from the command line. The MCP server is included.
+                Use Anarlog meetings from scripts and coding agents.
               </p>
               <CliStatus status={status} isLoading={isLoading} error={error} />
             </div>

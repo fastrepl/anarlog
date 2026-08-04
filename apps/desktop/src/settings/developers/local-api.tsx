@@ -71,9 +71,8 @@ export function LocalApiSection() {
             <div className="min-w-0">
               <h3 className="font-medium">Anarlog local API</h3>
               <p className="text-muted-foreground mt-1 text-sm leading-5">
-                Serve your meetings, notes, and transcripts over a local REST
-                API with API keys and outbound webhooks. Data never leaves this
-                device.
+                Connect local tools to your meetings without sending data
+                off-device.
               </p>
               <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
                 {running ? (
@@ -279,8 +278,7 @@ function WebhooksCard() {
         <h4 className="text-sm font-medium">Webhooks</h4>
       </div>
       <p className="text-muted-foreground mb-3 text-xs">
-        Anarlog sends signed events when a meeting ends and when a summary is
-        generated.
+        Receive signed events when meetings end or summaries are ready.
       </p>
 
       <form

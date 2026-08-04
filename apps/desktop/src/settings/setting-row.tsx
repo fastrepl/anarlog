@@ -1,6 +1,7 @@
 import { type ReactNode, useId } from "react";
 
 import { Switch } from "@anlg/ui/components/ui/switch";
+import { cn } from "@anlg/utils";
 
 export const SETTING_CONTROL_CLASS =
   "bg-card h-9 w-full shadow-none focus:ring-0";
@@ -8,10 +9,12 @@ export const SETTING_CONTROL_CLASS =
 export function SettingRow({
   title,
   description,
+  controlWidth = "fixed",
   children,
 }: {
   title: ReactNode;
   description?: ReactNode;
+  controlWidth?: "fixed" | "content";
   children: (labelProps: {
     "aria-labelledby": string;
     "aria-describedby": string | undefined;
@@ -32,7 +35,12 @@ export function SettingRow({
           </p>
         )}
       </div>
-      <div className="flex w-48 shrink-0 justify-end">
+      <div
+        className={cn([
+          "flex shrink-0 justify-end",
+          controlWidth === "fixed" && "w-48",
+        ])}
+      >
         {children({
           "aria-labelledby": titleId,
           "aria-describedby": description ? descriptionId : undefined,
@@ -56,7 +64,7 @@ export function SettingSwitchRow({
   disabled?: boolean;
 }) {
   return (
-    <SettingRow title={title} description={description}>
+    <SettingRow title={title} description={description} controlWidth="content">
       {(labelProps) => (
         <Switch
           {...labelProps}

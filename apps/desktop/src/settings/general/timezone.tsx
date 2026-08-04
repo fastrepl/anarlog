@@ -55,9 +55,7 @@ export function TimezoneSelector() {
   return (
     <SettingRow
       title={<Trans>Timezone</Trans>}
-      description={
-        <Trans>Override the timezone used for the sidebar timeline</Trans>
-      }
+      description={<Trans>Show the timeline in your preferred timezone.</Trans>}
     >
       {(labelProps) => (
         <SearchableSelect

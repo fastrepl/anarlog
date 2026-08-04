@@ -81,10 +81,7 @@ export function SettingsAccount() {
           <Container
             title={<Trans>Finish sign-in</Trans>}
             description={
-              <Trans>
-                Complete the sign-in flow in your browser, then come back here
-                if Anarlog does not reconnect automatically.
-              </Trans>
+              <Trans>Finish in your browser, then return to Anarlog.</Trans>
             }
             action={
               <Button onClick={handleSignIn} variant="outline">
@@ -94,8 +91,7 @@ export function SettingsAccount() {
           >
             <p className="text-muted-foreground text-xs">
               <Trans>
-                If the browser does not reopen Anarlog, use the paste-link
-                fallback in the sign-in instruction window.
+                If Anarlog stays closed, paste the link in the sign-in window.
               </Trans>
             </p>
           </Container>
@@ -115,8 +111,7 @@ export function SettingsAccount() {
                 </h3>
                 <div className="text-muted-foreground text-sm">
                   <Trans>
-                    Sign in to unlock cloud transcription and AI models, plus
-                    Pro features like sharing.
+                    Sign in for cloud transcription, AI models, and sharing.
                   </Trans>
                 </div>
               </div>

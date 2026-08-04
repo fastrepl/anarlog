@@ -56,10 +56,7 @@ export function AppIconSelector() {
           <Trans>App icon</Trans>
         </h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>
-            Pick the icon Anarlog shows in the Dock and app switcher. Changes
-            apply immediately.
-          </Trans>
+          <Trans>Choose how Anarlog appears in the Dock.</Trans>
         </p>
       </div>
       <div

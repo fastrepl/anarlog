@@ -38,10 +38,7 @@ export function ThemeSelector() {
           <Trans>Theme</Trans>
         </h3>
         <p className="text-muted-foreground mt-1 text-sm">
-          <Trans>
-            Choose the color theme Anarlog uses on this device. Changes apply
-            immediately.
-          </Trans>
+          <Trans>Choose how Anarlog looks on this device.</Trans>
         </p>
       </div>
       <div

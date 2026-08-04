@@ -84,8 +84,7 @@ export function CloudApiSection() {
             <div className="min-w-0">
               <h3 className="font-medium">Hosted access for agents</h3>
               <p className="text-muted-foreground mt-1 text-sm leading-5">
-                Access your meetings through the hosted REST API and remote MCP
-                even when Anarlog is not running.
+                Give remote agents meeting context while Anarlog is closed.
               </p>
               <p className="text-muted-foreground mt-2 text-xs leading-5">
                 Enabling this uploads a separate server-readable copy of meeting

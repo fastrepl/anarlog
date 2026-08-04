@@ -48,7 +48,7 @@ export function SettingsAutomations() {
     {
       id: "slack-recap",
       title: t`Share a meeting recap in Slack`,
-      description: t`Create a canvas from the meeting notes and post it to a channel.`,
+      description: t`Post a meeting recap to a Slack channel.`,
       icon: SlackLogo,
       steps: [
         {
@@ -64,7 +64,7 @@ export function SettingsAutomations() {
         {
           kind: "action",
           title: t`Create a Slack canvas`,
-          detail: t`Write the recap and include a link to the Anarlog note.`,
+          detail: t`Write the recap with a link to the Anarlog note.`,
         },
         {
           kind: "action",
@@ -72,12 +72,12 @@ export function SettingsAutomations() {
           detail: t`Send the canvas link to the selected Slack channel.`,
         },
       ],
-      preview: t`A Slack canvas with the recap, decisions, action items, and a link to the original note.`,
+      preview: t`A Slack canvas with the recap and source note.`,
     },
     {
       id: "notion-project-notes",
       title: t`Update project notes in Notion`,
-      description: t`Merge decisions and follow-ups into a project page after each meeting.`,
+      description: t`Add meeting decisions and follow-ups to a Notion project.`,
       icon: NotionLogo,
       steps: [
         {
@@ -98,15 +98,15 @@ export function SettingsAutomations() {
         {
           kind: "action",
           title: t`Append the meeting update`,
-          detail: t`Add a dated section and link back to the Anarlog note.`,
+          detail: t`Add a dated update linked to the Anarlog note.`,
         },
       ],
-      preview: t`A dated Notion update containing decisions, owners, deadlines, and the source-note link.`,
+      preview: t`A dated Notion update with decisions and owners.`,
     },
     {
       id: "linear-action-items",
       title: t`Turn action items into Linear issues`,
-      description: t`Extract assigned follow-ups and prepare issues for a Linear team.`,
+      description: t`Turn assigned follow-ups into Linear issue drafts.`,
       icon: ListChecks,
       steps: [
         {
@@ -117,7 +117,7 @@ export function SettingsAutomations() {
         {
           kind: "ai",
           title: t`Extract assigned action items`,
-          detail: t`Keep only concrete work with an owner or clear next step.`,
+          detail: t`Keep concrete work with an owner or next step.`,
         },
         {
           kind: "action",
@@ -125,12 +125,12 @@ export function SettingsAutomations() {
           detail: t`Map titles, descriptions, owners, and the source-note link.`,
         },
       ],
-      preview: t`A reviewable set of Linear issue drafts sourced from concrete meeting follow-ups.`,
+      preview: t`Linear issue drafts from assigned meeting follow-ups.`,
     },
     {
       id: "markdown-export",
       title: t`Export every meeting as Markdown`,
-      description: t`Save a stable local copy of the transcript and summary when a meeting finishes.`,
+      description: t`Save completed meetings as local Markdown files.`,
       icon: FolderSimple,
       steps: [
         {
@@ -149,7 +149,7 @@ export function SettingsAutomations() {
           detail: t`Use a stable filename in the configured export directory.`,
         },
       ],
-      preview: t`A stable Markdown file containing meeting metadata, notes, summary, and transcript.`,
+      preview: t`A Markdown file with the note, summary, and transcript.`,
     },
   ] as const;
   const initialDraftId =
@@ -188,8 +188,7 @@ export function SettingsAutomations() {
           </div>
           <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
             <Trans>
-              Describe an outcome in Chat, then inspect the deterministic steps
-              and data flow before anything runs.
+              Describe an outcome in Chat, then review before it runs.
             </Trans>
           </p>
         </div>
@@ -201,7 +200,7 @@ export function SettingsAutomations() {
             <Trans>Start with an example</Trans>
           </h3>
           <p className="text-muted-foreground mt-1 text-xs">
-            <Trans>Choose one to create an inspectable draft.</Trans>
+            <Trans>Create a draft you can review before saving.</Trans>
           </p>
         </div>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
@@ -383,10 +382,7 @@ export function SettingsAutomations() {
             <Trans>No automation draft yet</Trans>
           </h3>
           <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
-            <Trans>
-              Choose a starter above, or describe what you want to automate in
-              Chat on the right.
-            </Trans>
+            <Trans>Choose a starter or describe an automation in Chat.</Trans>
           </p>
         </section>
       )}

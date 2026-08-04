@@ -116,7 +116,7 @@ export function SpokenLanguagesView({
         <Trans>Additional spoken languages</Trans>
       </h3>
       <p className="text-muted-foreground mb-3 text-xs">
-        <Trans>The main language is always included for transcription</Trans>
+        <Trans>Transcribe meetings that use more than one language.</Trans>
       </p>
       <div className="relative">
         <div

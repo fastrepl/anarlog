@@ -72,6 +72,15 @@ describe("AppSettingsView", () => {
     expect(screen.getByText("Show floating bar")).toBeTruthy();
   });
 
+  it("lets switch descriptions use the available row width", () => {
+    renderAppSettings();
+
+    expect(
+      screen.getByRole("switch", { name: "Start Anarlog at login" })
+        .parentElement?.className,
+    ).not.toContain("w-48");
+  });
+
   it("hides macOS-only Dock controls outside macOS", () => {
     mocks.platform.mockReturnValue("windows");
     renderAppSettings();
@@ -79,9 +88,7 @@ describe("AppSettingsView", () => {
     expect(
       screen.queryByRole("switch", { name: "Show app in Dock" }),
     ).toBeNull();
-    expect(
-      screen.queryByText("Keep Anarlog available from the menu bar."),
-    ).toBeNull();
+    expect(screen.queryByText("Open Anarlog from the menu bar.")).toBeNull();
     expect(
       screen.queryByText("Post recording disclosure in meeting chat"),
     ).toBeNull();
@@ -101,7 +108,7 @@ describe("AppSettingsView", () => {
 
     expect(automaticUpdates.onChange).toHaveBeenCalledWith(true);
     expect(
-      screen.getByText(/install them the next time Anarlog opens/),
+      screen.getByText(/installed the next time Anarlog opens/),
     ).toBeTruthy();
   });
 
@@ -134,24 +141,19 @@ describe("AppSettingsView", () => {
     expect(meetingDisclosureAutoPost.onChange).toHaveBeenCalledWith(true);
   });
 
-  it("discloses Accessibility-based meeting chat capture", () => {
+  it("describes Accessibility-based meeting chat capture", () => {
     renderAppSettings();
 
     expect(screen.getByText("Capture meeting chat in Memos")).toBeTruthy();
     expect(
-      screen.getByText(/supported meeting apps and browser meetings/),
+      screen.getByText(/supported meetings using Accessibility/),
     ).toBeTruthy();
   });
 
   it("clarifies that a recording disclosure does not confirm consent", () => {
     renderAppSettings();
 
-    expect(
-      screen.getByText(/active meeting chat supports safe posting/),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(/A disclosure does not confirm participant consent/),
-    ).toBeTruthy();
+    expect(screen.getByText(/does not confirm consent/)).toBeTruthy();
   });
 
   it("shows the microphone selector with the system default selected", () => {

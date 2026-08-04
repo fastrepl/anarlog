@@ -309,8 +309,7 @@ export function SettingsSync() {
               </h3>
               <p className="text-muted-foreground mt-1 text-xs leading-5">
                 <Trans>
-                  Keep notes end-to-end encrypted and up to date across your
-                  signed-in devices.
+                  Keep notes encrypted and synced across your devices.
                 </Trans>
               </p>
             </div>
@@ -475,7 +474,7 @@ export function SettingsSync() {
 
         <div className="flex items-center justify-between gap-4">
           <p className="text-muted-foreground text-xs">
-            <Trans>Sync runs automatically in the background.</Trans>
+            <Trans>Keep notes current automatically.</Trans>
           </p>
           <Button
             variant="outline"
@@ -552,10 +551,7 @@ export function SettingsSync() {
             </h3>
             <p className="text-muted-foreground mt-1 text-xs leading-5">
               {e2eeIdentityQuery.data?.configured ? (
-                <Trans>
-                  Your recovery key encrypts synced notes before they leave this
-                  device. Anarlog cannot read them.
-                </Trans>
+                <Trans>Keep synced notes readable only on your devices.</Trans>
               ) : canRepairKeychainAccess ? (
                 <Trans>
                   macOS could not access your recovery key. Repair Keychain

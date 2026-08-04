@@ -168,7 +168,9 @@ describe("SettingsSync", () => {
     expect(await screen.findByText("Synced")).toBeTruthy();
     expect(screen.getByRole("switch", { name: "Cloud sync" })).toBeTruthy();
     expect(screen.getByText("End-to-end encryption")).toBeTruthy();
-    expect(screen.getByText(/Anarlog cannot read them/)).toBeTruthy();
+    expect(
+      screen.getByText(/Keep synced notes readable only on your devices/),
+    ).toBeTruthy();
     expect(screen.queryByText(/conflicted copies/)).toBeNull();
   });
 

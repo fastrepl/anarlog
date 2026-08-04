@@ -238,7 +238,7 @@ export function SelectProviderAndModel() {
     settingsReady,
   });
   const alertDescription = showMissingModelWarning
-    ? t`Language model is needed to make Anarlog summarize and chat about your conversations.`
+    ? t`Choose a language model for summaries and chat.`
     : providerSettingsReady &&
         settingsReady &&
         !isResolvingSelection &&

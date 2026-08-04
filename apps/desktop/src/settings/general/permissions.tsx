@@ -153,7 +153,7 @@ function AudioPermissions({
       <PermissionRow
         permission="microphone"
         title={t`Microphone`}
-        description={t`Required to record your voice during meetings and calls`}
+        description={t`Record your voice in meetings and calls.`}
         status={mic.status}
         isPending={mic.isPending}
         error={mic.error}
@@ -164,7 +164,7 @@ function AudioPermissions({
       <PermissionRow
         permission="system_audio"
         title={t`System audio`}
-        description={t`Required to capture other participants' voices in meetings`}
+        description={t`Record other participants in meetings.`}
         status={systemAudio.status}
         isPending={systemAudio.isPending}
         error={systemAudio.error}
@@ -194,7 +194,7 @@ function MacOSPermissions() {
       <PermissionRow
         permission="accessibility"
         title={t`Accessibility`}
-        description={t`Required to read meeting controls, visible chat, and participant status`}
+        description={t`Read meeting controls, chat, and participant status.`}
         status={accessibility.status}
         isPending={accessibility.isPending}
         onRequest={accessibility.request}
@@ -205,7 +205,7 @@ function MacOSPermissions() {
         <PermissionRow
           permission="calendar"
           title={t`Calendar`}
-          description={t`Required to sync Apple Calendar events into Anarlog`}
+          description={t`Show Apple Calendar events in Anarlog.`}
           status={calendar.status}
           isPending={calendar.isPending}
           onRequest={calendar.request}

@@ -69,9 +69,7 @@ export function AppSettingsView({
         <div className="flex flex-col gap-4">
           <SettingSwitchRow
             title={<Trans>Start Anarlog at login</Trans>}
-            description={
-              <Trans>Always ready without manually launching.</Trans>
-            }
+            description={<Trans>Have Anarlog ready when you sign in.</Trans>}
             checked={autostart.value}
             onChange={autostart.onChange}
           />
@@ -79,8 +77,7 @@ export function AppSettingsView({
             title={<Trans>Automatically install updates</Trans>}
             description={
               <Trans>
-                Download updates in the background and install them the next
-                time Anarlog opens.
+                Stay current with updates installed the next time Anarlog opens.
               </Trans>
             }
             checked={automaticUpdates.value}
@@ -100,7 +97,7 @@ export function AppSettingsView({
             title={<Trans>Show tray icon</Trans>}
             description={
               isMacos ? (
-                <Trans>Keep Anarlog available from the menu bar.</Trans>
+                <Trans>Open Anarlog from the menu bar.</Trans>
               ) : undefined
             }
             checked={showTrayIcon.value}
@@ -117,10 +114,7 @@ export function AppSettingsView({
           <SettingSwitchRow
             title={<Trans>Start when meeting begins</Trans>}
             description={
-              <Trans>
-                Automatically start listening when an event-backed note reaches
-                its scheduled start time.
-              </Trans>
+              <Trans>Start listening when a scheduled meeting begins.</Trans>
             }
             checked={autoStartScheduledMeetings.value}
             onChange={autoStartScheduledMeetings.onChange}
@@ -128,10 +122,7 @@ export function AppSettingsView({
           <SettingSwitchRow
             title={<Trans>Join scheduled meetings</Trans>}
             description={
-              <Trans>
-                Automatically open the meeting link when scheduled listening
-                starts.
-              </Trans>
+              <Trans>Open the meeting link when listening starts.</Trans>
             }
             checked={autoJoinScheduledMeetings.value}
             onChange={autoJoinScheduledMeetings.onChange}
@@ -140,12 +131,7 @@ export function AppSettingsView({
           {supportsMicDetection && (
             <SettingSwitchRow
               title={<Trans>Stop when meeting ends</Trans>}
-              description={
-                <Trans>
-                  Automatically stop listening when the meeting app releases the
-                  microphone.
-                </Trans>
-              }
+              description={<Trans>Stop listening when your call ends.</Trans>}
               checked={autoStopMeetings.value}
               onChange={autoStopMeetings.onChange}
             />
@@ -156,10 +142,8 @@ export function AppSettingsView({
                 title={<Trans>Post recording disclosure in meeting chat</Trans>}
                 description={
                   <Trans>
-                    Automatically post a disclosure after listening starts when
-                    the active meeting chat supports safe posting. Posting
-                    failure does not stop listening. A disclosure does not
-                    confirm participant consent.
+                    Tell participants when listening starts; this does not
+                    confirm consent.
                   </Trans>
                 }
                 checked={meetingDisclosureAutoPost.value}
@@ -169,9 +153,8 @@ export function AppSettingsView({
                 title={<Trans>Capture meeting chat in Memos</Trans>}
                 description={
                   <Trans>
-                    While listening, use Accessibility access to copy visible
-                    chat from supported meeting apps and browser meetings into
-                    the active note.
+                    Save visible chat from supported meetings using
+                    Accessibility.
                   </Trans>
                 }
                 checked={captureMeetingChat.value}
@@ -183,9 +166,7 @@ export function AppSettingsView({
             <SettingSwitchRow
               title={<Trans>Show floating bar</Trans>}
               description={
-                <Trans>
-                  Show the compact floating control while listening.
-                </Trans>
+                <Trans>Control listening without reopening Anarlog.</Trans>
               }
               checked={floatingBar.value}
               onChange={floatingBar.onChange}
@@ -211,9 +192,7 @@ export function AppSettingsView({
           <SettingSwitchRow
             title={<Trans>Share usage data</Trans>}
             description={
-              <Trans>
-                Send anonymous usage analytics to help improve Anarlog.
-              </Trans>
+              <Trans>Help improve Anarlog with anonymous usage data.</Trans>
             }
             checked={telemetryConsent.value}
             onChange={telemetryConsent.onChange}
@@ -247,7 +226,9 @@ function MicrophoneRow({
   return (
     <SettingRow
       title={<Trans>Microphone</Trans>}
-      description={<Trans>Use your microphone to capture your voice</Trans>}
+      description={
+        <Trans>Choose the microphone that captures your voice.</Trans>
+      }
     >
       {(labelProps) => (
         <Select
@@ -311,7 +292,7 @@ function AudioRetentionRow({
     <SettingRow
       title={<Trans>Audio file retention</Trans>}
       description={
-        <Trans>How long recorded meeting audio is kept on this device.</Trans>
+        <Trans>Choose how long recordings stay on this device.</Trans>
       }
     >
       {(labelProps) => (

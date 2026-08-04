@@ -93,7 +93,7 @@ describe("SettingsAutomations", () => {
 
     expect(screen.getByText("Expected output")).toBeTruthy();
     expect(
-      screen.getByText(/A Slack canvas with the recap, decisions/),
+      screen.getByText(/A Slack canvas with the recap and source note/),
     ).toBeTruthy();
   });
 

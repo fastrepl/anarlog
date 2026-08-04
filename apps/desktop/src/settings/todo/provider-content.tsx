@@ -145,7 +145,7 @@ function OAuthTodoProviderContent({ config }: { config: TodoProvider }) {
         <TodoFilterField
           settingKey={filterSettingKey}
           label={config.filterLabel ?? "Repository"}
-          description={t`Filter synced items by ${(config.filterLabel ?? "repository").toLowerCase()}.`}
+          description={t`Only sync items from this ${(config.filterLabel ?? "repository").toLowerCase()}.`}
           placeholder={config.filterPlaceholder ?? ""}
         />
       ) : null}

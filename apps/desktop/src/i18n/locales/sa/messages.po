@@ -60,19 +60,15 @@ msgid "3 days"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "A dated Notion update containing decisions, owners, deadlines, and the source-note link."
+msgid "A dated Notion update with decisions and owners."
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "A reviewable set of Linear issue drafts sourced from concrete meeting follow-ups."
+msgid "A Markdown file with the note, summary, and transcript."
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "A Slack canvas with the recap, decisions, action items, and a link to the original note."
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "A stable Markdown file containing meeting metadata, notes, summary, and transcript."
+msgid "A Slack canvas with the recap and source note."
 msgstr ""
 
 #: src/templates/template-sidebar.tsx
@@ -129,7 +125,7 @@ msgid "Add {0} in System Settings > General > Language & Region to transcribe wi
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Add a dated section and link back to the Anarlog note."
+msgid "Add a dated update linked to the Anarlog note."
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -143,6 +139,10 @@ msgstr ""
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
 msgstr "भाषा योजयतु"
+
+#: src/settings/automations/index.tsx
+msgid "Add meeting decisions and follow-ups to a Notion project."
+msgstr ""
 
 #: src/settings/dictionary/index.tsx
 msgid "Add names, jargon, and product terms to improve transcription."
@@ -195,10 +195,6 @@ msgstr ""
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
 msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "Always ready without manually launching."
-msgstr "हस्तेन प्रक्षेपणं विना सर्वदा सज्जम्।"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Anagram"
@@ -364,29 +360,9 @@ msgstr ""
 msgid "Auto summary prompt"
 msgstr ""
 
-#: src/settings/general/notification.tsx
-msgid "Automatically detect when a meeting starts based on microphone activity."
-msgstr ""
-
 #: src/settings/general/app-settings.tsx
 msgid "Automatically install updates"
 msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "Automatically open the meeting link when scheduled listening starts."
-msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "Automatically post a disclosure after listening starts when the active meeting chat supports safe posting. Posting failure does not stop listening. A disclosure does not confirm participant consent."
-msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "Automatically start listening when an event-backed note reaches its scheduled start time."
-msgstr "यदा घटना-समर्थित-टिप्पणी स्वस्य निर्धारित-प्रारम्भसमयं प्राप्नोति तदा स्वयमेव श्रोतुं आरभत ।"
-
-#: src/settings/general/app-settings.tsx
-msgid "Automatically stop listening when the meeting app releases the microphone."
-msgstr "यदा सभा-अनुप्रयोगः माइक्रोफोनं मुक्तं करोति तदा स्वयमेव श्रवणं स्थगयति ।"
 
 #: src/settings/automations/index.tsx
 msgid "Automation draft saved"
@@ -483,16 +459,32 @@ msgstr ""
 msgid "Choose a file format and what to include."
 msgstr ""
 
+#: src/settings/ai/llm/select.tsx
+msgid "Choose a language model for summaries and chat."
+msgstr ""
+
 #: src/settings/automations/index.tsx
-msgid "Choose a starter above, or describe what you want to automate in Chat on the right."
+msgid "Choose a starter or describe an automation in Chat."
+msgstr ""
+
+#: src/settings/ai/stt/select.tsx
+msgid "Choose a transcription model to start listening."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Choose one to create an inspectable draft."
+#: src/settings/appearance/app-icon.tsx
+msgid "Choose how Anarlog appears in the Dock."
+msgstr ""
+
+#: src/settings/appearance/theme.tsx
+msgid "Choose how Anarlog looks on this device."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Choose how long recordings stay on this device."
 msgstr ""
 
 #: src/onboarding/folder-location.tsx
@@ -503,8 +495,12 @@ msgstr ""
 msgid "Choose template icon"
 msgstr ""
 
-#: src/settings/appearance/theme.tsx
-msgid "Choose the color theme Anarlog uses on this device. Changes apply immediately."
+#: src/settings/general/app-settings.tsx
+msgid "Choose the microphone that captures your voice."
+msgstr ""
+
+#: src/settings/general/week-start.tsx
+msgid "Choose which day begins your calendar week."
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -652,10 +648,6 @@ msgstr ""
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr ""
 
-#: src/settings/general/account.tsx
-msgid "Complete the sign-in flow in your browser, then come back here if Anarlog does not reconnect automatically."
-msgstr ""
-
 #: src/instruction/index.tsx
 msgid "Complete your purchase"
 msgstr ""
@@ -728,6 +720,10 @@ msgstr ""
 msgid "Continuing without trial"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "Control listening without reopening Anarlog."
+msgstr ""
+
 #: src/session-sharing/management-panel.tsx
 msgid "Copy link"
 msgstr ""
@@ -749,7 +745,7 @@ msgid "Could not start trial"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Create a canvas from the meeting notes and post it to a channel."
+msgid "Create a draft you can review before saving."
 msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
@@ -846,11 +842,15 @@ msgid "Deny"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Describe an outcome in Chat, then inspect the deterministic steps and data flow before anything runs."
+msgid "Describe an outcome in Chat, then review before it runs."
 msgstr ""
 
 #: src/templates/template-form.tsx
 msgid "Describe the template purpose..."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Detect meetings from microphone activity."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -882,10 +882,6 @@ msgstr ""
 msgid "Don't save"
 msgstr ""
 
-#: src/settings/general/notification.tsx
-msgid "Don't show notifications when Do-Not-Disturb is enabled on your system"
-msgstr ""
-
 #: src/session-sharing/index.tsx
 msgid "Done"
 msgstr ""
@@ -896,10 +892,6 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Download recovery key (.txt)"
-msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "Download updates in the background and install them the next time Anarlog opens."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -1010,10 +1002,6 @@ msgid "Extract assigned action items"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Extract assigned follow-ups and prepare issues for a Linear team."
-msgstr ""
-
-#: src/settings/automations/index.tsx
 msgid "Extract project updates"
 msgstr ""
 
@@ -1045,11 +1033,6 @@ msgstr ""
 msgid "File format"
 msgstr ""
 
-#. placeholder {0}: (config.filterLabel ?? "repository").toLowerCase()
-#: src/settings/todo/provider-content.tsx
-msgid "Filter synced items by {0}."
-msgstr ""
-
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
 msgstr ""
@@ -1063,11 +1046,11 @@ msgid "Finish checkout in your browser, then return to Anarlog."
 msgstr ""
 
 #: src/settings/general/account.tsx
-msgid "Finish sign-in"
+msgid "Finish in your browser, then return to Anarlog."
 msgstr ""
 
-#: src/settings/general/week-start.tsx
-msgid "First day of the week in the calendar view"
+#: src/settings/general/account.tsx
+msgid "Finish sign-in"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -1119,10 +1102,6 @@ msgstr ""
 msgid "Generating title..."
 msgstr ""
 
-#: src/settings/general/notification.tsx
-msgid "Get notified 5 minutes before calendar events start"
-msgstr ""
-
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Get Pro"
 msgstr ""
@@ -1156,6 +1135,10 @@ msgstr ""
 msgid "Got it"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "Have Anarlog ready when you sign in."
+msgstr ""
+
 #: src/calendar/components/apple/permission.tsx
 msgid "Having trouble?"
 msgstr ""
@@ -1172,6 +1155,10 @@ msgstr ""
 msgid "Help Anarlog read meeting activity"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "Help improve Anarlog with anonymous usage data."
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "Hide Deleted Events"
 msgstr ""
@@ -1184,14 +1171,6 @@ msgstr ""
 #. placeholder {1}: history.total
 #: src/chat/components/input/index.tsx
 msgid "History {0}/{1}"
-msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "How long recorded meeting audio is kept on this device."
-msgstr ""
-
-#: src/settings/general/notification.tsx
-msgid "How long the mic must be active before triggering"
 msgstr ""
 
 #: src/contacts/humans.tsx
@@ -1211,7 +1190,7 @@ msgid "Identify decisions, owners, deadlines, and unresolved questions."
 msgstr ""
 
 #: src/settings/general/account.tsx
-msgid "If the browser does not reopen Anarlog, use the paste-link fallback in the sign-in instruction window."
+msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr ""
 
 #: src/sidebar/timeline/upcoming-meeting.ts
@@ -1267,8 +1246,8 @@ msgstr ""
 msgid "Join scheduled meetings"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx
-msgid "Keep Anarlog available from the menu bar."
+#: src/settings/automations/index.tsx
+msgid "Keep concrete work with an owner or next step."
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -1276,24 +1255,20 @@ msgid "Keep desktop edits"
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Keep notes end-to-end encrypted and up to date across your signed-in devices."
+msgid "Keep notes current automatically."
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Keep only concrete work with an owner or clear next step."
+#: src/settings/sync/index.tsx
+msgid "Keep notes encrypted and synced across your devices."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Keep synced notes readable only on your devices."
 msgstr ""
 
 #: src/settings/general/index.tsx
 msgid "Language & Region"
 msgstr "भाषा एवं क्षेत्र"
-
-#: src/settings/general/main-language.tsx
-msgid "Language for summaries, chats, and AI-generated responses"
-msgstr "सारांशानां, गपशपानां, एआइ-जनितप्रतिसादानां च भाषा"
-
-#: src/settings/ai/llm/select.tsx
-msgid "Language model is needed to make Anarlog summarize and chat about your conversations."
-msgstr ""
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
 #: src/main/sync-status.tsx
@@ -1311,6 +1286,10 @@ msgstr ""
 
 #: src/settings/appearance/theme.tsx
 msgid "Light"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Linear issue drafts from assigned meeting follow-ups."
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -1426,10 +1405,6 @@ msgstr ""
 
 #: src/session/components/note-input/header-raw.tsx
 msgid "Memos"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Merge decisions and follow-ups into a project page after each meeting."
 msgstr ""
 
 #: src/task/resource-view.tsx
@@ -1636,6 +1611,11 @@ msgstr ""
 msgid "Only public repositories are supported."
 msgstr ""
 
+#. placeholder {0}: (config.filterLabel ?? "repository").toLowerCase()
+#: src/settings/todo/provider-content.tsx
+msgid "Only sync items from this {0}."
+msgstr ""
+
 #: src/calendar/components/apple/permission.tsx
 #: src/task/resource-view.tsx
 msgid "Open"
@@ -1651,6 +1631,10 @@ msgstr ""
 
 #: src/onboarding/final.tsx
 msgid "Open Anarlog"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Open Anarlog from the menu bar."
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -1682,6 +1666,10 @@ msgstr ""
 msgid "Open repository on GitHub"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "Open the meeting link when listening starts."
+msgstr ""
+
 #: src/session-sharing/management-panel.tsx
 msgid "Open web copy"
 msgstr ""
@@ -1708,10 +1696,6 @@ msgstr ""
 msgid "Others"
 msgstr ""
 
-#: src/settings/general/timezone.tsx
-msgid "Override the timezone used for the sidebar timeline"
-msgstr ""
-
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/templates/auto-form.tsx
@@ -1720,6 +1704,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Pause alerts while Do Not Disturb is on."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -1752,16 +1740,16 @@ msgstr ""
 msgid "Phone"
 msgstr ""
 
-#: src/settings/appearance/app-icon.tsx
-msgid "Pick the icon Anarlog shows in the Dock and app switcher. Changes apply immediately."
-msgstr ""
-
 #: src/settings/general/account.tsx
 msgid "Plan & Billing"
 msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "Plans"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Post a meeting recap to a Slack channel."
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -1772,12 +1760,20 @@ msgstr ""
 msgid "Post to a channel"
 msgstr ""
 
+#: src/settings/general/notification.tsx
+msgid "Prepare for events with a 5-minute reminder."
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Prepare Linear issues"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Preparing transcript..."
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Prevent selected apps from triggering meeting detection."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -1813,6 +1809,10 @@ msgstr ""
 msgid "Protect cloud sync"
 msgstr ""
 
+#: src/settings/general/permissions.tsx
+msgid "Read meeting controls, chat, and participant status."
+msgstr ""
+
 #: src/onboarding/permissions.tsx
 msgid "Read meeting controls, visible chat, and participant status"
 msgstr ""
@@ -1832,6 +1832,14 @@ msgstr ""
 
 #: src/session/components/outer-header/index.tsx
 msgid "Record"
+msgstr ""
+
+#: src/settings/general/permissions.tsx
+msgid "Record other participants in meetings."
+msgstr ""
+
+#: src/settings/general/permissions.tsx
+msgid "Record your voice in meetings and calls."
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -1913,22 +1921,6 @@ msgstr ""
 msgid "Request {0} permission"
 msgstr ""
 
-#: src/settings/general/permissions.tsx
-msgid "Required to capture other participants' voices in meetings"
-msgstr ""
-
-#: src/settings/general/permissions.tsx
-msgid "Required to read meeting controls, visible chat, and participant status"
-msgstr ""
-
-#: src/settings/general/permissions.tsx
-msgid "Required to record your voice during meetings and calls"
-msgstr ""
-
-#: src/settings/general/permissions.tsx
-msgid "Required to sync Apple Calendar events into Anarlog"
-msgstr ""
-
 #: src/calendar/components/apple/permission.tsx
 msgid "Reset"
 msgstr ""
@@ -1987,7 +1979,7 @@ msgid "Save & enable"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Save a stable local copy of the transcript and summary when a meeting finishes."
+msgid "Save completed meetings as local Markdown files."
 msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
@@ -2000,6 +1992,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Save visible chat from supported meetings using Accessibility."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -2017,10 +2013,6 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "Search icons..."
-msgstr ""
-
-#: src/settings/general/notification.tsx
-msgid "Search installed apps to exclude them. Click an excluded app to include it again."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -2106,10 +2098,6 @@ msgstr ""
 #: src/settings/general/searchable-select.tsx
 msgid "Select..."
 msgstr ""
-
-#: src/settings/general/app-settings.tsx
-msgid "Send anonymous usage analytics to help improve Anarlog."
-msgstr "Anarlog इत्यस्य उन्नयनार्थं सहायतार्थं अनामिकं उपयोगविश्लेषणं प्रेषयन्तु ।"
 
 #: src/contacts/organization-details.tsx
 msgid "Send email"
@@ -2245,6 +2233,10 @@ msgstr ""
 msgid "Show app in Dock"
 msgstr ""
 
+#: src/settings/general/permissions.tsx
+msgid "Show Apple Calendar events in Anarlog."
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "Show Deleted Events"
 msgstr ""
@@ -2268,9 +2260,9 @@ msgstr ""
 msgid "Show in folder"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx
-msgid "Show the compact floating control while listening."
-msgstr "श्रवणकाले संकुचितं प्लवमानं नियन्त्रणं दर्शयतु।"
+#: src/settings/general/timezone.tsx
+msgid "Show the timeline in your preferred timezone."
+msgstr ""
 
 #: src/sidebar/timeline/item.tsx
 msgid "Show This Event"
@@ -2293,6 +2285,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Sign in before enabling encrypted cloud sync"
+msgstr ""
+
+#: src/settings/general/account.tsx
+msgid "Sign in for cloud transcription, AI models, and sharing."
 msgstr ""
 
 #: src/settings/todo/github.tsx
@@ -2318,10 +2314,6 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Sign in to generate this summary"
-msgstr ""
-
-#: src/settings/general/account.tsx
-msgid "Sign in to unlock cloud transcription and AI models, plus Pro features like sharing."
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -2398,6 +2390,10 @@ msgstr ""
 msgid "Start Anarlog at login"
 msgstr "प्रवेशसमये Anarlog आरभत"
 
+#: src/settings/general/app-settings.tsx
+msgid "Start listening when a scheduled meeting begins."
+msgstr ""
+
 #: src/main/empty.tsx
 msgid "Start Recording"
 msgstr ""
@@ -2422,6 +2418,10 @@ msgstr ""
 msgid "Starting your trial..."
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "Stay current with updates installed the next time Anarlog opens."
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Steps run from top to bottom."
 msgstr ""
@@ -2433,6 +2433,10 @@ msgstr ""
 #: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
+msgstr ""
+
+#: src/settings/general/app-settings.tsx
+msgid "Stop listening when your call ends."
 msgstr ""
 
 #: src/chat/components/input/index.tsx
@@ -2508,10 +2512,6 @@ msgstr ""
 msgid "Sync paused"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Sync runs automatically in the background."
-msgstr ""
-
 #: src/main/sync-status.tsx
 msgid "Sync settings"
 msgstr ""
@@ -2548,6 +2548,10 @@ msgstr ""
 msgid "System audio enabled"
 msgstr ""
 
+#: src/settings/general/app-settings.tsx
+msgid "Tell participants when listening starts; this does not confirm consent."
+msgstr ""
+
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
 msgid "Template actions"
@@ -2577,10 +2581,6 @@ msgstr ""
 #: src/shared-notes/index.tsx
 msgid "The link may have expired or its access may have changed."
 msgstr ""
-
-#: src/settings/general/spoken-languages.tsx
-msgid "The main language is always included for transcription"
-msgstr "प्रतिलेखनार्थं मुख्यभाषा सर्वदा समाविष्टा भवति"
 
 #: src/shared-notes/index.tsx
 msgid "The note may have been unshared or moved out of a workspace you can access."
@@ -2624,6 +2624,10 @@ msgstr ""
 msgid "Tip: The Anarlog team loves our users!"
 msgstr ""
 
+#: src/settings/general/spoken-languages.tsx
+msgid "Transcribe meetings that use more than one language."
+msgstr ""
+
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/templates/auto-form.tsx
@@ -2633,10 +2637,6 @@ msgstr ""
 #: src/settings/ai/stt/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Transcription"
-msgstr ""
-
-#: src/settings/ai/stt/select.tsx
-msgid "Transcription model is needed to make Anarlog listen to your conversations."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2664,6 +2664,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Turn action items into Linear issues"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Turn assigned follow-ups into Linear issue drafts."
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -2771,8 +2775,11 @@ msgstr ""
 msgid "Use the completed meeting, transcript, and notes."
 msgstr ""
 
+#: src/settings/general/main-language.tsx
+msgid "Use this language for summaries and AI responses."
+msgstr ""
+
 #: src/onboarding/permissions.tsx
-#: src/settings/general/app-settings.tsx
 msgid "Use your microphone to capture your voice"
 msgstr ""
 
@@ -2790,6 +2797,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "View plans"
+msgstr ""
+
+#: src/settings/general/notification.tsx
+msgid "Wait before treating microphone activity as a meeting."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -2812,16 +2823,12 @@ msgstr ""
 msgid "Where your notes and recordings are stored"
 msgstr ""
 
-#: src/settings/general/app-settings.tsx
-msgid "While listening, use Accessibility access to copy visible chat from supported meeting apps and browser meetings into the active note."
-msgstr ""
-
 #: src/task/tab-content.tsx
 msgid "Work on this task"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Write the recap and include a link to the Anarlog note."
+msgid "Write the recap with a link to the Anarlog note."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -2866,10 +2873,6 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read them."
 msgstr ""
 
 #: src/settings/sync/index.tsx
