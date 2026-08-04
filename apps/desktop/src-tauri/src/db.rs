@@ -5,17 +5,18 @@ use anlg_db_core::Db;
 const DB_FILENAME: &str = "app.db";
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
 
-pub async fn open_desktop_db(identifier: &str) -> Arc<Db> {
-    let db_path = desktop_db_dir(identifier).map(|dir| {
-        std::fs::create_dir_all(&dir).expect("failed to create app data dir");
-        dir.join(DB_FILENAME)
-    });
+pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
+    let dir = desktop_db_dir(identifier)
+        .ok_or_else(|| "application data directory is unavailable".to_string())?;
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| format!("failed to create application data directory: {error}"))?;
 
-    let db = tauri_plugin_db::open_app_db(db_path.as_deref())
+    let db_path = dir.join(DB_FILENAME);
+    let db = tauri_plugin_db::open_app_db(Some(&db_path))
         .await
-        .expect("failed to open app database");
+        .map_err(|error| format!("failed to open application database: {error}"))?;
 
-    Arc::new(db)
+    Ok(Arc::new(db))
 }
 
 pub fn cloudsync_runtime_config_from_env()
@@ -100,9 +101,8 @@ fn parse_env_flag(value: String) -> Result<bool, String> {
 }
 
 fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
-    let data_dir = dirs::data_dir().expect("data_dir must be available");
-    let default_dir =
-        anlg_storage::global::compute_default_base(identifier).expect("data_dir must be available");
+    let data_dir = dirs::data_dir()?;
+    let default_dir = anlg_storage::global::compute_default_base(identifier)?;
     let identifier_dir = data_dir.join(identifier);
 
     if identifier_dir.join(DB_FILENAME).is_file() && !default_dir.join(DB_FILENAME).is_file() {

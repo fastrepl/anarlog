@@ -123,7 +123,10 @@ pub async fn main() {
     let audio: std::sync::Arc<dyn anlg_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
 
-    let db = open_desktop_db(&context.config().identifier).await;
+    let db = match open_desktop_db(&context.config().identifier).await {
+        Ok(db) => db,
+        Err(error) => exit_after_startup_failure(&error),
+    };
     let cloudsync_config = match cloudsync_runtime_config_from_env() {
         Ok(config) => config,
         Err(error) => {
@@ -276,13 +279,17 @@ pub async fn main() {
                 let appearance_settings =
                     appearance::load_app_appearance_settings::<tauri::Wry, _>(&app_handle);
 
-                app_handle
+                if let Err(error) = app_handle
                     .windows()
                     .set_show_app_in_dock(appearance_settings.show_app_in_dock)
-                    .unwrap();
+                {
+                    tracing::warn!(%error, "failed to apply dock visibility during startup");
+                }
 
                 if appearance_settings.show_tray_icon {
-                    app_handle.tray().create_tray_menu().unwrap();
+                    if let Err(error) = app_handle.tray().create_tray_menu() {
+                        tracing::warn!(%error, "failed to create tray menu during startup");
+                    }
                 }
             }
 
@@ -330,7 +337,11 @@ pub async fn main() {
 
     match get_onboarding_flag() {
         None => {}
-        Some(false) => app.set_onboarding_needed(false).unwrap(),
+        Some(false) => {
+            if let Err(error) = app.set_onboarding_needed(false) {
+                tracing::warn!(%error, "failed to persist onboarding state during startup");
+            }
+        }
         Some(true) => {
             use tauri_plugin_auth::AuthPluginExt;
             use tauri_plugin_settings::SettingsPluginExt;
@@ -356,7 +367,9 @@ pub async fn main() {
 
     {
         let app_handle = app.handle().clone();
-        AppWindow::Main.show(&app_handle).unwrap();
+        if let Err(error) = AppWindow::Main.show(&app_handle) {
+            exit_after_startup_failure(&error);
+        }
     }
 
     #[cfg(target_os = "macos")]
@@ -366,7 +379,9 @@ pub async fn main() {
     app.run(move |app, event| match event {
         #[cfg(target_os = "macos")]
         tauri::RunEvent::Reopen { .. } => {
-            AppWindow::Main.show(app).unwrap();
+            if let Err(error) = AppWindow::Main.show(app) {
+                tracing::error!(%error, "failed to reopen main window");
+            }
         }
         tauri::RunEvent::ExitRequested { api, .. } => {
             if let Some(ref ctx) = root_supervisor_ctx_for_run {
