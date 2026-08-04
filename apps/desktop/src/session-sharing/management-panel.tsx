@@ -4,7 +4,6 @@ import {
   ArrowSquareOut,
   CircleNotch,
   Copy,
-  LockKey,
   Warning,
 } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
@@ -31,17 +30,27 @@ import {
 } from "./attachments";
 import { setSessionShareScope, ShareManagementError } from "./client";
 import {
+  generalAccessWorkspaceId,
+  GeneralAccessSelector,
+  type GeneralAccessTarget,
+  type GeneralAccessValue,
+} from "./general-access";
+import {
   isInviteEmail,
   useSessionInvitationManagement,
 } from "./invitation-management";
 import {
+  copyPublicSessionShareUrl,
   copySessionShareUrl,
+  enableAndCopySessionShareLink,
   ShareOperationAbortedError,
   type SharePanelData,
   type SharePanelIdentity,
+  withoutSignal,
 } from "./management";
 import { useShareOperationLifecycle } from "./management-operation";
 import { createPublishLatestSessionShare } from "./management-publish";
+import type { AvailableShareWorkspace } from "./source";
 import { useSessionShareSyncStatus } from "./sync-state";
 import { buildAccountSessionShareUrl } from "./urls";
 
@@ -64,6 +73,7 @@ export function SessionSharePopoverContent({
   sharedAttachments,
   sharedSnapshot,
   sharedAttachmentsReady,
+  workspaces,
   pendingRef,
   onRetry,
   onActivated,
@@ -77,6 +87,7 @@ export function SessionSharePopoverContent({
   sharedAttachments: SharedNoteAttachment[];
   sharedSnapshot: SharedNoteSnapshot | null;
   sharedAttachmentsReady: boolean;
+  workspaces: AvailableShareWorkspace[];
   pendingRef: MutableRefObject<boolean>;
   onRetry: () => void;
   onActivated: () => Promise<unknown>;
@@ -192,19 +203,59 @@ export function SessionSharePopoverContent({
 
   // Optimistic General-access value: shown from click until the refreshed
   // management state confirms it, so the select never flashes the old scope.
-  const [optimisticScope, setOptimisticScope] = useState<string | null>(null);
+  const [optimisticScope, setOptimisticScope] =
+    useState<GeneralAccessValue | null>(null);
   const scopeMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (target: GeneralAccessTarget) =>
       runOperation(async (signal) => {
         if (!management) throw new ShareManagementError();
-        const context = requireActiveContext(signal);
-        await setSessionShareScope(context, {
-          shareId: identity.shareId,
-          scope: "restricted",
-        });
+        let context = requireActiveContext(signal);
+        if (target === "restricted") {
+          await setSessionShareScope(context, {
+            shareId: identity.shareId,
+            scope: "restricted",
+          });
+          await onActivated();
+          return { copied: false };
+        }
+        if (!canExpand) throw new ShareManagementError();
+        await publishLatest(signal);
+        context = requireActiveContext(signal);
+        if (target === "link") {
+          await enableAndCopySessionShareLink({
+            context,
+            shareId: identity.shareId,
+            hasActiveLink: management.hasActiveLink,
+            assertActive: () => requireActiveContext(signal),
+          });
+          await onActivated();
+          return { copied: true };
+        }
+        const workspaceId = generalAccessWorkspaceId(target, workspaces);
+        if (!workspaceId) throw new ShareManagementError();
+        try {
+          await setSessionShareScope(context, {
+            shareId: identity.shareId,
+            scope: "workspace",
+            workspaceId,
+          });
+          requireActiveContext(signal);
+        } catch {
+          await setSessionShareScope(withoutSignal(context), {
+            shareId: identity.shareId,
+            scope: "restricted",
+          }).catch(() => undefined);
+          throw new ShareManagementError();
+        }
+        await onActivated();
+        return { copied: false };
       }),
-    onSuccess: () => {
-      sonnerToast.success("Access updated.");
+    onSuccess: ({ copied }) => {
+      sonnerToast.success(
+        copied
+          ? "Anyone with the link can view. Link copied."
+          : "Access updated.",
+      );
     },
     onError: (error) => {
       setOptimisticScope(null);
@@ -232,9 +283,15 @@ export function SessionSharePopoverContent({
     mutationFn: () =>
       runOperation(async (signal) => {
         if (!management) throw new ShareManagementError();
-        await copySessionShareUrl(identity.shareId, () =>
-          requireActiveContext(signal),
-        );
+        if (management.generalScope === "public") {
+          await copyPublicSessionShareUrl(management.publicSlug, () =>
+            requireActiveContext(signal),
+          );
+        } else {
+          await copySessionShareUrl(identity.shareId, () =>
+            requireActiveContext(signal),
+          );
+        }
         await onActivated();
       }),
     onSuccess: () => {
@@ -259,7 +316,7 @@ export function SessionSharePopoverContent({
     keepDesktopMutation.isPending ||
     openWebCopyMutation.isPending;
   pendingRef.current = anyPending;
-  const generalScopeValue = management
+  const generalScopeValue: GeneralAccessValue = management
     ? management.generalScope === "workspace"
       ? `workspace:${management.generalWorkspaceId}`
       : management.generalScope
@@ -580,42 +637,17 @@ export function SessionSharePopoverContent({
                 >
                   <Trans>General access</Trans>
                 </h3>
-                <div className="flex items-center gap-2 rounded-lg px-1.5 py-1">
-                  <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-md">
-                    <LockKey className="size-3.5" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium">
-                      <Trans>Only people invited</Trans>
-                    </p>
-                    {shownScopeValue !== "restricted" ? (
-                      <p className="text-muted-foreground truncate text-[10px]">
-                        <Trans>Previous broad access is still active</Trans>
-                      </p>
-                    ) : null}
-                  </div>
-                  {shownScopeValue !== "restricted" ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      disabled={scopeMutation.isPending}
-                      onClick={() => {
-                        setOptimisticScope("restricted");
-                        scopeMutation.mutate();
-                      }}
-                      className="h-7 shrink-0 px-2 text-[11px]"
-                    >
-                      {scopeMutation.isPending ? (
-                        <CircleNotch
-                          className="size-3.5 animate-spin"
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                      <Trans>Restrict</Trans>
-                    </Button>
-                  ) : null}
-                </div>
+                <GeneralAccessSelector
+                  value={shownScopeValue}
+                  workspaces={workspaces}
+                  disabled={!management}
+                  canExpand={canPublish}
+                  pending={scopeMutation.isPending}
+                  onValueChange={(target) => {
+                    setOptimisticScope(target);
+                    scopeMutation.mutate(target);
+                  }}
+                />
               </section>
             </div>
           </div>
@@ -644,11 +676,21 @@ export function SessionSharePopoverContent({
               type="button"
               size="sm"
               variant="outline"
-              disabled={generalCopyMutation.isPending || !management}
-              onClick={() => generalCopyMutation.mutate()}
+              disabled={
+                generalCopyMutation.isPending ||
+                scopeMutation.isPending ||
+                !management
+              }
+              onClick={() => {
+                if (shownScopeValue === "link") {
+                  scopeMutation.mutate("link");
+                } else {
+                  generalCopyMutation.mutate();
+                }
+              }}
               className="h-7 rounded-md px-2.5 text-xs"
             >
-              {generalCopyMutation.isPending ? (
+              {generalCopyMutation.isPending || scopeMutation.isPending ? (
                 <CircleNotch
                   className="size-3.5 animate-spin"
                   aria-hidden="true"
@@ -656,7 +698,11 @@ export function SessionSharePopoverContent({
               ) : (
                 <Copy className="size-3.5" aria-hidden="true" />
               )}
-              <Trans>Copy link</Trans>
+              {shownScopeValue === "link" ? (
+                <Trans>Replace link &amp; copy</Trans>
+              ) : (
+                <Trans>Copy link</Trans>
+              )}
             </Button>
           </footer>
         </div>

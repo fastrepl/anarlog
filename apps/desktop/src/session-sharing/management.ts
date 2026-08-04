@@ -2,9 +2,12 @@ import { isTauri } from "@tauri-apps/api/core";
 import { writeText as writeClipboardText } from "@tauri-apps/plugin-clipboard-manager";
 
 import {
+  enableSessionShareLink,
   getSessionShareManagement,
   listSessionShareAccess,
   revokeSessionAccessInvitation,
+  rotateSessionShareLink,
+  setSessionShareScope,
   type SessionShareAccessEntry,
   type SessionShareManagement,
   type ShareManagementContext,
@@ -12,7 +15,9 @@ import {
 } from "./client";
 import {
   buildAccountSessionShareUrl,
+  buildPublicSessionShareUrl,
   buildSessionInvitationUrl,
+  buildSessionShareLinkUrl,
   type ShareDesktopScheme,
 } from "./urls";
 
@@ -93,6 +98,63 @@ export async function copySessionShareUrl(
     buildAccountSessionShareUrl({
       appBaseUrl: env.VITE_APP_URL,
       shareId,
+      desktopScheme,
+    }),
+  );
+  assertActive();
+}
+
+export async function enableAndCopySessionShareLink({
+  context,
+  shareId,
+  hasActiveLink,
+  assertActive,
+}: {
+  context: ShareManagementContext;
+  shareId: string;
+  hasActiveLink: boolean;
+  assertActive: () => unknown;
+}) {
+  try {
+    let link = hasActiveLink
+      ? await rotateSessionShareLink(context, shareId)
+      : await enableSessionShareLink(context, shareId);
+    if (!link.linkToken) {
+      link = await rotateSessionShareLink(context, shareId);
+    }
+    if (!link.linkToken) throw new ShareManagementError();
+    assertActive();
+    const desktopScheme = await getSessionShareDesktopScheme();
+    assertActive();
+    await copyText(
+      buildSessionShareLinkUrl({
+        appBaseUrl: env.VITE_APP_URL,
+        shareId,
+        linkToken: link.linkToken,
+        desktopScheme,
+      }),
+    );
+    assertActive();
+  } catch {
+    await setSessionShareScope(withoutSignal(context), {
+      shareId,
+      scope: "restricted",
+    }).catch(() => undefined);
+    throw new ShareManagementError();
+  }
+}
+
+export async function copyPublicSessionShareUrl(
+  publicSlug: string,
+  assertActive: () => unknown,
+) {
+  assertActive();
+  const desktopScheme = await getSessionShareDesktopScheme();
+  assertActive();
+  await copyText(
+    buildPublicSessionShareUrl({
+      appBaseUrl: env.VITE_APP_URL,
+      publicSlug,
       desktopScheme,
     }),
   );

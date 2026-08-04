@@ -79,7 +79,6 @@ msgstr "A to Z"
 msgid "Access no longer available"
 msgstr "Access no longer available"
 
-#: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Access settings could not be loaded."
 msgstr "Access settings could not be loaded."
@@ -288,6 +287,10 @@ msgstr "Anarlog will sync your calendar to get meeting reminders"
 #: src/templates/template-icon-picker.tsx
 msgid "Animals & Nature"
 msgstr "Animals & Nature"
+
+#: src/session-sharing/general-access.tsx
+msgid "Anyone with the link"
+msgstr "Anyone with the link"
 
 #: src/settings/ai/shared/index.tsx
 msgid "API Key"
@@ -508,10 +511,6 @@ msgstr "Choose the microphone that captures your voice."
 msgid "Choose which day begins your calendar week."
 msgstr "Choose which day begins your calendar week."
 
-#: src/session-sharing/index.tsx
-msgid "Choose who can open this note."
-msgstr "Choose who can open this note."
-
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Clean Up"
 msgstr "Clean Up"
@@ -729,6 +728,7 @@ msgstr "Continuing without trial"
 msgid "Control listening without reopening Anarlog."
 msgstr "Control listening without reopening Anarlog."
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Copy link"
 msgstr "Copy link"
@@ -896,10 +896,6 @@ msgstr "Disconnect private repo access."
 msgid "Don't save"
 msgstr "Don't save"
 
-#: src/session-sharing/index.tsx
-msgid "Done"
-msgstr "Done"
-
 #: src/settings/ai/stt/select.tsx
 msgid "Download"
 msgstr "Download"
@@ -989,6 +985,11 @@ msgstr "Enter your API key (optional)"
 #: src/settings/general/notification.tsx
 msgid "Event notifications"
 msgstr "Event notifications"
+
+#. placeholder {0}: workspace.name
+#: src/session-sharing/general-access.tsx
+msgid "Everyone in {0}"
+msgstr "Everyone in {0}"
 
 #: src/settings/general/notification.tsx
 msgid "Exclude apps from detection"
@@ -1095,6 +1096,7 @@ msgstr "Free"
 msgid "Frequently used"
 msgstr "Frequently used"
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Full access"
 msgstr "Full access"
@@ -1103,6 +1105,7 @@ msgstr "Full access"
 msgid "General"
 msgstr "General"
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "General access"
 msgstr "General access"
@@ -1232,10 +1235,12 @@ msgstr "Insert below"
 msgid "Intelligence"
 msgstr "Intelligence"
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite"
 msgstr "Invite"
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
 msgstr "Invite people to this note."
@@ -1313,11 +1318,6 @@ msgstr "LinkedIn"
 #: src/settings/ai/stt/select.tsx
 msgid "Live"
 msgstr "Live"
-
-#: src/session-sharing/index.tsx
-#: src/session-sharing/management-panel.tsx
-msgid "Loading access…"
-msgstr "Loading access…"
 
 #: src/templates/auto-form.tsx
 msgid "Loading Auto prompt..."
@@ -1617,7 +1617,7 @@ msgstr "Older files that differ from your current data were kept as recovery cop
 msgid "Oldest"
 msgstr "Oldest"
 
-#: src/session-sharing/management-panel.tsx
+#: src/session-sharing/general-access.tsx
 msgid "Only people invited"
 msgstr "Only people invited"
 
@@ -1733,6 +1733,7 @@ msgstr "Pause sync"
 msgid "People"
 msgstr "People"
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "People with access"
 msgstr "People with access"
@@ -1794,10 +1795,6 @@ msgstr "Prevent selected apps from triggering meeting detection."
 msgid "Preview"
 msgstr "Preview"
 
-#: src/session-sharing/management-panel.tsx
-msgid "Previous broad access is still active"
-msgstr "Previous broad access is still active"
-
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
 msgstr "Previous match"
@@ -1822,6 +1819,10 @@ msgstr "Production"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Protect cloud sync"
 msgstr "Protect cloud sync"
+
+#: src/session-sharing/general-access.tsx
+msgid "Public on the web"
+msgstr "Public on the web"
 
 #: src/settings/general/permissions.tsx
 msgid "Read meeting controls, chat, and participant status."
@@ -1913,6 +1914,10 @@ msgstr "Replace"
 msgid "Replace all"
 msgstr "Replace all"
 
+#: src/session-sharing/management-panel.tsx
+msgid "Replace link & copy"
+msgstr "Replace link & copy"
+
 #: src/settings/todo/github.tsx
 msgid "Replace repository"
 msgstr "Replace repository"
@@ -1955,10 +1960,6 @@ msgstr "Respect Do-Not-Disturb mode"
 #: src/settings/sync/index.tsx
 msgid "Restoring cloud sync..."
 msgstr "Restoring cloud sync..."
-
-#: src/session-sharing/management-panel.tsx
-msgid "Restrict"
-msgstr "Restrict"
 
 #: src/session/components/outer-header/index.tsx
 msgid "Resume"
@@ -2175,6 +2176,7 @@ msgstr "Setting up encrypted cloud sync."
 msgid "Settings"
 msgstr "Settings"
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Share"
 msgstr "Share"
@@ -2182,10 +2184,6 @@ msgstr "Share"
 #: src/settings/automations/index.tsx
 msgid "Share a meeting recap in Slack"
 msgstr "Share a meeting recap in Slack"
-
-#: src/session-sharing/index.tsx
-msgid "Share note"
-msgstr "Share note"
 
 #: src/session-sharing/index.tsx
 msgid "Share notes with others"
@@ -2674,7 +2672,6 @@ msgid "Trigger"
 msgstr "Trigger"
 
 #: src/onboarding/permissions.tsx
-#: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 msgid "Try again"

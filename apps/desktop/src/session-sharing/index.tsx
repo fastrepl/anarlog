@@ -17,19 +17,23 @@ import {
   createOrReuseSessionShare,
   getSessionShareManagement,
   publishSessionShareSnapshot,
+  setSessionShareScope,
   ShareManagementError,
 } from "./client";
 import { type DraftShareAction, SessionShareDraftContent } from "./draft-panel";
 import { flushCanonicalSessionEditorChanges } from "./editor-activity";
+import { generalAccessWorkspaceId } from "./general-access";
 import { deliverSessionShareInvitation } from "./invitation-management";
 import {
   copySessionShareUrl,
+  enableAndCopySessionShareLink,
   loadSharePanel,
   requireManagementContext,
   sessionShareManagementQueryKey,
   ShareOperationAbortedError,
   type SharePanelIdentity,
   type SharePreparationIdentity,
+  withoutSignal,
 } from "./management";
 import { SessionSharePopoverContent } from "./management-panel";
 import {
@@ -37,7 +41,7 @@ import {
   hashSessionShareProjection,
   recordPublishedSessionShareState,
 } from "./reconciliation";
-import { loadSessionShareSource } from "./source";
+import { loadSessionShareSource, useAvailableShareWorkspaces } from "./source";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
@@ -151,6 +155,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     accountUserId,
     sessionId,
   );
+  const workspaces = useAvailableShareWorkspaces(accountUserId);
   const activeSharePreparationIdentity =
     sharePreparationIdentity?.ownerUserId === accountUserId &&
     sharePreparationIdentity.sessionId === sessionId &&
@@ -259,7 +264,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         }
         let actionResult:
           | { type: "invite"; deliveredBy: "email" | "clipboard" }
-          | { type: "copy-link" };
+          | { type: "copy-link" }
+          | { type: "scope"; copied: boolean };
         if (action.type === "invite") {
           actionResult = {
             type: "invite",
@@ -277,11 +283,46 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
               })
             ).deliveredBy,
           };
-        } else {
+        } else if (action.type === "copy-link") {
           await copySessionShareUrl(share.shareId, () =>
             requireActivePrepareContext(identity, signal),
           );
           actionResult = { type: "copy-link" };
+        } else if (action.target === "restricted") {
+          await setSessionShareScope(context, {
+            shareId: share.shareId,
+            scope: "restricted",
+          });
+          actionResult = { type: "scope", copied: false };
+        } else if (action.target === "link") {
+          await enableAndCopySessionShareLink({
+            context,
+            shareId: share.shareId,
+            hasActiveLink: management.hasActiveLink,
+            assertActive: () => requireActivePrepareContext(identity, signal),
+          });
+          actionResult = { type: "scope", copied: true };
+        } else {
+          const workspaceId = generalAccessWorkspaceId(
+            action.target,
+            workspaces,
+          );
+          if (!workspaceId) throw new ShareManagementError();
+          try {
+            await setSessionShareScope(context, {
+              shareId: share.shareId,
+              scope: "workspace",
+              workspaceId,
+            });
+            requireActivePrepareContext(identity, signal);
+          } catch {
+            await setSessionShareScope(withoutSignal(context), {
+              shareId: share.shareId,
+              scope: "restricted",
+            }).catch(() => undefined);
+            throw new ShareManagementError();
+          }
+          actionResult = { type: "scope", copied: false };
         }
         requireActivePrepareContext(identity, signal);
         await markSessionShareActivated(
@@ -324,11 +365,17 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             ? "Invitation sent."
             : "Email unavailable. Invite link copied instead.",
         );
-      } else {
+      } else if (actionResult.type === "copy-link") {
         trackAnalyticsEvent("share_link_copied", {
           entry_point: "share_panel",
         });
         sonnerToast.success("Share link copied.");
+      } else {
+        sonnerToast.success(
+          actionResult.copied
+            ? "Anyone with the link can view. Link copied."
+            : "Access updated.",
+        );
       }
       sharePreparationIdentityRef.current = null;
       setSharePreparationIdentity(null);
@@ -350,7 +397,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       sonnerToast.error(
         variables.action.type === "invite"
           ? "Could not create this invitation."
-          : "Could not copy the share link.",
+          : variables.action.type === "scope"
+            ? "Could not update general access."
+            : "Could not copy the share link.",
       );
     },
   });
@@ -506,6 +555,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           sharedAttachments={sharedAttachments}
           sharedSnapshot={durableNoteQuery.data ?? null}
           sharedAttachmentsReady={sharedAttachmentsReady}
+          workspaces={workspaces}
           pendingRef={sharePanelPendingRef}
           onRetry={() => void shareQuery.refetch()}
           onActivated={() =>
@@ -534,9 +584,10 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           }
           pendingAction={
             activationMutation.isPending
-              ? (activationMutation.variables?.action.type ?? null)
+              ? (activationMutation.variables?.action ?? null)
               : null
           }
+          workspaces={workspaces}
           onAction={handleDraftAction}
         />
       ) : null}

@@ -64,6 +64,7 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   clipboardWriteText: vi.fn().mockResolvedValue(undefined),
   contacts: [] as any[],
+  workspaces: [] as { id: string; name: string }[],
 }));
 
 vi.mock("~/auth", () => ({
@@ -132,7 +133,7 @@ vi.mock("~/session/attachments", () => ({
 
 vi.mock("./source", () => ({
   loadSessionShareSource: mocks.loadSessionShareSource,
-  useAvailableShareWorkspaces: () => [],
+  useAvailableShareWorkspaces: () => mocks.workspaces,
 }));
 
 vi.mock("./sync-state", () => ({
@@ -224,16 +225,21 @@ vi.mock("@anlg/ui/components/ui/popover", () => ({
 
 vi.mock("@anlg/ui/components/ui/select", async () => {
   const React = await import("react");
-  const SelectContext = React.createContext<(value: string) => void>(() => {});
+  const SelectContext = React.createContext({
+    disabled: false,
+    onValueChange: (_value: string) => {},
+  });
   return {
     Select: ({
       children,
+      disabled = false,
       onValueChange,
     }: {
       children: React.ReactNode;
+      disabled?: boolean;
       onValueChange: (value: string) => void;
     }) => (
-      <SelectContext.Provider value={onValueChange}>
+      <SelectContext.Provider value={{ disabled, onValueChange }}>
         <div>{children}</div>
       </SelectContext.Provider>
     ),
@@ -242,13 +248,22 @@ vi.mock("@anlg/ui/components/ui/select", async () => {
     ),
     SelectItem: ({
       children,
+      disabled = false,
       value,
     }: {
       children: React.ReactNode;
+      disabled?: boolean;
       value: string;
     }) => {
-      const onValueChange = React.useContext(SelectContext);
-      return <button onClick={() => onValueChange(value)}>{children}</button>;
+      const select = React.useContext(SelectContext);
+      return (
+        <button
+          disabled={disabled || select.disabled}
+          onClick={() => select.onValueChange(value)}
+        >
+          {children}
+        </button>
+      );
     },
     SelectSeparator: () => <hr />,
     SelectTrigger: ({ children }: { children: React.ReactNode }) => (
@@ -343,9 +358,16 @@ async function openSharePopover() {
 describe("SessionShareButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.createOrReuseSessionShare.mockReset();
+    mocks.publishSessionShareSnapshot.mockReset();
+    mocks.getSessionShareManagement.mockReset();
+    mocks.enableSessionShareLink.mockReset();
+    mocks.rotateSessionShareLink.mockReset();
+    mocks.setSessionShareScope.mockReset();
     mocks.events = [];
     mocks.access = [];
     mocks.contacts = [];
+    mocks.workspaces = [];
     mocks.auth.session = createSession();
     mocks.auth.supabase = {};
     mocks.billing.isReady = true;
@@ -433,6 +455,16 @@ describe("SessionShareButton", () => {
     });
     mocks.rotateSessionShareLink.mockImplementation(async () => {
       mocks.events.push("rotate-link");
+      return {
+        shareId: SHARE_ID,
+        linkId: LINK_ID,
+        linkToken: TOKEN,
+        accessVersion: 2,
+        wasCreated: true,
+      };
+    });
+    mocks.enableSessionShareLink.mockImplementation(async () => {
+      mocks.events.push("enable-link");
       return {
         shareId: SHARE_ID,
         linkId: LINK_ID,
@@ -1341,7 +1373,8 @@ describe("SessionShareButton", () => {
     expect(screen.queryByText("Loading access…")).toBeNull();
   });
 
-  it("does not expose broad sharing and can restrict a legacy link share", async () => {
+  it("offers invited, workspace, and link access and can restrict a link share", async () => {
+    mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
     mocks.management = defaultManagement({
       generalScope: "link",
       hasActiveLink: true,
@@ -1350,19 +1383,102 @@ describe("SessionShareButton", () => {
     await openSharePopover();
     mocks.setSessionShareScope.mockClear();
 
-    expect(screen.queryByText("Anyone with the link")).toBeNull();
-    expect(screen.queryByText("Public — searchable on the web")).toBeNull();
-    expect(
-      screen.getByText("Previous broad access is still active"),
-    ).not.toBeNull();
+    expect(screen.getByText("Only people invited")).not.toBeNull();
+    expect(screen.getByText("Everyone in Fastrepl")).not.toBeNull();
+    expect(screen.getByText("Anyone with the link")).not.toBeNull();
+    expect(screen.queryByText("Public on the web")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Restrict" }));
+    fireEvent.click(screen.getByText("Only people invited"));
 
     await waitFor(() =>
       expect(mocks.setSessionShareScope).toHaveBeenCalledWith(
         expect.anything(),
         { shareId: SHARE_ID, scope: "restricted" },
       ),
+    );
+  });
+
+  it("publishes before expanding an existing share to a workspace", async () => {
+    mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
+    renderShareButton();
+    await openSharePopover();
+    mocks.events = [];
+    mocks.markSessionShareActivated.mockClear();
+
+    fireEvent.click(screen.getByText("Everyone in Fastrepl"));
+
+    await waitFor(() =>
+      expect(mocks.setSessionShareScope).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          shareId: SHARE_ID,
+          scope: "workspace",
+          workspaceId: WORKSPACE_ID,
+        },
+      ),
+    );
+    expect(mocks.events.slice(0, 3)).toEqual(["load", "publish", "set-scope"]);
+    expect(mocks.markSessionShareActivated).toHaveBeenCalledWith(
+      USER_ID,
+      SHARE_ID,
+      "session-1",
+    );
+  });
+
+  it("creates and copies a bearer link only after link access is selected", async () => {
+    mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
+    mocks.managedNote = null;
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    renderShareButton();
+    await openSharePopover();
+
+    expect(mocks.enableSessionShareLink).not.toHaveBeenCalled();
+    expect(mocks.clipboardWriteText).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("Anyone with the link"));
+
+    await waitFor(() =>
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(
+        "Anyone with the link can view. Link copied.",
+      ),
+    );
+    expect(mocks.clipboardWriteText).toHaveBeenCalledOnce();
+    expect(mocks.events.slice(0, 5)).toEqual([
+      "load",
+      "create",
+      "management",
+      "publish",
+      "enable-link",
+    ]);
+    const copied = new URL(mocks.clipboardWriteText.mock.calls[0]![0]);
+    expect(copied.pathname).toBe(`/share/link/${SHARE_ID}/`);
+    expect(copied.hash).toBe(`#token=${TOKEN}`);
+    expect(mocks.markSessionShareActivated).toHaveBeenCalledWith(
+      USER_ID,
+      SHARE_ID,
+      "session-1",
+    );
+  });
+
+  it("returns link access to invited-only when copying its token fails", async () => {
+    mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
+    mocks.clipboardWriteText.mockRejectedValueOnce(new Error("clipboard"));
+    renderShareButton();
+    await openSharePopover();
+    mocks.setSessionShareScope.mockClear();
+    mocks.markSessionShareActivated.mockClear();
+
+    fireEvent.click(screen.getByText("Anyone with the link"));
+
+    await waitFor(() =>
+      expect(mocks.setSessionShareScope).toHaveBeenCalledWith(
+        expect.anything(),
+        { shareId: SHARE_ID, scope: "restricted" },
+      ),
+    );
+    expect(mocks.markSessionShareActivated).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "Could not update general access.",
     );
   });
 

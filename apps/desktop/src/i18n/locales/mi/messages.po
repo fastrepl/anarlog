@@ -79,7 +79,6 @@ msgstr ""
 msgid "Access no longer available"
 msgstr ""
 
-#: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Access settings could not be loaded."
 msgstr ""
@@ -287,6 +286,10 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "Animals & Nature"
+msgstr ""
+
+#: src/session-sharing/general-access.tsx
+msgid "Anyone with the link"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -508,10 +511,6 @@ msgstr ""
 msgid "Choose which day begins your calendar week."
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "Choose who can open this note."
-msgstr ""
-
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Clean Up"
 msgstr ""
@@ -729,6 +728,7 @@ msgstr ""
 msgid "Control listening without reopening Anarlog."
 msgstr ""
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Copy link"
 msgstr ""
@@ -896,10 +896,6 @@ msgstr ""
 msgid "Don't save"
 msgstr ""
 
-#: src/session-sharing/index.tsx
-msgid "Done"
-msgstr ""
-
 #: src/settings/ai/stt/select.tsx
 msgid "Download"
 msgstr ""
@@ -988,6 +984,11 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Event notifications"
+msgstr ""
+
+#. placeholder {0}: workspace.name
+#: src/session-sharing/general-access.tsx
+msgid "Everyone in {0}"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -1095,6 +1096,7 @@ msgstr ""
 msgid "Frequently used"
 msgstr ""
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Full access"
 msgstr ""
@@ -1103,6 +1105,7 @@ msgstr ""
 msgid "General"
 msgstr ""
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "General access"
 msgstr ""
@@ -1232,10 +1235,12 @@ msgstr ""
 msgid "Intelligence"
 msgstr ""
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite"
 msgstr ""
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
 msgstr ""
@@ -1312,11 +1317,6 @@ msgstr ""
 
 #: src/settings/ai/stt/select.tsx
 msgid "Live"
-msgstr ""
-
-#: src/session-sharing/index.tsx
-#: src/session-sharing/management-panel.tsx
-msgid "Loading access…"
 msgstr ""
 
 #: src/templates/auto-form.tsx
@@ -1617,7 +1617,7 @@ msgstr ""
 msgid "Oldest"
 msgstr ""
 
-#: src/session-sharing/management-panel.tsx
+#: src/session-sharing/general-access.tsx
 msgid "Only people invited"
 msgstr ""
 
@@ -1733,6 +1733,7 @@ msgstr ""
 msgid "People"
 msgstr ""
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "People with access"
 msgstr ""
@@ -1794,10 +1795,6 @@ msgstr ""
 msgid "Preview"
 msgstr ""
 
-#: src/session-sharing/management-panel.tsx
-msgid "Previous broad access is still active"
-msgstr ""
-
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
 msgstr ""
@@ -1821,6 +1818,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Protect cloud sync"
+msgstr ""
+
+#: src/session-sharing/general-access.tsx
+msgid "Public on the web"
 msgstr ""
 
 #: src/settings/general/permissions.tsx
@@ -1913,6 +1914,10 @@ msgstr ""
 msgid "Replace all"
 msgstr ""
 
+#: src/session-sharing/management-panel.tsx
+msgid "Replace link & copy"
+msgstr ""
+
 #: src/settings/todo/github.tsx
 msgid "Replace repository"
 msgstr ""
@@ -1954,10 +1959,6 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Restoring cloud sync..."
-msgstr ""
-
-#: src/session-sharing/management-panel.tsx
-msgid "Restrict"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
@@ -2175,16 +2176,13 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Share"
 msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Share a meeting recap in Slack"
-msgstr ""
-
-#: src/session-sharing/index.tsx
-msgid "Share note"
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -2674,7 +2672,6 @@ msgid "Trigger"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
-#: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 msgid "Try again"

@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch, Copy, LockKey } from "@phosphor-icons/react";
+import { CircleNotch, Copy } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -9,7 +9,12 @@ import {
   PopoverContent,
 } from "@anlg/ui/components/ui/popover";
 
+import {
+  GeneralAccessSelector,
+  type GeneralAccessTarget,
+} from "./general-access";
 import { isInviteEmail } from "./invitation-management";
+import type { AvailableShareWorkspace } from "./source";
 
 import { useAuth } from "~/auth";
 import { useHumans } from "~/contacts/queries";
@@ -17,15 +22,18 @@ import { ContactFacehash } from "~/contacts/shared";
 
 export type DraftShareAction =
   | { type: "invite"; email: string }
-  | { type: "copy-link" };
+  | { type: "copy-link" }
+  | { type: "scope"; target: GeneralAccessTarget };
 
 export function SessionShareDraftContent({
   disabled,
   pendingAction,
+  workspaces,
   onAction,
 }: {
   disabled: boolean;
-  pendingAction: DraftShareAction["type"] | null;
+  pendingAction: DraftShareAction | null;
+  workspaces: AvailableShareWorkspace[];
   onAction: (action: DraftShareAction) => void;
 }) {
   const auth = useAuth();
@@ -57,6 +65,8 @@ export function SessionShareDraftContent({
       .slice(0, 4);
   };
   const actionPending = pendingAction !== null;
+  const generalAccessValue =
+    pendingAction?.type === "scope" ? pendingAction.target : "restricted";
 
   return (
     <PopoverContent
@@ -122,7 +132,7 @@ export function SessionShareDraftContent({
                       }
                       className="h-8 shrink-0 rounded-md px-3"
                     >
-                      {pendingAction === "invite" ? (
+                      {pendingAction?.type === "invite" ? (
                         <CircleNotch
                           className="size-3.5 animate-spin"
                           aria-hidden="true"
@@ -198,14 +208,18 @@ export function SessionShareDraftContent({
               >
                 <Trans>General access</Trans>
               </h3>
-              <div className="flex items-center gap-2 rounded-lg px-1.5 py-1">
-                <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-md">
-                  <LockKey className="size-3.5" aria-hidden="true" />
-                </span>
-                <p className="min-w-0 flex-1 truncate text-xs font-medium">
-                  <Trans>Only people invited</Trans>
-                </p>
-              </div>
+              <GeneralAccessSelector
+                value={generalAccessValue}
+                workspaces={workspaces}
+                disabled={disabled}
+                canExpand={!disabled}
+                pending={pendingAction?.type === "scope"}
+                onValueChange={(target) => {
+                  if (target !== "restricted") {
+                    onAction({ type: "scope", target });
+                  }
+                }}
+              />
             </section>
           </div>
         </div>
@@ -219,7 +233,7 @@ export function SessionShareDraftContent({
             onClick={() => onAction({ type: "copy-link" })}
             className="h-7 rounded-md px-2.5 text-xs"
           >
-            {pendingAction === "copy-link" ? (
+            {pendingAction?.type === "copy-link" ? (
               <CircleNotch
                 className="size-3.5 animate-spin"
                 aria-hidden="true"
