@@ -10,7 +10,11 @@ import {
   type ShareManagementContext,
   ShareManagementError,
 } from "./client";
-import { buildSessionInvitationUrl, type ShareDesktopScheme } from "./urls";
+import {
+  buildAccountSessionShareUrl,
+  buildSessionInvitationUrl,
+  type ShareDesktopScheme,
+} from "./urls";
 
 import { useAuth } from "~/auth";
 import { env } from "~/env";
@@ -76,6 +80,23 @@ export async function copyText(value: string) {
     return;
   }
   await navigator.clipboard.writeText(value);
+}
+
+export async function copySessionShareUrl(
+  shareId: string,
+  assertActive: () => unknown,
+) {
+  assertActive();
+  const desktopScheme = await getSessionShareDesktopScheme();
+  assertActive();
+  await copyText(
+    buildAccountSessionShareUrl({
+      appBaseUrl: env.VITE_APP_URL,
+      shareId,
+      desktopScheme,
+    }),
+  );
+  assertActive();
 }
 
 export async function copyInvitationOrRevoke(

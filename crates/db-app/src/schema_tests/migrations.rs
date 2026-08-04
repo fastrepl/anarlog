@@ -66,6 +66,7 @@ async fn migrations_apply_cleanly() {
             "session_attachments",
             "session_documents",
             "session_participants",
+            "session_share_activation",
             "session_share_sync_state",
             "session_tags",
             "sessions",

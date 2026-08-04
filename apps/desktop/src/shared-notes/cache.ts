@@ -1,4 +1,10 @@
-import { and, desc, eq, sharedSessionCache } from "@anlg/db";
+import {
+  and,
+  desc,
+  eq,
+  sessionShareActivation,
+  sharedSessionCache,
+} from "@anlg/db";
 import type { JSONContent } from "@anlg/editor/note";
 
 import {
@@ -18,6 +24,7 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cacheMutationVersions = new Map<string, number>();
+const EMPTY_SESSION_IDS = new Set<string>();
 
 export type SharedNoteCapability = "viewer" | "commenter" | "editor";
 
@@ -148,7 +155,9 @@ export async function replaceDurableSharedNoteCache(
         params: sharedNoteParams(viewerUserId, snapshot),
       },
       ...attachmentReconciliationStatements(viewerUserId, snapshot),
+      ...sessionShareActivationBackfillStatements(viewerUserId, snapshot),
     ]),
+    sessionShareActivationPruneStatement(viewerUserId, snapshots),
     sessionShareSyncStatePruneStatement(viewerUserId, snapshots),
   ];
 
@@ -271,6 +280,45 @@ export async function upsertDurableSharedNoteCache(
         params: sharedNoteParams(viewerUserId, snapshot),
       },
       ...attachmentReconciliationStatements(viewerUserId, snapshot),
+      ...sessionShareActivationBackfillStatements(viewerUserId, snapshot),
+    ]),
+  );
+}
+
+export async function markSessionShareActivated(
+  viewerUserId: string,
+  shareId: string,
+  sessionId: string,
+): Promise<void> {
+  requireIdentity(viewerUserId, "viewer user");
+  requireUuid(shareId, "share");
+  requireIdentity(sessionId, "session");
+
+  await enqueueDurableSharedNoteCacheMutation(viewerUserId, () =>
+    executeTransaction([
+      {
+        sql: `
+          DELETE FROM session_share_activation
+          WHERE viewer_user_id = ?
+            AND session_id = ?
+            AND share_id <> ?
+        `,
+        params: [viewerUserId, sessionId, shareId],
+      },
+      {
+        sql: `
+          INSERT INTO session_share_activation (
+            viewer_user_id,
+            share_id,
+            session_id,
+            activated_at
+          ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+          ON CONFLICT(viewer_user_id, share_id) DO UPDATE SET
+            session_id = excluded.session_id,
+            activated_at = excluded.activated_at
+        `,
+        params: [viewerUserId, shareId, sessionId],
+      },
     ]),
   );
 }
@@ -300,6 +348,13 @@ export async function removeDurableSharedNoteCache(
       {
         sql: `
           DELETE FROM shared_session_cache
+          WHERE viewer_user_id = ? AND share_id = ?
+        `,
+        params: [viewerUserId, shareId],
+      },
+      {
+        sql: `
+          DELETE FROM session_share_activation
           WHERE viewer_user_id = ? AND share_id = ?
         `,
         params: [viewerUserId, shareId],
@@ -381,6 +436,51 @@ export function useDurableSharedNotes(viewerUserId: string | null | undefined) {
   });
 
   return viewerUserId ? data : [];
+}
+
+export function useActivatedSessionShareIds(
+  viewerUserId: string | null | undefined,
+) {
+  const query = db
+    .select({ sessionId: sessionShareActivation.sessionId })
+    .from(sessionShareActivation)
+    .where(eq(sessionShareActivation.viewerUserId, viewerUserId ?? ""));
+
+  const { data } = useDrizzleLiveQuery<{ session_id: string }, Set<string>>(
+    query,
+    {
+      mapRows: (rows) =>
+        new Set(rows.map((row) => requireIdentity(row.session_id, "session"))),
+      enabled: Boolean(viewerUserId),
+    },
+  );
+
+  return viewerUserId ? (data ?? EMPTY_SESSION_IDS) : EMPTY_SESSION_IDS;
+}
+
+export function useManagedDurableSharedNote(
+  viewerUserId: string | null | undefined,
+  sessionId: string,
+) {
+  const query = db
+    .select()
+    .from(sharedSessionCache)
+    .where(
+      and(
+        eq(sharedSessionCache.viewerUserId, viewerUserId ?? ""),
+        eq(sharedSessionCache.sessionId, sessionId),
+        eq(sharedSessionCache.manageAccess, true),
+      ),
+    )
+    .limit(1);
+
+  return useDrizzleLiveQuery<SharedNoteLiveRow, SharedNoteSnapshot | null>(
+    query,
+    {
+      mapRows: (rows) => mapSharedNoteLiveRows(rows)[0] ?? null,
+      enabled: Boolean(viewerUserId && sessionId),
+    },
+  );
 }
 
 export function useDurableSharedNote(
@@ -619,6 +719,57 @@ function attachmentReconciliationStatements(
       snapshot.accessVersion,
     ],
   }));
+}
+
+function sessionShareActivationBackfillStatements(
+  viewerUserId: string,
+  snapshot: SharedNoteSnapshot,
+) {
+  if (!snapshot.manageAccess || snapshot.accessVersion <= 1) return [];
+  return [
+    {
+      sql: `
+        DELETE FROM session_share_activation
+        WHERE viewer_user_id = ?
+          AND session_id = ?
+          AND share_id <> ?
+      `,
+      params: [viewerUserId, snapshot.sessionId, snapshot.shareId],
+    },
+    {
+      sql: `
+        INSERT INTO session_share_activation (
+          viewer_user_id,
+          share_id,
+          session_id,
+          activated_at
+        ) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        ON CONFLICT(viewer_user_id, share_id) DO UPDATE SET
+          session_id = excluded.session_id
+      `,
+      params: [viewerUserId, snapshot.shareId, snapshot.sessionId],
+    },
+  ];
+}
+
+function sessionShareActivationPruneStatement(
+  viewerUserId: string,
+  snapshots: SharedNoteSnapshot[],
+) {
+  if (snapshots.length === 0) {
+    return {
+      sql: "DELETE FROM session_share_activation WHERE viewer_user_id = ?",
+      params: [viewerUserId],
+    };
+  }
+  return {
+    sql: `
+      DELETE FROM session_share_activation
+      WHERE viewer_user_id = ?
+        AND share_id NOT IN (${snapshots.map(() => "?").join(", ")})
+    `,
+    params: [viewerUserId, ...snapshots.map((snapshot) => snapshot.shareId)],
+  };
 }
 
 function requireAttachments(value: unknown): SharedNoteAttachment[] {

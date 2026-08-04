@@ -37,7 +37,7 @@ import { useAuth } from "~/auth";
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { useTimelineTables } from "~/calendar/queries";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
-import { useDurableSharedNotes } from "~/shared-notes/cache";
+import { useActivatedSessionShareIds } from "~/shared-notes/cache";
 import { useConfigValue } from "~/shared/config";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -63,16 +63,7 @@ export const TimelineView = memo(function TimelineView({
   const { t } = useLingui();
   const timezone = useConfigValue("timezone") || undefined;
   const { session } = useAuth();
-  const durableSharedNotes = useDurableSharedNotes(session?.user.id);
-  const managedSharedSessionIds = useMemo(
-    () =>
-      new Set(
-        durableSharedNotes
-          .filter((note) => note.manageAccess)
-          .map((note) => note.sessionId),
-      ),
-    [durableSharedNotes],
-  );
+  const managedSharedSessionIds = useActivatedSessionShareIds(session?.user.id);
   const { timelineEventsTable, timelineSessionsTable } = useTimelineTables();
   const [uncontrolledShowIgnored, setUncontrolledShowIgnored] = useState(false);
   const showIgnored = showIgnoredEvents ?? uncontrolledShowIgnored;

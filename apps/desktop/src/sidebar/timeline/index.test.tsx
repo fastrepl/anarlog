@@ -33,10 +33,7 @@ const mocks = vi.hoisted(() => ({
   timelineSelectionSelectedIds: [] as string[],
   timelineEventsTable: {} as Record<string, Record<string, unknown>>,
   timelineSessionsTable: {} as Record<string, Record<string, unknown>>,
-  sharedNotes: [] as Array<{
-    sessionId: string;
-    manageAccess: boolean;
-  }>,
+  activatedSessionIds: new Set<string>(),
 }));
 
 const lingui = vi.hoisted(() => {
@@ -120,7 +117,7 @@ vi.mock("~/auth", () => ({
 }));
 
 vi.mock("~/shared-notes/cache", () => ({
-  useDurableSharedNotes: () => mocks.sharedNotes,
+  useActivatedSessionShareIds: () => mocks.activatedSessionIds,
 }));
 
 vi.mock("~/calendar/queries", () => ({

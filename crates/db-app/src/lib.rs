@@ -278,6 +278,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260802120000_voiceprint_exemplars.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260804110000_session_share_activation",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260804110000_session_share_activation.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {
@@ -343,7 +348,30 @@ pub async fn prepare_schema(db: &anlg_db_core::Db) -> Result<(), AppSchemaError>
     repair_legacy_attachment_transfer_jobs_migration(db.pool()).await?;
     anlg_db_migrate::migrate(db, schema()).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
+    backfill_session_share_activation(db.pool()).await?;
     ensure_cloudsync_workspace_binding(db.pool()).await?;
+    Ok(())
+}
+
+async fn backfill_session_share_activation(pool: &sqlx::SqlitePool) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT OR IGNORE INTO session_share_activation (
+                viewer_user_id,
+                share_id,
+                session_id,
+                activated_at
+             )
+             SELECT
+                viewer_user_id,
+                share_id,
+                session_id,
+                cached_at
+             FROM shared_session_cache
+             WHERE manage_access = 1
+               AND access_version > 1",
+    )
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

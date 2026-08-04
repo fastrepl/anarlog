@@ -274,6 +274,23 @@ export const sessionShareSyncState = sqliteTable(
   ],
 );
 
+export const sessionShareActivation = sqliteTable(
+  "session_share_activation",
+  {
+    viewerUserId: text("viewer_user_id").notNull(),
+    shareId: text("share_id").notNull(),
+    sessionId: text("session_id").notNull(),
+    activatedAt: text("activated_at").notNull().default(currentTimestamp),
+  },
+  (table) => [
+    primaryKey({ columns: [table.viewerUserId, table.shareId] }),
+    uniqueIndex("session_share_activation_viewer_session_unique").on(
+      table.viewerUserId,
+      table.sessionId,
+    ),
+  ],
+);
+
 export const transcripts = sqliteTable(
   "transcripts",
   {

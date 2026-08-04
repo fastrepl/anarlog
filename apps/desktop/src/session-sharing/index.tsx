@@ -1,11 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import {
-  ArrowsClockwise,
-  Check,
-  CircleNotch,
-  ShareNetwork,
-  Users,
-} from "@phosphor-icons/react";
+import { ShareNetwork, Users } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
@@ -22,12 +16,14 @@ import { cn } from "@anlg/utils";
 import {
   createOrReuseSessionShare,
   getSessionShareManagement,
-  listSessionShareAccess,
   publishSessionShareSnapshot,
   ShareManagementError,
 } from "./client";
+import { type DraftShareAction, SessionShareDraftContent } from "./draft-panel";
 import { flushCanonicalSessionEditorChanges } from "./editor-activity";
+import { deliverSessionShareInvitation } from "./invitation-management";
 import {
+  copySessionShareUrl,
   loadSharePanel,
   requireManagementContext,
   sessionShareManagementQueryKey,
@@ -49,8 +45,10 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import {
   loadManagedSharedNoteForSession,
+  markSessionShareActivated,
   upsertDurableSharedNoteCache,
   useDurableSharedNote,
+  useManagedDurableSharedNote,
 } from "~/shared-notes/cache";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
@@ -120,10 +118,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
   const queryClient = useQueryClient();
   const [sharePanelIdentity, setSharePanelIdentity] =
     useState<SharePanelIdentity | null>(null);
+  const sharePanelIdentityRef = useRef<SharePanelIdentity | null>(null);
   const [sharePreparationIdentity, setSharePreparationIdentity] =
-    useState<SharePreparationIdentity | null>(null);
-  const [waitingForBilling, setWaitingForBilling] = useState(false);
-  const [upgradePromptIdentity, setUpgradePromptIdentity] =
     useState<SharePreparationIdentity | null>(null);
   const sharePanelPendingRef = useRef(false);
   const clearAbandonedSharePreparation = (
@@ -142,58 +138,32 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     );
   };
   const accountUserId = auth.session?.user.id ?? null;
-  // Drop abandoned preparation state the moment the account or note stops
-  // matching, so returning to the original identity cannot auto-resume a
-  // publish the user never re-requested.
+  const shareContextRef = useRef({ accountUserId, sessionId });
   if (
-    sharePreparationIdentity &&
-    (sharePreparationIdentity.ownerUserId !== accountUserId ||
-      sharePreparationIdentity.sessionId !== sessionId)
+    shareContextRef.current.accountUserId !== accountUserId ||
+    shareContextRef.current.sessionId !== sessionId
   ) {
     sharePreparationIdentityRef.current = null;
-    cancelSharePreparation();
-    setSharePreparationIdentity(null);
-    setWaitingForBilling(false);
+    sharePanelIdentityRef.current = null;
+    shareContextRef.current = { accountUserId, sessionId };
   }
-  if (
-    upgradePromptIdentity &&
-    (upgradePromptIdentity.ownerUserId !== accountUserId ||
-      upgradePromptIdentity.sessionId !== sessionId)
-  ) {
-    setUpgradePromptIdentity(null);
-  }
-  const activeSharePanelIdentity =
-    sharePanelIdentity?.ownerUserId === accountUserId &&
-    sharePanelIdentity.sessionId === sessionId
-      ? sharePanelIdentity
-      : null;
+  const managedNoteQuery = useManagedDurableSharedNote(
+    accountUserId,
+    sessionId,
+  );
   const activeSharePreparationIdentity =
     sharePreparationIdentity?.ownerUserId === accountUserId &&
-    sharePreparationIdentity.sessionId === sessionId
+    sharePreparationIdentity.sessionId === sessionId &&
+    isActiveSharePreparation(sharePreparationIdentity)
       ? sharePreparationIdentity
       : null;
-  const activeUpgradePromptIdentity =
-    upgradePromptIdentity?.ownerUserId === accountUserId &&
-    upgradePromptIdentity.sessionId === sessionId
-      ? upgradePromptIdentity
-      : null;
-  const showUpgradePrompt =
-    Boolean(activeUpgradePromptIdentity) && billing.isReady && !billing.isPaid;
-  const sharePopoverOpen =
-    showUpgradePrompt ||
-    Boolean(activeSharePanelIdentity) ||
-    Boolean(activeSharePreparationIdentity);
-  const durableNoteQuery = useDurableSharedNote(
-    accountUserId,
-    activeSharePanelIdentity?.shareId ?? "",
-  );
-  const initializeMutation = useMutation({
+  const activationMutation = useMutation({
     mutationFn: ({
-      publish,
       identity,
+      action,
     }: {
-      publish: boolean;
       identity: SharePreparationIdentity;
+      action: DraftShareAction;
     }) =>
       runPrepareOperation(async (signal) => {
         let context = requireActivePrepareContext(identity, signal);
@@ -227,12 +197,10 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         ) {
           throw new ShareManagementError();
         }
-        const cachedManagedShare = publish
-          ? await loadManagedSharedNoteForSession(
-              identity.ownerUserId,
-              source.sessionId,
-            )
-          : null;
+        const cachedManagedShare = await loadManagedSharedNoteForSession(
+          identity.ownerUserId,
+          source.sessionId,
+        );
         context = requireActivePrepareContext(identity, signal);
         if (
           cachedManagedShare &&
@@ -242,7 +210,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         ) {
           throw new ShareManagementError();
         }
-        if (publish && (share.wasCreated || !cachedManagedShare)) {
+        if (share.wasCreated || !cachedManagedShare) {
           const sourceHash = await hashSessionShareProjection({
             title: source.title,
             body: source.body,
@@ -289,14 +257,48 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           });
           context = requireActivePrepareContext(identity, signal);
         }
-        const access = await listSessionShareAccess(context, share.shareId);
+        let actionResult:
+          | { type: "invite"; deliveredBy: "email" | "clipboard" }
+          | { type: "copy-link" };
+        if (action.type === "invite") {
+          actionResult = {
+            type: "invite",
+            deliveredBy: (
+              await deliverSessionShareInvitation({
+                context,
+                shareId: share.shareId,
+                email: action.email,
+                capability: "viewer",
+                noteTitle: source.title,
+                signal,
+                requireActive: () => {
+                  requireActivePrepareContext(identity, signal);
+                },
+              })
+            ).deliveredBy,
+          };
+        } else {
+          await copySessionShareUrl(share.shareId, () =>
+            requireActivePrepareContext(identity, signal),
+          );
+          actionResult = { type: "copy-link" };
+        }
+        requireActivePrepareContext(identity, signal);
+        await markSessionShareActivated(
+          identity.ownerUserId,
+          share.shareId,
+          identity.sessionId,
+        );
+        context = requireActivePrepareContext(identity, signal);
+        const data = await loadSharePanel(context, share.shareId);
         requireActivePrepareContext(identity, signal);
         return {
           identity: { ...identity, shareId: share.shareId },
-          data: { management, access, wasCreated: share.wasCreated },
+          data: { ...data, wasCreated: share.wasCreated },
+          actionResult,
         };
       }),
-    onSuccess: ({ identity, data }) => {
+    onSuccess: ({ identity, data, actionResult }) => {
       if (
         !isActiveSharePreparation(identity) ||
         latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
@@ -312,8 +314,25 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       void queryClient.invalidateQueries({
         queryKey: ["durable-shared-note-cache", identity.ownerUserId],
       });
+      if (actionResult.type === "invite") {
+        trackAnalyticsEvent("share_invitation_sent", {
+          delivery_method: actionResult.deliveredBy,
+          capability: "viewer",
+        });
+        sonnerToast.success(
+          actionResult.deliveredBy === "email"
+            ? "Invitation sent."
+            : "Email unavailable. Invite link copied instead.",
+        );
+      } else {
+        trackAnalyticsEvent("share_link_copied", {
+          entry_point: "share_panel",
+        });
+        sonnerToast.success("Share link copied.");
+      }
       sharePreparationIdentityRef.current = null;
       setSharePreparationIdentity(null);
+      sharePanelIdentityRef.current = identity;
       setSharePanelIdentity(identity);
     },
     onError: (error, variables) => {
@@ -327,44 +346,44 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         clearAbandonedSharePreparation(variables.identity);
         return;
       }
-      console.error("[session-sharing] could not prepare note", error);
-      sonnerToast.error("Could not prepare this note for sharing.");
+      console.error("[session-sharing] could not activate share", error);
+      sonnerToast.error(
+        variables.action.type === "invite"
+          ? "Could not create this invitation."
+          : "Could not copy the share link.",
+      );
     },
   });
-  const freeShareMutation = useMutation({
-    mutationFn: (identity: SharePreparationIdentity) =>
-      loadManagedSharedNoteForSession(identity.ownerUserId, identity.sessionId),
-    onSuccess: (managedShare, identity) => {
-      if (
-        !isActiveSharePreparation(identity) ||
-        latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
-        latestSessionIdRef.current !== identity.sessionId
-      ) {
-        clearAbandonedSharePreparation(identity);
-        return;
-      }
-      if (!managedShare) {
-        sharePreparationIdentityRef.current = null;
-        setSharePreparationIdentity(null);
-        setUpgradePromptIdentity(identity);
-        return;
-      }
-      initializeMutation.mutate({ publish: false, identity });
-    },
-    onError: (_error, identity) => {
-      if (
-        !isActiveSharePreparation(identity) ||
-        latestAuthRef.current.session?.user.id !== identity.ownerUserId ||
-        latestSessionIdRef.current !== identity.sessionId
-      ) {
-        clearAbandonedSharePreparation(identity);
-        return;
-      }
-      sonnerToast.error("Could not check this note's sharing status.");
-    },
-  });
-  const shareButtonPending =
-    initializeMutation.isPending || freeShareMutation.isPending;
+  const cachedSharePanelIdentity =
+    activeSharePreparationIdentity &&
+    managedNoteQuery.data &&
+    !activationMutation.isPending &&
+    !activationMutation.isError
+      ? {
+          ...activeSharePreparationIdentity,
+          shareId: managedNoteQuery.data.shareId,
+        }
+      : null;
+  const activeSharePanelIdentity =
+    sharePanelIdentity?.ownerUserId === accountUserId &&
+    sharePanelIdentity.sessionId === sessionId &&
+    sharePanelIdentityRef.current === sharePanelIdentity
+      ? sharePanelIdentity
+      : cachedSharePanelIdentity;
+  const showUpgradePrompt = Boolean(
+    activeSharePreparationIdentity &&
+    !activeSharePanelIdentity &&
+    !managedNoteQuery.isLoading &&
+    billing.isReady &&
+    !billing.isPaid,
+  );
+  const sharePopoverOpen = Boolean(
+    activeSharePanelIdentity || activeSharePreparationIdentity,
+  );
+  const durableNoteQuery = useDurableSharedNote(
+    accountUserId,
+    activeSharePanelIdentity?.shareId ?? "",
+  );
 
   const queryKey = sessionShareManagementQueryKey(
     activeSharePanelIdentity?.ownerUserId ?? "",
@@ -393,31 +412,18 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
 
   const closeSharePopover = () => {
     sharePreparationIdentityRef.current = null;
+    sharePanelIdentityRef.current = null;
     cancelSharePreparation();
     setSharePanelIdentity(null);
     setSharePreparationIdentity(null);
-    setWaitingForBilling(false);
-    setUpgradePromptIdentity(null);
-    initializeMutation.reset();
-    freeShareMutation.reset();
+    activationMutation.reset();
   };
 
-  const runSharePreparation = (identity: SharePreparationIdentity) => {
-    if (!isActiveSharePreparation(identity)) return;
-    setWaitingForBilling(false);
-    if (!billing.isPaid) {
-      freeShareMutation.mutate(identity);
-      return;
-    }
-    initializeMutation.mutate({ publish: true, identity });
-  };
-
-  const startSharePreparation = (
+  const openSharePopover = (
     identity: Omit<SharePreparationIdentity, "attemptId">,
   ) => {
     cancelSharePreparation();
-    initializeMutation.reset();
-    freeShareMutation.reset();
+    activationMutation.reset();
     const preparation = {
       ...identity,
       attemptId: nextSharePreparationAttemptRef.current,
@@ -425,11 +431,23 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     nextSharePreparationAttemptRef.current += 1;
     sharePreparationIdentityRef.current = preparation;
     setSharePreparationIdentity(preparation);
-    if (!billing.isReady) {
-      setWaitingForBilling(true);
+  };
+
+  const handleDraftAction = (action: DraftShareAction) => {
+    if (
+      !activeSharePreparationIdentity ||
+      !isActiveSharePreparation(activeSharePreparationIdentity) ||
+      managedNoteQuery.isLoading ||
+      !billing.isReady ||
+      !billing.isPaid
+    ) {
       return;
     }
-    runSharePreparation(preparation);
+    activationMutation.reset();
+    activationMutation.mutate({
+      identity: activeSharePreparationIdentity,
+      action,
+    });
   };
 
   const handleShare = () => {
@@ -443,8 +461,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       });
       return;
     }
-    if (shareButtonPending) return;
-    startSharePreparation({
+    openSharePopover({
       ownerUserId: auth.session.user.id,
       sessionId,
     });
@@ -473,11 +490,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             sharePopoverOpen && "bg-accent text-foreground",
           ])}
         >
-          {shareButtonPending ? (
-            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
-          ) : (
-            <ShareNetwork className="size-3.5" aria-hidden="true" />
-          )}
+          <ShareNetwork className="size-3.5" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       {showUpgradePrompt ? (
@@ -488,7 +501,6 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           sessionId={activeSharePanelIdentity.sessionId}
           identity={activeSharePanelIdentity}
           data={shareQuery.data}
-          loading={shareQuery.isPending}
           error={shareQuery.isError}
           canExpand={billing.isPaid}
           sharedAttachments={sharedAttachments}
@@ -496,6 +508,13 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           sharedAttachmentsReady={sharedAttachmentsReady}
           pendingRef={sharePanelPendingRef}
           onRetry={() => void shareQuery.refetch()}
+          onActivated={() =>
+            markSessionShareActivated(
+              activeSharePanelIdentity.ownerUserId,
+              activeSharePanelIdentity.shareId,
+              activeSharePanelIdentity.sessionId,
+            )
+          }
           onChanged={() =>
             Promise.all([
               queryClient.invalidateQueries({ queryKey }),
@@ -509,113 +528,19 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           }
         />
       ) : activeSharePreparationIdentity ? (
-        <>
-          {waitingForBilling && billing.isReady ? (
-            <SharePreparationStarter
-              identity={activeSharePreparationIdentity}
-              onStart={runSharePreparation}
-            />
-          ) : null}
-          <SessionSharePreparationContent
-            loading={shareButtonPending}
-            error={initializeMutation.isError || freeShareMutation.isError}
-            onRetry={() =>
-              startSharePreparation(activeSharePreparationIdentity)
-            }
-            onClose={closeSharePopover}
-          />
-        </>
+        <SessionShareDraftContent
+          disabled={
+            managedNoteQuery.isLoading || !billing.isReady || !billing.isPaid
+          }
+          pendingAction={
+            activationMutation.isPending
+              ? (activationMutation.variables?.action.type ?? null)
+              : null
+          }
+          onAction={handleDraftAction}
+        />
       ) : null}
     </Popover>
-  );
-}
-
-function SharePreparationStarter({
-  identity,
-  onStart,
-}: {
-  identity: SharePreparationIdentity;
-  onStart: (identity: SharePreparationIdentity) => void;
-}) {
-  const startedRef = useRef(false);
-  useMountEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-    onStart(identity);
-  });
-  return null;
-}
-
-function SessionSharePreparationContent({
-  loading,
-  error,
-  onRetry,
-  onClose,
-}: {
-  loading: boolean;
-  error: boolean;
-  onRetry: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <PopoverContent
-      variant="app"
-      align="end"
-      sideOffset={8}
-      aria-labelledby="session-share-heading"
-      aria-describedby="session-share-description"
-      className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
-    >
-      <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
-        <header className="border-border/60 border-b px-5 py-4 text-left">
-          <div className="flex items-center gap-3">
-            <div className="bg-accent flex size-9 items-center justify-center rounded-full">
-              <Users className="size-4" aria-hidden="true" />
-            </div>
-            <div className="min-w-0">
-              <h2
-                id="session-share-heading"
-                className="text-sm leading-5 font-semibold tracking-normal"
-              >
-                <Trans>Share note</Trans>
-              </h2>
-              <p
-                id="session-share-description"
-                className="text-muted-foreground mt-0.5 text-xs leading-4"
-              >
-                <Trans>Choose who can open this note.</Trans>
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <div className="flex min-h-0 flex-1 items-center justify-center px-5 py-4">
-          {error && !loading ? (
-            <div className="flex flex-col items-center gap-3 text-center">
-              <p className="text-muted-foreground text-xs">
-                <Trans>Access settings could not be loaded.</Trans>
-              </p>
-              <Button size="sm" variant="outline" onClick={onRetry}>
-                <ArrowsClockwise className="size-3.5" aria-hidden="true" />
-                <Trans>Try again</Trans>
-              </Button>
-            </div>
-          ) : (
-            <div className="text-muted-foreground flex items-center gap-2 text-xs">
-              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
-              <Trans>Loading access…</Trans>
-            </div>
-          )}
-        </div>
-
-        <footer className="border-border/60 flex justify-end border-t px-5 py-3">
-          <Button type="button" size="sm" onClick={onClose}>
-            <Check className="size-3.5" aria-hidden="true" />
-            <Trans>Done</Trans>
-          </Button>
-        </footer>
-      </AppFloatingPanel>
-    </PopoverContent>
   );
 }
 

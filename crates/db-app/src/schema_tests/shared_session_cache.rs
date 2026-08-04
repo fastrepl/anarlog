@@ -16,6 +16,55 @@ fn shared_session_cache_is_plain_and_excluded_from_cloudsync() {
     assert!(!cloudsync_alter_guard_required("shared_session_cache"));
 }
 
+#[tokio::test]
+async fn share_activation_backfills_only_previously_shared_manager_notes() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260804110000_session_share_activation"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+    for (share_id, session_id, manage_access, access_version) in [
+        ("owner-draft", "session-draft", 1, 1),
+        ("owner-shared", "session-shared", 1, 2),
+        ("recipient-shared", "session-recipient", 0, 2),
+    ] {
+        sqlx::query(
+            "INSERT INTO shared_session_cache (
+                    share_id, viewer_user_id, workspace_id, session_id,
+                    content_revision, manage_access, access_version, published_at
+                 ) VALUES (?, 'user-1', 'workspace-1', ?, 1, ?, ?, '2026-08-04T00:00:00Z')",
+        )
+        .bind(share_id)
+        .bind(session_id)
+        .bind(manage_access)
+        .bind(access_version)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+
+    prepare_schema(&db).await.unwrap();
+
+    let activations: Vec<(String, String)> = sqlx::query_as(
+        "SELECT share_id, session_id
+             FROM session_share_activation
+             WHERE viewer_user_id = 'user-1'
+             ORDER BY share_id",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        activations,
+        [("owner-shared".to_string(), "session-shared".to_string())]
+    );
+}
+
 #[test]
 fn shared_session_cache_migration_checksums_are_pinned() {
     assert_eq!(

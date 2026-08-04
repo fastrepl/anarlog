@@ -8,6 +8,7 @@ import {
   resendSessionAccessInvitation,
   sendSessionAccessInvitationEmail,
   type SessionAccessCapability,
+  type ShareManagementContext,
   ShareManagementError,
 } from "./client";
 import {
@@ -34,6 +35,64 @@ export function isInviteEmail(value: string) {
   );
 }
 
+export async function deliverSessionShareInvitation({
+  context,
+  shareId,
+  email,
+  capability,
+  noteTitle,
+  signal,
+  requireActive,
+}: {
+  context: ShareManagementContext;
+  shareId: string;
+  email: string;
+  capability: SessionAccessCapability;
+  noteTitle: string;
+  signal: AbortSignal;
+  requireActive: () => void;
+}) {
+  let invitation = await createSessionAccessInvitation(context, {
+    shareId,
+    inviteeEmail: email,
+    capability,
+  });
+  if (!invitation.inviteToken) {
+    invitation = {
+      ...(await resendSessionAccessInvitation(
+        context,
+        invitation.invitationId,
+      )),
+      wasCreated: true,
+    };
+  }
+  if (!invitation.inviteToken) throw new ShareManagementError();
+  try {
+    await sendSessionAccessInvitationEmail({
+      apiBaseUrl: env.VITE_API_URL,
+      session: context.session,
+      shareId,
+      invitationId: invitation.invitationId,
+      inviteToken: invitation.inviteToken,
+      noteTitle,
+      signal,
+    });
+  } catch {
+    await copyInvitationOrRevoke(
+      withoutSignal(context),
+      {
+        invitationId: invitation.invitationId,
+        inviteToken: invitation.inviteToken,
+      },
+      requireActive,
+      signal,
+    );
+    return { deliveredBy: "clipboard" as const };
+  }
+  requireActive();
+  return { deliveredBy: "email" as const };
+}
+
 export function useSessionInvitationManagement({
   identity,
   managementAvailable,
@@ -41,6 +100,7 @@ export function useSessionInvitationManagement({
   runOperation,
   publishLatest,
   requireActiveContext,
+  onActivated,
   onChanged,
 }: {
   identity: SharePanelIdentity;
@@ -49,6 +109,7 @@ export function useSessionInvitationManagement({
   runOperation: RunShareOperation;
   publishLatest: PublishLatestSessionShare;
   requireActiveContext: RequireActiveShareContext;
+  onActivated: () => Promise<unknown>;
   onChanged: () => Promise<unknown>;
 }) {
   const inviteForm = useForm({
@@ -75,45 +136,19 @@ export function useSessionInvitationManagement({
         }
         const published = await publishLatest(signal);
         const context = requireActiveContext(signal);
-        let invitation = await createSessionAccessInvitation(context, {
+        const delivery = await deliverSessionShareInvitation({
+          context,
           shareId: identity.shareId,
-          inviteeEmail: input.email,
+          email: input.email,
           capability: input.capability,
+          noteTitle: published.title,
+          signal,
+          requireActive: () => {
+            requireActiveContext(signal);
+          },
         });
-        if (!invitation.inviteToken) {
-          invitation = {
-            ...(await resendSessionAccessInvitation(
-              context,
-              invitation.invitationId,
-            )),
-            wasCreated: true,
-          };
-        }
-        if (!invitation.inviteToken) throw new ShareManagementError();
-        try {
-          await sendSessionAccessInvitationEmail({
-            apiBaseUrl: env.VITE_API_URL,
-            session: context.session,
-            shareId: identity.shareId,
-            invitationId: invitation.invitationId,
-            inviteToken: invitation.inviteToken,
-            noteTitle: published.title,
-            signal,
-          });
-        } catch {
-          await copyInvitationOrRevoke(
-            withoutSignal(context),
-            {
-              invitationId: invitation.invitationId,
-              inviteToken: invitation.inviteToken,
-            },
-            () => requireActiveContext(signal),
-            signal,
-          );
-          return { deliveredBy: "clipboard" as const };
-        }
-        requireActiveContext(signal);
-        return { deliveredBy: "email" as const };
+        await onActivated();
+        return delivery;
       }),
     onSuccess: ({ deliveredBy }, input) => {
       trackAnalyticsEvent("share_invitation_sent", {
