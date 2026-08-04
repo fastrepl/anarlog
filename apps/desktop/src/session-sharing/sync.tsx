@@ -8,6 +8,7 @@ import {
   loadSessionShareSyncState,
   recordPublishedSessionShareState,
 } from "./reconciliation";
+import { SESSION_SHARE_DOCUMENT_ID_SQL } from "./source";
 
 import { useAuth } from "~/auth";
 import { useLiveQuery } from "~/db";
@@ -54,7 +55,8 @@ export function OwnedSharedNotePublisher() {
         cache.workspace_id,
         cache.session_id,
         CASE
-          WHEN note.updated_at > session.updated_at THEN note.updated_at
+          WHEN share_document.updated_at > session.updated_at
+            THEN share_document.updated_at
           ELSE session.updated_at
         END AS source_updated_at,
         sync.acknowledged_content_revision,
@@ -64,27 +66,8 @@ export function OwnedSharedNotePublisher() {
       JOIN sessions AS session
         ON session.id = cache.session_id
         AND session.deleted_at IS NULL
-      JOIN session_documents AS note
-        ON note.id = COALESCE(
-          (
-            SELECT canonical.id
-            FROM session_documents AS canonical
-            WHERE canonical.id = session.id
-              AND canonical.session_id = session.id
-              AND canonical.kind = 'note'
-              AND canonical.deleted_at IS NULL
-            LIMIT 1
-          ),
-          (
-            SELECT fallback.id
-            FROM session_documents AS fallback
-            WHERE fallback.session_id = session.id
-              AND fallback.kind = 'note'
-              AND fallback.deleted_at IS NULL
-            ORDER BY fallback.updated_at DESC, fallback.created_at DESC, fallback.id
-            LIMIT 1
-          )
-        )
+      JOIN session_documents AS share_document
+        ON share_document.id = (${SESSION_SHARE_DOCUMENT_ID_SQL})
       LEFT JOIN session_share_sync_state AS sync
         ON sync.viewer_user_id = cache.viewer_user_id
         AND sync.share_id = cache.share_id

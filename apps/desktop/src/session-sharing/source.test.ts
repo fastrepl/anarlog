@@ -47,7 +47,7 @@ function sourceRow(
 ) {
   return {
     id: "session-1",
-    document_id: "session-1",
+    document_id: "summary-1",
     workspace_id: ACCOUNT_ID,
     title: "Planning notes",
     body: JSON.stringify({
@@ -76,14 +76,14 @@ describe("loadSessionShareSource", () => {
     mocks.liveQueryOptions = null;
   });
 
-  it("loads the current personal-workspace note", async () => {
+  it("loads the first summary instead of the raw memo", async () => {
     mocks.execute.mockResolvedValue([sourceRow()]);
 
     await expect(
       loadSessionShareSource("session-1", ACCOUNT_ID),
     ).resolves.toEqual({
       sessionId: "session-1",
-      documentId: "session-1",
+      documentId: "summary-1",
       workspaceId: ACCOUNT_ID,
       title: "Planning notes",
       body: {
@@ -100,7 +100,9 @@ describe("loadSessionShareSource", () => {
     });
 
     const [sql, params] = mocks.execute.mock.calls[0]!;
-    expect(sql).toContain("fallback.updated_at DESC");
+    expect(sql).toContain("candidate.kind IN ('summary', 'template_output')");
+    expect(sql).toContain("ORDER BY candidate.sort_order, candidate.id");
+    expect(sql).not.toContain("kind = 'note'");
     expect(params).toEqual([
       ACCOUNT_ID,
       ACCOUNT_ID,
@@ -234,12 +236,22 @@ describe("loadSessionShareSource", () => {
     },
   );
 
-  it("returns the canonical empty document for an empty local note", async () => {
+  it("refuses to share when the session has no generated summary", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({ document_id: null, body: "" }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).rejects.toThrow("Generate a summary before sharing this note");
+  });
+
+  it("refuses to share an empty summary document", async () => {
     mocks.execute.mockResolvedValue([sourceRow({ body: "" })]);
 
     await expect(
       loadSessionShareSource("session-1", ACCOUNT_ID),
-    ).resolves.toMatchObject({ body: { type: "doc", content: [] } });
+    ).rejects.toThrow("Generate a summary before sharing this note");
   });
 
   it("converts imported Markdown to ProseMirror JSON", async () => {

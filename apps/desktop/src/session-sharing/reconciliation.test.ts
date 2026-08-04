@@ -146,7 +146,7 @@ function snapshot(
 function source(title = "Base title", body: JSONContent = baseBody) {
   return {
     sessionId: SESSION_ID,
-    documentId: SESSION_ID,
+    documentId: "summary-1",
     workspaceId: WORKSPACE_ID,
     title,
     body,
@@ -496,6 +496,10 @@ describe("session share reconciliation", () => {
     expect(statements[0]).toMatchObject({ expectedRowsAffected: 1 });
     expect(statements[0].sql).toContain("AND title = ?");
     expect(statements[1]).toMatchObject({ expectedRowsAffected: 1 });
+    expect(statements[1].sql).toContain(
+      "kind IN ('summary', 'template_output')",
+    );
+    expect(statements[1].sql).not.toContain("kind = 'note'");
     expect(statements[1].sql).toContain("AND body = ?");
     expect(statements[1].sql).toContain("AND body_format = ?");
     expect(statements[2].params).toContain("clean");
@@ -797,14 +801,14 @@ describe("session share reconciliation", () => {
     expect(acknowledge).not.toHaveBeenCalled();
   });
 
-  it("CAS-updates the exact legacy fallback document instead of forcing a permanent conflict", async () => {
+  it("CAS-updates the exact selected summary document", async () => {
     const baseline = await hashSessionShareProjection({
       title: "Base title",
       body: baseBody,
     });
     mocks.loadSource.mockResolvedValue({
       ...source(),
-      documentId: "legacy-document-1",
+      documentId: "summary-2",
     });
     mocks.liveQueryExecute.mockResolvedValue([
       stateRow({ revision: 1, hash: baseline }),
@@ -821,7 +825,7 @@ describe("session share reconciliation", () => {
       }),
     ).resolves.toBe("imported");
     expect(mocks.executeTransaction.mock.calls[0]![0][1].params).toEqual(
-      expect.arrayContaining(["legacy-document-1", SESSION_ID]),
+      expect.arrayContaining(["summary-2", SESSION_ID]),
     );
   });
 

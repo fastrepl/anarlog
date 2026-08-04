@@ -135,7 +135,7 @@ describe("OwnedSharedNotePublisher", () => {
     vi.useRealTimers();
   });
 
-  it("publishes only a local change based on the acknowledged server revision", async () => {
+  it("replaces an existing shared memo with the current summary projection", async () => {
     renderPublisher();
 
     await act(async () => {
@@ -148,6 +148,7 @@ describe("OwnedSharedNotePublisher", () => {
         baseRevision: 2,
         mutationId: "mutation-id",
         title: "Current title",
+        body: { type: "doc", content: [{ type: "paragraph" }] },
       }),
     );
     expect(mocks.createMutationId).toHaveBeenCalledWith({
@@ -168,15 +169,13 @@ describe("OwnedSharedNotePublisher", () => {
     );
   });
 
-  it("observes the canonical note or the latest legacy fallback document", () => {
+  it("observes the first summary instead of the raw memo", () => {
     renderPublisher();
 
     const sql = mocks.liveQueryOptions.sql.replace(/\s+/g, " ");
-    expect(sql).toContain("canonical.id = session.id");
-    expect(sql).toContain("fallback.session_id = session.id");
-    expect(sql).toContain(
-      "ORDER BY fallback.updated_at DESC, fallback.created_at DESC, fallback.id",
-    );
+    expect(sql).toContain("candidate.kind IN ('summary', 'template_output')");
+    expect(sql).toContain("ORDER BY candidate.sort_order, candidate.id");
+    expect(sql).not.toContain("kind = 'note'");
   });
 
   it("does not echo an imported remote body when its hash is the baseline", async () => {

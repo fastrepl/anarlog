@@ -10,6 +10,16 @@ const EMPTY_WORKSPACES: AvailableShareWorkspace[] = [];
 const MAX_DOCUMENT_DEPTH = 64;
 const MAX_DOCUMENT_NODES = 50_000;
 
+export const SESSION_SHARE_DOCUMENT_ID_SQL = `
+  SELECT candidate.id
+  FROM session_documents AS candidate
+  WHERE candidate.session_id = session.id
+    AND candidate.kind IN ('summary', 'template_output')
+    AND candidate.deleted_at IS NULL
+  ORDER BY candidate.sort_order, candidate.id
+  LIMIT 1
+`;
+
 type SessionShareSourceSqlRow = {
   id: string;
   document_id: string | null;
@@ -47,11 +57,11 @@ export type AvailableShareWorkspace = {
 const SESSION_SHARE_SOURCE_SQL = `
   SELECT
     session.id,
-    note.id AS document_id,
+    share_document.id AS document_id,
     session.workspace_id,
     session.title,
-    COALESCE(note.body, '') AS body,
-    COALESCE(note.body_format, 'prosemirror_json') AS body_format,
+    COALESCE(share_document.body, '') AS body,
+    COALESCE(share_document.body_format, 'prosemirror_json') AS body_format,
     EXISTS (
       SELECT 1
       FROM workspaces AS personal_workspace
@@ -92,27 +102,8 @@ const SESSION_SHARE_SOURCE_SQL = `
       LIMIT 1
     ) AS binding_json
   FROM sessions AS session
-  LEFT JOIN session_documents AS note
-    ON note.id = COALESCE(
-      (
-        SELECT canonical.id
-        FROM session_documents AS canonical
-        WHERE canonical.id = session.id
-          AND canonical.session_id = session.id
-          AND canonical.kind = 'note'
-          AND canonical.deleted_at IS NULL
-        LIMIT 1
-      ),
-      (
-        SELECT fallback.id
-        FROM session_documents AS fallback
-        WHERE fallback.session_id = session.id
-          AND fallback.kind = 'note'
-          AND fallback.deleted_at IS NULL
-        ORDER BY fallback.updated_at DESC, fallback.created_at DESC, fallback.id
-        LIMIT 1
-      )
-    )
+  LEFT JOIN session_documents AS share_document
+    ON share_document.id = (${SESSION_SHARE_DOCUMENT_ID_SQL})
   WHERE session.id = ?
     AND session.deleted_at IS NULL
   LIMIT 1
@@ -157,13 +148,21 @@ export async function loadSessionShareSource(
   if (!row) {
     throw new Error("The note is unavailable for sharing");
   }
+  if (!row.document_id) {
+    throw new Error("Generate a summary before sharing this note");
+  }
+
+  const body = parseShareDocument(row.body, row.body_format);
+  if (!body.content?.length) {
+    throw new Error("Generate a summary before sharing this note");
+  }
 
   return {
     sessionId: row.id,
     documentId: row.document_id,
     workspaceId: resolveSourceWorkspace(row, normalizedAccountUserId),
     title: row.title,
-    body: parseShareDocument(row.body, row.body_format),
+    body,
     rawBody: row.body,
     bodyFormat: row.body_format,
   };
@@ -295,14 +294,14 @@ function parseShareDocument(body: string, bodyFormat: string): JSONContent {
     try {
       parsed = JSON.parse(body) as unknown;
     } catch {
-      throw new Error("The note content is malformed and cannot be shared");
+      throw new Error("The summary content is malformed and cannot be shared");
     }
   } else {
-    throw new Error("The note content format cannot be shared");
+    throw new Error("The summary content format cannot be shared");
   }
 
   if (!isValidDocument(parsed)) {
-    throw new Error("The note content is malformed and cannot be shared");
+    throw new Error("The summary content is malformed and cannot be shared");
   }
   return parsed;
 }

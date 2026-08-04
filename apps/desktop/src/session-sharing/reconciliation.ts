@@ -509,7 +509,7 @@ async function importSnapshot(input: {
           SET body = ?, body_format = 'prosemirror_json', updated_by = ?, updated_at = ?
           WHERE id = ?
             AND session_id = ?
-            AND kind = 'note'
+            AND kind IN ('summary', 'template_output')
             AND body = ?
             AND body_format = ?
             AND deleted_at IS NULL
