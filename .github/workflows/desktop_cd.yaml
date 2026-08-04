@@ -259,13 +259,12 @@ jobs:
         uses: ./.github/actions/sentry_cli
       - if: ${{ inputs.channel == 'stable' }}
         name: Upload macOS debug symbols to Sentry
-        env:
-          SENTRY_AUTH_TOKEN: ${{ fromJSON(steps.sentry-secrets.outputs.secrets).SENTRY_AUTH_TOKEN }}
         run: |
-          if [[ -z "$SENTRY_AUTH_TOKEN" ]]; then
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.SENTRY_AUTH_TOKEN | select(length > 0)' "${{ steps.sentry-secrets.outputs.secrets_file }}"); then
             echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
             exit 1
           fi
+          export SENTRY_AUTH_TOKEN
 
           sentry-cli debug-files upload \
             --org fastrepl \
