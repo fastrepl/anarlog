@@ -21,6 +21,14 @@ async setTraySchedule(events: TrayScheduleEvent[]) : Promise<Result<null, string
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async setTrayRecordingTitle(title: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:anlg-tray|set_tray_recording_title", { title }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

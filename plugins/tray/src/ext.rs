@@ -34,7 +34,8 @@ static START_DISABLED: AtomicBool = AtomicBool::new(false);
 static ANIMATION_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 static SCHEDULE: Mutex<Vec<TrayScheduleEvent>> = Mutex::new(Vec::new());
 static SCHEDULE_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
-static SCHEDULE_TITLE: Mutex<Option<String>> = Mutex::new(None);
+static MENU_BAR_TITLE: Mutex<Option<String>> = Mutex::new(None);
+static RECORDING_TITLE: Mutex<Option<String>> = Mutex::new(None);
 static AGENDA_SECTIONS: Mutex<Vec<TrayAgendaSection>> = Mutex::new(Vec::new());
 
 #[cfg(target_os = "macos")]
@@ -148,7 +149,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             .show_menu_on_left_click(true)
             .build(app)?;
 
-        Self::refresh_schedule_title(app)?;
+        Self::refresh_menu_bar_title(app)?;
 
         Ok(())
     }
@@ -196,7 +197,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         *SCHEDULE.lock().unwrap() = events;
 
         let app = self.manager.app_handle();
-        Self::refresh_schedule_title(app)?;
+        Self::refresh_menu_bar_title(app)?;
         Self::refresh_menu_if_agenda_changed(app)?;
 
         let mut task = SCHEDULE_TASK.lock().unwrap();
@@ -206,8 +207,8 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
                 loop {
                     interval.tick().await;
-                    if let Err(error) = Self::refresh_schedule_title(&app) {
-                        tracing::warn!(%error, "failed to refresh tray schedule title");
+                    if let Err(error) = Self::refresh_menu_bar_title(&app) {
+                        tracing::warn!(%error, "failed to refresh menu bar title");
                     }
                     if let Err(error) = Self::refresh_menu_if_agenda_changed(&app) {
                         tracing::warn!(%error, "failed to refresh tray agenda");
@@ -228,7 +229,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
         let app = self.manager.app_handle();
         Self::persist_show_events(app, show);
-        Self::refresh_schedule_title(app)?;
+        Self::refresh_menu_bar_title(app)?;
         Self::rebuild_menu(app)
     }
 
@@ -258,7 +259,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         }
     }
 
-    fn refresh_schedule_title(app: &AppHandle<tauri::Wry>) -> Result<()> {
+    fn refresh_menu_bar_title(app: &AppHandle<tauri::Wry>) -> Result<()> {
         let Some(tray) = app.tray_by_id(TRAY_ID) else {
             return Ok(());
         };
@@ -267,12 +268,15 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as f64;
+        let recording_title = RECORDING_TITLE.lock().unwrap().clone();
         let title = menu_bar_title(
             &SCHEDULE.lock().unwrap(),
             now_ms,
             SHOW_EVENTS.load(Ordering::SeqCst),
+            IS_RECORDING.load(Ordering::SeqCst),
+            recording_title.as_deref(),
         );
-        let mut current_title = SCHEDULE_TITLE.lock().unwrap();
+        let mut current_title = MENU_BAR_TITLE.lock().unwrap();
 
         if *current_title != title {
             // tray-icon currently treats None as a no-op on macOS.
@@ -363,7 +367,21 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
     pub fn set_recording(&self, recording: bool) -> Result<()> {
         IS_RECORDING.store(recording, Ordering::SeqCst);
-        Self::refresh_icon(self.manager.app_handle())
+        if !recording {
+            *RECORDING_TITLE.lock().unwrap() = None;
+        }
+
+        let app = self.manager.app_handle();
+        Self::refresh_menu_bar_title(app)?;
+        Self::refresh_icon(app)
+    }
+
+    pub fn set_recording_title(&self, title: Option<String>) -> Result<()> {
+        *RECORDING_TITLE.lock().unwrap() = title.and_then(|title| {
+            let title = title.trim();
+            (!title.is_empty()).then(|| title.to_string())
+        });
+        Self::refresh_menu_bar_title(self.manager.app_handle())
     }
 
     pub fn set_degraded(&self, degraded: bool) -> Result<()> {

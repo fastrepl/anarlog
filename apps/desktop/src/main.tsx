@@ -31,6 +31,7 @@ import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
+import { TrayRecordingSync } from "./services/tray-recording";
 import { TrayScheduleSync } from "./services/tray-schedule";
 import { useRemoteSessionDeletionUndoListener } from "./session/hooks/useDeleteSession";
 import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
@@ -99,6 +100,7 @@ function AppRoot() {
         {isMainWindow ? <FloatingMeetingWindowHost /> : null}
         {isMainWindow ? <EventListeners /> : null}
         {isMainWindow ? <TrayScheduleSync /> : null}
+        {isMainWindow ? <TrayRecordingSync /> : null}
         <Toaster position="bottom-right" theme={theme} />
       </TinyTickProvider>
     </QueryClientProvider>

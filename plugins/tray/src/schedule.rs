@@ -84,7 +84,18 @@ pub fn menu_bar_title(
     events: &[TrayScheduleEvent],
     now_ms: f64,
     show_events: bool,
+    is_recording: bool,
+    recording_title: Option<&str>,
 ) -> Option<String> {
+    if is_recording {
+        let title = recording_title?.trim();
+        if title.is_empty() {
+            return None;
+        }
+
+        return Some(compact_title(title, MAX_MENU_BAR_LABEL_WIDTH));
+    }
+
     if !show_events {
         return None;
     }
@@ -225,7 +236,7 @@ mod tests {
         ];
 
         assert_eq!(
-            menu_bar_title(&events, now, true),
+            menu_bar_title(&events, now, true, false, None),
             Some("Standup • in 5m".to_string())
         );
     }
@@ -243,7 +254,7 @@ mod tests {
         ];
 
         assert_eq!(
-            menu_bar_title(&events, now, true),
+            menu_bar_title(&events, now, true, false, None),
             Some("Active meeting • 10m left".to_string())
         );
     }
@@ -258,11 +269,14 @@ mod tests {
         )];
 
         assert_eq!(
-            menu_bar_title(&events, now, true),
+            menu_bar_title(&events, now, true, false, None),
             Some("Sprint retrospec… • in 17h 20m".to_string())
         );
         assert_eq!(
-            menu_bar_title(&events, now, true).unwrap().chars().count(),
+            menu_bar_title(&events, now, true, false, None)
+                .unwrap()
+                .chars()
+                .count(),
             MAX_MENU_BAR_LABEL_WIDTH
         );
     }
@@ -276,10 +290,34 @@ mod tests {
             None,
         )];
 
-        let title = menu_bar_title(&events, now, true).unwrap();
+        let title = menu_bar_title(&events, now, true, false, None).unwrap();
 
         assert_eq!(title, "[실뻘한] char 정치현… • in 29m");
         assert_eq!(title.width(), MAX_MENU_BAR_LABEL_WIDTH);
+    }
+
+    #[test]
+    fn shows_the_recording_title_instead_of_the_calendar_schedule() {
+        let now = 1_000_000.0;
+        let events = vec![event("Unrelated event", now + 60_000.0, None)];
+
+        assert_eq!(
+            menu_bar_title(&events, now, true, true, Some("Customer call")),
+            Some("Customer call".to_string())
+        );
+        assert_eq!(
+            menu_bar_title(&events, now, false, true, Some("Customer call")),
+            Some("Customer call".to_string())
+        );
+    }
+
+    #[test]
+    fn hides_the_schedule_during_an_untitled_recording() {
+        let now = 1_000_000.0;
+        let events = vec![event("Unrelated event", now + 60_000.0, None)];
+
+        assert_eq!(menu_bar_title(&events, now, true, true, None), None);
+        assert_eq!(menu_bar_title(&events, now, true, true, Some("  ")), None);
     }
 
     #[test]
@@ -287,7 +325,7 @@ mod tests {
         let now = 1_000_000.0;
         let events = vec![event("Finished", now - 60_000.0, Some(now - 1.0))];
 
-        assert_eq!(menu_bar_title(&events, now, true), None);
+        assert_eq!(menu_bar_title(&events, now, true, false, None), None);
     }
 
     #[test]
@@ -295,7 +333,7 @@ mod tests {
         let now = 1_000_000.0;
         let events = vec![event("Standup", now + 5.0 * 60.0 * 1000.0, None)];
 
-        assert_eq!(menu_bar_title(&events, now, false), None);
+        assert_eq!(menu_bar_title(&events, now, false, false, None), None);
     }
 
     #[test]

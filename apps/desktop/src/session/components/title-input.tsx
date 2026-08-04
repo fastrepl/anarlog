@@ -165,7 +165,9 @@ const TitleInputInner = memo(
       const [showEndFade, setShowEndFade] = useState(false);
       const [isTitleFocused, setIsTitleFocused] = useState(false);
       const internalRef = useRef<HTMLInputElement>(null);
+      const editRevisionRef = useRef(0);
       const setLiveTitle = useLiveTitle((s) => s.setTitle);
+      const markLiveTitlePersisted = useLiveTitle((s) => s.markTitlePersisted);
       const clearLiveTitle = useLiveTitle((s) => s.clearTitle);
       const title = draftTitle ?? storeTitle ?? "";
 
@@ -292,11 +294,36 @@ const TitleInputInner = memo(
       }, [title, updateOverflowState]);
 
       const setStoreTitle = useCallback(
-        (title: string) =>
-          updateSession({ title }).catch((error) => {
-            console.error("[title-input] failed to persist title", error);
-          }),
+        (title: string) => updateSession({ title }),
         [updateSession],
+      );
+
+      const persistTitle = useCallback(
+        (value: string) => {
+          const editRevision = editRevisionRef.current;
+          const previousTitle = storeTitle;
+          return setStoreTitle(value)
+            .then(() => {
+              if (editRevisionRef.current !== editRevision) return;
+              markLiveTitlePersisted(sessionId, value, previousTitle);
+            })
+            .catch((error) => {
+              console.error("[title-input] failed to persist title", error);
+              if (editRevisionRef.current !== editRevision) return;
+              clearLiveTitle(sessionId);
+            })
+            .finally(() => {
+              if (editRevisionRef.current !== editRevision) return;
+              setDraftTitle(null);
+            });
+        },
+        [
+          clearLiveTitle,
+          markLiveTitlePersisted,
+          sessionId,
+          setStoreTitle,
+          storeTitle,
+        ],
       );
 
       const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -318,9 +345,10 @@ const TitleInputInner = memo(
           const beforeCursor = input.value.slice(0, cursorPos);
           const afterCursor = input.value.slice(cursorPos);
 
+          editRevisionRef.current += 1;
           setDraftTitle(beforeCursor);
-          void setStoreTitle(beforeCursor);
-          clearLiveTitle(sessionId);
+          setLiveTitle(sessionId, beforeCursor);
+          void persistTitle(beforeCursor);
 
           if (afterCursor) {
             setTimeout(() => onTransferContentToEditor?.(afterCursor), 0);
@@ -381,6 +409,7 @@ const TitleInputInner = memo(
             type="text"
             onChange={(e) => {
               const value = e.target.value;
+              editRevisionRef.current += 1;
               setDraftTitle(value);
               setLiveTitle(sessionId, value);
               updateOverflowState(e.target);
@@ -395,10 +424,7 @@ const TitleInputInner = memo(
             }}
             onBlur={(e) => {
               setIsTitleFocused(false);
-              void setStoreTitle(e.target.value).finally(() => {
-                setDraftTitle(null);
-              });
-              clearLiveTitle(sessionId);
+              void persistTitle(e.target.value);
               updateOverflowState(e.target);
             }}
             onScroll={(e) => updateOverflowState(e.currentTarget)}

@@ -20,3 +20,14 @@ pub async fn set_tray_schedule(
         .set_schedule(events)
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_tray_recording_title(
+    app: tauri::AppHandle<tauri::Wry>,
+    title: Option<String>,
+) -> Result<(), String> {
+    app.tray()
+        .set_recording_title(title)
+        .map_err(|error| error.to_string())
+}
