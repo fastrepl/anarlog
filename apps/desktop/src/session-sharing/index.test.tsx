@@ -600,10 +600,10 @@ describe("SessionShareButton", () => {
 
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByTestId("share-popover").className).toContain(
-      "h-[240px]",
+      "h-[340px]",
     );
     expect(screen.getByTestId("share-popover").className).toContain(
-      "w-[320px]",
+      "w-[440px]",
     );
 
     fireEvent.click(trigger);

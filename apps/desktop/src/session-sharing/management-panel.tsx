@@ -358,7 +358,7 @@ export function SessionSharePopoverContent({
       sideOffset={8}
       aria-labelledby="session-share-heading"
       aria-describedby="session-share-description"
-      className="h-[240px] max-h-[calc(100vh-64px)] w-[320px] max-w-[calc(100vw-16px)] overflow-hidden"
+      className="h-[340px] max-h-[calc(100vh-64px)] w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
       <AppFloatingPanel className="flex h-full flex-col overflow-hidden">
         <div ref={operationLifecycleRef} className="contents">
