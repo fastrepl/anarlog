@@ -1569,6 +1569,26 @@ describe("SessionShareButton", () => {
     mocks.participants = [
       { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
     ];
+    mocks.createSessionAccessInvitation.mockImplementationOnce(async () => {
+      mocks.access = [
+        {
+          entryType: "invitation",
+          entryId: INVITATION_ID,
+          userId: null,
+          userEmail: "sungbin@e.com",
+          capability: "viewer",
+          status: "pending",
+          createdAt: "2026-08-04T00:00:00Z",
+          expiresAt: "2026-08-17T00:00:00Z",
+        },
+      ];
+      return {
+        invitationId: INVITATION_ID,
+        inviteToken: TOKEN,
+        invitationExpiresAt: "2026-08-17T00:00:00Z",
+        wasCreated: true,
+      };
+    });
     renderShareButton();
     await openSharePopover();
 
@@ -1583,6 +1603,50 @@ describe("SessionShareButton", () => {
       (screen.getByRole("button", { name: "Invite" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+
+  it("re-seeds an invited participant after access is revoked", async () => {
+    mocks.participants = [
+      { id: "p1", source: "auto", name: "Sungbin Jo", email: "sungbin@e.com" },
+    ];
+    mocks.createSessionAccessInvitation.mockImplementationOnce(async () => {
+      mocks.access = [
+        {
+          entryType: "invitation",
+          entryId: INVITATION_ID,
+          userId: null,
+          userEmail: "sungbin@e.com",
+          capability: "viewer",
+          status: "pending",
+          createdAt: "2026-08-04T00:00:00Z",
+          expiresAt: "2026-08-17T00:00:00Z",
+        },
+      ];
+      return {
+        invitationId: INVITATION_ID,
+        inviteToken: TOKEN,
+        invitationExpiresAt: "2026-08-17T00:00:00Z",
+        wasCreated: true,
+      };
+    });
+    mocks.revokeSessionAccessInvitation.mockImplementationOnce(async () => {
+      mocks.access = [];
+      return {
+        invitationId: INVITATION_ID,
+        revokedAt: "2026-08-04T00:00:00Z",
+      };
+    });
+    renderShareButton();
+    await openSharePopover();
+
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+    await screen.findByText("Invitation pending");
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Remove Sungbin Jo" }),
+    ).not.toBeNull();
   });
 
   it("drops a removed participant from the invitation", async () => {

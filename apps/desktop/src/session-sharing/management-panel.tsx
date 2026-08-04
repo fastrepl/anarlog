@@ -453,7 +453,7 @@ export function SessionSharePopoverContent({
                         onSuccess: (deliveries) => {
                           for (const delivery of deliveries) {
                             if (delivery.deliveredBy) {
-                              invite.remove(delivery.email);
+                              invite.clear(delivery.email);
                             }
                           }
                         },

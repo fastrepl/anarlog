@@ -23,7 +23,7 @@ export function useShareInvite({
   const participants = useSessionParticipants(sessionId);
   const [query, setQuery] = useState("");
   const [added, setAdded] = useState<{ email: string; name: string }[]>([]);
-  const [removed, setRemoved] = useState<string[]>([]);
+  const [dismissed, setDismissed] = useState<string[]>([]);
 
   const excluded = new Set(
     [ownerEmail, ...invitedEmails]
@@ -33,7 +33,7 @@ export function useShareInvite({
   // Recipients are derived on every render so participants that arrive from the
   // live query after the panel opened still seed the field, while a chip the
   // user removed stays removed.
-  const taken = new Set(removed);
+  const taken = new Set(dismissed);
   const recipients: { email: string; name: string }[] = [];
   for (const candidate of [
     ...participants
@@ -67,7 +67,7 @@ export function useShareInvite({
   };
   const add = (recipient: { email: string; name: string }) => {
     const key = recipient.email.trim().toLowerCase();
-    setRemoved((current) => current.filter((email) => email !== key));
+    setDismissed((current) => current.filter((email) => email !== key));
     setAdded((current) =>
       current.some((entry) => entry.email.toLowerCase() === key)
         ? current
@@ -100,8 +100,14 @@ export function useShareInvite({
       setAdded((current) =>
         current.filter((entry) => entry.email.toLowerCase() !== key),
       );
-      setRemoved((current) =>
+      setDismissed((current) =>
         current.includes(key) ? current : [...current, key],
+      );
+    },
+    clear: (email: string) => {
+      const key = email.trim().toLowerCase();
+      setAdded((current) =>
+        current.filter((entry) => entry.email.toLowerCase() !== key),
       );
     },
   };
