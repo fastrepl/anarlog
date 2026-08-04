@@ -170,8 +170,10 @@ function HeaderMeetingActionPill({
   );
   const remote = getRemoteMeeting(event?.meeting_link);
   const meetingLink = event?.meeting_link || null;
-  const canJoinFromHeader =
-    remote !== null || event?.tracking_id === WELCOME_NOTE_TRACKING_ID;
+  const canJoinFromHeader = Boolean(
+    meetingLink &&
+    (remote !== null || event?.tracking_id === WELCOME_NOTE_TRACKING_ID),
+  );
   const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = useAudioPlayer();
   const canResume = audioExists || hasTranscript;
