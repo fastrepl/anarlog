@@ -73,7 +73,7 @@ export function AnarlogProviderIcon() {
       src={ANARLOG_ICON_SRC}
       alt="Anarlog"
       data-slot="provider-logo"
-      className="size-full object-contain object-center [clip-path:inset(6%_round_18%)]"
+      className="size-full object-contain object-center"
     />
   );
 }

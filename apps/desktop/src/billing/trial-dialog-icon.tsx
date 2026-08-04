@@ -17,13 +17,13 @@ export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
       <div
         aria-hidden="true"
         className={cn([
-          "absolute size-14 rounded-[18px] blur-md",
+          "absolute size-14 rounded-[12px] blur-md",
           isStarted ? "bg-amber-200/55" : "bg-muted-foreground/30",
         ])}
       />
       <div
         className={cn([
-          "relative size-14 rounded-[18px]",
+          "relative size-14 rounded-[12px]",
           "shadow-[0_1px_0_rgba(255,255,255,0.75),0_10px_24px_-10px_rgba(0,0,0,0.58)]",
         ])}
       >
@@ -32,7 +32,7 @@ export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
           alt=""
           aria-hidden="true"
           className={cn([
-            "size-full rounded-[18px] object-cover object-center",
+            "size-full rounded-[12px] object-cover object-center",
             isStarted
               ? "drop-shadow-[0_0_10px_rgba(245,158,11,0.35)]"
               : "opacity-58 brightness-[0.54] grayscale",
@@ -40,7 +40,7 @@ export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[18px]"
+          className="pointer-events-none absolute inset-0 overflow-hidden rounded-[12px]"
         >
           {isStarted ? (
             <span
