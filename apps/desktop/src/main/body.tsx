@@ -9,10 +9,6 @@ import {
 } from "react";
 
 import {
-  commands as windowsCommands,
-  events as windowsEvents,
-} from "@anlg/plugin-windows";
-import {
   type ImperativePanelHandle,
   ResizableHandle,
   ResizablePanel,
@@ -56,7 +52,6 @@ import {
   hasLeftSurfaceCustomSidebarTab,
 } from "~/sidebar/use-custom-sidebar";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
-import { commands } from "~/types/tauri.gen";
 
 type LeftSidebarSizeStyle = CSSProperties & {
   "--left-sidebar-panel-size": string;
@@ -84,57 +79,8 @@ export function ClassicMainBody() {
   const [showIgnoredTimelineEvents, setShowIgnoredTimelineEvents] =
     useState(false);
   const [noteFilter, setNoteFilter] = useState<SidebarNoteFilter>("all");
-  const [showDevtoolsPanelButton, setShowDevtoolsPanelButton] = useState(false);
-  const [devtoolsPanelOpen, setDevtoolsPanelOpen] = useState(false);
   const showWindowControlsGutter = useWindowControlsGutter();
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
-
-  useMountEffect(() => {
-    let cancelled = false;
-    let unlistenDevtoolsAction: (() => void) | undefined;
-
-    const syncDevtoolsPanelButton = async () => {
-      const enabled = await commands.showDevtool().catch((error) => {
-        console.error("Failed to resolve devtools availability:", error);
-        return false;
-      });
-
-      if (cancelled) {
-        return;
-      }
-
-      setShowDevtoolsPanelButton(enabled);
-
-      if (!enabled) {
-        return;
-      }
-
-      windowsEvents.devtoolsPanelAction
-        .listen(({ payload }) => {
-          if (payload.action === "panel:opened") {
-            setDevtoolsPanelOpen(true);
-          }
-          if (payload.action === "panel:closed") {
-            setDevtoolsPanelOpen(false);
-          }
-        })
-        .then((unlisten) => {
-          if (cancelled) {
-            unlisten();
-            return;
-          }
-
-          unlistenDevtoolsAction = unlisten;
-        });
-    };
-
-    void syncDevtoolsPanelButton();
-
-    return () => {
-      cancelled = true;
-      unlistenDevtoolsAction?.();
-    };
-  });
 
   const isOnboarding = currentTab?.type === "onboarding";
   const reserveNoteSurfaceMinWidth = usesNoteSurfaceMinWidth(currentTab);
@@ -159,13 +105,6 @@ export function ClassicMainBody() {
   const handleOpenNoteDialog = useCallback(() => {
     openNoteDialog.open();
   }, [openNoteDialog]);
-  const handleOpenDevtoolsPanel = useCallback(async () => {
-    const result = await windowsCommands.devtoolsPanelShow();
-
-    if (result.status === "error") {
-      console.error("Failed to show devtools panel:", result.error);
-    }
-  }, []);
   const applyLeftSidebarPanelSize = useCallback((size: number) => {
     const bodyRoot = bodyRootRef.current;
     if (!bodyRoot) {
@@ -468,13 +407,10 @@ export function ClassicMainBody() {
           currentSessionId={currentSessionId}
           noteFilter={noteFilter}
           sidebarExpanded
-          showDevtoolsPanelButton={showDevtoolsPanelButton}
           showIgnoredTimelineEvents={showIgnoredTimelineEvents}
-          devtoolsPanelOpen={devtoolsPanelOpen}
           onNewNote={createNewNote}
           onNoteFilterChange={setNoteFilter}
           onSearch={handleOpenNoteDialog}
-          onOpenDevtools={handleOpenDevtoolsPanel}
           onToggleSidebar={handleToggleLeftSidebar}
         />
       ) : null}
@@ -509,13 +445,10 @@ export function ClassicMainBody() {
               currentSessionId={currentSessionId}
               noteFilter={noteFilter}
               sidebarExpanded={false}
-              showDevtoolsPanelButton={showDevtoolsPanelButton}
               showIgnoredTimelineEvents={showIgnoredTimelineEvents}
-              devtoolsPanelOpen={devtoolsPanelOpen}
               onNewNote={createNewNote}
               onNoteFilterChange={setNoteFilter}
               onSearch={handleOpenNoteDialog}
-              onOpenDevtools={handleOpenDevtoolsPanel}
               onToggleSidebar={handleToggleLeftSidebar}
             />
           </div>

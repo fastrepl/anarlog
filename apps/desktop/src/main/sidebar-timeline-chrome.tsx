@@ -3,7 +3,6 @@ import {
   NotePencil,
   Sidebar,
   SidebarSimple,
-  Wrench,
 } from "@phosphor-icons/react";
 import { memo, type ReactNode } from "react";
 
@@ -16,27 +15,21 @@ import { useSidebarUpcomingMeetingStatus } from "~/sidebar/timeline/upcoming-mee
 export const SidebarTimelineChromeWithUpcomingMeeting = memo(
   function SidebarTimelineChromeWithUpcomingMeeting({
     currentSessionId,
-    devtoolsPanelOpen,
     noteFilter,
     onNewNote,
     onNoteFilterChange,
-    onOpenDevtools,
     onSearch,
     onToggleSidebar,
     sidebarExpanded,
-    showDevtoolsPanelButton,
     showIgnoredTimelineEvents,
   }: {
     currentSessionId?: string;
-    devtoolsPanelOpen: boolean;
     noteFilter: SidebarNoteFilter;
     onNewNote: () => void;
     onNoteFilterChange: (filter: SidebarNoteFilter) => void;
-    onOpenDevtools: () => void;
     onSearch: () => void;
     onToggleSidebar: () => void;
     sidebarExpanded: boolean;
-    showDevtoolsPanelButton: boolean;
     showIgnoredTimelineEvents: boolean;
   }) {
     const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
@@ -49,43 +42,34 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
 
     return (
       <SidebarTimelineChrome
-        devtoolsPanelOpen={devtoolsPanelOpen}
         hasUpcomingMeeting={hasUpcomingMeeting}
         noteFilter={noteFilter}
         onNewNote={onNewNote}
         onNoteFilterChange={onNoteFilterChange}
-        onOpenDevtools={onOpenDevtools}
         onSearch={onSearch}
         onToggleSidebar={onToggleSidebar}
         sidebarExpanded={sidebarExpanded}
-        showDevtoolsPanelButton={showDevtoolsPanelButton}
       />
     );
   },
 );
 
 function SidebarTimelineChrome({
-  devtoolsPanelOpen,
   hasUpcomingMeeting,
   noteFilter,
   onNewNote,
   onNoteFilterChange,
-  onOpenDevtools,
   onSearch,
   onToggleSidebar,
   sidebarExpanded,
-  showDevtoolsPanelButton,
 }: {
-  devtoolsPanelOpen: boolean;
   hasUpcomingMeeting: boolean;
   noteFilter: SidebarNoteFilter;
   onNewNote: () => void;
   onNoteFilterChange: (filter: SidebarNoteFilter) => void;
-  onOpenDevtools: () => void;
   onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
-  showDevtoolsPanelButton: boolean;
 }) {
   const collapsedBadge = !sidebarExpanded
     ? hasUpcomingMeeting
@@ -119,14 +103,6 @@ function SidebarTimelineChrome({
               value={noteFilter}
               onValueChange={onNoteFilterChange}
             />
-            {showDevtoolsPanelButton && !devtoolsPanelOpen ? (
-              <LeftSurfaceChromeButton
-                ariaLabel="Show devtools panel"
-                onClick={onOpenDevtools}
-              >
-                <Wrench size={15} />
-              </LeftSurfaceChromeButton>
-            ) : null}
           </>
         ) : null}
       </div>

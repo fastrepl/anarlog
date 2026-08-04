@@ -9,8 +9,6 @@ import {
 import { forwardRef, useImperativeHandle, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { commands } from "~/types/tauri.gen";
-
 const mocks = vi.hoisted(() => ({
   runtimePlatform: null as "windows" | "linux" | null,
   currentTab: {
@@ -37,13 +35,6 @@ const mocks = vi.hoisted(() => ({
     resize: vi.fn(),
   },
   tabContentRenderCount: 0,
-  devtoolsPanelActionListeners: [] as Array<
-    (event: { payload: { action: string } }) => void
-  >,
-  windowsCommands: {
-    devtoolsPanelHide: vi.fn(async () => ({ status: "ok" as const })),
-    devtoolsPanelShow: vi.fn(async () => ({ status: "ok" as const })),
-  },
   upcomingMeetingStatus: null as null | {
     itemKey: string;
     label: string;
@@ -172,25 +163,6 @@ vi.mock("~/contexts/shell", () => ({
   }),
 }));
 
-vi.mock("@anlg/plugin-windows", () => ({
-  commands: mocks.windowsCommands,
-  events: {
-    devtoolsPanelAction: {
-      listen: vi.fn(
-        async (listener: (event: { payload: { action: string } }) => void) => {
-          mocks.devtoolsPanelActionListeners.push(listener);
-          return () => {
-            mocks.devtoolsPanelActionListeners =
-              mocks.devtoolsPanelActionListeners.filter(
-                (candidate) => candidate !== listener,
-              );
-          };
-        },
-      ),
-    },
-  },
-}));
-
 vi.mock("~/store/zustand/tabs", () => ({
   uniqueIdfromTab: (tab: { type: string }) => tab.type,
   useTabs: (
@@ -290,13 +262,8 @@ describe("ClassicMainBody", () => {
     mocks.leftSidebarPanelHandle.isExpanded.mockClear();
     mocks.leftSidebarPanelHandle.resize.mockClear();
     mocks.tabContentRenderCount = 0;
-    mocks.devtoolsPanelActionListeners = [];
-    mocks.windowsCommands.devtoolsPanelHide.mockClear();
-    mocks.windowsCommands.devtoolsPanelShow.mockClear();
     mocks.upcomingMeetingStatus = null;
     mocks.setUpcomingMeetingStatus = null;
-    vi.mocked(commands.showDevtool).mockClear();
-    vi.mocked(commands.showDevtool).mockResolvedValue(true);
   });
 
   it("wraps the expanded left sidebar in a persistent resizable panel", () => {
@@ -814,100 +781,6 @@ describe("ClassicMainBody", () => {
       screen.getAllByTestId("panel")[0]?.dataset.transition,
     ).toBeUndefined();
     expect(mocks.leftsidebar.toggleExpanded).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows the devtools button until the panel opens, then restores it when closed", async () => {
-    render(<ClassicMainBody />);
-
-    const searchButton = screen.getByRole("button", { name: "Search" });
-    const newNoteButton = screen.getByRole("button", { name: "New note" });
-    const devtoolsButton = await screen.findByRole("button", {
-      name: "Show devtools panel",
-    });
-
-    expect(searchButton.compareDocumentPosition(newNoteButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(newNoteButton.compareDocumentPosition(devtoolsButton)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(devtoolsButton.parentElement).toBe(newNoteButton.parentElement);
-
-    fireEvent.click(devtoolsButton);
-
-    expect(mocks.windowsCommands.devtoolsPanelShow).toHaveBeenCalledTimes(1);
-    expect(mocks.windowsCommands.devtoolsPanelHide).not.toHaveBeenCalled();
-    expect(
-      screen.getByRole("button", { name: "Show devtools panel" }),
-    ).toBeTruthy();
-
-    act(() => {
-      for (const listener of mocks.devtoolsPanelActionListeners) {
-        listener({ payload: { action: "panel:opened" } });
-      }
-    });
-
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("button", { name: "Show devtools panel" }),
-      ).toBeNull();
-    });
-
-    act(() => {
-      for (const listener of mocks.devtoolsPanelActionListeners) {
-        listener({ payload: { action: "panel:closed" } });
-      }
-    });
-
-    expect(
-      await screen.findByRole("button", { name: "Show devtools panel" }),
-    ).toBeTruthy();
-  });
-
-  it("hides the devtools button when the native panel is opened outside the sidebar", async () => {
-    render(<ClassicMainBody />);
-
-    expect(
-      await screen.findByRole("button", { name: "Show devtools panel" }),
-    ).toBeTruthy();
-
-    await waitFor(() => {
-      expect(mocks.devtoolsPanelActionListeners).toHaveLength(1);
-    });
-
-    act(() => {
-      for (const listener of mocks.devtoolsPanelActionListeners) {
-        listener({ payload: { action: "panel:opened" } });
-      }
-    });
-
-    expect(
-      screen.queryByRole("button", { name: "Show devtools panel" }),
-    ).toBeNull();
-
-    act(() => {
-      for (const listener of mocks.devtoolsPanelActionListeners) {
-        listener({ payload: { action: "panel:closed" } });
-      }
-    });
-
-    expect(
-      await screen.findByRole("button", { name: "Show devtools panel" }),
-    ).toBeTruthy();
-  });
-
-  it("does not show the devtools button when devtools are disabled", async () => {
-    vi.mocked(commands.showDevtool).mockResolvedValue(false);
-
-    render(<ClassicMainBody />);
-
-    await waitFor(() => {
-      expect(commands.showDevtool).toHaveBeenCalledTimes(1);
-    });
-    expect(
-      screen.queryByRole("button", { name: "Show devtools panel" }),
-    ).toBeNull();
-    expect(mocks.devtoolsPanelActionListeners).toHaveLength(0);
   });
 
   it("renders expanded sidebar controls in the sidebar layout", () => {

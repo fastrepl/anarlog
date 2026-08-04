@@ -1,5 +1,6 @@
 import { CliSettingsSections } from "./cli";
 import { CloudApiSection } from "./cloud-api";
+import { DevtoolsSection } from "./devtools";
 import { LocalApiSection } from "./local-api";
 
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -13,6 +14,7 @@ export function SettingsDevelopers() {
       <CliSettingsSections />
       <CloudApiSection />
       <LocalApiSection />
+      <DevtoolsSection />
     </div>
   );
 }
