@@ -453,7 +453,7 @@ export function SessionSharePopoverContent({
                         onSuccess: (deliveries) => {
                           for (const delivery of deliveries) {
                             if (delivery.deliveredBy) {
-                              invite.clear(delivery.email);
+                              invite.remove(delivery.email);
                             }
                           }
                         },
@@ -499,7 +499,19 @@ export function SessionSharePopoverContent({
                                 entry.userEmail?.toLowerCase(),
                             )?.name
                           }
-                          onMutate={entryMutation.mutate}
+                          onMutate={(mutation) => {
+                            entryMutation.mutate(mutation, {
+                              onSuccess: () => {
+                                if (
+                                  (mutation.type === "grant-revoke" ||
+                                    mutation.type === "invitation-revoke") &&
+                                  mutation.entry.userEmail
+                                ) {
+                                  invite.restore(mutation.entry.userEmail);
+                                }
+                              },
+                            });
+                          }}
                         />
                       ))
                     : null}

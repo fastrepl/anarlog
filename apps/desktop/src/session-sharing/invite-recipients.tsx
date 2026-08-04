@@ -104,10 +104,10 @@ export function useShareInvite({
         current.includes(key) ? current : [...current, key],
       );
     },
-    clear: (email: string) => {
+    restore: (email: string) => {
       const key = email.trim().toLowerCase();
-      setAdded((current) =>
-        current.filter((entry) => entry.email.toLowerCase() !== key),
+      setDismissed((current) =>
+        current.filter((dismissedEmail) => dismissedEmail !== key),
       );
     },
   };
