@@ -271,19 +271,23 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           | { type: "copy-link" }
           | { type: "scope"; copied: boolean };
         if (action.type === "invite") {
+          const deliveries = await deliverSessionShareInvitations({
+            context,
+            shareId: share.shareId,
+            emails: action.emails,
+            capability: "viewer",
+            noteTitle: source.title,
+            signal,
+            requireActive: () => {
+              requireActivePrepareContext(identity, signal);
+            },
+          });
+          if (!deliveries.some((delivery) => delivery.deliveredBy)) {
+            throw new ShareManagementError();
+          }
           actionResult = {
             type: "invite",
-            deliveries: await deliverSessionShareInvitations({
-              context,
-              shareId: share.shareId,
-              emails: action.emails,
-              capability: "viewer",
-              noteTitle: source.title,
-              signal,
-              requireActive: () => {
-                requireActivePrepareContext(identity, signal);
-              },
-            }),
+            deliveries,
           };
         } else if (action.type === "copy-link") {
           await copySessionShareUrl(share.shareId, () =>

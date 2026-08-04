@@ -1529,6 +1529,31 @@ describe("SessionShareButton", () => {
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Invitation sent.");
   });
 
+  it("keeps failed invitation recipients in the draft", async () => {
+    mocks.managedNote = null;
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    mocks.createSessionAccessInvitation.mockRejectedValueOnce(
+      new Error("unavailable"),
+    );
+    renderShareButton();
+    await openSharePopover();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Invitee email" }), {
+      target: { value: "person@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Could not create this invitation.",
+      ),
+    );
+    expect(mocks.markSessionShareActivated).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Remove person@example.com" }),
+    ).not.toBeNull();
+  });
+
   it("invites every session participant seeded into the field", async () => {
     mocks.managedNote = null;
     mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
