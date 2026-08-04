@@ -7,6 +7,7 @@ import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 import { cn } from "@anlg/utils";
 
+import { AnarlogLogo } from "@/components/anarlog-logo";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
@@ -20,9 +21,11 @@ import { CredibilityLogoMarquee } from "./social-proof-sections";
 export function HeroSection() {
   return (
     <section className="pt-10 pb-2 md:pt-12 md:pb-4">
-      <h1 className="font-hand mx-auto max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl lg:relative lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:whitespace-nowrap">
-        <span className="font-hand block lg:inline">Anarlog is</span>{" "}
-        <span className="font-hand block lg:inline">the AI notepad for</span>{" "}
+      <Link to="/" aria-label="Anarlog home" className="inline-flex">
+        <AnarlogLogo className="h-8 w-auto md:h-9" />
+      </Link>
+      <h1 className="font-hand mx-auto mt-12 max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:mt-16 md:text-7xl lg:relative lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:whitespace-nowrap">
+        <span className="font-hand block lg:inline">The AI notepad for</span>{" "}
         <span className="font-hand block lg:inline">private meetings.</span>
       </h1>
       <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
