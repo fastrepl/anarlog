@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CalendarDots, Trash } from "@phosphor-icons/react";
+import { CalendarDots } from "@phosphor-icons/react";
 import {
   memo,
   type RefCallback,
@@ -468,13 +468,12 @@ export const TimelineView = memo(function TimelineView({
         onOpenChange={(open) => {
           if (!open) setPendingDeleteSessionIds([]);
         }}
-        icon={<Trash weight="duotone" />}
         title={
           pendingDeleteCount === 1
             ? t`Delete 1 selected note?`
             : t`Delete ${pendingDeleteCount} selected notes?`
         }
-        description={t`Are you sure you want to delete the selected notes? You can undo this action for a short time.`}
+        description={t`You can undo this action for a short time.`}
         confirmLabel={t`Delete`}
         onConfirm={handleConfirmDeleteSelected}
       />

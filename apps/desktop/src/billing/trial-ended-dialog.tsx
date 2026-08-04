@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -14,6 +13,10 @@ import {
 import { TrialDialogIcon } from "./trial-dialog-icon";
 
 import { trackAnalyticsEvent } from "~/analytics";
+import {
+  GlassDialogCancelButton,
+  GlassDialogContent,
+} from "~/shared/ui/glass-dialog";
 import { isDesktopLocalSttAvailable } from "~/stt/capabilities";
 
 interface TrialEndedDialogProps {
@@ -41,26 +44,22 @@ export function TrialEndedDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border-border/45 bg-card/95 w-[calc(100vw-48px)] max-w-[320px] gap-0 overflow-hidden rounded-[26px] p-0 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-xl sm:rounded-[26px] [&>button:last-child]:hidden">
-        <DialogHeader className="items-center gap-2 px-5 pt-7 text-center sm:text-center">
+      <GlassDialogContent>
+        <DialogHeader className="items-center gap-2 text-center sm:text-center">
           <TrialDialogIcon state="ended" />
           <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
             Your Pro trial has ended
           </DialogTitle>
-          <DialogDescription className="text-foreground max-w-[260px] text-center text-[13px] leading-[1.36]">
+          <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
             {supportsFreeLocalTranscription
               ? "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
               : "Your notes and recordings are safe. Upgrade anytime to keep cloud transcription and Pro features, or configure your own transcription provider."}
           </DialogDescription>
         </DialogHeader>
-        <DialogFooter className="grid grid-cols-2 gap-2 px-4 pt-4 pb-4 sm:grid-cols-2 sm:justify-normal">
-          <Button
-            variant="ghost"
-            className="bg-accent/80 text-foreground hover:bg-accent hover:text-foreground h-8 rounded-full px-4 text-xs font-medium shadow-none"
-            onClick={() => onOpenChange(false)}
-          >
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
+          <GlassDialogCancelButton onClick={() => onOpenChange(false)}>
             Maybe later
-          </Button>
+          </GlassDialogCancelButton>
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
             onClick={() => {
@@ -71,7 +70,7 @@ export function TrialEndedDialog({
             Upgrade to Pro
           </Button>
         </DialogFooter>
-      </DialogContent>
+      </GlassDialogContent>
     </Dialog>
   );
 }

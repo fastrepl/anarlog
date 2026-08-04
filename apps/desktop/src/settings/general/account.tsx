@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowsClockwise, SignOut } from "@phosphor-icons/react";
+import { ArrowsClockwise } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import {
   type ReactNode,
@@ -156,7 +156,6 @@ export function SettingsAccount() {
       <DestructiveConfirmationDialog
         open={isSignOutDialogOpen}
         onOpenChange={setIsSignOutDialogOpen}
-        icon={<SignOut weight="duotone" />}
         title={t`Sign out of Anarlog?`}
         description={t`You'll need to sign in again to use cloud sync and account features.`}
         confirmLabel={t`Sign out`}

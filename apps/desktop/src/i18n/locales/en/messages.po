@@ -330,10 +330,6 @@ msgstr "Apply to all"
 msgid "Approve"
 msgstr "Approve"
 
-#: src/sidebar/timeline/index.tsx
-msgid "Are you sure you want to delete the selected notes? You can undo this action for a short time."
-msgstr "Are you sure you want to delete the selected notes? You can undo this action for a short time."
-
 #: src/chat/components/input/index.tsx
 msgid "Ask & search about anything, or be creative!"
 msgstr "Ask & search about anything, or be creative!"
@@ -2885,6 +2881,10 @@ msgstr "You"
 #: src/calendar/components/apple/permission.tsx
 msgid "You can"
 msgstr "You can"
+
+#: src/sidebar/timeline/index.tsx
+msgid "You can undo this action for a short time."
+msgstr "You can undo this action for a short time."
 
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"

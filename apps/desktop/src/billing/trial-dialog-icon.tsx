@@ -8,7 +8,7 @@ export function TrialDialogIcon({ state }: { state: "started" | "ended" }) {
   return (
     <div
       className={cn([
-        "relative -my-2 flex size-[92px] items-center justify-center overflow-visible",
+        "relative flex size-14 items-center justify-center overflow-visible",
         isStarted
           ? "drop-shadow-[0_14px_22px_rgba(180,83,9,0.22)]"
           : "drop-shadow-[0_14px_22px_rgba(0,0,0,0.18)]",
