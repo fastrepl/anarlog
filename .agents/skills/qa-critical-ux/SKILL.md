@@ -192,20 +192,20 @@ the [official episode transcript](https://lexfridman.com/george-hotz-3-transcrip
 as the identity reference. Together they establish this canonical mapping:
 
 | Fixture speaker | Participant |
-| --- | --- |
-| `SPEAKER_01` | Lex Fridman |
-| `SPEAKER_00` | George Hotz |
+| --------------- | ----------- |
+| `SPEAKER_01`    | Lex Fridman |
+| `SPEAKER_00`    | George Hotz |
 
 Validate at least these opening checkpoints after aligning to the first
 recognized fixture phrase. Fixture timestamps are audio-relative, not session
 wall-clock timestamps:
 
-| Fixture time | Expected participant | Semantic checkpoint |
-| --- | --- | --- |
-| 2.925-13.005 s | Lex Fridman | Asks what George thinks about Llama being open sourced |
-| 14.145-19.025 s | George Hotz | Says Mark Zuckerberg is the good guy |
-| 20.125-29.665 s | Lex Fridman | Asks whether open source is ultimately good |
-| 30.365-36.065 s | George Hotz | Answers "Undoubtedly" and begins discussing AI safety people |
+| Fixture time    | Expected participant | Semantic checkpoint                                          |
+| --------------- | -------------------- | ------------------------------------------------------------ |
+| 2.925-13.005 s  | Lex Fridman          | Asks what George thinks about Llama being open sourced       |
+| 14.145-19.025 s | George Hotz          | Says Mark Zuckerberg is the good guy                         |
+| 20.125-29.665 s | Lex Fridman          | Asks whether open source is ultimately good                  |
+| 30.365-36.065 s | George Hotz          | Answers "Undoubtedly" and begins discussing AI safety people |
 
 Use `turnLevelTranscription` for turn ownership and
 `wordLevelTranscription` only when finer alignment is needed. Provider wording
@@ -398,10 +398,10 @@ tests alone is not cross-platform evidence.
 
 ### 7. Provider matrix — repeat steps 3–6 under each config
 
-| Config | How to set |
-| --- | --- |
+| Config    | How to set                                                                                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | On-device | Settings → AI: repeat the recording gates with every on-device STT model exposed for the QA Mac, using a local LLM; sign-out state is also worth one pass |
-| Pro plan | Settings → AI: select Anarlog cloud (`anarlog` provider) with a Pro/trialing account |
+| Pro plan  | Settings → AI: select Anarlog cloud (`anarlog` provider) with a Pro/trialing account                                                                      |
 
 - PASS when: steps 3–6 behave identically in outcome under each config
   (transcript + chat + automated summary), with provider-appropriate quality.

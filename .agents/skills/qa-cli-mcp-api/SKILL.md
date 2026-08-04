@@ -244,15 +244,15 @@ the short-lived cloud key.
 For the marked meeting, compare CLI, local REST, local MCP, hosted REST, and
 remote MCP:
 
-| Field | Required parity |
-| --- | --- |
-| Meeting | ID, title, kind, status, timestamps, timezone, language, series |
-| Documents | canonical note, summary titles and markdown |
-| People | participants and organizations |
-| Actions | text, assignee, completion state |
-| Transcript | text, word order, timestamps, speakers, page boundaries |
-| History | IDs, newest-first ordering, pagination |
-| Errors | stable code, appropriate protocol status, no secret leakage |
+| Field      | Required parity                                                 |
+| ---------- | --------------------------------------------------------------- |
+| Meeting    | ID, title, kind, status, timestamps, timezone, language, series |
+| Documents  | canonical note, summary titles and markdown                     |
+| People     | participants and organizations                                  |
+| Actions    | text, assignee, completion state                                |
+| Transcript | text, word order, timestamps, speakers, page boundaries         |
+| History    | IDs, newest-first ordering, pagination                          |
+| Errors     | stable code, appropriate protocol status, no secret leakage     |
 
 Local and hosted values must match after backfill settles. Hosted payloads must
 not contain local paths, audio paths, file paths, control characters, secrets,

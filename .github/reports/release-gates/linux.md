@@ -29,38 +29,38 @@ different artifact hash.
 
 ## Current candidate
 
-| Field                 | Value                                |
-| --------------------- | ------------------------------------ |
-| Version               | 1.4.0                                |
-| Commit                | TBD                                  |
-| Release scope         | VM-first beta                        |
-| Cross-platform parity | Version and commit must match macOS and Windows |
-| Physical/AEC status   | DEFERRED; not evaluated              |
-| x86_64 AppImage       | TBD                                  |
-| x86_64 AppImage SHA-256 | TBD                                |
-| x86_64 .deb           | TBD                                  |
-| x86_64 .deb SHA-256   | TBD                                  |
-| ARM64 artifact        | TBD                                  |
-| ARM64 SHA-256         | TBD                                  |
-| Test window           | TBD                                  |
-| QA owner              | TBD                                  |
-| Decision              | NOT EVALUATED                        |
-| Decision rationale    | Required runs have not been recorded |
-| Blocking issue links  | None recorded                        |
+| Field                   | Value                                           |
+| ----------------------- | ----------------------------------------------- |
+| Version                 | 1.4.0                                           |
+| Commit                  | TBD                                             |
+| Release scope           | VM-first beta                                   |
+| Cross-platform parity   | Version and commit must match macOS and Windows |
+| Physical/AEC status     | DEFERRED; not evaluated                         |
+| x86_64 AppImage         | TBD                                             |
+| x86_64 AppImage SHA-256 | TBD                                             |
+| x86_64 .deb             | TBD                                             |
+| x86_64 .deb SHA-256     | TBD                                             |
+| ARM64 artifact          | TBD                                             |
+| ARM64 SHA-256           | TBD                                             |
+| Test window             | TBD                                             |
+| QA owner                | TBD                                             |
+| Decision                | NOT EVALUATED                                   |
+| Decision rationale      | Required runs have not been recorded            |
+| Blocking issue links    | None recorded                                   |
 
 ## Release coverage
 
 ### Runtime environments
 
-| Cell ID             | Environment                                             | Release role                                                                      | Required | Current status | Evidence |
-| ------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- | -------- | -------------- | -------- |
-| L-ENV-X64-PHYSICAL  | Physical or trusted-community Ubuntu 24.04 x86_64, GNOME/Wayland/PipeWire | Real x86_64 audio, credential, lifecycle, and desktop-integration gate | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
-| L-ENV-ARM64-PHYSICAL | Physical or trusted-community Ubuntu 24.04 ARM64, GNOME/Wayland/PipeWire | Real ARM64 audio, credential, lifecycle, and CloudSync gate            | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
-| L-ENV-ARM64-VM      | Full Ubuntu 24.04 ARM64 GNOME/Wayland VM                | Daily package, UI, credential, updater, and guest-audio smoke                      | Yes      | NOT RUN        | TBD      |
-| L-ENV-X64-CLEAN     | Clean Ubuntu 24.04 x86_64 local machine or local VM     | AppImage and .deb install, core app, credential, updater, and guest-audio smoke    | Yes      | NOT RUN        | TBD      |
-| L-ENV-KDE-WAYLAND   | KDE Plasma on Wayland                                   | Additional desktop confidence                                                      | No       | NOT RUN        | TBD      |
-| L-ENV-GNOME-X11     | GNOME on X11                                            | Display-server fallback confidence                                                 | No       | NOT RUN        | TBD      |
-| L-ENV-FEDORA        | Current Fedora release                                  | Additional distro confidence                                                       | No       | NOT RUN        | TBD      |
+| Cell ID              | Environment                                                               | Release role                                                                    | Required | Current status | Evidence              |
+| -------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------- | -------------- | --------------------- |
+| L-ENV-X64-PHYSICAL   | Physical or trusted-community Ubuntu 24.04 x86_64, GNOME/Wayland/PipeWire | Real x86_64 audio, credential, lifecycle, and desktop-integration gate          | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
+| L-ENV-ARM64-PHYSICAL | Physical or trusted-community Ubuntu 24.04 ARM64, GNOME/Wayland/PipeWire  | Real ARM64 audio, credential, lifecycle, and CloudSync gate                     | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
+| L-ENV-ARM64-VM       | Full Ubuntu 24.04 ARM64 GNOME/Wayland VM                                  | Daily package, UI, credential, updater, and guest-audio smoke                   | Yes      | NOT RUN        | TBD                   |
+| L-ENV-X64-CLEAN      | Clean Ubuntu 24.04 x86_64 local machine or local VM                       | AppImage and .deb install, core app, credential, updater, and guest-audio smoke | Yes      | NOT RUN        | TBD                   |
+| L-ENV-KDE-WAYLAND    | KDE Plasma on Wayland                                                     | Additional desktop confidence                                                   | No       | NOT RUN        | TBD                   |
+| L-ENV-GNOME-X11      | GNOME on X11                                                              | Display-server fallback confidence                                              | No       | NOT RUN        | TBD                   |
+| L-ENV-FEDORA         | Current Fedora release                                                    | Additional distro confidence                                                    | No       | NOT RUN        | TBD                   |
 
 The x86_64 and ARM64 physical cells may be completed by trusted community testers, but
 both must exist before **HARDWARE-VALIDATED BETA SHIP**. A VM result must remain labeled
@@ -76,26 +76,26 @@ The supported source-development setup is Debian or Ubuntu on x86_64 or ARM64. T
 script installs Node 22 when needed, selects Rust 1.94.0, pins pnpm 11.1.1, installs the
 native desktop dependencies, and downloads architecture-matched development tools:
 
-~~~bash
+```bash
 bash scripts/setup-linux.sh
 exec "$SHELL" -l
 pnpm install --frozen-lockfile
 pnpm -F ui build
 turbo dev:desktop
-~~~
+```
 
 Release packages are built on Ubuntu 24.04, so glibc 2.39 is the effective floor. Run the
 beta itself on the Ubuntu 24.04 environments listed above.
 
 ### Package matrix
 
-| Package ID             | Architecture | Package   | Release role                                      | Required | Current status | Evidence |
-| ---------------------- | ------------ | --------- | ------------------------------------------------- | -------- | -------------- | -------- |
-| L-PKG-X64-APPIMAGE     | x86_64       | AppImage  | Primary portable beta package                     | Yes      | NOT RUN        | TBD      |
-| L-PKG-X64-DEB          | x86_64       | .deb      | Primary Debian/Ubuntu beta package                 | Yes      | NOT RUN        | TBD      |
-| L-PKG-ARM64-DEB        | ARM64        | .deb      | Required package for the ARM64 baseline run        | Yes      | NOT RUN        | TBD      |
-| L-PKG-ARM64-APPIMAGE   | ARM64        | AppImage  | Required only if published or advertised           | Conditional | NOT RUN     | TBD      |
-| L-PKG-FLATPAK          | Any          | Flatpak   | Separate sandbox gate tracked by ANLG-169          | No       | NOT SUPPORTED  | TBD      |
+| Package ID           | Architecture | Package  | Release role                                | Required    | Current status | Evidence |
+| -------------------- | ------------ | -------- | ------------------------------------------- | ----------- | -------------- | -------- |
+| L-PKG-X64-APPIMAGE   | x86_64       | AppImage | Primary portable beta package               | Yes         | NOT RUN        | TBD      |
+| L-PKG-X64-DEB        | x86_64       | .deb     | Primary Debian/Ubuntu beta package          | Yes         | NOT RUN        | TBD      |
+| L-PKG-ARM64-DEB      | ARM64        | .deb     | Required package for the ARM64 baseline run | Yes         | NOT RUN        | TBD      |
+| L-PKG-ARM64-APPIMAGE | ARM64        | AppImage | Required only if published or advertised    | Conditional | NOT RUN        | TBD      |
+| L-PKG-FLATPAK        | Any          | Flatpak  | Separate sandbox gate tracked by ANLG-169   | No          | NOT SUPPORTED  | TBD      |
 
 Do not publish an ARM64 filename that contains an x86_64 binary, or an x86_64 filename
 that contains an ARM64 binary. Flatpak remains absent from downloads and release claims
@@ -108,15 +108,15 @@ those runs, the result set must contain at least one built-in/default device, on
 device, and one Bluetooth device. The three device classes do not each need to run on both
 architectures.
 
-| Test ID  | Environment              | Input and output                          | Application              | Required | Current status | Evidence |
-| -------- | ------------------------ | ----------------------------------------- | ------------------------ | -------- | -------------- | -------- |
-| L-AUD-01 | L-ENV-X64-PHYSICAL       | Default built-in or wired mic and output  | Zoom                     | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
-| L-AUD-02 | L-ENV-ARM64-PHYSICAL     | Default available mic and output          | Google Meet in a browser | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
-| L-AUD-03 | Either required physical cell | USB mic and wired or USB output       | Slack huddle or call     | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
-| L-AUD-04 | Either required physical cell | Bluetooth input and output             | Any required app         | Yes      | DEFERRED       | 1.4.0 VM-first waiver |
-| L-AUD-05 | Any already-passing cell | Any already-passing input and output      | Teams or teams-for-linux | No       | NOT RUN        | TBD      |
-| L-AUD-06 | L-ENV-ARM64-VM           | Guest virtual mic and output              | Browser playback         | Yes, smoke only | NOT RUN | TBD      |
-| L-AUD-13 | L-ENV-X64-CLEAN          | Guest virtual mic and output              | Browser playback         | Yes, smoke only | NOT RUN | TBD      |
+| Test ID  | Environment                   | Input and output                         | Application              | Required        | Current status | Evidence              |
+| -------- | ----------------------------- | ---------------------------------------- | ------------------------ | --------------- | -------------- | --------------------- |
+| L-AUD-01 | L-ENV-X64-PHYSICAL            | Default built-in or wired mic and output | Zoom                     | Yes             | DEFERRED       | 1.4.0 VM-first waiver |
+| L-AUD-02 | L-ENV-ARM64-PHYSICAL          | Default available mic and output         | Google Meet in a browser | Yes             | DEFERRED       | 1.4.0 VM-first waiver |
+| L-AUD-03 | Either required physical cell | USB mic and wired or USB output          | Slack huddle or call     | Yes             | DEFERRED       | 1.4.0 VM-first waiver |
+| L-AUD-04 | Either required physical cell | Bluetooth input and output               | Any required app         | Yes             | DEFERRED       | 1.4.0 VM-first waiver |
+| L-AUD-05 | Any already-passing cell      | Any already-passing input and output     | Teams or teams-for-linux | No              | NOT RUN        | TBD                   |
+| L-AUD-06 | L-ENV-ARM64-VM                | Guest virtual mic and output             | Browser playback         | Yes, smoke only | NOT RUN        | TBD                   |
+| L-AUD-13 | L-ENV-X64-CLEAN               | Guest virtual mic and output             | Browser playback         | Yes, smoke only | NOT RUN        | TBD                   |
 
 ## 1.4.0 VM-first scope
 
@@ -136,34 +136,34 @@ unsupported rows keep their existing scope.
 
 ### Artifacts, installation, upgrade, and removal
 
-| Test ID     | Required | Procedure                                                                                                 | Pass criteria                                                                                                                               | Result and evidence |
-| ----------- | -------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| L-ART-01    | Yes      | Record the URL, filename, version, commit, size, and SHA-256 for every published Linux artifact.          | Hashes match published checksums and every required run uses an exact recorded hash.                                                        | NOT RUN             |
-| L-ART-02    | Yes      | Inspect each artifact with file and inspect each .deb control record.                                     | Machine architecture, package Architecture, filename, download label, and updater target all agree.                                         | NOT RUN             |
-| L-ART-03    | Yes      | Inspect AppImage and .deb contents for the expected binary, icon, desktop file, resources, and libraries. | The installed identity is Anarlog, the main binary is anarlog, and required shared libraries are declared or bundled correctly.             | NOT RUN             |
-| L-INS-01    | Yes      | Launch the x86_64 AppImage on L-ENV-X64-CLEAN from a fresh download.                                      | It launches without an undeclared host dependency, reaches the main shell, and creates no duplicate app identity.                           | NOT RUN             |
-| L-INS-02    | Yes      | Install the x86_64 .deb with apt on L-ENV-X64-CLEAN, then launch from the desktop and terminal.           | apt resolves declared dependencies, the launcher and icon work, and the app reaches the main shell.                                         | NOT RUN             |
-| L-INS-03    | Yes      | Install and launch L-PKG-ARM64-DEB on the required ARM64 environment.                                     | The artifact is native ARM64, launches successfully, opens SQLite, and extracts the ARM64 CloudSync library.                                | NOT RUN             |
-| L-UPD-01    | Yes      | Start from the prior AppImage release with local data, then use the advertised updater or replace it.     | The candidate launches with the existing data and the documented AppImage update path matches actual behavior.                             | NOT RUN             |
-| L-UPD-02    | Yes      | Install the prior .deb, create local data, then install the candidate .deb with apt.                       | apt reports a successful upgrade, version changes, launcher remains valid, and local data survives.                                         | NOT RUN             |
-| L-UNINS-01  | Yes      | Remove the .deb with apt remove, verify package files, then reinstall.                                    | Package-owned files are removed; user data is neither unexpectedly deleted nor duplicated; reinstall opens the expected data.              | NOT RUN             |
-| L-UNINS-02  | Yes      | Remove the AppImage and any user-created launcher integration, then restore the same candidate.           | Removing the portable artifact leaves no broken advertised integration and restoring it reopens the expected user data.                    | NOT RUN             |
+| Test ID    | Required | Procedure                                                                                                 | Pass criteria                                                                                                                   | Result and evidence |
+| ---------- | -------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| L-ART-01   | Yes      | Record the URL, filename, version, commit, size, and SHA-256 for every published Linux artifact.          | Hashes match published checksums and every required run uses an exact recorded hash.                                            | NOT RUN             |
+| L-ART-02   | Yes      | Inspect each artifact with file and inspect each .deb control record.                                     | Machine architecture, package Architecture, filename, download label, and updater target all agree.                             | NOT RUN             |
+| L-ART-03   | Yes      | Inspect AppImage and .deb contents for the expected binary, icon, desktop file, resources, and libraries. | The installed identity is Anarlog, the main binary is anarlog, and required shared libraries are declared or bundled correctly. | NOT RUN             |
+| L-INS-01   | Yes      | Launch the x86_64 AppImage on L-ENV-X64-CLEAN from a fresh download.                                      | It launches without an undeclared host dependency, reaches the main shell, and creates no duplicate app identity.               | NOT RUN             |
+| L-INS-02   | Yes      | Install the x86_64 .deb with apt on L-ENV-X64-CLEAN, then launch from the desktop and terminal.           | apt resolves declared dependencies, the launcher and icon work, and the app reaches the main shell.                             | NOT RUN             |
+| L-INS-03   | Yes      | Install and launch L-PKG-ARM64-DEB on the required ARM64 environment.                                     | The artifact is native ARM64, launches successfully, opens SQLite, and extracts the ARM64 CloudSync library.                    | NOT RUN             |
+| L-UPD-01   | Yes      | Start from the prior AppImage release with local data, then use the advertised updater or replace it.     | The candidate launches with the existing data and the documented AppImage update path matches actual behavior.                  | NOT RUN             |
+| L-UPD-02   | Yes      | Install the prior .deb, create local data, then install the candidate .deb with apt.                      | apt reports a successful upgrade, version changes, launcher remains valid, and local data survives.                             | NOT RUN             |
+| L-UNINS-01 | Yes      | Remove the .deb with apt remove, verify package files, then reinstall.                                    | Package-owned files are removed; user data is neither unexpectedly deleted nor duplicated; reinstall opens the expected data.   | NOT RUN             |
+| L-UNINS-02 | Yes      | Remove the AppImage and any user-created launcher integration, then restore the same candidate.           | Removing the portable artifact leaves no broken advertised integration and restoring it reopens the expected user data.         | NOT RUN             |
 
 Do not use apt purge for L-UNINS-01. Purging is a separate destructive test and requires
 an explicit data-backup plan.
 
 ### Core application, credentials, and CloudSync
 
-| Test ID    | Required | Procedure                                                                                                         | Pass criteria                                                                                                                                 | Result and evidence |
-| ---------- | -------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| L-CORE-01  | Yes      | Launch, sign in, reach the main shell, open settings, create a session, edit its title and notes, then restart.   | No platform-only crash occurs; the session and edits remain present after restart.                                                            | NOT RUN             |
-| L-CORE-02  | Yes      | Lock and unlock the desktop, minimize and restore, log out and back in, then reboot.                              | The app relaunches normally after each transition and no duplicate or corrupted local state appears.                                          | NOT RUN             |
-| L-CRED-01  | Yes      | With Secret Service unlocked, save, read, update, and delete a provider secret through normal app flows.         | Each operation succeeds through Secret Service and no secret appears in plaintext settings, app data, or logs.                                | NOT RUN             |
-| L-CRED-02  | Yes      | Save a provider secret, then repeat its use after app restart, desktop lock/unlock, logout/login, and reboot.     | The secret remains usable through every required lifecycle transition on both 1.4.0 VM cells; repeat on the physical cells before hardware validation. | NOT RUN             |
-| L-CRED-03  | Yes      | Lock or make Secret Service unavailable, attempt a secret-backed action, restore the service, and retry.         | The unavailable state is actionable, existing credentials are not overwritten or lost, and retry succeeds after restoration.                | NOT RUN             |
-| L-SYNC-01  | Yes      | Enable CloudSync, create and edit a session, observe it on a second client, restart Linux, and edit again.        | Sync completes in both directions before and after restart without duplicate or missing sessions on x86_64 and ARM64.                         | NOT RUN             |
-| L-SYNC-02  | Yes      | Start once without network, edit existing local data, restore network, and trigger or wait for sync.             | The app remains usable offline and later syncs without losing the offline edit.                                                               | NOT RUN             |
-| L-SYNC-03  | Yes      | Sign out, attempt an account mismatch, then sign back into the original account.                                  | Sync access is suspended or cleared according to product policy; another account cannot silently reuse the existing CloudSync workspace.      | NOT RUN             |
+| Test ID   | Required | Procedure                                                                                                       | Pass criteria                                                                                                                                          | Result and evidence |
+| --------- | -------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| L-CORE-01 | Yes      | Launch, sign in, reach the main shell, open settings, create a session, edit its title and notes, then restart. | No platform-only crash occurs; the session and edits remain present after restart.                                                                     | NOT RUN             |
+| L-CORE-02 | Yes      | Lock and unlock the desktop, minimize and restore, log out and back in, then reboot.                            | The app relaunches normally after each transition and no duplicate or corrupted local state appears.                                                   | NOT RUN             |
+| L-CRED-01 | Yes      | With Secret Service unlocked, save, read, update, and delete a provider secret through normal app flows.        | Each operation succeeds through Secret Service and no secret appears in plaintext settings, app data, or logs.                                         | NOT RUN             |
+| L-CRED-02 | Yes      | Save a provider secret, then repeat its use after app restart, desktop lock/unlock, logout/login, and reboot.   | The secret remains usable through every required lifecycle transition on both 1.4.0 VM cells; repeat on the physical cells before hardware validation. | NOT RUN             |
+| L-CRED-03 | Yes      | Lock or make Secret Service unavailable, attempt a secret-backed action, restore the service, and retry.        | The unavailable state is actionable, existing credentials are not overwritten or lost, and retry succeeds after restoration.                           | NOT RUN             |
+| L-SYNC-01 | Yes      | Enable CloudSync, create and edit a session, observe it on a second client, restart Linux, and edit again.      | Sync completes in both directions before and after restart without duplicate or missing sessions on x86_64 and ARM64.                                  | NOT RUN             |
+| L-SYNC-02 | Yes      | Start once without network, edit existing local data, restore network, and trigger or wait for sync.            | The app remains usable offline and later syncs without losing the offline edit.                                                                        | NOT RUN             |
+| L-SYNC-03 | Yes      | Sign out, attempt an account mismatch, then sign back into the original account.                                | Sync access is suspended or cleared according to product policy; another account cannot silently reuse the existing CloudSync workspace.               | NOT RUN             |
 
 Do not attach app.db, Secret Service exports, or credential values as evidence. Record
 only file metadata, service availability, and observable product behavior.
@@ -176,35 +176,35 @@ input, 15 seconds of browser playback only, then 30 seconds concurrently. Inspec
 persisted audio and log markers; a visual level meter alone is not proof. Host or
 hypervisor preprocessing means VM results cannot count as AEC evidence.
 
-| Test ID  | Required | Procedure                                                                                                            | Pass criteria                                                                                                                                 | Result and evidence |
-| -------- | -------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| L-AUD-01 | Yes      | Run the physical x86_64 and Zoom matrix row with the normal PipeWire path.                                           | Microphone and system audio are non-silent, concurrent, intelligible, and assigned to the expected channels.                                 | DEFERRED — 1.4.0 VM-first scope |
-| L-AUD-02 | Yes      | Run the physical or community ARM64 and Meet matrix row with the normal PipeWire path.                              | Microphone and system audio are non-silent and concurrent; the native ARM64 build remains stable.                                             | DEFERRED — 1.4.0 VM-first scope |
-| L-AUD-03 | Yes      | Run the USB and Slack matrix row on either required physical architecture.                                           | Both streams remain usable while the USB endpoints are selected and no persistent stall or drift appears.                                   | DEFERRED — 1.4.0 VM-first scope |
-| L-AUD-04 | Yes      | Run the Bluetooth matrix row on either required physical architecture.                                               | Both streams remain usable with the active Bluetooth profile; any unsupported profile produces a visible actionable state.                  | DEFERRED — 1.4.0 VM-first scope |
-| L-AUD-06 | Yes      | Run the microphone-only, playback-only, and concurrent phases inside L-ENV-ARM64-VM.                                | Persisted mic and system tracks are readable and non-silent in the expected phases, both persist concurrently, and the result remains labeled VM smoke rather than AEC evidence. | NOT RUN |
-| L-AUD-07 | Yes      | Force the PipeWire connection to fail for one disposable launch and record using the PulseAudio monitor fallback.   | Logs show pipewire_capture_unavailable followed by pulseaudio_capture_initialized, and the fallback recording is non-silent.                 | NOT RUN             |
-| L-AUD-08 | Yes      | Start capture before meeting playback, stop, then start capture after playback is already running.                  | Both start orders initialize the microphone and a system-audio backend and produce usable recordings.                                        | NOT RUN             |
-| L-AUD-09 | Yes      | Start and stop ten recordings, switch the default input and output, and hot-plug USB and Bluetooth devices.          | Recordings finalize; capture recovers or stops with a visible actionable error; a new good recording can start without desktop logout.       | DEFERRED — 1.4.0 VM-first scope |
-| L-AUD-10 | Yes      | Suspend and resume during an active recording, then start a new recording.                                           | The interrupted recording is not silently presented as complete; the app recovers or reports an actionable error and can record again.      | DEFERRED — 1.4.0 VM-first scope |
-| L-AUD-11 | Yes      | Record continuously for 60 minutes with microphone and system audio active.                                          | Both streams remain present through the end, finalization succeeds, and logs show no sustained queue overflow or capture-thread failure.     | NOT RUN             |
-| L-AUD-12 | Yes      | Stop PipeWire, PulseAudio compatibility, or both in a disposable session, then open the relevant settings/onboarding view. | Missing audio services produce an accurate recoverable capability state instead of a macOS-style permission prompt or silent empty audio. | NOT RUN             |
-| L-AUD-13 | Yes      | Run the microphone-only, playback-only, and concurrent phases inside L-ENV-X64-CLEAN.                               | Persisted mic and system tracks are readable and non-silent in the expected phases, both persist concurrently, and the result remains labeled VM smoke rather than AEC evidence. | NOT RUN |
-| L-AUD-14 | Yes      | Start and stop ten recordings on each required VM architecture.                                                     | All recordings finalize, no source remains stuck, and the next recording starts normally on x86_64 and ARM64.                                | NOT RUN |
-| L-AEC-01 | Physical phase | On physical speakers and microphone, play remote speech while speaking a unique local phrase.                  | AEC initializes without failure, remote speech is not duplicated into the mic/transcript, and local speech remains intelligible during double-talk. | DEFERRED — physical/AEC phase |
+| Test ID  | Required       | Procedure                                                                                                                  | Pass criteria                                                                                                                                                                    | Result and evidence             |
+| -------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| L-AUD-01 | Yes            | Run the physical x86_64 and Zoom matrix row with the normal PipeWire path.                                                 | Microphone and system audio are non-silent, concurrent, intelligible, and assigned to the expected channels.                                                                     | DEFERRED — 1.4.0 VM-first scope |
+| L-AUD-02 | Yes            | Run the physical or community ARM64 and Meet matrix row with the normal PipeWire path.                                     | Microphone and system audio are non-silent and concurrent; the native ARM64 build remains stable.                                                                                | DEFERRED — 1.4.0 VM-first scope |
+| L-AUD-03 | Yes            | Run the USB and Slack matrix row on either required physical architecture.                                                 | Both streams remain usable while the USB endpoints are selected and no persistent stall or drift appears.                                                                        | DEFERRED — 1.4.0 VM-first scope |
+| L-AUD-04 | Yes            | Run the Bluetooth matrix row on either required physical architecture.                                                     | Both streams remain usable with the active Bluetooth profile; any unsupported profile produces a visible actionable state.                                                       | DEFERRED — 1.4.0 VM-first scope |
+| L-AUD-06 | Yes            | Run the microphone-only, playback-only, and concurrent phases inside L-ENV-ARM64-VM.                                       | Persisted mic and system tracks are readable and non-silent in the expected phases, both persist concurrently, and the result remains labeled VM smoke rather than AEC evidence. | NOT RUN                         |
+| L-AUD-07 | Yes            | Force the PipeWire connection to fail for one disposable launch and record using the PulseAudio monitor fallback.          | Logs show pipewire_capture_unavailable followed by pulseaudio_capture_initialized, and the fallback recording is non-silent.                                                     | NOT RUN                         |
+| L-AUD-08 | Yes            | Start capture before meeting playback, stop, then start capture after playback is already running.                         | Both start orders initialize the microphone and a system-audio backend and produce usable recordings.                                                                            | NOT RUN                         |
+| L-AUD-09 | Yes            | Start and stop ten recordings, switch the default input and output, and hot-plug USB and Bluetooth devices.                | Recordings finalize; capture recovers or stops with a visible actionable error; a new good recording can start without desktop logout.                                           | DEFERRED — 1.4.0 VM-first scope |
+| L-AUD-10 | Yes            | Suspend and resume during an active recording, then start a new recording.                                                 | The interrupted recording is not silently presented as complete; the app recovers or reports an actionable error and can record again.                                           | DEFERRED — 1.4.0 VM-first scope |
+| L-AUD-11 | Yes            | Record continuously for 60 minutes with microphone and system audio active.                                                | Both streams remain present through the end, finalization succeeds, and logs show no sustained queue overflow or capture-thread failure.                                         | NOT RUN                         |
+| L-AUD-12 | Yes            | Stop PipeWire, PulseAudio compatibility, or both in a disposable session, then open the relevant settings/onboarding view. | Missing audio services produce an accurate recoverable capability state instead of a macOS-style permission prompt or silent empty audio.                                        | NOT RUN                         |
+| L-AUD-13 | Yes            | Run the microphone-only, playback-only, and concurrent phases inside L-ENV-X64-CLEAN.                                      | Persisted mic and system tracks are readable and non-silent in the expected phases, both persist concurrently, and the result remains labeled VM smoke rather than AEC evidence. | NOT RUN                         |
+| L-AUD-14 | Yes            | Start and stop ten recordings on each required VM architecture.                                                            | All recordings finalize, no source remains stuck, and the next recording starts normally on x86_64 and ARM64.                                                                    | NOT RUN                         |
+| L-AEC-01 | Physical phase | On physical speakers and microphone, play remote speech while speaking a unique local phrase.                              | AEC initializes without failure, remote speech is not duplicated into the mic/transcript, and local speech remains intelligible during double-talk.                              | DEFERRED — physical/AEC phase   |
 
 ### Permission UX and desktop integrations
 
-| Test ID     | Required | Procedure                                                                                                           | Pass criteria                                                                                                                                | Result and evidence |
-| ----------- | -------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| L-PERM-01   | Yes      | Review onboarding and settings before and after microphone/system-audio use and with audio services unavailable.    | Copy describes runtime capability checks accurately and does not show permanently denied macOS Accessibility or Apple Calendar rows.        | NOT RUN             |
-| L-PERM-02   | Yes      | Review local transcription/model choices on x86_64 and ARM64.                                                       | macOS-only or architecture-incompatible models cannot be selected and explain their availability accurately.                                | NOT RUN             |
-| L-DESK-01   | Yes      | Start and end calls in Zoom, Meet, and Slack; observe meeting and microphone-use detection.                         | Each advertised app is identified without persistent helper-process noise and start/end transitions do not duplicate.                       | NOT RUN             |
-| L-DESK-02   | Yes      | Trigger notifications focused, minimized, and backgrounded; click, dismiss, clear, and repeat once.                | Notifications appear once with correct identity and expected actions; clearing and main-window activation work.                              | NOT RUN             |
-| L-DESK-03   | Yes      | Exercise tray show/hide and menu actions, then restart the desktop session.                                         | The tray remains usable on the declared GNOME baseline and does not strand the main window.                                                   | NOT RUN             |
-| L-DESK-04   | Yes      | Enable autostart, reboot, open anarlog:// and legacy hyprnote:// deep links, and launch a second instance.            | Autostart behavior matches the setting, both deep links open Anarlog, and the second launch focuses the existing instance.                   | NOT RUN             |
-| L-DESK-05   | Conditional | Exercise every global shortcut advertised to Linux on GNOME/Wayland, including press, release, and repeated use. | Advertised shortcuts fire once without stuck state; otherwise the controls are visibly unavailable and absent from beta claims.              | NOT RUN             |
-| L-DESK-06   | Conditional | Exercise dictation, floating controls, or live captions only if they are advertised to Linux.                   | Advertised controls are usable; unsupported controls are gated and cannot silently no-op.                                                    | NOT RUN             |
+| Test ID   | Required    | Procedure                                                                                                        | Pass criteria                                                                                                                        | Result and evidence |
+| --------- | ----------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------- |
+| L-PERM-01 | Yes         | Review onboarding and settings before and after microphone/system-audio use and with audio services unavailable. | Copy describes runtime capability checks accurately and does not show permanently denied macOS Accessibility or Apple Calendar rows. | NOT RUN             |
+| L-PERM-02 | Yes         | Review local transcription/model choices on x86_64 and ARM64.                                                    | macOS-only or architecture-incompatible models cannot be selected and explain their availability accurately.                         | NOT RUN             |
+| L-DESK-01 | Yes         | Start and end calls in Zoom, Meet, and Slack; observe meeting and microphone-use detection.                      | Each advertised app is identified without persistent helper-process noise and start/end transitions do not duplicate.                | NOT RUN             |
+| L-DESK-02 | Yes         | Trigger notifications focused, minimized, and backgrounded; click, dismiss, clear, and repeat once.              | Notifications appear once with correct identity and expected actions; clearing and main-window activation work.                      | NOT RUN             |
+| L-DESK-03 | Yes         | Exercise tray show/hide and menu actions, then restart the desktop session.                                      | The tray remains usable on the declared GNOME baseline and does not strand the main window.                                          | NOT RUN             |
+| L-DESK-04 | Yes         | Enable autostart, reboot, open anarlog:// and legacy hyprnote:// deep links, and launch a second instance.       | Autostart behavior matches the setting, both deep links open Anarlog, and the second launch focuses the existing instance.           | NOT RUN             |
+| L-DESK-05 | Conditional | Exercise every global shortcut advertised to Linux on GNOME/Wayland, including press, release, and repeated use. | Advertised shortcuts fire once without stuck state; otherwise the controls are visibly unavailable and absent from beta claims.      | NOT RUN             |
+| L-DESK-06 | Conditional | Exercise dictation, floating controls, or live captions only if they are advertised to Linux.                    | Advertised controls are usable; unsupported controls are gated and cannot silently no-op.                                            | NOT RUN             |
 
 L-DESK-05 and L-DESK-06 may be DEFERRED only when the unavailable feature is hidden or
 clearly disabled and is absent from beta claims. Package, audio, credentials, CloudSync,
@@ -233,7 +233,7 @@ Before attaching evidence:
 
 Run from a terminal inside the graphical login session:
 
-~~~bash
+```bash
 run="L-RUN-YYYYMMDD-01"
 evidence="$PWD/evidence/$run"
 mkdir -p "$evidence"
@@ -263,7 +263,7 @@ aplay -l > "$evidence/alsa-playback.txt"
 arecord -l > "$evidence/alsa-capture.txt"
 lsusb > "$evidence/usb.txt"
 bluetoothctl devices > "$evidence/bluetooth.txt"
-~~~
+```
 
 If a command is unavailable, record that fact instead of installing unrelated utilities
 mid-run. Record desktop scale and monitor layout manually because the environment
@@ -271,7 +271,7 @@ variables do not prove per-display scale.
 
 ### Artifact and package metadata
 
-~~~bash
+```bash
 appimage="/path/to/Anarlog.AppImage"
 deb="/path/to/anarlog.deb"
 
@@ -288,11 +288,11 @@ pkg="$(dpkg-deb --field "$deb" Package)"
 dpkg-query -W "$pkg"
 file "$(command -v anarlog)"
 ldd "$(command -v anarlog)"
-~~~
+```
 
 For the .deb upgrade test:
 
-~~~bash
+```bash
 previous_deb="/path/to/previous.deb"
 candidate_deb="/path/to/candidate.deb"
 
@@ -300,7 +300,7 @@ sudo apt install "$previous_deb"
 sudo apt install "$candidate_deb"
 pkg="$(dpkg-deb --field "$candidate_deb" Package)"
 dpkg-query -W "$pkg"
-~~~
+```
 
 For removal, use sudo apt remove "$pkg", not purge.
 
@@ -310,7 +310,7 @@ The stable bundle identifier is com.hyprnote.stable. The tracing plugin writes
 app.log and up to five rotated files, app.log.1 through app.log.5, under the
 Tauri app log directory.
 
-~~~bash
+```bash
 data_dir="$XDG_DATA_HOME"
 if [ -z "$data_dir" ]; then
   data_dir="$HOME/.local/share"
@@ -322,25 +322,25 @@ tail -n 500 "$log_dir/app.log"
 
 grep -E "mic_input_initialized|pipewire_capture_initialized|pipewire_capture_unavailable|pulseaudio_capture_initialized|mic_stream_error|queue_overflow|capture_stream_failed" \
   "$log_dir"/app.log*
-~~~
+```
 
 Use com.hyprnote.staging for a staging package and com.hyprnote.dev for a dev
 build. To capture the foreground process as well as file logs:
 
-~~~bash
+```bash
 RUST_LOG=info,audio_actual=debug ./Anarlog.AppImage 2>&1 |
   tee anarlog-console.log
-~~~
+```
 
 The speaker implementation tries PipeWire first and falls back to a PulseAudio monitor
 source. Use a disposable launch to exercise the fallback:
 
-~~~bash
+```bash
 PIPEWIRE_REMOTE=anarlog-invalid \
 RUST_LOG=info,audio_actual=debug \
 ./Anarlog.AppImage 2>&1 |
   tee anarlog-pulse-fallback.log
-~~~
+```
 
 The run passes L-AUD-07 only if the log contains pipewire_capture_unavailable followed
 by pulseaudio_capture_initialized and the saved system-audio stream is non-silent.
@@ -352,7 +352,7 @@ The stable app database normally lives at
 $data_dir/anarlog/app.db, but a migrated install can intentionally retain the legacy
 hyprnote or bundle-identifier directory.
 
-~~~bash
+```bash
 for db in \
   "$data_dir/anarlog/app.db" \
   "$data_dir/hyprnote/app.db" \
@@ -370,7 +370,7 @@ fi
 
 find "$cache_dir/char/cloudsync" -type f -name "cloudsync.so" -exec file {} \;
 busctl --user list | grep -F "org.freedesktop.secrets"
-~~~
+```
 
 The Secret Service command proves only service availability. Verify Anarlog credential
 metadata through the desktop credential manager or Seahorse without exposing values. The
@@ -379,14 +379,14 @@ cache path intentionally still uses char/cloudsync.
 
 For a desktop or audio-service failure, collect a bounded journal slice:
 
-~~~bash
+```bash
 journalctl --user --since "-30 min" --no-pager |
   grep -Ei "anarlog|hyprnote|pipewire|wireplumber|pulse|gnome-keyring"
 
 if command -v coredumpctl >/dev/null 2>&1; then
   coredumpctl --since "-30 min" info anarlog
 fi
-~~~
+```
 
 If Flatpak is later tested, its host-visible log path is expected under:
 
@@ -400,7 +400,7 @@ The repository's current Linux setup and E2E path uses these commands. These com
 useful before packaging, but they do not replace tests of published AppImage and .deb
 artifacts:
 
-~~~bash
+```bash
 bash scripts/setup-linux.sh
 pnpm -F ui build
 pnpm -F desktop typecheck
@@ -408,33 +408,33 @@ cargo check -p desktop --target x86_64-unknown-linux-gnu
 POSTHOG_API_KEY=phc_local_smoke \
 VITE_API_URL=https://api.anarlog.so \
 pnpm -F desktop tauri build --no-bundle --target x86_64-unknown-linux-gnu --config ./src-tauri/tauri.conf.staging.json --features devtools
-~~~
+```
 
 ## Community run template
 
 Use this for both x86_64 and ARM64 submissions:
 
-| Field                    | Value                                      |
-| ------------------------ | ------------------------------------------ |
-| Run ID                   | L-RUN-YYYYMMDD-00                          |
-| Tester                   | TBD                                        |
-| Physical, community, VM  | TBD                                        |
-| Candidate artifact       | TBD                                        |
-| Candidate SHA-256        | TBD                                        |
-| Architecture             | x86_64 / ARM64                             |
-| Distro and version       | TBD                                        |
-| Kernel                   | TBD                                        |
-| Desktop/display server   | TBD                                        |
-| PipeWire/Pulse versions  | TBD                                        |
-| OEM/model                | TBD                                        |
-| Input/output devices     | TBD                                        |
-| Bluetooth/USB details    | TBD                                        |
-| Meeting application      | TBD                                        |
-| Package type             | AppImage / .deb                            |
-| Test IDs covered         | TBD                                        |
-| Result                   | PASS / FAIL / BLOCKED                      |
-| Redacted evidence link   | TBD                                        |
-| Tracking issue           | TBD                                        |
+| Field                   | Value                 |
+| ----------------------- | --------------------- |
+| Run ID                  | L-RUN-YYYYMMDD-00     |
+| Tester                  | TBD                   |
+| Physical, community, VM | TBD                   |
+| Candidate artifact      | TBD                   |
+| Candidate SHA-256       | TBD                   |
+| Architecture            | x86_64 / ARM64        |
+| Distro and version      | TBD                   |
+| Kernel                  | TBD                   |
+| Desktop/display server  | TBD                   |
+| PipeWire/Pulse versions | TBD                   |
+| OEM/model               | TBD                   |
+| Input/output devices    | TBD                   |
+| Bluetooth/USB details   | TBD                   |
+| Meeting application     | TBD                   |
+| Package type            | AppImage / .deb       |
+| Test IDs covered        | TBD                   |
+| Result                  | PASS / FAIL / BLOCKED |
+| Redacted evidence link  | TBD                   |
+| Tracking issue          | TBD                   |
 
 Do not ask a community tester to upload their database, credentials, full transcript, or
 unredacted meeting recording.
@@ -525,14 +525,14 @@ GNOME/Wayland desktop behaviors advertised to beta users.
 
 After the required community request window closes, record:
 
-| Question                                                     | Answer |
-| ------------------------------------------------------------ | ------ |
-| Is either required architecture cell still missing?          | TBD    |
-| Is any built-in/default, USB, or Bluetooth class uncovered?  | TBD    |
+| Question                                                      | Answer |
+| ------------------------------------------------------------- | ------ |
+| Is either required architecture cell still missing?           | TBD    |
+| Is any built-in/default, USB, or Bluetooth class uncovered?   | TBD    |
 | Are failures reproducible only on a specific OEM/driver?      | TBD    |
 | Can a trusted tester provide logs and a reliable retest loop? | TBD    |
 | Would purchased hardware close a release-blocking cell?       | TBD    |
-| Decision and rationale                                       | TBD    |
+| Decision and rationale                                        | TBD    |
 
 Purchase dedicated Linux hardware when it closes a release-blocking physical cell or
 provides a repeatable reproduction path that trusted community testing cannot provide.
