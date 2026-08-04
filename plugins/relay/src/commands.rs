@@ -7,7 +7,7 @@ pub async fn relay_result(
     ok: bool,
     data: serde_json::Value,
 ) -> Result<(), String> {
-    if let Some(tx) = state.lock().await.remove(&id) {
+    if let Some(tx) = state.take(id).await {
         let _ = tx.send(serde_json::json!({ "ok": ok, "data": data }));
     }
     Ok(())

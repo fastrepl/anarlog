@@ -21,12 +21,22 @@ static WINDOWS_NOTIFICATION_TIMEOUTS: OnceLock<Mutex<WindowsNotificationTimeouts
 
 #[cfg(any(target_os = "windows", test))]
 const WINDOWS_DEDUPE_WINDOW: Duration = Duration::from_mins(1);
+#[cfg(any(target_os = "windows", test))]
+const MAX_RECENT_WINDOWS_NOTIFICATIONS: usize = 256;
+#[cfg(any(target_os = "windows", test))]
+const MAX_ACTIVE_WINDOWS_NOTIFICATION_TIMEOUTS: usize = 64;
 
 #[cfg(any(target_os = "windows", test))]
 #[derive(Default)]
 struct WindowsNotificationTimeouts {
-    active: HashMap<String, u64>,
+    active: HashMap<String, WindowsNotificationTimeout>,
     next_generation: u64,
+}
+
+#[cfg(any(target_os = "windows", test))]
+struct WindowsNotificationTimeout {
+    generation: u64,
+    task: Option<tokio::task::AbortHandle>,
 }
 
 #[cfg(any(target_os = "windows", test))]
@@ -41,13 +51,45 @@ impl WindowsNotificationTimeouts {
     }
 
     fn register(&mut self, key: &str) -> u64 {
+        self.cancel(key);
+        while self.active.len() >= MAX_ACTIVE_WINDOWS_NOTIFICATION_TIMEOUTS {
+            let Some(oldest_key) = self
+                .active
+                .iter()
+                .min_by_key(|(_, timeout)| timeout.generation)
+                .map(|(key, _)| key.clone())
+            else {
+                break;
+            };
+            self.cancel(&oldest_key);
+        }
         self.next_generation = self.next_generation.wrapping_add(1);
-        self.active.insert(key.to_string(), self.next_generation);
+        self.active.insert(
+            key.to_string(),
+            WindowsNotificationTimeout {
+                generation: self.next_generation,
+                task: None,
+            },
+        );
         self.next_generation
     }
 
+    fn attach_task(&mut self, key: &str, generation: u64, task: tokio::task::AbortHandle) {
+        let Some(timeout) = self.active.get_mut(key) else {
+            task.abort();
+            return;
+        };
+
+        if timeout.generation != generation {
+            task.abort();
+            return;
+        }
+
+        timeout.task = Some(task);
+    }
+
     fn take_if_current(&mut self, key: &str, generation: u64) -> bool {
-        if self.active.get(key) != Some(&generation) {
+        if self.active.get(key).map(|timeout| timeout.generation) != Some(generation) {
             return false;
         }
 
@@ -56,11 +98,19 @@ impl WindowsNotificationTimeouts {
     }
 
     fn cancel(&mut self, key: &str) {
-        self.active.remove(key);
+        if let Some(timeout) = self.active.remove(key)
+            && let Some(task) = timeout.task
+        {
+            task.abort();
+        }
     }
 
     fn clear(&mut self) {
-        self.active.clear();
+        for (_, timeout) in self.active.drain() {
+            if let Some(task) = timeout.task {
+                task.abort();
+            }
+        }
     }
 }
 
@@ -109,12 +159,33 @@ fn should_show_windows_notification(key: Option<&str>) -> bool {
 
     let recent = RECENT_WINDOWS_NOTIFICATIONS.get_or_init(|| Mutex::new(HashMap::new()));
     let mut recent = recent.lock().unwrap_or_else(|error| error.into_inner());
-    let now = Instant::now();
-    recent.retain(|_, timestamp| now.duration_since(*timestamp) < WINDOWS_DEDUPE_WINDOW);
-
-    if recent.contains_key(key) {
+    if !register_recent_windows_notification(&mut recent, key, Instant::now()) {
         tracing::info!(key, "skipping_notification");
         return false;
+    }
+    true
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn register_recent_windows_notification(
+    recent: &mut HashMap<String, Instant>,
+    key: &str,
+    now: Instant,
+) -> bool {
+    recent.retain(|_, timestamp| now.duration_since(*timestamp) < WINDOWS_DEDUPE_WINDOW);
+    if recent.contains_key(key) {
+        return false;
+    }
+
+    while recent.len() >= MAX_RECENT_WINDOWS_NOTIFICATIONS {
+        let Some(oldest) = recent
+            .iter()
+            .min_by_key(|(_, timestamp)| *timestamp)
+            .map(|(key, _)| key.clone())
+        else {
+            break;
+        };
+        recent.remove(&oldest);
     }
 
     recent.insert(key.to_string(), now);
@@ -137,33 +208,37 @@ fn schedule_windows_notification_timeout<R: tauri::Runtime, M: tauri::Manager<R>
         return;
     };
 
-    let (generation, timeout) = {
-        let mut timeouts = windows_notification_timeouts()
-            .lock()
-            .unwrap_or_else(|error| error.into_inner());
-        let Some(timeout) = timeouts.schedule(&key, notification.timeout) else {
-            return;
-        };
-        timeout
-    };
     let app = manager.app_handle().clone();
     let source = notification.source.clone();
+    let mut timeouts = windows_notification_timeouts()
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let Some((generation, timeout)) = timeouts.schedule(&key, notification.timeout) else {
+        return;
+    };
+    let task_key = key.clone();
 
-    tauri::async_runtime::spawn(async move {
+    let task = tauri::async_runtime::spawn(async move {
         tokio::time::sleep(timeout).await;
 
         let should_emit = windows_notification_timeouts()
             .lock()
             .unwrap_or_else(|error| error.into_inner())
-            .take_if_current(&key, generation);
+            .take_if_current(&task_key, generation);
         if !should_emit {
             return;
         }
 
-        if let Err(error) = (NotificationEvent::Timeout { key, source }).emit(&app) {
+        if let Err(error) = (NotificationEvent::Timeout {
+            key: task_key,
+            source,
+        })
+        .emit(&app)
+        {
             tracing::warn!(%error, "failed_to_emit_windows_notification_timeout");
         }
     });
+    timeouts.attach_task(&key, generation, task.inner().abort_handle());
 }
 
 #[cfg(target_os = "windows")]
@@ -294,6 +369,23 @@ mod tests {
     }
 
     #[test]
+    fn recent_windows_notifications_stay_bounded() {
+        let mut recent = HashMap::new();
+        let now = Instant::now();
+
+        for index in 0..=MAX_RECENT_WINDOWS_NOTIFICATIONS {
+            assert!(register_recent_windows_notification(
+                &mut recent,
+                &format!("notification-{index}"),
+                now + Duration::from_millis(index as u64),
+            ));
+        }
+
+        assert_eq!(recent.len(), MAX_RECENT_WINDOWS_NOTIFICATIONS);
+        assert!(!recent.contains_key("notification-0"));
+    }
+
+    #[test]
     fn development_windows_notifications_use_the_fallback_app_id() {
         let executable = Path::new("C:/Users/anarlog/Anarlog.exe");
 
@@ -393,5 +485,66 @@ mod tests {
 
         assert_eq!(timeouts.schedule("meeting", None), None);
         assert!(!timeouts.take_if_current("meeting", generation));
+    }
+
+    #[test]
+    fn replacing_a_windows_notification_aborts_its_timeout_task() {
+        tauri::async_runtime::block_on(async {
+            let mut timeouts = WindowsNotificationTimeouts::default();
+            let generation = timeouts.register("meeting");
+            let task = tauri::async_runtime::spawn(std::future::pending::<()>());
+            timeouts.attach_task("meeting", generation, task.inner().abort_handle());
+
+            timeouts.register("meeting");
+
+            assert!(task.await.is_err());
+        });
+    }
+
+    #[test]
+    fn clearing_windows_notifications_aborts_all_timeout_tasks() {
+        tauri::async_runtime::block_on(async {
+            let mut timeouts = WindowsNotificationTimeouts::default();
+            let meeting_generation = timeouts.register("meeting");
+            let meeting_task = tauri::async_runtime::spawn(std::future::pending::<()>());
+            timeouts.attach_task(
+                "meeting",
+                meeting_generation,
+                meeting_task.inner().abort_handle(),
+            );
+            let mic_generation = timeouts.register("mic");
+            let mic_task = tauri::async_runtime::spawn(std::future::pending::<()>());
+            timeouts.attach_task("mic", mic_generation, mic_task.inner().abort_handle());
+
+            timeouts.clear();
+
+            assert!(meeting_task.await.is_err());
+            assert!(mic_task.await.is_err());
+        });
+    }
+
+    #[test]
+    fn windows_notification_timeouts_evict_and_abort_the_oldest_task_at_capacity() {
+        tauri::async_runtime::block_on(async {
+            let mut timeouts = WindowsNotificationTimeouts::default();
+            let oldest_generation = timeouts.register("oldest");
+            let oldest_task = tauri::async_runtime::spawn(std::future::pending::<()>());
+            timeouts.attach_task(
+                "oldest",
+                oldest_generation,
+                oldest_task.inner().abort_handle(),
+            );
+
+            for index in 0..MAX_ACTIVE_WINDOWS_NOTIFICATION_TIMEOUTS {
+                timeouts.register(&format!("notification-{index}"));
+            }
+
+            assert_eq!(
+                timeouts.active.len(),
+                MAX_ACTIVE_WINDOWS_NOTIFICATION_TIMEOUTS
+            );
+            assert!(!timeouts.active.contains_key("oldest"));
+            assert!(oldest_task.await.is_err());
+        });
     }
 }

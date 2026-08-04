@@ -12,6 +12,7 @@ use crate::{
 };
 
 const BATCH_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+const MAX_ACTIVE_BATCH_SESSIONS: usize = 4;
 
 pub struct Listener2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -36,32 +37,6 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
         let session_id = params.session_id.clone();
         let idle_timeout = batch_idle_timeout(&params);
 
-        {
-            let mut sessions = lock_batch_sessions(&registry)?;
-            if let Some(control) = sessions.get(&session_id).map(|entry| entry.control.clone()) {
-                let state = match lock_terminal_state(&control) {
-                    Ok(state) => *state,
-                    Err(error) => {
-                        let entry = sessions.remove(&session_id);
-                        drop(sessions);
-
-                        if let Some(entry) = entry {
-                            abort_batch_entry(entry);
-                        }
-                        return Err(error);
-                    }
-                };
-
-                if state == BatchTerminalState::Running {
-                    return Err(core::Error::BatchError(
-                        "session already running".to_string(),
-                    ));
-                }
-
-                sessions.remove(&session_id);
-            }
-        }
-
         let (last_activity_tx, _) = tokio::sync::watch::channel(Instant::now());
         let control = Arc::new(BatchSessionControl {
             cancellation_token: tokio_util::sync::CancellationToken::new(),
@@ -69,16 +44,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener2<'a, R, M> {
             terminal_state: std::sync::Mutex::new(BatchTerminalState::Running),
         });
 
-        {
-            let mut sessions = lock_batch_sessions(&registry)?;
-            sessions.insert(
-                session_id.clone(),
-                BatchSessionEntry {
-                    control: control.clone(),
-                    abort_handle: None,
-                },
-            );
-        }
+        reserve_batch_session(&registry, &session_id, control.clone())?;
 
         let runtime = Arc::new(TauriBatchRuntime {
             app: app.clone(),
@@ -273,6 +239,32 @@ fn lock_terminal_state(
         .terminal_state
         .lock()
         .map_err(|_| batch_lock_poisoned("batch terminal state"))
+}
+
+fn reserve_batch_session(
+    registry: &BatchSessionRegistry,
+    session_id: &str,
+    control: Arc<BatchSessionControl>,
+) -> Result<(), core::Error> {
+    let mut sessions = lock_batch_sessions(registry)?;
+    let at_capacity = sessions.len() >= MAX_ACTIVE_BATCH_SESSIONS;
+    match sessions.entry(session_id.to_string()) {
+        std::collections::hash_map::Entry::Occupied(_) => Err(core::Error::BatchError(
+            "session already running".to_string(),
+        )),
+        std::collections::hash_map::Entry::Vacant(_) if at_capacity => {
+            Err(core::Error::BatchError(format!(
+                "too many active transcription sessions (maximum {MAX_ACTIVE_BATCH_SESSIONS})"
+            )))
+        }
+        std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(BatchSessionEntry {
+                control,
+                abort_handle: None,
+            });
+            Ok(())
+        }
+    }
 }
 
 fn should_emit_event(control: &BatchSessionControl, event: &core::BatchEvent) -> bool {
@@ -541,6 +533,87 @@ mod tests {
             }
             _ => panic!("expected registry poison to return BatchError"),
         }
+    }
+
+    #[test]
+    fn reserve_batch_session_rejects_duplicate_session_id_without_replacement() {
+        let original = make_control();
+        let registry = make_registry(original.clone());
+
+        let error = reserve_batch_session(&registry, "session-1", make_control())
+            .expect_err("duplicate session should be rejected");
+
+        assert!(error.to_string().contains("session already running"));
+        let sessions = registry
+            .sessions
+            .lock()
+            .expect("batch session registry poisoned");
+        assert!(Arc::ptr_eq(
+            &sessions.get("session-1").unwrap().control,
+            &original
+        ));
+    }
+
+    #[test]
+    fn reserve_batch_session_enforces_active_session_capacity() {
+        let registry = Arc::new(BatchSessionRegistry {
+            sessions: std::sync::Mutex::new(std::collections::HashMap::new()),
+        });
+
+        for index in 0..MAX_ACTIVE_BATCH_SESSIONS {
+            reserve_batch_session(&registry, &format!("session-{index}"), make_control()).unwrap();
+        }
+
+        let error = reserve_batch_session(&registry, "one-too-many", make_control())
+            .expect_err("session beyond capacity should be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("too many active transcription sessions")
+        );
+        assert_eq!(
+            registry
+                .sessions
+                .lock()
+                .expect("batch session registry poisoned")
+                .len(),
+            MAX_ACTIVE_BATCH_SESSIONS
+        );
+    }
+
+    #[test]
+    fn concurrent_same_id_reservation_admits_exactly_one_session() {
+        let registry = Arc::new(BatchSessionRegistry {
+            sessions: std::sync::Mutex::new(std::collections::HashMap::new()),
+        });
+        let barrier = Arc::new(std::sync::Barrier::new(3));
+        let attempts = (0..2)
+            .map(|_| {
+                let registry = registry.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    let control = make_control();
+                    barrier.wait();
+                    reserve_batch_session(&registry, "same-id", control).is_ok()
+                })
+            })
+            .collect::<Vec<_>>();
+
+        barrier.wait();
+        let results = attempts
+            .into_iter()
+            .map(|attempt| attempt.join().unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(results.iter().filter(|result| **result).count(), 1);
+        assert_eq!(
+            registry
+                .sessions
+                .lock()
+                .expect("batch session registry poisoned")
+                .len(),
+            1
+        );
     }
 
     #[test]

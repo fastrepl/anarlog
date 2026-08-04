@@ -3,7 +3,9 @@ use std::time::Duration;
 
 use owhisper_client::StreamingBatchStream;
 use owhisper_interface::batch_stream::BatchStreamEvent;
-use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef, SpawnErr};
+use ractor::{
+    Actor, ActorName, ActorProcessingErr, ActorRef, RpcReplyPort, SpawnErr, rpc::CallResult,
+};
 use tracing::Instrument;
 
 use super::super::accumulator::StreamBatchAccumulator;
@@ -13,6 +15,8 @@ use super::bootstrap::{notify_start_result, spawn_progressive_batch_task};
 use crate::{BatchEvent, BatchRuntime};
 
 const BATCH_STREAM_TIMEOUT_SECS: u64 = 30;
+const PROVIDER_RESPONSE_ACK_TIMEOUT: Duration = Duration::from_secs(1);
+const STREAM_TASK_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
 pub(super) async fn run_progressive_batch(
     runtime: Arc<dyn BatchRuntime>,
@@ -123,7 +127,10 @@ fn provider_error_from_event(event: &BatchStreamEvent) -> Option<(&str, &str, Op
 
 #[allow(clippy::enum_variant_names)]
 pub(super) enum BatchMsg {
-    StreamResponse { event: Box<BatchStreamEvent> },
+    StreamResponse {
+        event: Box<BatchStreamEvent>,
+        reply: RpcReplyPort<()>,
+    },
     StreamError(crate::BatchFailure),
     StreamEnded,
     StreamStartFailed(crate::BatchFailure),
@@ -209,10 +216,12 @@ impl Actor for BatchActor {
         _myself: ActorRef<Self::Msg>,
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
-        if let Some(shutdown_tx) = state.shutdown_tx.take() {
-            let _ = shutdown_tx.send(());
-            let _ = (&mut state.rx_task).await;
-        }
+        stop_stream_task(
+            &mut state.shutdown_tx,
+            &mut state.rx_task,
+            STREAM_TASK_SHUTDOWN_TIMEOUT,
+        )
+        .await;
 
         let final_result = state.final_result.take().unwrap_or_else(|| {
             Err(crate::BatchFailure::ProgressiveStoppedWithoutCompletionSignal.into())
@@ -229,10 +238,11 @@ impl Actor for BatchActor {
         state: &mut Self::State,
     ) -> Result<(), ActorProcessingErr> {
         match message {
-            BatchMsg::StreamResponse { event } => {
+            BatchMsg::StreamResponse { event, reply } => {
                 tracing::info!("batch stream response received");
                 state.accumulator.observe(&event);
                 state.emit_streamed(*event);
+                let _ = reply.send(());
             }
             BatchMsg::StreamStartFailed(error) => {
                 tracing::error!("batch_stream_start_failed: {}", error);
@@ -253,6 +263,22 @@ impl Actor for BatchActor {
         }
 
         Ok(())
+    }
+}
+
+async fn stop_stream_task(
+    shutdown_tx: &mut Option<tokio::sync::oneshot::Sender<()>>,
+    rx_task: &mut tokio::task::JoinHandle<()>,
+    timeout: Duration,
+) {
+    if let Some(shutdown_tx) = shutdown_tx.take() {
+        let _ = shutdown_tx.send(());
+    }
+
+    if tokio::time::timeout(timeout, &mut *rx_task).await.is_err() {
+        tracing::warn!("progressive_batch_stream_task_shutdown_timed_out");
+        rx_task.abort();
+        let _ = rx_task.await;
     }
 }
 
@@ -380,14 +406,36 @@ async fn process_stream_loop<S, Item, E, F>(
                             break;
                         }
 
-                        send_actor_message(
-                            &myself,
-                            BatchMsg::StreamResponse {
+                        let delivery = myself.call(
+                            move |reply| BatchMsg::StreamResponse {
                                 event: Box::new(event),
+                                reply,
                             },
-                            context,
-                            "stream response",
+                            Some(PROVIDER_RESPONSE_ACK_TIMEOUT),
                         );
+                        tokio::pin!(delivery);
+
+                        tokio::select! {
+                            biased;
+                            _ = &mut shutdown_rx => {
+                                tracing::info!("{context}: shutdown while delivering response");
+                                return;
+                            }
+                            result = &mut delivery => {
+                                match result {
+                                    Ok(CallResult::Success(())) => {}
+                                    Ok(CallResult::Timeout) => {
+                                        tracing::warn!("{context}: provider response acknowledgement timed out");
+                                        myself.kill();
+                                        return;
+                                    }
+                                    Ok(CallResult::SenderError) | Err(_) => {
+                                        tracing::warn!("{context}: batch actor stopped while delivering response");
+                                        return;
+                                    }
+                                }
+                            }
+                        }
 
                         if is_completion {
                             completions_seen += 1;
@@ -517,5 +565,22 @@ mod test {
             provider_error_from_event(&event),
             Some(("deepgram", "boom", Some(429)))
         );
+    }
+
+    #[tokio::test]
+    async fn stream_task_shutdown_is_bounded_when_task_ignores_shutdown() {
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::oneshot::channel();
+        let mut shutdown_tx = Some(shutdown_tx);
+        let mut task = tokio::spawn(std::future::pending::<()>());
+
+        stop_stream_task(
+            &mut shutdown_tx,
+            &mut task,
+            Duration::from_millis(10),
+        )
+        .await;
+
+        assert!(shutdown_tx.is_none());
+        assert!(task.is_finished());
     }
 }
