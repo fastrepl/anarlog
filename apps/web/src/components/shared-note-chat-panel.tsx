@@ -143,7 +143,7 @@ export function SharedNoteChatPanel({
         aria-hidden="true"
         className="h-[calc(5rem+env(safe-area-inset-bottom))]"
       />
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog modal={false} open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <button
             type="button"
@@ -158,6 +158,7 @@ export function SharedNoteChatPanel({
           </button>
         </DialogTrigger>
         <DialogContent
+          showOverlay={false}
           className={cn([
             "surface border-color-subtle !top-auto !right-4 !bottom-[calc(1rem+env(safe-area-inset-bottom))] !left-4 !z-50 !mx-auto !flex !translate-x-0 !translate-y-0 flex-col overflow-hidden border shadow-2xl",
             "!h-[min(680px,calc(100dvh-5rem-env(safe-area-inset-bottom)))] !w-auto !max-w-[648px] !gap-0 !rounded-[28px] !p-0",

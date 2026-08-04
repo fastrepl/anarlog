@@ -22,7 +22,7 @@ export function SharedNoteCommentsDrawer({
   const count = comments.length;
 
   return (
-    <Dialog>
+    <Dialog modal={false}>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -42,6 +42,7 @@ export function SharedNoteCommentsDrawer({
         </button>
       </DialogTrigger>
       <DialogContent
+        showOverlay={false}
         className={cn([
           "!top-0 !right-0 !bottom-0 !left-auto !h-dvh !w-[min(380px,100vw)] !max-w-none !translate-x-0 !translate-y-0",
           "!flex !gap-0 !rounded-none !border-y-0 !border-r-0 !border-l !border-stone-200 !bg-white !p-0",
