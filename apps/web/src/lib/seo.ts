@@ -94,3 +94,37 @@ export function getBreadcrumbListJsonLd(
     })),
   };
 }
+
+export function getBlogPostingJsonLd({
+  url,
+  headline,
+  description,
+  image,
+  datePublished,
+  authors,
+}: {
+  url: string;
+  headline: string;
+  description: string;
+  image: string;
+  datePublished: string;
+  authors: string[];
+}) {
+  return {
+    "@type": "BlogPosting",
+    url,
+    headline,
+    description,
+    image,
+    datePublished,
+    author: authors.map((name) => ({
+      "@type": name === "Anarlog Team" ? "Organization" : "Person",
+      name,
+    })),
+    publisher: getOrganizationJsonLd(),
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": url,
+    },
+  };
+}

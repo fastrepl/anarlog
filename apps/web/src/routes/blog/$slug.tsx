@@ -14,7 +14,13 @@ import {
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
 import { formatBlogDate } from "@/lib/blog-date";
-import { getBlogOgImageUrl, getCanonicalUrl } from "@/lib/seo";
+import {
+  getBlogOgImageUrl,
+  getBlogPostingJsonLd,
+  getBreadcrumbListJsonLd,
+  getCanonicalUrl,
+  getStructuredDataGraph,
+} from "@/lib/seo";
 
 const blogMdxComponents = {
   ...mdxComponents,
@@ -35,6 +41,9 @@ export const Route = createFileRoute("/blog/$slug")({
     if (!article) return {};
     const url = getCanonicalUrl(`/blog/${article.slug}`);
     const imageUrl = getBlogOgImageUrl(article.slug);
+    const authors = Array.isArray(article.author)
+      ? article.author
+      : [article.author];
     return {
       links: [{ rel: "canonical", href: url }],
       meta: [
@@ -55,12 +64,35 @@ export const Route = createFileRoute("/blog/$slug")({
         { name: "twitter:description", content: article.meta_description },
         { name: "twitter:image", content: imageUrl },
       ],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify(
+            getStructuredDataGraph([
+              getBlogPostingJsonLd({
+                url,
+                headline: article.title,
+                description: article.meta_description,
+                image: imageUrl,
+                datePublished: article.date,
+                authors,
+              }),
+              getBreadcrumbListJsonLd([
+                { name: "Home", item: getCanonicalUrl() },
+                { name: "Blog", item: getCanonicalUrl("/blog") },
+                { name: article.title, item: url },
+              ]),
+            ]),
+          ),
+        },
+      ],
     };
   },
 });
 
 function Component() {
   const { article } = Route.useLoaderData();
+  const relatedArticles = getRelatedArticles(article);
   const authors = Array.isArray(article.author)
     ? article.author.join(", ")
     : article.author;
@@ -113,11 +145,85 @@ function Component() {
           <MDXContent code={article.mdx} components={blogMdxComponents} />
         </article>
 
+        <RelatedArticles articles={relatedArticles} />
         <BlogArticleCta />
       </div>
 
       <SiteFooter />
     </main>
+  );
+}
+
+function getRelatedArticles(article: Article) {
+  const sortedArticles = [...allArticles].sort(
+    (a, b) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime() ||
+      a.slug.localeCompare(b.slug),
+  );
+  const articleIndex = sortedArticles.findIndex(
+    (candidate) => candidate.slug === article.slug,
+  );
+
+  if (articleIndex === -1) {
+    return [];
+  }
+
+  const neighbors = [
+    sortedArticles[articleIndex - 1],
+    sortedArticles[articleIndex + 1],
+  ].filter((candidate): candidate is Article => Boolean(candidate));
+  const sameCategory = sortedArticles.find(
+    (candidate) =>
+      candidate.slug !== article.slug &&
+      candidate.category === article.category &&
+      !neighbors.some((neighbor) => neighbor.slug === candidate.slug),
+  );
+  const fallback = sortedArticles.find(
+    (candidate) =>
+      candidate.slug !== article.slug &&
+      !neighbors.some((neighbor) => neighbor.slug === candidate.slug),
+  );
+
+  return [...neighbors, sameCategory ?? fallback].filter(
+    (candidate): candidate is Article => Boolean(candidate),
+  );
+}
+
+function RelatedArticles({ articles }: { articles: Article[] }) {
+  if (articles.length === 0) {
+    return null;
+  }
+
+  return (
+    <aside aria-labelledby="keep-reading-heading" className="mt-20">
+      <h2
+        id="keep-reading-heading"
+        className="font-hand text-3xl font-semibold tracking-normal text-[#756b5d]"
+      >
+        Keep reading
+      </h2>
+      <ul className="mt-5 grid gap-5 md:grid-cols-3">
+        {articles.map((relatedArticle) => (
+          <li key={relatedArticle.slug}>
+            <Link
+              to="/blog/$slug/"
+              params={{ slug: relatedArticle.slug }}
+              className="group block border-t border-[#eee8df] pt-4"
+            >
+              <p className="font-hand text-xl leading-6 font-semibold text-[#756b5d] group-hover:text-[#4f4940]">
+                {relatedArticle.title}
+              </p>
+              <time
+                dateTime={relatedArticle.date}
+                className="mt-2 block text-xs text-[#756b5d]"
+              >
+                {formatBlogDate(relatedArticle.date, "short")}
+              </time>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </aside>
   );
 }
 
