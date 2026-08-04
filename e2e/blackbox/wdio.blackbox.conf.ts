@@ -1,4 +1,3 @@
-import { waitTestRunnerBackendReady } from "@crabnebula/test-runner-backend";
 import type { Frameworks } from "@wdio/types";
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { Socket } from "node:net";
@@ -65,6 +64,8 @@ export const config = {
         process.exit(1);
       }
 
+      const { waitTestRunnerBackendReady } =
+        await import("@crabnebula/test-runner-backend");
       testRunnerBackend = spawn("pnpm", ["exec", "test-runner-backend"], {
         stdio: "inherit",
         shell: true,

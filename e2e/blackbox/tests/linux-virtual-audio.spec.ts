@@ -1,4 +1,4 @@
-import { $ } from "@wdio/globals";
+import { $, browser } from "@wdio/globals";
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -39,6 +39,26 @@ describeVirtualAudio("Linux virtual audio capture", () => {
     await startRecording.waitForDisplayed({ timeout: 30_000 });
     await startRecording.waitForEnabled({ timeout: 30_000 });
     await startRecording.click();
+
+    await browser.waitUntil(
+      async () => {
+        const stopListening = await $('button[title="Stop listening"]');
+        const record = await $('button[title="Record"]');
+        return (
+          (await stopListening.isDisplayed()) || (await record.isDisplayed())
+        );
+      },
+      {
+        timeout: 30_000,
+        timeoutMsg: "session recording controls did not appear",
+      },
+    );
+
+    const record = await $('button[title="Record"]');
+    if (await record.isDisplayed()) {
+      await record.waitForEnabled({ timeout: 30_000 });
+      await record.click();
+    }
 
     const stopListening = await $('button[title="Stop listening"]');
     await stopListening.waitForDisplayed({ timeout: 30_000 });
