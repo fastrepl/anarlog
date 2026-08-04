@@ -1,6 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
+import { MARKETING_PLAN_TIERS } from "@anlg/pricing";
+
 import { HomePage } from "@/components/home-page";
 import {
   DEFAULT_DESKTOP_SCHEME,
@@ -22,6 +24,15 @@ const featureList = [
   "Local-first storage",
   "Open source foundations",
 ];
+
+const monthlyPrices = MARKETING_PLAN_TIERS.map(
+  (plan) => plan.price?.monthly ?? 0,
+);
+const aggregateOffer = {
+  lowPrice: Math.min(...monthlyPrices),
+  highPrice: Math.max(...monthlyPrices),
+  offerCount: MARKETING_PLAN_TIERS.length,
+};
 
 const authCallbackSearchSchema = z.object({
   code: z.string().optional(),
@@ -102,6 +113,7 @@ export const Route = createFileRoute("/")({
             getSoftwareApplicationJsonLd({
               description: ROOT_DESCRIPTION,
               featureList,
+              aggregateOffer,
             }),
           ]),
         ),
