@@ -61,6 +61,7 @@ describe("AppIconSelector", () => {
     expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
     expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
     expect(screen.getByRole("radio", { name: "Sketch" })).toBeDefined();
+    expect(screen.queryByText("Blueprint")).toBeNull();
 
     fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
 

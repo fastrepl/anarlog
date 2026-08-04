@@ -62,7 +62,7 @@ export function AppIconSelector() {
       <div
         role="radiogroup"
         aria-label={t`App icon`}
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+        className="grid grid-cols-4 gap-3"
       >
         {options.map((option) => {
           const selected =
@@ -76,8 +76,9 @@ export function AppIconSelector() {
               role="radio"
               aria-checked={selected}
               aria-label={labels[option]}
+              title={labels[option]}
               className={cn([
-                "group bg-background text-foreground focus-visible:ring-ring focus-visible:ring-offset-background relative flex cursor-pointer flex-col items-center gap-3 rounded-2xl border p-4 transition-[background-color,border-color,box-shadow,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]",
+                "group bg-background text-foreground focus-visible:ring-ring focus-visible:ring-offset-background relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border p-4 transition-[background-color,border-color,box-shadow,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]",
                 selected
                   ? "border-foreground/50 bg-accent/40 shadow-xs"
                   : "border-border hover:border-foreground/30 hover:bg-accent/20",
@@ -110,9 +111,6 @@ export function AppIconSelector() {
                   className="size-16 transition-transform duration-150 select-none group-hover:scale-105"
                 />
               </picture>
-              <span className="w-full truncate text-center text-sm font-medium">
-                {labels[option]}
-              </span>
             </button>
           );
         })}
