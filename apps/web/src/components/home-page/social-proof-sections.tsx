@@ -158,7 +158,7 @@ function TestimonialTweetCard({
         onMoveToSide();
       }}
       className={cn([
-        "border-color-subtle absolute rounded-[3px] border bg-white p-5 text-left transition-[transform,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] select-none motion-reduce:transition-none sm:p-5",
+        "border-color-subtle absolute rounded-xl border bg-white p-5 text-left transition-[transform,box-shadow,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] select-none [corner-shape:squircle] motion-reduce:transition-none sm:p-5",
         className,
       ])}
       style={style}

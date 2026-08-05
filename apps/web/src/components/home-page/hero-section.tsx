@@ -126,7 +126,7 @@ function HeroWorkflowDemo() {
         aria-hidden="true"
       />
       <div
-        className="relative z-10 mx-auto max-w-[420px] overflow-hidden rounded-xl border-x border-t border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)]"
+        className="relative z-10 mx-auto max-w-[420px] overflow-hidden rounded-xl border-x border-t border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)] [corner-shape:squircle]"
         style={{
           WebkitMaskImage:
             "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
@@ -135,7 +135,7 @@ function HeroWorkflowDemo() {
         }}
       >
         <div className="flex items-center gap-2 px-4 py-3">
-          <div className="flex gap-2">
+          <div className="flex gap-2 [&>*]:[corner-shape:round]">
             <div className="h-3 w-3 rounded-full bg-red-400"></div>
             <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
             <div className="h-3 w-3 rounded-full bg-green-400"></div>
