@@ -12,6 +12,7 @@ import {
 import { signOutFn } from "@/functions/auth";
 import { deleteAccount } from "@/functions/billing";
 import { captureOperationalError } from "@/lib/error-reporting";
+import { resetPrivateRouteAnalyticsIdentity } from "@/lib/private-route-analytics";
 
 export function AccountAccessSection() {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export function AccountAccessSection() {
       throw new Error(res.message);
     },
     onSuccess: () => {
+      resetPrivateRouteAnalyticsIdentity();
       navigate({ to: "/" });
     },
     onError: (error) => {

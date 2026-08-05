@@ -17,7 +17,10 @@ import {
 } from "@/functions/supabase";
 import { sanitizeInternalReturnPath } from "@/lib/auth-redirect";
 import { captureOperationalError } from "@/lib/error-reporting";
-import { identifyServerUserFromRequest } from "@/lib/server-analytics";
+import {
+  clearServerAnalyticsIdentity,
+  identifyServerUserFromRequest,
+} from "@/lib/server-analytics";
 
 const shared = z.object({
   flow: z.enum(["desktop", "web"]).default("desktop"),
@@ -264,6 +267,7 @@ export const signOutFn = createServerFn({ method: "POST" }).handler(
       return { success: false, message: error.message };
     }
 
+    clearServerAnalyticsIdentity();
     return { success: true };
   },
 );

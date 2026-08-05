@@ -1,6 +1,11 @@
-const ANONYMOUS_ID_KEY = "anarlog.private-analytics-anonymous-id";
-const POSTHOG_ID_KEY = "anarlog.private-analytics-posthog-id";
-const USER_ID_KEY = "anarlog.private-analytics-user-id";
+export const ANALYTICS_IDENTITY_COOKIE = "anlg_analytics_identity";
+export const ANALYTICS_IDENTITY_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
+
+export type AnalyticsIdentity = {
+  anonymousId?: string;
+  postHogId?: string;
+  userId?: string;
+};
 
 export function parsePostHogDistinctId(raw: string) {
   try {
@@ -19,105 +24,105 @@ export function parsePostHogDistinctId(raw: string) {
   return null;
 }
 
+export function parseAnalyticsIdentity(raw: string | null | undefined) {
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== "object" || parsed === null) {
+      return {};
+    }
+
+    const identity: AnalyticsIdentity = {};
+    for (const key of ["anonymousId", "postHogId", "userId"] as const) {
+      const value = (parsed as Record<string, unknown>)[key];
+      if (typeof value === "string" && value) {
+        identity[key] = value;
+      }
+    }
+    return identity;
+  } catch {
+    return {};
+  }
+}
+
+export function serializeAnalyticsIdentity(identity: AnalyticsIdentity) {
+  return JSON.stringify(identity);
+}
+
+/**
+ * Tracks which person the persisted posthog-js `distinct_id` already belongs to.
+ *
+ * posthog-js mints one anonymous id per browser and keeps it until `reset()`,
+ * so on a shared browser the same id outlives the first sign-in. Merging it into
+ * a second user would fold two people together, and keying pre-login events on it
+ * would file them under the previous user. The record lives in a cookie so it
+ * survives tab closes and stays visible to the server-side OAuth identify.
+ */
 export function createPrivateRouteIdentity(
+  store: {
+    read: () => AnalyticsIdentity;
+    write: (identity: AnalyticsIdentity) => void;
+  },
   createId: () => string = () => crypto.randomUUID(),
 ) {
-  let fallbackAnonymousId: string | null = null;
-  let fallbackPostHogId: string | null = null;
-  let fallbackUserId: string | null = null;
-
-  const read = (key: string) => {
-    try {
-      return window.sessionStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  };
-
-  const write = (key: string, value: string) => {
-    try {
-      window.sessionStorage.setItem(key, value);
-    } catch {}
-  };
-
-  const clear = (key: string) => {
-    try {
-      window.sessionStorage.removeItem(key);
-    } catch {}
-  };
-
-  const getAnonymousId = (postHogDistinctId: string | null) => {
-    const existing = read(ANONYMOUS_ID_KEY) ?? fallbackAnonymousId;
-    if (existing) {
-      return existing;
+  const sync = (postHogDistinctId: string | null): AnalyticsIdentity => {
+    const identity = store.read();
+    if (!postHogDistinctId || postHogDistinctId === identity.postHogId) {
+      return identity;
     }
 
-    const resolved = postHogDistinctId ?? createId();
-    fallbackAnonymousId = resolved;
-    write(ANONYMOUS_ID_KEY, resolved);
-    return resolved;
-  };
-
-  const setAnonymousId = (anonymousId: string) => {
-    fallbackAnonymousId = anonymousId;
-    write(ANONYMOUS_ID_KEY, anonymousId);
-  };
-
-  const getPostHogId = () => read(POSTHOG_ID_KEY) ?? fallbackPostHogId;
-
-  const setPostHogId = (postHogId: string) => {
-    fallbackPostHogId = postHogId;
-    write(POSTHOG_ID_KEY, postHogId);
-  };
-
-  const getUserId = () => read(USER_ID_KEY) ?? fallbackUserId;
-
-  const setUserId = (userId: string) => {
-    fallbackUserId = userId;
-    write(USER_ID_KEY, userId);
-  };
-
-  const clearUserId = () => {
-    fallbackUserId = null;
-    clear(USER_ID_KEY);
-  };
-
-  const syncPostHogId = (postHogDistinctId: string | null) => {
-    if (!postHogDistinctId || postHogDistinctId === getPostHogId()) {
-      return;
+    if (postHogDistinctId === identity.userId) {
+      const next = { ...identity, postHogId: postHogDistinctId };
+      store.write(next);
+      return next;
     }
 
-    setPostHogId(postHogDistinctId);
-    const userId = getUserId();
-    if (postHogDistinctId === userId) {
-      return;
-    }
-
-    setAnonymousId(postHogDistinctId);
-    if (userId) {
-      clearUserId();
-    }
+    const next = {
+      anonymousId: postHogDistinctId,
+      postHogId: postHogDistinctId,
+    };
+    store.write(next);
+    return next;
   };
 
   return {
     distinctIdForEvent(postHogDistinctId: string | null) {
-      syncPostHogId(postHogDistinctId);
-      return getUserId() ?? getAnonymousId(postHogDistinctId);
+      const identity = sync(postHogDistinctId);
+      if (identity.userId) {
+        return identity.userId;
+      }
+      if (identity.anonymousId) {
+        return identity.anonymousId;
+      }
+
+      const anonymousId = postHogDistinctId ?? createId();
+      store.write({ ...identity, anonymousId });
+      return anonymousId;
     },
 
     anonymousIdForIdentify(userId: string, postHogDistinctId: string | null) {
-      syncPostHogId(postHogDistinctId);
-      const previousUserId = getUserId();
-      if (previousUserId === userId) {
+      const identity = sync(postHogDistinctId);
+      if (identity.userId === userId) {
         return null;
       }
 
-      const previousAnonymousId = getAnonymousId(postHogDistinctId);
-      const anonymousId = previousUserId ? createId() : previousAnonymousId;
+      const anonymousId = identity.userId
+        ? createId()
+        : (identity.anonymousId ?? postHogDistinctId);
 
-      setAnonymousId(anonymousId);
-      setUserId(userId);
-      return anonymousId === userId ? null : anonymousId;
+      store.write({
+        ...identity,
+        ...(anonymousId ? { anonymousId } : {}),
+        userId,
+      });
+      return anonymousId && anonymousId !== userId ? anonymousId : null;
+    },
+
+    reset() {
+      store.write({});
     },
   };
 }

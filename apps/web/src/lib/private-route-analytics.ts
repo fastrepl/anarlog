@@ -1,12 +1,17 @@
+import posthog from "posthog-js";
+
 import { env } from "@/env";
 import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 
+import type { AnalyticsIdentity } from "./private-route-analytics-identity";
 import {
+  ANALYTICS_IDENTITY_COOKIE,
+  ANALYTICS_IDENTITY_MAX_AGE_SECONDS,
   createPrivateRouteIdentity,
+  parseAnalyticsIdentity,
   parsePostHogDistinctId,
+  serializeAnalyticsIdentity,
 } from "./private-route-analytics-identity";
-
-const privateRouteIdentity = createPrivateRouteIdentity();
 
 function readCookie(name: string) {
   const prefix = `${name}=`;
@@ -16,6 +21,24 @@ function readCookie(name: string) {
     .find((part) => part.startsWith(prefix));
   return match ? match.slice(prefix.length) : null;
 }
+
+const privateRouteIdentity = createPrivateRouteIdentity({
+  read: () => {
+    try {
+      const raw = readCookie(ANALYTICS_IDENTITY_COOKIE);
+      return parseAnalyticsIdentity(raw ? decodeURIComponent(raw) : null);
+    } catch {
+      return {};
+    }
+  },
+  write: (identity: AnalyticsIdentity) => {
+    try {
+      const value = encodeURIComponent(serializeAnalyticsIdentity(identity));
+      const secure = window.location.protocol === "https:" ? "; secure" : "";
+      document.cookie = `${ANALYTICS_IDENTITY_COOKIE}=${value}; path=/; max-age=${ANALYTICS_IDENTITY_MAX_AGE_SECONDS}; samesite=lax${secure}`;
+    } catch {}
+  },
+});
 
 /**
  * posthog-js persists its anonymous distinct_id under `ph_<token>_posthog`
@@ -87,6 +110,25 @@ export function capturePrivateRouteEvent(
         },
       }),
     }).catch(() => undefined);
+  } catch {}
+}
+
+/**
+ * Drops the analytics identity so the next person on this browser starts fresh.
+ *
+ * Without the posthog-js reset its anonymous `distinct_id` outlives the session,
+ * and every later visitor's pageviews keep landing on the person we just signed
+ * out. Runs regardless of Global Privacy Control or dev mode: clearing identity
+ * state is never the thing we want to suppress.
+ */
+export function resetPrivateRouteAnalyticsIdentity() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  privateRouteIdentity.reset();
+  try {
+    posthog.reset();
   } catch {}
 }
 

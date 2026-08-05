@@ -1,10 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { AnalyticsIdentity } from "./private-route-analytics-identity.ts";
 import {
   createPrivateRouteIdentity,
+  parseAnalyticsIdentity,
   parsePostHogDistinctId,
+  serializeAnalyticsIdentity,
 } from "./private-route-analytics-identity.ts";
+
+function createStore(initial: AnalyticsIdentity = {}) {
+  let raw = serializeAnalyticsIdentity(initial);
+  return {
+    read: () => parseAnalyticsIdentity(raw),
+    write: (identity: AnalyticsIdentity) => {
+      raw = serializeAnalyticsIdentity(identity);
+    },
+  };
+}
 
 test("parses raw PostHog localStorage JSON without decoding its contents", () => {
   const raw = JSON.stringify({
@@ -15,73 +28,106 @@ test("parses raw PostHog localStorage JSON without decoding its contents", () =>
   assert.equal(parsePostHogDistinctId(raw), "anonymous-id");
 });
 
+test("ignores malformed or non-string identity cookie values", () => {
+  assert.deepEqual(parseAnalyticsIdentity(null), {});
+  assert.deepEqual(parseAnalyticsIdentity("not json"), {});
+  assert.deepEqual(parseAnalyticsIdentity("[]"), {});
+  assert.deepEqual(
+    parseAnalyticsIdentity(JSON.stringify({ userId: 7, anonymousId: "a" })),
+    { anonymousId: "a" },
+  );
+});
+
 test("never reuses an identified user as the next anonymous id", () => {
-  const storage = new Map<string, string>();
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      sessionStorage: {
-        getItem: (key: string) => storage.get(key) ?? null,
-        removeItem: (key: string) => storage.delete(key),
-        setItem: (key: string, value: string) => storage.set(key, value),
-      },
-    },
-  });
+  const identity = createPrivateRouteIdentity(
+    createStore(),
+    () => "fresh-anonymous-id",
+  );
 
-  try {
-    const identity = createPrivateRouteIdentity(() => "fresh-anonymous-id");
+  assert.equal(
+    identity.distinctIdForEvent("original-anonymous-id"),
+    "original-anonymous-id",
+  );
+  assert.equal(
+    identity.anonymousIdForIdentify("first-user", "original-anonymous-id"),
+    "original-anonymous-id",
+  );
+  assert.equal(
+    identity.distinctIdForEvent("original-anonymous-id"),
+    "first-user",
+  );
+  assert.equal(
+    identity.anonymousIdForIdentify("second-user", "original-anonymous-id"),
+    "fresh-anonymous-id",
+  );
+  assert.equal(
+    identity.distinctIdForEvent("original-anonymous-id"),
+    "second-user",
+  );
+});
 
-    assert.equal(
-      identity.distinctIdForEvent("original-anonymous-id"),
-      "original-anonymous-id",
-    );
-    assert.equal(
-      identity.anonymousIdForIdentify("first-user", "original-anonymous-id"),
-      "original-anonymous-id",
-    );
-    assert.equal(
-      identity.distinctIdForEvent("original-anonymous-id"),
-      "first-user",
-    );
-    assert.equal(
-      identity.anonymousIdForIdentify("second-user", "original-anonymous-id"),
-      "fresh-anonymous-id",
-    );
-    assert.equal(
-      identity.distinctIdForEvent("original-anonymous-id"),
-      "second-user",
-    );
-  } finally {
-    Reflect.deleteProperty(globalThis, "window");
-  }
+test("keeps the claim when the browsing context restarts", () => {
+  const store = createStore();
+  createPrivateRouteIdentity(store).anonymousIdForIdentify(
+    "first-user",
+    "original-anonymous-id",
+  );
+
+  const laterVisit = createPrivateRouteIdentity(
+    store,
+    () => "fresh-anonymous-id",
+  );
+
+  assert.equal(
+    laterVisit.anonymousIdForIdentify("second-user", "original-anonymous-id"),
+    "fresh-anonymous-id",
+  );
 });
 
 test("adopts a new anonymous id after PostHog resets", () => {
-  const storage = new Map<string, string>();
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      sessionStorage: {
-        getItem: (key: string) => storage.get(key) ?? null,
-        removeItem: (key: string) => storage.delete(key),
-        setItem: (key: string, value: string) => storage.set(key, value),
-      },
-    },
-  });
+  const store = createStore();
+  const identity = createPrivateRouteIdentity(store);
+  identity.anonymousIdForIdentify("first-user", "original-anonymous-id");
 
-  try {
-    const identity = createPrivateRouteIdentity();
-    identity.anonymousIdForIdentify("first-user", "original-anonymous-id");
+  assert.equal(
+    identity.distinctIdForEvent("reset-anonymous-id"),
+    "reset-anonymous-id",
+  );
+  assert.equal(
+    identity.anonymousIdForIdentify("second-user", "reset-anonymous-id"),
+    "reset-anonymous-id",
+  );
+});
 
-    assert.equal(
-      identity.distinctIdForEvent("reset-anonymous-id"),
-      "reset-anonymous-id",
-    );
-    assert.equal(
-      identity.anonymousIdForIdentify("second-user", "reset-anonymous-id"),
-      "reset-anonymous-id",
-    );
-  } finally {
-    Reflect.deleteProperty(globalThis, "window");
-  }
+test("clearing the identity lets the next user merge the fresh PostHog id", () => {
+  const store = createStore();
+  const identity = createPrivateRouteIdentity(store);
+  identity.anonymousIdForIdentify("first-user", "original-anonymous-id");
+
+  identity.reset();
+
+  assert.equal(
+    identity.anonymousIdForIdentify("second-user", "signed-out-anonymous-id"),
+    "signed-out-anonymous-id",
+  );
+});
+
+test("skips the merge when nothing anonymous was ever captured", () => {
+  const identity = createPrivateRouteIdentity(createStore());
+
+  assert.equal(identity.anonymousIdForIdentify("first-user", null), null);
+  assert.equal(identity.distinctIdForEvent(null), "first-user");
+});
+
+test("does not re-identify the same user twice", () => {
+  const identity = createPrivateRouteIdentity(createStore());
+
+  assert.equal(
+    identity.anonymousIdForIdentify("first-user", "original-anonymous-id"),
+    "original-anonymous-id",
+  );
+  assert.equal(
+    identity.anonymousIdForIdentify("first-user", "original-anonymous-id"),
+    null,
+  );
 });

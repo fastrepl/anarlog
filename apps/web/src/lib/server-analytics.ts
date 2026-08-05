@@ -1,6 +1,21 @@
-import { getRequestHeaders } from "@tanstack/react-start/server";
+import {
+  deleteCookie,
+  getCookie,
+  getRequestHeaders,
+  setCookie,
+} from "@tanstack/react-start/server";
 
 import { env } from "@/env";
+import { getRequestAppOrigin } from "@/functions/app-origin";
+
+import type { AnalyticsIdentity } from "./private-route-analytics-identity";
+import {
+  ANALYTICS_IDENTITY_COOKIE,
+  ANALYTICS_IDENTITY_MAX_AGE_SECONDS,
+  createPrivateRouteIdentity,
+  parseAnalyticsIdentity,
+  serializeAnalyticsIdentity,
+} from "./private-route-analytics-identity";
 
 export async function captureServerAnalytics({
   event,
@@ -83,6 +98,39 @@ function readPostHogAnonIdFromRequest() {
   return null;
 }
 
+function identityCookieOptions() {
+  return {
+    httpOnly: false,
+    maxAge: ANALYTICS_IDENTITY_MAX_AGE_SECONDS,
+    path: "/",
+    sameSite: "lax" as const,
+    secure: getRequestAppOrigin().startsWith("https://"),
+  };
+}
+
+function createRequestIdentityStore() {
+  return {
+    read: () => parseAnalyticsIdentity(getCookie(ANALYTICS_IDENTITY_COOKIE)),
+    write: (identity: AnalyticsIdentity) => {
+      setCookie(
+        ANALYTICS_IDENTITY_COOKIE,
+        serializeAnalyticsIdentity(identity),
+        identityCookieOptions(),
+      );
+    },
+  };
+}
+
+/**
+ * Forgets which person owns this browser's posthog-js anonymous id.
+ *
+ * The browser clears the same record on sign-out, but a hard navigation to
+ * `/callback/signout` never runs that code, so the server drops it too.
+ */
+export function clearServerAnalyticsIdentity() {
+  deleteCookie(ANALYTICS_IDENTITY_COOKIE, { path: "/" });
+}
+
 /**
  * Server-side counterpart to `identifyPrivateRouteUser`.
  *
@@ -98,8 +146,17 @@ export async function identifyServerUserFromRequest(
     return;
   }
 
-  const anonDistinctId = readPostHogAnonIdFromRequest();
-  if (!anonDistinctId || anonDistinctId === userId) {
+  // No posthog-js cookie means nothing was ever captured anonymously here, so
+  // there is no merge to make and no identity worth recording (GPC, opt-out).
+  const postHogDistinctId = readPostHogAnonIdFromRequest();
+  if (!postHogDistinctId) {
+    return;
+  }
+
+  const anonDistinctId = createPrivateRouteIdentity(
+    createRequestIdentityStore(),
+  ).anonymousIdForIdentify(userId, postHogDistinctId);
+  if (!anonDistinctId) {
     return;
   }
 
