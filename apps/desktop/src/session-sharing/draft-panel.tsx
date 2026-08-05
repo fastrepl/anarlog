@@ -62,7 +62,7 @@ export function SessionShareDraftContent({
       aria-describedby="session-share-description"
       className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
-      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] min-h-[330px] flex-col overflow-hidden">
+      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] flex-col overflow-hidden">
         <h2 id="session-share-heading" className="sr-only">
           <Trans>Share</Trans>
         </h2>

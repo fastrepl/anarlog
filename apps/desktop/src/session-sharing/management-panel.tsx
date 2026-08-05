@@ -144,22 +144,6 @@ export function SessionSharePopoverContent({
     onChanged,
   });
 
-  const refreshMutation = useMutation({
-    mutationFn: () =>
-      runOperation((signal) => {
-        if (!canExpand) throw new ShareManagementError();
-        return publishLatest(signal);
-      }),
-    onSuccess: () => {
-      sonnerToast.success("Shared copy updated.");
-    },
-    onError: (error) => {
-      if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not update the shared copy.");
-    },
-    onSettled: onChanged,
-  });
-
   const keepDesktopMutation = useMutation({
     mutationFn: () =>
       runOperation((signal) =>
@@ -308,7 +292,6 @@ export function SessionSharePopoverContent({
 
   const anyPending =
     inviteMutation.isPending ||
-    refreshMutation.isPending ||
     scopeMutation.isPending ||
     entryMutation.isPending ||
     generalCopyMutation.isPending ||
@@ -350,7 +333,7 @@ export function SessionSharePopoverContent({
       aria-describedby="session-share-description"
       className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
-      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] min-h-[330px] flex-col overflow-hidden">
+      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] flex-col overflow-hidden">
         <div ref={operationLifecycleRef} className="contents">
           <h2 id="session-share-heading" className="sr-only">
             <Trans>Share</Trans>
@@ -569,26 +552,7 @@ export function SessionSharePopoverContent({
             </div>
           </div>
 
-          <footer className="border-border/60 flex items-center justify-between border-t px-3 py-2">
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              disabled={!canPublish || !management || refreshMutation.isPending}
-              onClick={() => refreshMutation.mutate()}
-              aria-label="Update shared copy"
-              title="Update shared copy"
-              className="size-7"
-            >
-              {refreshMutation.isPending ? (
-                <CircleNotch
-                  className="size-3.5 animate-spin"
-                  aria-hidden="true"
-                />
-              ) : (
-                <ArrowsClockwise className="size-3.5" aria-hidden="true" />
-              )}
-            </Button>
+          <footer className="border-border/60 flex items-center justify-end border-t px-3 py-2">
             <Button
               type="button"
               size="sm"

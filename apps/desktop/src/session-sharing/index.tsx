@@ -613,7 +613,7 @@ function SessionShareUpgradeContent({ onUpgrade }: { onUpgrade: () => void }) {
       aria-describedby="session-share-upgrade-description"
       className="w-[440px] max-w-[calc(100vw-16px)] overflow-hidden"
     >
-      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] min-h-[330px] flex-col items-center overflow-y-auto px-6 py-7 text-center">
+      <AppFloatingPanel className="flex max-h-[min(530px,calc(100vh-74px))] flex-col items-center overflow-y-auto px-6 py-7 text-center">
         <div className="bg-accent flex size-10 items-center justify-center rounded-full">
           <Users className="size-4" aria-hidden="true" />
         </div>

@@ -606,8 +606,8 @@ describe("SessionShareButton", () => {
     expect(screen.getByRole("heading", { name: "Share" }).className).toContain(
       "sr-only",
     );
-    expect(screen.getByTestId("share-floating-panel").className).toContain(
-      "min-h-[330px]",
+    expect(screen.getByTestId("share-floating-panel").className).not.toContain(
+      "min-h-",
     );
     expect(screen.getByTestId("share-floating-panel").className).toContain(
       "max-h-[min(530px,calc(100vh-74px))]",
@@ -620,6 +620,9 @@ describe("SessionShareButton", () => {
     expect(screen.getByTestId("share-popover").className).toContain(
       "w-[440px]",
     );
+    expect(
+      screen.queryByRole("button", { name: "Update shared copy" }),
+    ).toBeNull();
 
     fireEvent.click(trigger);
 
@@ -881,7 +884,7 @@ describe("SessionShareButton", () => {
     expect(mocks.events.slice(0, 2)).toEqual(["management", "access"]);
   });
 
-  it("prunes a shared attachment whose local version was replaced", async () => {
+  it("prunes a replaced shared attachment before enabling link access", async () => {
     const remoteAttachment = {
       id: "88888888-8888-4888-8888-888888888888",
       filename: "diagram.png",
@@ -901,7 +904,7 @@ describe("SessionShareButton", () => {
     await openSharePopover();
     mocks.publishSessionShareSnapshot.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
+    fireEvent.click(screen.getByText("Anyone with the link"));
 
     await waitFor(() =>
       expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledWith(
@@ -968,7 +971,7 @@ describe("SessionShareButton", () => {
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 
-  it("blocks a manual publish before an editable snapshot is reconciled locally", async () => {
+  it("blocks link access before an editable snapshot is reconciled locally", async () => {
     mocks.createOrReuseSessionShare.mockResolvedValueOnce({
       shareId: SHARE_ID,
       generalScope: "restricted",
@@ -981,7 +984,7 @@ describe("SessionShareButton", () => {
     await openSharePopover();
     mocks.publishSessionShareSnapshot.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
+    fireEvent.click(screen.getByText("Anyone with the link"));
 
     await waitFor(() =>
       expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
@@ -992,11 +995,11 @@ describe("SessionShareButton", () => {
     );
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
     expect(mocks.toastError).toHaveBeenCalledWith(
-      "Could not update the shared copy.",
+      "Could not update general access.",
     );
   });
 
-  it("blocks a manual publish for a legacy read-only snapshot without reconciliation state", async () => {
+  it("blocks link access for a legacy read-only snapshot without reconciliation state", async () => {
     mocks.durableNote.webEditable = false;
     mocks.createOrReuseSessionShare.mockResolvedValueOnce({
       shareId: SHARE_ID,
@@ -1010,7 +1013,7 @@ describe("SessionShareButton", () => {
     await openSharePopover();
     mocks.publishSessionShareSnapshot.mockClear();
 
-    fireEvent.click(screen.getByRole("button", { name: "Update shared copy" }));
+    fireEvent.click(screen.getByText("Anyone with the link"));
 
     await waitFor(() =>
       expect(mocks.loadSessionShareSyncState).toHaveBeenCalledWith(
@@ -1021,7 +1024,7 @@ describe("SessionShareButton", () => {
     );
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
     expect(mocks.toastError).toHaveBeenCalledWith(
-      "Could not update the shared copy.",
+      "Could not update general access.",
     );
   });
 
@@ -1068,12 +1071,8 @@ describe("SessionShareButton", () => {
       }),
     ).not.toBeNull();
     expect(
-      (
-        screen.getByRole("button", {
-          name: "Update shared copy",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+      screen.queryByRole("button", { name: "Update shared copy" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Open web copy" }));
     await waitFor(() => expect(mocks.openUrl).toHaveBeenCalledOnce());
