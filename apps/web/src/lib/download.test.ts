@@ -8,12 +8,32 @@ import {
   getOrderedDesktopDownloadSections,
 } from "./download.ts";
 
-test("offers macOS downloads while Linux and Windows are coming soon", () => {
+test("offers macOS, Windows, and Linux downloads", () => {
   assert.deepEqual(
     desktopDownloadSections.map((section) => section.platform),
-    ["macos"],
+    ["macos", "windows", "linux"],
   );
-  assert.deepEqual(comingSoonPlatforms.slice(0, 2), ["Linux", "Windows"]);
+  assert.deepEqual(comingSoonPlatforms, [
+    "iOS",
+    "Android",
+    "Apple Watch",
+    "Galaxy Watch",
+  ]);
+
+  const windowsDownloads = desktopDownloadSections.find(
+    (section) => section.platform === "windows",
+  )!.downloads;
+  const linuxDownloads = desktopDownloadSections.find(
+    (section) => section.platform === "linux",
+  )!.downloads;
+
+  assert.match(windowsDownloads[0].url, /\/nsis-x86_64\?/);
+  assert.deepEqual(
+    linuxDownloads.map((download) =>
+      new URL(download.url).pathname.split("/").at(-1),
+    ),
+    ["appimage-x86_64", "debian-x86_64", "appimage-aarch64", "debian-aarch64"],
+  );
 });
 
 test("detects supported desktop platforms from browser user agents", () => {
@@ -50,7 +70,7 @@ test("orders the detected platform first", () => {
     getOrderedDesktopDownloadSections("windows").map(
       (section) => section.platform,
     ),
-    ["macos"],
+    ["windows", "macos", "linux"],
   );
   assert.equal(
     getOrderedDesktopDownloadSections("macos")[0].downloads[0].name,

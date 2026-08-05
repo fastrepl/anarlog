@@ -24,10 +24,11 @@ test("tolerates paths without a leading slash", () => {
   assert.equal(getCanonicalUrl("download"), "https://anarlog.so/download/");
 });
 
-test("points downloadUrl at the canonical download page", () => {
+test("describes downloads for every supported desktop platform", () => {
   const jsonLd = getSoftwareApplicationJsonLd({ description: "Anarlog" });
 
   assert.equal(jsonLd.downloadUrl, "https://anarlog.so/download/");
+  assert.deepEqual(jsonLd.operatingSystem, ["macOS", "Windows", "Linux"]);
 });
 
 test("emits offers when pricing is supplied", () => {

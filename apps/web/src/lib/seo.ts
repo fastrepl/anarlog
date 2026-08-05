@@ -64,7 +64,7 @@ export function getSoftwareApplicationJsonLd({
     url,
     description,
     applicationCategory: "ProductivityApplication",
-    operatingSystem: ["macOS"],
+    operatingSystem: ["macOS", "Windows", "Linux"],
     downloadUrl: getCanonicalUrl("/download"),
     publisher: getOrganizationJsonLd(),
     ...(featureList ? { featureList } : {}),
