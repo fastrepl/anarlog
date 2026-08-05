@@ -32,7 +32,10 @@ import {
   buildPostAuthDestination,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
-import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
+import {
+  capturePrivateRouteEvent,
+  identifyPrivateRouteUser,
+} from "@/lib/private-route-analytics";
 
 const commonSearch = {
   redirect: z.string().optional(),
@@ -375,6 +378,12 @@ function PasswordForm({
         result.success &&
         "access_token" in result
       ) {
+        identifyPrivateRouteUser(
+          "userId" in result
+            ? (result.userId as string | undefined)
+            : undefined,
+          { method: "password", action: "sign_in", flow },
+        );
         handlePasswordSuccess(
           result.access_token as string,
           result.refresh_token as string,
@@ -420,6 +429,12 @@ function PasswordForm({
         return;
       }
       if (result && "success" in result && result.success) {
+        identifyPrivateRouteUser(
+          "userId" in result
+            ? (result.userId as string | undefined)
+            : undefined,
+          { method: "password", action: "sign_up", flow },
+        );
         if ("needsConfirmation" in result && result.needsConfirmation) {
           setSubmitted(true);
           return;

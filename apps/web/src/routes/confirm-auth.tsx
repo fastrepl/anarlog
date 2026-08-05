@@ -19,6 +19,7 @@ import {
   toAuthFlowSearch,
 } from "@/lib/auth-flow-context";
 import { buildPostAuthDestination } from "@/lib/auth-redirect";
+import { identifyPrivateRouteUser } from "@/lib/private-route-analytics";
 
 const validateSearch = z.object({
   token_hash: z.string().min(1),
@@ -69,6 +70,12 @@ function Component() {
         setErrorMessage(result.error);
         return;
       }
+
+      identifyPrivateRouteUser(result.userId, {
+        method: "otp",
+        action: search.type,
+        flow: context.flow,
+      });
 
       if (search.type === "recovery") {
         navigate({
