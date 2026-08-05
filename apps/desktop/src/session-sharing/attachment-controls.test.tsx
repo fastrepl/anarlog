@@ -43,6 +43,20 @@ describe("SessionAttachmentControls", () => {
     expect(screen.queryByRole("switch", { name: "Share audio" })).toBeNull();
   });
 
+  it("stays hidden when only deleted audio metadata remains", () => {
+    render(
+      <SessionAttachmentControls
+        attachments={[{ ...audio, localAvailability: "absent" }]}
+        sharedAttachmentIds={new Map()}
+        canShare
+        pendingAttachmentId={null}
+        onShareChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("switch", { name: "Share audio" })).toBeNull();
+  });
+
   it("shares and unshares the session audio with one switch", () => {
     const onShareChange = vi.fn();
     const view = render(
@@ -58,9 +72,10 @@ describe("SessionAttachmentControls", () => {
     fireEvent.click(screen.getByRole("switch", { name: "Share audio" }));
     expect(onShareChange).toHaveBeenCalledWith(audio, true);
 
+    const unavailableAudio = { ...audio, localAvailability: "absent" as const };
     view.rerender(
       <SessionAttachmentControls
-        attachments={[audio]}
+        attachments={[unavailableAudio]}
         sharedAttachmentIds={new Map([[audio.id, "shared-audio-1"]])}
         canShare
         pendingAttachmentId={null}
@@ -69,6 +84,6 @@ describe("SessionAttachmentControls", () => {
     );
 
     fireEvent.click(screen.getByRole("switch", { name: "Share audio" }));
-    expect(onShareChange).toHaveBeenLastCalledWith(audio, false);
+    expect(onShareChange).toHaveBeenLastCalledWith(unavailableAudio, false);
   });
 });

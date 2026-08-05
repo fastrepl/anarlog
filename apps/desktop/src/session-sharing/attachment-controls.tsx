@@ -29,6 +29,8 @@ export function SessionAttachmentControls({
   if (!audio) return null;
 
   const included = sharedAttachmentIds.has(audio.id);
+  if (!included && audio.localAvailability !== "present") return null;
+
   const pending = pendingAttachmentId === audio.id;
   const available = isAttachmentShareable(audio);
 
