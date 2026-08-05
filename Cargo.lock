@@ -4950,6 +4950,7 @@ dependencies = [
  "regex",
  "serde",
  "specta",
+ "sys-locale",
  "sysinfo",
  "thiserror 2.0.18",
  "tokio",

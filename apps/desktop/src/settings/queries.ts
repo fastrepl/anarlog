@@ -121,14 +121,14 @@ export async function initializeApplicationSettings(): Promise<void> {
     const storedSpokenLanguages = parseStringArray(
       stored.values.spoken_languages ?? "[]",
     );
-    if (
+    const isSystemDefault =
       stored.values.ai_language === languageResult.data[0] &&
       storedSpokenLanguages.length === languageResult.data.length &&
       storedSpokenLanguages.every(
         (language, index) => language === languageResult.data[index],
-      )
-    ) {
-      updates.spoken_languages = "[]";
+      );
+    if (!stored.hasValues.has("spoken_languages") || isSystemDefault) {
+      updates.spoken_languages = JSON.stringify(languageResult.data.slice(1));
     }
   }
 

@@ -1,7 +1,7 @@
 #[cfg(feature = "app")]
 mod app;
 mod error;
-#[cfg(all(target_os = "macos", feature = "language"))]
+#[cfg(feature = "language")]
 mod language;
 #[cfg(feature = "list")]
 mod list;
@@ -27,7 +27,7 @@ mod zoom;
 
 #[cfg(feature = "app")]
 pub use app::*;
-#[cfg(all(target_os = "macos", feature = "language"))]
+#[cfg(feature = "language")]
 pub use language::*;
 #[cfg(feature = "list")]
 pub use list::*;

@@ -140,7 +140,6 @@ pub(crate) async fn set_mic_active_threshold<R: tauri::Runtime>(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_preferred_languages<R: tauri::Runtime>(
@@ -152,31 +151,12 @@ pub(crate) async fn get_preferred_languages<R: tauri::Runtime>(
         .collect())
 }
 
-#[cfg(not(target_os = "macos"))]
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn get_preferred_languages<R: tauri::Runtime>(
-    _app: tauri::AppHandle<R>,
-) -> Result<Vec<String>, String> {
-    Ok(Vec::new())
-}
-
-#[cfg(target_os = "macos")]
 #[tauri::command]
 #[specta::specta]
 pub(crate) async fn get_current_locale_identifier<R: tauri::Runtime>(
     _app: tauri::AppHandle<R>,
 ) -> Result<String, String> {
     Ok(anlg_detect::get_current_locale_identifier())
-}
-
-#[cfg(not(target_os = "macos"))]
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn get_current_locale_identifier<R: tauri::Runtime>(
-    _app: tauri::AppHandle<R>,
-) -> Result<String, String> {
-    Ok(String::new())
 }
 
 #[cfg(test)]

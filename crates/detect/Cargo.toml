@@ -25,16 +25,18 @@ tracing = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 specta = { workspace = true, features = ["derive"] }
+sys-locale = { workspace = true }
+
+anlg-language = { workspace = true }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 anlg-bundle = { workspace = true }
-anlg-language = { workspace = true }
 
 plist = "1.7"
 cidre = { workspace = true, features = ["ax"] }
 block2 = { workspace = true }
 
-objc2-foundation = { workspace = true, features = ["NSLocale", "NSArray", "NSString"] }
+objc2-foundation = { workspace = true, features = ["NSArray", "NSString"] }
 objc2-app-kit = { workspace = true, features = ["NSWorkspace", "NSRunningApplication", "libc"] }
 objc2 = { workspace = true }
 objc2-core-foundation = { workspace = true }

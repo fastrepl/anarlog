@@ -218,7 +218,7 @@ describe("SQLite settings", () => {
     ]);
   });
 
-  it("uses the primary OS language without adding spoken languages", async () => {
+  it("initializes languages from OS preferences", async () => {
     let rows: Array<{ id: string; value_json: string }> = [];
     mocks.execute.mockImplementation(async () => rows);
     mocks.executeTransaction.mockImplementation(async (statements) => {
@@ -237,11 +237,14 @@ describe("SQLite settings", () => {
 
     const statements = mocks.executeTransaction.mock.calls[0][0];
     expect(statements.map((statement) => statement.params.slice(0, 2))).toEqual(
-      [["ai_language", JSON.stringify("ko")]],
+      [
+        ["ai_language", JSON.stringify("ko")],
+        ["spoken_languages", JSON.stringify(JSON.stringify(["en"]))],
+      ],
     );
   });
 
-  it("clears spoken languages previously populated from the OS", async () => {
+  it("normalizes spoken languages previously populated from the OS", async () => {
     mocks.execute.mockResolvedValue([
       { id: "ai_language", value_json: JSON.stringify("ko") },
       {
@@ -258,16 +261,16 @@ describe("SQLite settings", () => {
 
     const statements = mocks.executeTransaction.mock.calls[0][0];
     expect(statements.map((statement) => statement.params.slice(0, 2))).toEqual(
-      [["spoken_languages", JSON.stringify("[]")]],
+      [["spoken_languages", JSON.stringify(JSON.stringify(["en"]))]],
     );
   });
 
-  it("preserves explicitly selected spoken languages", async () => {
+  it("preserves an explicitly empty spoken language list", async () => {
     mocks.execute.mockResolvedValue([
       { id: "ai_language", value_json: JSON.stringify("ko") },
       {
         id: "spoken_languages",
-        value_json: JSON.stringify(JSON.stringify(["en"])),
+        value_json: JSON.stringify(JSON.stringify([])),
       },
     ]);
     mocks.getPreferredLanguages.mockResolvedValue({
