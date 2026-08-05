@@ -180,8 +180,16 @@ vi.mock("./client", async (importOriginal) => {
 });
 
 vi.mock("@anlg/ui/components/ui/popover", () => ({
-  AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
+  AppFloatingPanel: ({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => (
+    <div data-testid="share-floating-panel" className={className}>
+      {children}
+    </div>
   ),
   Popover: ({
     children,
@@ -605,12 +613,20 @@ describe("SessionShareButton", () => {
     await openSharePopover();
 
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByTestId("share-popover").className).toContain(
-      "min-h-[340px]",
+    expect(screen.getByRole("heading", { name: "Share" }).className).toContain(
+      "sr-only",
     );
-    expect(screen.getByTestId("share-popover").className).toContain(
-      "max-h-[min(540px,calc(100vh-64px))]",
+    expect(screen.getByTestId("share-floating-panel").className).toContain(
+      "min-h-[330px]",
     );
+    expect(screen.getByTestId("share-floating-panel").className).toContain(
+      "max-h-[min(530px,calc(100vh-74px))]",
+    );
+    expect(
+      screen
+        .getByTestId("share-floating-panel")
+        .querySelector('[class*="overflow-y-auto"]'),
+    ).not.toBeNull();
     expect(screen.getByTestId("share-popover").className).toContain(
       "w-[440px]",
     );
