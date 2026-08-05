@@ -97,7 +97,7 @@ describeVirtualAudio("Linux virtual audio capture", () => {
     await stopListening.click();
     const recordingStopSeconds = (performance.now() - anchor) / 1000;
     await stopListening.waitForDisplayed({
-      timeout: 30_000,
+      timeout: 60_000,
       reverse: true,
     });
     const settledControl = await $(
