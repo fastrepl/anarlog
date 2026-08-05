@@ -117,8 +117,18 @@ export async function initializeApplicationSettings(): Promise<void> {
     if (!stored.hasValues.has("ai_language")) {
       updates.ai_language = languageResult.data[0];
     }
-    if (!stored.hasValues.has("spoken_languages")) {
-      updates.spoken_languages = JSON.stringify(languageResult.data);
+
+    const storedSpokenLanguages = parseStringArray(
+      stored.values.spoken_languages ?? "[]",
+    );
+    if (
+      stored.values.ai_language === languageResult.data[0] &&
+      storedSpokenLanguages.length === languageResult.data.length &&
+      storedSpokenLanguages.every(
+        (language, index) => language === languageResult.data[index],
+      )
+    ) {
+      updates.spoken_languages = "[]";
     }
   }
 

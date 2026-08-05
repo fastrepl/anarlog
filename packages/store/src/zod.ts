@@ -300,7 +300,7 @@ export const generalSchema = z.object({
   respect_dnd: z.boolean().default(false),
   quit_intercept: z.boolean().default(false),
   ai_language: z.string().default("en"),
-  spoken_languages: jsonObject(z.array(z.string()).default(["en"])),
+  spoken_languages: jsonObject(z.array(z.string()).default([])),
   personalization_dictionary_terms: jsonObject(z.array(z.string()).default([])),
   ignored_platforms: jsonObject(z.array(z.string()).default([])),
   included_platforms: jsonObject(z.array(z.string()).default([])),
