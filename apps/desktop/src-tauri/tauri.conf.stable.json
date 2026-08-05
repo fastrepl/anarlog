@@ -20,8 +20,7 @@
     },
     "macOS": {
       "files": {
-        "Resources/AppIcon.icns": "resources/stable/AppIcon.icns",
-        "Resources/Assets.car": "resources/stable/Assets.car"
+        "Resources/AppIcon.icns": "resources/stable/AppIcon.icns"
       }
     }
   },

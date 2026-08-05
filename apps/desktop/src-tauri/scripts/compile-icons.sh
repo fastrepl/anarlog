@@ -1,6 +1,10 @@
 #!/bin/bash
-# Compile .icon (Icon Composer) files into Assets.car using Apple's actool.
+# Bake .icon (Icon Composer) files into AppIcon.icns using Apple's actool.
 # Only runs on macOS — other platforms don't need asset catalogs.
+#
+# The Assets.car actool also emits is intentionally discarded: shipping it makes
+# macOS 26 re-render the iconstack with the Liquid Glass material, which does not
+# match the flat icon the app sets on the Dock at runtime (plugins/icon).
 
 set -euo pipefail
 
@@ -27,8 +31,8 @@ for variant in "${VARIANTS[@]}"; do
 
   mkdir -p "$output_dir"
 
-  if [[ -f "$output_dir/Assets.car" ]]; then
-    echo "Skipping $variant (Assets.car already exists)"
+  if [[ -f "$output_dir/AppIcon.icns" ]]; then
+    echo "Skipping $variant (AppIcon.icns already exists)"
     continue
   fi
 
@@ -51,7 +55,6 @@ for variant in "${VARIANTS[@]}"; do
     --minimum-deployment-target 10.13 \
     --platform macosx
 
-  cp "$tmp_dir/Assets.car" "$output_dir/Assets.car"
   cp "$tmp_dir/AppIcon.icns" "$output_dir/AppIcon.icns"
 
   rm -rf "$tmp_dir"
