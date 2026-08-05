@@ -20,45 +20,63 @@ const cnVersion = "cn 0.13.2";
 function createDesktopRelease({
   includeLinux = true,
   includeWindows = true,
+  splitMappings = false,
 } = {}) {
   const platformPairs = [
-    ["dmg-aarch64", "darwin-aarch64"],
-    ["dmg-x86_64", "darwin-x86_64"],
+    ["dmg-aarch64", "darwin-aarch64", true],
+    ["dmg-x86_64", "darwin-x86_64", true],
     ...(includeLinux
       ? [
-          ["appimage-x86_64", "linux-x86_64-appimage"],
-          ["debian-x86_64", "linux-x86_64-deb"],
-          ["appimage-aarch64", "linux-aarch64-appimage"],
-          ["debian-aarch64", "linux-aarch64-deb"],
+          ["appimage-x86_64", "linux-x86_64-appimage", false],
+          ["debian-x86_64", "linux-x86_64-deb", false],
+          ["appimage-aarch64", "linux-aarch64-appimage", false],
+          ["debian-aarch64", "linux-aarch64-deb", false],
         ]
       : []),
-    ...(includeWindows ? [["nsis-x86_64", "windows-x86_64-nsis"]] : []),
+    ...(includeWindows ? [["nsis-x86_64", "windows-x86_64-nsis", false]] : []),
   ];
 
   return {
     version: "1.4.0",
     status: "draft",
-    assets: platformPairs.flatMap(([publicPlatform, updatePlatform], index) => [
-      {
-        id: `asset-public-${index}`,
-        publicPlatform,
-        updatePlatform: null,
-        size: index + 1,
-        signature: null,
-      },
-      {
-        id: `asset-update-${index}`,
-        publicPlatform: null,
-        updatePlatform,
-        size: index + 1,
-        signature: `signature-${index}`,
-      },
-    ]),
+    assets: platformPairs.flatMap(
+      ([publicPlatform, updatePlatform, separateAssets], index) =>
+        splitMappings || separateAssets
+          ? [
+              {
+                id: `asset-public-${index}`,
+                publicPlatform,
+                updatePlatform: null,
+                size: index + 1,
+                signature: null,
+              },
+              {
+                id: `asset-update-${index}`,
+                publicPlatform: null,
+                updatePlatform,
+                size: index + 1,
+                signature: `signature-${index}`,
+              },
+            ]
+          : [
+              {
+                id: `asset-${index}`,
+                publicPlatform,
+                updatePlatform,
+                size: index + 1,
+                signature: `signature-${index}`,
+              },
+            ],
+    ),
   };
 }
 
 test("accepts the complete desktop public and update platform sets", () => {
   verifyDesktopPlatformSets(createDesktopRelease());
+});
+
+test("accepts separate public and updater assets", () => {
+  verifyDesktopPlatformSets(createDesktopRelease({ splitMappings: true }));
 });
 
 test("accepts a macOS and Linux release without Windows", () => {
@@ -80,7 +98,7 @@ test("rejects an omitted selected platform", () => {
       verifyDesktopPlatformSets(
         createDesktopRelease({ includeWindows: false }),
       ),
-    /exactly 14 selected desktop assets/,
+    /public platforms do not match/,
   );
 });
 
@@ -96,13 +114,13 @@ test("rejects an extra public desktop platform", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 14 selected desktop assets/,
+    /public platforms do not match/,
   );
 });
 
 test("rejects duplicate public desktop platforms", () => {
   const release = createDesktopRelease();
-  release.assets[0].publicPlatform = release.assets[1].publicPlatform;
+  release.assets[0].publicPlatform = release.assets[2].publicPlatform;
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
@@ -122,7 +140,7 @@ test("rejects an updater-only desktop platform", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 14 selected desktop assets/,
+    /update platforms do not match/,
   );
 });
 
@@ -138,7 +156,7 @@ test("rejects an opaque desktop release asset", () => {
 
   assert.throws(
     () => verifyDesktopPlatformSets(release),
-    /exactly 14 selected desktop assets/,
+    /must map to a public or update platform/,
   );
 });
 
