@@ -55,7 +55,6 @@ const mocks = vi.hoisted(() => ({
   ),
   loadSessionShareAttachments: vi.fn(),
   prepareSessionShareAttachment: vi.fn(),
-  setAttachmentCloudSyncEnabled: vi.fn(),
   loadSessionShareSyncState: vi.fn(),
   syncStatus: "clean" as "clean" | "conflict" | null,
   recordPublishedSessionShareState: vi.fn().mockResolvedValue(undefined),
@@ -130,10 +129,6 @@ vi.mock("./attachment-controls", () => ({
     mocks.attachmentControlProps = props;
     return null;
   },
-}));
-
-vi.mock("~/session/attachments", () => ({
-  setAttachmentCloudSyncEnabled: mocks.setAttachmentCloudSyncEnabled,
 }));
 
 vi.mock("./source", () => ({
@@ -397,11 +392,6 @@ describe("SessionShareButton", () => {
     mocks.sharedAttachmentMap = new Map();
     mocks.attachmentControlProps = null;
     mocks.loadSessionShareAttachments.mockResolvedValue([]);
-    mocks.setAttachmentCloudSyncEnabled.mockImplementation(
-      async (_sessionId: string, _attachmentId: string, enabled: boolean) => {
-        mocks.events.push(enabled ? "cloud-on" : "cloud-off");
-      },
-    );
     mocks.durableNote = {
       shareId: SHARE_ID,
       workspaceId: WORKSPACE_ID,
@@ -1164,17 +1154,17 @@ describe("SessionShareButton", () => {
     expect(mocks.upsertDurableSharedNoteCache).not.toHaveBeenCalled();
   });
 
-  it("revokes a shared copy before making its private backup local-only", async () => {
+  it("stops sharing audio without changing the local recording", async () => {
     const localAttachment = {
       id: "local-attachment",
-      filename: "diagram.png",
-      contentType: "image/png",
+      filename: "audio.mp3",
+      contentType: "audio/mpeg",
       sizeBytes: 42,
       sha256: "a".repeat(64),
-      sourceType: "note_upload",
-      sourceId: "diagram.png",
-      cloudSyncEnabled: true,
-      cloudObjectKey: "private/object.anb1",
+      sourceType: "session_audio",
+      sourceId: "session-1",
+      cloudSyncEnabled: false,
+      cloudObjectKey: "",
       localAvailability: "present",
       transferDirection: null,
       transferPhase: "completed",
@@ -1205,20 +1195,16 @@ describe("SessionShareButton", () => {
     mocks.events = [];
 
     act(() => {
-      mocks.attachmentControlProps.onCloudChange(localAttachment, false);
+      mocks.attachmentControlProps.onShareChange(localAttachment, false);
     });
 
     await waitFor(() =>
-      expect(mocks.setAttachmentCloudSyncEnabled).toHaveBeenCalledWith(
-        "session-1",
-        localAttachment.id,
-        false,
+      expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ attachmentIds: [] }),
       ),
     );
-    expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ attachmentIds: [] }),
-    );
-    expect(mocks.events.slice(0, 3)).toEqual(["load", "publish", "cloud-off"]);
+    expect(mocks.prepareSessionShareAttachment).not.toHaveBeenCalled();
+    expect(mocks.events.slice(0, 2)).toEqual(["load", "publish"]);
   });
 
   it("abandons an open draft when the account changes", async () => {

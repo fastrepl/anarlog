@@ -84,6 +84,50 @@ describe("shared attachment selection", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
 
+  it("allows local session audio without a private backup", async () => {
+    const localAudio = {
+      ...attachment,
+      filename: "audio.mp3",
+      contentType: "audio/mpeg",
+      sourceType: "session_audio",
+      sourceId: "session-1",
+      cloudSyncEnabled: false,
+      cloudObjectKey: "",
+    };
+    const sharedAttachmentId = "33333333-3333-4333-8333-333333333333";
+    const fetcher = vi.fn().mockResolvedValue(
+      Response.json({
+        attachmentId: sharedAttachmentId,
+        objectKey: `11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/${sharedAttachmentId}.sna1`,
+        objectState: "ready",
+        filename: localAudio.filename,
+        contentType: localAudio.contentType,
+        sizeBytes: localAudio.sizeBytes,
+        sha256: localAudio.sha256,
+      }),
+    );
+
+    expect(isAttachmentShareable(localAudio)).toBe(true);
+    await expect(
+      prepareSessionShareAttachment({
+        apiBaseUrl: "https://api.example.com",
+        supabaseUrl: "https://project.supabase.co",
+        session: {
+          access_token: "token",
+          user: { id: "11111111-1111-4111-8111-111111111111" },
+        } as any,
+        shareId: "22222222-2222-4222-8222-222222222222",
+        attachment: localAudio,
+        fetcher,
+      }),
+    ).resolves.toEqual(
+      expect.objectContaining({
+        id: sharedAttachmentId,
+        filename: "audio.mp3",
+      }),
+    );
+  });
+
   it("uploads every range from one verified native snapshot", async () => {
     const sharedAttachmentId = "33333333-3333-4333-8333-333333333333";
     const objectKey = `11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222/${sharedAttachmentId}.sna1`;

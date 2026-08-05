@@ -137,8 +137,7 @@ export async function prepareSessionShareAttachment(input: {
   const attachment = input.attachment;
   if (
     attachment.localAvailability !== "present" ||
-    !attachment.cloudSyncEnabled ||
-    !attachment.cloudObjectKey ||
+    !meetsAttachmentBackupRequirement(attachment) ||
     attachment.sizeBytes <= 0 ||
     !SHA256_PATTERN.test(attachment.sha256)
   ) {
@@ -383,11 +382,17 @@ export function restoreLocalAttachmentIds(
 export function isAttachmentShareable(attachment: SessionShareAttachment) {
   return (
     attachment.localAvailability === "present" &&
-    attachment.cloudSyncEnabled &&
-    attachment.cloudObjectKey.length > 0 &&
+    meetsAttachmentBackupRequirement(attachment) &&
     attachment.sizeBytes > 0 &&
     attachment.sizeBytes <= 512 * 1024 * 1024 &&
     SHA256_PATTERN.test(attachment.sha256)
+  );
+}
+
+function meetsAttachmentBackupRequirement(attachment: SessionShareAttachment) {
+  return (
+    attachment.sourceType === "session_audio" ||
+    (attachment.cloudSyncEnabled && attachment.cloudObjectKey.length > 0)
   );
 }
 

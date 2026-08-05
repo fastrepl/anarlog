@@ -1108,6 +1108,7 @@ fn validate_shared_upload_version(
     expected_content_type: &str,
     expected_cloud_object_key: &str,
 ) -> Result<()> {
+    let requires_private_backup = attachment.source_type != "session_audio";
     if !valid_sha256(expected_sha256)
         || expected_size_bytes == 0
         || expected_size_bytes > MAX_PLAINTEXT_BYTES
@@ -1115,8 +1116,8 @@ fn validate_shared_upload_version(
         || u64::try_from(attachment.size_bytes).ok() != Some(expected_size_bytes)
         || attachment.filename != expected_filename
         || attachment.content_type != expected_content_type
-        || attachment.cloud_sync_enabled != 1
-        || expected_cloud_object_key.is_empty()
+        || (requires_private_backup
+            && (attachment.cloud_sync_enabled != 1 || expected_cloud_object_key.is_empty()))
         || attachment.cloud_object_key != expected_cloud_object_key
     {
         return Err(Error::InvalidTransferState);

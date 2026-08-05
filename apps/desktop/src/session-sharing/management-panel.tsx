@@ -123,7 +123,6 @@ export function SessionSharePopoverContent({
   });
 
   const attachmentMutation = useSessionAttachmentManagement({
-    sessionId,
     identity,
     managementAvailable: Boolean(management),
     canExpand,
@@ -526,34 +525,18 @@ export function SessionSharePopoverContent({
                 <SessionAttachmentControls
                   attachments={sessionAttachments}
                   sharedAttachmentIds={sharedAttachmentIds}
-                  canUseCloud={canPublish}
-                  canInclude={
+                  canShare={
                     canPublish &&
                     sharedAttachmentsReady &&
                     Boolean(env.VITE_SUPABASE_URL)
                   }
-                  cloudPendingAttachmentId={
-                    attachmentMutation.isPending &&
-                    attachmentMutation.variables?.type === "cloud"
-                      ? (attachmentMutation.variables.attachment.id ?? null)
-                      : null
-                  }
-                  sharePendingAttachmentId={
-                    attachmentMutation.isPending &&
-                    attachmentMutation.variables?.type === "share"
+                  pendingAttachmentId={
+                    attachmentMutation.isPending
                       ? (attachmentMutation.variables?.attachment.id ?? null)
                       : null
                   }
-                  onCloudChange={(attachment, enabled) =>
-                    attachmentMutation.mutate({
-                      type: "cloud",
-                      attachment,
-                      enabled,
-                    })
-                  }
                   onShareChange={(attachment, included) =>
                     attachmentMutation.mutate({
-                      type: "share",
                       attachment,
                       included,
                     })

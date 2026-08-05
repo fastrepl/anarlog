@@ -18,23 +18,14 @@ import {
 } from "./management-operation";
 
 import { env } from "~/env";
-import { setAttachmentCloudSyncEnabled } from "~/session/attachments";
 import type { SharedNoteAttachment } from "~/shared-notes/cache";
 
-type AttachmentMutation =
-  | {
-      type: "cloud";
-      attachment: SessionShareAttachment;
-      enabled: boolean;
-    }
-  | {
-      type: "share";
-      attachment: SessionShareAttachment;
-      included: boolean;
-    };
+type AttachmentMutation = {
+  attachment: SessionShareAttachment;
+  included: boolean;
+};
 
 export function useSessionAttachmentManagement({
-  sessionId,
   identity,
   managementAvailable,
   canExpand,
@@ -45,7 +36,6 @@ export function useSessionAttachmentManagement({
   requireActiveContext,
   onChanged,
 }: {
-  sessionId: string;
   identity: SharePanelIdentity;
   managementAvailable: boolean;
   canExpand: boolean;
@@ -62,26 +52,6 @@ export function useSessionAttachmentManagement({
         if (!managementAvailable) throw new ShareManagementError();
         const { attachment } = input;
         const currentId = sharedAttachmentIds.get(attachment.id);
-        if (input.type === "cloud") {
-          if (!input.enabled && currentId) {
-            if (!canExpand) throw new ShareManagementError();
-            await publishLatest(
-              signal,
-              sharedAttachments.filter((item) => item.id !== currentId),
-            );
-          } else if (input.enabled && !canExpand) {
-            throw new ShareManagementError();
-          }
-          requireActiveContext(signal);
-          await setAttachmentCloudSyncEnabled(
-            sessionId,
-            attachment.id,
-            input.enabled,
-          );
-          requireActiveContext(signal);
-          return;
-        }
-
         if (!canExpand) throw new ShareManagementError();
         let requested = [...sharedAttachments];
         if (!input.included) {
