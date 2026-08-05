@@ -1,8 +1,12 @@
 import { env } from "@/env";
 import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 
-const PRIVATE_ANALYTICS_ID_KEY = "anarlog.private-analytics-id";
-let fallbackDistinctId: string | null = null;
+import {
+  createPrivateRouteIdentity,
+  parsePostHogDistinctId,
+} from "./private-route-analytics-identity";
+
+const privateRouteIdentity = createPrivateRouteIdentity();
 
 function readCookie(name: string) {
   const prefix = `${name}=`;
@@ -20,46 +24,27 @@ function readCookie(name: string) {
  * Reading the persisted value keeps events fired from auth routes attached to
  * the same person as the marketing-site pageviews that preceded them.
  */
-function readPostHogAnonId() {
+function readPostHogDistinctId() {
   if (!env.VITE_POSTHOG_API_KEY) {
     return null;
   }
 
   try {
     const key = `ph_${env.VITE_POSTHOG_API_KEY}_posthog`;
-    const raw = window.localStorage.getItem(key) ?? readCookie(key);
-    if (!raw) {
-      return null;
+    const localValue = window.localStorage.getItem(key);
+    if (localValue) {
+      const localDistinctId = parsePostHogDistinctId(localValue);
+      if (localDistinctId) {
+        return localDistinctId;
+      }
     }
 
-    const parsed = JSON.parse(decodeURIComponent(raw)) as unknown;
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      "distinct_id" in parsed &&
-      typeof parsed.distinct_id === "string" &&
-      parsed.distinct_id
-    ) {
-      return parsed.distinct_id;
-    }
+    const cookieValue = readCookie(key);
+    return cookieValue
+      ? parsePostHogDistinctId(decodeURIComponent(cookieValue))
+      : null;
   } catch {
     return null;
-  }
-
-  return null;
-}
-
-function getDistinctId() {
-  try {
-    const existing = window.sessionStorage.getItem(PRIVATE_ANALYTICS_ID_KEY);
-    if (existing) return existing;
-
-    const resolved = readPostHogAnonId() ?? crypto.randomUUID();
-    window.sessionStorage.setItem(PRIVATE_ANALYTICS_ID_KEY, resolved);
-    return resolved;
-  } catch {
-    fallbackDistinctId ??= readPostHogAnonId() ?? crypto.randomUUID();
-    return fallbackDistinctId;
   }
 }
 
@@ -82,7 +67,9 @@ export function capturePrivateRouteEvent(
 
   try {
     const host = env.VITE_POSTHOG_HOST.replace(/\/+$/, "");
-    const distinctId = getDistinctId();
+    const distinctId = privateRouteIdentity.distinctIdForEvent(
+      readPostHogDistinctId(),
+    );
     void fetch(`${host}/capture/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -121,8 +108,11 @@ export function identifyPrivateRouteUser(
   }
 
   try {
-    const anonDistinctId = getDistinctId();
-    if (anonDistinctId === userId) {
+    const anonDistinctId = privateRouteIdentity.anonymousIdForIdentify(
+      userId,
+      readPostHogDistinctId(),
+    );
+    if (!anonDistinctId) {
       return;
     }
 
@@ -144,9 +134,5 @@ export function identifyPrivateRouteUser(
         },
       }),
     }).catch(() => undefined);
-
-    // Subsequent events in this tab should ride the identified id so they land
-    // on the merged person even before PostHog processes the merge.
-    window.sessionStorage.setItem(PRIVATE_ANALYTICS_ID_KEY, userId);
   } catch {}
 }
