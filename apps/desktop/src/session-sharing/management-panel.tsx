@@ -35,7 +35,11 @@ import {
   type GeneralAccessValue,
 } from "./general-access";
 import { useSessionInvitationManagement } from "./invitation-management";
-import { ShareInviteForm, useShareInvite } from "./invite-recipients";
+import {
+  ShareInviteForm,
+  ShareInviteRecipientRows,
+  useShareInvite,
+} from "./invite-recipients";
 import {
   copyPublicSessionShareUrl,
   copySessionShareUrl,
@@ -475,6 +479,11 @@ export function SessionSharePopoverContent({
                       <Trans>Full access</Trans>
                     </span>
                   </div>
+
+                  <ShareInviteRecipientRows
+                    invite={invite}
+                    disabled={!canPublish || inviteMutation.isPending}
+                  />
 
                   {data?.access.length
                     ? data.access.map((entry) => (

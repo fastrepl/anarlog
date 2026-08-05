@@ -1570,7 +1570,7 @@ describe("SessionShareButton", () => {
     ).not.toBeNull();
   });
 
-  it("invites every session participant seeded into the field", async () => {
+  it("lists meeting participants as people and invites them together", async () => {
     mocks.managedNote = null;
     mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
     mocks.participants = [
@@ -1588,7 +1588,11 @@ describe("SessionShareButton", () => {
     await openSharePopover();
     mocks.sendSessionAccessInvitationEmail.mockClear();
 
-    expect(screen.getByText("Sungbin Jo")).not.toBeNull();
+    const participantName = screen.getByText("Sungbin Jo");
+    expect(participantName.parentElement?.parentElement?.className).toContain(
+      "min-h-9",
+    );
+    expect(screen.getByText("sungbin@e.com")).not.toBeNull();
     expect(screen.getByText("yujong@e.com")).not.toBeNull();
     expect(screen.queryByText("Artem")).toBeNull();
     expect(screen.queryByText("Dropped")).toBeNull();

@@ -11,7 +11,11 @@ import {
   GeneralAccessSelector,
   type GeneralAccessTarget,
 } from "./general-access";
-import { ShareInviteForm, useShareInvite } from "./invite-recipients";
+import {
+  ShareInviteForm,
+  ShareInviteRecipientRows,
+  useShareInvite,
+} from "./invite-recipients";
 import type { AvailableShareWorkspace } from "./source";
 
 import { useAuth } from "~/auth";
@@ -79,22 +83,29 @@ export function SessionShareDraftContent({
                 onSubmit={(emails) => onAction({ type: "invite", emails })}
               />
 
-              <div className="mt-2 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
-                <ContactFacehash name={ownerName} size={24} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">
-                    {ownerName}{" "}
-                    <span className="text-muted-foreground">(You)</span>
-                  </p>
-                  {ownerEmail ? (
-                    <p className="text-muted-foreground truncate text-[10px]">
-                      {ownerEmail}
+              <div className="mt-2 space-y-0.5">
+                <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
+                  <ContactFacehash name={ownerName} size={24} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium">
+                      {ownerName}{" "}
+                      <span className="text-muted-foreground">(You)</span>
                     </p>
-                  ) : null}
+                    {ownerEmail ? (
+                      <p className="text-muted-foreground truncate text-[10px]">
+                        {ownerEmail}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="text-muted-foreground shrink-0 text-[11px]">
+                    <Trans>Full access</Trans>
+                  </span>
                 </div>
-                <span className="text-muted-foreground shrink-0 text-[11px]">
-                  <Trans>Full access</Trans>
-                </span>
+
+                <ShareInviteRecipientRows
+                  invite={invite}
+                  disabled={disabled || actionPending}
+                />
               </div>
             </section>
 

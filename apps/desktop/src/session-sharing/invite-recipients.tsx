@@ -31,8 +31,8 @@ export function useShareInvite({
       .filter(Boolean),
   );
   // Recipients are derived on every render so participants that arrive from the
-  // live query after the panel opened still seed the field, while a chip the
-  // user removed stays removed.
+  // live query after the panel opened still appear, while a person the user
+  // removed stays removed.
   const taken = new Set(dismissed);
   const recipients: { email: string; name: string }[] = [];
   for (const candidate of [
@@ -154,29 +154,10 @@ export function ShareInviteForm({
       >
         <div
           className={cn([
-            "border-input focus-within:ring-ring flex min-h-8 min-w-0 flex-1 flex-wrap items-center gap-1 rounded-md border bg-transparent px-1.5 py-1 shadow-xs focus-within:ring-1",
+            "border-input focus-within:ring-ring flex h-8 min-w-0 flex-1 items-center rounded-md border bg-transparent px-2 shadow-xs focus-within:ring-1",
             disabled && "opacity-50",
           ])}
         >
-          {invite.recipients.map((recipient) => (
-            <span
-              key={recipient.email.toLowerCase()}
-              className="bg-accent flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 text-[11px]"
-            >
-              <span className="truncate">
-                {recipient.name || recipient.email}
-              </span>
-              <button
-                type="button"
-                aria-label={`Remove ${recipient.name || recipient.email}`}
-                disabled={disabled}
-                onClick={() => invite.remove(recipient.email)}
-                className="text-muted-foreground hover:text-foreground shrink-0 disabled:cursor-not-allowed"
-              >
-                <X className="size-2.5" aria-hidden="true" />
-              </button>
-            </span>
-          ))}
           <input
             type="text"
             aria-label="Invitee email"
@@ -188,15 +169,10 @@ export function ShareInviteForm({
               if (event.key === "Enter" && isInviteEmail(invite.query)) {
                 event.preventDefault();
                 invite.commitQuery();
-                return;
-              }
-              if (event.key === "Backspace" && !invite.query) {
-                const last = invite.recipients[invite.recipients.length - 1];
-                if (last) invite.remove(last.email);
               }
             }}
-            placeholder={invite.recipients.length ? "" : "Email or name"}
-            className="placeholder:text-muted-foreground min-w-[120px] flex-1 bg-transparent text-xs outline-hidden disabled:cursor-not-allowed"
+            placeholder="Email or name"
+            className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-hidden disabled:cursor-not-allowed"
           />
         </div>
         <Button
@@ -240,4 +216,41 @@ export function ShareInviteForm({
       ) : null}
     </>
   );
+}
+
+export function ShareInviteRecipientRows({
+  invite,
+  disabled,
+}: {
+  invite: ReturnType<typeof useShareInvite>;
+  disabled: boolean;
+}) {
+  return invite.recipients.map((recipient) => {
+    const label = recipient.name || recipient.email;
+    return (
+      <div
+        key={recipient.email.toLowerCase()}
+        className="hover:bg-accent/50 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1"
+      >
+        <ContactFacehash name={label} size={24} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium">{label}</p>
+          {recipient.name ? (
+            <p className="text-muted-foreground truncate text-[10px]">
+              {recipient.email}
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          aria-label={`Remove ${label}`}
+          disabled={disabled}
+          onClick={() => invite.remove(recipient.email)}
+          className="text-muted-foreground hover:bg-accent hover:text-foreground flex size-7 shrink-0 items-center justify-center rounded-md disabled:cursor-not-allowed"
+        >
+          <X className="size-3.5" aria-hidden="true" />
+        </button>
+      </div>
+    );
+  });
 }
