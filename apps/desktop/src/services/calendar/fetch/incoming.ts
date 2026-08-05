@@ -75,8 +75,8 @@ async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
   const meetingLink =
     calendarEvent.meeting_link ??
     (await extractMeetingLink(
-      calendarEvent.description,
       calendarEvent.location,
+      calendarEvent.description,
     ));
 
   const eventParticipants: EventParticipant[] = [];

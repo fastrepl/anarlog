@@ -51,4 +51,33 @@ describe("fetchIncomingEvents", () => {
     expect(result.participants.has("event-1")).toBe(true);
     expect(result.participants.get("event-1")).toEqual([]);
   });
+
+  test("prefers the location meeting link over links in the description", async () => {
+    const meetingLink = "https://meet.google.com/abc-defg-hij";
+    calendarCommands.parseMeetingLink.mockImplementation(async (text) => text);
+    calendarCommands.listEvents.mockResolvedValue({
+      status: "success",
+      data: [
+        {
+          id: "event-1",
+          calendar_id: "primary",
+          title: "Customer call",
+          description: "https://cal.com/customer-call/reschedule",
+          location: meetingLink,
+          started_at: "2026-06-01T10:00:00.000Z",
+          ended_at: "2026-06-01T11:00:00.000Z",
+          attendees: [],
+          organizer: null,
+          has_recurrence_rules: false,
+          is_all_day: false,
+        },
+      ],
+    });
+
+    const result = await fetchIncomingEvents(ctx);
+
+    expect(result.events[0]?.meeting_link).toBe(meetingLink);
+    expect(calendarCommands.parseMeetingLink).toHaveBeenCalledOnce();
+    expect(calendarCommands.parseMeetingLink).toHaveBeenCalledWith(meetingLink);
+  });
 });
