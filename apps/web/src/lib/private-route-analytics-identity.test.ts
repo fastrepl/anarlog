@@ -112,6 +112,30 @@ test("clearing the identity lets the next user merge the fresh PostHog id", () =
   );
 });
 
+test("keeps the claim on sign-out so the next user is not merged in", () => {
+  const store = createStore();
+  const identity = createPrivateRouteIdentity(
+    store,
+    () => "fresh-anonymous-id",
+  );
+  identity.anonymousIdForIdentify("first-user", "original-anonymous-id");
+
+  assert.equal(identity.signOut("original-anonymous-id"), true);
+
+  assert.equal(
+    identity.distinctIdForEvent("original-anonymous-id"),
+    "fresh-anonymous-id",
+  );
+  assert.equal(
+    identity.anonymousIdForIdentify("second-user", "original-anonymous-id"),
+    "fresh-anonymous-id",
+  );
+});
+
+test("reports nothing to remember when sign-out finds no claimed id", () => {
+  assert.equal(createPrivateRouteIdentity(createStore()).signOut(null), false);
+});
+
 test("skips the merge when nothing anonymous was ever captured", () => {
   const identity = createPrivateRouteIdentity(createStore());
 

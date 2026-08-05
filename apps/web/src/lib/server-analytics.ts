@@ -122,13 +122,22 @@ function createRequestIdentityStore() {
 }
 
 /**
- * Forgets which person owns this browser's posthog-js anonymous id.
+ * Ends the signed-in analytics identity for this browser.
  *
- * The browser clears the same record on sign-out, but a hard navigation to
- * `/callback/signout` never runs that code, so the server drops it too.
+ * A hard navigation to `/callback/signout` redirects from the server, so
+ * `posthog.reset()` never runs and the posthog-js anonymous id outlives the
+ * session still tied to the user who just left. Dropping the record entirely
+ * would let the next sign-in merge that id into a second person, so the claim
+ * is kept and a fresh anonymous id takes over for later events.
  */
 export function clearServerAnalyticsIdentity() {
-  deleteCookie(ANALYTICS_IDENTITY_COOKIE, { path: "/" });
+  const claimed = createPrivateRouteIdentity(
+    createRequestIdentityStore(),
+  ).signOut(readPostHogAnonIdFromRequest());
+
+  if (!claimed) {
+    deleteCookie(ANALYTICS_IDENTITY_COOKIE, { path: "/" });
+  }
 }
 
 /**
@@ -146,15 +155,19 @@ export async function identifyServerUserFromRequest(
     return;
   }
 
-  // No posthog-js cookie means nothing was ever captured anonymously here, so
-  // there is no merge to make and no identity worth recording (GPC, opt-out).
+  // A direct `/auth` visit mints its own anonymous id when posthog-js never ran
+  // before it, so the funnel identity can live in our cookie alone. Nothing
+  // recorded in either place means no analytics happened here (GPC, opt-out),
+  // leaving no merge to make and no identity worth recording.
+  const identityStore = createRequestIdentityStore();
   const postHogDistinctId = readPostHogAnonIdFromRequest();
-  if (!postHogDistinctId) {
+  const identity = identityStore.read();
+  if (!postHogDistinctId && !identity.anonymousId && !identity.userId) {
     return;
   }
 
   const anonDistinctId = createPrivateRouteIdentity(
-    createRequestIdentityStore(),
+    identityStore,
   ).anonymousIdForIdentify(userId, postHogDistinctId);
   if (!anonDistinctId) {
     return;

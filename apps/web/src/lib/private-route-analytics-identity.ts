@@ -121,6 +121,26 @@ export function createPrivateRouteIdentity(
       return anonymousId && anonymousId !== userId ? anonymousId : null;
     },
 
+    /**
+     * Releases the signed-in user while keeping the posthog-js id recorded as
+     * claimed, so the next sign-in on this browser mints a fresh anonymous id
+     * instead of merging the previous user's id into a second person.
+     *
+     * Returns false when nothing was ever claimed and the record can be dropped.
+     */
+    signOut(postHogDistinctId: string | null) {
+      const claimedPostHogId = postHogDistinctId ?? store.read().postHogId;
+      if (!claimedPostHogId) {
+        return false;
+      }
+
+      store.write({
+        anonymousId: createId(),
+        postHogId: claimedPostHogId,
+      });
+      return true;
+    },
+
     reset() {
       store.write({});
     },
