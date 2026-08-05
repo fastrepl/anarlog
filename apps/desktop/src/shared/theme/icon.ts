@@ -5,6 +5,8 @@ export type AppIconPreference =
   | "dev"
   | "staging";
 
+export type AppIconAppearance = "auto" | "light" | "dark";
+
 export function normalizeAppIconPreference(
   value: string | null | undefined,
 ): AppIconPreference {
@@ -35,11 +37,20 @@ export function resolveAppIconName(
   return "stable";
 }
 
+export function normalizeAppIconAppearance(
+  value: string | null | undefined,
+): AppIconAppearance {
+  return value === "light" || value === "dark" ? value : "auto";
+}
+
+/** `systemIsDark` is the Dock's appearance, not the in-app theme. */
 export function resolveDockIconName(
   icon: AppIconPreference,
-  isDark: boolean,
+  appearance: AppIconAppearance,
+  systemIsDark: boolean,
   appIdentifier: string,
 ): string {
   const name = resolveAppIconName(icon, appIdentifier);
+  const isDark = appearance === "auto" ? systemIsDark : appearance === "dark";
   return isDark ? `${name}-dark` : name;
 }

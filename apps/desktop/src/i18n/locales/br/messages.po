@@ -313,6 +313,10 @@ msgstr "Arload"
 msgid "App icon"
 msgstr ""
 
+#: src/settings/appearance/app-icon.tsx
+msgid "App icon appearance"
+msgstr ""
+
 #: src/settings/appearance/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Appearance"
@@ -359,6 +363,14 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to Anarlog."
+msgstr ""
+
+#: src/settings/appearance/app-icon.tsx
+msgid "Auto"
+msgstr ""
+
+#: src/settings/appearance/app-icon.tsx
+msgid "Auto follows your system appearance."
 msgstr ""
 
 #: src/templates/auto-form.tsx
@@ -787,6 +799,7 @@ msgstr ""
 msgid "Customized"
 msgstr ""
 
+#: src/settings/appearance/app-icon.tsx
 #: src/settings/appearance/theme.tsx
 msgid "Dark"
 msgstr ""
@@ -1303,6 +1316,7 @@ msgstr ""
 msgid "Learn more"
 msgstr ""
 
+#: src/settings/appearance/app-icon.tsx
 #: src/settings/appearance/theme.tsx
 msgid "Light"
 msgstr ""

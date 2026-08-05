@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   applyThemePreference: vi.fn(),
   theme: "system",
   appIcon: "default",
+  appIconAppearance: "auto",
 }));
 
 vi.mock("~/settings/queries", () => ({
@@ -13,8 +14,15 @@ vi.mock("~/settings/queries", () => ({
 }));
 
 vi.mock("~/shared/config", () => ({
-  useConfigValue: (key: string) =>
-    key === "theme" ? mocks.theme : mocks.appIcon,
+  useConfigValue: (key: string) => {
+    if (key === "theme") {
+      return mocks.theme;
+    }
+    if (key === "app_icon_appearance") {
+      return mocks.appIconAppearance;
+    }
+    return mocks.appIcon;
+  },
 }));
 
 vi.mock("~/shared/theme/provider", () => ({
@@ -29,6 +37,7 @@ describe("ThemeSelector", () => {
     vi.clearAllMocks();
     mocks.theme = "system";
     mocks.appIcon = "default";
+    mocks.appIconAppearance = "auto";
   });
 
   it("shows visual choices and applies the selected theme immediately", () => {
@@ -46,7 +55,25 @@ describe("ThemeSelector", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: /Dark/ }));
 
-    expect(mocks.applyThemePreference).toHaveBeenCalledWith("dark", "default");
+    expect(mocks.applyThemePreference).toHaveBeenCalledWith(
+      "dark",
+      "default",
+      "auto",
+    );
     expect(mocks.setTheme).toHaveBeenCalledWith("dark");
+  });
+
+  it("carries an explicit icon appearance into the theme change", () => {
+    mocks.appIconAppearance = "dark";
+
+    render(<ThemeSelector />);
+
+    fireEvent.click(screen.getByRole("radio", { name: /Light/ }));
+
+    expect(mocks.applyThemePreference).toHaveBeenCalledWith(
+      "light",
+      "default",
+      "dark",
+    );
   });
 });
