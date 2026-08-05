@@ -274,7 +274,7 @@ fn channel_spooling_stops_cooperatively_when_cancelled() {
 }
 
 #[test]
-fn long_exact_speaker_diarization_fails_before_loading_samples() {
+fn long_exact_speaker_diarization_is_omitted_from_the_plan() {
     assert!(ensure_soniqo_diarization_within_limit(SONIQO_DIARIZATION_MAX_SAMPLES).is_ok());
     let error =
         ensure_soniqo_diarization_within_limit(SONIQO_DIARIZATION_MAX_SAMPLES + 1).unwrap_err();
@@ -282,15 +282,23 @@ fn long_exact_speaker_diarization_fails_before_loading_samples() {
     assert!(error.contains("10 minutes"));
     assert!(error.contains("without an exact speaker count"));
 
+    let maximum_channel = [SONIQO_DIARIZATION_MAX_SAMPLES];
+    assert!(soniqo_diarization_plan_within_limit(
+        &maximum_channel,
+        Some(2)
+    ));
     let long_channel = [SONIQO_DIARIZATION_MAX_SAMPLES + 1];
-    assert!(ensure_soniqo_diarization_plan_within_limit(&long_channel, None).is_ok());
-    assert!(ensure_soniqo_diarization_plan_within_limit(&long_channel, Some(2)).is_err());
+    assert!(soniqo_diarization_plan_within_limit(&long_channel, None));
+    assert!(!soniqo_diarization_plan_within_limit(
+        &long_channel,
+        Some(2)
+    ));
     let long_stereo = [
         SONIQO_DIARIZATION_MAX_SAMPLES + 1,
         SONIQO_DIARIZATION_MAX_SAMPLES + 1,
     ];
-    assert!(ensure_soniqo_diarization_plan_within_limit(&long_stereo, Some(2)).is_ok());
-    assert!(ensure_soniqo_diarization_plan_within_limit(&long_stereo, Some(3)).is_err());
+    assert!(soniqo_diarization_plan_within_limit(&long_stereo, Some(2)));
+    assert!(!soniqo_diarization_plan_within_limit(&long_stereo, Some(3)));
 }
 
 #[test]

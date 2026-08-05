@@ -431,7 +431,25 @@ fn transcribe_soniqo_file(
         .iter()
         .map(|channel| channel.sample_count)
         .collect::<Vec<_>>();
-    ensure_soniqo_diarization_plan_within_limit(&channel_sample_counts, num_speakers)?;
+    let diarization_within_limit =
+        soniqo_diarization_plan_within_limit(&channel_sample_counts, num_speakers);
+    let diarization_num_speakers = if diarization_within_limit {
+        num_speakers
+    } else {
+        None
+    };
+    if !diarization_within_limit {
+        tracing::warn!(
+            anarlog.stt.provider.name = "soniqo",
+            anarlog.stt.model = %model,
+            audio.duration_seconds = channel_sample_counts.iter().copied().max().unwrap_or_default()
+                as f64
+                / TARGET_SAMPLE_RATE as f64,
+            diarization.max_duration_seconds =
+                SONIQO_DIARIZATION_MAX_SAMPLES / TARGET_SAMPLE_RATE as usize,
+            "soniqo_diarization_skipped_for_long_recording"
+        );
+    }
     if let Some(progress) = progress {
         progress.emit(soniqo_batch_progress(0, transcribed_channel_count));
     }
@@ -441,7 +459,7 @@ fn transcribe_soniqo_file(
     for (channel_index, channel) in channel_files.into_iter().enumerate() {
         ensure_local_batch_running(progress)?;
         let speaker_segments = match soniqo_diarization_speaker_count(
-            num_speakers,
+            diarization_num_speakers,
             transcribed_channel_count,
             channel_index,
         ) {
@@ -816,22 +834,23 @@ pub(super) fn ensure_soniqo_diarization_within_limit(
     )
 }
 
-pub(super) fn ensure_soniqo_diarization_plan_within_limit(
+pub(super) fn soniqo_diarization_plan_within_limit(
     channel_sample_counts: &[usize],
     num_speakers: Option<u32>,
-) -> std::result::Result<(), String> {
-    for (channel_index, sample_count) in channel_sample_counts.iter().enumerate() {
-        if soniqo_diarization_speaker_count(
-            num_speakers,
-            channel_sample_counts.len(),
-            channel_index,
-        )
-        .is_some()
-        {
-            ensure_soniqo_diarization_within_limit(*sample_count)?;
-        }
-    }
-    Ok(())
+) -> bool {
+    channel_sample_counts
+        .iter()
+        .enumerate()
+        .all(|(channel_index, sample_count)| {
+            match soniqo_diarization_speaker_count(
+                num_speakers,
+                channel_sample_counts.len(),
+                channel_index,
+            ) {
+                Some(_) => *sample_count <= SONIQO_DIARIZATION_MAX_SAMPLES,
+                None => true,
+            }
+        })
 }
 
 fn diarize_soniqo_channel(
