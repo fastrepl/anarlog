@@ -90,7 +90,7 @@ function PricingCard({ plan }: { plan: MarketingPlanData }) {
               : "bg-[#f4efe6] text-[#181613] hover:bg-[#eadfce]",
           ])}
         >
-          {plan.price ? "Start your three-week Pro trial" : "Download for free"}
+          {plan.price ? "Start your 3-week Pro trial" : "Download for free"}
         </Link>
       </div>
     </article>
