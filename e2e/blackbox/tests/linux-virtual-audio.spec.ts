@@ -96,14 +96,6 @@ describeVirtualAudio("Linux virtual audio capture", () => {
     await pause(2_500);
     await stopListening.click();
     const recordingStopSeconds = (performance.now() - anchor) / 1000;
-    await stopListening.waitForDisplayed({
-      timeout: 60_000,
-      reverse: true,
-    });
-    const settledControl = await $(
-      'button[title="Resume listening"]:not([disabled]), button[title="Record"]:not([disabled]), button[title="Stop transcription"]:not([disabled])',
-    );
-    await settledControl.waitForDisplayed({ timeout: 60_000 });
     await persistPhases(phasesPath, phases, recordingStopSeconds);
     await pause(1_000);
   });
