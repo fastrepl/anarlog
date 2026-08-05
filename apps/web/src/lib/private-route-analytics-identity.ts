@@ -129,7 +129,12 @@ export function createPrivateRouteIdentity(
      * Returns false when nothing was ever claimed and the record can be dropped.
      */
     signOut(postHogDistinctId: string | null) {
-      const claimedPostHogId = postHogDistinctId ?? store.read().postHogId;
+      const identity = store.read();
+      if (!identity.userId) {
+        return false;
+      }
+
+      const claimedPostHogId = postHogDistinctId ?? identity.postHogId;
       if (!claimedPostHogId) {
         return false;
       }

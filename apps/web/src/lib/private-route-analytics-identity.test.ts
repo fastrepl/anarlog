@@ -136,6 +136,23 @@ test("reports nothing to remember when sign-out finds no claimed id", () => {
   assert.equal(createPrivateRouteIdentity(createStore()).signOut(null), false);
 });
 
+test("does not claim a PostHog id before a user is identified", () => {
+  const store = createStore({
+    anonymousId: "original-anonymous-id",
+    postHogId: "original-anonymous-id",
+  });
+  const identity = createPrivateRouteIdentity(
+    store,
+    () => "fresh-anonymous-id",
+  );
+
+  assert.equal(identity.signOut("original-anonymous-id"), false);
+  assert.equal(
+    identity.anonymousIdForIdentify("first-user", "original-anonymous-id"),
+    "original-anonymous-id",
+  );
+});
+
 test("skips the merge when nothing anonymous was ever captured", () => {
   const identity = createPrivateRouteIdentity(createStore());
 
