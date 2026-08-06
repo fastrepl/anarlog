@@ -16,15 +16,22 @@ import { AudioDropTarget } from "./audio-drop-target";
 import { useNoteFileHandlerConfig } from "./file-handler";
 import { MeetingChatHighlights } from "./meeting-chat-highlights";
 
+import { trackAnalyticsEvent } from "~/analytics";
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
 import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
+import { hasStoredNoteContent } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateSession } from "~/session/queries";
 import { removeDocumentTitle } from "~/session/title-content";
+import {
+  TemplateIconGlyph,
+  type UserTemplate,
+  useUserTemplates,
+} from "~/templates";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
 
@@ -64,6 +71,10 @@ export const RawEditor = forwardRef<
     const initialContent = useMemo<JSONContent>(
       () => removeDocumentTitle(parseJsonContent(rawMd), sessionTitle),
       [rawMd, sessionTitle],
+    );
+    const isMemoEmpty = useMemo(
+      () => !hasStoredNoteContent(JSON.stringify(initialContent)),
+      [initialContent],
     );
 
     const persistChange = useCallback(
@@ -107,6 +118,35 @@ export const RawEditor = forwardRef<
       [persistChange, hasNonEmptyText],
     );
 
+    const handleApplyTemplate = useCallback(
+      (template: UserTemplate) => {
+        const content = template.sections.flatMap((section) => {
+          const title = section.title.trim();
+          if (!title) {
+            return [];
+          }
+
+          return [
+            {
+              type: "heading",
+              attrs: { level: 2 },
+              content: [{ type: "text", text: title }],
+            },
+            { type: "paragraph" },
+          ];
+        });
+        if (content.length === 0) {
+          return;
+        }
+
+        handleChange({ type: "doc", content });
+        trackAnalyticsEvent("template_applied", {
+          entry_point: "memo",
+        });
+      },
+      [handleChange],
+    );
+
     const mentionConfig = useMentionConfig();
     const commentAnchors = useSessionCommentAnchors(sessionId);
     // Stable identity: NoteEditor keys whole-document memos off this.
@@ -124,39 +164,103 @@ export const RawEditor = forwardRef<
         isActive={isAudioDragActive}
       >
         <>
-          <NoteEditor
-            ref={ref}
-            className={cn(["session-note-editor", className])}
-            key={`session-${sessionId}-raw`}
-            initialContent={initialContent}
-            resolveAttachment={resolveAttachment}
-            handleChange={handleChange}
-            placeholderComponent={placeholderComponent}
-            mentionConfig={mentionConfig}
-            sessionMentionDropConfig={sessionMentionDropConfig}
-            onNavigateToTitle={onNavigateToTitle}
-            onLinkOpen={openEditorLink}
-            fileHandlerConfig={fileHandlerConfig}
-            taskSource={taskSource}
-            extraNodeViews={extraNodeViews}
-            showFormatToolbar={showFormatToolbar}
-            enforceTitleHeading={false}
-            commentAnchorsEnabled
-            onViewReady={(view) => {
-              commentAnchors.onViewReady(view);
-              onViewReady?.(view);
-            }}
-            onViewDisposed={(view) => {
-              commentAnchors.onViewDisposed(view);
-              onViewDisposed?.(view);
-            }}
-          />
+          <div className="relative min-h-full">
+            <NoteEditor
+              ref={ref}
+              className={cn(["session-note-editor", className])}
+              key={`session-${sessionId}-raw`}
+              initialContent={initialContent}
+              resolveAttachment={resolveAttachment}
+              handleChange={handleChange}
+              placeholderComponent={placeholderComponent}
+              mentionConfig={mentionConfig}
+              sessionMentionDropConfig={sessionMentionDropConfig}
+              onNavigateToTitle={onNavigateToTitle}
+              onLinkOpen={openEditorLink}
+              fileHandlerConfig={fileHandlerConfig}
+              taskSource={taskSource}
+              extraNodeViews={extraNodeViews}
+              showFormatToolbar={showFormatToolbar}
+              enforceTitleHeading={false}
+              commentAnchorsEnabled
+              onViewReady={(view) => {
+                commentAnchors.onViewReady(view);
+                onViewReady?.(view);
+              }}
+              onViewDisposed={(view) => {
+                commentAnchors.onViewDisposed(view);
+                onViewDisposed?.(view);
+              }}
+            />
+            {isMemoEmpty ? (
+              <FavoriteTemplateList onApply={handleApplyTemplate} />
+            ) : null}
+          </div>
           <MeetingChatHighlights sessionId={sessionId} />
         </>
       </AudioDropTarget>
     );
   },
 );
+
+function getFavoriteTemplates(templates: UserTemplate[]) {
+  return [...templates]
+    .filter((template) => template.pinned)
+    .sort((a, b) => {
+      const orderA = a.pinOrder ?? Infinity;
+      const orderB = b.pinOrder ?? Infinity;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return (a.title || "").localeCompare(b.title || "");
+    });
+}
+
+function FavoriteTemplateList({
+  onApply,
+}: {
+  onApply: (template: UserTemplate) => void;
+}) {
+  const { t } = useLingui();
+  const userTemplates = useUserTemplates();
+  const favoriteTemplates = useMemo(
+    () => getFavoriteTemplates(userTemplates),
+    [userTemplates],
+  );
+
+  if (favoriteTemplates.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="absolute inset-x-0 top-8 z-10 flex flex-col gap-1">
+      <p className="text-muted-foreground px-2 text-xs">
+        {t`Start with a favorite template`}
+      </p>
+      <div className="flex flex-col">
+        {favoriteTemplates.map((template) => (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => onApply(template)}
+            className={cn([
+              "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md px-2 text-left",
+              "text-foreground transition-colors focus-visible:outline-hidden",
+            ])}
+          >
+            <TemplateIconGlyph
+              icon={template.icon}
+              className="size-4 text-sm"
+            />
+            <span className="min-w-0 truncate text-sm font-medium">
+              {template.title || t`Untitled`}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 async function trackNoteEdited() {
   try {

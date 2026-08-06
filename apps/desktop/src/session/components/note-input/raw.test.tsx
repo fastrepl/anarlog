@@ -20,6 +20,7 @@ const hoisted = vi.hoisted(() => ({
   unminimizeWindow: vi.fn(),
   focusWindow: vi.fn(),
   meetingChatRecords: [] as unknown[],
+  userTemplates: [] as Array<Record<string, unknown>>,
   noteEditorProps: [] as Record<string, unknown>[],
 }));
 
@@ -92,7 +93,31 @@ vi.mock("~/session-sharing/comment-anchors", () => ({
 }));
 
 vi.mock("~/session/components/shared", () => ({
-  hasStoredNoteContent: (value: unknown) => Boolean(value),
+  hasStoredNoteContent: (value: unknown) => {
+    if (typeof value !== "string" || !value.trim()) {
+      return false;
+    }
+
+    try {
+      const hasText = (node: unknown): boolean => {
+        if (!node || typeof node !== "object") {
+          return false;
+        }
+        const content = node as {
+          text?: string;
+          content?: unknown[];
+        };
+        return (
+          Boolean(content.text?.trim()) ||
+          Boolean(content.content?.some(hasText))
+        );
+      };
+
+      return hasText(JSON.parse(value));
+    } catch {
+      return true;
+    }
+  },
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -101,6 +126,11 @@ vi.mock("~/session/queries", () => ({
 
 vi.mock("~/session/hooks/useAttachmentResolver", () => ({
   useAttachmentResolver: () => () => null,
+}));
+
+vi.mock("~/templates", () => ({
+  TemplateIconGlyph: () => <span aria-hidden>Template icon</span>,
+  useUserTemplates: () => hoisted.userTemplates,
 }));
 
 function RawEditor({
@@ -161,6 +191,7 @@ describe("RawEditor", () => {
     hoisted.fileUpload = vi.fn();
     hoisted.processAudioFile = vi.fn();
     hoisted.meetingChatRecords = [];
+    hoisted.userTemplates = [];
     hoisted.showWindow.mockReset();
     hoisted.unminimizeWindow.mockReset();
     hoisted.focusWindow.mockReset();
@@ -238,6 +269,97 @@ describe("RawEditor", () => {
         raw_md: JSON.stringify(content),
       }),
     );
+  });
+
+  it("applies favorite template sections to an empty memo", async () => {
+    hoisted.userTemplates = [
+      {
+        id: "template-unpinned",
+        title: "Project Kickoff",
+        pinned: false,
+        pinOrder: null,
+        icon: { type: "emoji", value: "🚀" },
+        sections: [{ title: "Goals", description: "" }],
+      },
+      {
+        id: "template-retro",
+        title: "Retrospective",
+        pinned: true,
+        pinOrder: 2,
+        icon: { type: "emoji", value: "🔁" },
+        sections: [{ title: "What we learned", description: "" }],
+      },
+      {
+        id: "template-standup",
+        title: "Standup",
+        pinned: true,
+        pinOrder: 1,
+        icon: { type: "emoji", value: "☀️" },
+        sections: [
+          { title: " Yesterday ", description: "" },
+          { title: "Today", description: "" },
+        ],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" />);
+
+    expect(
+      screen.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual(["Template iconStandup", "Template iconRetrospective"]);
+    expect(
+      screen.queryByRole("button", { name: "Project Kickoff" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Standup" }));
+
+    await waitFor(() =>
+      expect(hoisted.persistChange).toHaveBeenCalledWith({
+        raw_md: JSON.stringify({
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 2 },
+              content: [{ type: "text", text: "Yesterday" }],
+            },
+            { type: "paragraph" },
+            {
+              type: "heading",
+              attrs: { level: 2 },
+              content: [{ type: "text", text: "Today" }],
+            },
+            { type: "paragraph" },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("hides favorite templates when the memo has content", () => {
+    hoisted.rawMd = JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Existing memo" }],
+        },
+      ],
+    });
+    hoisted.userTemplates = [
+      {
+        id: "template-standup",
+        title: "Standup",
+        pinned: true,
+        pinOrder: 1,
+        icon: { type: "emoji", value: "☀️" },
+        sections: [{ title: "Today", description: "" }],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" />);
+
+    expect(screen.queryByRole("button", { name: "Standup" })).toBeNull();
   });
 
   it("renders captured chat without mutating the active memo editor", () => {

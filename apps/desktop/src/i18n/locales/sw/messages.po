@@ -2450,6 +2450,10 @@ msgstr ""
 msgid "Start when meeting begins"
 msgstr "Anza mkutano unapoanza"
 
+#: src/session/components/note-input/raw.tsx
+msgid "Start with a favorite template"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Start with an example"
 msgstr ""
@@ -2745,6 +2749,7 @@ msgid "Unnamed"
 msgstr ""
 
 #: src/session/components/note-input/header.tsx
+#: src/session/components/note-input/raw.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 #: src/session/components/title-input.tsx
 #: src/shared-notes/index.tsx
