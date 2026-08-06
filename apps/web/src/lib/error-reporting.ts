@@ -123,6 +123,33 @@ export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent {
   return event;
 }
 
+function isStacklessUnhandledRejection(event: ErrorEvent) {
+  return event.exception?.values?.some((exception) => {
+    const isUnhandledRejection =
+      exception.type === "UnhandledRejection" ||
+      exception.mechanism?.type.endsWith("onunhandledrejection");
+    return isUnhandledRejection && !exception.stacktrace?.frames?.length;
+  });
+}
+
+export function createErrorEventFilter() {
+  let reportedStacklessUnhandledRejection = false;
+
+  return (event: ErrorEvent): ErrorEvent | null => {
+    const sanitized = sanitizeErrorEvent(event);
+    if (!isStacklessUnhandledRejection(sanitized)) return sanitized;
+    if (reportedStacklessUnhandledRejection) return null;
+
+    reportedStacklessUnhandledRejection = true;
+    sanitized.fingerprint = ["web", "stackless-unhandled-rejection"];
+    sanitized.tags = {
+      ...sanitized.tags,
+      "error.type": "stackless_unhandled_rejection",
+    };
+    return sanitized;
+  };
+}
+
 export function captureOperationalError(
   error: unknown,
   {

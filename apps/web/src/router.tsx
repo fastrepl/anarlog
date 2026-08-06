@@ -6,7 +6,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { ErrorPage } from "./components/error-page";
 import { env } from "./env";
 import { isTelemetryPrivateLocation } from "./lib/auth-route-privacy";
-import { sanitizeErrorEvent } from "./lib/error-reporting";
+import { createErrorEventFilter } from "./lib/error-reporting";
 import { prepareShareRoutePrivacy } from "./lib/share-route-privacy";
 import { routeTree } from "./routeTree.gen";
 
@@ -25,6 +25,8 @@ export function getRouter() {
   prepareShareRoutePrivacy();
 
   if (!router.isServer && env.VITE_SENTRY_DSN) {
+    const filterErrorEvent = createErrorEventFilter();
+
     Sentry.init({
       dsn: env.VITE_SENTRY_DSN,
       release: env.VITE_APP_VERSION
@@ -38,7 +40,7 @@ export function getRouter() {
           window.location.search,
         )
           ? null
-          : sanitizeErrorEvent(event),
+          : filterErrorEvent(event),
       beforeSendTransaction: (event) =>
         isTelemetryPrivateLocation(
           window.location.pathname,

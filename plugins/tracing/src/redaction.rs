@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::sync::LazyLock;
 
 use regex::Regex;
-use sentry::protocol::{Context, Event, Stacktrace, User};
+use sentry::protocol::{Context, Event, Stacktrace, User, Value};
 
 static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").expect("Invalid regex")
@@ -10,6 +10,48 @@ static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 static IP_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}\b").expect("Invalid regex"));
+
+const SAFE_TAGS: &[&str] = &[
+    "anarlog.error.stage",
+    "anarlog.operation",
+    "anarlog.session.type",
+    "anarlog.surface",
+    "enduser.pseudo.id",
+    "error.code",
+    "error.type",
+    "http.response.status_code",
+    "service.name",
+    "service.namespace",
+];
+
+fn safe_identifier(value: &str) -> Option<&str> {
+    let value = value.trim();
+    (!value.is_empty()
+        && value.len() <= 128
+        && !looks_like_absolute_path(value)
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "_.:/-".contains(character)))
+    .then_some(value)
+}
+
+fn looks_like_absolute_path(value: &str) -> bool {
+    value.starts_with('/')
+        || value.starts_with('\\')
+        || matches!(value.as_bytes(), [drive, b':', b'/' | b'\\', ..] if drive.is_ascii_alphabetic())
+}
+
+fn tracing_location_key(event: &Event<'_>) -> Option<String> {
+    let Context::Other(location) = event.contexts.get("Rust Tracing Location")? else {
+        return None;
+    };
+    let module_path = location
+        .get("module_path")?
+        .as_str()
+        .and_then(safe_identifier)?;
+    let line = location.get("line")?.as_u64()?;
+    Some(format!("{module_path}:{line}"))
+}
 
 fn redact_sensitive_text(value: &str, home_dir: Option<&str>) -> String {
     let mut redacted = value.to_string();
@@ -41,7 +83,7 @@ fn sanitize_stacktrace(stacktrace: &mut Stacktrace, home_dir: Option<&str>) {
     }
 }
 
-fn sanitize_context(context: &mut Context) -> bool {
+fn sanitize_context(key: &str, context: &mut Context, home_dir: Option<&str>) -> bool {
     match context {
         Context::Device(device) => {
             device.name = None;
@@ -59,6 +101,30 @@ fn sanitize_context(context: &mut Context) -> bool {
             trace.data.clear();
         }
         Context::Gpu(gpu) => gpu.other.clear(),
+        Context::Other(values) if key == "Rust Tracing Location" => {
+            values.retain(|field, value| match field.as_str() {
+                "module_path" | "file" => {
+                    let Value::String(text) = value else {
+                        return false;
+                    };
+                    *text = redact_sensitive_text(text, home_dir);
+                    true
+                }
+                "line" => matches!(value, Value::Number(_)),
+                _ => false,
+            });
+            return !values.is_empty();
+        }
+        Context::Other(values) if key == "anarlog.session" => {
+            values.retain(|field, value| match field.as_str() {
+                "anarlog.session.onboarding" => matches!(value, Value::Bool(_)),
+                "anarlog.session.transcription_mode" => {
+                    value.as_str().and_then(safe_identifier).is_some()
+                }
+                _ => false,
+            });
+            return !values.is_empty();
+        }
         _ => return false,
     }
     true
@@ -68,7 +134,21 @@ fn sanitize_sentry_event_with_home(
     mut event: Event<'static>,
     home_dir: Option<&str>,
 ) -> Event<'static> {
-    event.fingerprint = Event::default().fingerprint;
+    let default_fingerprint = Event::default().fingerprint;
+    let operation = event
+        .message
+        .as_deref()
+        .and_then(safe_identifier)
+        .map(str::to_owned);
+    let location = tracing_location_key(&event);
+    if event.fingerprint != default_fingerprint
+        && !event
+            .fingerprint
+            .iter()
+            .all(|part| safe_identifier(part).is_some())
+    {
+        event.fingerprint = default_fingerprint.clone();
+    }
     event.culprit = None;
     event.transaction = None;
     event.message = None;
@@ -128,13 +208,30 @@ fn sanitize_sentry_event_with_home(
     }
     event
         .contexts
-        .retain(|_, context| sanitize_context(context));
-    event.tags.retain(|key, _| {
-        matches!(
-            key.as_str(),
-            "service.name" | "service.namespace" | "enduser.pseudo.id"
-        )
-    });
+        .retain(|key, context| sanitize_context(key, context, home_dir));
+    event
+        .tags
+        .retain(|key, _| SAFE_TAGS.contains(&key.as_str()));
+
+    if event.exception.is_empty() && event.stacktrace.is_none() {
+        let logger = event
+            .logger
+            .as_deref()
+            .and_then(safe_identifier)
+            .map(str::to_owned);
+        let grouping_key = operation
+            .clone()
+            .or(location)
+            .or(logger)
+            .unwrap_or_else(|| "native_error".to_string());
+        event.message = Some(operation.unwrap_or_else(|| format!("native_error:{grouping_key}")));
+        event
+            .tags
+            .insert("anarlog.operation".to_string(), grouping_key.clone());
+        if event.fingerprint == default_fingerprint {
+            event.fingerprint = vec!["native_error".into(), grouping_key.into()].into();
+        }
+    }
 
     event
 }
@@ -374,6 +471,7 @@ mod tests {
             .into(),
             tags: [
                 ("service.name".to_string(), "desktop".to_string()),
+                ("error.type".to_string(), "file_read_failed".to_string()),
                 ("private-note".to_string(), "meeting plans".to_string()),
             ]
             .into_iter()
@@ -431,14 +529,125 @@ mod tests {
         assert!(frame.vars.is_empty());
         assert_eq!(
             event.tags,
-            [("service.name".to_string(), "desktop".to_string())]
-                .into_iter()
-                .collect()
+            [
+                ("error.type".to_string(), "file_read_failed".to_string()),
+                ("service.name".to_string(), "desktop".to_string()),
+            ]
+            .into_iter()
+            .collect()
         );
         assert_eq!(event.contexts.len(), 1);
         let Context::Os(os) = &event.contexts["os"] else {
             panic!("expected os context");
         };
         assert!(os.other.is_empty());
+    }
+
+    #[test]
+    fn sentry_event_preserves_safe_native_grouping_data() {
+        let event = Event {
+            message: Some("model_download_error".to_string()),
+            logger: Some("model_downloader".to_string()),
+            fingerprint: vec!["native_error".into(), "model_download".into()].into(),
+            contexts: [(
+                "Rust Tracing Location".to_string(),
+                Context::Other(
+                    [
+                        (
+                            "module_path".to_string(),
+                            Value::String("model_downloader::download_task".to_string()),
+                        ),
+                        (
+                            "file".to_string(),
+                            Value::String("/Users/alice/src/download_task.rs".to_string()),
+                        ),
+                        ("line".to_string(), Value::Number(51.into())),
+                        (
+                            "private".to_string(),
+                            Value::String("meeting plans".to_string()),
+                        ),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            )]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+
+        let event = sanitize_sentry_event_with_home(event, Some("/Users/alice"));
+
+        assert_eq!(event.message.as_deref(), Some("model_download_error"));
+        assert_eq!(
+            event.fingerprint.as_ref(),
+            ["native_error", "model_download"]
+        );
+        assert_eq!(
+            event.tags.get("anarlog.operation").map(String::as_str),
+            Some("model_download_error")
+        );
+        let Context::Other(location) = &event.contexts["Rust Tracing Location"] else {
+            panic!("expected tracing location context");
+        };
+        assert_eq!(
+            location.get("file"),
+            Some(&Value::String("[HOME]/src/download_task.rs".to_string()))
+        );
+        assert!(!location.contains_key("private"));
+    }
+
+    #[test]
+    fn sentry_event_does_not_group_by_absolute_paths() {
+        for message in ["/Users/alice/private.wav", "C:/Users/alice/private.wav"] {
+            let event = Event {
+                message: Some(message.to_string()),
+                logger: Some("file_reader".to_string()),
+                ..Default::default()
+            };
+
+            let event = sanitize_sentry_event_with_home(event, Some("/Users/alice"));
+
+            assert_eq!(event.message.as_deref(), Some("native_error:file_reader"));
+            assert_eq!(event.fingerprint.as_ref(), ["native_error", "file_reader"]);
+            assert!(!event.tags["anarlog.operation"].contains("alice"));
+        }
+    }
+
+    #[test]
+    fn sentry_event_groups_redacted_messages_by_source_location() {
+        let event = Event {
+            message: Some("failed for alice@example.com".to_string()),
+            logger: Some("model_downloader".to_string()),
+            contexts: [(
+                "Rust Tracing Location".to_string(),
+                Context::Other(
+                    [
+                        (
+                            "module_path".to_string(),
+                            Value::String("model_downloader::download_task".to_string()),
+                        ),
+                        ("line".to_string(), Value::Number(51.into())),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+            )]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+
+        let event = sanitize_sentry_event_with_home(event, None);
+
+        assert_eq!(
+            event.message.as_deref(),
+            Some("native_error:model_downloader::download_task:51")
+        );
+        assert_eq!(
+            event.fingerprint.as_ref(),
+            ["native_error", "model_downloader::download_task:51"]
+        );
+        assert!(!event.message.as_deref().unwrap().contains("alice"));
     }
 }

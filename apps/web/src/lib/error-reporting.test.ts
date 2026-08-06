@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createErrorEventFilter,
   operationalErrorMetadata,
   sanitizeErrorEvent,
 } from "./error-reporting.ts";
@@ -68,4 +69,54 @@ test("removes private error content while preserving exception diagnostics", () 
       mechanism: { type: "generic", handled: false },
     },
   ]);
+});
+
+test("reports one grouped signal for repeated stackless promise rejections", () => {
+  const filter = createErrorEventFilter();
+  const event = () => ({
+    type: undefined,
+    exception: {
+      values: [
+        {
+          type: "UnhandledRejection",
+          value: "private rejection value",
+          mechanism: {
+            type: "auto.browser.global_handlers.onunhandledrejection",
+            handled: false,
+          },
+        },
+      ],
+    },
+  });
+
+  const first = filter(event());
+  assert.deepEqual(first?.fingerprint, [
+    "web",
+    "stackless-unhandled-rejection",
+  ]);
+  assert.equal(first?.tags?.["error.type"], "stackless_unhandled_rejection");
+  assert.equal(filter(event()), null);
+});
+
+test("does not rate-limit promise rejections with stack traces", () => {
+  const filter = createErrorEventFilter();
+  const event = () => ({
+    type: undefined,
+    exception: {
+      values: [
+        {
+          type: "UnhandledRejection",
+          value: "private rejection value",
+          mechanism: {
+            type: "auto.browser.global_handlers.onunhandledrejection",
+            handled: false,
+          },
+          stacktrace: { frames: [{ filename: "app.ts" }] },
+        },
+      ],
+    },
+  });
+
+  assert.notEqual(filter(event()), null);
+  assert.notEqual(filter(event()), null);
 });
