@@ -273,6 +273,13 @@ pub(super) fn is_valid_link_token(value: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
+pub(super) fn is_valid_link_preview_token(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+}
+
 pub(super) fn is_valid_public_slug(value: &str) -> bool {
     value.len() == 34
         && value.starts_with("s_")

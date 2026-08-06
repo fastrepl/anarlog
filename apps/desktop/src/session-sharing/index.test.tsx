@@ -424,6 +424,8 @@ describe("SessionShareButton", () => {
         sessionId,
         workspaceId: WORKSPACE_ID,
         title: "Planning",
+        participants: [],
+        meetingAt: "2026-07-17T00:00:00Z",
         body: { type: "doc", content: [] },
       };
     });
@@ -1462,6 +1464,9 @@ describe("SessionShareButton", () => {
     ]);
     const copied = new URL(mocks.clipboardWriteText.mock.calls[0]![0]);
     expect(copied.pathname).toBe(`/share/link/${SHARE_ID}/`);
+    expect(copied.searchParams.get("preview")).toBe(
+      "80383f974f22964fd6b7ae851b6ccc9180ed4e6fcb2e415bafcab6d822139238",
+    );
     expect(copied.hash).toBe(`#token=${TOKEN}`);
     expect(mocks.markSessionShareActivated).toHaveBeenCalledWith(
       USER_ID,

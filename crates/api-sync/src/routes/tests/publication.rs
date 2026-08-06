@@ -22,7 +22,9 @@ async fn publishes_only_the_sanitized_snapshot_as_the_authenticated_actor() {
         ]
     });
     Mock::given(method("POST"))
-        .and(path("/rest/v1/rpc/publish_session_share_snapshot_cas"))
+        .and(path(
+            "/rest/v1/rpc/publish_session_share_snapshot_with_preview_cas",
+        ))
         .and(header("apikey", "service-role-key"))
         .and(header("authorization", "Bearer service-role-key"))
         .and(body_partial_json(json!({
@@ -33,7 +35,9 @@ async fn publishes_only_the_sanitized_snapshot_as_the_authenticated_actor() {
             "p_title": "Quarterly plan",
             "p_body_json": sanitized_body,
             "p_attachment_ids": [],
-            "p_web_editable": false
+            "p_web_editable": false,
+            "p_participants": ["John Jeong", "Sungbin Jo"],
+            "p_meeting_at": "2026-08-06T01:30:00+00:00"
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
             "outcome": "applied",
@@ -113,6 +117,8 @@ async fn publishes_only_the_sanitized_snapshot_as_the_authenticated_actor() {
                                 }
                             ]
                         },
+                        "participants": [" John   Jeong ", "Sungbin Jo"],
+                        "meetingAt": "2026-08-06T01:30:00Z",
                         "attachmentIds": []
                     })
                     .to_string(),

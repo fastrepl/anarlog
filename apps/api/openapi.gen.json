@@ -1370,6 +1370,56 @@
         }
       }
     },
+    "/shared-notes/link/{share_id}/preview": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "read_link_shared_note_preview",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SharedNoteLinkPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Bearer-link shared note preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNotePreview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "413": {
+            "description": "Request too large"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
     "/shared-notes/public/{slug}": {
       "get": {
         "tags": [
@@ -1477,6 +1527,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SharedNoteHandoff"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/public/{slug}/preview": {
+      "get": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "read_public_shared_note_preview",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "description": "Public share slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public shared note preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNotePreview"
                 }
               }
             }
@@ -4592,8 +4679,23 @@
             "format": "int64"
           },
           "body": {},
+          "meetingAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "mutationId": {
             "type": "string"
+          },
+          "participants": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
           },
           "title": {
             "type": "string"
@@ -9261,6 +9363,18 @@
         },
         "additionalProperties": false
       },
+      "SharedNoteLinkPreviewRequest": {
+        "type": "object",
+        "required": [
+          "previewToken"
+        ],
+        "properties": {
+          "previewToken": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "SharedNoteLinkRequest": {
         "type": "object",
         "required": [
@@ -9272,6 +9386,32 @@
           }
         },
         "additionalProperties": false
+      },
+      "SharedNotePreview": {
+        "type": "object",
+        "required": [
+          "title",
+          "summary",
+          "participants",
+          "meetingAt"
+        ],
+        "properties": {
+          "meetingAt": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
       },
       "SharedNoteSnapshot": {
         "type": "object",

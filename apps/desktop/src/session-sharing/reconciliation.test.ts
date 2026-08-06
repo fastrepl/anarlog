@@ -167,6 +167,7 @@ function stateRow(input: {
     acknowledged_content_revision: input.revision,
     baseline_source_hash: input.hash,
     status: input.status ?? "clean",
+    updated_at: "2026-07-17T09:00:00.000Z",
   };
 }
 
@@ -190,27 +191,49 @@ describe("session share reconciliation", () => {
       body: { content: [], attrs: { a: 2, z: 1 }, type: "doc" },
     });
     expect(left).toBe(right);
+    const previewMetadata = {
+      participants: ["John Jeong"],
+      meetingAt: "2026-07-17T09:00:00Z",
+    };
 
     const first = await createSessionShareMutationId({
       shareId: SHARE_ID,
       baseRevision: 2,
       sourceHash: left,
+      ...previewMetadata,
     });
     const retry = await createSessionShareMutationId({
       shareId: SHARE_ID,
       baseRevision: 2,
       sourceHash: left,
+      ...previewMetadata,
     });
     const nextRevision = await createSessionShareMutationId({
       shareId: SHARE_ID,
       baseRevision: 3,
       sourceHash: left,
+      ...previewMetadata,
     });
     const attachmentChange = await createSessionShareMutationId({
       shareId: SHARE_ID,
       baseRevision: 2,
       sourceHash: left,
       attachmentIds: ["44444444-4444-4444-8444-444444444444"],
+      ...previewMetadata,
+    });
+    const participantChange = await createSessionShareMutationId({
+      shareId: SHARE_ID,
+      baseRevision: 2,
+      sourceHash: left,
+      participants: ["John Jeong", "Sungbin Jo"],
+      meetingAt: previewMetadata.meetingAt,
+    });
+    const meetingTimeChange = await createSessionShareMutationId({
+      shareId: SHARE_ID,
+      baseRevision: 2,
+      sourceHash: left,
+      participants: previewMetadata.participants,
+      meetingAt: "2026-07-17T10:00:00Z",
     });
     expect(first).toBe(retry);
     expect(first).toMatch(
@@ -218,6 +241,8 @@ describe("session share reconciliation", () => {
     );
     expect(nextRevision).not.toBe(first);
     expect(attachmentChange).not.toBe(first);
+    expect(participantChange).not.toBe(first);
+    expect(meetingTimeChange).not.toBe(first);
   });
 
   it("loads sync state after only its session and viewer cache are flushed", async () => {

@@ -680,6 +680,8 @@ describe("session share snapshot publication", () => {
             type: "doc",
             content: [{ type: "paragraph" }],
           },
+          participants: ["John Jeong", "Sungbin Jo"],
+          meetingAt: "2026-07-17T00:00:00.000Z",
         });
         return new Response(
           JSON.stringify({
@@ -710,6 +712,8 @@ describe("session share snapshot publication", () => {
           type: "doc",
           content: [{ type: "paragraph" }],
         }),
+        participants: [" John  Jeong ", "Sungbin Jo"],
+        meetingAt: "2026-07-17T00:00:00Z",
         fetcher,
       },
       mutateAccess: async () => {
@@ -762,6 +766,46 @@ describe("session share snapshot publication", () => {
         fetcher,
       }),
     ).resolves.toMatchObject({ contentRevision: 2, attachments: [] });
+  });
+
+  it("omits invalid participant names instead of rejecting publication", async () => {
+    const fetcher = vi.fn(
+      async (_url: URL | RequestInfo, init?: RequestInit) => {
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          participants: ["John Jeong"],
+          meetingAt: "2026-07-17T00:00:00.000Z",
+        });
+        return new Response(
+          JSON.stringify({
+            shareId,
+            schemaVersion: 1,
+            contentRevision: 2,
+            title: "Shared title",
+            body: { type: "doc" },
+            attachments: [],
+            webEditable: true,
+            accessVersion: 1,
+            publishedAt: timestamp,
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      },
+    );
+
+    await expect(
+      publishSessionShareSnapshot({
+        apiBaseUrl: "https://api.example.com",
+        session: session(),
+        shareId,
+        baseRevision: 1,
+        mutationId,
+        title: "Shared title",
+        body: { type: "doc" },
+        participants: ["A".repeat(101), " John  Jeong "],
+        meetingAt: "2026-07-17T00:00:00Z",
+        fetcher,
+      }),
+    ).resolves.toMatchObject({ contentRevision: 2 });
   });
 
   it("does not mutate access when publication fails size validation", async () => {

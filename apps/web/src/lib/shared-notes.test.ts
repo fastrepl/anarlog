@@ -18,6 +18,7 @@ import {
   parseSharedNoteAttachmentDownload,
   parseSharedNoteComment,
   parseSharedNoteCommentPage,
+  parseSharedNotePreview,
   parseSharedNoteWebEditConflict,
   parseSharedNoteWebEditSnapshot,
   withoutDuplicateLeadingTitle,
@@ -102,6 +103,21 @@ test("parses the exact public gateway DTO", () => {
       accessVersion: 4,
       webEditable: true,
     }),
+  );
+});
+
+test("bounds preview summaries by Unicode scalar count", () => {
+  const summary = "😀".repeat(180);
+  const preview = {
+    title: "Weekly sync",
+    summary,
+    participants: [],
+    meetingAt: "2026-07-17T12:00:00Z",
+  };
+
+  assert.equal(parseSharedNotePreview(preview).summary, summary);
+  assert.throws(() =>
+    parseSharedNotePreview({ ...preview, summary: "😀".repeat(181) }),
   );
 });
 

@@ -104,6 +104,8 @@ describe("OwnedSharedNotePublisher", () => {
         workspaceId: WORKSPACE_ID,
         sessionId: "session-1",
         title: "Current title",
+        participants: ["John Jeong"],
+        meetingAt: "2026-07-17T09:00:00.000Z",
       },
       body: { type: "doc", content: [{ type: "paragraph" }] },
       hash: CURRENT_HASH,
@@ -115,6 +117,7 @@ describe("OwnedSharedNotePublisher", () => {
       acknowledgedContentRevision: 2,
       baselineSourceHash: BASELINE_HASH,
       status: "clean",
+      updatedAt: "2026-07-17T09:02:00.000Z",
     });
     mocks.hashProjection.mockResolvedValue(BASELINE_HASH);
     mocks.publishSessionShareSnapshot.mockResolvedValue({
@@ -156,6 +159,8 @@ describe("OwnedSharedNotePublisher", () => {
       baseRevision: 2,
       sourceHash: CURRENT_HASH,
       attachmentIds: [],
+      participants: ["John Jeong"],
+      meetingAt: "2026-07-17T09:00:00.000Z",
     });
     expect(mocks.recordState).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -175,6 +180,8 @@ describe("OwnedSharedNotePublisher", () => {
     const sql = mocks.liveQueryOptions.sql.replace(/\s+/g, " ");
     expect(sql).toContain("candidate.kind IN ('summary', 'template_output')");
     expect(sql).toContain("ORDER BY candidate.sort_order, candidate.id");
+    expect(sql).toContain("participant.updated_at");
+    expect(sql).toContain("human.updated_at");
     expect(sql).not.toContain("kind = 'note'");
   });
 
@@ -195,6 +202,34 @@ describe("OwnedSharedNotePublisher", () => {
     });
 
     expect(mocks.publishSessionShareSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("republishes unchanged content when session metadata is newer", async () => {
+    mocks.loadProjection.mockResolvedValue({
+      source: {
+        workspaceId: WORKSPACE_ID,
+        sessionId: "session-1",
+        title: "Imported title",
+      },
+      body: { type: "doc" },
+      hash: BASELINE_HASH,
+    });
+    mocks.loadState.mockResolvedValue({
+      viewerUserId: OWNER_ID,
+      shareId: SHARE_ID,
+      sessionId: "session-1",
+      acknowledgedContentRevision: 2,
+      baselineSourceHash: BASELINE_HASH,
+      status: "clean",
+      updatedAt: "2026-07-17T09:00:00.000Z",
+    });
+    renderPublisher();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(mocks.publishSessionShareSnapshot).toHaveBeenCalledOnce();
   });
 
   it.each([
@@ -318,6 +353,7 @@ describe("OwnedSharedNotePublisher", () => {
       acknowledgedContentRevision: 3,
       baselineSourceHash: BASELINE_HASH,
       status: "clean",
+      updatedAt: "2026-07-17T09:02:00.000Z",
     });
     renderPublisher();
 

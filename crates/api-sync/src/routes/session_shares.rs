@@ -39,6 +39,8 @@ pub(super) struct CasSessionShareSnapshotRequest {
     title: String,
     body: Value,
     attachment_ids: Vec<String>,
+    participants: Option<Vec<String>>,
+    meeting_at: Option<String>,
 }
 
 #[derive(Deserialize, utoipa::ToSchema)]
@@ -94,6 +96,25 @@ struct EditSnapshotCasRpcRequest<'a> {
     p_title: &'a str,
     p_body_json: &'a Value,
     p_attachment_ids: &'a [String],
+}
+
+#[derive(Serialize)]
+struct PublishSnapshotWithPreviewCasRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_actor_user_id: &'a str,
+    p_expected_content_revision: i64,
+    p_mutation_id: &'a str,
+    p_title: &'a str,
+    p_body_json: &'a Value,
+    p_attachment_ids: &'a [String],
+    p_web_editable: bool,
+    p_participants: &'a [String],
+    p_meeting_at: &'a str,
+}
+
+struct PreviewMetadata {
+    participants: Vec<String>,
+    meeting_at: String,
 }
 
 #[derive(Serialize)]
@@ -398,6 +419,7 @@ async fn mutate_session_share_snapshot(
         ));
     }
     let title = sanitize_title(&request.title)?;
+    let preview_metadata = validate_preview_metadata(&request, kind)?;
     let requested_attachment_ids = request.attachment_ids.as_slice();
     let attachment_ids = validate_attachment_ids(requested_attachment_ids)?;
     let body = sanitize_document_with_attachments(&request.body, &attachment_ids)?;
@@ -408,9 +430,12 @@ async fn mutate_session_share_snapshot(
         ));
     }
 
-    let rpc_name = match kind {
-        SnapshotMutationKind::DesktopPublish => "publish_session_share_snapshot_cas",
-        SnapshotMutationKind::WebEdit => "edit_session_share_snapshot_cas",
+    let rpc_name = match (kind, preview_metadata.as_ref()) {
+        (SnapshotMutationKind::DesktopPublish, Some(_)) => {
+            "publish_session_share_snapshot_with_preview_cas"
+        }
+        (SnapshotMutationKind::DesktopPublish, None) => "publish_session_share_snapshot_cas",
+        (SnapshotMutationKind::WebEdit, _) => "edit_session_share_snapshot_cas",
     };
     let builder = state
         .client
@@ -421,18 +446,34 @@ async fn mutate_session_share_snapshot(
         .header("apikey", &state.config.supabase_service_role_key)
         .bearer_auth(&state.config.supabase_service_role_key)
         .timeout(SNAPSHOT_PUBLISH_TIMEOUT);
-    let builder = match kind {
-        SnapshotMutationKind::DesktopPublish => builder.json(&PublishSnapshotCasRpcRequest {
-            p_share_id: &share_id,
-            p_actor_user_id: actor_user_id,
-            p_expected_content_revision: base_revision,
-            p_mutation_id: &mutation_id,
-            p_title: &title,
-            p_body_json: &body,
-            p_attachment_ids: requested_attachment_ids,
-            p_web_editable: web_editable,
-        }),
-        SnapshotMutationKind::WebEdit => builder.json(&EditSnapshotCasRpcRequest {
+    let builder = match (kind, preview_metadata.as_ref()) {
+        (SnapshotMutationKind::DesktopPublish, Some(metadata)) => {
+            builder.json(&PublishSnapshotWithPreviewCasRpcRequest {
+                p_share_id: &share_id,
+                p_actor_user_id: actor_user_id,
+                p_expected_content_revision: base_revision,
+                p_mutation_id: &mutation_id,
+                p_title: &title,
+                p_body_json: &body,
+                p_attachment_ids: requested_attachment_ids,
+                p_web_editable: web_editable,
+                p_participants: &metadata.participants,
+                p_meeting_at: &metadata.meeting_at,
+            })
+        }
+        (SnapshotMutationKind::DesktopPublish, None) => {
+            builder.json(&PublishSnapshotCasRpcRequest {
+                p_share_id: &share_id,
+                p_actor_user_id: actor_user_id,
+                p_expected_content_revision: base_revision,
+                p_mutation_id: &mutation_id,
+                p_title: &title,
+                p_body_json: &body,
+                p_attachment_ids: requested_attachment_ids,
+                p_web_editable: web_editable,
+            })
+        }
+        (SnapshotMutationKind::WebEdit, _) => builder.json(&EditSnapshotCasRpcRequest {
             p_share_id: &share_id,
             p_actor_user_id: actor_user_id,
             p_expected_content_revision: base_revision,
@@ -552,6 +593,47 @@ async fn mutate_session_share_snapshot(
             .into_response());
     }
     Ok((headers, Json(snapshot)).into_response())
+}
+
+fn validate_preview_metadata(
+    request: &CasSessionShareSnapshotRequest,
+    kind: SnapshotMutationKind,
+) -> Result<Option<PreviewMetadata>> {
+    let (Some(participants), Some(meeting_at)) = (&request.participants, &request.meeting_at)
+    else {
+        if request.participants.is_some() || request.meeting_at.is_some() {
+            return Err(SyncError::BadRequest(
+                "Shared note preview metadata is invalid".to_string(),
+            ));
+        }
+        return Ok(None);
+    };
+    if matches!(kind, SnapshotMutationKind::WebEdit) || participants.len() > 32 {
+        return Err(SyncError::BadRequest(
+            "Shared note preview metadata is invalid".to_string(),
+        ));
+    }
+
+    let mut seen = HashSet::new();
+    let mut normalized_participants = Vec::with_capacity(participants.len());
+    for participant in participants {
+        let participant = participant.split_whitespace().collect::<Vec<_>>().join(" ");
+        if participant.is_empty() || participant.chars().count() > 100 {
+            return Err(SyncError::BadRequest(
+                "Shared note preview metadata is invalid".to_string(),
+            ));
+        }
+        if seen.insert(participant.clone()) {
+            normalized_participants.push(participant);
+        }
+    }
+    let meeting_at = chrono::DateTime::parse_from_rfc3339(meeting_at)
+        .map_err(|_| SyncError::BadRequest("Shared note preview metadata is invalid".to_string()))?
+        .to_rfc3339();
+    Ok(Some(PreviewMetadata {
+        participants: normalized_participants,
+        meeting_at,
+    }))
 }
 
 fn canonical_random_uuid(value: &str, label: &str) -> Result<String> {

@@ -17,7 +17,10 @@ import {
   readPublicSharedNote,
 } from "@/functions/shared-notes";
 import { prepareShareRoutePrivacy } from "@/lib/share-route-privacy";
-import { fetchPublicSharedAttachmentDownload } from "@/lib/shared-note-api";
+import {
+  fetchPublicSharedAttachmentDownload,
+  fetchPublicSharedNotePreviewResult,
+} from "@/lib/shared-note-api";
 import {
   formatAuthenticatedSharedNoteAccessLabel,
   shouldUseAuthenticatedSharedNoteAccessLabel,
@@ -39,12 +42,14 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
     if (!publicSlug.success) {
       return {
         authenticatedResult: null,
+        preview: null,
         result: { status: "unavailable" } as const,
         user: null,
       };
     }
-    const [result, user] = await Promise.all([
+    const [result, previewResult, user] = await Promise.all([
       readPublicSharedNote({ data: publicSlug.data }),
+      fetchPublicSharedNotePreviewResult(publicSlug.data),
       fetchUser(),
     ]);
     const authenticatedResult =
@@ -53,6 +58,8 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
         : null;
     return {
       authenticatedResult,
+      preview:
+        previewResult.status === "ready" ? previewResult.preview : null,
       result,
       user,
     };
@@ -61,6 +68,7 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
     getPublicShareHead(
       params.publicSlug,
       loaderData?.result.status === "ready" ? loaderData.result.snapshot : null,
+      loaderData?.preview,
     ),
   headers: () => publicShareHeaders,
   pendingComponent: SharedNoteLoading,
@@ -68,7 +76,7 @@ export const Route = createFileRoute("/share/public/$publicSlug")({
 });
 
 function Component() {
-  const { authenticatedResult, result, user } = Route.useLoaderData();
+  const { authenticatedResult, preview, result, user } = Route.useLoaderData();
   const { publicSlug } = Route.useParams();
   const { scheme } = Route.useSearch();
   const authenticatedNote =
@@ -114,28 +122,29 @@ function Component() {
     <>
       <SharedNoteEditableViewer
         key={snapshot.shareId}
-      snapshot={snapshot}
-      authenticatedNote={authenticatedNote}
-      fallbackAccessLabel="Public note · View only"
-      fallbackSnapshot={result.snapshot}
-      resolveAttachment={resolveAttachment}
-      revokedBehavior="read-only"
-      signedIn={user !== null}
-      accessLabel={accessLabel}
-      actions={
-        <PublicSharedNoteActions
-          canEdit={authenticatedNote?.capability === "editor"}
-          publicSlug={publicSlug}
-          scheme={scheme}
-        />
-      }
-      chat={(liveSnapshot) => (
-        <SharedNoteChatPanel
-          returnPath={returnPath}
-          signedIn={user !== null}
-          snapshot={liveSnapshot}
-        />
-      )}
+        snapshot={snapshot}
+        authenticatedNote={authenticatedNote}
+        fallbackAccessLabel="Public note · View only"
+        fallbackSnapshot={result.snapshot}
+        meetingMetadata={preview}
+        resolveAttachment={resolveAttachment}
+        revokedBehavior="read-only"
+        signedIn={user !== null}
+        accessLabel={accessLabel}
+        actions={
+          <PublicSharedNoteActions
+            canEdit={authenticatedNote?.capability === "editor"}
+            publicSlug={publicSlug}
+            scheme={scheme}
+          />
+        }
+        chat={(liveSnapshot) => (
+          <SharedNoteChatPanel
+            returnPath={returnPath}
+            signedIn={user !== null}
+            snapshot={liveSnapshot}
+          />
+        )}
       />
     </>
   );

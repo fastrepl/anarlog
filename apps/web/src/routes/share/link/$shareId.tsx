@@ -20,6 +20,7 @@ import {
 import { prepareShareRoutePrivacy } from "@/lib/share-route-privacy";
 import {
   fetchLinkSharedAttachmentDownload,
+  fetchLinkSharedNotePreviewResult,
   fetchLinkSharedNoteResult,
 } from "@/lib/shared-note-api";
 import {
@@ -27,6 +28,7 @@ import {
   shouldUseAuthenticatedSharedNoteAccessLabel,
 } from "@/lib/shared-note-collaboration";
 import {
+  getLinkShareHead,
   getPrivateShareHead,
   privateShareHeaders,
 } from "@/lib/shared-note-meta";
@@ -36,30 +38,60 @@ import {
 } from "@/lib/shared-note-route-state";
 import {
   buildSharedNoteWebPath,
+  linkSharePreviewTokenSchema,
   sharedNoteDesktopSchemeSchema,
   shareIdSchema,
+  type SharedNotePreview,
 } from "@/lib/shared-notes";
 
 export const Route = createFileRoute("/share/link/$shareId")({
   validateSearch: (search) => ({
     scheme: sharedNoteDesktopSchemeSchema.parse(search.scheme),
+    preview: linkSharePreviewTokenSchema
+      .optional()
+      .catch(undefined)
+      .parse(search.preview),
   }),
   beforeLoad: async () => {
     prepareShareRoutePrivacy();
     return { user: await fetchUser() };
   },
-  head: getPrivateShareHead,
+  loaderDeps: ({ search }) => ({ previewToken: search.preview }),
+  loader: async ({ deps, params }) => {
+    const shareId = shareIdSchema.safeParse(params.shareId);
+    if (!shareId.success || !deps.previewToken) {
+      return { preview: null, previewToken: undefined };
+    }
+    const result = await fetchLinkSharedNotePreviewResult(
+      shareId.data,
+      deps.previewToken,
+    );
+    return {
+      preview: result.status === "ready" ? result.preview : null,
+      previewToken: deps.previewToken,
+    };
+  },
+  head: ({ loaderData, params }) =>
+    loaderData
+      ? getLinkShareHead(
+          params.shareId,
+          loaderData.previewToken,
+          loaderData.preview,
+        )
+      : getPrivateShareHead(),
   headers: () => privateShareHeaders,
   component: Component,
 });
 
 function Component() {
+  const { preview } = Route.useLoaderData();
   const { shareId } = Route.useParams();
   const { user } = Route.useRouteContext();
   return (
     <ClientOnly fallback={<SharedNoteLoading />}>
       <LinkSharedNoteClient
         currentUserId={user?.id ?? null}
+        meetingMetadata={preview}
         shareId={shareId}
       />
     </ClientOnly>
@@ -68,9 +100,11 @@ function Component() {
 
 function LinkSharedNoteClient({
   currentUserId,
+  meetingMetadata,
   shareId,
 }: {
   currentUserId: string | null;
+  meetingMetadata: SharedNotePreview | null;
   shareId: string;
 }) {
   const { scheme } = Route.useSearch();
@@ -191,6 +225,7 @@ function LinkSharedNoteClient({
             : "Shared note · View only"
         }
         fallbackSnapshot={fallbackSnapshot}
+        meetingMetadata={meetingMetadata}
         resolveAttachment={resolveAttachment}
         revokedBehavior="read-only"
         signedIn={currentUserId !== null}

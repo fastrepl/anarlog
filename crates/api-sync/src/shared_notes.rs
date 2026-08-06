@@ -21,8 +21,8 @@ mod invitation;
 
 use gateway::{
     attachment_rpc_single, canonical_uuid, canonical_uuid_v4, future_timestamp,
-    is_valid_link_token, is_valid_public_slug, rpc_single, sign_attachment_download,
-    validate_handoff, validate_handoff_lease, validate_snapshot,
+    is_valid_link_preview_token, is_valid_link_token, is_valid_public_slug, rpc_single,
+    sign_attachment_download, validate_handoff, validate_handoff_lease, validate_snapshot,
 };
 use invitation::__path_send_shared_note_invitation_email;
 use invitation::send_shared_note_invitation_email;
@@ -31,11 +31,14 @@ use crate::{
     SharedNotesConfig,
     error::{Result, SyncError},
     routes::SharedNoteAttachment,
-    snapshot::MAX_SNAPSHOT_BODY_BYTES,
+    snapshot::{MAX_SNAPSHOT_BODY_BYTES, sanitize_title},
 };
 
 const SHARED_NOTE_TIMEOUT: Duration = Duration::from_secs(5);
 const MAX_LINK_REQUEST_BYTES: usize = 1024;
+const MAX_PREVIEW_SUMMARY_CHARS: usize = 180;
+const MAX_PREVIEW_DOCUMENT_DEPTH: usize = 64;
+const MAX_PREVIEW_DOCUMENT_NODES: usize = 50_000;
 const MAX_HANDOFF_CLAIM_REQUEST_BYTES: usize = 256;
 const MAX_SNAPSHOT_RESPONSE_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const MAX_HANDOFF_RESPONSE_BYTES: usize = 16 * 1024;
@@ -133,6 +136,12 @@ pub struct SharedNoteLinkRequest {
 
 #[derive(Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SharedNoteLinkPreviewRequest {
+    preview_token: String,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SharedNoteHandoffClaimRequest {
     request_id: String,
     lease_id: String,
@@ -193,6 +202,15 @@ pub struct SharedNoteSnapshot {
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct SharedNotePreview {
+    title: String,
+    summary: String,
+    participants: Vec<String>,
+    meeting_at: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SharedAttachmentDownload {
     id: String,
     filename: String,
@@ -219,6 +237,12 @@ struct PublicSlugRpcRequest<'a> {
 struct LinkRpcRequest<'a> {
     p_share_id: &'a str,
     p_link_token: &'a str,
+}
+
+#[derive(Serialize)]
+struct LinkPreviewRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_preview_token: &'a str,
 }
 
 #[derive(Serialize)]
@@ -282,6 +306,15 @@ struct GatewaySnapshotRow {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GatewayPreviewRow {
+    title: String,
+    body_json: Value,
+    participants: Vec<String>,
+    meeting_at: String,
+}
+
+#[derive(Deserialize)]
 struct GatewayClaimSnapshotRow {
     share_id: String,
     schema_version: i16,
@@ -317,7 +350,9 @@ struct GatewayHandoffRow {
 #[openapi(
     paths(
         read_public_shared_note,
+        read_public_shared_note_preview,
         read_link_shared_note,
+        read_link_shared_note_preview,
         create_public_shared_note_handoff,
         create_link_shared_note_handoff,
         claim_shared_note_handoff,
@@ -329,10 +364,12 @@ struct GatewayHandoffRow {
     ),
     components(schemas(
         SharedNoteLinkRequest,
+        SharedNoteLinkPreviewRequest,
         SharedNoteHandoffClaimRequest,
         SharedNoteHandoffAttachmentRequest,
         SharedNoteInvitationEmailRequest,
         SharedNoteSnapshot,
+        SharedNotePreview,
         SharedNoteHandoff,
         SharedAttachmentDownload
     ))
@@ -347,8 +384,17 @@ pub fn router(state: SharedNotesState) -> Router {
     Router::new()
         .route("/shared-notes/public/{slug}", get(read_public_shared_note))
         .route(
+            "/shared-notes/public/{slug}/preview",
+            get(read_public_shared_note_preview),
+        )
+        .route(
             "/shared-notes/link/{share_id}",
             post(read_link_shared_note).layer(DefaultBodyLimit::max(MAX_LINK_REQUEST_BYTES)),
+        )
+        .route(
+            "/shared-notes/link/{share_id}/preview",
+            post(read_link_shared_note_preview)
+                .layer(DefaultBodyLimit::max(MAX_LINK_REQUEST_BYTES)),
         )
         .route(
             "/shared-notes/public/{slug}/handoff",
@@ -442,6 +488,37 @@ async fn read_public_shared_note(
 }
 
 #[utoipa::path(
+    get,
+    path = "/shared-notes/public/{slug}/preview",
+    tag = "shared-notes",
+    params(("slug" = String, Path, description = "Public share slug")),
+    responses(
+        (status = 200, description = "Public shared note preview", body = SharedNotePreview),
+        (status = 404, description = "Shared note unavailable"),
+        (status = 502, description = "Shared note service unavailable")
+    )
+)]
+async fn read_public_shared_note_preview(
+    State(state): State<SharedNotesState>,
+    Path(slug): Path<String>,
+) -> Result<Json<SharedNotePreview>> {
+    if !is_valid_public_slug(&slug) {
+        return Err(SyncError::SharedNoteNotFound);
+    }
+
+    let row = rpc_single(
+        &state,
+        "gateway_read_public_session_share_preview",
+        &PublicSlugRpcRequest {
+            p_public_slug: &slug,
+        },
+        MAX_SNAPSHOT_RESPONSE_BYTES,
+    )
+    .await?;
+    Ok(Json(validate_preview(row)?))
+}
+
+#[utoipa::path(
     post,
     path = "/shared-notes/link/{share_id}",
     tag = "shared-notes",
@@ -475,6 +552,42 @@ async fn read_link_shared_note(
     )
     .await?;
     Ok(Json(validate_snapshot(row, Some(&share_id))?))
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/link/{share_id}/preview",
+    tag = "shared-notes",
+    params(("share_id" = String, Path, description = "Session share ID")),
+    request_body = SharedNoteLinkPreviewRequest,
+    responses(
+        (status = 200, description = "Bearer-link shared note preview", body = SharedNotePreview),
+        (status = 404, description = "Shared note unavailable"),
+        (status = 413, description = "Request too large"),
+        (status = 502, description = "Shared note service unavailable")
+    )
+)]
+async fn read_link_shared_note_preview(
+    State(state): State<SharedNotesState>,
+    Path(share_id): Path<String>,
+    Json(request): Json<SharedNoteLinkPreviewRequest>,
+) -> Result<Json<SharedNotePreview>> {
+    let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedNoteNotFound)?;
+    if !is_valid_link_preview_token(&request.preview_token) {
+        return Err(SyncError::SharedNoteNotFound);
+    }
+
+    let row = rpc_single(
+        &state,
+        "gateway_read_session_share_link_preview",
+        &LinkPreviewRpcRequest {
+            p_share_id: &share_id,
+            p_preview_token: &request.preview_token,
+        },
+        MAX_SNAPSHOT_RESPONSE_BYTES,
+    )
+    .await?;
+    Ok(Json(validate_preview(row)?))
 }
 
 #[utoipa::path(
@@ -781,6 +894,103 @@ async fn download_access_shared_attachment(
         )
         .await?,
     ))
+}
+
+fn validate_preview(row: GatewayPreviewRow) -> Result<SharedNotePreview> {
+    let title = sanitize_title(&row.title).map_err(|_| SyncError::SnapshotServiceUnavailable)?;
+    if title != row.title || row.participants.len() > 32 {
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+
+    let mut participants = Vec::with_capacity(row.participants.len());
+    let mut seen = std::collections::HashSet::new();
+    for participant in row.participants {
+        if participant.is_empty()
+            || participant.trim() != participant
+            || participant.chars().count() > 100
+            || !seen.insert(participant.clone())
+        {
+            return Err(SyncError::SnapshotServiceUnavailable);
+        }
+        participants.push(participant);
+    }
+    if chrono::DateTime::parse_from_rfc3339(&row.meeting_at).is_err() {
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    let summary = extract_preview_summary(&row.body_json, &title)?;
+    Ok(SharedNotePreview {
+        title,
+        summary,
+        participants,
+        meeting_at: row.meeting_at,
+    })
+}
+
+fn extract_preview_summary(body: &Value, title: &str) -> Result<String> {
+    if body.get("type").and_then(Value::as_str) != Some("doc") {
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+
+    let mut visited = 0;
+    Ok(find_preview_paragraph(body, title, 0, &mut visited)?.unwrap_or_default())
+}
+
+fn find_preview_paragraph(
+    node: &Value,
+    title: &str,
+    depth: usize,
+    visited: &mut usize,
+) -> Result<Option<String>> {
+    if depth > MAX_PREVIEW_DOCUMENT_DEPTH || *visited >= MAX_PREVIEW_DOCUMENT_NODES {
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    *visited += 1;
+
+    if node.get("type").and_then(Value::as_str) == Some("paragraph") {
+        let mut text = String::new();
+        collect_preview_text(node, depth, &mut text)?;
+        let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !normalized.is_empty() && normalized != title {
+            let truncated = normalized
+                .chars()
+                .take(MAX_PREVIEW_SUMMARY_CHARS - 1)
+                .collect::<String>();
+            if normalized.chars().count() > MAX_PREVIEW_SUMMARY_CHARS {
+                return Ok(Some(format!("{}…", truncated.trim_end())));
+            }
+            return Ok(Some(normalized));
+        }
+    }
+
+    if let Some(children) = node.get("content").and_then(Value::as_array) {
+        for child in children {
+            if let Some(summary) = find_preview_paragraph(child, title, depth + 1, visited)? {
+                return Ok(Some(summary));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn collect_preview_text(node: &Value, depth: usize, output: &mut String) -> Result<()> {
+    if depth > MAX_PREVIEW_DOCUMENT_DEPTH {
+        return Err(SyncError::SnapshotServiceUnavailable);
+    }
+    let node_type = node.get("type").and_then(Value::as_str);
+    if node_type == Some("hardBreak") {
+        output.push(' ');
+    }
+    if node_type == Some("text")
+        && let Some(text) = node.get("text").and_then(Value::as_str)
+    {
+        output.push_str(text);
+    }
+    if let Some(children) = node.get("content").and_then(Value::as_array) {
+        for child in children {
+            collect_preview_text(child, depth + 1, output)?;
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

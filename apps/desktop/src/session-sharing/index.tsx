@@ -239,9 +239,13 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
               baseRevision: 0,
               sourceHash,
               attachmentIds: [],
+              participants: source.participants,
+              meetingAt: source.meetingAt,
             }),
             title: source.title,
             body: source.body,
+            participants: source.participants,
+            meetingAt: source.meetingAt,
             attachmentIds: [],
             signal,
           });

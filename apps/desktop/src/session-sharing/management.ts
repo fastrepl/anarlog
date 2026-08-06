@@ -18,6 +18,7 @@ import {
   buildPublicSessionShareUrl,
   buildSessionInvitationUrl,
   buildSessionShareLinkUrl,
+  createSessionShareLinkPreviewToken,
   type ShareDesktopScheme,
 } from "./urls";
 
@@ -124,6 +125,10 @@ export async function enableAndCopySessionShareLink({
     }
     if (!link.linkToken) throw new ShareManagementError();
     assertActive();
+    const previewToken = await createSessionShareLinkPreviewToken(
+      link.linkToken,
+    );
+    assertActive();
     const desktopScheme = await getSessionShareDesktopScheme();
     assertActive();
     await copyText(
@@ -131,6 +136,7 @@ export async function enableAndCopySessionShareLink({
         appBaseUrl: env.VITE_APP_URL,
         shareId,
         linkToken: link.linkToken,
+        previewToken,
         desktopScheme,
       }),
     );

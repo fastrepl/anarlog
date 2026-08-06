@@ -25,6 +25,9 @@ type SessionShareSourceSqlRow = {
   document_id: string | null;
   workspace_id: string;
   title: string;
+  created_at: string;
+  started_at: string;
+  participants_json: string;
   body: string;
   body_format: string;
   personal_workspace_available: number | boolean;
@@ -44,6 +47,8 @@ export type SessionShareSource = {
   documentId: string | null;
   workspaceId: string;
   title: string;
+  meetingAt: string;
+  participants: string[];
   body: JSONContent;
   rawBody: string;
   bodyFormat: string;
@@ -60,6 +65,23 @@ const SESSION_SHARE_SOURCE_SQL = `
     share_document.id AS document_id,
     session.workspace_id,
     session.title,
+    session.created_at,
+    session.started_at,
+    COALESCE((
+      SELECT json_group_array(json_object('name', ordered_participant.name))
+      FROM (
+        SELECT COALESCE(NULLIF(human.name, ''), participant.display_name) AS name
+        FROM session_participants AS participant
+        LEFT JOIN humans AS human
+          ON human.id = participant.human_id
+          AND human.deleted_at IS NULL
+        WHERE participant.session_id = session.id
+          AND participant.human_id <> ''
+          AND participant.source <> 'excluded'
+          AND participant.deleted_at IS NULL
+        ORDER BY participant.created_at, participant.id
+      ) AS ordered_participant
+    ), '[]') AS participants_json,
     COALESCE(share_document.body, '') AS body,
     COALESCE(share_document.body_format, 'prosemirror_json') AS body_format,
     EXISTS (
@@ -162,10 +184,41 @@ export async function loadSessionShareSource(
     documentId: row.document_id,
     workspaceId: resolveSourceWorkspace(row, normalizedAccountUserId),
     title: row.title,
+    meetingAt: resolveMeetingAt(row.started_at, row.created_at),
+    participants: parseParticipantNames(row.participants_json),
     body,
     rawBody: row.body,
     bodyFormat: row.body_format,
   };
+}
+
+function resolveMeetingAt(startedAt: string, createdAt: string) {
+  return Number.isNaN(new Date(startedAt).getTime()) ? createdAt : startedAt;
+}
+
+function parseParticipantNames(value: string) {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return Array.from(
+      new Set(
+        parsed.flatMap((participant) => {
+          if (
+            typeof participant !== "object" ||
+            participant === null ||
+            !("name" in participant) ||
+            typeof participant.name !== "string"
+          ) {
+            return [];
+          }
+          const name = participant.name.replace(/\s+/g, " ").trim();
+          return name && name.length <= 100 ? [name] : [];
+        }),
+      ),
+    ).slice(0, 32);
+  } catch {
+    return [];
+  }
 }
 
 export function useAvailableShareWorkspaces(

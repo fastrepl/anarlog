@@ -54,11 +54,22 @@ export function OwnedSharedNotePublisher() {
         cache.share_id,
         cache.workspace_id,
         cache.session_id,
-        CASE
-          WHEN share_document.updated_at > session.updated_at
-            THEN share_document.updated_at
-          ELSE session.updated_at
-        END AS source_updated_at,
+        MAX(
+          session.updated_at,
+          share_document.updated_at,
+          COALESCE((
+            SELECT MAX(
+              CASE
+                WHEN COALESCE(human.updated_at, '') > participant.updated_at
+                  THEN human.updated_at
+                ELSE participant.updated_at
+              END
+            )
+            FROM session_participants AS participant
+            LEFT JOIN humans AS human ON human.id = participant.human_id
+            WHERE participant.session_id = session.id
+          ), '')
+        ) AS source_updated_at,
         sync.acknowledged_content_revision,
         sync.baseline_source_hash,
         sync.status AS sync_status
@@ -133,7 +144,9 @@ export function OwnedSharedNotePublisher() {
               currentState &&
               (currentState.acknowledgedContentRevision !==
                 durable.contentRevision ||
-                currentState.baselineSourceHash === projection.hash)
+                (currentState.baselineSourceHash === projection.hash &&
+                  currentState.updatedAt !== undefined &&
+                  currentState.updatedAt >= revision.sourceUpdatedAt))
             ) {
               return durable.contentRevision;
             }
@@ -156,6 +169,8 @@ export function OwnedSharedNotePublisher() {
               attachmentIds: durable.attachments.map(
                 (attachment) => attachment.id,
               ),
+              participants: projection.source.participants,
+              meetingAt: projection.source.meetingAt,
             });
             const published = await publishSessionShareSnapshot({
               apiBaseUrl: env.VITE_API_URL,
@@ -165,6 +180,8 @@ export function OwnedSharedNotePublisher() {
               mutationId,
               title: projection.source.title,
               body: projection.body,
+              participants: projection.source.participants,
+              meetingAt: projection.source.meetingAt,
               attachmentIds: durable.attachments.map(
                 (attachment) => attachment.id,
               ),

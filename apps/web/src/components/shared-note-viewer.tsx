@@ -7,6 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import { useSyncExternalStore } from "react";
 
+import { Avatar } from "@anlg/ui/components/avatar";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
@@ -18,10 +19,13 @@ import {
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { capturePrivateRouteEvent } from "@/lib/private-route-analytics";
 import {
+  createSharedNoteParticipantPresentation,
   findFeaturedSharedNoteAudio,
+  formatSharedNoteMeetingAt,
   formatSharedNotePublishedAt,
 } from "@/lib/shared-note-presentation";
 import {
+  type SharedNotePreview,
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
 } from "@/lib/shared-notes";
@@ -44,6 +48,7 @@ export function SharedNoteViewer({
   actions,
   documentContent,
   headerActions,
+  meetingMetadata,
   notice,
   resolveAttachment,
   showTitle = true,
@@ -53,6 +58,10 @@ export function SharedNoteViewer({
   actions?: React.ReactNode;
   documentContent?: React.ReactNode;
   headerActions?: React.ReactNode;
+  meetingMetadata?: Pick<
+    SharedNotePreview,
+    "meetingAt" | "participants"
+  > | null;
   notice?: React.ReactNode;
   resolveAttachment?: SharedAttachmentResolver;
   showTitle?: boolean;
@@ -85,25 +94,33 @@ export function SharedNoteViewer({
               {snapshot.title || "Untitled note"}
             </h1>
           )}
-          <div
-            className={cn([
-              "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500",
-              showTitle ? "mt-3" : "mb-6",
-            ])}
-          >
-            <span className="inline-flex min-h-7 items-center gap-1.5">
-              <Users className="size-3.5" aria-hidden="true" />
-              {accessLabel}
-            </span>
-            <time
-              className="inline-flex min-h-7 items-center gap-1.5"
-              dateTime={snapshot.publishedAt}
-              title={`Published ${formatSharedNotePublishedAt(snapshot.publishedAt)}`}
+          {meetingMetadata ? (
+            <SharedNoteMeetingMetadata
+              className={showTitle ? "mt-3" : "mb-6"}
+              meetingAt={meetingMetadata.meetingAt}
+              participants={meetingMetadata.participants}
+            />
+          ) : (
+            <div
+              className={cn([
+                "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500",
+                showTitle ? "mt-3" : "mb-6",
+              ])}
             >
-              <CalendarDots className="size-3.5" aria-hidden="true" />
-              {formatSharedNotePublishedAt(snapshot.publishedAt)}
-            </time>
-          </div>
+              <span className="inline-flex min-h-7 items-center gap-1.5">
+                <Users className="size-3.5" aria-hidden="true" />
+                {accessLabel}
+              </span>
+              <time
+                className="inline-flex min-h-7 items-center gap-1.5"
+                dateTime={snapshot.publishedAt}
+                title={`Published ${formatSharedNotePublishedAt(snapshot.publishedAt)}`}
+              >
+                <CalendarDots className="size-3.5" aria-hidden="true" />
+                {formatSharedNotePublishedAt(snapshot.publishedAt)}
+              </time>
+            </div>
+          )}
         </header>
 
         <div>
@@ -127,6 +144,47 @@ export function SharedNoteViewer({
         </div>
       </article>
     </SharedNoteShell>
+  );
+}
+
+function SharedNoteMeetingMetadata({
+  className,
+  meetingAt,
+  participants,
+}: Pick<SharedNotePreview, "meetingAt" | "participants"> & {
+  className?: string;
+}) {
+  const presentation = createSharedNoteParticipantPresentation(participants);
+
+  return (
+    <div
+      className={cn([
+        "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 text-sm text-stone-500",
+        className,
+      ])}
+    >
+      {presentation.participantCount > 0 ? (
+        <div
+          aria-label={`${presentation.participantCount} meeting participants`}
+          className="flex shrink-0 items-center"
+        >
+          {presentation.avatarParticipants.map((participant, index) => (
+            <span
+              className={cn(["relative inline-flex", index > 0 && "-ml-2"])}
+              key={participant}
+              style={{
+                zIndex: presentation.avatarParticipants.length - index,
+              }}
+            >
+              <Avatar label={participant} seed={participant} size={30} />
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <span className="font-medium text-stone-700">{presentation.label}</span>
+      <span aria-hidden="true">·</span>
+      <time dateTime={meetingAt}>{formatSharedNoteMeetingAt(meetingAt)}</time>
+    </div>
   );
 }
 

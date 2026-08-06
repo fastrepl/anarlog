@@ -25,6 +25,7 @@ export type SessionShareSyncState = {
   acknowledgedContentRevision: number;
   baselineSourceHash: string;
   status: "clean" | "conflict";
+  updatedAt?: string;
 };
 
 type SessionShareSyncStateSqlRow = {
@@ -34,6 +35,7 @@ type SessionShareSyncStateSqlRow = {
   acknowledged_content_revision: number;
   baseline_source_hash: string;
   status: string;
+  updated_at: string;
 };
 
 export type ManagedShareProjection = {
@@ -69,11 +71,14 @@ export async function createSessionShareMutationId(input: {
   baseRevision: number;
   sourceHash: string;
   attachmentIds?: string[];
+  participants: string[];
+  meetingAt: string;
 }): Promise<string> {
   if (
     !Number.isSafeInteger(input.baseRevision) ||
     input.baseRevision < 0 ||
-    !SHA256_PATTERN.test(input.sourceHash)
+    !SHA256_PATTERN.test(input.sourceHash) ||
+    Number.isNaN(Date.parse(input.meetingAt))
   ) {
     throw new Error("Invalid shared-note mutation source");
   }
@@ -81,7 +86,13 @@ export async function createSessionShareMutationId(input: {
     await crypto.subtle.digest(
       "SHA-256",
       new TextEncoder().encode(
-        `anarlog-session-share-mutation-v1\0${input.shareId}\0${input.baseRevision}\0${input.sourceHash}\0${canonicalJson(input.attachmentIds ?? [])}`,
+        `anarlog-session-share-mutation-v2\0${input.shareId}\0${input.baseRevision}\0${input.sourceHash}\0${canonicalJson(
+          {
+            attachmentIds: input.attachmentIds ?? [],
+            meetingAt: new Date(input.meetingAt).toISOString(),
+            participants: input.participants,
+          },
+        )}`,
       ),
     ),
   );
@@ -144,7 +155,8 @@ export async function loadSessionShareSyncState(
         session_id,
         acknowledged_content_revision,
         baseline_source_hash,
-        status
+        status,
+        updated_at
       FROM session_share_sync_state
       WHERE viewer_user_id = ? AND share_id = ?
       LIMIT 1
@@ -168,6 +180,7 @@ export async function loadSessionShareSyncState(
     acknowledgedContentRevision: row.acknowledged_content_revision,
     baselineSourceHash: row.baseline_source_hash,
     status: row.status,
+    updatedAt: row.updated_at,
   };
 }
 

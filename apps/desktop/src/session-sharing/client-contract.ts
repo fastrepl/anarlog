@@ -177,6 +177,8 @@ export type PublishSessionShareSnapshotInput = {
   mutationId: string;
   title: string;
   body: unknown;
+  participants?: string[];
+  meetingAt?: string;
   attachmentIds?: string[];
   signal?: AbortSignal;
   fetcher?: typeof fetch;

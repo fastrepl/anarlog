@@ -1,5 +1,7 @@
 import type { SharedNoteAttachment } from "@/lib/shared-notes";
 
+const MAX_VISIBLE_PARTICIPANT_AVATARS = 5;
+
 const RELATIVE_TIME_DIVISIONS: Array<
   [amount: number, unit: Intl.RelativeTimeFormatUnit]
 > = [
@@ -18,6 +20,42 @@ export function findFeaturedSharedNoteAudio(
   return attachments.find((attachment) =>
     attachment.contentType.startsWith("audio/"),
   );
+}
+
+export function createSharedNoteParticipantPresentation(
+  participants: readonly string[],
+) {
+  const normalizedParticipants = Array.from(
+    new Set(
+      participants
+        .map((participant) => participant.replace(/\s+/g, " ").trim())
+        .filter(Boolean),
+    ),
+  );
+  const visibleNames = normalizedParticipants
+    .slice(0, 2)
+    .map((participant) => participant.split(/\s+/)[0]);
+  const nameOverflow = normalizedParticipants.length - visibleNames.length;
+
+  return {
+    avatarParticipants: normalizedParticipants.slice(
+      0,
+      MAX_VISIBLE_PARTICIPANT_AVATARS,
+    ),
+    label: normalizedParticipants.length
+      ? `${visibleNames.join(", ")}${nameOverflow > 0 ? ` +${nameOverflow} more` : ""}`
+      : "No participants listed",
+    participantCount: normalizedParticipants.length,
+  };
+}
+
+export function formatSharedNoteMeetingAt(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 export function createSharedNoteWaveform(seed: string, count = 96) {

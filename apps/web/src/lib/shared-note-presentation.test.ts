@@ -2,12 +2,43 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createSharedNoteParticipantPresentation,
   createSharedNoteWaveform,
   findFeaturedSharedNoteAudio,
+  formatSharedNoteMeetingAt,
   formatSharedNotePlaybackTime,
   formatSharedNoteRelativeTime,
   isSharedNoteAudioGrantExpiring,
 } from "./shared-note-presentation.ts";
+
+test("builds the shared meeting participant row", () => {
+  assert.deepEqual(
+    createSharedNoteParticipantPresentation([
+      " John  Jeong ",
+      "John Jeong",
+      "Artem",
+      "Sungbin Jo",
+      "Yujong Lee",
+      "Julie",
+      "Charlie",
+    ]),
+    {
+      avatarParticipants: [
+        "John Jeong",
+        "Artem",
+        "Sungbin Jo",
+        "Yujong Lee",
+        "Julie",
+      ],
+      label: "John, Artem +4 more",
+      participantCount: 6,
+    },
+  );
+  assert.equal(
+    formatSharedNoteMeetingAt("2026-08-06T01:30:00Z"),
+    "August 6, 2026",
+  );
+});
 
 test("finds the first playable shared audio attachment", () => {
   const audio = {

@@ -542,6 +542,10 @@ export async function publishSessionShareSnapshot(
     assertUuid(input.mutationId);
     const title = normalizeTitle(input.title);
     const body = parseSessionShareDocument(input.body);
+    const previewMetadata = normalizePreviewMetadata(
+      input.participants,
+      input.meetingAt,
+    );
     const attachmentIds =
       input.attachmentIds === undefined
         ? undefined
@@ -552,6 +556,7 @@ export async function publishSessionShareSnapshot(
       mutationId: input.mutationId,
       title,
       body,
+      ...previewMetadata,
       ...(attachmentIds === undefined ? {} : { attachmentIds }),
     });
     if (utf8Length(requestBody) > MAX_SNAPSHOT_RESPONSE_BYTES) {
@@ -671,6 +676,31 @@ async function callRpc(
     }
     throw unavailable();
   }
+}
+
+function normalizePreviewMetadata(
+  participants: string[] | undefined,
+  meetingAt: string | undefined,
+) {
+  if (participants === undefined && meetingAt === undefined) return {};
+  if (!participants || !meetingAt) {
+    throw unavailable();
+  }
+
+  const normalizedParticipants = Array.from(
+    new Set(
+      participants
+        .map((participant) => participant.replace(/\s+/g, " ").trim())
+        .filter((participant) => participant && participant.length <= 100),
+    ),
+  ).slice(0, 32);
+
+  const parsedMeetingAt = new Date(meetingAt);
+  if (Number.isNaN(parsedMeetingAt.getTime())) throw unavailable();
+  return {
+    participants: normalizedParticipants,
+    meetingAt: parsedMeetingAt.toISOString(),
+  };
 }
 
 function snapshotUrl(apiBaseUrl: string, shareId: string) {

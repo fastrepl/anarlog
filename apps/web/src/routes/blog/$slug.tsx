@@ -57,12 +57,18 @@ export const Route = createFileRoute("/blog/$slug")({
         { property: "og:url", content: url },
         { property: "og:type", content: "article" },
         { property: "og:image", content: imageUrl },
+        { property: "og:image:type", content: "image/png" },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },
+        {
+          property: "og:image:alt",
+          content: `Preview of ${article.title}`,
+        },
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: article.meta_title || article.title },
         { name: "twitter:description", content: article.meta_description },
         { name: "twitter:image", content: imageUrl },
+        { name: "twitter:image:alt", content: `Preview of ${article.title}` },
       ],
       scripts: [
         {

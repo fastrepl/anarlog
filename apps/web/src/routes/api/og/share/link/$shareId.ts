@@ -1,18 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { fetchPublicSharedNotePreviewResult } from "@/lib/shared-note-api";
 import { renderSharedNoteOgImage } from "@/lib/og-image";
-import { publicShareSlugSchema } from "@/lib/shared-notes";
+import { fetchLinkSharedNotePreviewResult } from "@/lib/shared-note-api";
+import { linkSharePreviewTokenSchema, shareIdSchema } from "@/lib/shared-notes";
 
-export const Route = createFileRoute("/api/og/share/public/$publicSlug")({
+export const Route = createFileRoute("/api/og/share/link/$shareId")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
-        const publicSlug = publicShareSlugSchema.safeParse(params.publicSlug);
-        if (!publicSlug.success) return notFound();
+      GET: async ({ params, request }) => {
+        const shareId = shareIdSchema.safeParse(params.shareId);
+        const previewToken = linkSharePreviewTokenSchema.safeParse(
+          new URL(request.url).searchParams.get("preview"),
+        );
+        if (!shareId.success || !previewToken.success) return notFound();
 
-        const result = await fetchPublicSharedNotePreviewResult(
-          publicSlug.data,
+        const result = await fetchLinkSharedNotePreviewResult(
+          shareId.data,
+          previewToken.data,
         );
         if (result.status === "unavailable") return notFound();
         if (result.status === "error") return serviceUnavailable();

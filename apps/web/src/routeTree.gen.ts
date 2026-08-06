@@ -79,6 +79,7 @@ import { Route as ApiAdminContentCreateRouteImport } from './routes/api/admin/co
 import { Route as ApiAdminContentAuditRouteImport } from './routes/api/admin/content/audit'
 import { Route as ApiAdminBlogUploadImageRouteImport } from './routes/api/admin/blog/upload-image'
 import { Route as ApiOgSharePublicPublicSlugRouteImport } from './routes/api/og/share/public/$publicSlug'
+import { Route as ApiOgShareLinkShareIdRouteImport } from './routes/api/og/share/link/$shareId'
 
 const UpdatePasswordRoute = UpdatePasswordRouteImport.update({
   id: '/update-password',
@@ -437,6 +438,11 @@ const ApiOgSharePublicPublicSlugRoute =
     path: '/api/og/share/public/$publicSlug',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiOgShareLinkShareIdRoute = ApiOgShareLinkShareIdRouteImport.update({
+  id: '/api/og/share/link/$shareId',
+  path: '/api/og/share/link/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -507,6 +513,7 @@ export interface FileRoutesByFullPath {
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
+  '/api/og/share/link/$shareId': typeof ApiOgShareLinkShareIdRoute
   '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
 }
 export interface FileRoutesByTo {
@@ -577,6 +584,7 @@ export interface FileRoutesByTo {
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
+  '/api/og/share/link/$shareId': typeof ApiOgShareLinkShareIdRoute
   '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
 }
 export interface FileRoutesById {
@@ -650,6 +658,7 @@ export interface FileRoutesById {
   '/api/admin/stars/pipeline': typeof ApiAdminStarsPipelineRoute
   '/api/admin/stars/research': typeof ApiAdminStarsResearchRoute
   '/api/og/blog/$slug': typeof ApiOgBlogSlugRoute
+  '/api/og/share/link/$shareId': typeof ApiOgShareLinkShareIdRoute
   '/api/og/share/public/$publicSlug': typeof ApiOgSharePublicPublicSlugRoute
 }
 export interface FileRouteTypes {
@@ -723,6 +732,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
     | '/api/og/blog/$slug'
+    | '/api/og/share/link/$shareId'
     | '/api/og/share/public/$publicSlug'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -793,6 +803,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
     | '/api/og/blog/$slug'
+    | '/api/og/share/link/$shareId'
     | '/api/og/share/public/$publicSlug'
   id:
     | '__root__'
@@ -865,6 +876,7 @@ export interface FileRouteTypes {
     | '/api/admin/stars/pipeline'
     | '/api/admin/stars/research'
     | '/api/og/blog/$slug'
+    | '/api/og/share/link/$shareId'
     | '/api/og/share/public/$publicSlug'
   fileRoutesById: FileRoutesById
 }
@@ -924,6 +936,7 @@ export interface RootRouteChildren {
   ApiAdminStarsPipelineRoute: typeof ApiAdminStarsPipelineRoute
   ApiAdminStarsResearchRoute: typeof ApiAdminStarsResearchRoute
   ApiOgBlogSlugRoute: typeof ApiOgBlogSlugRoute
+  ApiOgShareLinkShareIdRoute: typeof ApiOgShareLinkShareIdRoute
   ApiOgSharePublicPublicSlugRoute: typeof ApiOgSharePublicPublicSlugRoute
 }
 
@@ -1419,6 +1432,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOgSharePublicPublicSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/og/share/link/$shareId': {
+      id: '/api/og/share/link/$shareId'
+      path: '/api/og/share/link/$shareId'
+      fullPath: '/api/og/share/link/$shareId'
+      preLoaderRoute: typeof ApiOgShareLinkShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1526,6 +1546,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminStarsPipelineRoute: ApiAdminStarsPipelineRoute,
   ApiAdminStarsResearchRoute: ApiAdminStarsResearchRoute,
   ApiOgBlogSlugRoute: ApiOgBlogSlugRoute,
+  ApiOgShareLinkShareIdRoute: ApiOgShareLinkShareIdRoute,
   ApiOgSharePublicPublicSlugRoute: ApiOgSharePublicPublicSlugRoute,
 }
 export const routeTree = rootRouteImport

@@ -34,6 +34,7 @@ export function SharedNoteEditableViewer({
   chat,
   fallbackAccessLabel,
   fallbackSnapshot,
+  meetingMetadata,
   resolveAttachment,
   revokedBehavior,
   signedIn,
@@ -48,6 +49,10 @@ export function SharedNoteEditableViewer({
   chat?: (snapshot: SharedNoteSnapshot) => React.ReactNode;
   fallbackAccessLabel?: string;
   fallbackSnapshot?: SharedNoteSnapshot | null;
+  meetingMetadata?: {
+    meetingAt: string;
+    participants: string[];
+  } | null;
   resolveAttachment?: SharedAttachmentResolver;
   revokedBehavior: "read-only" | "unavailable";
   signedIn: boolean;
@@ -161,6 +166,7 @@ export function SharedNoteEditableViewer({
           <SharedNoteCommentsDrawer comments={comments} />
         ) : undefined
       }
+      meetingMetadata={meetingMetadata}
       notice={accessNotice ?? signInNotice}
       resolveAttachment={resolveAttachment}
       snapshot={activeSnapshot}

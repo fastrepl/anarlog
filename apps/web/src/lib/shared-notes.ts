@@ -8,6 +8,7 @@ const MAX_TITLE_BYTES = 4096;
 export const shareIdSchema = z.string().uuid();
 export const invitationIdSchema = z.string().uuid();
 export const publicShareSlugSchema = z.string().regex(/^s_[0-9a-f]{32}$/);
+export const linkSharePreviewTokenSchema = z.string().regex(/^[0-9a-f]{64}$/);
 export const handoffRequestIdSchema = z
   .string()
   .regex(
@@ -81,6 +82,13 @@ export type SharedNoteSnapshot = {
   body: SharedNoteDocument;
   attachments: SharedNoteAttachment[];
   publishedAt: string;
+};
+
+export type SharedNotePreview = {
+  title: string;
+  summary: string;
+  participants: string[];
+  meetingAt: string;
 };
 
 export type SharedNoteWebEditSnapshot = {
@@ -250,6 +258,20 @@ const gatewaySnapshotSchema = z
   })
   .strict();
 
+const sharedNotePreviewSchema = z
+  .object({
+    title: z.string(),
+    summary: z
+      .string()
+      .refine(
+        (value) => Array.from(value).length <= 180,
+        "summary is too long",
+      ),
+    participants: z.array(z.string().min(1).max(100)).max(32),
+    meetingAt: z.string(),
+  })
+  .strict();
+
 const webEditSnapshotSchema = gatewaySnapshotSchema
   .extend({
     accessVersion: z.number().int().positive().safe(),
@@ -412,6 +434,15 @@ export function parseGatewaySharedNote(value: unknown): SharedNoteSnapshot {
     body: parseSharedNoteDocument(parsed.body),
     attachments: parseSharedNoteAttachments(parsed.attachments),
     publishedAt: parseTimestamp(parsed.publishedAt),
+  };
+}
+
+export function parseSharedNotePreview(value: unknown): SharedNotePreview {
+  const parsed = sharedNotePreviewSchema.parse(value);
+  return {
+    ...parsed,
+    title: parseTitle(parsed.title),
+    meetingAt: parseTimestamp(parsed.meetingAt),
   };
 }
 

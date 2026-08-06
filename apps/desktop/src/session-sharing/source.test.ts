@@ -36,6 +36,9 @@ function sourceRow(
     document_id: string | null;
     workspace_id: string;
     title: string;
+    created_at: string;
+    started_at: string;
+    participants_json: string;
     body: string;
     body_format: string;
     personal_workspace_available: number | boolean;
@@ -50,6 +53,12 @@ function sourceRow(
     document_id: "summary-1",
     workspace_id: ACCOUNT_ID,
     title: "Planning notes",
+    created_at: "2026-08-06T00:30:00.000Z",
+    started_at: "2026-08-06T01:30:00.000Z",
+    participants_json: JSON.stringify([
+      { name: "John Jeong" },
+      { name: "Sungbin Jo" },
+    ]),
     body: JSON.stringify({
       type: "doc",
       content: [
@@ -86,6 +95,8 @@ describe("loadSessionShareSource", () => {
       documentId: "summary-1",
       workspaceId: ACCOUNT_ID,
       title: "Planning notes",
+      meetingAt: "2026-08-06T01:30:00.000Z",
+      participants: ["John Jeong", "Sungbin Jo"],
       body: {
         type: "doc",
         content: [
@@ -103,6 +114,10 @@ describe("loadSessionShareSource", () => {
     expect(sql).toContain("candidate.kind IN ('summary', 'template_output')");
     expect(sql).toContain("ORDER BY candidate.sort_order, candidate.id");
     expect(sql).not.toContain("kind = 'note'");
+    expect(sql).toContain("session.created_at");
+    expect(sql).toContain("session.started_at");
+    expect(sql).toContain("FROM session_participants AS participant");
+    expect(sql).toContain("ORDER BY participant.created_at, participant.id");
     expect(params).toEqual([
       ACCOUNT_ID,
       ACCOUNT_ID,
@@ -116,6 +131,34 @@ describe("loadSessionShareSource", () => {
     expect(mocks.flushDatabaseWrites.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.execute.mock.invocationCallOrder[0]!,
     );
+  });
+
+  it("falls back to the creation time when the meeting start is invalid", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        created_at: "2026-08-06T00:30:00.000Z",
+        started_at: "not-a-timestamp",
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).resolves.toMatchObject({ meetingAt: "2026-08-06T00:30:00.000Z" });
+  });
+
+  it("omits participant names that exceed the preview limit", async () => {
+    mocks.execute.mockResolvedValue([
+      sourceRow({
+        participants_json: JSON.stringify([
+          { name: "A".repeat(101) },
+          { name: "John Jeong" },
+        ]),
+      }),
+    ]);
+
+    await expect(
+      loadSessionShareSource("session-1", ACCOUNT_ID),
+    ).resolves.toMatchObject({ participants: ["John Jeong"] });
   });
 
   it("uses the bound personal workspace while its local projection is missing", async () => {

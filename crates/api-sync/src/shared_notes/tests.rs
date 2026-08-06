@@ -12,6 +12,7 @@ use super::*;
 const SHARE_ID: &str = "11111111-1111-4111-8111-111111111111";
 const PUBLIC_SLUG: &str = "s_0123456789abcdef0123456789abcdef";
 const LINK_TOKEN: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+const LINK_PREVIEW_TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const HANDOFF_ID: &str = "22222222-2222-4222-8222-222222222222";
 const LEASE_ID: &str = "55555555-5555-4555-8555-555555555555";
 const ATTACHMENT_ID: &str = "33333333-3333-4333-8333-333333333333";
@@ -388,6 +389,102 @@ async fn reads_link_snapshot_without_forwarding_client_headers() {
         !String::from_utf8(upstream.body)
             .unwrap()
             .contains("user-token")
+    );
+}
+
+#[tokio::test]
+async fn returns_only_link_preview_metadata() {
+    let server = MockServer::start().await;
+    mount_rpc(
+        &server,
+        "gateway_read_session_share_link_preview",
+        json!({
+            "p_share_id": SHARE_ID,
+            "p_preview_token": LINK_PREVIEW_TOKEN
+        }),
+        json!([{
+            "title": "Planning & decisions",
+            "body_json": {
+                "type": "doc",
+                "content": [
+                    { "type": "heading", "content": [{ "type": "text", "text": "Overview" }] },
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            { "type": "text", "text": "The team aligned" },
+                            { "type": "hardBreak" },
+                            { "type": "text", "text": "on launch scope and remaining blockers." }
+                        ]
+                    }
+                ]
+            },
+            "participants": ["John Jeong", "Sungbin Jo"],
+            "meeting_at": "2026-08-06T01:30:00Z"
+        }]),
+    )
+    .await;
+
+    let response = test_router(&server)
+        .oneshot(
+            Request::post(format!("/shared-notes/link/{SHARE_ID}/preview"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({ "previewToken": LINK_PREVIEW_TOKEN }).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(response).await,
+        json!({
+            "title": "Planning & decisions",
+            "summary": "The team aligned on launch scope and remaining blockers.",
+            "participants": ["John Jeong", "Sungbin Jo"],
+            "meetingAt": "2026-08-06T01:30:00Z"
+        })
+    );
+}
+
+#[tokio::test]
+async fn returns_public_preview_metadata() {
+    let server = MockServer::start().await;
+    mount_rpc(
+        &server,
+        "gateway_read_public_session_share_preview",
+        json!({ "p_public_slug": PUBLIC_SLUG }),
+        json!([{
+            "title": "Customer review",
+            "body_json": {
+                "type": "doc",
+                "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "Customer feedback shaped the next product iteration." }] }]
+            },
+            "participants": ["John Jeong", "Artem"],
+            "meeting_at": "2026-08-05T09:00:00Z"
+        }]),
+    )
+    .await;
+
+    let response = test_router(&server)
+        .oneshot(
+            Request::get(format!("/shared-notes/public/{PUBLIC_SLUG}/preview"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(response).await,
+        json!({
+            "title": "Customer review",
+            "summary": "Customer feedback shaped the next product iteration.",
+            "participants": ["John Jeong", "Artem"],
+            "meetingAt": "2026-08-05T09:00:00Z"
+        })
     );
 }
 

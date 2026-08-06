@@ -25,6 +25,18 @@ export function getPublicSharedNoteOgImageUrl(publicSlug: string) {
   return `${ANARLOG_SITE_URL}/api/og/share/public/${encodeURIComponent(publicSlug)}`;
 }
 
+export function getLinkSharedNoteOgImageUrl(
+  shareId: string,
+  previewToken: string,
+) {
+  const url = new URL(
+    `/api/og/share/link/${encodeURIComponent(shareId)}`,
+    ANARLOG_SITE_URL,
+  );
+  url.searchParams.set("preview", previewToken);
+  return url.toString();
+}
+
 type StructuredDataNode = Record<string, unknown>;
 
 export function getStructuredDataGraph(nodes: StructuredDataNode[]) {
