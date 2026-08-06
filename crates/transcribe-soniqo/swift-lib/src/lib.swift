@@ -316,12 +316,6 @@ private struct ModelDownloadPayload: Codable {
   var error: String?
 }
 
-private struct FileTranscriptionPayload: Codable {
-  var text: String
-  var durationSeconds: Double
-  var error: String?
-}
-
 private struct StatusPayload: Codable {
   var running: Bool
   var sessionToken: String?
@@ -352,6 +346,23 @@ private func encodeJSONObject(_ value: Any) -> String {
   }
 
   return string
+}
+
+private func encodeFileTranscriptionJSON(
+  text: String,
+  durationSeconds: Double,
+  error: String? = nil
+) -> String {
+  var payload: [String: Any] = [
+    "text": text,
+    "durationSeconds": durationSeconds,
+  ]
+  if let error {
+    payload["error"] = error
+  } else {
+    payload["error"] = NSNull()
+  }
+  return encodeJSONObject(payload)
 }
 
 private func encodeLiveAppendJSON(
@@ -795,20 +806,15 @@ private actor SoniqoBridge {
         language: trimmedLanguage.isEmpty ? nil : trimmedLanguage
       )
 
-      return encodeJSON(
-        FileTranscriptionPayload(
-          text: text,
-          durationSeconds: Double(audio.count) / Double(soniqoFileTranscriptionSampleRate),
-          error: nil
-        )
+      return encodeFileTranscriptionJSON(
+        text: text,
+        durationSeconds: Double(audio.count) / Double(soniqoFileTranscriptionSampleRate)
       )
     } catch {
-      return encodeJSON(
-        FileTranscriptionPayload(
-          text: "",
-          durationSeconds: 0,
-          error: error.localizedDescription
-        )
+      return encodeFileTranscriptionJSON(
+        text: "",
+        durationSeconds: 0,
+        error: error.localizedDescription
       )
     }
   }
