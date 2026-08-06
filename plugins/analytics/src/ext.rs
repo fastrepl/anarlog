@@ -1,7 +1,17 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 
 use tauri_plugin_misc::MiscPluginExt;
 use tauri_plugin_store2::Store2PluginExt;
+
+static REPORTED_QUEUE_FULL: AtomicBool = AtomicBool::new(false);
+static REPORTED_DELIVERY_FAILURE: AtomicBool = AtomicBool::new(false);
+
+fn report_delivery_problem_once(reported: &AtomicBool, event: &'static str) {
+    if !reported.swap(true, Ordering::Relaxed) {
+        tracing::event!(tracing::Level::ERROR, message = event);
+    }
+}
 
 pub struct Analytics<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
@@ -37,6 +47,8 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
         let state = self.manager.state::<crate::ManagedState>();
         let Ok(permit) = state.fire_and_forget_slots.clone().try_acquire_owned() else {
+            report_delivery_problem_once(&REPORTED_QUEUE_FULL, "analytics_event_queue_full");
+            tracing::warn!(event = %payload.event, "analytics event dropped because the queue is full");
             return;
         };
 
@@ -44,10 +56,17 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Analytics<'a, R, M> {
 
         let machine_id = anlg_host::fingerprint();
         let client = state.client.clone();
+        let event = payload.event.clone();
 
         tauri::async_runtime::spawn(async move {
             let _permit = permit;
-            let _ = client.event(machine_id, payload).await;
+            if let Err(error) = client.event(machine_id, payload).await {
+                report_delivery_problem_once(
+                    &REPORTED_DELIVERY_FAILURE,
+                    "analytics_event_delivery_failed",
+                );
+                tracing::warn!(%error, %event, "analytics event delivery failed");
+            }
         });
     }
 

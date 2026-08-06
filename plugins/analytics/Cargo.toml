@@ -32,4 +32,5 @@ strum = { workspace = true, features = ["derive"] }
 
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["sync"] }
+tracing = { workspace = true }
 uuid = { workspace = true, features = ["v7"] }
