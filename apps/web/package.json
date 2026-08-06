@@ -93,6 +93,7 @@
     "@content-collections/mdx": "^0.2.2",
     "@content-collections/vite": "^0.3.0",
     "@dotenvx/dotenvx": "^1.61.0",
+    "@sentry/cli": "^3.6.1",
     "@anlg/plugin-auth": "workspace:*",
     "@anlg/plugin-deeplink2": "workspace:*",
     "@tailwindcss/typography": "^0.5.19",

@@ -37,10 +37,50 @@ jobs:
           : "${NETLIFY_SITE_ID:?Missing NETLIFY_SITE_ID repository secret}"
       - run: pnpm -F ui build
       - run: npm install -g netlify-cli@26.2.0
-      - name: Build and deploy web to Netlify
+      - name: Build web for Netlify
+        run: |
+          netlify build \
+            --context production \
+            --site "$NETLIFY_SITE_ID" \
+            --filter @anlg/web
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          SENTRY_BUILD_SOURCEMAPS: "1"
+          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - name: Upload web source maps to Sentry
+        run: |
+          response=$(
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $INFISICAL_TOKEN" \
+              --data-urlencode "projectId=$INFISICAL_PROJECT_ID" \
+              --data-urlencode "environment=prod" \
+              --data-urlencode "secretPath=/anarlog/github" \
+              --data-urlencode "expandSecretReferences=false" \
+              "https://app.infisical.com/api/v4/secrets/SENTRY_AUTH_TOKEN"
+          )
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.secret.secretValue | select(length > 0)' <<< "$response"); then
+            echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
+            exit 1
+          fi
+          export SENTRY_AUTH_TOKEN
+
+          pnpm -F @anlg/web exec sentry-cli sourcemaps inject dist
+          pnpm -F @anlg/web exec sentry-cli sourcemaps upload \
+            --org fastrepl \
+            --project hyprnote2 \
+            --release "$SENTRY_RELEASE" \
+            dist
+          find apps/web/dist -type f -name '*.map' -delete
+        env:
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
+          SENTRY_RELEASE: anarlog-web@${{ needs.compute-version.outputs.version }}
+      - name: Deploy web to Netlify
         run: |
           netlify deploy \
             --prod \
+            --no-build \
             --context production \
             --site "$NETLIFY_SITE_ID" \
             --filter @anlg/web \
@@ -48,7 +88,6 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
 
   tag:
     needs: [compute-version, deploy]
