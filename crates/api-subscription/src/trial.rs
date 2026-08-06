@@ -96,7 +96,7 @@ impl ToAnalyticsPayload for TrialOutcome {
                     Interval::Monthly => "pro_monthly",
                     Interval::Yearly => "pro_yearly",
                 };
-                AnalyticsPayload::builder("trial_started")
+                AnalyticsPayload::builder("trial_created")
                     .with("plan", plan)
                     .build()
             }
@@ -145,7 +145,7 @@ mod tests {
         let event = outcome.to_analytics_payload();
         let properties = outcome.to_analytics_properties().unwrap();
 
-        assert_eq!(event.event, "trial_started");
+        assert_eq!(event.event, "trial_created");
         assert_eq!(event.props.get("plan"), Some(&json!("pro_monthly")));
         assert_eq!(properties.set.get("plan"), Some(&json!("trial")));
         assert_eq!(
