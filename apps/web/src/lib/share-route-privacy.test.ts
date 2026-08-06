@@ -115,7 +115,7 @@ test("preserves recovery state across cancellation and persistence failure", asy
   assert.equal(clearedPersisted, 1);
 });
 
-test("scrubs a capability fragment before retaining it for the current tab", () => {
+test("retains a capability fragment in the shareable URL and current tab", () => {
   const pathname = "/share/link/00000000-0000-4000-8000-000000000001/";
   const storage = new Map<string, string>();
   let replacedUrl = "";
@@ -144,8 +144,7 @@ test("scrubs a capability fragment before retaining it for the current tab", () 
 
   try {
     prepareShareRoutePrivacy();
-    assert.equal(replacedUrl, pathname);
-    assert.equal(replacedUrl.includes(TOKEN), false);
+    assert.equal(replacedUrl, "");
     assert.equal(getShareRouteToken(pathname), TOKEN);
     assert.equal(storage.size, 1);
     clearPersistedShareRouteToken(pathname);
@@ -190,7 +189,7 @@ test("retains capability tokens across trailing-slash normalization", () => {
 
     try {
       prepareShareRoutePrivacy();
-      assert.equal(replacedUrl, `${pathname}${location.search}`);
+      assert.equal(replacedUrl, "");
       location.pathname = `${pathname}/`;
       prepareShareRoutePrivacy();
       assert.equal(getShareRouteToken(location.pathname), TOKEN);
@@ -199,6 +198,66 @@ test("retains capability tokens across trailing-slash normalization", () => {
     } finally {
       Reflect.deleteProperty(globalThis, "window");
     }
+  }
+});
+
+test("scrubs invalid fragments from shared-note URLs", () => {
+  const pathname = "/share/link/00000000-0000-4000-8000-000000000001/";
+  let replacedUrl = "";
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      history: {
+        replaceState: (_state: unknown, _title: string, url: string) => {
+          replacedUrl = url;
+        },
+      },
+      location: {
+        hash: "#token=short",
+        pathname,
+        search: "?scheme=anarlog-staging",
+      },
+      sessionStorage: {
+        getItem: () => null,
+      },
+    },
+  });
+
+  try {
+    prepareShareRoutePrivacy();
+    assert.equal(replacedUrl, `${pathname}?scheme=anarlog-staging`);
+    assert.equal(getShareRouteToken(pathname), null);
+  } finally {
+    Reflect.deleteProperty(globalThis, "window");
+  }
+});
+
+test("scrubs capability-shaped fragments from public share URLs", () => {
+  const pathname = "/share/public/s_example/";
+  let replacedUrl = "";
+
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      history: {
+        replaceState: (_state: unknown, _title: string, url: string) => {
+          replacedUrl = url;
+        },
+      },
+      location: {
+        hash: `#token=${TOKEN}`,
+        pathname,
+        search: "",
+      },
+    },
+  });
+
+  try {
+    prepareShareRoutePrivacy();
+    assert.equal(replacedUrl, pathname);
+  } finally {
+    Reflect.deleteProperty(globalThis, "window");
   }
 });
 

@@ -94,9 +94,10 @@ export function prepareShareRoutePrivacy() {
     return;
   }
 
-  if (isCapabilityShareRoutePathname(pathname)) {
+  const capabilityRoute = isCapabilityShareRoutePathname(pathname);
+  const fragmentToken = capabilityRoute ? parseShareFragmentToken(hash) : null;
+  if (capabilityRoute) {
     const tokenPathname = canonicalShareRoutePathname(pathname);
-    const fragmentToken = parseShareFragmentToken(hash);
     if (fragmentToken) {
       inMemoryToken = { pathname: tokenPathname, token: fragmentToken };
       try {
@@ -112,7 +113,7 @@ export function prepareShareRoutePrivacy() {
     }
   }
 
-  if (hash) {
+  if (hash && !fragmentToken) {
     window.history.replaceState(null, "", `${pathname}${search}`);
   }
 }
