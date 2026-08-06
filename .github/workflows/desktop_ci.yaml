@@ -52,10 +52,28 @@ jobs:
       - uses: ./.github/actions/rust_install
         with:
           platform: ${{ matrix.platform }}
+      - if: github.event_name == 'workflow_dispatch'
+        run: crates/cloudsync/scripts/rebuild-macos.sh
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsync-macos-aarch64-${{ github.sha }}
+          path: crates/cloudsync/vendor/cloudsync/macos/aarch64/cloudsync.dylib
+          if-no-files-found: error
+          retention-days: 7
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudsync-macos-x86_64-${{ github.sha }}
+          path: crates/cloudsync/vendor/cloudsync/macos/x86_64/cloudsync.dylib
+          if-no-files-found: error
+          retention-days: 7
       - if: matrix.platform == 'macos'
         run: echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> $GITHUB_ENV
       - run: cargo check -p desktop
       - run: cargo test -p desktop
+      - run: cargo test --locked -p cloudsync
+      - run: "cargo test --locked -p db-core 'cloudsync::' -- --test-threads=1"
       - run: |
           cargo test --workspace \
             --exclude desktop \
