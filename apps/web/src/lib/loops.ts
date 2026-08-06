@@ -55,14 +55,16 @@ export function sendLoopsEvent({
   userId,
   eventName,
   firstName,
+  eventProperties,
   idempotencyKey,
   fetcher = fetch,
 }: {
   apiKey: string;
   email: string;
-  userId: string;
+  userId?: string;
   eventName: string;
-  firstName: string;
+  firstName?: string;
+  eventProperties?: Record<string, string | number | boolean>;
   idempotencyKey: string;
   fetcher?: typeof fetch;
 }) {
@@ -72,9 +74,10 @@ export function sendLoopsEvent({
     idempotencyKey,
     body: {
       email,
-      userId,
       eventName,
-      firstName,
+      ...(userId ? { userId } : {}),
+      ...(firstName ? { firstName } : {}),
+      ...(eventProperties ? { eventProperties } : {}),
     },
     fetcher,
   });

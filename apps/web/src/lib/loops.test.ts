@@ -32,6 +32,34 @@ test("sends lifecycle events with contact data and idempotency", async () => {
   });
 });
 
+test("sends event properties without requiring account contact fields", async () => {
+  let request: { init?: RequestInit } | undefined;
+
+  await sendLoopsEvent({
+    apiKey: "loops-key",
+    email: "founder@example.com",
+    eventName: "anarlogYcPerkRequested",
+    eventProperties: {
+      source: "yc_perk_page",
+      verificationUrl: "https://www.ycombinator.com/verify/founder-token",
+    },
+    idempotencyKey: "yc-perk:request-123",
+    fetcher: async (_url, init) => {
+      request = { init };
+      return Response.json({ success: true });
+    },
+  });
+
+  assert.deepEqual(JSON.parse(String(request?.init?.body)), {
+    email: "founder@example.com",
+    eventName: "anarlogYcPerkRequested",
+    eventProperties: {
+      source: "yc_perk_page",
+      verificationUrl: "https://www.ycombinator.com/verify/founder-token",
+    },
+  });
+});
+
 test("sends transactionals without putting idempotency in the body", async () => {
   let request: { init?: RequestInit } | undefined;
 

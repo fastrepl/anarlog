@@ -326,6 +326,7 @@ async function createCheckoutUrl({
           },
         ],
         mode: "subscription",
+        allow_promotion_codes: trial ? undefined : true,
         payment_method_collection: trial
           ? WEB_TRIAL_CHECKOUT_FIELDS.payment_method_collection
           : undefined,

@@ -42,6 +42,10 @@ export function getSitemap(): Sitemap<TRoutes> {
         priority: 0.9,
         changeFrequency: "weekly",
       },
+      "/yc/": {
+        priority: 0.7,
+        changeFrequency: "monthly",
+      },
       // Per-version release notes are noindex (see routes/changelog/$version),
       // so listing them here would contradict the directive.
       "/changelog/$version": [],

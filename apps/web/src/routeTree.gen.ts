@@ -18,6 +18,7 @@ import { Route as ConfirmAuthRouteImport } from './routes/confirm-auth'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ViewRouteRouteImport } from './routes/_view/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as YcIndexRouteImport } from './routes/yc/index'
 import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as ShareShareIdRouteImport } from './routes/share/$shareId'
@@ -121,6 +122,11 @@ const ViewRouteRoute = ViewRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const YcIndexRoute = YcIndexRouteImport.update({
+  id: '/yc/',
+  path: '/yc/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChangelogIndexRoute = ChangelogIndexRouteImport.update({
@@ -450,6 +456,7 @@ export interface FileRoutesByFullPath {
   '/share/$shareId': typeof ShareShareIdRoute
   '/blog/': typeof BlogIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
+  '/yc/': typeof YcIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
@@ -519,6 +526,7 @@ export interface FileRoutesByTo {
   '/share/$shareId': typeof ShareShareIdRoute
   '/blog': typeof BlogIndexRoute
   '/changelog': typeof ChangelogIndexRoute
+  '/yc': typeof YcIndexRoute
   '/app/account': typeof ViewAppAccountRoute
   '/app/checkout': typeof ViewAppCheckoutRoute
   '/app/integration': typeof ViewAppIntegrationRoute
@@ -591,6 +599,7 @@ export interface FileRoutesById {
   '/share/$shareId': typeof ShareShareIdRoute
   '/blog/': typeof BlogIndexRoute
   '/changelog/': typeof ChangelogIndexRoute
+  '/yc/': typeof YcIndexRoute
   '/_view/app/account': typeof ViewAppAccountRoute
   '/_view/app/checkout': typeof ViewAppCheckoutRoute
   '/_view/app/integration': typeof ViewAppIntegrationRoute
@@ -663,6 +672,7 @@ export interface FileRouteTypes {
     | '/share/$shareId'
     | '/blog/'
     | '/changelog/'
+    | '/yc/'
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
@@ -732,6 +742,7 @@ export interface FileRouteTypes {
     | '/share/$shareId'
     | '/blog'
     | '/changelog'
+    | '/yc'
     | '/app/account'
     | '/app/checkout'
     | '/app/integration'
@@ -803,6 +814,7 @@ export interface FileRouteTypes {
     | '/share/$shareId'
     | '/blog/'
     | '/changelog/'
+    | '/yc/'
     | '/_view/app/account'
     | '/_view/app/checkout'
     | '/_view/app/integration'
@@ -874,6 +886,7 @@ export interface RootRouteChildren {
   ShareShareIdRoute: typeof ShareShareIdRoute
   BlogIndexRoute: typeof BlogIndexRoute
   ChangelogIndexRoute: typeof ChangelogIndexRoute
+  YcIndexRoute: typeof YcIndexRoute
   ApiAssetsSplatRoute: typeof ApiAssetsSplatRoute
   ApiTweetIdRoute: typeof ApiTweetIdRoute
   ApiWebhooksSlackInteractiveRoute: typeof ApiWebhooksSlackInteractiveRoute
@@ -977,6 +990,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/yc/': {
+      id: '/yc/'
+      path: '/yc'
+      fullPath: '/yc/'
+      preLoaderRoute: typeof YcIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/changelog/': {
@@ -1468,6 +1488,7 @@ const rootRouteChildren: RootRouteChildren = {
   ShareShareIdRoute: ShareShareIdRoute,
   BlogIndexRoute: BlogIndexRoute,
   ChangelogIndexRoute: ChangelogIndexRoute,
+  YcIndexRoute: YcIndexRoute,
   ApiAssetsSplatRoute: ApiAssetsSplatRoute,
   ApiTweetIdRoute: ApiTweetIdRoute,
   ApiWebhooksSlackInteractiveRoute: ApiWebhooksSlackInteractiveRoute,
