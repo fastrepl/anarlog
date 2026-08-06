@@ -278,6 +278,11 @@ function SharedNoteDocument({
             onCommentAnchorsEvent={
               comments ? commentController.onCommentAnchorsEvent : undefined
             }
+            onCommentSelection={
+              commentController.selection && !commentController.draft
+                ? commentController.startDraft
+                : undefined
+            }
             onLinkOpen={openEditorLink}
             onViewDisposed={
               comments ? commentController.onViewDisposed : undefined

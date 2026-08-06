@@ -197,6 +197,7 @@ export interface NoteEditorProps {
   /** Fixed at mount: plugins are not reconfigurable afterwards. */
   commentAnchorsEnabled?: boolean;
   onCommentAnchorsEvent?: (event: CommentAnchorsEvent) => void;
+  onCommentSelection?: () => void;
 }
 
 const baseNodeViews = {
@@ -605,6 +606,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       enforceTitleHeading = true,
       commentAnchorsEnabled = false,
       onCommentAnchorsEvent,
+      onCommentSelection,
     } = props;
 
     const commentAnchorsEventRef = useRef(onCommentAnchorsEvent);
@@ -923,7 +925,12 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
                     onViewDisposed={handleViewDisposed}
                   />
                   <EditorCommandsBridge commandsRef={commandsRef} />
-                  {showFormatToolbar && !readOnly && <FormatToolbar />}
+                  {((showFormatToolbar && !readOnly) || onCommentSelection) && (
+                    <FormatToolbar
+                      onComment={onCommentSelection}
+                      showFormatting={showFormatToolbar && !readOnly}
+                    />
+                  )}
                   {showSlashCommand && !readOnly && <SlashCommandMenu />}
                   {mentionConfig && !readOnly && (
                     <MentionSuggestion config={mentionConfig} />

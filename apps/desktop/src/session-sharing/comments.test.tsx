@@ -131,6 +131,11 @@ function Harness({ canCompose }: { canCompose: boolean }) {
       >
         Reposition comments
       </button>
+      {controller.selection && (
+        <button type="button" onClick={controller.startDraft}>
+          Comment
+        </button>
+      )}
       <SessionCommentsLayer controller={controller} />
     </div>
   );
@@ -173,6 +178,11 @@ function OwnedSummaryHarness() {
       >
         Select owner text
       </button>
+      {controller.selection && (
+        <button type="button" onClick={controller.startDraft}>
+          Comment
+        </button>
+      )}
       <SessionCommentsLayer controller={controller} />
     </div>
   );

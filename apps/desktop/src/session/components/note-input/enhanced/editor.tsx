@@ -165,6 +165,11 @@ const EnhancedEditorInner = forwardRef<
             extraNodeViews={extraNodeViews}
             commentAnchorsEnabled
             onCommentAnchorsEvent={comments.onCommentAnchorsEvent}
+            onCommentSelection={
+              comments.selection && !comments.draft
+                ? comments.startDraft
+                : undefined
+            }
             onViewReady={(view) => {
               comments.onViewReady(view);
               onViewReady?.(view);

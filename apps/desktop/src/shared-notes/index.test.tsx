@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
   },
   preview: { status: "unavailable" } as any,
   signIn: vi.fn(),
+  startCommentDraft: vi.fn(),
+  commentDraft: null as Record<string, unknown> | null,
   commentInputs: [] as Array<Record<string, unknown>>,
 }));
 
@@ -46,6 +48,9 @@ vi.mock("~/session-sharing/comments", () => ({
       onCommentAnchorsEvent: vi.fn(),
       onViewDisposed: vi.fn(),
       onViewReady: vi.fn(),
+      draft: input.canCompose ? mocks.commentDraft : null,
+      selection: input.canCompose ? {} : null,
+      startDraft: mocks.startCommentDraft,
     };
   },
 }));
@@ -74,15 +79,18 @@ vi.mock("@anlg/editor/note", () => ({
     readOnly,
     showFormatToolbar,
     initialContent,
+    onCommentSelection,
   }: {
     readOnly?: boolean;
     showFormatToolbar?: boolean;
     initialContent?: unknown;
+    onCommentSelection?: () => void;
   }) => (
     <div
       data-content={JSON.stringify(initialContent)}
       data-read-only={String(readOnly)}
       data-show-format-toolbar={String(showFormatToolbar)}
+      data-comment-action={String(Boolean(onCommentSelection))}
       data-testid="shared-note-editor"
     />
   ),
@@ -120,6 +128,7 @@ describe("TabContentSharedNote", () => {
     mocks.query = { data: null, isLoading: false, error: null };
     mocks.preview = { status: "unavailable" };
     mocks.signIn.mockResolvedValue(undefined);
+    mocks.commentDraft = null;
     mocks.commentInputs = [];
   });
 
@@ -193,6 +202,9 @@ describe("TabContentSharedNote", () => {
       manageAccess: false,
       shareId: "share-1",
     });
+    expect(screen.getByTestId("shared-note-editor").dataset.commentAction).toBe(
+      "false",
+    );
   });
 
   it("allows commenters to compose without making the shared note editable", () => {
@@ -223,6 +235,33 @@ describe("TabContentSharedNote", () => {
       manageAccess: false,
       shareId: "share-1",
     });
+    expect(screen.getByTestId("shared-note-editor").dataset.commentAction).toBe(
+      "true",
+    );
+  });
+
+  it("hides the selection comment action while a draft is open", () => {
+    mocks.commentDraft = {};
+    mocks.query.data = {
+      shareId: "share-1",
+      workspaceId: "workspace-1",
+      sessionId: "session-1",
+      schemaVersion: 1,
+      contentRevision: 2,
+      title: "Shared plan",
+      body: { type: "doc", content: [{ type: "paragraph" }] },
+      attachments: [],
+      capability: "commenter",
+      manageAccess: false,
+      accessVersion: 3,
+      publishedAt: "2026-07-16T17:30:00.000Z",
+    };
+
+    renderSharedNote();
+
+    expect(screen.getByTestId("shared-note-editor").dataset.commentAction).toBe(
+      "false",
+    );
   });
 
   it("removes content when access is no longer cached", () => {

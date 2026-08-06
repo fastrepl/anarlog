@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChatCenteredDots, CircleNotch, Trash } from "@phosphor-icons/react";
+import { CircleNotch, Trash } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { EditorView } from "prosemirror-view";
@@ -403,22 +403,6 @@ export function SessionCommentsLayer({
   return (
     <>
       <span ref={controller.anchorSyncRef} className="hidden" />
-      {controller.selection && !controller.draft && (
-        <Button
-          type="button"
-          size="sm"
-          className="absolute z-30 -translate-x-full -translate-y-[calc(100%+6px)] shadow-md"
-          style={{
-            left: controller.selection.left,
-            top: controller.selection.top,
-          }}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={controller.startDraft}
-        >
-          <ChatCenteredDots className="size-3.5" aria-hidden="true" />
-          <Trans>Comment</Trans>
-        </Button>
-      )}
       {controller.draft && (
         <Popover
           open

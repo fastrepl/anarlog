@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { EditorState, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { createElement, createRef } from "react";
@@ -154,6 +161,52 @@ describe("createReadOnlyPlugin", () => {
 
     expect(view?.state.doc.textContent).toBe("shared");
     expect(handleChange).not.toHaveBeenCalled();
+  });
+
+  it("shows a comment-only selection toolbar in read-only documents", async () => {
+    let view: EditorView | null = null;
+    const onCommentSelection = vi.fn();
+    render(
+      createElement(NoteEditor, {
+        initialContent: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "shared" }],
+            },
+          ],
+        },
+        onCommentSelection,
+        onViewReady: (nextView) => {
+          view = nextView;
+        },
+        readOnly: true,
+      }),
+    );
+
+    await waitFor(() => expect(view).not.toBeNull());
+    vi.spyOn(view!, "coordsAtPos").mockReturnValue({
+      bottom: 20,
+      left: 0,
+      right: 40,
+      top: 0,
+    });
+    act(() => {
+      view?.dispatch(
+        view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 4)),
+      );
+    });
+
+    const commentButton = await screen.findByRole("button", {
+      name: "Comment",
+    });
+    expect(screen.getByRole("toolbar").querySelectorAll("button")).toHaveLength(
+      1,
+    );
+    fireEvent.click(commentButton);
+
+    expect(onCommentSelection).toHaveBeenCalledOnce();
   });
 
   it("hides attachment mutation controls in read-only documents", async () => {

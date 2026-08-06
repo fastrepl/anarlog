@@ -12,6 +12,7 @@ import {
   useEditorState,
 } from "@handlewithcare/react-prosemirror";
 import {
+  ChatCenteredDots,
   Code,
   Highlighter,
   TextB,
@@ -68,13 +69,23 @@ const TOOLBAR_BUTTONS: {
   { id: "highlight", icon: Highlighter, markType: schema.marks.highlight },
 ];
 
-export function FormatToolbar() {
+export function FormatToolbar({
+  onComment,
+  showFormatting = true,
+}: {
+  onComment?: () => void;
+  showFormatting?: boolean;
+}) {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
 
   const editorState = useEditorState();
+  const canFormatSelection = editorState
+    ? showFormatting && !selectionTouchesTitleHeading(editorState)
+    : false;
   const shouldShowToolbar = editorState
-    ? !editorState.selection.empty && !selectionTouchesTitleHeading(editorState)
+    ? !editorState.selection.empty &&
+      (canFormatSelection || onComment !== undefined)
     : false;
 
   const toggle = useEditorEventCallback((view, markType: MarkType) => {
@@ -139,25 +150,42 @@ export function FormatToolbar() {
       style={{ top: 0, left: 0, zIndex: 40 }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      {TOOLBAR_BUTTONS.map((button) => {
-        const active = isMarkActive(editorState, button.markType);
-        return (
-          <button
-            key={button.id}
-            aria-pressed={active}
-            className={cn([
-              "flex size-7 items-center justify-center rounded-md",
-              "cursor-pointer border-none transition-colors",
-              active
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground bg-transparent",
-            ])}
-            onClick={() => toggle(button.markType)}
-          >
-            <button.icon className="size-4" />
-          </button>
-        );
-      })}
+      {canFormatSelection &&
+        TOOLBAR_BUTTONS.map((button) => {
+          const active = isMarkActive(editorState, button.markType);
+          return (
+            <button
+              key={button.id}
+              aria-pressed={active}
+              className={cn([
+                "flex size-7 items-center justify-center rounded-md",
+                "cursor-pointer border-none transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground bg-transparent",
+              ])}
+              onClick={() => toggle(button.markType)}
+            >
+              <button.icon className="size-4" />
+            </button>
+          );
+        })}
+      {canFormatSelection && onComment && (
+        <span className="bg-border mx-0.5 h-4 w-px" aria-hidden="true" />
+      )}
+      {onComment && (
+        <button
+          type="button"
+          aria-label="Comment"
+          className={cn([
+            "text-muted-foreground flex size-7 items-center justify-center rounded-md",
+            "hover:bg-accent hover:text-accent-foreground cursor-pointer border-none bg-transparent transition-colors",
+          ])}
+          onClick={onComment}
+        >
+          <ChatCenteredDots className="size-4" />
+        </button>
+      )}
     </div>,
     document.body,
   );
