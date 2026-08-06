@@ -492,6 +492,10 @@ msgstr ""
 msgid "Choose {0} export files"
 msgstr ""
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Choose a channel"
+msgstr ""
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Choose a file format and what to include."
 msgstr ""
@@ -724,6 +728,14 @@ msgstr ""
 msgid "Connect Outlook"
 msgstr ""
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Connect Slack"
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Connect Slack to choose a channel for this recap."
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Connect your integration"
 msgstr ""
@@ -765,6 +777,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Copy recovery key"
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -961,7 +977,16 @@ msgid "Eligible for free trial"
 msgstr ""
 
 #: src/contacts/details.tsx
+#: src/session-sharing/delivery-panel.tsx
 msgid "Email"
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Email meeting notes"
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Email or name"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -1394,6 +1419,10 @@ msgstr ""
 msgid "Loading calendars..."
 msgstr ""
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Loading channels…"
+msgstr ""
+
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Loading models..."
 msgstr ""
@@ -1813,6 +1842,7 @@ msgid "Pause sync"
 msgstr ""
 
 #: src/contacts/organization-details.tsx
+#: src/session-sharing/delivery-panel.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
 msgstr ""
@@ -1853,6 +1883,10 @@ msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
 msgid "Post recording disclosure in meeting chat"
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Post the meeting summary to a channel you can access."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -1924,9 +1958,17 @@ msgstr ""
 msgid "Recent"
 msgstr ""
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Recipient email"
+msgstr ""
+
 #: src/calendar/components/oauth/status.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Reconnect Slack"
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
@@ -2210,6 +2252,10 @@ msgstr ""
 msgid "Select..."
 msgstr ""
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Send"
+msgstr ""
+
 #: src/contacts/organization-details.tsx
 msgid "Send email"
 msgstr ""
@@ -2220,6 +2266,14 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Send the canvas link to the selected Slack channel."
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Send the summary in the email. Replies go directly to you."
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Send to Slack"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -2473,6 +2527,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Skipped"
+msgstr ""
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Slack"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx

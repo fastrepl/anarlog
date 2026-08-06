@@ -70,6 +70,9 @@ pub struct SharedNotesConfig {
     pub(crate) supabase_service_role_key: String,
     pub(crate) loops_api_key: Option<String>,
     pub(crate) loops_api_base: Option<reqwest::Url>,
+    pub(crate) resend_api_key: Option<String>,
+    pub(crate) resend_api_base: Option<reqwest::Url>,
+    pub(crate) resend_from_email: Option<String>,
 }
 
 impl SharedNotesConfig {
@@ -89,7 +92,36 @@ impl SharedNotesConfig {
             supabase_service_role_key,
             loops_api_key: None,
             loops_api_base: None,
+            resend_api_key: None,
+            resend_api_base: None,
+            resend_from_email: None,
         })
+    }
+
+    pub fn with_resend_email(
+        mut self,
+        api_key: impl Into<String>,
+        from_email: impl Into<String>,
+    ) -> Result<Self, String> {
+        let api_key = api_key.into();
+        if api_key.trim().is_empty() {
+            return Err("RESEND_API_KEY is required for shared note email".to_string());
+        }
+        let from_email = from_email.into();
+        if !is_email_address(&from_email) {
+            return Err(
+                "RESEND_FROM_EMAIL must be a valid email address for shared note email".to_string(),
+            );
+        }
+        self.resend_api_key = Some(api_key);
+        self.resend_from_email = Some(from_email);
+        Ok(self)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_resend_api_base(mut self, api_base: reqwest::Url) -> Self {
+        self.resend_api_base = Some(api_base);
+        self
     }
 
     pub fn with_invitation_email(
@@ -109,6 +141,15 @@ impl SharedNotesConfig {
         self.loops_api_base = Some(api_base);
         self
     }
+}
+
+fn is_email_address(value: &str) -> bool {
+    value.len() <= 320
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
+        && value
+            .split_once('@')
+            .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'))
 }
 
 impl SyncConfig {

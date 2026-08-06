@@ -559,6 +559,7 @@ dependencies = [
  "api-cloud",
  "api-env",
  "api-mail",
+ "api-messenger",
  "api-nango",
  "api-pyannote",
  "api-research",
@@ -740,14 +741,14 @@ dependencies = [
 name = "api-messenger"
 version = "0.1.0"
 dependencies = [
- "anlg-http-utils",
  "api-error",
+ "api-nango",
  "axum 0.8.9",
  "serde",
  "serde_json",
  "slack-web",
- "teems",
  "thiserror 2.0.18",
+ "utoipa",
 ]
 
 [[package]]

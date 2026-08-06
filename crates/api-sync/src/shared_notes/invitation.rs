@@ -1,14 +1,14 @@
 use anlg_api_auth::AuthContext;
-use anlg_loops::TransactionalEmail;
 use axum::{
     Extension, Json,
     extract::{Path, State},
     http::StatusCode,
 };
+use utoipa::OpenApi;
 
 use super::gateway::canonical_uuid_v4;
 use super::{
-    INVITATION_TRANSACTIONAL_ID, ListSessionShareAccessRequest, MAX_ACCESS_LIST_RESPONSE_BYTES,
+    ListSessionShareAccessRequest, MAX_ACCESS_LIST_RESPONSE_BYTES, MeetingRecapEmailRequest,
     SessionShareAccessRow, SharedNoteInvitationEmailRequest, SharedNotesState,
 };
 use crate::error::{Result, SyncError};
@@ -59,34 +59,32 @@ pub(super) async fn send_shared_note_invitation_email(
         .and_then(|row| row.user_email)
         .filter(|email| is_valid_invitation_email(email))
         .ok_or(SyncError::SharedNoteNotFound)?;
-    let sender_name = auth
+    let owner_email = auth
         .claims
         .email
         .as_deref()
         .filter(|email| is_valid_invitation_email(email))
-        .unwrap_or("An Anarlog user")
-        .to_string();
+        .ok_or(SyncError::InvitationEmailUnavailable)?;
+    let sender_name = if input.from_name.trim().is_empty() {
+        owner_email
+    } else {
+        &input.from_name
+    };
     let invitation_url = format!(
         "https://anarlog.so/share/invite/{invitation_id}/#token={}",
         input.invite_token
     );
-    let invitation_email = state
-        .invitation_email
+    let email_delivery = state
+        .email_delivery
         .as_ref()
         .ok_or(SyncError::InvitationEmailUnavailable)?;
-    invitation_email
-        .send_transactional(
-            TransactionalEmail {
-                email: recipient,
-                transactional_id: INVITATION_TRANSACTIONAL_ID.to_string(),
-                data_variables: [
-                    ("senderName".to_string(), sender_name),
-                    ("noteTitle".to_string(), note_title),
-                    ("inviteUrl".to_string(), invitation_url),
-                ]
-                .into_iter()
-                .collect(),
-            },
+    email_delivery
+        .send_invitation(
+            &recipient,
+            owner_email,
+            sender_name,
+            &note_title,
+            &invitation_url,
             &invitation_id,
         )
         .await
@@ -95,6 +93,83 @@ pub(super) async fn send_shared_note_invitation_email(
             SyncError::InvitationEmailUnavailable
         })?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/{share_id}/recap/email",
+    tag = "shared-notes",
+    params(("share_id" = String, Path, description = "Session share ID")),
+    request_body = MeetingRecapEmailRequest,
+    responses(
+        (status = 204, description = "Meeting recap email sent"),
+        (status = 400, description = "Invalid recap email request"),
+        (status = 401, description = "Authentication required"),
+        (status = 404, description = "Shared note unavailable"),
+        (status = 502, description = "Recap email service unavailable")
+    )
+)]
+pub(super) async fn send_shared_note_recap_email(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<SharedNotesState>,
+    Path(share_id): Path<String>,
+    Json(input): Json<MeetingRecapEmailRequest>,
+) -> Result<StatusCode> {
+    let share_id = canonical_uuid_v4(&share_id)
+        .ok_or_else(|| SyncError::BadRequest("invalid share".to_string()))?;
+    let delivery_id = canonical_uuid_v4(&input.delivery_id)
+        .ok_or_else(|| SyncError::BadRequest("invalid delivery".to_string()))?;
+    let recipients = recap_recipients(input.recipients)?;
+    let note_title = invitation_note_title(&input.note_title)?;
+    let note_body = recap_note_body(&input.note_body)?;
+    let owner_email = auth
+        .claims
+        .email
+        .as_deref()
+        .filter(|email| is_valid_invitation_email(email))
+        .ok_or(SyncError::RecapEmailUnavailable)?;
+    let sender_name = if input.sender_name.trim().is_empty() {
+        owner_email
+    } else {
+        &input.sender_name
+    };
+
+    list_session_share_access_as_user(&state, &auth, &share_id)
+        .await
+        .map_err(|error| match error {
+            SyncError::SharedNoteNotFound => error,
+            _ => SyncError::RecapEmailUnavailable,
+        })?;
+    let email_delivery = state
+        .email_delivery
+        .as_ref()
+        .ok_or(SyncError::RecapEmailUnavailable)?;
+    email_delivery
+        .send_recap(
+            &recipients,
+            owner_email,
+            sender_name,
+            &note_title,
+            note_body,
+            &delivery_id,
+        )
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, delivery_id, "shared-note recap email failed");
+            SyncError::RecapEmailUnavailable
+        })?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(send_shared_note_recap_email),
+    components(schemas(MeetingRecapEmailRequest))
+)]
+struct RecapApiDoc;
+
+pub(super) fn recap_openapi() -> utoipa::openapi::OpenApi {
+    RecapApiDoc::openapi()
 }
 
 fn invitation_note_title(value: &str) -> Result<String> {
@@ -119,6 +194,45 @@ fn is_valid_invitation_email(value: &str) -> bool {
         && value
             .split_once('@')
             .is_some_and(|(local, domain)| !local.is_empty() && domain.contains('.'))
+}
+
+fn recap_recipients(values: Vec<String>) -> Result<Vec<String>> {
+    if values.is_empty() || values.len() > 20 {
+        return Err(SyncError::BadRequest(
+            "provide between 1 and 20 recipients".to_string(),
+        ));
+    }
+    let mut recipients = Vec::with_capacity(values.len());
+    for value in values {
+        let value = value.trim().to_string();
+        if !is_valid_invitation_email(&value) {
+            return Err(SyncError::BadRequest("invalid recipient".to_string()));
+        }
+        if recipients
+            .iter()
+            .any(|recipient: &String| recipient.eq_ignore_ascii_case(&value))
+        {
+            continue;
+        }
+        recipients.push(value);
+    }
+    if recipients.is_empty() {
+        return Err(SyncError::BadRequest("invalid recipients".to_string()));
+    }
+    Ok(recipients)
+}
+
+fn recap_note_body(value: &str) -> Result<&str> {
+    let value = value.trim();
+    if value.is_empty()
+        || value.len() > 100 * 1024
+        || value
+            .chars()
+            .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+    {
+        return Err(SyncError::BadRequest("invalid recap body".to_string()));
+    }
+    Ok(value)
 }
 
 async fn list_session_share_access_as_user(

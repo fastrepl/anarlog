@@ -1,6 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, X } from "@phosphor-icons/react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
@@ -118,11 +119,17 @@ export function ShareInviteForm({
   disabled,
   pending,
   onSubmit,
+  actionLabel = <Trans>Invite</Trans>,
+  inputLabel = "Invitee email",
+  placeholder = "Email or name",
 }: {
   invite: ReturnType<typeof useShareInvite>;
   disabled: boolean;
   pending: boolean;
   onSubmit: (emails: string[]) => void;
+  actionLabel?: ReactNode;
+  inputLabel?: string;
+  placeholder?: string;
 }) {
   const humans = useHumans();
   const normalized = invite.query.trim().toLowerCase();
@@ -160,7 +167,7 @@ export function ShareInviteForm({
         >
           <input
             type="text"
-            aria-label="Invitee email"
+            aria-label={inputLabel}
             autoComplete="email"
             value={invite.query}
             disabled={disabled}
@@ -171,7 +178,7 @@ export function ShareInviteForm({
                 invite.commitQuery();
               }
             }}
-            placeholder="Email or name"
+            placeholder={placeholder}
             className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-xs outline-hidden disabled:cursor-not-allowed"
           />
         </div>
@@ -184,7 +191,7 @@ export function ShareInviteForm({
           {pending ? (
             <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : null}
-          <Trans>Invite</Trans>
+          {actionLabel}
         </Button>
       </form>
 

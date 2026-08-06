@@ -27,6 +27,7 @@ import {
   ShareManagementError,
   updateSessionAccessGrant,
 } from "./client";
+import { getSessionShareSenderName } from "./invitation-management";
 import {
   copyInvitationOrRevoke,
   ShareOperationAbortedError,
@@ -165,6 +166,7 @@ export function useSessionAccessManagement({
               invitationId: invitation.invitationId,
               inviteToken: invitation.inviteToken,
               noteTitle: published.title,
+              senderName: getSessionShareSenderName(context.session.user),
               signal,
             });
           } catch {
@@ -206,6 +208,7 @@ export function useSessionAccessManagement({
               invitationId: invitation.invitationId,
               inviteToken: invitation.inviteToken,
               noteTitle: published.title,
+              senderName: getSessionShareSenderName(context.session.user),
               signal,
             });
           } catch {

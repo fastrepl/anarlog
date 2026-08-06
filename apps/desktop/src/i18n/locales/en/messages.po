@@ -492,6 +492,10 @@ msgstr "Checking trial eligibility..."
 msgid "Choose {0} export files"
 msgstr "Choose {0} export files"
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Choose a channel"
+msgstr "Choose a channel"
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Choose a file format and what to include."
 msgstr "Choose a file format and what to include."
@@ -724,6 +728,14 @@ msgstr "Connect Google Calendar"
 msgid "Connect Outlook"
 msgstr "Connect Outlook"
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Connect Slack"
+msgstr "Connect Slack"
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Connect Slack to choose a channel for this recap."
+msgstr "Connect Slack to choose a channel for this recap."
+
 #: src/instruction/index.tsx
 msgid "Connect your integration"
 msgstr "Connect your integration"
@@ -766,6 +778,10 @@ msgstr "Copy message"
 #: src/settings/general/e2ee-setup.tsx
 msgid "Copy recovery key"
 msgstr "Copy recovery key"
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Could not load Slack channels. Reconnect Slack and try again."
+msgstr "Could not load Slack channels. Reconnect Slack and try again."
 
 #: src/settings/automations/index.tsx
 msgid "Could not save the automation draft"
@@ -961,8 +977,17 @@ msgid "Eligible for free trial"
 msgstr "Eligible for free trial"
 
 #: src/contacts/details.tsx
+#: src/session-sharing/delivery-panel.tsx
 msgid "Email"
 msgstr "Email"
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Email meeting notes"
+msgstr "Email meeting notes"
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Email or name"
+msgstr "Email or name"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Emojis"
@@ -1394,6 +1419,10 @@ msgstr "Loading Auto prompt..."
 msgid "Loading calendars..."
 msgstr "Loading calendars..."
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Loading channels…"
+msgstr "Loading channels…"
+
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Loading models..."
 msgstr "Loading models..."
@@ -1813,6 +1842,7 @@ msgid "Pause sync"
 msgstr "Pause sync"
 
 #: src/contacts/organization-details.tsx
+#: src/session-sharing/delivery-panel.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
 msgstr "People"
@@ -1854,6 +1884,10 @@ msgstr "Post a meeting recap to a Slack channel."
 #: src/settings/general/meeting-settings.tsx
 msgid "Post recording disclosure in meeting chat"
 msgstr "Post recording disclosure in meeting chat"
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Post the meeting summary to a channel you can access."
+msgstr "Post the meeting summary to a channel you can access."
 
 #: src/settings/automations/index.tsx
 msgid "Post to a channel"
@@ -1924,10 +1958,18 @@ msgstr "Ready to go"
 msgid "Recent"
 msgstr "Recent"
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Recipient email"
+msgstr "Recipient email"
+
 #: src/calendar/components/oauth/status.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
 msgstr "Reconnect required"
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Reconnect Slack"
+msgstr "Reconnect Slack"
 
 #: src/session/components/outer-header/index.tsx
 msgid "Record"
@@ -2210,6 +2252,10 @@ msgstr "Select timezone"
 msgid "Select..."
 msgstr "Select..."
 
+#: src/session-sharing/delivery-panel.tsx
+msgid "Send"
+msgstr "Send"
+
 #: src/contacts/organization-details.tsx
 msgid "Send email"
 msgstr "Send email"
@@ -2221,6 +2267,14 @@ msgstr "Send message"
 #: src/settings/automations/index.tsx
 msgid "Send the canvas link to the selected Slack channel."
 msgstr "Send the canvas link to the selected Slack channel."
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Send the summary in the email. Replies go directly to you."
+msgstr "Send the summary in the email. Replies go directly to you."
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Send to Slack"
+msgstr "Send to Slack"
 
 #: src/settings/sync/index.tsx
 msgid "Sending and receiving your latest changes."
@@ -2474,6 +2528,10 @@ msgstr "Skip"
 #: src/onboarding/index.tsx
 msgid "Skipped"
 msgstr "Skipped"
+
+#: src/session-sharing/delivery-panel.tsx
+msgid "Slack"
+msgstr "Slack"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Smileys & People"

@@ -40,6 +40,7 @@ const MAX_HANDOFF_CLAIM_REQUEST_BYTES: usize = 256;
 const MAX_SNAPSHOT_RESPONSE_BYTES: usize = MAX_SNAPSHOT_BODY_BYTES + 256 * 1024;
 const MAX_HANDOFF_RESPONSE_BYTES: usize = 16 * 1024;
 const MAX_INVITATION_EMAIL_REQUEST_BYTES: usize = 8 * 1024;
+const MAX_RECAP_EMAIL_REQUEST_BYTES: usize = 128 * 1024;
 const MAX_ACCESS_LIST_RESPONSE_BYTES: usize = 1024 * 1024;
 const SHARED_ATTACHMENT_BUCKET: &str = "shared-note-attachments";
 const ATTACHMENT_DOWNLOAD_TTL_SECONDS: i64 = 60;
@@ -47,12 +48,18 @@ const FLY_CLIENT_IP_HEADER: &str = "fly-client-ip";
 const HANDOFF_SOURCE_DOMAIN: &[u8] = b"anarlog:shared-note-handoff-source:v1\0";
 const INVITATION_TRANSACTIONAL_ID: &str = "cmrvkrh3c0k0t0jvh80zpkk93";
 
+mod email_delivery;
+
+pub fn recap_openapi() -> utoipa::openapi::OpenApi {
+    invitation::recap_openapi()
+}
+
 #[derive(Clone)]
 pub struct SharedNotesState {
     config: SharedNotesConfig,
     client: reqwest::Client,
     storage: anlg_supabase_storage::SupabaseStorage,
-    invitation_email: Option<LoopClient>,
+    email_delivery: Option<email_delivery::EmailDelivery>,
 }
 
 impl SharedNotesState {
@@ -67,18 +74,32 @@ impl SharedNotesState {
             &config.supabase_url,
             &config.supabase_service_role_key,
         );
-        let invitation_email = config.loops_api_key.as_ref().map(|api_key| {
-            let mut builder = LoopClient::builder().api_key(api_key);
-            if let Some(api_base) = config.loops_api_base.clone() {
-                builder = builder.api_base(api_base);
-            }
-            builder.build()
-        });
+        let email_delivery = if let (Some(api_key), Some(from_email)) = (
+            config.resend_api_key.clone(),
+            config.resend_from_email.clone(),
+        ) {
+            Some(email_delivery::EmailDelivery::Resend(
+                email_delivery::ResendClient::new(
+                    client.clone(),
+                    config.resend_api_base.clone(),
+                    api_key,
+                    from_email,
+                ),
+            ))
+        } else {
+            config.loops_api_key.as_ref().map(|api_key| {
+                let mut builder = LoopClient::builder().api_key(api_key);
+                if let Some(api_base) = config.loops_api_base.clone() {
+                    builder = builder.api_base(api_base);
+                }
+                email_delivery::EmailDelivery::Loops(builder.build())
+            })
+        };
         Self {
             config,
             client,
             storage,
-            invitation_email,
+            email_delivery,
         }
     }
 
@@ -129,6 +150,18 @@ pub struct SharedNoteInvitationEmailRequest {
     share_id: String,
     invite_token: String,
     note_title: String,
+    #[serde(default)]
+    from_name: String,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct MeetingRecapEmailRequest {
+    recipients: Vec<String>,
+    sender_name: String,
+    note_title: String,
+    note_body: String,
+    delivery_id: String,
 }
 
 #[derive(Deserialize)]
@@ -355,6 +388,11 @@ pub fn authenticated_router(state: SharedNotesState) -> Router {
             "/shared-notes/invitations/{invitation_id}/email",
             post(send_shared_note_invitation_email)
                 .layer(DefaultBodyLimit::max(MAX_INVITATION_EMAIL_REQUEST_BYTES)),
+        )
+        .route(
+            "/shared-notes/{share_id}/recap/email",
+            post(invitation::send_shared_note_recap_email)
+                .layer(DefaultBodyLimit::max(MAX_RECAP_EMAIL_REQUEST_BYTES)),
         )
         .route(
             "/shared-notes/access/{share_id}/attachments/{attachment_id}/download",

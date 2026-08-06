@@ -544,6 +544,71 @@
         ]
       }
     },
+    "/messenger/slack/channels": {
+      "get": {
+        "tags": [
+          "messenger"
+        ],
+        "operationId": "list_slack_channels",
+        "responses": {
+          "200": {
+            "description": "Slack channels available to the connected account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlackChannelsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Slack connection unavailable"
+          }
+        }
+      }
+    },
+    "/messenger/slack/messages": {
+      "post": {
+        "tags": [
+          "messenger"
+        ],
+        "operationId": "send_slack_message",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlackSendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Slack message sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendMessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid Slack message"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Slack delivery unavailable"
+          }
+        }
+      }
+    },
     "/nango/connections": {
       "get": {
         "tags": [
@@ -1421,6 +1486,52 @@
           },
           "502": {
             "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/{share_id}/recap/email": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "send_shared_note_recap_email",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingRecapEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Meeting recap email sent"
+          },
+          "400": {
+            "description": "Invalid recap email request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Recap email service unavailable"
           }
         }
       }
@@ -7669,6 +7780,37 @@
           }
         }
       },
+      "MeetingRecapEmailRequest": {
+        "type": "object",
+        "required": [
+          "recipients",
+          "senderName",
+          "noteTitle",
+          "noteBody",
+          "deliveryId"
+        ],
+        "properties": {
+          "deliveryId": {
+            "type": "string"
+          },
+          "noteBody": {
+            "type": "string"
+          },
+          "noteTitle": {
+            "type": "string"
+          },
+          "recipients": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "senderName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "Message": {
         "type": "object",
         "required": [
@@ -8867,6 +9009,21 @@
           }
         }
       },
+      "SendMessageResponse": {
+        "type": "object",
+        "required": [
+          "message_id",
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "message_id": {
+            "type": "string"
+          }
+        }
+      },
       "Sensitivity": {
         "type": "string",
         "enum": [
@@ -9089,6 +9246,9 @@
           "noteTitle"
         ],
         "properties": {
+          "fromName": {
+            "type": "string"
+          },
           "inviteToken": {
             "type": "string"
           },
@@ -9156,6 +9316,55 @@
             "type": "string"
           }
         }
+      },
+      "SlackChannel": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "is_private"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "is_private": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "SlackChannelsResponse": {
+        "type": "object",
+        "required": [
+          "channels"
+        ],
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SlackChannel"
+            }
+          }
+        }
+      },
+      "SlackSendRequest": {
+        "type": "object",
+        "required": [
+          "channel",
+          "text"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "SnapshotReceipt": {
         "type": "object",
@@ -11408,6 +11617,10 @@
     {
       "name": "mail",
       "description": "Mail management"
+    },
+    {
+      "name": "messenger",
+      "description": "Messaging integrations"
     },
     {
       "name": "ticket",

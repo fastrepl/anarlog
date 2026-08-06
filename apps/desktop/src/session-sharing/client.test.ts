@@ -363,6 +363,7 @@ describe("session share management client", () => {
         invitationId,
         inviteToken,
         noteTitle: "Planning",
+        senderName: "Owner",
         fetcher,
       }),
     ).resolves.toBeUndefined();
@@ -376,7 +377,12 @@ describe("session share management client", () => {
       "Bearer authenticated-access-token",
     );
     expect(init.body).toBe(
-      JSON.stringify({ shareId, inviteToken, noteTitle: "Planning" }),
+      JSON.stringify({
+        shareId,
+        inviteToken,
+        noteTitle: "Planning",
+        fromName: "Owner",
+      }),
     );
   });
 

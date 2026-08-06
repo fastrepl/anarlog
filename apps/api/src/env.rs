@@ -42,6 +42,9 @@ pub struct Env {
     pub loops: anlg_api_env::LoopsEnv,
 
     #[serde(flatten)]
+    pub resend: anlg_api_env::ResendEnv,
+
+    #[serde(flatten)]
     pub llm: anlg_llm_proxy::Env,
     #[serde(flatten)]
     pub stt: anlg_transcribe_proxy::Env,

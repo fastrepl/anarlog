@@ -244,8 +244,18 @@ async fn app() -> Router {
         &env.supabase.supabase_url,
         &env.supabase.supabase_service_role_key,
     )
-    .and_then(|config| config.with_invitation_email(&env.loops.loops_key))
     .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
+    let (Some(resend_api_key), Some(resend_from_email)) = (
+        env.resend.resend_api_key.as_deref(),
+        env.resend.resend_from_email.as_deref(),
+    ) else {
+        panic!(
+            "Failed to load environment: RESEND_API_KEY and RESEND_FROM_EMAIL are required for shared note email"
+        );
+    };
+    let shared_notes_config = shared_notes_config
+        .with_resend_email(resend_api_key, resend_from_email)
+        .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
     let cloud_api_state = anlg_api_cloud::AppState::new(
         anlg_api_cloud::CloudApiConfig::new(
             &env.supabase.supabase_url,
@@ -330,6 +340,7 @@ async fn app() -> Router {
     let integration_routes = Router::new()
         .nest("/calendar", anlg_api_calendar::router())
         .nest("/mail", anlg_api_mail::router())
+        .nest("/messenger", anlg_api_messenger::router())
         .nest("/ticket", anlg_api_ticket::router())
         .nest(
             "/nango",

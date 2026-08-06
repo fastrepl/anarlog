@@ -10,6 +10,7 @@ anlg-api-calendar = { workspace = true }
 anlg-api-cloud = { workspace = true }
 anlg-api-env = { workspace = true }
 anlg-api-mail = { workspace = true }
+anlg-api-messenger = { workspace = true }
 anlg-api-nango = { workspace = true }
 anlg-api-pyannote = { workspace = true }
 anlg-api-research = { workspace = true }

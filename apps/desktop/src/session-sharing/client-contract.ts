@@ -98,6 +98,7 @@ export type SendSessionAccessInvitationEmailInput = {
   invitationId: string;
   inviteToken: string;
   noteTitle: string;
+  senderName: string;
   signal?: AbortSignal;
   fetcher?: typeof fetch;
 };

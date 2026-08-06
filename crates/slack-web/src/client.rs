@@ -1,7 +1,9 @@
 use anlg_http::HttpClient;
 
 use crate::error::Error;
-use crate::types::{PostMessageRequest, PostMessageResponse, SlackResponse};
+use crate::types::{
+    ListConversationsResponse, PostMessageRequest, PostMessageResponse, SlackResponse,
+};
 
 pub struct SlackWebClient<C> {
     http: C,
@@ -23,6 +25,18 @@ impl<C: HttpClient> SlackWebClient<C> {
             .await
             .map_err(Error::Http)?;
         let response: SlackResponse<PostMessageResponse> = serde_json::from_slice(&bytes)?;
+        response.into_result()
+    }
+
+    pub async fn list_conversations(&self) -> Result<ListConversationsResponse, Error> {
+        let bytes = self
+            .http
+            .get(
+                "/api/conversations.list?exclude_archived=true&limit=200&types=public_channel,private_channel",
+            )
+            .await
+            .map_err(Error::Http)?;
+        let response: SlackResponse<ListConversationsResponse> = serde_json::from_slice(&bytes)?;
         response.into_result()
     }
 }

@@ -28,6 +28,13 @@ import {
   useSessionShareAttachments,
 } from "./attachments";
 import { setSessionShareScope, ShareManagementError } from "./client";
+import { useSessionRecapDelivery } from "./delivery-management";
+import {
+  EmailRecapForm,
+  ShareRecapModeSelector,
+  SlackRecapForm,
+  type ShareRecapMode,
+} from "./delivery-panel";
 import {
   generalAccessWorkspaceId,
   GeneralAccessSelector,
@@ -106,6 +113,7 @@ export function SessionSharePopoverContent({
   );
   const hasConflict = syncStatus === "conflict";
   const canPublish = canExpand && !hasConflict && Boolean(management);
+  const [recapMode, setRecapMode] = useState<ShareRecapMode>("invite");
   const { data: sessionAttachments = [] } =
     useSessionShareAttachments(sessionId);
   const sharedAttachmentIds = matchSharedAttachmentsToLocal(
@@ -142,6 +150,14 @@ export function SessionSharePopoverContent({
     requireActiveContext,
     onActivated,
     onChanged,
+  });
+  const { emailMutation, slackMutation } = useSessionRecapDelivery({
+    shareId: identity.shareId,
+    canDeliver: canPublish,
+    runOperation,
+    publishLatest,
+    requireActiveContext,
+    onActivated,
   });
 
   const keepDesktopMutation = useMutation({
@@ -298,7 +314,8 @@ export function SessionSharePopoverContent({
     attachmentMutation.isPending ||
     keepDesktopMutation.isPending ||
     openWebCopyMutation.isPending;
-  pendingRef.current = anyPending;
+  const deliveryPending = emailMutation.isPending || slackMutation.isPending;
+  pendingRef.current = anyPending || deliveryPending;
   const generalScopeValue: GeneralAccessValue = management
     ? management.generalScope === "workspace"
       ? `workspace:${management.generalWorkspaceId}`
@@ -419,90 +436,111 @@ export function SessionSharePopoverContent({
                 </section>
               ) : null}
 
-              <section aria-labelledby="invite-people-heading">
-                <h3 id="invite-people-heading" className="sr-only">
-                  <Trans>People with access</Trans>
-                </h3>
-                <ShareInviteForm
-                  invite={invite}
-                  disabled={!canPublish || inviteMutation.isPending}
-                  pending={inviteMutation.isPending}
-                  onSubmit={(emails) => {
-                    inviteMutation.mutate(
-                      { emails, capability: "viewer" },
-                      {
-                        onSuccess: (deliveries) => {
-                          for (const delivery of deliveries) {
-                            if (delivery.deliveredBy) {
-                              invite.remove(delivery.email);
-                            }
-                          }
-                        },
-                      },
-                    );
-                  }}
-                />
+              <ShareRecapModeSelector
+                value={recapMode}
+                onValueChange={setRecapMode}
+              />
 
-                <div className="mt-2 space-y-0.5">
-                  <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
-                    <ContactFacehash name={ownerName} size={24} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium">
-                        {ownerName}{" "}
-                        <span className="text-muted-foreground">(You)</span>
-                      </p>
-                      {ownerEmail ? (
-                        <p className="text-muted-foreground truncate text-[10px]">
-                          {ownerEmail}
-                        </p>
-                      ) : null}
-                    </div>
-                    <span className="text-muted-foreground shrink-0 text-[11px]">
-                      <Trans>Full access</Trans>
-                    </span>
-                  </div>
-
-                  <ShareInviteRecipientRows
+              {recapMode === "invite" ? (
+                <section aria-labelledby="invite-people-heading">
+                  <h3 id="invite-people-heading" className="sr-only">
+                    <Trans>People with access</Trans>
+                  </h3>
+                  <ShareInviteForm
                     invite={invite}
                     disabled={!canPublish || inviteMutation.isPending}
+                    pending={inviteMutation.isPending}
+                    onSubmit={(emails) => {
+                      inviteMutation.mutate(
+                        { emails, capability: "viewer" },
+                        {
+                          onSuccess: (deliveries) => {
+                            for (const delivery of deliveries) {
+                              if (delivery.deliveredBy) {
+                                invite.remove(delivery.email);
+                              }
+                            }
+                          },
+                        },
+                      );
+                    }}
                   />
 
-                  {data?.access.length
-                    ? data.access.map((entry) => (
-                        <AccessEntryRow
-                          key={`${entry.entryType}:${entry.entryId}`}
-                          entry={entry}
-                          pending={
-                            entryMutation.isPending &&
-                            entryMutation.variables?.entry.entryId ===
-                              entry.entryId
-                          }
-                          canExpand={canExpand}
-                          contactName={
-                            humans.find(
-                              (human) =>
-                                human.email.toLowerCase() ===
-                                entry.userEmail?.toLowerCase(),
-                            )?.name
-                          }
-                          onMutate={(mutation) => {
-                            entryMutation.mutate(mutation, {
-                              onSuccess: () => {
-                                if (
-                                  (mutation.type === "grant-revoke" ||
-                                    mutation.type === "invitation-revoke") &&
-                                  mutation.entry.userEmail
-                                ) {
-                                  invite.restore(mutation.entry.userEmail);
-                                }
-                              },
-                            });
-                          }}
-                        />
-                      ))
-                    : null}
-                </div>
-              </section>
+                  <div className="mt-2 space-y-0.5">
+                    <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
+                      <ContactFacehash name={ownerName} size={24} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-medium">
+                          {ownerName}{" "}
+                          <span className="text-muted-foreground">(You)</span>
+                        </p>
+                        {ownerEmail ? (
+                          <p className="text-muted-foreground truncate text-[10px]">
+                            {ownerEmail}
+                          </p>
+                        ) : null}
+                      </div>
+                      <span className="text-muted-foreground shrink-0 text-[11px]">
+                        <Trans>Full access</Trans>
+                      </span>
+                    </div>
+
+                    <ShareInviteRecipientRows
+                      invite={invite}
+                      disabled={!canPublish || inviteMutation.isPending}
+                    />
+
+                    {data?.access.length
+                      ? data.access.map((entry) => (
+                          <AccessEntryRow
+                            key={`${entry.entryType}:${entry.entryId}`}
+                            entry={entry}
+                            pending={
+                              entryMutation.isPending &&
+                              entryMutation.variables?.entry.entryId ===
+                                entry.entryId
+                            }
+                            canExpand={canExpand}
+                            contactName={
+                              humans.find(
+                                (human) =>
+                                  human.email.toLowerCase() ===
+                                  entry.userEmail?.toLowerCase(),
+                              )?.name
+                            }
+                            onMutate={(mutation) => {
+                              entryMutation.mutate(mutation, {
+                                onSuccess: () => {
+                                  if (
+                                    (mutation.type === "grant-revoke" ||
+                                      mutation.type === "invitation-revoke") &&
+                                    mutation.entry.userEmail
+                                  ) {
+                                    invite.restore(mutation.entry.userEmail);
+                                  }
+                                },
+                              });
+                            }}
+                          />
+                        ))
+                      : null}
+                  </div>
+                </section>
+              ) : recapMode === "email" ? (
+                <EmailRecapForm
+                  sessionId={sessionId}
+                  ownerEmail={ownerEmail}
+                  disabled={!canPublish || anyPending || deliveryPending}
+                  pending={emailMutation.isPending}
+                  onSubmit={(emails) => emailMutation.mutate(emails)}
+                />
+              ) : (
+                <SlackRecapForm
+                  disabled={!canPublish || anyPending || deliveryPending}
+                  pending={slackMutation.isPending}
+                  onSubmit={(channel) => slackMutation.mutate(channel)}
+                />
+              )}
 
               {sessionAttachments.length ? (
                 <SessionAttachmentControls

@@ -12,6 +12,7 @@ pub use routes::{
 };
 pub use shared_notes::{
     SharedNotesState, authenticated_router as authenticated_shared_notes_router,
-    openapi as shared_notes_openapi, router as shared_notes_router,
+    openapi as shared_notes_openapi, recap_openapi as shared_note_recap_openapi,
+    router as shared_notes_router,
 };
 pub use state::AppState;

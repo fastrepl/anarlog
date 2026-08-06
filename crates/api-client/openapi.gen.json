@@ -4170,6 +4170,10 @@
       "name": "mail"
     },
     {
+      "description": "Messaging integrations",
+      "name": "messenger"
+    },
+    {
       "description": "Ticket management",
       "name": "ticket"
     },

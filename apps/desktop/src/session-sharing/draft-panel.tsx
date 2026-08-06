@@ -1,5 +1,6 @@
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch, Copy } from "@phosphor-icons/react";
+import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -7,6 +8,12 @@ import {
   PopoverContent,
 } from "@anlg/ui/components/ui/popover";
 
+import {
+  EmailRecapForm,
+  ShareRecapModeSelector,
+  SlackRecapForm,
+  type ShareRecapMode,
+} from "./delivery-panel";
 import {
   GeneralAccessSelector,
   type GeneralAccessTarget,
@@ -23,6 +30,8 @@ import { ContactFacehash } from "~/contacts/shared";
 
 export type DraftShareAction =
   | { type: "invite"; emails: string[] }
+  | { type: "email"; emails: string[] }
+  | { type: "slack"; channel: { id: string; name: string } }
   | { type: "copy-link" }
   | { type: "scope"; target: GeneralAccessTarget };
 
@@ -40,6 +49,7 @@ export function SessionShareDraftContent({
   onAction: (action: DraftShareAction) => void;
 }) {
   const auth = useAuth();
+  const [recapMode, setRecapMode] = useState<ShareRecapMode>("invite");
   const ownerEmail = auth.session?.user.email ?? "";
   const ownerMetadata = auth.session?.user.user_metadata;
   const ownerName =
@@ -72,42 +82,62 @@ export function SessionShareDraftContent({
 
         <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
           <div className="space-y-2">
-            <section aria-labelledby="invite-people-heading">
-              <h3 id="invite-people-heading" className="sr-only">
-                <Trans>People with access</Trans>
-              </h3>
-              <ShareInviteForm
-                invite={invite}
-                disabled={disabled || actionPending}
-                pending={pendingAction?.type === "invite"}
-                onSubmit={(emails) => onAction({ type: "invite", emails })}
-              />
-
-              <div className="mt-2 space-y-0.5">
-                <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
-                  <ContactFacehash name={ownerName} size={24} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium">
-                      {ownerName}{" "}
-                      <span className="text-muted-foreground">(You)</span>
-                    </p>
-                    {ownerEmail ? (
-                      <p className="text-muted-foreground truncate text-[10px]">
-                        {ownerEmail}
-                      </p>
-                    ) : null}
-                  </div>
-                  <span className="text-muted-foreground shrink-0 text-[11px]">
-                    <Trans>Full access</Trans>
-                  </span>
-                </div>
-
-                <ShareInviteRecipientRows
+            <ShareRecapModeSelector
+              value={recapMode}
+              onValueChange={setRecapMode}
+            />
+            {recapMode === "invite" ? (
+              <section aria-labelledby="invite-people-heading">
+                <h3 id="invite-people-heading" className="sr-only">
+                  <Trans>People with access</Trans>
+                </h3>
+                <ShareInviteForm
                   invite={invite}
                   disabled={disabled || actionPending}
+                  pending={pendingAction?.type === "invite"}
+                  onSubmit={(emails) => onAction({ type: "invite", emails })}
                 />
-              </div>
-            </section>
+
+                <div className="mt-2 space-y-0.5">
+                  <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
+                    <ContactFacehash name={ownerName} size={24} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium">
+                        {ownerName}{" "}
+                        <span className="text-muted-foreground">(You)</span>
+                      </p>
+                      {ownerEmail ? (
+                        <p className="text-muted-foreground truncate text-[10px]">
+                          {ownerEmail}
+                        </p>
+                      ) : null}
+                    </div>
+                    <span className="text-muted-foreground shrink-0 text-[11px]">
+                      <Trans>Full access</Trans>
+                    </span>
+                  </div>
+
+                  <ShareInviteRecipientRows
+                    invite={invite}
+                    disabled={disabled || actionPending}
+                  />
+                </div>
+              </section>
+            ) : recapMode === "email" ? (
+              <EmailRecapForm
+                sessionId={sessionId}
+                ownerEmail={ownerEmail}
+                disabled={disabled || actionPending}
+                pending={pendingAction?.type === "email"}
+                onSubmit={(emails) => onAction({ type: "email", emails })}
+              />
+            ) : (
+              <SlackRecapForm
+                disabled={disabled || actionPending}
+                pending={pendingAction?.type === "slack"}
+                onSubmit={(channel) => onAction({ type: "slack", channel })}
+              />
+            )}
 
             <section
               aria-labelledby="general-access-heading"

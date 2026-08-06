@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use tower::ServiceExt;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
-    matchers::{body_partial_json, header, method, path},
+    matchers::{body_json, body_partial_json, header, method, path},
 };
 
 use super::*;
@@ -68,7 +68,7 @@ async fn mount_rpc(server: &MockServer, function: &str, request: Value, response
 }
 
 #[tokio::test]
-async fn verifies_and_sends_a_shared_note_invitation_email() {
+async fn verifies_and_sends_a_resend_shared_note_invitation_email() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/rest/v1/rpc/list_session_share_access"))
@@ -85,26 +85,24 @@ async fn verifies_and_sends_a_shared_note_invitation_email() {
         .mount(&server)
         .await;
     Mock::given(method("POST"))
-        .and(path("/api/v1/transactional"))
-        .and(header("authorization", "Bearer loops-key"))
+        .and(path("/emails"))
+        .and(header("authorization", "Bearer resend-key"))
         .and(header("idempotency-key", INVITATION_ID))
         .and(body_partial_json(json!({
-            "email": "invitee@example.com",
-            "transactionalId": INVITATION_TRANSACTIONAL_ID,
-            "dataVariables": {
-                "senderName": "owner@example.com",
-                "noteTitle": "Planning"
-            }
+            "from": "Owner via Anarlog <notes@send.anarlog.so>",
+            "to": "invitee@example.com",
+            "reply_to": "owner@example.com",
+            "subject": "Owner invited you to Planning"
         })))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "success": true })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "id": "email-id" })))
         .expect(1)
         .mount(&server)
         .await;
     let config = SharedNotesConfig::new(server.uri(), "service-role-key")
         .unwrap()
-        .with_invitation_email("loops-key")
+        .with_resend_email("resend-key", "notes@send.anarlog.so")
         .unwrap()
-        .with_invitation_email_api_base(reqwest::Url::parse(&server.uri()).unwrap());
+        .with_resend_api_base(reqwest::Url::parse(&format!("{}/", server.uri())).unwrap());
     let app = authenticated_router(SharedNotesState::new(config)).layer(Extension(AuthContext {
         token: "user-token".to_string(),
         claims: Claims {
@@ -125,7 +123,83 @@ async fn verifies_and_sends_a_shared_note_invitation_email() {
                     json!({
                         "shareId": SHARE_ID,
                         "inviteToken": LINK_TOKEN,
-                        "noteTitle": "Planning"
+                        "noteTitle": "Planning",
+                        "fromName": "Owner"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn authorizes_and_sends_a_meeting_recap_to_each_recipient() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_session_share_access"))
+        .and(header("apikey", "service-role-key"))
+        .and(header("authorization", "Bearer user-token"))
+        .and(body_partial_json(json!({ "p_share_id": SHARE_ID })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/emails/batch"))
+        .and(header("authorization", "Bearer resend-key"))
+        .and(header("idempotency-key", INVITATION_ID))
+        .and(body_json(json!([
+            {
+                "from": "Owner via Anarlog <notes@send.anarlog.so>",
+                "to": "one@example.com",
+                "reply_to": "owner@example.com",
+                "subject": "Meeting notes: Planning",
+                "text": "Planning\n\n## Decisions\n\nShip it.\n\nSent by Owner via Anarlog. Reply to this email to contact them."
+            },
+            {
+                "from": "Owner via Anarlog <notes@send.anarlog.so>",
+                "to": "two@example.com",
+                "reply_to": "owner@example.com",
+                "subject": "Meeting notes: Planning",
+                "text": "Planning\n\n## Decisions\n\nShip it.\n\nSent by Owner via Anarlog. Reply to this email to contact them."
+            }
+        ])))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "data": [] })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let config = SharedNotesConfig::new(server.uri(), "service-role-key")
+        .unwrap()
+        .with_resend_email("resend-key", "notes@send.anarlog.so")
+        .unwrap()
+        .with_resend_api_base(reqwest::Url::parse(&format!("{}/", server.uri())).unwrap());
+    let app = authenticated_router(SharedNotesState::new(config)).layer(Extension(AuthContext {
+        token: "user-token".to_string(),
+        claims: Claims {
+            sub: OWNER_ID.to_string(),
+            email: Some("owner@example.com".to_string()),
+            entitlements: vec![],
+            subscription_status: None,
+            trial_end: None,
+            has_payment_method: None,
+        },
+    }));
+
+    let response = app
+        .oneshot(
+            Request::post(format!("/shared-notes/{SHARE_ID}/recap/email"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "recipients": ["one@example.com", "two@example.com"],
+                        "senderName": "Owner",
+                        "noteTitle": "Planning",
+                        "noteBody": "## Decisions\n\nShip it.",
+                        "deliveryId": INVITATION_ID
                     })
                     .to_string(),
                 ))

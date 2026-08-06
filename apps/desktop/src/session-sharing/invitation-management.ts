@@ -41,6 +41,7 @@ export async function deliverSessionShareInvitation({
   email,
   capability,
   noteTitle,
+  senderName,
   signal,
   requireActive,
   allowClipboardFallback,
@@ -50,6 +51,7 @@ export async function deliverSessionShareInvitation({
   email: string;
   capability: SessionAccessCapability;
   noteTitle: string;
+  senderName: string;
   signal: AbortSignal;
   requireActive: () => void;
   allowClipboardFallback: boolean;
@@ -77,6 +79,7 @@ export async function deliverSessionShareInvitation({
       invitationId: invitation.invitationId,
       inviteToken: invitation.inviteToken,
       noteTitle,
+      senderName,
       signal,
     });
   } catch {
@@ -117,6 +120,7 @@ export async function deliverSessionShareInvitations({
   emails: string[];
   capability: SessionAccessCapability;
   noteTitle: string;
+  senderName: string;
   signal: AbortSignal;
   requireActive: () => void;
 }): Promise<SessionShareInvitationDelivery[]> {
@@ -211,6 +215,7 @@ export function useSessionInvitationManagement({
           emails: input.emails,
           capability: input.capability,
           noteTitle: published.title,
+          senderName: getSessionShareSenderName(context.session.user),
           signal,
           requireActive: () => {
             requireActiveContext(signal);
@@ -234,4 +239,16 @@ export function useSessionInvitationManagement({
   });
 
   return { inviteMutation };
+}
+
+export function getSessionShareSenderName(user: {
+  email?: string;
+  user_metadata?: Record<string, unknown>;
+}) {
+  const metadata = user.user_metadata;
+  return typeof metadata?.full_name === "string" && metadata.full_name.trim()
+    ? metadata.full_name.trim()
+    : typeof metadata?.name === "string" && metadata.name.trim()
+      ? metadata.name.trim()
+      : user.email || "An Anarlog user";
 }

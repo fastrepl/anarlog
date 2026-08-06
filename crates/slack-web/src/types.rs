@@ -76,3 +76,18 @@ pub struct Message {
     #[serde(default)]
     pub ts: Option<String>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ListConversationsResponse {
+    pub channels: Vec<Conversation>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Conversation {
+    pub id: String,
+    pub name: String,
+    #[serde(default)]
+    pub is_private: bool,
+    #[serde(default)]
+    pub is_member: bool,
+}

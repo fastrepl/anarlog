@@ -48,6 +48,14 @@ pub struct LoopsEnv {
     pub loops_key: String,
 }
 
+#[derive(Clone, Default, Deserialize)]
+pub struct ResendEnv {
+    #[serde(default, deserialize_with = "filter_empty")]
+    pub resend_api_key: Option<String>,
+    #[serde(default, deserialize_with = "filter_empty")]
+    pub resend_from_email: Option<String>,
+}
+
 #[derive(Clone, Deserialize)]
 pub struct PyannoteEnv {
     pub pyannote_api_key: String,

@@ -216,6 +216,11 @@ function getIntegrationInstruction(integrationId?: string):
         displayName: "GitHub",
         icon: <GithubLogo className="text-foreground size-14" weight="light" />,
       };
+    case "slack":
+      return {
+        displayName: "Slack",
+        icon: <Icon icon="logos:slack-icon" width={56} height={56} />,
+      };
     default:
       return undefined;
   }

@@ -216,6 +216,7 @@ export async function sendSessionAccessInvitationEmail(
       shareId: input.shareId,
       inviteToken,
       noteTitle,
+      fromName: input.senderName.trim(),
     });
     if (utf8Length(body) > 8 * 1024) throw unavailable();
     const request = createTimedSignal(input.signal);

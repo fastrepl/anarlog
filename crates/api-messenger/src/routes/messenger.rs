@@ -1,89 +1,129 @@
+use anlg_api_nango::{NangoConnection, Slack};
+use anlg_slack_web::{PostMessageRequest, SlackWebClient};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 
 use crate::error::{MessengerError, Result};
 
-#[derive(Debug, Deserialize)]
-#[serde(tag = "platform", rename_all = "lowercase")]
-pub enum SendMessageRequest {
-    Slack(SlackSendRequest),
-    Teams(TeamsSendRequest),
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SlackSendRequest {
     pub channel: String,
-    #[serde(default)]
-    pub text: Option<String>,
-    #[serde(default)]
-    pub blocks: Option<serde_json::Value>,
-    #[serde(default)]
-    pub thread_ts: Option<String>,
+    pub text: String,
 }
 
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-pub struct TeamsSendRequest {
-    pub team_id: String,
-    pub channel_id: String,
-    pub content: String,
-    #[serde(default)]
-    pub content_type: Option<String>,
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct SlackChannel {
+    pub id: String,
+    pub name: String,
+    pub is_private: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct SlackChannelsResponse {
+    pub channels: Vec<SlackChannel>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct SendMessageResponse {
-    pub platform: String,
     pub message_id: String,
     pub channel: String,
 }
 
-pub async fn send_message(
-    Json(payload): Json<SendMessageRequest>,
+#[utoipa::path(
+    get,
+    path = "/slack/channels",
+    operation_id = "list_slack_channels",
+    responses(
+        (status = 200, description = "Slack channels available to the connected account", body = SlackChannelsResponse),
+        (status = 401, description = "Authentication required"),
+        (status = 500, description = "Slack connection unavailable"),
+    ),
+    tag = "messenger",
+)]
+pub async fn list_slack_channels(
+    nango: NangoConnection<Slack>,
+) -> Result<Json<SlackChannelsResponse>> {
+    let mut channels = SlackWebClient::new(nango.into_http())
+        .list_conversations()
+        .await?
+        .channels
+        .into_iter()
+        .filter(|channel| channel.is_member)
+        .map(|channel| SlackChannel {
+            id: channel.id,
+            name: channel.name,
+            is_private: channel.is_private,
+        })
+        .collect::<Vec<_>>();
+    channels.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(Json(SlackChannelsResponse { channels }))
+}
+
+#[utoipa::path(
+    post,
+    path = "/slack/messages",
+    operation_id = "send_slack_message",
+    request_body = SlackSendRequest,
+    responses(
+        (status = 200, description = "Slack message sent", body = SendMessageResponse),
+        (status = 400, description = "Invalid Slack message"),
+        (status = 401, description = "Authentication required"),
+        (status = 500, description = "Slack delivery unavailable"),
+    ),
+    tag = "messenger",
+)]
+pub async fn send_slack_message(
+    nango: NangoConnection<Slack>,
+    Json(payload): Json<SlackSendRequest>,
 ) -> Result<Json<SendMessageResponse>> {
-    match payload {
-        SendMessageRequest::Slack(req) => {
-            if req.text.is_none() && req.blocks.is_none() {
-                return Err(MessengerError::BadRequest(
-                    "either text or blocks must be provided".into(),
-                ));
-            }
+    let channel = required_text(&payload.channel, 80, "channel")?;
+    let text = required_text(&payload.text, 40_000, "message")?;
+    let response = SlackWebClient::new(nango.into_http())
+        .post_message(PostMessageRequest {
+            channel: channel.to_string(),
+            text: Some(text.to_string()),
+            blocks: None,
+            attachments: None,
+            thread_ts: None,
+            reply_broadcast: None,
+            mrkdwn: Some(true),
+            unfurl_links: Some(false),
+            unfurl_media: Some(false),
+            metadata: None,
+            username: None,
+            icon_url: None,
+            icon_emoji: None,
+        })
+        .await?;
 
-            let slack_req = anlg_slack_web::PostMessageRequest {
-                channel: req.channel.clone(),
-                text: req.text,
-                blocks: req.blocks,
-                attachments: None,
-                thread_ts: req.thread_ts,
-                reply_broadcast: None,
-                mrkdwn: None,
-                unfurl_links: None,
-                unfurl_media: None,
-                metadata: None,
-                username: None,
-                icon_url: None,
-                icon_emoji: None,
-            };
+    Ok(Json(SendMessageResponse {
+        message_id: response.ts,
+        channel: response.channel,
+    }))
+}
 
-            let _ = slack_req;
+fn required_text<'a>(value: &'a str, max_bytes: usize, label: &str) -> Result<&'a str> {
+    let value = value.trim();
+    if value.is_empty()
+        || value.len() > max_bytes
+        || value
+            .chars()
+            .any(|character| character.is_control() && !matches!(character, '\n' | '\r' | '\t'))
+    {
+        return Err(MessengerError::BadRequest(format!("invalid {label}")));
+    }
+    Ok(value)
+}
 
-            Err(MessengerError::Internal(
-                "slack client not configured in app state".into(),
-            ))
-        }
-        SendMessageRequest::Teams(req) => {
-            let teams_req = anlg_teems::SendMessageRequest {
-                body: anlg_teems::MessageBody {
-                    content: req.content,
-                    content_type: req.content_type,
-                },
-            };
+#[cfg(test)]
+mod tests {
+    use super::required_text;
 
-            let _ = teams_req;
-
-            Err(MessengerError::Internal(
-                "teams client not configured in app state".into(),
-            ))
-        }
+    #[test]
+    fn validates_slack_delivery_fields() {
+        assert_eq!(required_text(" C123 ", 80, "channel").unwrap(), "C123");
+        assert!(required_text("", 80, "channel").is_err());
+        assert!(required_text("hello\0world", 40_000, "message").is_err());
     }
 }

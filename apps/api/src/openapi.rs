@@ -17,6 +17,7 @@ use utoipa::{Modify, OpenApi};
         (name = "pyannote", description = "Pyannote speaker diarization and voice processing"),
         (name = "calendar", description = "Calendar management"),
         (name = "mail", description = "Mail management"),
+        (name = "messenger", description = "Messaging integrations"),
         (name = "ticket", description = "Ticket management"),
         (name = "nango", description = "Integration management via Nango"),
         (name = "sync", description = "CloudSync credential management"),
@@ -36,11 +37,13 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let pyannote_doc = with_path_prefix(anlg_api_pyannote::openapi(), "/pyannote");
     let calendar_doc = with_path_prefix(anlg_api_calendar::openapi(), "/calendar");
     let mail_doc = with_path_prefix(anlg_api_mail::openapi(), "/mail");
+    let messenger_doc = with_path_prefix(anlg_api_messenger::openapi(), "/messenger");
     let ticket_doc = with_path_prefix(anlg_api_ticket::openapi(), "/ticket");
     let nango_doc = with_path_prefix(anlg_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(anlg_api_subscription::openapi(), "/subscription");
     let sync_doc = with_path_prefix(anlg_api_sync::openapi(), "/sync");
     let shared_notes_doc = anlg_api_sync::shared_notes_openapi();
+    let shared_note_recap_doc = anlg_api_sync::shared_note_recap_openapi();
     let cloud_api_doc = anlg_api_cloud::openapi();
 
     doc.merge(stt_doc);
@@ -48,11 +51,13 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(pyannote_doc);
     doc.merge(calendar_doc);
     doc.merge(mail_doc);
+    doc.merge(messenger_doc);
     doc.merge(ticket_doc);
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
     doc.merge(sync_doc);
     doc.merge(shared_notes_doc);
+    doc.merge(shared_note_recap_doc);
     doc.merge(cloud_api_doc);
 
     apply_bearer_auth_to_protected_paths(&mut doc);

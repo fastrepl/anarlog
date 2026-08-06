@@ -5,11 +5,11 @@ edition = "2024"
 
 [dependencies]
 anlg-api-error = { workspace = true }
-anlg-http = { workspace = true }
+anlg-api-nango = { workspace = true }
 anlg-slack-web = { workspace = true }
-anlg-teems = { workspace = true }
 
 axum = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+utoipa = { workspace = true }

@@ -11,9 +11,6 @@ pub enum MessengerError {
     #[error("Slack error: {0}")]
     Slack(#[from] anlg_slack_web::Error),
 
-    #[error("Teams error: {0}")]
-    Teams(#[from] anlg_teems::Error),
-
     #[error("Bad request: {0}")]
     BadRequest(String),
 
@@ -28,11 +25,6 @@ impl IntoResponse for MessengerError {
             Self::Slack(err) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "slack_error",
-                err.to_string(),
-            ),
-            Self::Teams(err) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "teams_error",
                 err.to_string(),
             ),
             Self::Internal(msg) => (

@@ -20,11 +20,16 @@ import {
   setSessionShareScope,
   ShareManagementError,
 } from "./client";
+import {
+  deliverSessionShareRecapEmail,
+  deliverSessionShareRecapToSlack,
+} from "./delivery-management";
 import { type DraftShareAction, SessionShareDraftContent } from "./draft-panel";
 import { flushCanonicalSessionEditorChanges } from "./editor-activity";
 import { generalAccessWorkspaceId } from "./general-access";
 import {
   deliverSessionShareInvitations,
+  getSessionShareSenderName,
   reportSessionShareInvitations,
   type SessionShareInvitationDelivery,
 } from "./invitation-management";
@@ -268,6 +273,8 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         }
         let actionResult:
           | { type: "invite"; deliveries: SessionShareInvitationDelivery[] }
+          | { type: "email"; recipientCount: number }
+          | { type: "slack"; channelName: string }
           | { type: "copy-link" }
           | { type: "scope"; copied: boolean };
         if (action.type === "invite") {
@@ -277,6 +284,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             emails: action.emails,
             capability: "viewer",
             noteTitle: source.title,
+            senderName: getSessionShareSenderName(context.session.user),
             signal,
             requireActive: () => {
               requireActivePrepareContext(identity, signal);
@@ -288,6 +296,31 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           actionResult = {
             type: "invite",
             deliveries,
+          };
+        } else if (action.type === "email") {
+          await deliverSessionShareRecapEmail({
+            context,
+            shareId: share.shareId,
+            recipients: action.emails,
+            noteTitle: source.title,
+            body: source.body,
+            signal,
+          });
+          actionResult = {
+            type: "email",
+            recipientCount: action.emails.length,
+          };
+        } else if (action.type === "slack") {
+          await deliverSessionShareRecapToSlack({
+            context,
+            channel: action.channel,
+            noteTitle: source.title,
+            body: source.body,
+            signal,
+          });
+          actionResult = {
+            type: "slack",
+            channelName: action.channel.name,
           };
         } else if (action.type === "copy-link") {
           await copySessionShareUrl(share.shareId, () =>
@@ -363,6 +396,23 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
       });
       if (actionResult.type === "invite") {
         reportSessionShareInvitations(actionResult.deliveries, "viewer");
+      } else if (actionResult.type === "email") {
+        trackAnalyticsEvent("share_recap_sent", {
+          delivery_method: "email",
+          recipient_count: actionResult.recipientCount,
+        });
+        sonnerToast.success(
+          actionResult.recipientCount > 1
+            ? "Meeting notes sent."
+            : "Meeting note sent.",
+        );
+      } else if (actionResult.type === "slack") {
+        trackAnalyticsEvent("share_recap_sent", {
+          delivery_method: "slack",
+        });
+        sonnerToast.success(
+          `Meeting notes sent to #${actionResult.channelName}.`,
+        );
       } else if (actionResult.type === "copy-link") {
         trackAnalyticsEvent("share_link_copied", {
           entry_point: "share_panel",
@@ -397,9 +447,13 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           ? variables.action.emails.length > 1
             ? "Could not create these invitations."
             : "Could not create this invitation."
-          : variables.action.type === "scope"
-            ? "Could not update general access."
-            : "Could not copy the share link.",
+          : variables.action.type === "email"
+            ? "Could not email the meeting notes."
+            : variables.action.type === "slack"
+              ? "Could not send the meeting notes to Slack."
+              : variables.action.type === "scope"
+                ? "Could not update general access."
+                : "Could not copy the share link.",
       );
     },
   });
