@@ -404,6 +404,7 @@ jobs:
           fi
           pnpm -F desktop tauri build "${BUILD_ARGS[@]}"
         env:
+          CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
@@ -416,6 +417,37 @@ jobs:
           VITE_API_URL: https://api.anarlog.so
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - if: ${{ inputs.channel == 'stable' }}
+        uses: ./.github/actions/sentry_cli
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Upload Linux debug symbols to Sentry
+        env:
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
+        run: |
+          binary="apps/desktop/src-tauri/target/${{ matrix.target }}/release/anarlog"
+          sentry-cli debug-files check "$binary"
+
+          response=$(
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $INFISICAL_TOKEN" \
+              --data-urlencode "projectId=$INFISICAL_PROJECT_ID" \
+              --data-urlencode "environment=prod" \
+              --data-urlencode "secretPath=/anarlog/github" \
+              --data-urlencode "expandSecretReferences=false" \
+              "https://app.infisical.com/api/v4/secrets/SENTRY_AUTH_TOKEN"
+          )
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.secret.secretValue | select(length > 0)' <<< "$response"); then
+            echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
+            exit 1
+          fi
+          export SENTRY_AUTH_TOKEN
+
+          sentry-cli debug-files upload \
+            --org fastrepl \
+            --project hyprnote2 \
+            --include-sources \
+            "$binary"
       - run: |
           shopt -s nullglob
           appimage_dir="apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage"

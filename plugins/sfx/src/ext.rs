@@ -28,9 +28,10 @@ pub(crate) fn to_speaker(
     let (tx, rx) = std::sync::mpsc::channel();
 
     std::thread::spawn(move || {
-        let Ok(stream) = DeviceSinkBuilder::open_default_sink() else {
+        let Ok(mut stream) = DeviceSinkBuilder::open_default_sink() else {
             return;
         };
+        stream.log_on_drop(false);
 
         let file = std::io::Cursor::new(bytes);
         let Ok(source) = Decoder::try_from(file) else {
