@@ -240,6 +240,10 @@ msgstr ""
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "Anarlog detects installed meeting assistants and imports their official JSON, CSV, Markdown, text, VTT, or SRT exports."
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
 msgstr ""
@@ -416,6 +420,10 @@ msgstr ""
 msgid "Bright canvas"
 msgstr ""
 
+#: src/onboarding/index.tsx
+msgid "Bring your meeting history"
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr ""
@@ -467,12 +475,21 @@ msgstr ""
 msgid "Chat history"
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "Checking installed meeting assistants…"
+msgstr ""
+
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Checking migration..."
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "Checking trial eligibility..."
+msgstr ""
+
+#. placeholder {0}: provider.name
+#: src/imports/screen.tsx
+msgid "Choose {0} export files"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -724,6 +741,7 @@ msgstr ""
 msgid "Context always provided"
 msgstr ""
 
+#: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Continue"
 msgstr ""
@@ -876,6 +894,10 @@ msgstr ""
 msgid "Detect meetings from microphone activity."
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "Detected"
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Detection delay"
 msgstr ""
@@ -1015,6 +1037,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Export every meeting as Markdown"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Export help"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1224,6 +1250,27 @@ msgstr ""
 msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "Import"
+msgstr ""
+
+#: src/onboarding/index.tsx
+msgid "Import notes and transcripts from the meeting apps you already use."
+msgstr ""
+
+#. placeholder {0}: importMutation.data.imported
+#. placeholder {1}: importMutation.data.matched
+#. placeholder {2}: importMutation.data.conflicts
+#. placeholder {3}: importMutation.data.errors
+#: src/imports/screen.tsx
+msgid "Imported {0} meetings. Matched {1} unchanged meetings; {2} conflicts; {3} errors."
+msgstr ""
+
+#: src/settings/imports/index.tsx
+#: src/sidebar/settings.tsx
+msgid "Imports"
+msgstr ""
+
 #: src/sidebar/timeline/upcoming-meeting.ts
 msgid "In {minutes}m {seconds}s"
 msgstr ""
@@ -1301,6 +1348,12 @@ msgstr ""
 #: src/settings/general/index.tsx
 msgid "Language & Region"
 msgstr "Dil we sebit"
+
+#. placeholder {0}: lastRun.imported
+#. placeholder {1}: lastRun.matched
+#: src/imports/screen.tsx
+msgid "Last import: {0} added, {1} unchanged"
+msgstr ""
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
 #: src/main/sync-status.tsx
@@ -1408,6 +1461,14 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Meeting ends"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Meeting exports"
+msgstr ""
+
+#: src/onboarding/index.tsx
+msgid "Meeting history imported"
 msgstr ""
 
 #: src/templates/auto-form.tsx
@@ -2043,6 +2104,10 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Saved locally"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Search 30 supported apps"
 msgstr ""
 
 #: src/contacts/shared.tsx

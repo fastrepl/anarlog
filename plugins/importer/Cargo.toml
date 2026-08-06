@@ -7,6 +7,10 @@ exclude = ["/node_modules"]
 links = "tauri-plugin-importer"
 description = ""
 
+[features]
+default = ["legacy-import"]
+legacy-import = ["dep:legacy-db-parser"]
+
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
@@ -15,9 +19,8 @@ dirs = { workspace = true }
 specta-typescript = { workspace = true }
 
 [dependencies]
-anlg-granola = { workspace = true }
 anlg-importer-core = { workspace = true }
-legacy-db-parser = { workspace = true }
+legacy-db-parser = { workspace = true, optional = true }
 
 tauri-plugin-settings = { workspace = true }
 

@@ -339,15 +339,15 @@ describe("Basic Tab Actions", () => {
     ]);
   });
 
-  test("openNew falls back from legacy data settings tab to app", () => {
+  test("openNew redirects legacy data settings tab to imports", () => {
     useTabs.getState().openNew({ type: "settings", state: { tab: "data" } });
 
     expect(useTabs.getState()).toHaveCurrentTab({
       type: "settings",
-      state: { tab: "app" },
+      state: { tab: "imports" },
     });
     expect(useTabs.getState()).toMatchTabsInOrder([
-      { type: "settings", active: true, state: { tab: "app" } },
+      { type: "settings", active: true, state: { tab: "imports" } },
     ]);
   });
 

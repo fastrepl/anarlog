@@ -2,6 +2,8 @@
 description = "Default permissions for the plugin"
 permissions = [
     "allow-list-installed-applications",
+    "allow-terminate-competing-applications",
+    "allow-set-competing-application-termination-paused",
     "allow-list-mic-using-applications",
     "allow-inspect-meeting-accessibility",
     "allow-send-meeting-chat-message",

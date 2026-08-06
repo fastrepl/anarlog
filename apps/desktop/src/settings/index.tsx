@@ -16,6 +16,7 @@ import { SettingsAppearance } from "~/settings/appearance";
 import { SettingsDevelopers } from "~/settings/developers";
 import { SettingsDictionary } from "~/settings/dictionary";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
+import { SettingsImports } from "~/settings/imports";
 import { SettingsSync } from "~/settings/sync";
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab } from "~/store/zustand/tabs";
@@ -38,7 +39,7 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
   const requestedTab = tab.state.tab as string | undefined;
   const activeTab =
     requestedTab === "data"
-      ? "app"
+      ? "imports"
       : requestedTab === "personalization"
         ? "dictionary"
         : (tab.state.tab ?? "app");
@@ -59,6 +60,8 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsNotifications />;
       case "sync":
         return <SettingsSync />;
+      case "imports":
+        return <SettingsImports />;
       case "permissions":
         return <SettingsPermissions />;
       case "developers":

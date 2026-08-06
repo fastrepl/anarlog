@@ -49,3 +49,6 @@ required-features = ["mic", "list", "zoom", "sleep", "app", "language"]
 
 [target."cfg(target_os = \"linux\")".dependencies]
 libpulse-binding = "2.30"
+
+[target."cfg(target_os = \"windows\")".dependencies]
+winreg = "0.55"

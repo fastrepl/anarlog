@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-competing-application-termination-paused"
+description = "Enables the set_competing_application_termination_paused command without any pre-configured scope."
+commands.allow = ["set_competing_application_termination_paused"]
+
+[[permission]]
+identifier = "deny-set-competing-application-termination-paused"
+description = "Denies the set_competing_application_termination_paused command without any pre-configured scope."
+commands.deny = ["set_competing_application_termination_paused"]

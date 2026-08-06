@@ -5,6 +5,8 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-list-installed-applications`
+- `allow-terminate-competing-applications`
+- `allow-set-competing-application-termination-paused`
 - `allow-list-mic-using-applications`
 - `allow-inspect-meeting-accessibility`
 - `allow-send-meeting-chat-message`
@@ -262,6 +264,32 @@ Denies the send_meeting_chat_message command without any pre-configured scope.
 <tr>
 <td>
 
+`detect:allow-set-competing-application-termination-paused`
+
+</td>
+<td>
+
+Enables the set_competing_application_termination_paused command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-set-competing-application-termination-paused`
+
+</td>
+<td>
+
+Denies the set_competing_application_termination_paused command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `detect:allow-set-ignored-bundle-ids`
 
 </td>
@@ -359,6 +387,32 @@ Enables the set_respect_do_not_disturb command without any pre-configured scope.
 <td>
 
 Denies the set_respect_do_not_disturb command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-terminate-competing-applications`
+
+</td>
+<td>
+
+Enables the terminate_competing_applications command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-terminate-competing-applications`
+
+</td>
+<td>
+
+Denies the terminate_competing_applications command without any pre-configured scope.
 
 </td>
 </tr>

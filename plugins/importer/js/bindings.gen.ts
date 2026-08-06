@@ -29,6 +29,14 @@ async runImportDry(source: ImportSourceKind) : Promise<Result<ImportStats, strin
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|read_text_files", { paths }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -44,10 +52,11 @@ async runImportDry(source: ImportSourceKind) : Promise<Result<ImportStats, strin
 
 export type ImportDataResult = { stats: ImportStats; data: JsonValue }
 export type ImportSourceInfo = { kind: ImportSourceKind | null; transform: TransformKind; name: string; path: string; revealPath: string }
-export type ImportSourceKind = "granola" | "hyprnote_v0_stable" | "hyprnote_v0_nightly" | "as_is"
+export type ImportSourceKind = "hyprnote_v0_stable" | "hyprnote_v0_nightly" | "as_is"
 export type ImportStats = { sessionsCount: number; transcriptsCount: number; humansCount: number; organizationsCount: number; participantsCount: number; templatesCount: number; enhancedNotesCount: number }
+export type ImportTextFile = { path: string; name: string; content: string }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
-export type TransformKind = "hyprnote_v0" | "granola" | "as_is"
+export type TransformKind = "hyprnote_v0" | "as_is"
 
 /** tauri-specta globals **/
 

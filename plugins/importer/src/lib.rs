@@ -20,6 +20,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::list_available_sources::<Wry>,
             commands::run_import::<Wry>,
             commands::run_import_dry::<Wry>,
+            commands::read_text_files,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

@@ -10,12 +10,26 @@ mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::*;
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[cfg(target_os = "windows")]
+mod windows;
+
+#[cfg(target_os = "windows")]
+pub use windows::*;
+
+mod competitors;
+
+pub use competitors::*;
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 pub fn list_installed_apps() -> Vec<InstalledApp> {
     Vec::new()
 }
 
 const SELF_BUNDLE_IDS: &[&str] = &[
+    "com.anarlog.dev",
+    "com.anarlog.stable",
+    "com.anarlog.staging",
+    "com.anarlog.nightly",
     "com.hyprnote.dev",
     "com.hyprnote.stable",
     "com.hyprnote.staging",
@@ -96,6 +110,7 @@ mod tests {
 
     #[test]
     fn test_is_self_app_matches_known_bundle_ids() {
+        assert!(is_self_app(&app("com.anarlog.stable", "Anarlog")));
         assert!(is_self_app(&app("com.hyprnote.stable", "Anarlog")));
         assert!(is_self_app(&app("com.hyprnote.Hyprnote", "Hyprnote")));
     }

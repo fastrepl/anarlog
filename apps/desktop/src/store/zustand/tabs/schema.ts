@@ -46,6 +46,7 @@ export type SettingsTab =
   | "appearance"
   | "sync"
   | "notifications"
+  | "imports"
   | "developers"
   | "permissions"
   | "dictionary"
@@ -63,6 +64,7 @@ export const normalizeSettingsTab = (
     case "appearance":
     case "sync":
     case "notifications":
+    case "imports":
     case "developers":
     case "permissions":
     case "dictionary":
@@ -72,6 +74,8 @@ export const normalizeSettingsTab = (
       return tab;
     case "personalization":
       return "dictionary";
+    case "data":
+      return "imports";
     case "account":
     default:
       return "app";

@@ -7,6 +7,7 @@ Default permissions for the plugin
 - `allow-list-available-sources`
 - `allow-run-import`
 - `allow-run-import-dry`
+- `allow-read-text-files`
 
 ## Permission Table
 
@@ -39,6 +40,32 @@ Enables the list_available_sources command without any pre-configured scope.
 <td>
 
 Denies the list_available_sources command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:allow-read-text-files`
+
+</td>
+<td>
+
+Enables the read_text_files command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`importer:deny-read-text-files`
+
+</td>
+<td>
+
+Denies the read_text_files command without any pre-configured scope.
 
 </td>
 </tr>

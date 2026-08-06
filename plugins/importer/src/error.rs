@@ -3,17 +3,18 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("granola error: {0}")]
-    Granola(#[from] anlg_granola::error::Error),
-
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
 
+    #[cfg(feature = "legacy-import")]
     #[error("db parser error: {0}")]
     DbParser(#[from] legacy_db_parser::Error),
+
+    #[error("legacy database import is unavailable")]
+    LegacyImportUnavailable,
 
     #[error("import source not found: {0:?}")]
     SourceNotFound(ImportSourceKind),

@@ -31,6 +31,30 @@ pub(crate) async fn list_installed_applications<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn terminate_competing_applications<R: tauri::Runtime>(
+    _app: tauri::AppHandle<R>,
+    state: tauri::State<'_, crate::competitor_monitor::CompetitorTerminationState>,
+) -> Result<Vec<anlg_detect::InstalledApp>, String> {
+    if state.is_paused() {
+        return Ok(Vec::new());
+    }
+
+    Ok(anlg_detect::terminate_competing_apps())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn set_competing_application_termination_paused<R: tauri::Runtime>(
+    _app: tauri::AppHandle<R>,
+    state: tauri::State<'_, crate::competitor_monitor::CompetitorTerminationState>,
+    paused: bool,
+) -> Result<(), String> {
+    state.set_paused(paused);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn list_mic_using_applications<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Vec<anlg_detect::InstalledApp>, crate::Error> {

@@ -117,6 +117,7 @@ describe("SettingsNav", () => {
       "Appearance",
       "Account",
       "Sync",
+      "Imports",
       "Notifications",
       "Recording",
       "Meetings",
@@ -214,6 +215,17 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
       { tab: "sync" },
+    );
+  });
+
+  it("opens Imports inside settings", () => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Imports" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "imports" },
     );
   });
 
