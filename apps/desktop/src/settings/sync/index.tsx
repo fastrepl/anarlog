@@ -440,7 +440,7 @@ export function SettingsSync() {
       <section className="flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 gap-3">
-            <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
               {statusIcon}
             </div>
             <div className="min-w-0">
@@ -538,7 +538,7 @@ export function SettingsSync() {
           <Trans>Security</Trans>
         </h2>
         <div className="flex items-start gap-3">
-          <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
             {e2eeIdentityQuery.data?.configured ? (
               <ShieldCheck className="size-4 text-emerald-500" />
             ) : (
