@@ -26,8 +26,7 @@
 
 /* The inset is `rem`, not `em`: it has to cancel against the scroll
  * container's fixed `px-3`, so it must not scale with the block's own font
- * size. With `em`, an h1 (1.5em) bled 18px into 12px of padding and the extra
- * 6px scrolled the whole note sideways. */
+ * size. */
 .note-typography.prosemirror-editor > * {
   transition: background-color 120ms ease;
   margin-inline: -0.75rem;
@@ -46,17 +45,17 @@
 /* Document hierarchy is proportional to the base size. */
 .note-typography h1 {
   font-weight: 700;
-  font-size: 1.5em;
-  line-height: 1.3333;
+  font-size: 1.25em;
+  line-height: 1.4;
 }
 .note-typography h2 {
   font-weight: 600;
-  font-size: 1.25em;
-  line-height: 1.6;
+  font-size: 1.125em;
+  line-height: 1.4444;
 }
 .note-typography h3 {
   font-weight: 600;
-  font-size: 1.125em;
+  font-size: 1em;
   line-height: 1.5;
 }
 .note-typography :where(h4, h5, h6) {
