@@ -1,7 +1,7 @@
 import { Trans } from "@lingui/react/macro";
 import {
+  AppWindow,
   ArrowsClockwise,
-  ArrowSquareOut,
   DotsThree,
   FileArrowDown,
   FileText,
@@ -193,7 +193,7 @@ export function OverflowButton({
                 onClick={handleOpenStandaloneWindow}
                 className="cursor-pointer"
               >
-                <ArrowSquareOut />
+                <AppWindow />
                 <span>
                   <Trans>Open in New Window</Trans>
                 </span>
