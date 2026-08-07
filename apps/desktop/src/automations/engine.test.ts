@@ -241,6 +241,24 @@ describe("runNoteEnhancedAutomations (slack recap)", () => {
     expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
     expect(recordedRun("automation_slack_recap_last_run")).toBeNull();
   });
+
+  it("posts once per session and records the processed session", async () => {
+    storedSettings({
+      automation_slack_recap_enabled: true,
+      automation_slack_recap_channel: JSON.stringify({
+        id: "C123",
+        name: "general",
+      }),
+      automation_slack_recap_processed: JSON.stringify(["session-1"]),
+    });
+    mockDbRows();
+    signedInSession();
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    expect(recordedRun("automation_slack_recap_last_run")).toBeNull();
+  });
 });
 
 describe("runNoteEnhancedAutomations (linear issues)", () => {
@@ -349,6 +367,31 @@ describe("runNoteEnhancedAutomations (linear issues)", () => {
       detail: "no action items found for this meeting",
     });
   });
+
+  it("marks the session processed before creating, so a partial failure never duplicates", async () => {
+    storedSettings(linearSettings);
+    mockDbRows({
+      actionItems: [{ text: "First item" }, { text: "Second item" }],
+    });
+    signedInSession();
+    mocks.linearCreateIssue
+      .mockResolvedValueOnce({ data: {}, error: undefined })
+      .mockResolvedValueOnce({
+        data: undefined,
+        error: { error: { message: "rate limited" } },
+      });
+
+    await runNoteEnhancedAutomations("session-1");
+
+    const processedCall = mocks.setSettingValue.mock.calls.find(
+      (entry) => entry[0] === "automation_linear_issues_processed",
+    );
+    expect(JSON.parse(processedCall?.[1] as string)).toEqual(["session-1"]);
+    expect(recordedRun("automation_linear_issues_last_run")).toMatchObject({
+      status: "error",
+      detail: "rate limited",
+    });
+  });
 });
 
 describe("runNoteEnhancedAutomations (notion update)", () => {
@@ -404,6 +447,24 @@ describe("runNoteEnhancedAutomations (notion update)", () => {
       status: "error",
       detail: "connect notion to run this automation",
     });
+  });
+
+  it("appends once per session", async () => {
+    storedSettings({
+      automation_notion_update_enabled: true,
+      automation_notion_update_page: JSON.stringify({
+        id: "page-1",
+        name: "Project Apollo",
+      }),
+      automation_notion_update_processed: JSON.stringify(["session-1"]),
+    });
+    mockDbRows();
+    signedInSession();
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
+    expect(recordedRun("automation_notion_update_last_run")).toBeNull();
   });
 });
 

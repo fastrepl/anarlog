@@ -247,6 +247,11 @@ export const SETTING_DEFINITIONS = {
     path: ["automations", "slack_recap_last_run"],
     default: "" as string,
   },
+  automation_slack_recap_processed: {
+    type: "string",
+    path: ["automations", "slack_recap_processed"],
+    default: "" as string,
+  },
   automation_linear_issues_enabled: {
     type: "boolean",
     path: ["automations", "linear_issues_enabled"],
@@ -280,6 +285,11 @@ export const SETTING_DEFINITIONS = {
   automation_notion_update_last_run: {
     type: "string",
     path: ["automations", "notion_update_last_run"],
+    default: "" as string,
+  },
+  automation_notion_update_processed: {
+    type: "string",
+    path: ["automations", "notion_update_processed"],
     default: "" as string,
   },
 } as const;

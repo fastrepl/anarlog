@@ -140,6 +140,12 @@ async function runSlackRecap(sessionId: string): Promise<void> {
   if (!channel) {
     return;
   }
+  const processed = parseProcessedSessions(
+    values.automation_slack_recap_processed,
+  );
+  if (processed.includes(sessionId)) {
+    return;
+  }
 
   const record: AutomationRunRecord = {
     at: new Date().toISOString(),
@@ -163,6 +169,11 @@ async function runSlackRecap(sessionId: string): Promise<void> {
       }),
     });
     record.detail = `#${channel.name}`;
+    await recordProcessedSession(
+      "automation_slack_recap_processed",
+      processed,
+      sessionId,
+    );
   } catch (error) {
     record.status = "error";
     record.detail = error instanceof Error ? error.message : String(error);
@@ -208,6 +219,13 @@ async function runLinearIssues(sessionId: string): Promise<void> {
         ? `Action item from the Anarlog meeting "${recap.title}" (${recap.date}).`
         : "Action item from an Anarlog meeting.";
       const items = actionItems.slice(0, MAX_LINEAR_ISSUES_PER_MEETING);
+      // Mark the session processed before creating anything: a mid-loop
+      // failure must not re-create the earlier issues on the next enhance.
+      await recordProcessedSession(
+        "automation_linear_issues_processed",
+        processed,
+        sessionId,
+      );
       for (const item of items) {
         const { error } = await linearCreateIssue({
           client,
@@ -227,7 +245,6 @@ async function runLinearIssues(sessionId: string): Promise<void> {
           ? `1 issue in ${team.name}`
           : `${items.length} issues in ${team.name}`;
     }
-    await recordProcessedSession(processed, sessionId);
   } catch (error) {
     record.status = "error";
     record.detail = error instanceof Error ? error.message : String(error);
@@ -246,6 +263,12 @@ async function runNotionUpdate(sessionId: string): Promise<void> {
   }
   const page = parseAutomationTargetRef(values.automation_notion_update_page);
   if (!page) {
+    return;
+  }
+  const processed = parseProcessedSessions(
+    values.automation_notion_update_processed,
+  );
+  if (processed.includes(sessionId)) {
     return;
   }
 
@@ -275,6 +298,11 @@ async function runNotionUpdate(sessionId: string): Promise<void> {
       throw new Error(apiErrorMessage(error));
     }
     record.detail = page.name;
+    await recordProcessedSession(
+      "automation_notion_update_processed",
+      processed,
+      sessionId,
+    );
   } catch (error) {
     record.status = "error";
     record.detail = error instanceof Error ? error.message : String(error);
@@ -353,14 +381,15 @@ function parseProcessedSessions(value: string | undefined): string[] {
 }
 
 async function recordProcessedSession(
+  settingKey:
+    | "automation_linear_issues_processed"
+    | "automation_slack_recap_processed"
+    | "automation_notion_update_processed",
   processed: string[],
   sessionId: string,
 ): Promise<void> {
   const next = [...processed, sessionId].slice(-MAX_PROCESSED_SESSIONS);
-  await setSettingValue(
-    "automation_linear_issues_processed",
-    JSON.stringify(next),
-  );
+  await setSettingValue(settingKey, JSON.stringify(next));
 }
 
 async function loadMeetingActionItems(sessionId: string): Promise<string[]> {
