@@ -26,10 +26,20 @@ vi.mock("~/auth/billing-context", () => ({
 
 vi.mock("~/settings/queries", () => ({
   setSettingValue: mocks.setSettingValue,
+  setSettingValues: mocks.setSettingValue,
   useStoredSettingValue: () => ({
     value: mocks.storedDraft,
     hasValue: Boolean(mocks.storedDraft),
   }),
+  useStoredSettingValues: () => ({ values: {}, hasValues: new Set() }),
+}));
+
+vi.mock("./starter-config", () => ({
+  AutomationLastRunLine: () => null,
+  MarkdownExportConfig: () => <div data-testid="config-markdown" />,
+  SlackRecapConfig: () => <div data-testid="config-slack" />,
+  LinearIssuesConfig: () => <div data-testid="config-linear" />,
+  NotionUpdateConfig: () => <div data-testid="config-notion" />,
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
@@ -77,9 +87,9 @@ describe("SettingsAutomations", () => {
       }),
     );
 
-    expect(screen.getByText("Generate a concise recap")).toBeTruthy();
-    expect(screen.getByText("Create a Slack canvas")).toBeTruthy();
+    expect(screen.getByText("Use the AI meeting summary")).toBeTruthy();
     expect(screen.getByText("Post to a channel")).toBeTruthy();
+    expect(screen.getByTestId("config-slack")).toBeTruthy();
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Test" }).disabled,
     ).toBe(true);
@@ -93,7 +103,7 @@ describe("SettingsAutomations", () => {
 
     expect(screen.getByText("Expected output")).toBeTruthy();
     expect(
-      screen.getByText(/A Slack canvas with the recap and source note/),
+      screen.getByText(/A Slack message with the meeting title and recap/),
     ).toBeTruthy();
   });
 

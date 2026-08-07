@@ -4,30 +4,63 @@ import {
   ArrowRight,
   Eye,
   FloppyDisk,
-  FolderOpen,
   Lightning,
   Play,
   Sparkle,
 } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import { open as selectFolder } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { cn, formatDistanceToNow } from "@anlg/utils";
+import { cn } from "@anlg/utils";
+
+import {
+  AutomationLastRunLine,
+  LinearIssuesConfig,
+  MarkdownExportConfig,
+  NotionUpdateConfig,
+  SlackRecapConfig,
+} from "./starter-config";
 
 import { useBillingAccess } from "~/auth/billing-context";
-import { parseAutomationRunRecord } from "~/automations/engine";
+import { parseAutomationTargetRef } from "~/automations/engine";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
   setSettingValue,
   setSettingValues,
   useStoredSettingValue,
+  useStoredSettingValues,
 } from "~/settings/queries";
+import type { SettingValues } from "~/settings/schema";
 import { StandardContentWrapper } from "~/shared/main";
+
+const STARTER_AUTOMATIONS = {
+  "slack-recap": {
+    enabledKey: "automation_slack_recap_enabled",
+    targetKey: "automation_slack_recap_channel",
+    lastRunKey: "automation_slack_recap_last_run",
+  },
+  "notion-project-notes": {
+    enabledKey: "automation_notion_update_enabled",
+    targetKey: "automation_notion_update_page",
+    lastRunKey: "automation_notion_update_last_run",
+  },
+  "linear-action-items": {
+    enabledKey: "automation_linear_issues_enabled",
+    targetKey: "automation_linear_issues_team",
+    lastRunKey: "automation_linear_issues_last_run",
+  },
+  "markdown-export": {
+    enabledKey: "automation_markdown_export_enabled",
+    targetKey: "automation_markdown_export_directory",
+    lastRunKey: "automation_markdown_export_last_run",
+  },
+} as const;
+
+type StarterId = keyof typeof STARTER_AUTOMATIONS;
 
 export function TabContentAutomations() {
   return (
@@ -64,25 +97,20 @@ export function SettingsAutomations() {
         {
           kind: "trigger",
           title: t`Meeting ends`,
-          detail: t`Use the completed meeting, transcript, and notes.`,
+          detail: t`Runs once the AI summary for the meeting is ready.`,
         },
         {
           kind: "ai",
-          title: t`Generate a concise recap`,
-          detail: t`Summarize decisions, action items, and open questions.`,
-        },
-        {
-          kind: "action",
-          title: t`Create a Slack canvas`,
-          detail: t`Write the recap with a link to the Anarlog note.`,
+          title: t`Use the AI meeting summary`,
+          detail: t`Take the enhanced note with decisions and action items.`,
         },
         {
           kind: "action",
           title: t`Post to a channel`,
-          detail: t`Send the canvas link to the selected Slack channel.`,
+          detail: t`Send the recap to the selected Slack channel.`,
         },
       ],
-      preview: t`A Slack canvas with the recap and source note.`,
+      preview: t`A Slack message with the meeting title and recap.`,
     },
     {
       id: "notion-project-notes",
@@ -100,25 +128,20 @@ export function SettingsAutomations() {
         {
           kind: "trigger",
           title: t`Meeting ends`,
-          detail: t`Use the completed meeting, transcript, and notes.`,
+          detail: t`Runs once the AI summary for the meeting is ready.`,
         },
         {
           kind: "ai",
-          title: t`Extract project updates`,
-          detail: t`Identify decisions, owners, deadlines, and unresolved questions.`,
-        },
-        {
-          kind: "action",
-          title: t`Find the project page`,
-          detail: t`Match the meeting to the configured Notion project.`,
+          title: t`Use the AI meeting summary`,
+          detail: t`Take the enhanced note with decisions and follow-ups.`,
         },
         {
           kind: "action",
           title: t`Append the meeting update`,
-          detail: t`Add a dated update linked to the Anarlog note.`,
+          detail: t`Add a dated update to the selected Notion page.`,
         },
       ],
-      preview: t`A dated Notion update with decisions and owners.`,
+      preview: t`A dated Notion update with the meeting summary.`,
     },
     {
       id: "linear-action-items",
@@ -136,20 +159,20 @@ export function SettingsAutomations() {
         {
           kind: "trigger",
           title: t`Meeting ends`,
-          detail: t`Use the completed meeting, transcript, and notes.`,
+          detail: t`Runs once the AI summary for the meeting is ready.`,
         },
         {
           kind: "ai",
-          title: t`Extract assigned action items`,
-          detail: t`Keep concrete work with an owner or next step.`,
+          title: t`Collect action items`,
+          detail: t`Use the meeting's action items and summary tasks.`,
         },
         {
           kind: "action",
-          title: t`Prepare Linear issues`,
-          detail: t`Map titles, descriptions, owners, and the source-note link.`,
+          title: t`Create Linear issues`,
+          detail: t`File each action item as an issue in the selected team.`,
         },
       ],
-      preview: t`Linear issue drafts from assigned meeting follow-ups.`,
+      preview: t`Linear issues created from meeting follow-ups.`,
     },
     {
       id: "markdown-export",
@@ -206,51 +229,48 @@ export function SettingsAutomations() {
     saveDraftMutation.mutate();
   };
 
-  const markdownExportEnabled =
-    useStoredSettingValue("automation_markdown_export_enabled").value ?? false;
-  const markdownExportDirectory = (
-    useStoredSettingValue("automation_markdown_export_directory").value ?? ""
-  ).trim();
-  const markdownExportLastRun = parseAutomationRunRecord(
-    useStoredSettingValue("automation_markdown_export_last_run").value,
-  );
-  const isMarkdownDraft = draft?.id === "markdown-export";
+  const { values: settingValues } = useStoredSettingValues();
+  const isStarterEnabled = (id: StarterId) =>
+    Boolean(settingValues[STARTER_AUTOMATIONS[id].enabledKey]);
+  const isStarterReady = (id: StarterId) => {
+    const raw = settingValues[STARTER_AUTOMATIONS[id].targetKey] ?? "";
+    return id === "markdown-export"
+      ? raw.trim().length > 0
+      : parseAutomationTargetRef(raw) !== null;
+  };
+  const starterReadinessHint = (id: StarterId) => {
+    switch (id) {
+      case "markdown-export":
+        return t`Choose an export folder first.`;
+      case "slack-recap":
+        return t`Choose a Slack channel first.`;
+      case "linear-action-items":
+        return t`Choose a Linear team first.`;
+      case "notion-project-notes":
+        return t`Choose a Notion page first.`;
+    }
+  };
 
-  const chooseFolderMutation = useMutation({
-    mutationKey: ["automation-markdown-export-folder"],
-    mutationFn: async () => {
-      const selected = await selectFolder({
-        title: t`Choose export folder`,
-        directory: true,
-        multiple: false,
-        defaultPath: markdownExportDirectory || undefined,
-      });
-      if (typeof selected === "string" && selected) {
-        await setSettingValue("automation_markdown_export_directory", selected);
-      }
+  const setStarterEnabledMutation = useMutation({
+    mutationKey: ["automation-starter-enabled"],
+    mutationFn: ({ id, enabled }: { id: StarterId; enabled: boolean }) => {
+      const updates: SettingValues = { automation_draft_template: id };
+      updates[STARTER_AUTOMATIONS[id].enabledKey] = enabled;
+      return setSettingValues(updates);
     },
-    onError: () => sonnerToast.error(t`Could not update the export folder`),
-  });
-  const setMarkdownExportEnabledMutation = useMutation({
-    mutationKey: ["automation-markdown-export-enabled"],
-    mutationFn: (enabled: boolean) =>
-      setSettingValues({
-        automation_markdown_export_enabled: enabled,
-        automation_draft_template: draftTemplateId,
-      }),
-    onSuccess: (_, enabled) =>
+    onSuccess: (_, { enabled }) =>
       sonnerToast.success(
         enabled ? t`Automation enabled` : t`Automation disabled`,
       ),
     onError: () => sonnerToast.error(t`Could not update the automation`),
   });
 
-  const handleEnableMarkdownExport = () => {
+  const handleEnableStarter = (id: StarterId) => {
     if (!billing.isPro) {
       billing.upgradeToPro();
       return;
     }
-    setMarkdownExportEnabledMutation.mutate(true);
+    setStarterEnabledMutation.mutate({ id, enabled: true });
   };
 
   return (
@@ -297,7 +317,7 @@ export function SettingsAutomations() {
                     {starter.description}
                   </span>
                 </span>
-                {starter.id === "markdown-export" && markdownExportEnabled ? (
+                {isStarterEnabled(starter.id) ? (
                   <Badge variant="outline" size="sm">
                     <Trans>Enabled</Trans>
                   </Badge>
@@ -330,7 +350,7 @@ export function SettingsAutomations() {
                 >
                   {draft.title}
                 </h3>
-                {isMarkdownDraft && markdownExportEnabled ? (
+                {isStarterEnabled(draft.id) ? (
                   <Badge variant="outline">
                     <Trans>Enabled</Trans>
                   </Badge>
@@ -363,7 +383,7 @@ export function SettingsAutomations() {
                 size="sm"
                 variant="outline"
                 disabled
-                title={t`Test runs will be available when execution is connected.`}
+                title={t`Test runs are not available yet.`}
               >
                 <Play size={14} />
                 <Trans>Test</Trans>
@@ -381,55 +401,45 @@ export function SettingsAutomations() {
                   <Trans>Upgrade to save</Trans>
                 )}
               </Button>
-              {isMarkdownDraft ? (
-                markdownExportEnabled ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      setMarkdownExportEnabledMutation.mutate(false)
-                    }
-                    disabled={
-                      !billing.isReady ||
-                      setMarkdownExportEnabledMutation.isPending
-                    }
-                  >
-                    <Trans>Disable</Trans>
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={handleEnableMarkdownExport}
-                    disabled={
-                      !billing.isReady ||
-                      setMarkdownExportEnabledMutation.isPending ||
-                      (billing.isPro && !markdownExportDirectory)
-                    }
-                    title={
-                      billing.isPro && !markdownExportDirectory
-                        ? t`Choose an export folder first.`
-                        : undefined
-                    }
-                  >
-                    <Lightning size={14} weight="fill" />
-                    {billing.isPro ? (
-                      <Trans>Save &amp; enable</Trans>
-                    ) : (
-                      <Trans>Upgrade to enable</Trans>
-                    )}
-                  </Button>
-                )
+              {isStarterEnabled(draft.id) ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setStarterEnabledMutation.mutate({
+                      id: draft.id,
+                      enabled: false,
+                    })
+                  }
+                  disabled={
+                    !billing.isReady || setStarterEnabledMutation.isPending
+                  }
+                >
+                  <Trans>Disable</Trans>
+                </Button>
               ) : (
                 <Button
                   type="button"
                   size="sm"
-                  disabled
-                  title={t`Enabling will be available when execution is connected.`}
+                  onClick={() => handleEnableStarter(draft.id)}
+                  disabled={
+                    !billing.isReady ||
+                    setStarterEnabledMutation.isPending ||
+                    (billing.isPro && !isStarterReady(draft.id))
+                  }
+                  title={
+                    billing.isPro && !isStarterReady(draft.id)
+                      ? starterReadinessHint(draft.id)
+                      : undefined
+                  }
                 >
                   <Lightning size={14} weight="fill" />
-                  <Trans>Save &amp; enable</Trans>
+                  {billing.isPro ? (
+                    <Trans>Save &amp; enable</Trans>
+                  ) : (
+                    <Trans>Upgrade to enable</Trans>
+                  )}
                 </Button>
               )}
             </div>
@@ -478,61 +488,20 @@ export function SettingsAutomations() {
             ))}
           </div>
 
-          {isMarkdownDraft ? (
-            <div className="border-border border-t px-5 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h4 className="text-xs font-semibold">
-                    <Trans>Export folder</Trans>
-                  </h4>
-                  <p className="text-muted-foreground mt-1 truncate text-xs">
-                    {markdownExportDirectory || (
-                      <Trans>No folder selected yet.</Trans>
-                    )}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => chooseFolderMutation.mutate()}
-                  disabled={chooseFolderMutation.isPending}
-                >
-                  <FolderOpen size={14} />
-                  <Trans>Choose folder</Trans>
-                </Button>
-              </div>
-              {markdownExportLastRun ? (
-                <p
-                  className={cn([
-                    "mt-3 truncate text-xs",
-                    markdownExportLastRun.status === "error"
-                      ? "text-destructive"
-                      : "text-muted-foreground",
-                  ])}
-                  title={markdownExportLastRun.detail}
-                >
-                  {markdownExportLastRun.status === "success" ? (
-                    <Trans>
-                      Last exported{" "}
-                      {formatDistanceToNow(new Date(markdownExportLastRun.at), {
-                        addSuffix: true,
-                      })}
-                      : {markdownExportLastRun.detail}
-                    </Trans>
-                  ) : (
-                    <Trans>
-                      Last run failed{" "}
-                      {formatDistanceToNow(new Date(markdownExportLastRun.at), {
-                        addSuffix: true,
-                      })}
-                      : {markdownExportLastRun.detail}
-                    </Trans>
-                  )}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="border-border border-t px-5 py-4">
+            {draft.id === "markdown-export" ? (
+              <MarkdownExportConfig />
+            ) : draft.id === "slack-recap" ? (
+              <SlackRecapConfig />
+            ) : draft.id === "linear-action-items" ? (
+              <LinearIssuesConfig />
+            ) : (
+              <NotionUpdateConfig />
+            )}
+            <AutomationLastRunLine
+              settingKey={STARTER_AUTOMATIONS[draft.id].lastRunKey}
+            />
+          </div>
 
           {showPreview ? (
             <div className="border-border bg-muted/35 border-t px-5 py-4">

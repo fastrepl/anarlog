@@ -232,6 +232,56 @@ export const SETTING_DEFINITIONS = {
     path: ["automations", "markdown_export_last_run"],
     default: "" as string,
   },
+  automation_slack_recap_enabled: {
+    type: "boolean",
+    path: ["automations", "slack_recap_enabled"],
+    default: false as boolean,
+  },
+  automation_slack_recap_channel: {
+    type: "string",
+    path: ["automations", "slack_recap_channel"],
+    default: "" as string,
+  },
+  automation_slack_recap_last_run: {
+    type: "string",
+    path: ["automations", "slack_recap_last_run"],
+    default: "" as string,
+  },
+  automation_linear_issues_enabled: {
+    type: "boolean",
+    path: ["automations", "linear_issues_enabled"],
+    default: false as boolean,
+  },
+  automation_linear_issues_team: {
+    type: "string",
+    path: ["automations", "linear_issues_team"],
+    default: "" as string,
+  },
+  automation_linear_issues_last_run: {
+    type: "string",
+    path: ["automations", "linear_issues_last_run"],
+    default: "" as string,
+  },
+  automation_linear_issues_processed: {
+    type: "string",
+    path: ["automations", "linear_issues_processed"],
+    default: "" as string,
+  },
+  automation_notion_update_enabled: {
+    type: "boolean",
+    path: ["automations", "notion_update_enabled"],
+    default: false as boolean,
+  },
+  automation_notion_update_page: {
+    type: "string",
+    path: ["automations", "notion_update_page"],
+    default: "" as string,
+  },
+  automation_notion_update_last_run: {
+    type: "string",
+    path: ["automations", "notion_update_last_run"],
+    default: "" as string,
+  },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;

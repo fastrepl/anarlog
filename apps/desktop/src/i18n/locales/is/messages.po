@@ -64,7 +64,7 @@ msgid "3 days"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "A dated Notion update with decisions and owners."
+msgid "A dated Notion update with the meeting summary."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -72,7 +72,7 @@ msgid "A Markdown file with the note, summary, and transcript."
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "A Slack canvas with the recap and source note."
+msgid "A Slack message with the meeting title and recap."
 msgstr ""
 
 #: src/templates/template-sidebar.tsx
@@ -128,7 +128,7 @@ msgid "Add {0} in System Settings > General > Language & Region to transcribe wi
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Add a dated update linked to the Anarlog note."
+msgid "Add a dated update to the selected Notion page."
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -481,6 +481,10 @@ msgstr ""
 msgid "Chat history"
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "Checking connection…"
+msgstr ""
+
 #: src/imports/screen.tsx
 msgid "Checking installed meeting assistants…"
 msgstr ""
@@ -499,6 +503,7 @@ msgid "Choose {0} export files"
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Choose a channel"
 msgstr ""
 
@@ -511,7 +516,23 @@ msgid "Choose a language model for summaries and chat."
 msgstr ""
 
 #: src/settings/automations/index.tsx
+msgid "Choose a Linear team first."
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Choose a Notion page first."
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Choose a Slack channel first."
+msgstr ""
+
+#: src/settings/automations/index.tsx
 msgid "Choose a starter or describe an automation in Chat."
+msgstr ""
+
+#: src/settings/automations/starter-config.tsx
+msgid "Choose a team"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
@@ -526,11 +547,11 @@ msgstr ""
 msgid "Choose custom color"
 msgstr ""
 
-#: src/settings/automations/index.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Choose export folder"
 msgstr ""
 
-#: src/settings/automations/index.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Choose folder"
 msgstr ""
 
@@ -664,6 +685,10 @@ msgstr ""
 msgid "Collaborator"
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Collect action items"
+msgstr ""
+
 #: src/settings/appearance/theme.tsx
 msgid "Color theme"
 msgstr ""
@@ -742,11 +767,20 @@ msgstr ""
 msgid "Connect Google Calendar"
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "Connect Linear"
+msgstr ""
+
+#: src/settings/automations/starter-config.tsx
+msgid "Connect Notion"
+msgstr ""
+
 #: src/onboarding/calendar.tsx
 msgid "Connect Outlook"
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Connect Slack"
 msgstr ""
 
@@ -810,6 +844,10 @@ msgstr ""
 msgid "Could not save the automation draft"
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "Could not save the automation setting"
+msgstr ""
+
 #: src/onboarding/account/after-login.tsx
 msgid "Could not start trial"
 msgstr ""
@@ -818,7 +856,7 @@ msgstr ""
 msgid "Could not update the automation"
 msgstr ""
 
-#: src/settings/automations/index.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Could not update the export folder"
 msgstr ""
 
@@ -826,12 +864,12 @@ msgstr ""
 msgid "Create a recovery key"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Create a Slack canvas"
-msgstr ""
-
 #: src/onboarding/index.tsx
 msgid "Create account"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Create Linear issues"
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
@@ -1040,10 +1078,6 @@ msgstr ""
 msgid "Enabled"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Enabling will be available when execution is connected."
-msgstr ""
-
 #: src/settings/sync/index.tsx
 msgid "End-to-end encryption"
 msgstr ""
@@ -1106,20 +1140,12 @@ msgstr ""
 msgid "Export every meeting as Markdown"
 msgstr ""
 
-#: src/settings/automations/index.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Export folder"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Exporting..."
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Extract assigned action items"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Extract project updates"
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -1146,6 +1172,10 @@ msgstr ""
 msgid "Favorite template"
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "File each action item as an issue in the selected team."
+msgstr ""
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "File format"
 msgstr ""
@@ -1156,10 +1186,6 @@ msgstr ""
 
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Find the project page"
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -1215,10 +1241,6 @@ msgstr ""
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "General access"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Generate a concise recap"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
@@ -1310,10 +1332,6 @@ msgstr ""
 msgid "Icons"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Identify decisions, owners, deadlines, and unresolved questions."
-msgstr ""
-
 #: src/settings/general/account.tsx
 msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr ""
@@ -1393,10 +1411,6 @@ msgstr ""
 msgid "Join scheduled meetings"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Keep concrete work with an owner or next step."
-msgstr ""
-
 #: src/session-sharing/management-panel.tsx
 msgid "Keep desktop edits"
 msgstr ""
@@ -1417,22 +1431,20 @@ msgstr ""
 msgid "Language & Region"
 msgstr "Tungumál og svæði"
 
-#. placeholder {0}: formatDistanceToNow(new Date(markdownExportLastRun.at), { addSuffix: true, })
-#. placeholder {1}: markdownExportLastRun.detail
-#: src/settings/automations/index.tsx
-msgid "Last exported {0}: {1}"
-msgstr ""
-
 #. placeholder {0}: lastRun.imported
 #. placeholder {1}: lastRun.matched
 #: src/imports/screen.tsx
 msgid "Last import: {0} added, {1} unchanged"
 msgstr ""
 
-#. placeholder {0}: formatDistanceToNow(new Date(markdownExportLastRun.at), { addSuffix: true, })
-#. placeholder {1}: markdownExportLastRun.detail
-#: src/settings/automations/index.tsx
-msgid "Last run failed {0}: {1}"
+#. placeholder {0}: lastRun.detail
+#: src/settings/automations/starter-config.tsx
+msgid "Last run {relative}: {0}"
+msgstr ""
+
+#. placeholder {0}: lastRun.detail
+#: src/settings/automations/starter-config.tsx
+msgid "Last run failed {relative}: {0}"
 msgstr ""
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
@@ -1454,7 +1466,11 @@ msgid "Light"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Linear issue drafts from assigned meeting follow-ups."
+msgid "Linear issues created from meeting follow-ups."
+msgstr ""
+
+#: src/settings/automations/starter-config.tsx
+msgid "Linear team"
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -1474,6 +1490,7 @@ msgid "Loading calendars..."
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Loading channels…"
 msgstr ""
 
@@ -1483,6 +1500,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Loading sync settings"
+msgstr ""
+
+#: src/settings/automations/starter-config.tsx
+msgid "Loading teams…"
 msgstr ""
 
 #: src/changelog/index.tsx
@@ -1514,16 +1535,8 @@ msgstr "Aðaltungumál"
 msgid "Manage billing"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Map titles, descriptions, owners, and the source-note link."
-msgstr ""
-
 #: src/session/components/note-input/search/bar.tsx
 msgid "Match case"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Match the meeting to the configured Notion project."
 msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
@@ -1680,6 +1693,10 @@ msgstr ""
 msgid "No changelog available for this version."
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "No channel selected yet."
+msgstr ""
+
 #: src/templates/details.tsx
 msgid "No community templates available"
 msgstr ""
@@ -1696,7 +1713,7 @@ msgstr ""
 msgid "No emoji found"
 msgstr ""
 
-#: src/settings/automations/index.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "No folder selected yet."
 msgstr ""
 
@@ -1733,6 +1750,14 @@ msgstr ""
 msgid "No notes found."
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "No page selected yet."
+msgstr ""
+
+#: src/settings/automations/starter-config.tsx
+msgid "No pages found. Share the page with the Anarlog integration in Notion first."
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "No people"
 msgstr ""
@@ -1759,6 +1784,10 @@ msgstr ""
 msgid "No shared notes"
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "No team selected yet."
+msgstr ""
+
 #: src/templates/details.tsx
 msgid "No templates yet"
 msgstr ""
@@ -1775,6 +1804,10 @@ msgstr ""
 #: src/sidebar/settings.tsx
 msgid "Notifications"
 msgstr "Tilkynningar"
+
+#: src/settings/automations/starter-config.tsx
+msgid "Notion page"
+msgstr ""
 
 #: src/sidebar/timeline/index.tsx
 #: src/sidebar/timeline/upcoming-meeting.ts
@@ -1964,10 +1997,6 @@ msgstr ""
 msgid "Prepare for events with a 5-minute reminder."
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Prepare Linear issues"
-msgstr ""
-
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Preparing transcript..."
 msgstr ""
@@ -2028,12 +2057,21 @@ msgstr ""
 msgid "Recipient email"
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "Reconnect Linear"
+msgstr ""
+
+#: src/settings/automations/starter-config.tsx
+msgid "Reconnect Notion"
+msgstr ""
+
 #: src/calendar/components/oauth/status.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
+#: src/settings/automations/starter-config.tsx
 msgid "Reconnect Slack"
 msgstr ""
 
@@ -2177,6 +2215,10 @@ msgstr ""
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Runs once the AI summary for the meeting is ready."
+msgstr ""
+
 #: src/templates/auto-form.tsx
 msgid "Save"
 msgstr ""
@@ -2210,6 +2252,10 @@ msgstr ""
 msgid "Saved locally"
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "Search"
+msgstr ""
+
 #: src/contacts/shared.tsx
 msgid "Search contacts..."
 msgstr ""
@@ -2240,6 +2286,10 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Search or type owner/repo"
+msgstr ""
+
+#: src/settings/automations/starter-config.tsx
+msgid "Search pages shared with Anarlog…"
 msgstr ""
 
 #: src/sidebar/settings.tsx
@@ -2323,7 +2373,7 @@ msgid "Send message"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Send the canvas link to the selected Slack channel."
+msgid "Send the recap to the selected Slack channel."
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
@@ -2591,6 +2641,10 @@ msgstr ""
 msgid "Slack"
 msgstr ""
 
+#: src/settings/automations/starter-config.tsx
+msgid "Slack channel"
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Smileys & People"
 msgstr ""
@@ -2705,10 +2759,6 @@ msgstr ""
 msgid "Suggested templates"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Summarize decisions, action items, and open questions."
-msgstr ""
-
 #: src/contacts/details.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
@@ -2785,6 +2835,14 @@ msgstr ""
 msgid "System audio enabled"
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Take the enhanced note with decisions and action items."
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Take the enhanced note with decisions and follow-ups."
+msgstr ""
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
 msgstr ""
@@ -2808,7 +2866,7 @@ msgid "Test"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Test runs will be available when execution is connected."
+msgid "Test runs are not available yet."
 msgstr ""
 
 #: src/onboarding/folder-location.tsx
@@ -3018,7 +3076,11 @@ msgid "Use system audio to capture other speakers"
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Use the completed meeting, transcript, and notes."
+msgid "Use the AI meeting summary"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Use the meeting's action items and summary tasks."
 msgstr ""
 
 #: src/settings/general/main-language.tsx
@@ -3079,10 +3141,6 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/index.tsx
 msgid "Write"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Write the recap with a link to the Anarlog note."
 msgstr ""
 
 #: src/settings/automations/index.tsx
