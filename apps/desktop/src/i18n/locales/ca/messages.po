@@ -1618,6 +1618,10 @@ msgstr ""
 msgid "New Note"
 msgstr ""
 
+#: src/session/components/note-input/raw.tsx
+msgid "New template"
+msgstr ""
+
 #: src/contacts/shared.tsx
 msgid "Newest"
 msgstr ""
@@ -2670,6 +2674,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
+msgstr ""
+
+#: src/session/components/note-input/raw.tsx
+msgid "Suggested templates"
 msgstr ""
 
 #: src/settings/automations/index.tsx

@@ -1618,6 +1618,10 @@ msgstr "New chat"
 msgid "New Note"
 msgstr "New Note"
 
+#: src/session/components/note-input/raw.tsx
+msgid "New template"
+msgstr "New template"
+
 #: src/contacts/shared.tsx
 msgid "Newest"
 msgstr "Newest"
@@ -2671,6 +2675,10 @@ msgstr "Storage Updated"
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
 msgstr "Submit callback URL"
+
+#: src/session/components/note-input/raw.tsx
+msgid "Suggested templates"
+msgstr "Suggested templates"
 
 #: src/settings/automations/index.tsx
 msgid "Summarize decisions, action items, and open questions."

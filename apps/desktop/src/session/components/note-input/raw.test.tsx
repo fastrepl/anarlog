@@ -21,6 +21,8 @@ const hoisted = vi.hoisted(() => ({
   focusWindow: vi.fn(),
   meetingChatRecords: [] as unknown[],
   userTemplates: [] as Array<Record<string, unknown>>,
+  createTemplate: vi.fn(() => Promise.resolve("new-template")),
+  openTemplatesTab: vi.fn(),
   noteEditorProps: [] as Record<string, unknown>[],
 }));
 
@@ -130,6 +132,8 @@ vi.mock("~/session/hooks/useAttachmentResolver", () => ({
 
 vi.mock("~/templates", () => ({
   TemplateIconGlyph: () => <span aria-hidden>Template icon</span>,
+  useCreateTemplate: () => hoisted.createTemplate,
+  useOpenTemplatesTab: () => hoisted.openTemplatesTab,
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
@@ -192,6 +196,9 @@ describe("RawEditor", () => {
     hoisted.processAudioFile = vi.fn();
     hoisted.meetingChatRecords = [];
     hoisted.userTemplates = [];
+    hoisted.createTemplate.mockReset();
+    hoisted.createTemplate.mockResolvedValue("new-template");
+    hoisted.openTemplatesTab.mockReset();
     hoisted.showWindow.mockReset();
     hoisted.unminimizeWindow.mockReset();
     hoisted.focusWindow.mockReset();
@@ -306,7 +313,11 @@ describe("RawEditor", () => {
 
     expect(
       screen.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual(["Template iconStandup", "Template iconRetrospective"]);
+    ).toEqual([
+      "Template iconStandup",
+      "Template iconRetrospective",
+      "New template",
+    ]);
     expect(
       screen.queryByRole("button", { name: "Project Kickoff" }),
     ).toBeNull();
@@ -334,6 +345,72 @@ describe("RawEditor", () => {
         }),
       }),
     );
+  });
+
+  it("suggests built-in templates when none are favorited", () => {
+    hoisted.userTemplates = [
+      {
+        id: "default-daily-standup",
+        title: "Daily Standup",
+        pinned: false,
+        icon: { type: "emoji", value: "☀️" },
+        sections: [{ title: "Today", description: "" }],
+      },
+      {
+        id: "default-project-kickoff",
+        title: "Project Kickoff",
+        pinned: false,
+        icon: { type: "emoji", value: "🚀" },
+        sections: [{ title: "Goals", description: "" }],
+      },
+      {
+        id: "default-one-on-one-meeting",
+        title: "1:1 Meeting",
+        pinned: false,
+        icon: { type: "emoji", value: "👥" },
+        sections: [{ title: "Updates", description: "" }],
+      },
+      {
+        id: "default-board-meeting",
+        title: "Board Meeting",
+        pinned: false,
+        icon: { type: "emoji", value: "📊" },
+        sections: [{ title: "Company Performance", description: "" }],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" />);
+
+    expect(screen.getByText("Suggested templates")).not.toBeNull();
+    expect(
+      screen.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual([
+      "Template icon1:1 Meeting",
+      "Template iconProject Kickoff",
+      "Template iconDaily Standup",
+      "New template",
+    ]);
+    expect(screen.queryByRole("button", { name: "Board Meeting" })).toBeNull();
+  });
+
+  it("creates a template from the empty memo state", async () => {
+    render(<RawEditor sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "New template" }));
+
+    await waitFor(() =>
+      expect(hoisted.createTemplate).toHaveBeenCalledWith({
+        title: "New Template",
+        description: "",
+        sections: [],
+      }),
+    );
+    expect(hoisted.openTemplatesTab).toHaveBeenCalledWith({
+      selectedMineId: "new-template",
+      selectedWebIndex: null,
+      isWebMode: false,
+      showHomepage: false,
+    });
   });
 
   it("hides favorite templates when the memo has content", () => {

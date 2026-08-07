@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { Plus } from "@phosphor-icons/react";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useCallback, useMemo, useRef } from "react";
 
@@ -30,10 +31,17 @@ import { removeDocumentTitle } from "~/session/title-content";
 import {
   TemplateIconGlyph,
   type UserTemplate,
+  useCreateTemplate,
+  useOpenTemplatesTab,
   useUserTemplates,
 } from "~/templates";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
+const suggestedTemplateIds = [
+  "default-one-on-one-meeting",
+  "default-project-kickoff",
+  "default-daily-standup",
+];
 
 export const RawEditor = forwardRef<
   NoteEditorRef,
@@ -193,7 +201,7 @@ export const RawEditor = forwardRef<
               }}
             />
             {isMemoEmpty ? (
-              <FavoriteTemplateList onApply={handleApplyTemplate} />
+              <TemplateEmptyState onApply={handleApplyTemplate} />
             ) : null}
           </div>
           <MeetingChatHighlights sessionId={sessionId} />
@@ -205,7 +213,11 @@ export const RawEditor = forwardRef<
 
 function getFavoriteTemplates(templates: UserTemplate[]) {
   return [...templates]
-    .filter((template) => template.pinned)
+    .filter(
+      (template) =>
+        template.pinned &&
+        template.sections.some((section) => section.title.trim()),
+    )
     .sort((a, b) => {
       const orderA = a.pinOrder ?? Infinity;
       const orderB = b.pinOrder ?? Infinity;
@@ -216,29 +228,77 @@ function getFavoriteTemplates(templates: UserTemplate[]) {
     });
 }
 
-function FavoriteTemplateList({
+function getSuggestedTemplates(templates: UserTemplate[]) {
+  const availableTemplates = templates.filter((template) =>
+    template.sections.some((section) => section.title.trim()),
+  );
+  const preferredTemplates = suggestedTemplateIds.flatMap((id) => {
+    const template = availableTemplates.find(
+      (candidate) => candidate.id === id,
+    );
+    return template ? [template] : [];
+  });
+  const preferredIds = new Set(
+    preferredTemplates.map((template) => template.id),
+  );
+  const fallbackTemplates = availableTemplates
+    .filter((template) => !preferredIds.has(template.id))
+    .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+
+  return [...preferredTemplates, ...fallbackTemplates].slice(
+    0,
+    suggestedTemplateIds.length,
+  );
+}
+
+function TemplateEmptyState({
   onApply,
 }: {
   onApply: (template: UserTemplate) => void;
 }) {
   const { t } = useLingui();
   const userTemplates = useUserTemplates();
+  const createTemplate = useCreateTemplate("session_note");
+  const openTemplatesTab = useOpenTemplatesTab();
   const favoriteTemplates = useMemo(
     () => getFavoriteTemplates(userTemplates),
     [userTemplates],
   );
+  const suggestedTemplates = useMemo(
+    () => getSuggestedTemplates(userTemplates),
+    [userTemplates],
+  );
+  const templates =
+    favoriteTemplates.length > 0 ? favoriteTemplates : suggestedTemplates;
+  const handleCreateTemplate = useCallback(() => {
+    void (async () => {
+      const templateId = await createTemplate({
+        title: "New Template",
+        description: "",
+        sections: [],
+      });
+      if (!templateId) {
+        return;
+      }
 
-  if (favoriteTemplates.length === 0) {
-    return null;
-  }
+      openTemplatesTab({
+        selectedMineId: templateId,
+        selectedWebIndex: null,
+        isWebMode: false,
+        showHomepage: false,
+      });
+    })();
+  }, [createTemplate, openTemplatesTab]);
 
   return (
     <div className="absolute inset-x-0 top-8 z-10 flex flex-col gap-1">
       <p className="text-muted-foreground px-2 text-xs">
-        {t`Start with a favorite template`}
+        {favoriteTemplates.length > 0
+          ? t`Start with a favorite template`
+          : t`Suggested templates`}
       </p>
       <div className="flex flex-col">
-        {favoriteTemplates.map((template) => (
+        {templates.map((template) => (
           <button
             key={template.id}
             type="button"
@@ -257,6 +317,17 @@ function FavoriteTemplateList({
             </span>
           </button>
         ))}
+        <button
+          type="button"
+          onClick={handleCreateTemplate}
+          className={cn([
+            "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md px-2 text-left",
+            "text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-hidden",
+          ])}
+        >
+          <Plus aria-hidden className="size-4" />
+          <span className="text-sm font-medium">{t`New template`}</span>
+        </button>
       </div>
     </div>
   );
