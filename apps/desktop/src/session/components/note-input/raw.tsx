@@ -108,6 +108,18 @@ export const RawEditor = forwardRef<
       () => !hasStoredNoteContent(JSON.stringify(initialContent)),
       [initialContent],
     );
+    const editorRef = useRef<NoteEditorRef>(null);
+    const setEditorRef = useCallback(
+      (editor: NoteEditorRef | null) => {
+        editorRef.current = editor;
+        if (typeof ref === "function") {
+          ref(editor);
+        } else if (ref) {
+          ref.current = editor;
+        }
+      },
+      [ref],
+    );
 
     const persistChange = useCallback(
       (input: JSONContent) => {
@@ -150,34 +162,33 @@ export const RawEditor = forwardRef<
       [persistChange, hasNonEmptyText],
     );
 
-    const handleApplyTemplate = useCallback(
-      (template: UserTemplate) => {
-        const content = template.sections.flatMap((section) => {
-          const title = section.title.trim();
-          if (!title) {
-            return [];
-          }
-
-          return [
-            {
-              type: "heading",
-              attrs: { level: 2 },
-              content: [{ type: "text", text: title }],
-            },
-            { type: "paragraph" },
-          ];
-        });
-        if (content.length === 0) {
-          return;
+    const handleApplyTemplate = useCallback((template: UserTemplate) => {
+      const content = template.sections.flatMap((section) => {
+        const title = section.title.trim();
+        if (!title) {
+          return [];
         }
 
-        handleChange({ type: "doc", content });
-        trackAnalyticsEvent("template_applied", {
-          entry_point: "memo",
-        });
-      },
-      [handleChange],
-    );
+        return [
+          {
+            type: "heading",
+            attrs: { level: 2 },
+            content: [{ type: "text", text: title }],
+          },
+          { type: "paragraph" },
+        ];
+      });
+      if (content.length === 0) {
+        return;
+      }
+
+      const nextContent = { type: "doc", content };
+      editorRef.current?.commands.replaceContent(nextContent);
+      editorRef.current?.flushPendingChanges();
+      trackAnalyticsEvent("template_applied", {
+        entry_point: "memo",
+      });
+    }, []);
 
     const mentionConfig = useMentionConfig();
     const commentAnchors = useSessionCommentAnchors(sessionId);
@@ -198,7 +209,7 @@ export const RawEditor = forwardRef<
         <>
           <div className="relative min-h-full">
             <NoteEditor
-              ref={ref}
+              ref={setEditorRef}
               className={cn(["session-note-editor", className])}
               key={`session-${sessionId}-raw`}
               initialContent={initialContent}
