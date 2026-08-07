@@ -228,28 +228,39 @@ mod test {
     async fn note_enhanced_reexports_markdown_and_records_the_run() {
         let pool = seeded_pool().await;
         let directory = std::env::temp_dir().join(format!("anlg-md-auto-{}", uuid::Uuid::new_v4()));
-        let settings = serde_json::json!({
-            "markdown_export_enabled": true,
-            "markdown_export_directory": directory.to_string_lossy(),
-        });
-        sqlx::query("INSERT INTO app_settings (id, value_json) VALUES ('automations', ?)")
-            .bind(settings.to_string())
-            .execute(&pool)
-            .await
-            .unwrap();
+        for (id, value) in [
+            (
+                "automation_markdown_export_enabled",
+                serde_json::json!(true),
+            ),
+            (
+                "automation_markdown_export_directory",
+                serde_json::json!(directory.to_string_lossy()),
+            ),
+        ] {
+            sqlx::query("INSERT INTO app_settings (id, value_json) VALUES (?, ?)")
+                .bind(id)
+                .bind(value.to_string())
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
 
         commands::run_markdown_export_automation(&pool, "meeting-1").await;
 
         let exported = directory.join("2026-07-13 Planning [meeting-].md");
         assert!(exported.exists());
         let last_run: String = sqlx::query_scalar(
-            "SELECT json_extract(value_json, '$.markdown_export_last_run') \
-             FROM app_settings WHERE id = 'automations'",
+            "SELECT value_json FROM app_settings \
+             WHERE id = 'automation_markdown_export_last_run'",
         )
         .fetch_one(&pool)
         .await
         .unwrap();
-        let record: serde_json::Value = serde_json::from_str(&last_run).unwrap();
+        // Stored the way the desktop settings layer writes string settings:
+        // a JSON-encoded string containing the record JSON.
+        let record: String = serde_json::from_str(&last_run).unwrap();
+        let record: serde_json::Value = serde_json::from_str(&record).unwrap();
         assert_eq!(record["status"], "success");
         assert_eq!(record["detail"], exported.to_string_lossy().into_owned());
         assert!(record["at"].as_str().is_some_and(|at| at.ends_with('Z')));
@@ -262,11 +273,13 @@ mod test {
 
         commands::run_markdown_export_automation(&pool, "meeting-1").await;
 
-        let row: Option<String> =
-            sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = 'automations'")
-                .fetch_optional(&pool)
-                .await
-                .unwrap();
+        let row: Option<String> = sqlx::query_scalar(
+            "SELECT value_json FROM app_settings \
+             WHERE id = 'automation_markdown_export_last_run'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
         assert!(row.is_none());
     }
 

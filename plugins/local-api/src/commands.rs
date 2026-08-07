@@ -215,32 +215,14 @@ pub async fn dispatch_event<R: tauri::Runtime>(
 // signal that the summary is persisted, so re-export here to rewrite the file
 // with the summary included.
 pub(crate) async fn run_markdown_export_automation(pool: &sqlx::SqlitePool, meeting_id: &str) {
-    let settings: Option<String> =
-        match sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = 'automations'")
-            .fetch_optional(pool)
-            .await
-        {
-            Ok(value) => value,
-            Err(error) => {
-                tracing::warn!("[local-api] could not load automation settings: {error}");
-                return;
-            }
-        };
-    let Some(settings) =
-        settings.and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok())
-    else {
-        return;
-    };
-    let enabled = settings
-        .get("markdown_export_enabled")
+    let enabled = load_setting(pool, "automation_markdown_export_enabled")
+        .await
         .and_then(|value| value.as_bool())
         .unwrap_or(false);
-    let directory = settings
-        .get("markdown_export_directory")
-        .and_then(|value| value.as_str())
-        .unwrap_or("")
-        .trim()
-        .to_string();
+    let directory = load_setting(pool, "automation_markdown_export_directory")
+        .await
+        .and_then(|value| value.as_str().map(|value| value.trim().to_string()))
+        .unwrap_or_default();
     if !enabled || directory.is_empty() {
         return;
     }
@@ -261,18 +243,38 @@ pub(crate) async fn run_markdown_export_automation(pool: &sqlx::SqlitePool, meet
         .await
         .unwrap_or_default();
     let record = serde_json::json!({ "at": at, "status": status, "detail": detail }).to_string();
+    // The settings layer stores this value as a JSON-encoded string, so the
+    // record is double-encoded to stay readable by the desktop app.
+    let value_json = serde_json::Value::String(record).to_string();
     if let Err(error) = sqlx::query(
-        "UPDATE app_settings \
-         SET value_json = json_set(value_json, '$.markdown_export_last_run', ?), \
-             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
-         WHERE id = 'automations'",
+        "INSERT INTO app_settings (id, value_json, updated_at) \
+         VALUES ('automation_markdown_export_last_run', ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')) \
+         ON CONFLICT(id) DO UPDATE SET \
+           value_json = excluded.value_json, \
+           updated_at = excluded.updated_at",
     )
-    .bind(record)
+    .bind(value_json)
     .execute(pool)
     .await
     {
         tracing::warn!("[local-api] could not record the markdown export run: {error}");
     }
+}
+
+async fn load_setting(pool: &sqlx::SqlitePool, id: &str) -> Option<serde_json::Value> {
+    let raw: Option<String> =
+        match sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = ?")
+            .bind(id)
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::warn!("[local-api] could not load setting '{id}': {error}");
+                None
+            }
+        };
+    raw.and_then(|value| serde_json::from_str(&value).ok())
 }
 
 #[tauri::command]
