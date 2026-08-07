@@ -49,3 +49,9 @@ pub struct Discord;
 impl NangoIntegrationId for Discord {
     const ID: &'static str = "discord";
 }
+
+pub struct Notion;
+
+impl NangoIntegrationId for Notion {
+    const ID: &'static str = "notion";
+}

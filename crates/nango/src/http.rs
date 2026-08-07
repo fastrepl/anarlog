@@ -74,6 +74,12 @@ impl OwnedNangoHttpClient {
         self.proxy = self.proxy.base_url_override(base_url);
         self
     }
+
+    /// For providers that need request headers the `HttpClient` trait cannot
+    /// express (e.g. `Notion-Version`).
+    pub fn into_proxy(self) -> OwnedNangoProxy {
+        self.proxy
+    }
 }
 
 impl anlg_http::HttpClient for OwnedNangoHttpClient {

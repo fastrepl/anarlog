@@ -51,6 +51,13 @@ pub struct ListTeamsRequest {
     pub after: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct CreateIssueRequest {
+    pub team_id: String,
+    pub title: String,
+    pub description: Option<String>,
+}
+
 // === Response wrappers for GraphQL data field ===
 
 #[derive(Debug, Clone, Deserialize)]
@@ -71,6 +78,19 @@ pub struct TeamWithIssues {
 #[derive(Debug, Clone, Deserialize)]
 pub struct TeamsData {
     pub teams: Connection<Team>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueCreateData {
+    pub issue_create: IssueCreatePayload,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IssueCreatePayload {
+    pub success: bool,
+    pub issue: Option<Issue>,
 }
 
 // === Core types ===

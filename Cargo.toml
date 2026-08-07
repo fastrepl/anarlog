@@ -44,6 +44,7 @@ anlg-api-error = { path = "crates/api-error", package = "api-error" }
 anlg-api-mail = { path = "crates/api-mail", package = "api-mail" }
 anlg-api-messenger = { path = "crates/api-messenger", package = "api-messenger" }
 anlg-api-nango = { path = "crates/api-nango", package = "api-nango" }
+anlg-api-notion = { path = "crates/api-notion", package = "api-notion" }
 anlg-api-pyannote = { path = "crates/api-pyannote", package = "api-pyannote" }
 anlg-api-research = { path = "crates/api-research", package = "api-research" }
 anlg-api-storage = { path = "crates/api-storage", package = "api-storage" }

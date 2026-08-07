@@ -1170,6 +1170,29 @@
         ],
         "type": "object"
       },
+      "LinearCreateIssueRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "team_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "team_id",
+          "title"
+        ],
+        "type": "object"
+      },
       "LinearListTeamsRequest": {
         "properties": {
           "connection_id": {
@@ -3554,6 +3577,47 @@
         ]
       }
     },
+    "/ticket/linear/create-issue": {
+      "post": {
+        "operationId": "linear_create_issue",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinearCreateIssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketSummary"
+                }
+              }
+            },
+            "description": "Linear issue created"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "ticket"
+        ]
+      }
+    },
     "/ticket/linear/list-teams": {
       "post": {
         "operationId": "linear_list_teams",
@@ -4172,6 +4236,10 @@
     {
       "description": "Messaging integrations",
       "name": "messenger"
+    },
+    {
+      "description": "Notion integration",
+      "name": "notion"
     },
     {
       "description": "Ticket management",

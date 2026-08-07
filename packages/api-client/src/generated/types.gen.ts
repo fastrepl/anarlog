@@ -196,7 +196,9 @@ export type CasSessionShareSnapshotRequest = {
     attachmentIds: Array<string>;
     baseRevision: number;
     body: unknown;
+    meetingAt?: string | null;
     mutationId: string;
+    participants?: Array<string> | null;
     title: string;
 };
 
@@ -930,6 +932,13 @@ export type LegacySessionShareSnapshotRequest = {
     title: string;
 };
 
+export type LinearCreateIssueRequest = {
+    connection_id: string;
+    description?: string | null;
+    team_id: string;
+    title: string;
+};
+
 export type LinearListTeamsRequest = {
     connection_id: string;
     cursor?: string | null;
@@ -1079,6 +1088,14 @@ export type MeetingPage = {
     pagination: Pagination;
 };
 
+export type MeetingRecapEmailRequest = {
+    deliveryId: string;
+    noteBody: string;
+    noteTitle: string;
+    recipients: Array<string>;
+    senderName: string;
+};
+
 export type Message = {
     historyId?: string | null;
     id: string;
@@ -1127,6 +1144,32 @@ export type NotificationSettings = {
 };
 
 export type NotificationType = 'eventCreation' | 'eventChange' | 'eventCancellation' | 'eventResponse' | 'agenda' | 'unknown';
+
+export type NotionAppendUpdateRequest = {
+    connection_id: string;
+    heading: string;
+    markdown: string;
+    page_id: string;
+};
+
+export type NotionAppendUpdateResponse = {
+    block_count: number;
+};
+
+export type NotionPage = {
+    id: string;
+    title: string;
+    url?: string | null;
+};
+
+export type NotionPagesResponse = {
+    pages: Array<NotionPage>;
+};
+
+export type NotionSearchPagesRequest = {
+    connection_id: string;
+    query?: string | null;
+};
 
 export type OfficeLocation = {
     buildingId?: string | null;
@@ -1358,6 +1401,11 @@ export type ScheduledAttachmentBackupDeletion = {
     versionRef: string;
 };
 
+export type SendMessageResponse = {
+    channel: string;
+    message_id: string;
+};
+
 export type Sensitivity = 'normal' | 'personal' | 'private' | 'confidential' | 'unknown';
 
 export type SessionMode = 'auto' | 'connect' | 'reconnect';
@@ -1418,13 +1466,25 @@ export type SharedNoteHandoffClaimRequest = {
 };
 
 export type SharedNoteInvitationEmailRequest = {
+    fromName?: string;
     inviteToken: string;
     noteTitle: string;
     shareId: string;
 };
 
+export type SharedNoteLinkPreviewRequest = {
+    previewToken: string;
+};
+
 export type SharedNoteLinkRequest = {
     token: string;
+};
+
+export type SharedNotePreview = {
+    meetingAt: string;
+    participants: Array<string>;
+    summary: string;
+    title: string;
 };
 
 export type SharedNoteSnapshot = {
@@ -1436,6 +1496,21 @@ export type SharedNoteSnapshot = {
     schemaVersion: number;
     shareId: string;
     title: string;
+};
+
+export type SlackChannel = {
+    id: string;
+    is_private: boolean;
+    name: string;
+};
+
+export type SlackChannelsResponse = {
+    channels: Array<SlackChannel>;
+};
+
+export type SlackSendRequest = {
+    channel: string;
+    text: string;
 };
 
 export type SnapshotReceipt = {
@@ -2283,6 +2358,64 @@ export type GoogleListThreadsResponses = {
 
 export type GoogleListThreadsResponse = GoogleListThreadsResponses[keyof GoogleListThreadsResponses];
 
+export type ListSlackChannelsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/messenger/slack/channels';
+};
+
+export type ListSlackChannelsErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Slack connection unavailable
+     */
+    500: unknown;
+};
+
+export type ListSlackChannelsResponses = {
+    /**
+     * Slack channels available to the connected account
+     */
+    200: SlackChannelsResponse;
+};
+
+export type ListSlackChannelsResponse = ListSlackChannelsResponses[keyof ListSlackChannelsResponses];
+
+export type SendSlackMessageData = {
+    body: SlackSendRequest;
+    path?: never;
+    query?: never;
+    url: '/messenger/slack/messages';
+};
+
+export type SendSlackMessageErrors = {
+    /**
+     * Invalid Slack message
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Slack delivery unavailable
+     */
+    500: unknown;
+};
+
+export type SendSlackMessageResponses = {
+    /**
+     * Slack message sent
+     */
+    200: SendMessageResponse;
+};
+
+export type SendSlackMessageResponse = SendSlackMessageResponses[keyof SendSlackMessageResponses];
+
 export type DeleteConnectionData = {
     body: DeleteConnectionRequest;
     path?: never;
@@ -2421,6 +2554,64 @@ export type WhoamiResponses = {
 };
 
 export type WhoamiResponse = WhoamiResponses[keyof WhoamiResponses];
+
+export type NotionAppendUpdateData = {
+    body: NotionAppendUpdateRequest;
+    path?: never;
+    query?: never;
+    url: '/notion/append-update';
+};
+
+export type NotionAppendUpdateErrors = {
+    /**
+     * Invalid update payload
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Notion connection unavailable
+     */
+    500: unknown;
+};
+
+export type NotionAppendUpdateResponses = {
+    /**
+     * Update appended to the Notion page
+     */
+    200: NotionAppendUpdateResponse;
+};
+
+export type NotionAppendUpdateResponse2 = NotionAppendUpdateResponses[keyof NotionAppendUpdateResponses];
+
+export type NotionSearchPagesData = {
+    body: NotionSearchPagesRequest;
+    path?: never;
+    query?: never;
+    url: '/notion/search-pages';
+};
+
+export type NotionSearchPagesErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Notion connection unavailable
+     */
+    500: unknown;
+};
+
+export type NotionSearchPagesResponses = {
+    /**
+     * Notion pages shared with the connected integration
+     */
+    200: NotionPagesResponse;
+};
+
+export type NotionSearchPagesResponse = NotionSearchPagesResponses[keyof NotionSearchPagesResponses];
 
 export type DiarizeData = {
     body: DiarizeRequest;
@@ -2814,6 +3005,42 @@ export type CreateLinkSharedNoteHandoffResponses = {
 
 export type CreateLinkSharedNoteHandoffResponse = CreateLinkSharedNoteHandoffResponses[keyof CreateLinkSharedNoteHandoffResponses];
 
+export type ReadLinkSharedNotePreviewData = {
+    body: SharedNoteLinkPreviewRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/link/{share_id}/preview';
+};
+
+export type ReadLinkSharedNotePreviewErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Request too large
+     */
+    413: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type ReadLinkSharedNotePreviewResponses = {
+    /**
+     * Bearer-link shared note preview
+     */
+    200: SharedNotePreview;
+};
+
+export type ReadLinkSharedNotePreviewResponse = ReadLinkSharedNotePreviewResponses[keyof ReadLinkSharedNotePreviewResponses];
+
 export type ReadPublicSharedNoteData = {
     body?: never;
     path: {
@@ -2914,6 +3141,78 @@ export type CreatePublicSharedNoteHandoffResponses = {
 
 export type CreatePublicSharedNoteHandoffResponse = CreatePublicSharedNoteHandoffResponses[keyof CreatePublicSharedNoteHandoffResponses];
 
+export type ReadPublicSharedNotePreviewData = {
+    body?: never;
+    path: {
+        /**
+         * Public share slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/shared-notes/public/{slug}/preview';
+};
+
+export type ReadPublicSharedNotePreviewErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type ReadPublicSharedNotePreviewResponses = {
+    /**
+     * Public shared note preview
+     */
+    200: SharedNotePreview;
+};
+
+export type ReadPublicSharedNotePreviewResponse = ReadPublicSharedNotePreviewResponses[keyof ReadPublicSharedNotePreviewResponses];
+
+export type SendSharedNoteRecapEmailData = {
+    body: MeetingRecapEmailRequest;
+    path: {
+        /**
+         * Session share ID
+         */
+        share_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/{share_id}/recap/email';
+};
+
+export type SendSharedNoteRecapEmailErrors = {
+    /**
+     * Invalid recap email request
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Recap email service unavailable
+     */
+    502: unknown;
+};
+
+export type SendSharedNoteRecapEmailResponses = {
+    /**
+     * Meeting recap email sent
+     */
+    204: void;
+};
+
+export type SendSharedNoteRecapEmailResponse = SendSharedNoteRecapEmailResponses[keyof SendSharedNoteRecapEmailResponses];
+
 export type SttListenStreamData = {
     body?: never;
     path?: never;
@@ -3010,6 +3309,14 @@ export type SttListenBatchData = {
          * Maximum expected number of speakers, when supported by the selected provider
          */
         max_speakers?: number;
+        /**
+         * Audio sample rate in Hz (default: 16000)
+         */
+        sample_rate?: number;
+        /**
+         * Number of audio channels (default: 1)
+         */
+        channels?: number;
         /**
          * When set, enables async callback mode. Body should be JSON with a `url` field instead of raw audio
          */
@@ -3976,6 +4283,33 @@ export type GithubListTicketsResponses = {
 };
 
 export type GithubListTicketsResponse = GithubListTicketsResponses[keyof GithubListTicketsResponses];
+
+export type LinearCreateIssueData = {
+    body: LinearCreateIssueRequest;
+    path?: never;
+    query?: never;
+    url: '/ticket/linear/create-issue';
+};
+
+export type LinearCreateIssueErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type LinearCreateIssueResponses = {
+    /**
+     * Linear issue created
+     */
+    200: TicketSummary;
+};
+
+export type LinearCreateIssueResponse = LinearCreateIssueResponses[keyof LinearCreateIssueResponses];
 
 export type LinearListTeamsData = {
     body: LinearListTeamsRequest;

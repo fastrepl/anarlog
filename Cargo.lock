@@ -561,6 +561,7 @@ dependencies = [
  "api-mail",
  "api-messenger",
  "api-nango",
+ "api-notion",
  "api-pyannote",
  "api-research",
  "api-subscription",
@@ -775,6 +776,20 @@ dependencies = [
  "urlencoding",
  "utoipa",
  "wiremock",
+]
+
+[[package]]
+name = "api-notion"
+version = "0.1.0"
+dependencies = [
+ "api-auth",
+ "api-error",
+ "api-nango",
+ "axum 0.8.9",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "utoipa",
 ]
 
 [[package]]

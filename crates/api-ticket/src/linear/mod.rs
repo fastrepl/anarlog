@@ -6,4 +6,5 @@ pub fn router() -> Router {
     Router::new()
         .route("/list-teams", post(routes::list_teams))
         .route("/list-tickets", post(routes::list_tickets))
+        .route("/create-issue", post(routes::create_issue))
 }

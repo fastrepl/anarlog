@@ -2,8 +2,8 @@ use anlg_http::HttpClient;
 
 use crate::error::Error;
 use crate::types::{
-    Connection, GraphQLResponse, Issue, IssuesData, ListIssuesRequest, ListTeamsRequest, Team,
-    TeamIssuesData, TeamsData,
+    Connection, CreateIssueRequest, GraphQLResponse, Issue, IssueCreateData, IssuesData,
+    ListIssuesRequest, ListTeamsRequest, Team, TeamIssuesData, TeamsData,
 };
 
 pub struct LinearClient<C> {
@@ -72,6 +72,77 @@ impl<C: HttpClient> LinearClient<C> {
 
         let data: TeamsData = self.query(query, variables).await?;
         Ok(data.teams)
+    }
+
+    pub async fn create_issue(&self, req: CreateIssueRequest) -> Result<Issue, Error> {
+        let mut input = serde_json::json!({
+            "teamId": req.team_id,
+            "title": req.title,
+        });
+        if let Some(description) = req.description {
+            input["description"] = serde_json::json!(description);
+        }
+
+        let query = r#"
+            mutation CreateIssue($input: IssueCreateInput!) {
+                issueCreate(input: $input) {
+                    success
+                    issue {
+                        id
+                        identifier
+                        number
+                        title
+                        description
+                        url
+                        priority
+                        priorityLabel
+                        state {
+                            id
+                            name
+                            type
+                        }
+                        assignee {
+                            id
+                            name
+                            email
+                            avatarUrl
+                        }
+                        creator {
+                            id
+                            name
+                            email
+                            avatarUrl
+                        }
+                        team {
+                            id
+                            name
+                            key
+                        }
+                        labels {
+                            nodes {
+                                id
+                                name
+                                color
+                            }
+                        }
+                        createdAt
+                        updatedAt
+                        completedAt
+                        cancelledAt
+                    }
+                }
+            }
+        "#;
+
+        let data: IssueCreateData = self
+            .query(query, serde_json::json!({ "input": input }))
+            .await?;
+        if !data.issue_create.success {
+            return Err(Error::GraphQL("issueCreate was not successful".to_string()));
+        }
+        data.issue_create
+            .issue
+            .ok_or_else(|| Error::GraphQL("issueCreate returned no issue".to_string()))
     }
 
     pub async fn list_issues(&self, req: ListIssuesRequest) -> Result<Connection<Issue>, Error> {

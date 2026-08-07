@@ -1,7 +1,7 @@
 use anlg_api_auth::AuthContext;
 use anlg_api_nango::{Linear, NangoConnectionState, NangoIntegrationId};
 use anlg_linear::LinearClient;
-use anlg_ticket_interface::{CollectionPage, CollectionRef, TicketPage};
+use anlg_ticket_interface::{CollectionPage, CollectionRef, TicketPage, TicketSummary};
 use axum::{Extension, Json};
 use serde::Deserialize;
 use utoipa::ToSchema;
@@ -84,6 +84,62 @@ pub async fn list_teams(
         .collect();
 
     Ok(Json(CollectionPage { items, next_cursor }))
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct LinearCreateIssueRequest {
+    pub connection_id: String,
+    pub team_id: String,
+    pub title: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/linear/create-issue",
+    operation_id = "linear_create_issue",
+    request_body = LinearCreateIssueRequest,
+    responses(
+        (status = 200, description = "Linear issue created", body = TicketSummary),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error"),
+    ),
+    tag = "ticket",
+)]
+pub async fn create_issue(
+    Extension(auth): Extension<AuthContext>,
+    Extension(nango_state): Extension<NangoConnectionState>,
+    Json(req): Json<LinearCreateIssueRequest>,
+) -> Result<Json<TicketSummary>> {
+    let http = nango_state
+        .build_http_client(
+            &auth.token,
+            &auth.claims.sub,
+            Linear::ID,
+            &req.connection_id,
+        )
+        .await?;
+
+    let client = LinearClient::new(http);
+
+    let issue = client
+        .create_issue(anlg_linear::CreateIssueRequest {
+            team_id: req.team_id,
+            title: req.title,
+            description: req.description,
+        })
+        .await
+        .map_err(|e| TicketError::Internal(e.to_string()))?;
+
+    let collection = CollectionRef {
+        id: issue.team.id.clone(),
+        name: issue.team.name.clone(),
+        key: Some(issue.team.key.clone()),
+        url: None,
+    };
+
+    Ok(Json(linear_issue_to_ticket(&issue, &collection)))
 }
 
 #[utoipa::path(

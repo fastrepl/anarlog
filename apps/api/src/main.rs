@@ -341,6 +341,7 @@ async fn app() -> Router {
         .nest("/calendar", anlg_api_calendar::router())
         .nest("/mail", anlg_api_mail::router())
         .nest("/messenger", anlg_api_messenger::router())
+        .nest("/notion", anlg_api_notion::router())
         .nest("/ticket", anlg_api_ticket::router())
         .nest(
             "/nango",

@@ -53,6 +53,11 @@ export const INTEGRATION_DISPLAY: Record<
     description: "Connect Slack to send meeting recaps to your channels",
     connectingHint: "Finish authorization with Slack, then return to Anarlog",
   },
+  notion: {
+    name: "Notion",
+    description: "Connect Notion to add meeting updates to your pages",
+    connectingHint: "Pick the Notion pages to share, then return to Anarlog",
+  },
 };
 
 export function getIntegrationDisplay(integrationId: string) {

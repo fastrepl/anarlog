@@ -780,6 +780,81 @@
         ]
       }
     },
+    "/notion/append-update": {
+      "post": {
+        "tags": [
+          "notion"
+        ],
+        "operationId": "notion_append_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotionAppendUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Update appended to the Notion page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionAppendUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid update payload"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Notion connection unavailable"
+          }
+        }
+      }
+    },
+    "/notion/search-pages": {
+      "post": {
+        "tags": [
+          "notion"
+        ],
+        "operationId": "notion_search_pages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotionSearchPagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Notion pages shared with the connected integration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionPagesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Notion connection unavailable"
+          }
+        }
+      }
+    },
     "/pyannote/v1/diarize": {
       "post": {
         "tags": [
@@ -3077,6 +3152,47 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TicketPage"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/ticket/linear/create-issue": {
+      "post": {
+        "tags": [
+          "ticket"
+        ],
+        "operationId": "linear_create_issue",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinearCreateIssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Linear issue created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketSummary"
                 }
               }
             }
@@ -7213,6 +7329,31 @@
         },
         "additionalProperties": false
       },
+      "LinearCreateIssueRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "team_id",
+          "title"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "team_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "LinearListTeamsRequest": {
         "type": "object",
         "required": [
@@ -8124,6 +8265,96 @@
           "agenda",
           "unknown"
         ]
+      },
+      "NotionAppendUpdateRequest": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "page_id",
+          "heading",
+          "markdown"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "NotionAppendUpdateResponse": {
+        "type": "object",
+        "required": [
+          "block_count"
+        ],
+        "properties": {
+          "block_count": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "NotionPage": {
+        "type": "object",
+        "required": [
+          "id",
+          "title"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "NotionPagesResponse": {
+        "type": "object",
+        "required": [
+          "pages"
+        ],
+        "properties": {
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotionPage"
+            }
+          }
+        }
+      },
+      "NotionSearchPagesRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "query": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "OfficeLocation": {
         "type": "object",
@@ -11761,6 +11992,10 @@
     {
       "name": "messenger",
       "description": "Messaging integrations"
+    },
+    {
+      "name": "notion",
+      "description": "Notion integration"
     },
     {
       "name": "ticket",

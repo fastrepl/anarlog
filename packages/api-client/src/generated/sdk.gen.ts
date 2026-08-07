@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelAttachmentBackupDeletionData, CancelAttachmentBackupDeletionErrors, CancelAttachmentBackupDeletionResponses, CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, ClaimE2EeIdentityData, ClaimE2EeIdentityErrors, ClaimE2EeIdentityResponses, ClaimSharedNoteHandoffData, ClaimSharedNoteHandoffErrors, ClaimSharedNoteHandoffResponses, CreateCredentialsData, CreateCredentialsErrors, CreateCredentialsResponses, CreateKeyData, CreateKeyErrors, CreateKeyResponses, CreateLinkSharedNoteHandoffData, CreateLinkSharedNoteHandoffErrors, CreateLinkSharedNoteHandoffResponses, CreatePublicSharedNoteHandoffData, CreatePublicSharedNoteHandoffErrors, CreatePublicSharedNoteHandoffResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteAttachmentBackupData, DeleteAttachmentBackupErrors, DeleteAttachmentBackupResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, DeleteSnapshotData, DeleteSnapshotResponses, DiarizeData, DiarizeErrors, DiarizeResponses, DownloadAccessSharedAttachmentData, DownloadAccessSharedAttachmentErrors, DownloadAccessSharedAttachmentResponses, DownloadAttachmentBackupData, DownloadAttachmentBackupErrors, DownloadAttachmentBackupResponses, DownloadHandoffSharedAttachmentData, DownloadHandoffSharedAttachmentErrors, DownloadHandoffSharedAttachmentResponses, DownloadLinkSharedAttachmentData, DownloadLinkSharedAttachmentErrors, DownloadLinkSharedAttachmentResponses, DownloadPublicSharedAttachmentData, DownloadPublicSharedAttachmentErrors, DownloadPublicSharedAttachmentResponses, EditSessionShareSnapshotData, EditSessionShareSnapshotErrors, EditSessionShareSnapshotResponses, ExportMeetingData, ExportMeetingErrors, ExportMeetingResponses, FinalizeAttachmentBackupData, FinalizeAttachmentBackupErrors, FinalizeAttachmentBackupResponses, FinalizeSharedAttachmentData, FinalizeSharedAttachmentErrors, FinalizeSharedAttachmentResponses, GetHistoryData, GetHistoryErrors, GetHistoryResponses, GetJobByIdData, GetJobByIdErrors, GetJobByIdResponses, GetMediaUploadUrlData, GetMediaUploadUrlErrors, GetMediaUploadUrlResponses, GetMeetingData, GetMeetingErrors, GetMeetingResponses, GetSettingsData, GetSettingsErrors, GetSettingsResponses, GetTranscriptData, GetTranscriptErrors, GetTranscriptResponses, GithubListReposData, GithubListReposErrors, GithubListReposResponses, GithubListTicketsData, GithubListTicketsErrors, GithubListTicketsResponses, GoogleGetAttachmentData, GoogleGetAttachmentErrors, GoogleGetAttachmentResponses, GoogleGetMessageData, GoogleGetMessageErrors, GoogleGetMessageResponses, GoogleGetProfileData, GoogleGetProfileErrors, GoogleGetProfileResponses, GoogleGetThreadData, GoogleGetThreadErrors, GoogleGetThreadResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, GoogleListHistoryData, GoogleListHistoryErrors, GoogleListHistoryResponses, GoogleListLabelsData, GoogleListLabelsErrors, GoogleListLabelsResponses, GoogleListMessagesData, GoogleListMessagesErrors, GoogleListMessagesResponses, GoogleListThreadsData, GoogleListThreadsErrors, GoogleListThreadsResponses, GrantAttachmentBackupUploadData, GrantAttachmentBackupUploadErrors, GrantAttachmentBackupUploadResponses, GrantSharedAttachmentUploadData, GrantSharedAttachmentUploadErrors, GrantSharedAttachmentUploadResponses, IdentifyData, IdentifyErrors, IdentifyResponses, LinearListTeamsData, LinearListTeamsErrors, LinearListTeamsResponses, LinearListTicketsData, LinearListTicketsErrors, LinearListTicketsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListKeysData, ListKeysErrors, ListKeysResponses, ListMeetingsData, ListMeetingsErrors, ListMeetingsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, PromoteAttachmentBackupData, PromoteAttachmentBackupErrors, PromoteAttachmentBackupResponses, PublishE2EeWitnessData, PublishE2EeWitnessErrors, PublishE2EeWitnessResponses, PublishSessionShareSnapshotData, PublishSessionShareSnapshotErrors, PublishSessionShareSnapshotResponses, PublishSnapshotData, PublishSnapshotErrors, PublishSnapshotResponses, ReadCurrentAttachmentBackupData, ReadCurrentAttachmentBackupErrors, ReadCurrentAttachmentBackupResponses, ReadE2EeWitnessData, ReadE2EeWitnessErrors, ReadE2EeWitnessResponses, ReadLinkSharedNoteData, ReadLinkSharedNoteErrors, ReadLinkSharedNoteResponses, ReadPublicSharedNoteData, ReadPublicSharedNoteErrors, ReadPublicSharedNoteResponses, ReserveAttachmentBackupData, ReserveAttachmentBackupErrors, ReserveAttachmentBackupResponses, ReserveSharedAttachmentData, ReserveSharedAttachmentErrors, ReserveSharedAttachmentResponses, RevokeKeyData, RevokeKeyErrors, RevokeKeyResponses, SendSharedNoteInvitationEmailData, SendSharedNoteInvitationEmailErrors, SendSharedNoteInvitationEmailResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, UpdateSettingsData, UpdateSettingsErrors, UpdateSettingsResponses, VoiceprintData, VoiceprintErrors, VoiceprintResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { CancelAttachmentBackupDeletionData, CancelAttachmentBackupDeletionErrors, CancelAttachmentBackupDeletionResponses, CanStartTrialData, CanStartTrialErrors, CanStartTrialResponses, ClaimE2EeIdentityData, ClaimE2EeIdentityErrors, ClaimE2EeIdentityResponses, ClaimSharedNoteHandoffData, ClaimSharedNoteHandoffErrors, ClaimSharedNoteHandoffResponses, CreateCredentialsData, CreateCredentialsErrors, CreateCredentialsResponses, CreateKeyData, CreateKeyErrors, CreateKeyResponses, CreateLinkSharedNoteHandoffData, CreateLinkSharedNoteHandoffErrors, CreateLinkSharedNoteHandoffResponses, CreatePublicSharedNoteHandoffData, CreatePublicSharedNoteHandoffErrors, CreatePublicSharedNoteHandoffResponses, CreateSessionData, CreateSessionErrors, CreateSessionResponses, DeleteAccountData, DeleteAccountErrors, DeleteAccountResponses, DeleteAttachmentBackupData, DeleteAttachmentBackupErrors, DeleteAttachmentBackupResponses, DeleteConnectionData, DeleteConnectionErrors, DeleteConnectionResponses, DeleteSnapshotData, DeleteSnapshotResponses, DiarizeData, DiarizeErrors, DiarizeResponses, DownloadAccessSharedAttachmentData, DownloadAccessSharedAttachmentErrors, DownloadAccessSharedAttachmentResponses, DownloadAttachmentBackupData, DownloadAttachmentBackupErrors, DownloadAttachmentBackupResponses, DownloadHandoffSharedAttachmentData, DownloadHandoffSharedAttachmentErrors, DownloadHandoffSharedAttachmentResponses, DownloadLinkSharedAttachmentData, DownloadLinkSharedAttachmentErrors, DownloadLinkSharedAttachmentResponses, DownloadPublicSharedAttachmentData, DownloadPublicSharedAttachmentErrors, DownloadPublicSharedAttachmentResponses, EditSessionShareSnapshotData, EditSessionShareSnapshotErrors, EditSessionShareSnapshotResponses, ExportMeetingData, ExportMeetingErrors, ExportMeetingResponses, FinalizeAttachmentBackupData, FinalizeAttachmentBackupErrors, FinalizeAttachmentBackupResponses, FinalizeSharedAttachmentData, FinalizeSharedAttachmentErrors, FinalizeSharedAttachmentResponses, GetHistoryData, GetHistoryErrors, GetHistoryResponses, GetJobByIdData, GetJobByIdErrors, GetJobByIdResponses, GetMediaUploadUrlData, GetMediaUploadUrlErrors, GetMediaUploadUrlResponses, GetMeetingData, GetMeetingErrors, GetMeetingResponses, GetSettingsData, GetSettingsErrors, GetSettingsResponses, GetTranscriptData, GetTranscriptErrors, GetTranscriptResponses, GithubListReposData, GithubListReposErrors, GithubListReposResponses, GithubListTicketsData, GithubListTicketsErrors, GithubListTicketsResponses, GoogleGetAttachmentData, GoogleGetAttachmentErrors, GoogleGetAttachmentResponses, GoogleGetMessageData, GoogleGetMessageErrors, GoogleGetMessageResponses, GoogleGetProfileData, GoogleGetProfileErrors, GoogleGetProfileResponses, GoogleGetThreadData, GoogleGetThreadErrors, GoogleGetThreadResponses, GoogleListCalendarsData, GoogleListCalendarsErrors, GoogleListCalendarsResponses, GoogleListEventsData, GoogleListEventsErrors, GoogleListEventsResponses, GoogleListHistoryData, GoogleListHistoryErrors, GoogleListHistoryResponses, GoogleListLabelsData, GoogleListLabelsErrors, GoogleListLabelsResponses, GoogleListMessagesData, GoogleListMessagesErrors, GoogleListMessagesResponses, GoogleListThreadsData, GoogleListThreadsErrors, GoogleListThreadsResponses, GrantAttachmentBackupUploadData, GrantAttachmentBackupUploadErrors, GrantAttachmentBackupUploadResponses, GrantSharedAttachmentUploadData, GrantSharedAttachmentUploadErrors, GrantSharedAttachmentUploadResponses, IdentifyData, IdentifyErrors, IdentifyResponses, LinearCreateIssueData, LinearCreateIssueErrors, LinearCreateIssueResponses, LinearListTeamsData, LinearListTeamsErrors, LinearListTeamsResponses, LinearListTicketsData, LinearListTicketsErrors, LinearListTicketsResponses, ListConnectionsData, ListConnectionsErrors, ListConnectionsResponses, ListKeysData, ListKeysErrors, ListKeysResponses, ListMeetingsData, ListMeetingsErrors, ListMeetingsResponses, ListSlackChannelsData, ListSlackChannelsErrors, ListSlackChannelsResponses, LlmChatCompletionsData, LlmChatCompletionsErrors, LlmChatCompletionsResponses, NangoWebhookData, NangoWebhookErrors, NangoWebhookResponses, NotionAppendUpdateData, NotionAppendUpdateErrors, NotionAppendUpdateResponses, NotionSearchPagesData, NotionSearchPagesErrors, NotionSearchPagesResponses, OutlookListCalendarsData, OutlookListCalendarsErrors, OutlookListCalendarsResponses, OutlookListEventsData, OutlookListEventsErrors, OutlookListEventsResponses, PromoteAttachmentBackupData, PromoteAttachmentBackupErrors, PromoteAttachmentBackupResponses, PublishE2EeWitnessData, PublishE2EeWitnessErrors, PublishE2EeWitnessResponses, PublishSessionShareSnapshotData, PublishSessionShareSnapshotErrors, PublishSessionShareSnapshotResponses, PublishSnapshotData, PublishSnapshotErrors, PublishSnapshotResponses, ReadCurrentAttachmentBackupData, ReadCurrentAttachmentBackupErrors, ReadCurrentAttachmentBackupResponses, ReadE2EeWitnessData, ReadE2EeWitnessErrors, ReadE2EeWitnessResponses, ReadLinkSharedNoteData, ReadLinkSharedNoteErrors, ReadLinkSharedNotePreviewData, ReadLinkSharedNotePreviewErrors, ReadLinkSharedNotePreviewResponses, ReadLinkSharedNoteResponses, ReadPublicSharedNoteData, ReadPublicSharedNoteErrors, ReadPublicSharedNotePreviewData, ReadPublicSharedNotePreviewErrors, ReadPublicSharedNotePreviewResponses, ReadPublicSharedNoteResponses, ReserveAttachmentBackupData, ReserveAttachmentBackupErrors, ReserveAttachmentBackupResponses, ReserveSharedAttachmentData, ReserveSharedAttachmentErrors, ReserveSharedAttachmentResponses, RevokeKeyData, RevokeKeyErrors, RevokeKeyResponses, SendSharedNoteInvitationEmailData, SendSharedNoteInvitationEmailErrors, SendSharedNoteInvitationEmailResponses, SendSharedNoteRecapEmailData, SendSharedNoteRecapEmailErrors, SendSharedNoteRecapEmailResponses, SendSlackMessageData, SendSlackMessageErrors, SendSlackMessageResponses, StartTrialData, StartTrialErrors, StartTrialResponses, SttListenBatchData, SttListenBatchErrors, SttListenBatchResponses, SttListenStreamData, SttListenStreamErrors, SttStatusData, SttStatusErrors, SttStatusResponses, UpdateSettingsData, UpdateSettingsErrors, UpdateSettingsResponses, VoiceprintData, VoiceprintErrors, VoiceprintResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -140,6 +140,17 @@ export const googleListThreads = <ThrowOnError extends boolean = false>(options:
     }
 });
 
+export const listSlackChannels = <ThrowOnError extends boolean = false>(options?: Options<ListSlackChannelsData, ThrowOnError>) => (options?.client ?? client).get<ListSlackChannelsResponses, ListSlackChannelsErrors, ThrowOnError>({ url: '/messenger/slack/channels', ...options });
+
+export const sendSlackMessage = <ThrowOnError extends boolean = false>(options: Options<SendSlackMessageData, ThrowOnError>) => (options.client ?? client).post<SendSlackMessageResponses, SendSlackMessageErrors, ThrowOnError>({
+    url: '/messenger/slack/messages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
 export const deleteConnection = <ThrowOnError extends boolean = false>(options: Options<DeleteConnectionData, ThrowOnError>) => (options.client ?? client).delete<DeleteConnectionResponses, DeleteConnectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/nango/connections',
@@ -172,6 +183,24 @@ export const whoami = <ThrowOnError extends boolean = false>(options?: Options<W
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/nango/whoami',
     ...options
+});
+
+export const notionAppendUpdate = <ThrowOnError extends boolean = false>(options: Options<NotionAppendUpdateData, ThrowOnError>) => (options.client ?? client).post<NotionAppendUpdateResponses, NotionAppendUpdateErrors, ThrowOnError>({
+    url: '/notion/append-update',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const notionSearchPages = <ThrowOnError extends boolean = false>(options: Options<NotionSearchPagesData, ThrowOnError>) => (options.client ?? client).post<NotionSearchPagesResponses, NotionSearchPagesErrors, ThrowOnError>({
+    url: '/notion/search-pages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -295,11 +324,31 @@ export const createLinkSharedNoteHandoff = <ThrowOnError extends boolean = false
     }
 });
 
+export const readLinkSharedNotePreview = <ThrowOnError extends boolean = false>(options: Options<ReadLinkSharedNotePreviewData, ThrowOnError>) => (options.client ?? client).post<ReadLinkSharedNotePreviewResponses, ReadLinkSharedNotePreviewErrors, ThrowOnError>({
+    url: '/shared-notes/link/{share_id}/preview',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
 export const readPublicSharedNote = <ThrowOnError extends boolean = false>(options: Options<ReadPublicSharedNoteData, ThrowOnError>) => (options.client ?? client).get<ReadPublicSharedNoteResponses, ReadPublicSharedNoteErrors, ThrowOnError>({ url: '/shared-notes/public/{slug}', ...options });
 
 export const downloadPublicSharedAttachment = <ThrowOnError extends boolean = false>(options: Options<DownloadPublicSharedAttachmentData, ThrowOnError>) => (options.client ?? client).post<DownloadPublicSharedAttachmentResponses, DownloadPublicSharedAttachmentErrors, ThrowOnError>({ url: '/shared-notes/public/{slug}/attachments/{attachment_id}/download', ...options });
 
 export const createPublicSharedNoteHandoff = <ThrowOnError extends boolean = false>(options: Options<CreatePublicSharedNoteHandoffData, ThrowOnError>) => (options.client ?? client).post<CreatePublicSharedNoteHandoffResponses, CreatePublicSharedNoteHandoffErrors, ThrowOnError>({ url: '/shared-notes/public/{slug}/handoff', ...options });
+
+export const readPublicSharedNotePreview = <ThrowOnError extends boolean = false>(options: Options<ReadPublicSharedNotePreviewData, ThrowOnError>) => (options.client ?? client).get<ReadPublicSharedNotePreviewResponses, ReadPublicSharedNotePreviewErrors, ThrowOnError>({ url: '/shared-notes/public/{slug}/preview', ...options });
+
+export const sendSharedNoteRecapEmail = <ThrowOnError extends boolean = false>(options: Options<SendSharedNoteRecapEmailData, ThrowOnError>) => (options.client ?? client).post<SendSharedNoteRecapEmailResponses, SendSharedNoteRecapEmailErrors, ThrowOnError>({
+    url: '/shared-notes/{share_id}/recap/email',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 export const sttListenStream = <ThrowOnError extends boolean = false>(options?: Options<SttListenStreamData, ThrowOnError>) => (options?.client ?? client).get<unknown, SttListenStreamErrors, ThrowOnError>({ url: '/stt/listen', ...options });
 
@@ -503,6 +552,16 @@ export const githubListRepos = <ThrowOnError extends boolean = false>(options: O
 export const githubListTickets = <ThrowOnError extends boolean = false>(options: Options<GithubListTicketsData, ThrowOnError>) => (options.client ?? client).post<GithubListTicketsResponses, GithubListTicketsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/ticket/github/list-tickets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const linearCreateIssue = <ThrowOnError extends boolean = false>(options: Options<LinearCreateIssueData, ThrowOnError>) => (options.client ?? client).post<LinearCreateIssueResponses, LinearCreateIssueErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/ticket/linear/create-issue',
     ...options,
     headers: {
         'Content-Type': 'application/json',

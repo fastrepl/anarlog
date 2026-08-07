@@ -18,6 +18,7 @@ use utoipa::{Modify, OpenApi};
         (name = "calendar", description = "Calendar management"),
         (name = "mail", description = "Mail management"),
         (name = "messenger", description = "Messaging integrations"),
+        (name = "notion", description = "Notion integration"),
         (name = "ticket", description = "Ticket management"),
         (name = "nango", description = "Integration management via Nango"),
         (name = "sync", description = "CloudSync credential management"),
@@ -38,6 +39,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let calendar_doc = with_path_prefix(anlg_api_calendar::openapi(), "/calendar");
     let mail_doc = with_path_prefix(anlg_api_mail::openapi(), "/mail");
     let messenger_doc = with_path_prefix(anlg_api_messenger::openapi(), "/messenger");
+    let notion_doc = with_path_prefix(anlg_api_notion::openapi(), "/notion");
     let ticket_doc = with_path_prefix(anlg_api_ticket::openapi(), "/ticket");
     let nango_doc = with_path_prefix(anlg_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(anlg_api_subscription::openapi(), "/subscription");
@@ -52,6 +54,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(calendar_doc);
     doc.merge(mail_doc);
     doc.merge(messenger_doc);
+    doc.merge(notion_doc);
     doc.merge(ticket_doc);
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
