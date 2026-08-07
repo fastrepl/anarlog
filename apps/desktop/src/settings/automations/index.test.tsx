@@ -97,6 +97,49 @@ describe("SettingsAutomations", () => {
     ).toBeTruthy();
   });
 
+  it("uses product marks without icon tiles", () => {
+    const { container } = renderAutomations();
+
+    const slackIcon = container.querySelector(
+      'iconify-icon[icon="logos:slack-icon"]',
+    );
+
+    expect(slackIcon).toBeTruthy();
+    expect(
+      container.querySelector('iconify-icon[icon="logos:notion-icon"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('iconify-icon[icon="logos:linear-icon"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('img[src="/assets/markdown-mark.svg"]'),
+    ).toBeTruthy();
+    expect(slackIcon?.parentElement?.className).not.toContain("bg-muted");
+    expect(slackIcon?.parentElement?.className).not.toContain("rounded");
+  });
+
+  it("shows compact starter rows", () => {
+    renderAutomations();
+
+    expect(screen.queryByText("Pro")).toBeNull();
+    expect(
+      screen.getByText(
+        "Automate what happens before, during, or after meetings based on the conditions you choose.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Get started" })).toBeTruthy();
+    expect(
+      screen.queryByText("Create a draft you can review before saving."),
+    ).toBeNull();
+
+    const starter = screen.getByRole("button", {
+      name: /Share a meeting recap in Slack/,
+    });
+    expect(starter.className).not.toContain("border");
+    expect(starter.className).not.toContain("p-4");
+    expect(starter.querySelector("svg")).toBeTruthy();
+  });
+
   it("saves the selected draft for Pro users", async () => {
     renderAutomations();
 

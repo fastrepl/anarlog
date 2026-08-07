@@ -384,6 +384,10 @@ msgstr ""
 msgid "Auto summary prompt"
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Automate what happens before, during, or after meetings based on the conditions you choose."
+msgstr ""
+
 #: src/settings/general/app-settings.tsx
 msgid "Automatically install updates"
 msgstr ""
@@ -802,10 +806,6 @@ msgstr ""
 msgid "Could not start trial"
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Create a draft you can review before saving."
-msgstr ""
-
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr ""
@@ -915,10 +915,6 @@ msgstr ""
 
 #: src/session-sharing/access-management.tsx
 msgid "Deny"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Describe an outcome in Chat, then review before it runs."
 msgstr ""
 
 #: src/templates/template-form.tsx
@@ -1208,6 +1204,7 @@ msgid "Get Pro"
 msgstr ""
 
 #: src/onboarding/account/before-login.tsx
+#: src/settings/automations/index.tsx
 #: src/settings/general/account.tsx
 msgid "Get started"
 msgstr ""
@@ -1950,7 +1947,6 @@ msgid "Privacy"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
-#: src/settings/automations/index.tsx
 msgid "Pro"
 msgstr ""
 
@@ -2595,10 +2591,6 @@ msgstr "Qala xa intlanganiso iqala"
 
 #: src/session/components/note-input/raw.tsx
 msgid "Start with a favorite template"
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Start with an example"
 msgstr ""
 
 #: src/onboarding/index.tsx

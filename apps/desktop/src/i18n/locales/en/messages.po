@@ -384,6 +384,10 @@ msgstr "Auto prompt cannot be empty."
 msgid "Auto summary prompt"
 msgstr "Auto summary prompt"
 
+#: src/settings/automations/index.tsx
+msgid "Automate what happens before, during, or after meetings based on the conditions you choose."
+msgstr "Automate what happens before, during, or after meetings based on the conditions you choose."
+
 #: src/settings/general/app-settings.tsx
 msgid "Automatically install updates"
 msgstr "Automatically install updates"
@@ -802,10 +806,6 @@ msgstr "Could not save the automation draft"
 msgid "Could not start trial"
 msgstr "Could not start trial"
 
-#: src/settings/automations/index.tsx
-msgid "Create a draft you can review before saving."
-msgstr "Create a draft you can review before saving."
-
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -916,10 +916,6 @@ msgstr "Deleting..."
 #: src/session-sharing/access-management.tsx
 msgid "Deny"
 msgstr "Deny"
-
-#: src/settings/automations/index.tsx
-msgid "Describe an outcome in Chat, then review before it runs."
-msgstr "Describe an outcome in Chat, then review before it runs."
 
 #: src/templates/template-form.tsx
 msgid "Describe the template purpose..."
@@ -1208,6 +1204,7 @@ msgid "Get Pro"
 msgstr "Get Pro"
 
 #: src/onboarding/account/before-login.tsx
+#: src/settings/automations/index.tsx
 #: src/settings/general/account.tsx
 msgid "Get started"
 msgstr "Get started"
@@ -1950,7 +1947,6 @@ msgid "Privacy"
 msgstr "Privacy"
 
 #: src/settings/ai/stt/select.tsx
-#: src/settings/automations/index.tsx
 msgid "Pro"
 msgstr "Pro"
 
@@ -2596,10 +2592,6 @@ msgstr "Start when meeting begins"
 #: src/session/components/note-input/raw.tsx
 msgid "Start with a favorite template"
 msgstr "Start with a favorite template"
-
-#: src/settings/automations/index.tsx
-msgid "Start with an example"
-msgstr "Start with an example"
 
 #: src/onboarding/index.tsx
 msgid "Start with permissions"

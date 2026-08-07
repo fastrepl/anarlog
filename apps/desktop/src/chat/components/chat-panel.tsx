@@ -130,26 +130,29 @@ export function ChatPanelFrame({
         "flex min-h-0 flex-col overflow-hidden",
         isFloating ? "max-h-full" : "h-full",
         isFloating ? chatFloatingPanelClassNames() : panelClassName,
+        chat.scope === "automations" && !isFloating && "pb-3",
       ])}
     >
-      <div
-        className={cn([
-          "flex shrink-0 items-center pr-0 pl-0",
-          isFloating ? "h-11" : "h-12",
-        ])}
-      >
-        <ChatToolbarControls
-          chatScope={chat.scope}
-          currentChatGroupId={groupId}
-          layout={layout}
-          onClose={() => chat.sendEvent({ type: "CLOSE" })}
-          onNewChat={chat.startNewChat}
-          onOpenFloating={onOpenFloating}
-          onOpenRightPanel={onOpenRightPanel}
-          onSelectChat={chat.selectChat}
-          surface={toolbarSurface}
-        />
-      </div>
+      {chat.scope === "automations" ? null : (
+        <div
+          className={cn([
+            "flex shrink-0 items-center pr-0 pl-0",
+            isFloating ? "h-11" : "h-12",
+          ])}
+        >
+          <ChatToolbarControls
+            chatScope={chat.scope}
+            currentChatGroupId={groupId}
+            layout={layout}
+            onClose={() => chat.sendEvent({ type: "CLOSE" })}
+            onNewChat={chat.startNewChat}
+            onOpenFloating={onOpenFloating}
+            onOpenRightPanel={onOpenRightPanel}
+            onSelectChat={chat.selectChat}
+            surface={toolbarSurface}
+          />
+        </div>
+      )}
       {sessionProps && (
         <ChatContent
           {...sessionProps}

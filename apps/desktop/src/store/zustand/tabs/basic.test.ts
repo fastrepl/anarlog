@@ -211,13 +211,13 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
-  test("openNew docks Chat when opening Automations", () => {
+  test("openNew keeps generic Chat closed when opening Automations", () => {
     useTabs.getState().openNew({ type: "automations" });
 
     expect(useTabs.getState()).toHaveCurrentTab({
       type: "automations",
     });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
   test("openNew redirects legacy automation settings links", () => {
@@ -227,7 +227,7 @@ describe("Basic Tab Actions", () => {
     });
 
     expect(useTabs.getState()).toHaveCurrentTab({ type: "automations" });
-    expect(useTabs.getState().chatMode).toBe("RightPanelOpen");
+    expect(useTabs.getState().chatMode).toBe("FloatingClosed");
   });
 
   test("openNew refreshes settings return target when reusing its tab", () => {

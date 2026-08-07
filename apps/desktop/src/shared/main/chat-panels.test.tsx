@@ -215,6 +215,22 @@ describe("MainChatPanels", () => {
     expect(rightPanel?.className).not.toContain("mr-1");
   });
 
+  it("keeps Automations chat docked without a floating chat host", () => {
+    mocks.chatMode = "FloatingOpen";
+    mocks.currentTab = { type: "automations" };
+
+    render(
+      <MainChatPanels>
+        <div data-testid="main-content" />
+      </MainChatPanels>,
+    );
+
+    expect(screen.getAllByTestId("panel")).toHaveLength(2);
+    expect(screen.getByTestId("chat-view").dataset.layout).toBe("right-panel");
+    expect(screen.queryByTestId("persistent-chat-panel")).toBeNull();
+    expect(mocks.persistentChatPanel).not.toHaveBeenCalled();
+  });
+
   it("reserves enough main-body width for a 500px note surface beside the sidebar", () => {
     mocks.currentTab = { type: "sessions" };
     mocks.leftSidebarExpanded = true;

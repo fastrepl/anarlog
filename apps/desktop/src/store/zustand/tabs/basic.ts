@@ -532,13 +532,6 @@ const getChatModeForNavigation = (
   targetTab: Tab | TabInput,
   chatMode: ChatModeState["chatMode"],
 ): ChatModeState["chatMode"] | null => {
-  if (
-    targetTab.type === "automations" ||
-    (targetTab.type === "settings" && targetTab.state?.tab === "automations")
-  ) {
-    return chatMode === "RightPanelOpen" ? null : "RightPanelOpen";
-  }
-
   if (chatMode === "FloatingClosed") {
     return null;
   }

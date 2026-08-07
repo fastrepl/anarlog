@@ -35,7 +35,8 @@ export function MainChatPanels({
   const { chat, leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   const bodyPanelContainerRef = useRef<HTMLDivElement>(null);
-  const isRightPanelOpen = chat.mode === "RightPanelOpen";
+  const isAutomationsTab = currentTab?.type === "automations";
+  const isRightPanelOpen = isAutomationsTab || chat.mode === "RightPanelOpen";
   const leftSidebarExpanded = leftSidebarAvailable && leftsidebar.expanded;
   const reserveNoteSurfaceMinWidth = usesNoteSurfaceMinWidth(currentTab);
   const collapseLeftSidebar = useCallback(() => {
@@ -103,10 +104,12 @@ export function MainChatPanels({
             ) : null}
           </ResizablePanelGroup>
 
-          <PersistentChatPanel
-            floatingContainerRef={bodyPanelContainerRef}
-            sessionProps={sessionProps}
-          />
+          {isAutomationsTab ? null : (
+            <PersistentChatPanel
+              floatingContainerRef={bodyPanelContainerRef}
+              sessionProps={sessionProps}
+            />
+          )}
         </>
       )}
     </ChatSessionHost>

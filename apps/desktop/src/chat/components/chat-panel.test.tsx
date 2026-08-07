@@ -142,7 +142,7 @@ describe("ChatView", () => {
     mocks.hasAvailableTranscript = true;
     mocks.sessionMode = "active";
 
-    render(<ChatView />);
+    const { container } = render(<ChatView layout="right-panel" />);
 
     expect(mocks.chatSession).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -151,9 +151,9 @@ describe("ChatView", () => {
         isBatchTranscriptionPending: false,
       }),
     );
-    expect(mocks.toolbarControls).toHaveBeenCalledWith(
-      expect.objectContaining({ chatScope: "automations" }),
-    );
+    expect(screen.queryByTestId("chat-toolbar")).toBeNull();
+    expect(mocks.toolbarControls).not.toHaveBeenCalled();
+    expect(container.firstElementChild?.className).toContain("pb-3");
   });
 
   it("uses the sidebar card shell in the right panel layout", () => {

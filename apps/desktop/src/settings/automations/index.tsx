@@ -1,15 +1,11 @@
+import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ArrowRight,
-  CheckCircle,
   Eye,
   FloppyDisk,
-  FolderSimple,
   Lightning,
-  ListChecks,
-  NotionLogo,
   Play,
-  SlackLogo,
   Sparkle,
 } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
@@ -49,7 +45,14 @@ export function SettingsAutomations() {
       id: "slack-recap",
       title: t`Share a meeting recap in Slack`,
       description: t`Post a meeting recap to a Slack channel.`,
-      icon: SlackLogo,
+      icon: (
+        <Icon
+          icon="logos:slack-icon"
+          width={22}
+          height={22}
+          aria-hidden="true"
+        />
+      ),
       steps: [
         {
           kind: "trigger",
@@ -78,7 +81,14 @@ export function SettingsAutomations() {
       id: "notion-project-notes",
       title: t`Update project notes in Notion`,
       description: t`Add meeting decisions and follow-ups to a Notion project.`,
-      icon: NotionLogo,
+      icon: (
+        <Icon
+          icon="logos:notion-icon"
+          width={22}
+          height={22}
+          aria-hidden="true"
+        />
+      ),
       steps: [
         {
           kind: "trigger",
@@ -107,7 +117,14 @@ export function SettingsAutomations() {
       id: "linear-action-items",
       title: t`Turn action items into Linear issues`,
       description: t`Turn assigned follow-ups into Linear issue drafts.`,
-      icon: ListChecks,
+      icon: (
+        <Icon
+          icon="logos:linear-icon"
+          width={22}
+          height={22}
+          aria-hidden="true"
+        />
+      ),
       steps: [
         {
           kind: "trigger",
@@ -131,7 +148,13 @@ export function SettingsAutomations() {
       id: "markdown-export",
       title: t`Export every meeting as Markdown`,
       description: t`Save completed meetings as local Markdown files.`,
-      icon: FolderSimple,
+      icon: (
+        <img
+          src="/assets/markdown-mark.svg"
+          alt=""
+          className="h-5 w-auto dark:invert"
+        />
+      ),
       steps: [
         {
           kind: "trigger",
@@ -178,32 +201,21 @@ export function SettingsAutomations() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <SettingsPageTitle title={<Trans>Automations</Trans>} />
-            <Badge variant="secondary">
-              <Trans>Pro</Trans>
-            </Badge>
-          </div>
-          <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
-            <Trans>
-              Describe an outcome in Chat, then review before it runs.
-            </Trans>
-          </p>
-        </div>
+      <div className="flex flex-col gap-2">
+        <SettingsPageTitle title={<Trans>Automations</Trans>} />
+        <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
+          <Trans>
+            Automate what happens before, during, or after meetings based on the
+            conditions you choose.
+          </Trans>
+        </p>
       </div>
 
       <section className="flex flex-col gap-3" aria-labelledby="starters-title">
-        <div>
-          <h3 id="starters-title" className="text-sm font-semibold">
-            <Trans>Start with an example</Trans>
-          </h3>
-          <p className="text-muted-foreground mt-1 text-xs">
-            <Trans>Create a draft you can review before saving.</Trans>
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+        <h3 id="starters-title" className="text-sm font-semibold">
+          <Trans>Get started</Trans>
+        </h3>
+        <div className="flex flex-col gap-1">
           {starters.map((starter) => {
             const selected = starter.id === draftTemplateId;
             return (
@@ -216,26 +228,28 @@ export function SettingsAutomations() {
                   setShowPreview(false);
                 }}
                 className={cn([
-                  "flex min-h-24 items-start gap-3 rounded-2xl border p-4 text-left transition-colors",
-                  selected
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border bg-background hover:bg-accent/60",
+                  "group flex w-full items-center gap-3 px-1 py-2.5 text-left",
+                  "focus-visible:ring-ring rounded-lg outline-none focus-visible:ring-2",
                 ])}
               >
-                <span className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-xl">
-                  <starter.icon size={18} />
+                <span className="flex size-8 shrink-0 items-center justify-center">
+                  {starter.icon}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="flex items-center gap-2 text-sm font-medium">
+                  <span className="block text-sm font-medium">
                     {starter.title}
-                    {selected ? (
-                      <CheckCircle className="text-primary" size={14} />
-                    ) : null}
                   </span>
-                  <span className="text-muted-foreground mt-1 block text-xs leading-relaxed">
+                  <span className="text-muted-foreground mt-0.5 block text-xs leading-relaxed">
                     {starter.description}
                   </span>
                 </span>
+                <ArrowRight
+                  className={cn([
+                    "size-5 shrink-0 transition-transform group-hover:translate-x-0.5",
+                    selected ? "text-primary" : "text-muted-foreground",
+                  ])}
+                  aria-hidden="true"
+                />
               </button>
             );
           })}
