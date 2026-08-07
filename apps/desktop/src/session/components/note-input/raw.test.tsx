@@ -428,10 +428,16 @@ describe("RawEditor", () => {
     const buttons = screen.getAllByRole("button");
 
     expect(heading.className).toContain("h-8");
+    expect(heading.className).toContain("text-muted-foreground");
     expect(heading.className).not.toContain("px-2");
     expect(buttons.every((button) => button.className.includes("h-8"))).toBe(
       true,
     );
+    expect(
+      buttons.every((button) =>
+        button.className.includes("text-muted-foreground"),
+      ),
+    ).toBe(true);
     expect(buttons.every((button) => !button.className.includes("px-2"))).toBe(
       true,
     );

@@ -388,7 +388,7 @@ function TemplateEmptyState({
         onClick={handleCreateTemplate}
         className={cn([
           "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left",
-          "text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-hidden",
+          "text-muted-foreground hover:text-foreground focus-visible:text-foreground transition-colors focus-visible:outline-hidden",
         ])}
       >
         <Plus aria-hidden className="size-4" />
@@ -424,7 +424,7 @@ function TemplateSection({
           onClick={() => onApply(template)}
           className={cn([
             "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left",
-            "text-foreground transition-colors focus-visible:outline-hidden",
+            "text-muted-foreground hover:text-foreground focus-visible:text-foreground transition-colors focus-visible:outline-hidden",
           ])}
         >
           <TemplateIconGlyph icon={template.icon} className="size-4 text-sm" />
