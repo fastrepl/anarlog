@@ -116,26 +116,42 @@ describe("SettingsNav", () => {
       "General",
       "Appearance",
       "Account",
-      "Sync",
-      "Imports",
       "Notifications",
-      "Recording",
+      "Workspace",
       "Meetings",
-      "Audio",
-      "Transcription",
+      "Calendar",
+      "Contacts",
+      "Templates",
+      "Automations",
       "AI",
+      "Transcription",
       "Intelligence",
       "Dictionary",
+      "Data",
+      "Sync",
+      "Imports",
       "Advanced",
       "Permissions",
       "Developers",
     ].forEach((label) => {
       expect(screen.getByText(label)).toBeTruthy();
     });
+  });
 
-    ["Automations", "Calendar", "Contacts", "Templates"].forEach((label) => {
-      expect(screen.queryByText(label)).toBeNull();
-    });
+  it.each([
+    ["Calendar", { type: "calendar" }],
+    ["Contacts", { type: "contacts" }],
+    ["Templates", { type: "templates" }],
+    ["Automations", { type: "automations" }],
+  ] as const)("opens the %s workspace", (label, destination) => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: label }));
+
+    expect(
+      screen.getByTestId(`settings-nav-destination-icon-${destination.type}`),
+    ).toBeTruthy();
+    expect(mocks.openNew).toHaveBeenCalledWith(destination);
   });
 
   it("opens runtime audio capabilities from the Permissions item", () => {
@@ -185,14 +201,14 @@ describe("SettingsNav", () => {
     );
   });
 
-  it("opens Audio inside settings", () => {
+  it("opens Transcription inside settings", () => {
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Audio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Transcription" }));
 
     expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
       mocks.currentTab,
-      { tab: "audio" },
+      { tab: "transcription" },
     );
   });
 
@@ -245,12 +261,14 @@ describe("SettingsNav", () => {
     render(<SettingsNav />);
 
     fireEvent.change(screen.getByPlaceholderText("Search settings..."), {
-      target: { value: "recording" },
+      target: { value: "workspace" },
     });
 
-    ["Meetings", "Audio", "Transcription"].forEach((label) => {
-      expect(screen.getByText(label)).toBeTruthy();
-    });
+    ["Meetings", "Calendar", "Contacts", "Templates", "Automations"].forEach(
+      (label) => {
+        expect(screen.getByText(label)).toBeTruthy();
+      },
+    );
     expect(screen.queryByText("Appearance")).toBeNull();
   });
 

@@ -3,7 +3,6 @@ import { cn } from "@anlg/utils";
 import {
   SettingsAccount,
   SettingsApp,
-  SettingsAudio,
   SettingsMeetings,
   SettingsNotifications,
   SettingsPermissions,
@@ -42,7 +41,9 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
       ? "imports"
       : requestedTab === "personalization"
         ? "dictionary"
-        : (tab.state.tab ?? "app");
+        : requestedTab === "audio"
+          ? "meetings"
+          : (tab.state.tab ?? "app");
 
   const renderContent = () => {
     switch (activeTab) {
@@ -52,8 +53,6 @@ function SettingsView({ tab }: { tab: Extract<Tab, { type: "settings" }> }) {
         return <SettingsApp />;
       case "meetings":
         return <SettingsMeetings />;
-      case "audio":
-        return <SettingsAudio />;
       case "appearance":
         return <SettingsAppearance />;
       case "notifications":

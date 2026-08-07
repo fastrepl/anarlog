@@ -141,7 +141,7 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
   return { form, value: settingsValue };
 }
 
-type SettingsSection = "app" | "audio" | "meetings";
+type SettingsSection = "app" | "meetings";
 
 export function SettingsApp() {
   return <SettingsSectionPage section="app" />;
@@ -149,10 +149,6 @@ export function SettingsApp() {
 
 export function SettingsMeetings() {
   return <SettingsSectionPage section="meetings" />;
-}
-
-export function SettingsAudio() {
-  return <SettingsSectionPage section="audio" />;
 }
 
 function SettingsSectionPage({ section }: { section: SettingsSection }) {
@@ -199,7 +195,7 @@ function SettingsSectionContent({
       }
       return result.data;
     },
-    enabled: section === "audio",
+    enabled: section === "meetings",
     refetchInterval: 3_000,
   });
 
@@ -207,13 +203,7 @@ function SettingsSectionContent({
     <div className="flex flex-col gap-8">
       <SettingsPageTitle
         title={
-          section === "app" ? (
-            <Trans>General</Trans>
-          ) : section === "meetings" ? (
-            <Trans>Meetings</Trans>
-          ) : (
-            <Trans>Audio</Trans>
-          )
+          section === "app" ? <Trans>General</Trans> : <Trans>Meetings</Trans>
         }
       />
 
@@ -300,60 +290,66 @@ function SettingsSectionContent({
       )}
 
       {section === "meetings" && (
-        <form.Subscribe selector={(state) => state.values}>
-          {(values) => (
-            <MeetingSettingsView
-              autoJoinScheduledMeetings={{
-                value: values.auto_join_scheduled_meetings,
+        <>
+          <form.Subscribe selector={(state) => state.values}>
+            {(values) => (
+              <MeetingSettingsView
+                autoJoinScheduledMeetings={{
+                  value: values.auto_join_scheduled_meetings,
+                  onChange: (value) =>
+                    form.setFieldValue("auto_join_scheduled_meetings", value),
+                }}
+                autoStartScheduledMeetings={{
+                  value: values.auto_start_scheduled_meetings,
+                  onChange: (value) =>
+                    form.setFieldValue("auto_start_scheduled_meetings", value),
+                }}
+                autoStopMeetings={{
+                  value: values.auto_stop_meetings,
+                  onChange: (value) =>
+                    form.setFieldValue("auto_stop_meetings", value),
+                }}
+                floatingBar={{
+                  value: values.floating_bar_enabled,
+                  onChange: (value) =>
+                    form.setFieldValue("floating_bar_enabled", value),
+                }}
+                meetingDisclosureAutoPost={{
+                  value: values.consent_auto_send_chat,
+                  onChange: (value) =>
+                    form.setFieldValue("consent_auto_send_chat", value),
+                }}
+                captureMeetingChat={{
+                  value: values.capture_meeting_chat,
+                  onChange: (value) =>
+                    form.setFieldValue("capture_meeting_chat", value),
+                }}
+              />
+            )}
+          </form.Subscribe>
+
+          <div>
+            <h2 className="mb-4 font-sans text-lg font-semibold">
+              <Trans>Audio</Trans>
+            </h2>
+            <AudioSettingsView
+              audioRetention={{
+                value: audioRetention,
                 onChange: (value) =>
-                  form.setFieldValue("auto_join_scheduled_meetings", value),
+                  setSettingValues({
+                    audio_retention: value,
+                    save_recordings: value !== "none",
+                  }),
               }}
-              autoStartScheduledMeetings={{
-                value: values.auto_start_scheduled_meetings,
+              microphoneDevice={{
+                value: microphoneDevice,
+                devices: microphoneDevicesQuery.data ?? [],
                 onChange: (value) =>
-                  form.setFieldValue("auto_start_scheduled_meetings", value),
-              }}
-              autoStopMeetings={{
-                value: values.auto_stop_meetings,
-                onChange: (value) =>
-                  form.setFieldValue("auto_stop_meetings", value),
-              }}
-              floatingBar={{
-                value: values.floating_bar_enabled,
-                onChange: (value) =>
-                  form.setFieldValue("floating_bar_enabled", value),
-              }}
-              meetingDisclosureAutoPost={{
-                value: values.consent_auto_send_chat,
-                onChange: (value) =>
-                  form.setFieldValue("consent_auto_send_chat", value),
-              }}
-              captureMeetingChat={{
-                value: values.capture_meeting_chat,
-                onChange: (value) =>
-                  form.setFieldValue("capture_meeting_chat", value),
+                  setSettingValues({ microphone_device: value }),
               }}
             />
-          )}
-        </form.Subscribe>
-      )}
-
-      {section === "audio" && (
-        <AudioSettingsView
-          audioRetention={{
-            value: audioRetention,
-            onChange: (value) =>
-              setSettingValues({
-                audio_retention: value,
-                save_recordings: value !== "none",
-              }),
-          }}
-          microphoneDevice={{
-            value: microphoneDevice,
-            devices: microphoneDevicesQuery.data ?? [],
-            onChange: (value) => setSettingValues({ microphone_device: value }),
-          }}
-        />
+          </div>
+        </>
       )}
     </div>
   );

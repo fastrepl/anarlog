@@ -387,19 +387,36 @@ describe("Basic Tab Actions", () => {
     });
   });
 
-  test.each(["meetings", "audio"] as const)(
-    "openNew preserves %s settings tab requests",
-    (settingsTab) => {
-      useTabs
-        .getState()
-        .openNew({ type: "settings", state: { tab: settingsTab } });
+  test("openNew preserves meeting settings tab requests", () => {
+    useTabs
+      .getState()
+      .openNew({ type: "settings", state: { tab: "meetings" } });
 
-      expect(useTabs.getState()).toHaveCurrentTab({
-        type: "settings",
-        state: { tab: settingsTab },
-      });
-    },
-  );
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "meetings" },
+    });
+  });
+
+  test("openNew redirects legacy audio settings to meetings", () => {
+    useTabs.getState().openNew({ type: "settings", state: { tab: "audio" } });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "meetings" },
+    });
+  });
+
+  test("openNew preserves transcription settings tab requests", () => {
+    useTabs
+      .getState()
+      .openNew({ type: "settings", state: { tab: "transcription" } });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "transcription" },
+    });
+  });
 
   test("select toggles active flag without changing history", () => {
     const tabA = createSessionTab({ active: true });

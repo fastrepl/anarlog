@@ -60,7 +60,6 @@ export const normalizeSettingsTab = (
   switch (tab) {
     case "app":
     case "meetings":
-    case "audio":
     case "appearance":
     case "sync":
     case "notifications":
@@ -72,6 +71,8 @@ export const normalizeSettingsTab = (
     case "intelligence":
     case "todo":
       return tab;
+    case "audio":
+      return "meetings";
     case "personalization":
       return "dictionary";
     case "data":

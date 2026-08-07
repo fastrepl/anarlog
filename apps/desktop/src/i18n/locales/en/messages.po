@@ -361,7 +361,6 @@ msgstr "Assignees:"
 
 #: src/settings/general/index.tsx
 #: src/settings/general/permissions.tsx
-#: src/sidebar/settings.tsx
 msgid "Audio"
 msgstr "Audio"
 
@@ -398,6 +397,7 @@ msgid "Automation draft saved"
 msgstr "Automation draft saved"
 
 #: src/settings/automations/index.tsx
+#: src/sidebar/settings.tsx
 msgid "Automations"
 msgstr "Automations"
 
@@ -436,6 +436,7 @@ msgstr "Browser handoff not working? Paste the callback link instead"
 #: src/calendar/components/sidebar.tsx
 #: src/settings/general/permissions.tsx
 #: src/sidebar/calendar.tsx
+#: src/sidebar/settings.tsx
 msgid "Calendar"
 msgstr "Calendar"
 
@@ -755,6 +756,7 @@ msgid "Connecting..."
 msgstr "Connecting..."
 
 #: src/sidebar/contacts.tsx
+#: src/sidebar/settings.tsx
 msgid "Contacts"
 msgstr "Contacts"
 
@@ -854,6 +856,10 @@ msgstr "Customized"
 #: src/settings/appearance/theme.tsx
 msgid "Dark"
 msgstr "Dark"
+
+#: src/sidebar/settings.tsx
+msgid "Data"
+msgstr "Data"
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Date and time are required"
@@ -2012,10 +2018,6 @@ msgstr "Record other participants in meetings."
 msgid "Record your voice in meetings and calls."
 msgstr "Record your voice in meetings and calls."
 
-#: src/sidebar/settings.tsx
-msgid "Recording"
-msgstr "Recording"
-
 #: src/settings/general/account.tsx
 msgid "Refresh billing status"
 msgstr "Refresh billing status"
@@ -2773,6 +2775,7 @@ msgstr "Template actions"
 msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr "Template content with Jinja2: {{ variable }}, {% if condition %}"
 
+#: src/sidebar/settings.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Templates"
 msgstr "Templates"
@@ -3038,6 +3041,10 @@ msgstr "Where your notes and recordings are stored"
 #: src/task/tab-content.tsx
 msgid "Work on this task"
 msgstr "Work on this task"
+
+#: src/sidebar/settings.tsx
+msgid "Workspace"
+msgstr "Workspace"
 
 #: src/session/components/note-input/transcript/index.tsx
 msgid "Write"
