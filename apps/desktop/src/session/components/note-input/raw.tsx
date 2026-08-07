@@ -291,8 +291,8 @@ function TemplateEmptyState({
   }, [createTemplate, openTemplatesTab]);
 
   return (
-    <div className="absolute inset-x-0 top-8 z-10 flex flex-col gap-1">
-      <p className="text-muted-foreground px-2 text-xs">
+    <div className="absolute inset-x-0 top-8 z-10 flex flex-col">
+      <p className="text-muted-foreground flex h-8 items-center text-xs">
         {favoriteTemplates.length > 0
           ? t`Start with a favorite template`
           : t`Suggested templates`}
@@ -304,7 +304,7 @@ function TemplateEmptyState({
             type="button"
             onClick={() => onApply(template)}
             className={cn([
-              "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md px-2 text-left",
+              "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left",
               "text-foreground transition-colors focus-visible:outline-hidden",
             ])}
           >
@@ -321,7 +321,7 @@ function TemplateEmptyState({
           type="button"
           onClick={handleCreateTemplate}
           className={cn([
-            "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md px-2 text-left",
+            "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left",
             "text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-hidden",
           ])}
         >

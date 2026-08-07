@@ -381,10 +381,18 @@ describe("RawEditor", () => {
 
     render(<RawEditor sessionId="session-1" />);
 
-    expect(screen.getByText("Suggested templates")).not.toBeNull();
-    expect(
-      screen.getAllByRole("button").map((button) => button.textContent),
-    ).toEqual([
+    const heading = screen.getByText("Suggested templates");
+    const buttons = screen.getAllByRole("button");
+
+    expect(heading.className).toContain("h-8");
+    expect(heading.className).not.toContain("px-2");
+    expect(buttons.every((button) => button.className.includes("h-8"))).toBe(
+      true,
+    );
+    expect(buttons.every((button) => !button.className.includes("px-2"))).toBe(
+      true,
+    );
+    expect(buttons.map((button) => button.textContent)).toEqual([
       "Template icon1:1 Meeting",
       "Template iconProject Kickoff",
       "Template iconDaily Standup",
