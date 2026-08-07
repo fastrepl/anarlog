@@ -14,6 +14,7 @@ export const getScheme = async (): Promise<DesktopScheme> => {
   const id = await getIdentifier();
   const schemes: Record<string, DesktopScheme> = {
     "com.hyprnote.stable": "anarlog",
+    "com.hyprnote.Hyprnote": "anarlog",
     "com.hyprnote.staging": "anarlog-staging",
     "com.hyprnote.dev": "anarlog-dev",
     "so.anarlog.Anarlog": "anarlog",
@@ -21,7 +22,7 @@ export const getScheme = async (): Promise<DesktopScheme> => {
     "com.anarlog.staging": "anarlog-staging",
     "com.anarlog.dev": "anarlog-dev",
   };
-  return schemes[id] ?? "anarlog-dev";
+  return schemes[id] ?? "anarlog";
 };
 
 type DesktopFlowPath =

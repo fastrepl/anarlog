@@ -42,7 +42,7 @@ export function AppIconSelector() {
   );
   const setAppIcon = useSetSettingValue("app_icon");
   const setAppearance = useSetSettingValue("app_icon_appearance");
-  const { data: appIdentifier = "com.hyprnote.dev" } = useQuery({
+  const { data: appIdentifier = "com.hyprnote.stable" } = useQuery({
     queryKey: ["tauri", "app-identifier"],
     queryFn: getIdentifier,
     staleTime: Infinity,

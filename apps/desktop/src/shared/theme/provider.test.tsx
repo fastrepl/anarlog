@@ -147,6 +147,19 @@ describe("AppThemeProvider", () => {
     await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("staging"));
   });
 
+  it("uses the stable Dock icon when the app identifier is unavailable", async () => {
+    getIdentifier.mockRejectedValue(new Error("unavailable"));
+    themeState.settingsReady = true;
+
+    render(
+      <AppThemeProvider>
+        <div>child</div>
+      </AppThemeProvider>,
+    );
+
+    await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
+  });
+
   it("applies the selected icon variant for the system appearance", async () => {
     themeState.settingsReady = true;
     themeState.theme = "dark";

@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
   applyAppIconPreference: vi.fn(),
   appIcon: "default",
   appearance: "auto",
-  appIdentifier: "com.hyprnote.stable",
+  appIdentifier: "com.hyprnote.stable" as string | undefined,
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -95,6 +95,15 @@ describe("AppIconSelector", () => {
         .getByRole("radio", { name: "Default" })
         .querySelector('source[media="(prefers-color-scheme: dark)"]'),
     ).not.toBeNull();
+  });
+
+  it("uses the stable icon while the app identifier is loading", () => {
+    mocks.appIdentifier = undefined;
+
+    render(<AppIconSelector />);
+
+    expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
+    expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
   });
 
   it("applies and stores an explicit icon appearance", () => {

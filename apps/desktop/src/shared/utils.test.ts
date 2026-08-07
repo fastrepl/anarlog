@@ -17,9 +17,11 @@ describe("getScheme", () => {
 
   it.each([
     ["com.hyprnote.stable", "anarlog"],
+    ["com.hyprnote.Hyprnote", "anarlog"],
     ["com.hyprnote.staging", "anarlog-staging"],
     ["com.hyprnote.dev", "anarlog-dev"],
     ["so.anarlog.Anarlog", "anarlog"],
+    ["unknown", "anarlog"],
   ])("maps %s to %s", async (identifier, scheme) => {
     mocks.getIdentifier.mockResolvedValue(identifier);
 

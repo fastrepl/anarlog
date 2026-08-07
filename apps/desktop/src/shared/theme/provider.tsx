@@ -117,7 +117,9 @@ async function applyDockIcon(
   appearance: AppIconAppearance,
   systemIsDark: boolean,
 ) {
-  const appIdentifier = await getIdentifier().catch(() => "com.hyprnote.dev");
+  const appIdentifier = await getIdentifier().catch(
+    () => "com.hyprnote.stable",
+  );
 
   try {
     const result = await iconCommands.setDockIcon(
