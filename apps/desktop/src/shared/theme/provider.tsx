@@ -5,9 +5,7 @@ import { commands as iconCommands } from "@anlg/plugin-icon";
 
 import { applyDocumentTheme, writeStoredThemePreference } from "./apply";
 import {
-  type AppIconAppearance,
   type AppIconPreference,
-  normalizeAppIconAppearance,
   normalizeAppIconPreference,
   resolveDockIconName,
 } from "./icon";
@@ -20,19 +18,15 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const theme = useConfigValue("theme") as ThemePreference;
   const appIcon = normalizeAppIconPreference(useConfigValue("app_icon"));
-  const appIconAppearance = normalizeAppIconAppearance(
-    useConfigValue("app_icon_appearance"),
-  );
   const settingsReady = useSettingsThemeReady();
 
   return (
     <>
       {settingsReady ? (
         <ThemeSync
-          key={`${theme}:${appIcon}:${appIconAppearance}`}
+          key={`${theme}:${appIcon}`}
           theme={theme}
           appIcon={appIcon}
-          appIconAppearance={appIconAppearance}
         />
       ) : null}
       {children}
@@ -43,11 +37,9 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 function ThemeSync({
   theme,
   appIcon,
-  appIconAppearance,
 }: {
   theme: ThemePreference;
   appIcon: AppIconPreference;
-  appIconAppearance: AppIconAppearance;
 }) {
   useMountEffect(() => {
     const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
@@ -58,7 +50,7 @@ function ThemeSync({
         return;
       }
 
-      void applyAppearance(theme, appIcon, appIconAppearance, systemIsDark);
+      void applyAppearance(theme, appIcon, systemIsDark);
     };
 
     const handleSystemThemeChange = ({ matches }: MediaQueryListEvent) => {
@@ -80,32 +72,25 @@ function ThemeSync({
 export async function applyThemePreference(
   theme: ThemePreference,
   appIcon: AppIconPreference = "default",
-  appIconAppearance: AppIconAppearance = "auto",
 ) {
-  await applyAppearance(
-    theme,
-    appIcon,
-    appIconAppearance,
-    prefersDarkColorScheme(),
-  );
+  await applyAppearance(theme, appIcon, prefersDarkColorScheme());
 }
 
 async function applyAppearance(
   theme: ThemePreference,
   appIcon: AppIconPreference,
-  appIconAppearance: AppIconAppearance,
   systemIsDark: boolean,
 ) {
   applyDocumentTheme(theme, systemIsDark);
   writeStoredThemePreference(theme);
-  await applyDockIcon(appIcon, appIconAppearance, systemIsDark);
+  await applyDockIcon(appIcon, theme, systemIsDark);
 }
 
 export async function applyAppIconPreference(
   appIcon: AppIconPreference,
-  appIconAppearance: AppIconAppearance = "auto",
+  theme: ThemePreference = "system",
 ) {
-  await applyDockIcon(appIcon, appIconAppearance, prefersDarkColorScheme());
+  await applyDockIcon(appIcon, theme, prefersDarkColorScheme());
 }
 
 function prefersDarkColorScheme(): boolean {
@@ -114,7 +99,7 @@ function prefersDarkColorScheme(): boolean {
 
 async function applyDockIcon(
   appIcon: AppIconPreference,
-  appearance: AppIconAppearance,
+  theme: ThemePreference,
   systemIsDark: boolean,
 ) {
   const appIdentifier = await getIdentifier().catch(
@@ -123,7 +108,7 @@ async function applyDockIcon(
 
   try {
     const result = await iconCommands.setDockIcon(
-      resolveDockIconName(appIcon, appearance, systemIsDark, appIdentifier),
+      resolveDockIconName(appIcon, theme, systemIsDark, appIdentifier),
     );
     if (result.status === "error") {
       console.error("[theme] failed to update Dock icon", result.error);

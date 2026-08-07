@@ -317,10 +317,6 @@ msgstr "App"
 msgid "App icon"
 msgstr "App icon"
 
-#: src/settings/appearance/app-icon.tsx
-msgid "App icon appearance"
-msgstr "App icon appearance"
-
 #: src/settings/appearance/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Appearance"
@@ -367,14 +363,6 @@ msgstr "Audio file retention"
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to Anarlog."
 msgstr "Authorize access in your browser, then return to Anarlog."
-
-#: src/settings/appearance/app-icon.tsx
-msgid "Auto"
-msgstr "Auto"
-
-#: src/settings/appearance/app-icon.tsx
-msgid "Auto follows your system appearance."
-msgstr "Auto follows your system appearance."
 
 #: src/templates/auto-form.tsx
 msgid "Auto prompt cannot be empty."
@@ -848,7 +836,6 @@ msgstr "Customize Auto"
 msgid "Customized"
 msgstr "Customized"
 
-#: src/settings/appearance/app-icon.tsx
 #: src/settings/appearance/theme.tsx
 msgid "Dark"
 msgstr "Dark"
@@ -1410,7 +1397,6 @@ msgstr "Learn how to fix this"
 msgid "Learn more"
 msgstr "Learn more"
 
-#: src/settings/appearance/app-icon.tsx
 #: src/settings/appearance/theme.tsx
 msgid "Light"
 msgstr "Light"

@@ -10,10 +10,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   platform: vi.fn(() => "macos"),
   setAppIcon: vi.fn(),
-  setAppearance: vi.fn(),
   applyAppIconPreference: vi.fn(),
   appIcon: "default",
-  appearance: "auto",
+  theme: "system",
   appIdentifier: "com.hyprnote.stable" as string | undefined,
 }));
 
@@ -30,13 +29,12 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 }));
 
 vi.mock("~/settings/queries", () => ({
-  useSetSettingValue: (key: string) =>
-    key === "app_icon_appearance" ? mocks.setAppearance : mocks.setAppIcon,
+  useSetSettingValue: () => mocks.setAppIcon,
 }));
 
 vi.mock("~/shared/config", () => ({
   useConfigValue: (key: string) =>
-    key === "app_icon_appearance" ? mocks.appearance : mocks.appIcon,
+    key === "theme" ? mocks.theme : mocks.appIcon,
 }));
 
 vi.mock("~/shared/theme/provider", () => ({
@@ -51,7 +49,7 @@ describe("AppIconSelector", () => {
     vi.clearAllMocks();
     mocks.platform.mockReturnValue("macos");
     mocks.appIcon = "default";
-    mocks.appearance = "auto";
+    mocks.theme = "system";
     mocks.appIdentifier = "com.hyprnote.stable";
   });
 
@@ -81,15 +79,13 @@ describe("AppIconSelector", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
 
-    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", "auto");
+    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", "system");
     expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
   });
 
-  it("defaults the icon appearance to auto and previews both schemes", () => {
+  it("previews both schemes for the system theme", () => {
     render(<AppIconSelector />);
 
-    const auto = screen.getByRole("radio", { name: "Auto" });
-    expect(auto.getAttribute("aria-checked")).toBe("true");
     expect(
       screen
         .getByRole("radio", { name: "Default" })
@@ -106,20 +102,8 @@ describe("AppIconSelector", () => {
     expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
   });
 
-  it("applies and stores an explicit icon appearance", () => {
-    render(<AppIconSelector />);
-
-    fireEvent.click(screen.getByRole("radio", { name: "Dark" }));
-
-    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith(
-      "default",
-      "dark",
-    );
-    expect(mocks.setAppearance).toHaveBeenCalledWith("dark");
-  });
-
-  it("pins previews to the selected appearance", () => {
-    mocks.appearance = "dark";
+  it("pins previews to an explicit theme", () => {
+    mocks.theme = "dark";
 
     render(<AppIconSelector />);
 
@@ -132,9 +116,10 @@ describe("AppIconSelector", () => {
     expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
       "/assets/app-icons/stable-dark.png",
     );
-    expect(
-      screen.getByRole("radio", { name: "Dark" }).getAttribute("aria-checked"),
-    ).toBe("true");
+
+    fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
+
+    expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", "dark");
   });
 
   it("previews the current channel icon for the default option", () => {

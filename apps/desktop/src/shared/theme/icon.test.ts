@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  normalizeAppIconAppearance,
   normalizeAppIconPreference,
   resolveAppIconName,
   resolveDockIconName,
@@ -23,19 +22,19 @@ describe("app icon preference", () => {
     expect(resolveAppIconName("default", "com.hyprnote.dev")).toBe("dev");
   });
 
-  it("follows the system appearance when the icon appearance is auto", () => {
+  it("follows the system appearance for the system theme", () => {
     expect(
-      resolveDockIconName("anagram", "auto", false, "com.hyprnote.dev"),
+      resolveDockIconName("anagram", "system", false, "com.hyprnote.dev"),
     ).toBe("anagram");
     expect(
-      resolveDockIconName("anagram", "auto", true, "com.hyprnote.dev"),
+      resolveDockIconName("anagram", "system", true, "com.hyprnote.dev"),
     ).toBe("anagram-dark");
     expect(
-      resolveDockIconName("staging", "auto", true, "com.hyprnote.stable"),
+      resolveDockIconName("staging", "system", true, "com.hyprnote.stable"),
     ).toBe("staging-dark");
   });
 
-  it("overrides the system appearance with an explicit icon appearance", () => {
+  it("overrides the system appearance with an explicit theme", () => {
     expect(
       resolveDockIconName("anagram", "dark", false, "com.hyprnote.dev"),
     ).toBe("anagram-dark");
@@ -45,12 +44,5 @@ describe("app icon preference", () => {
     expect(
       resolveDockIconName("default", "dark", false, "com.hyprnote.stable"),
     ).toBe("stable-dark");
-  });
-
-  it("falls back to auto for unknown icon appearance values", () => {
-    expect(normalizeAppIconAppearance(undefined)).toBe("auto");
-    expect(normalizeAppIconAppearance("system")).toBe("auto");
-    expect(normalizeAppIconAppearance("light")).toBe("light");
-    expect(normalizeAppIconAppearance("dark")).toBe("dark");
   });
 });

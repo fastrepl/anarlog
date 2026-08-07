@@ -9,13 +9,12 @@ import { cn } from "@anlg/utils";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import {
-  type AppIconAppearance,
   type AppIconPreference,
-  normalizeAppIconAppearance,
   normalizeAppIconPreference,
   resolveAppIconName,
 } from "~/shared/theme/icon";
 import { applyAppIconPreference } from "~/shared/theme/provider";
+import type { ThemePreference } from "~/shared/theme/resolve";
 
 const APP_ICON_OPTIONS = [
   "default",
@@ -25,23 +24,16 @@ const APP_ICON_OPTIONS = [
   "staging",
 ] as const satisfies readonly AppIconPreference[];
 
-const APPEARANCE_OPTIONS = [
-  "auto",
-  "light",
-  "dark",
-] as const satisfies readonly AppIconAppearance[];
-
 const PREVIEW_CLASS =
   "size-16 transition-transform duration-150 select-none group-hover:scale-105";
 
 export function AppIconSelector() {
   const { t } = useLingui();
   const value = normalizeAppIconPreference(useConfigValue("app_icon"));
-  const appearance = normalizeAppIconAppearance(
-    useConfigValue("app_icon_appearance"),
-  );
+  const storedTheme = useConfigValue("theme") as ThemePreference;
+  const theme: ThemePreference =
+    storedTheme === "light" || storedTheme === "dark" ? storedTheme : "system";
   const setAppIcon = useSetSettingValue("app_icon");
-  const setAppearance = useSetSettingValue("app_icon_appearance");
   const { data: appIdentifier = "com.hyprnote.stable" } = useQuery({
     queryKey: ["tauri", "app-identifier"],
     queryFn: getIdentifier,
@@ -53,11 +45,6 @@ export function AppIconSelector() {
     anagram: t`Anagram`,
     dev: t`Blueprint`,
     staging: t`Sketch`,
-  };
-  const appearanceLabels = {
-    auto: t`Auto`,
-    light: t`Light`,
-    dark: t`Dark`,
   };
   const defaultIconName = resolveAppIconName("default", appIdentifier);
   const selectedIconName = resolveAppIconName(value, appIdentifier);
@@ -104,7 +91,7 @@ export function AppIconSelector() {
                   : "border-border hover:border-foreground/30 hover:bg-accent/20",
               ])}
               onClick={() => {
-                void applyAppIconPreference(option, appearance);
+                void applyAppIconPreference(option, theme);
                 setAppIcon(option);
               }}
             >
@@ -119,7 +106,7 @@ export function AppIconSelector() {
               >
                 <Check className="size-3" weight="bold" />
               </span>
-              {appearance === "auto" ? (
+              {theme === "system" ? (
                 <picture>
                   <source
                     media="(prefers-color-scheme: dark)"
@@ -134,7 +121,7 @@ export function AppIconSelector() {
                 </picture>
               ) : (
                 <img
-                  src={`/assets/app-icons/${previewName}-${appearance}.png`}
+                  src={`/assets/app-icons/${previewName}-${theme}.png`}
                   alt=""
                   draggable={false}
                   className={PREVIEW_CLASS}
@@ -144,39 +131,6 @@ export function AppIconSelector() {
           );
         })}
       </div>
-      <div
-        role="radiogroup"
-        aria-label={t`App icon appearance`}
-        className="border-border flex gap-1 self-start rounded-xl border p-1"
-      >
-        {APPEARANCE_OPTIONS.map((appearanceOption) => {
-          const selected = appearance === appearanceOption;
-
-          return (
-            <button
-              key={appearanceOption}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              className={cn([
-                "focus-visible:ring-ring cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:outline-none",
-                selected
-                  ? "bg-accent text-foreground font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              ])}
-              onClick={() => {
-                void applyAppIconPreference(value, appearanceOption);
-                setAppearance(appearanceOption);
-              }}
-            >
-              {appearanceLabels[appearanceOption]}
-            </button>
-          );
-        })}
-      </div>
-      <p className="text-muted-foreground -mt-2 text-xs">
-        <Trans>Auto follows your system appearance.</Trans>
-      </p>
     </section>
   );
 }

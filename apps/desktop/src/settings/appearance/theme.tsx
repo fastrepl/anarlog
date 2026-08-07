@@ -5,10 +5,7 @@ import { cn } from "@anlg/utils";
 
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
-import {
-  normalizeAppIconAppearance,
-  normalizeAppIconPreference,
-} from "~/shared/theme/icon";
+import { normalizeAppIconPreference } from "~/shared/theme/icon";
 import { applyThemePreference } from "~/shared/theme/provider";
 import type { ThemePreference } from "~/shared/theme/resolve";
 
@@ -23,9 +20,6 @@ export function ThemeSelector() {
   const storedValue = useConfigValue("theme") as ThemePreference;
   const value = THEME_OPTIONS.includes(storedValue) ? storedValue : "system";
   const appIcon = normalizeAppIconPreference(useConfigValue("app_icon"));
-  const appIconAppearance = normalizeAppIconAppearance(
-    useConfigValue("app_icon_appearance"),
-  );
   const setTheme = useSetSettingValue("theme");
   const options = [
     { value: "light", label: t`Light`, description: t`Bright canvas` },
@@ -68,11 +62,7 @@ export function ThemeSelector() {
                   : "border-border hover:border-foreground/30 hover:bg-accent/20",
               ])}
               onClick={() => {
-                void applyThemePreference(
-                  option.value,
-                  appIcon,
-                  appIconAppearance,
-                );
+                void applyThemePreference(option.value, appIcon);
                 setTheme(option.value);
               }}
             >

@@ -79,11 +79,6 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "app_icon"],
     default: "default" as string,
   },
-  app_icon_appearance: {
-    type: "string",
-    path: ["general", "app_icon_appearance"],
-    default: "auto" as string,
-  },
   save_recordings: {
     type: "boolean",
     path: ["general", "save_recordings"],
