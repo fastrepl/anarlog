@@ -1,5 +1,4 @@
 import { getIdentifier } from "@tauri-apps/api/app";
-import { getCurrentWindow, type Theme } from "@tauri-apps/api/window";
 import type { ReactNode } from "react";
 
 import { commands as iconCommands } from "@anlg/plugin-icon";
@@ -51,49 +50,27 @@ function ThemeSync({
   appIconAppearance: AppIconAppearance;
 }) {
   useMountEffect(() => {
-    const appWindow = getCurrentWindow();
+    const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
     let cancelled = false;
-    let unlisten: (() => void) | undefined;
 
-    const applySystemTheme = (systemTheme: Theme | null) => {
+    const applySystemTheme = (systemIsDark: boolean) => {
       if (cancelled) {
         return;
       }
 
-      void applyAppearance(
-        theme,
-        appIcon,
-        appIconAppearance,
-        isSystemDark(systemTheme),
-      );
+      void applyAppearance(theme, appIcon, appIconAppearance, systemIsDark);
     };
 
-    void (async () => {
-      unlisten = await appWindow.onThemeChanged(({ payload }) => {
-        applySystemTheme(payload);
-      });
+    const handleSystemThemeChange = ({ matches }: MediaQueryListEvent) => {
+      applySystemTheme(matches);
+    };
 
-      if (cancelled) {
-        unlisten();
-        return;
-      }
-
-      applySystemTheme(await appWindow.theme());
-    })().catch((error) => {
-      if (!cancelled) {
-        console.error("[theme] failed to read system appearance", error);
-        applyAppearance(
-          theme,
-          appIcon,
-          appIconAppearance,
-          prefersDarkColorScheme(),
-        );
-      }
-    });
+    systemTheme.addEventListener("change", handleSystemThemeChange);
+    applySystemTheme(systemTheme.matches);
 
     return () => {
       cancelled = true;
-      unlisten?.();
+      systemTheme.removeEventListener("change", handleSystemThemeChange);
     };
   });
 
@@ -109,7 +86,7 @@ export async function applyThemePreference(
     theme,
     appIcon,
     appIconAppearance,
-    await readSystemIsDark(),
+    prefersDarkColorScheme(),
   );
 }
 
@@ -128,20 +105,7 @@ export async function applyAppIconPreference(
   appIcon: AppIconPreference,
   appIconAppearance: AppIconAppearance = "auto",
 ) {
-  await applyDockIcon(appIcon, appIconAppearance, await readSystemIsDark());
-}
-
-async function readSystemIsDark(): Promise<boolean> {
-  try {
-    return isSystemDark(await getCurrentWindow().theme());
-  } catch (error) {
-    console.error("[theme] failed to read system appearance", error);
-    return prefersDarkColorScheme();
-  }
-}
-
-function isSystemDark(theme: Theme | null): boolean {
-  return theme === null ? prefersDarkColorScheme() : theme === "dark";
+  await applyDockIcon(appIcon, appIconAppearance, prefersDarkColorScheme());
 }
 
 function prefersDarkColorScheme(): boolean {
