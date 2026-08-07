@@ -801,7 +801,7 @@ describe("OuterHeader", () => {
     expect(mocks.openUrl).not.toHaveBeenCalled();
   });
 
-  it("shows resume when an inactive session already has a transcript", () => {
+  it("hides meeting controls for an inactive ad hoc session with a transcript", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -812,17 +812,15 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const resumeButton = screen.getByRole("button", { name: "Resume" });
-
-    fireEvent.click(resumeButton);
-
-    expect(resumeButton.title).toBe("Resume listening");
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
-    expect(screen.getByTestId("recording-icon")).not.toBeNull();
-    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "Open event metadata" }),
+    ).toBeNull();
+    expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("shows resume when an inactive session has audio without a transcript", () => {
+  it("hides meeting controls for an inactive ad hoc session with audio", () => {
     mocks.audioExists = true;
 
     render(
@@ -833,13 +831,28 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const resumeButton = screen.getByRole("button", { name: "Resume" });
-
-    fireEvent.click(resumeButton);
-
-    expect(resumeButton.title).toBe("Resume listening");
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
-    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("button", { name: "Open event metadata" }),
+    ).toBeNull();
+    expect(mocks.startListening).not.toHaveBeenCalled();
+  });
+
+  it("keeps stop available for an active ad hoc session", () => {
+    mocks.sessionModes = { "session-1": "active" };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
   it("shows stop while the meeting is in progress", () => {

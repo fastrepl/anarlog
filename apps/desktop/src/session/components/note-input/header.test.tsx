@@ -534,7 +534,12 @@ describe("Header", () => {
 
     expect(
       menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual(["Copy", "Re-transcribe", "Delete recording"]);
+    ).toEqual([
+      "Copy",
+      "Resume listening",
+      "Re-transcribe",
+      "Delete recording",
+    ]);
     expect(menu.find(isMenuItem)?.disabled).toBe(false);
     expect(
       menu.find(
@@ -542,6 +547,43 @@ describe("Header", () => {
           "id" in item && item.id === "delete-recording-session-1",
       )?.disabled,
     ).toBe(false);
+    menu
+      .find(
+        (item): item is Extract<CapturedMenuItem, { id: string }> =>
+          "id" in item && item.id === "resume-listening-session-1",
+      )
+      ?.action();
+    expect(hoisted.startListening).toHaveBeenCalledTimes(1);
+  });
+
+  it("delegates transcript resume listening from standalone windows", () => {
+    hoisted.isMainWebviewWindow = false;
+
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={[
+          { type: "enhanced", id: "note-1" },
+          { type: "raw" },
+          { type: "transcript" },
+        ]}
+        currentTab={{ type: "transcript" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    findContextMenu("resume-listening-session-1")
+      .find(
+        (item): item is Extract<CapturedMenuItem, { id: string }> =>
+          "id" in item && item.id === "resume-listening-session-1",
+      )
+      ?.action();
+
+    expect(hoisted.requestMainListenerControl).toHaveBeenCalledWith(
+      "start",
+      "session-1",
+    );
+    expect(hoisted.startListening).not.toHaveBeenCalled();
   });
 
   it("does not prepare transcript export data while the transcript tab is inactive", () => {
@@ -595,7 +637,7 @@ describe("Header", () => {
 
     expect(
       menu.map((item) => ("text" in item ? item.text : "separator")),
-    ).toEqual(["Copy"]);
+    ).toEqual(["Copy", "Resume listening"]);
   });
 
   it.each(["active", "finalizing", "running_batch"])(
@@ -646,7 +688,7 @@ describe("Header", () => {
       findContextMenu("copy-transcript-session-1").map((item) =>
         "text" in item ? item.text : "separator",
       ),
-    ).toEqual(["Copy", "Delete recording"]);
+    ).toEqual(["Copy", "Resume listening", "Delete recording"]);
   });
 
   it("replaces the current enhanced note when changing templates", async () => {

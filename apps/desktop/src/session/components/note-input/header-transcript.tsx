@@ -21,6 +21,11 @@ import {
   useNativeContextMenu,
 } from "~/shared/hooks/useNativeContextMenu";
 import { useListener } from "~/stt/contexts";
+import { useStartListening } from "~/stt/useStartListening";
+import {
+  isMainWebviewWindow,
+  requestMainListenerControl,
+} from "~/stt/window-control";
 
 export function HeaderViewTranscript({
   isActive,
@@ -186,6 +191,7 @@ function HeaderViewTranscriptActive({
   };
 }) {
   const regenerate = useRegenerateTranscript(sessionId);
+  const startListening = useStartListening(sessionId);
   const { request: transcriptExportRequest } =
     useSessionTranscriptRenderData(sessionId);
   const {
@@ -222,6 +228,14 @@ function HeaderViewTranscriptActive({
   const handleDeleteRecording = useCallback(() => {
     void deleteRecording();
   }, [deleteRecording]);
+  const handleResumeListening = useCallback(() => {
+    if (!isMainWebviewWindow()) {
+      void requestMainListenerControl("start", sessionId);
+      return;
+    }
+
+    void startListening();
+  }, [sessionId, startListening]);
   const contextMenu = useMemo<MenuItemDef[]>(() => {
     const items: MenuItemDef[] = [
       {
@@ -233,6 +247,14 @@ function HeaderViewTranscriptActive({
         disabled: !canCopyTranscript,
       },
     ];
+
+    if (sessionMode === "inactive") {
+      items.push({
+        id: `resume-listening-${sessionId}`,
+        text: "Resume listening",
+        action: handleResumeListening,
+      });
+    }
 
     if (audioExistsResolved && sessionMode === "inactive" && audioExists) {
       items.push({
@@ -260,6 +282,7 @@ function HeaderViewTranscriptActive({
     canCopyTranscript,
     handleCopyTranscript,
     handleDeleteRecording,
+    handleResumeListening,
     isDeletingRecording,
     regenerate,
     sessionMode,

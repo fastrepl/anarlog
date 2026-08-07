@@ -125,6 +125,10 @@ function HeaderMeetingControl({
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
 
+  if (!sessionEvent && !isRecording) {
+    return null;
+  }
+
   if (ended && !isRecording) {
     return (
       <div className="mr-1 shrink-0">
