@@ -26,6 +26,10 @@ msgstr ""
 msgid "{0} opened on"
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "{entryCount} selected"
+msgstr ""
+
 #. placeholder {0}: formatLanguageList(unsupportedLanguages)
 #: src/settings/ai/stt/select.tsx
 msgid "{model} can't transcribe {0}. Try another model or change your spoken languages."
@@ -399,6 +403,7 @@ msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Back"
@@ -461,6 +466,10 @@ msgstr ""
 
 #: src/onboarding/folder-location.tsx
 msgid "Change"
+msgstr ""
+
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Change speaker"
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -766,6 +775,10 @@ msgstr ""
 msgid "Control listening without reopening Anarlog."
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Copy"
+msgstr ""
+
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Copy link"
@@ -805,6 +818,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Create account"
+msgstr ""
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Create new speaker"
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -941,6 +958,10 @@ msgstr ""
 
 #: src/settings/general/audio-settings.tsx
 msgid "Don't save"
+msgstr ""
+
+#: src/session/components/note-input/transcript/index.tsx
+msgid "Done writing"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
@@ -1877,6 +1898,10 @@ msgstr ""
 msgid "Plans"
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Play from here"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Post a meeting recap to a Slack channel."
 msgstr ""
@@ -2184,10 +2209,6 @@ msgstr ""
 msgid "Search or type owner/repo"
 msgstr ""
 
-#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
-msgid "Search people"
-msgstr ""
-
 #: src/sidebar/settings.tsx
 msgid "Search settings..."
 msgstr ""
@@ -2243,6 +2264,10 @@ msgstr ""
 #: src/settings/general/main-language.tsx
 msgid "Select language"
 msgstr "भाषां चिनोतु"
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Select or type to add speaker"
+msgstr ""
 
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
@@ -3004,6 +3029,10 @@ msgstr ""
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"
+msgstr ""
+
+#: src/session/components/note-input/transcript/index.tsx
+msgid "Write"
 msgstr ""
 
 #: src/settings/automations/index.tsx

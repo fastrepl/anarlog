@@ -943,4 +943,95 @@ describe("OuterHeader", () => {
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
+
+  it("shows transcript editing in the meeting-action slot after an ad hoc meeting", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+    const onTranscriptEditModeChange = vi.fn();
+    const view = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+        transcriptEditMode={false}
+        onTranscriptEditModeChange={onTranscriptEditModeChange}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Write" }));
+    expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+
+    view.rerender(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+        transcriptEditMode
+        onTranscriptEditModeChange={onTranscriptEditModeChange}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    const doneButton = screen.getByRole("button", { name: "Done writing" });
+    expect(doneButton.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(doneButton);
+    expect(onTranscriptEditModeChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("does not show transcript editing outside the transcript tab", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        onTranscriptEditModeChange={vi.fn()}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Write" })).toBeNull();
+  });
+
+  it("does not show transcript editing while the meeting is active", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+    mocks.sessionModes = { "session-1": "active" };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+        onTranscriptEditModeChange={vi.fn()}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Write" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
+  });
+
+  it("shows transcript editing alongside metadata after a scheduled meeting", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+        onTranscriptEditModeChange={vi.fn()}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Write" })).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
+  });
 });

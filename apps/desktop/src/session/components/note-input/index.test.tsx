@@ -96,7 +96,9 @@ vi.mock("./search/context", () => ({
 }));
 
 vi.mock("./transcript", () => ({
-  Transcript: () => <div data-testid="transcript" />,
+  Transcript: ({ editMode }: { editMode?: boolean }) => (
+    <div data-testid="transcript" data-edit-mode={String(editMode ?? false)} />
+  ),
 }));
 
 vi.mock("~/session/components/shared", () => ({
@@ -164,9 +166,11 @@ function createEditorRef() {
 function renderNoteInput({
   currentTab = { type: "raw" },
   handleTabChange = vi.fn(),
+  transcriptEditMode = false,
 }: {
   currentTab?: EditorView;
   handleTabChange?: (view: EditorView) => void;
+  transcriptEditMode?: boolean;
 } = {}) {
   return {
     handleTabChange,
@@ -185,6 +189,7 @@ function renderNoteInput({
         editorTabs={hoisted.editorTabs}
         currentTab={currentTab}
         handleTabChange={handleTabChange}
+        transcriptEditMode={transcriptEditMode}
       />,
     ),
   };
@@ -277,6 +282,17 @@ describe("NoteInput tab selection", () => {
     );
 
     expect(screen.getByTestId("current-tab").textContent).toBe("transcript");
+  });
+
+  it("passes transcript edit mode into the transcript view", () => {
+    renderNoteInput({
+      currentTab: { type: "transcript" },
+      transcriptEditMode: true,
+    });
+
+    expect(
+      screen.getByTestId("transcript").getAttribute("data-edit-mode"),
+    ).toBe("true");
   });
 
   it("does not show the transcript spinner while a meeting is active", () => {

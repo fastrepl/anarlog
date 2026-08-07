@@ -40,6 +40,7 @@ export function RenderTranscript({
   seek,
   startPlayback,
   audioExists,
+  editMode = false,
 }: {
   scrollElement: HTMLDivElement | null;
   isLastTranscript: boolean;
@@ -52,6 +53,7 @@ export function RenderTranscript({
   seek: (sec: number) => void;
   startPlayback: () => void;
   audioExists: boolean;
+  editMode?: boolean;
 }) {
   return (
     <PersistedTranscript
@@ -65,6 +67,7 @@ export function RenderTranscript({
       seek={seek}
       startPlayback={startPlayback}
       audioExists={audioExists}
+      editMode={editMode}
     />
   );
 }
@@ -80,6 +83,7 @@ function PersistedTranscript({
   seek,
   startPlayback,
   audioExists,
+  editMode,
 }: {
   scrollElement: HTMLDivElement | null;
   transcriptId: string;
@@ -91,6 +95,7 @@ function PersistedTranscript({
   seek: (sec: number) => void;
   startPlayback: () => void;
   audioExists: boolean;
+  editMode: boolean;
 }) {
   const {
     maxSpeakerNumber,
@@ -119,6 +124,7 @@ function PersistedTranscript({
       startPlayback={startPlayback}
       audioExists={audioExists}
       maxSpeakerNumber={maxSpeakerNumber}
+      editMode={editMode}
     />
   );
 }
@@ -133,6 +139,7 @@ function TranscriptSegments({
   startPlayback,
   audioExists,
   maxSpeakerNumber,
+  editMode,
 }: {
   segments: Segment[];
   scrollElement: HTMLDivElement | null;
@@ -143,6 +150,7 @@ function TranscriptSegments({
   startPlayback: () => void;
   audioExists: boolean;
   maxSpeakerNumber?: number;
+  editMode: boolean;
 }) {
   const segments = useStableSegments(rawSegments);
   const offsetMs = useTranscriptOffset(transcriptId);
@@ -167,6 +175,7 @@ function TranscriptSegments({
       startPlayback={startPlayback}
       audioExists={audioExists}
       maxSpeakerNumber={maxSpeakerNumber}
+      editMode={editMode}
     />
   );
 }
@@ -185,6 +194,7 @@ const SegmentsList = memo(
     startPlayback,
     audioExists,
     maxSpeakerNumber,
+    editMode,
   }: {
     segments: Segment[];
     scrollElement: HTMLDivElement | null;
@@ -198,6 +208,7 @@ const SegmentsList = memo(
     startPlayback: () => void;
     audioExists: boolean;
     maxSpeakerNumber?: number;
+    editMode: boolean;
   }) => {
     const search = useSearch();
     const inferredMaxSpeakerNumber = labelContext
@@ -294,6 +305,7 @@ const SegmentsList = memo(
               seekAndPlay={seekAndPlay}
               audioExists={audioExists}
               search={transcriptSearch}
+              editMode={editMode}
             />
           </div>
         ))}
@@ -311,6 +323,7 @@ const SegmentsList = memo(
       prevProps.currentMs === nextProps.currentMs &&
       prevProps.audioExists === nextProps.audioExists &&
       prevProps.maxSpeakerNumber === nextProps.maxSpeakerNumber &&
+      prevProps.editMode === nextProps.editMode &&
       prevProps.seek === nextProps.seek &&
       prevProps.startPlayback === nextProps.startPlayback &&
       segmentsShallowEqual(prevProps.segments, nextProps.segments)

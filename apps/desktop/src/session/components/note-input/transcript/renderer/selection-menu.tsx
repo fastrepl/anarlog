@@ -5,43 +5,180 @@ import {
   shift,
   useFloating,
 } from "@floating-ui/react";
-import { type MouseEvent, useCallback, useEffect, useState } from "react";
+import { Trans } from "@lingui/react/macro";
+import { ArrowLeft, Play, UserSwitch, X } from "@phosphor-icons/react";
+import { type MouseEvent, useCallback, useMemo, useRef, useState } from "react";
 
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@anlg/ui/components/ui/popover";
 import { cn } from "@anlg/utils";
 
+import { getTranscriptSelectionFromRange } from "./selection";
+import type { TranscriptWordSelection } from "./selection";
+import { SpeakerParticipantPicker } from "./speaker-assign";
+
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const MENU_CONTAINER_CLASSES = [
   "pointer-events-auto",
-  "flex gap-1",
   "bg-card shadow-lg rounded-md border border-border p-1",
 ];
 
 const MENU_BUTTON_CLASSES = [
-  "px-2 py-1 text-xs rounded-xs",
+  "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs rounded-xs",
   "hover:bg-accent transition-colors",
 ];
 
+export type TranscriptContextMenuRequest = {
+  id: string;
+  range: Range;
+  selection: TranscriptWordSelection;
+  x: number;
+  y: number;
+};
+
 export function SelectionMenu({
   containerRef,
+  contextRequest,
+  onContextClose,
   onAction,
+  onAssignSpeaker,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
-  onAction?: (action: string, selectedText: string) => void;
+  contextRequest: TranscriptContextMenuRequest | null;
+  onContextClose: () => void;
+  onAction?: (
+    action: "copy" | "play",
+    selection: TranscriptWordSelection,
+  ) => void;
+  onAssignSpeaker?: (
+    selection: TranscriptWordSelection,
+    humanId: string,
+  ) => void | Promise<void>;
 }) {
-  const { isVisible, selectedText, hide, refs, floatingStyles, storedRange } =
-    useSelectionMenuState({ containerRef });
+  return (
+    <>
+      <TextSelectionMenu
+        containerRef={containerRef}
+        suspended={contextRequest !== null}
+        onAction={onAction}
+        onAssignSpeaker={onAssignSpeaker}
+      />
+      {contextRequest && (
+        <ContextSelectionMenu
+          key={contextRequest.id}
+          request={contextRequest}
+          containerRef={containerRef}
+          onClose={onContextClose}
+          onAction={onAction}
+          onAssignSpeaker={onAssignSpeaker}
+        />
+      )}
+    </>
+  );
+}
 
+export function MultiSelectionBar({
+  selection,
+  entryCount,
+  onClear,
+  onAssignSpeaker,
+}: {
+  selection: TranscriptWordSelection;
+  entryCount: number;
+  onClear: () => void;
+  onAssignSpeaker: (
+    selection: TranscriptWordSelection,
+    humanId: string,
+  ) => void | Promise<void>;
+}) {
+  const [speakerPickerOpen, setSpeakerPickerOpen] = useState(false);
+  const handleAssign = useCallback(
+    async (humanId: string) => {
+      await onAssignSpeaker(selection, humanId);
+      setSpeakerPickerOpen(false);
+      onClear();
+    },
+    [onAssignSpeaker, onClear, selection],
+  );
+
+  return (
+    <div
+      className={cn([
+        "border-border bg-card absolute bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border p-1 pl-3 shadow-lg",
+        "text-xs",
+      ])}
+    >
+      <span className="text-muted-foreground whitespace-nowrap">
+        <Trans>{entryCount} selected</Trans>
+      </span>
+      <Popover open={speakerPickerOpen} onOpenChange={setSpeakerPickerOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-7 items-center gap-1.5 rounded-full px-3 font-medium"
+          >
+            <UserSwitch className="size-3.5" />
+            <Trans>Change speaker</Trans>
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          variant="app"
+          side="top"
+          align="center"
+          sideOffset={8}
+          className="w-80"
+        >
+          <SpeakerParticipantPicker
+            sessionId={selection.sessionId}
+            showAssignmentScope={false}
+            onSelect={handleAssign}
+          />
+        </PopoverContent>
+      </Popover>
+      <button
+        type="button"
+        aria-label="Clear selection"
+        className="hover:bg-accent flex size-7 items-center justify-center rounded-full"
+        onClick={onClear}
+      >
+        <X className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function TextSelectionMenu({
+  containerRef,
+  suspended,
+  onAction,
+  onAssignSpeaker,
+}: {
+  containerRef: React.RefObject<HTMLElement | null>;
+  suspended: boolean;
+  onAction?: (
+    action: "copy" | "play",
+    selection: TranscriptWordSelection,
+  ) => void;
+  onAssignSpeaker?: (
+    selection: TranscriptWordSelection,
+    humanId: string,
+  ) => void | Promise<void>;
+}) {
+  const { isVisible, selection, hide, refs, floatingStyles, storedRange } =
+    useSelectionMenuState({ containerRef });
   const handleClose = useCallback(() => {
     hide();
     window.getSelection()?.removeAllRanges();
   }, [hide]);
-
   const autoCloserRef = useAutoCloser(handleClose, {
     esc: true,
     outside: true,
   });
-
   const floatingRef = useCallback(
     (node: HTMLDivElement | null) => {
       refs.setFloating(node);
@@ -50,38 +187,197 @@ export function SelectionMenu({
     [refs, autoCloserRef],
   );
 
-  const handleAction = useCallback(
-    (action: string) => {
-      onAction?.(action, selectedText);
-      handleClose();
-    },
-    [handleClose, onAction, selectedText],
-  );
-
-  const handleMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-  }, []);
-
-  if (!isVisible) {
+  if (!isVisible || !selection || suspended) {
     return null;
   }
 
   return (
+    <SelectionFloatingMenu
+      selection={selection}
+      range={storedRange}
+      containerRef={containerRef}
+      floatingRef={floatingRef}
+      floatingStyles={floatingStyles}
+      onClose={handleClose}
+      onAction={onAction}
+      onAssignSpeaker={onAssignSpeaker}
+    />
+  );
+}
+
+function ContextSelectionMenu({
+  request,
+  containerRef,
+  onClose,
+  onAction,
+  onAssignSpeaker,
+}: {
+  request: TranscriptContextMenuRequest;
+  containerRef: React.RefObject<HTMLElement | null>;
+  onClose: () => void;
+  onAction?: (
+    action: "copy" | "play",
+    selection: TranscriptWordSelection,
+  ) => void;
+  onAssignSpeaker?: (
+    selection: TranscriptWordSelection,
+    humanId: string,
+  ) => void | Promise<void>;
+}) {
+  const virtualRect = useMemo(
+    () => new DOMRect(request.x, request.y, 0, 0),
+    [request.x, request.y],
+  );
+  const { refs, floatingStyles, update } = useFloating<HTMLElement>({
+    open: true,
+    placement: "bottom-start",
+    strategy: "fixed",
+    transform: false,
+    middleware: [offset(4), flip(), shift({ padding: 8 })],
+  });
+  const handleClose = useCallback(() => {
+    onClose();
+    window.getSelection()?.removeAllRanges();
+  }, [onClose]);
+  const autoCloserRef = useAutoCloser(handleClose, {
+    esc: true,
+    outside: true,
+  });
+  const floatingRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      refs.setFloating(node);
+      refs.setPositionReference({
+        getBoundingClientRect: () => virtualRect,
+      });
+      autoCloserRef.current = node;
+      if (node) {
+        void update();
+      }
+    },
+    [autoCloserRef, refs, update, virtualRect],
+  );
+
+  return (
+    <SelectionFloatingMenu
+      selection={request.selection}
+      range={request.range}
+      containerRef={containerRef}
+      floatingRef={floatingRef}
+      floatingStyles={floatingStyles}
+      onClose={handleClose}
+      onAction={onAction}
+      onAssignSpeaker={onAssignSpeaker}
+    />
+  );
+}
+
+function SelectionFloatingMenu({
+  selection,
+  range,
+  containerRef,
+  floatingRef,
+  floatingStyles,
+  onClose,
+  onAction,
+  onAssignSpeaker,
+}: {
+  selection: TranscriptWordSelection;
+  range: Range | null;
+  containerRef: React.RefObject<HTMLElement | null>;
+  floatingRef: (node: HTMLDivElement | null) => void;
+  floatingStyles: React.CSSProperties;
+  onClose: () => void;
+  onAction?: (
+    action: "copy" | "play",
+    selection: TranscriptWordSelection,
+  ) => void;
+  onAssignSpeaker?: (
+    selection: TranscriptWordSelection,
+    humanId: string,
+  ) => void | Promise<void>;
+}) {
+  const [view, setView] = useState<"actions" | "speaker">("actions");
+  const handleAction = useCallback(
+    (action: "copy" | "play") => {
+      onAction?.(action, selection);
+      onClose();
+    },
+    [onAction, onClose, selection],
+  );
+  const handleAssign = useCallback(
+    async (humanId: string) => {
+      await onAssignSpeaker?.(selection, humanId);
+      onClose();
+    },
+    [onAssignSpeaker, onClose, selection],
+  );
+  const handleMouseDown = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  }, []);
+
+  return (
     <>
-      <SelectionHighlight range={storedRange} containerRef={containerRef} />
+      <SelectionHighlight
+        key={getSelectionHighlightKey(selection, range)}
+        range={range}
+        containerRef={containerRef}
+      />
       <FloatingPortal>
         <div
           ref={floatingRef}
           style={{ ...floatingStyles, zIndex: 50 }}
-          className={cn(MENU_CONTAINER_CLASSES)}
-          onMouseDown={handleMouseDown}
+          className={cn([
+            MENU_CONTAINER_CLASSES,
+            view === "speaker" ? "w-80" : "min-w-40",
+          ])}
+          onMouseDown={view === "actions" ? handleMouseDown : undefined}
         >
-          <button
-            onClick={() => handleAction("copy")}
-            className={cn(MENU_BUTTON_CLASSES)}
-          >
-            Copy
-          </button>
+          {view === "actions" ? (
+            <div className="flex flex-col gap-0.5">
+              {selection.sessionId && onAssignSpeaker && (
+                <button
+                  type="button"
+                  className={cn(MENU_BUTTON_CLASSES)}
+                  onClick={() => setView("speaker")}
+                >
+                  <UserSwitch className="size-3.5" />
+                  <Trans>Change speaker</Trans>
+                </button>
+              )}
+              <button
+                type="button"
+                className={cn(MENU_BUTTON_CLASSES)}
+                onClick={() => handleAction("play")}
+              >
+                <Play className="size-3.5" />
+                <Trans>Play from here</Trans>
+              </button>
+              <button
+                type="button"
+                className={cn(MENU_BUTTON_CLASSES)}
+                onClick={() => handleAction("copy")}
+              >
+                <span className="w-3.5 text-center">⌘</span>
+                <Trans>Copy</Trans>
+              </button>
+            </div>
+          ) : (
+            <div>
+              <button
+                type="button"
+                className={cn(MENU_BUTTON_CLASSES)}
+                onClick={() => setView("actions")}
+              >
+                <ArrowLeft className="size-3.5" />
+                <Trans>Back</Trans>
+              </button>
+              <SpeakerParticipantPicker
+                sessionId={selection.sessionId}
+                showAssignmentScope={false}
+                onSelect={handleAssign}
+              />
+            </div>
+          )}
         </div>
       </FloatingPortal>
     </>
@@ -103,20 +399,16 @@ function SelectionHighlight({
       return;
     }
 
-    const clientRects = Array.from(range.getClientRects());
-    setRects(clientRects);
+    setRects(Array.from(range.getClientRects()));
   }, [range]);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (!range) {
-      setRects([]);
       return;
     }
 
     updateRects();
-
     const container = containerRef.current;
-
     window.addEventListener("resize", updateRects);
     container?.addEventListener("scroll", updateRects, { passive: true });
 
@@ -124,7 +416,7 @@ function SelectionHighlight({
       window.removeEventListener("resize", updateRects);
       container?.removeEventListener("scroll", updateRects);
     };
-  }, [range, containerRef, updateRects]);
+  });
 
   if (rects.length === 0) {
     return null;
@@ -151,63 +443,16 @@ function SelectionHighlight({
   );
 }
 
-function useSelectionListener({
-  containerRef,
-  show,
-  hide,
-  isVisible,
-}: {
-  containerRef: React.RefObject<HTMLElement | null>;
-  show: (text: string, range: Range) => void;
-  hide: () => void;
-  isVisible: boolean;
-}) {
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      const selection = window.getSelection();
-      if (!selection || selection.rangeCount === 0) {
-        if (!isVisible) {
-          hide();
-        }
-        return;
-      }
-
-      const range = selection.getRangeAt(0);
-      const trimmedText = selection.toString().trim();
-
-      if (!trimmedText) {
-        if (!isVisible) {
-          hide();
-        }
-        return;
-      }
-
-      const container = containerRef.current;
-      if (!container || !container.contains(range.commonAncestorContainer)) {
-        hide();
-        return;
-      }
-
-      show(trimmedText, range);
-    };
-
-    document.addEventListener("selectionchange", handleSelectionChange);
-
-    return () => {
-      document.removeEventListener("selectionchange", handleSelectionChange);
-    };
-  }, [containerRef, hide, show, isVisible]);
-}
-
 function useSelectionMenuState({
   containerRef,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
 }) {
-  const [isVisible, setIsVisible] = useState(false);
-  const [selectedText, setSelectedText] = useState("");
+  const [selection, setSelection] = useState<TranscriptWordSelection | null>(
+    null,
+  );
   const [storedRange, setStoredRange] = useState<Range | null>(null);
-
+  const isVisible = selection !== null;
   const { refs, floatingStyles, update } = useFloating<HTMLElement>({
     open: isVisible,
     placement: "bottom",
@@ -215,38 +460,82 @@ function useSelectionMenuState({
     transform: false,
     middleware: [offset(6), flip(), shift({ padding: 8 })],
   });
-
   const show = useCallback(
-    (text: string, range: Range) => {
-      setSelectedText(text);
+    (nextSelection: TranscriptWordSelection, range: Range) => {
+      setSelection(nextSelection);
       setStoredRange(range.cloneRange());
-      setIsVisible(true);
       refs.setPositionReference({
         getBoundingClientRect: () => range.getBoundingClientRect(),
       });
     },
     [refs],
   );
-
   const hide = useCallback(() => {
-    setIsVisible(false);
+    setSelection(null);
     setStoredRange(null);
   }, []);
-
-  useSelectionListener({ containerRef, show, hide, isVisible });
-
-  useEffect(() => {
-    if (!isVisible || !containerRef.current) {
+  const handleSelectionChangeRef = useRef<() => void>(() => {});
+  handleSelectionChangeRef.current = () => {
+    const nativeSelection = window.getSelection();
+    const container = containerRef.current;
+    if (!nativeSelection || nativeSelection.rangeCount === 0 || !container) {
+      if (!isVisibleRef.current) {
+        hide();
+      }
       return;
     }
 
-    const container = containerRef.current;
-    container.addEventListener("scroll", update, { passive: true });
+    const range = nativeSelection.getRangeAt(0);
+    const nextSelection = getTranscriptSelectionFromRange(range, container);
+    if (!nextSelection?.text) {
+      if (!isVisibleRef.current) {
+        hide();
+      }
+      return;
+    }
 
+    show(nextSelection, range);
+  };
+  const updateRef = useRef(update);
+  updateRef.current = update;
+  const isVisibleRef = useRef(isVisible);
+  isVisibleRef.current = isVisible;
+
+  useMountEffect(() => {
+    const handleSelectionChange = () => handleSelectionChangeRef.current();
+    document.addEventListener("selectionchange", handleSelectionChange);
     return () => {
-      container.removeEventListener("scroll", update);
+      document.removeEventListener("selectionchange", handleSelectionChange);
     };
-  }, [containerRef, isVisible, update]);
+  });
 
-  return { isVisible, selectedText, hide, refs, floatingStyles, storedRange };
+  useMountEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+    const handleScroll = () => {
+      if (isVisibleRef.current) {
+        void updateRef.current();
+      }
+    };
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      container.removeEventListener("scroll", handleScroll);
+    };
+  });
+
+  return { isVisible, selection, hide, refs, floatingStyles, storedRange };
+}
+
+function getSelectionHighlightKey(
+  selection: TranscriptWordSelection,
+  range: Range | null,
+) {
+  return [
+    ...selection.groups.flatMap((group) => group.wordIds),
+    selection.text,
+    range?.startOffset ?? 0,
+    range?.endOffset ?? 0,
+  ].join(":");
 }

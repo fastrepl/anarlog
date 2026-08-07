@@ -202,6 +202,12 @@ describe("SpeakerAssignPopover", () => {
 
     fireEvent.click(trigger);
     expect(trigger.className.split(/\s+/)).toContain("underline");
+    expect(
+      screen.getByRole("button", { name: "Create new speaker" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByPlaceholderText("Select or type to add speaker"),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Alice" }));
     expect(assignTranscriptSpeakerMock).not.toHaveBeenCalled();
 

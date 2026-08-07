@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { MagnifyingGlass } from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
+import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { EventParticipant } from "@anlg/store";
 import { Checkbox } from "@anlg/ui/components/ui/checkbox";
@@ -23,7 +23,7 @@ import {
 import type { Segment } from "~/stt/live-segment";
 import { assignTranscriptSpeaker } from "~/stt/queries";
 
-type AssignmentMode = "all" | "segment";
+export type AssignmentMode = "all" | "segment";
 
 export function SpeakerAssignPopover({
   segment,
@@ -100,7 +100,10 @@ export function SpeakerAssignPopover({
         collisionPadding={16}
         className="max-h-[min(var(--radix-popover-content-available-height),28rem)] w-80"
       >
-        <ParticipantList sessionId={sessionId} onSelect={handleAssign} />
+        <SpeakerParticipantPicker
+          sessionId={sessionId}
+          onSelect={handleAssign}
+        />
       </PopoverContent>
     </Popover>
   );
@@ -278,12 +281,14 @@ export function buildEventSpeakerParticipantOptions({
     .filter((option): option is SpeakerParticipantOption => option !== null);
 }
 
-function ParticipantList({
+export function SpeakerParticipantPicker({
   sessionId,
   onSelect,
+  showAssignmentScope = true,
 }: {
   sessionId: string | undefined;
-  onSelect: (humanId: string, mode: AssignmentMode) => void;
+  onSelect: (humanId: string, mode: AssignmentMode) => void | Promise<void>;
+  showAssignmentScope?: boolean;
 }) {
   const { t } = useLingui();
   const session = useSession(sessionId ?? "");
@@ -298,6 +303,7 @@ function ParticipantList({
     useState<SpeakerParticipantOption | null>(null);
   const [applyToAllMatching, setApplyToAllMatching] = useState(true);
   const [assigning, setAssigning] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const participants = useMemo(
     () =>
@@ -429,7 +435,10 @@ function ParticipantList({
       .then(async (humanId) => {
         if (!humanId) return;
         await linkHumanToSession(humanId);
-        onSelect(humanId, applyToAllMatching ? "all" : "segment");
+        await onSelect(
+          humanId,
+          showAssignmentScope && applyToAllMatching ? "all" : "segment",
+        );
       })
       .catch((error) => {
         console.error("[transcript] failed to prepare speaker", error);
@@ -441,6 +450,7 @@ function ParticipantList({
     linkHumanToSession,
     onSelect,
     selectedOption,
+    showAssignmentScope,
   ]);
 
   return (
@@ -453,10 +463,11 @@ function ParticipantList({
               className="text-muted-foreground shrink-0"
             />
             <input
+              ref={searchInputRef}
               autoFocus
               type="search"
               className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-hidden"
-              placeholder={t`Search people`}
+              placeholder={t`Select or type to add speaker`}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -510,18 +521,31 @@ function ParticipantList({
               )}
             </p>
           )}
+
+          {!query.trim() && (
+            <button
+              type="button"
+              className="hover:bg-accent flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm"
+              onClick={() => searchInputRef.current?.focus()}
+            >
+              <Plus className="size-4" />
+              <Trans>Create new speaker</Trans>
+            </button>
+          )}
         </div>
       </AppFloatingPanel>
-      <div className="flex items-center gap-3 pt-1 pb-3 pl-2">
-        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
-          <Checkbox
-            checked={applyToAllMatching}
-            onCheckedChange={(value) => setApplyToAllMatching(value === true)}
-          />
-          <span className="text-muted-foreground text-sm whitespace-nowrap">
-            <Trans>Apply to all</Trans>
-          </span>
-        </label>
+      <div className="flex items-center justify-end gap-3 pt-1 pb-3 pl-2">
+        {showAssignmentScope && (
+          <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+            <Checkbox
+              checked={applyToAllMatching}
+              onCheckedChange={(value) => setApplyToAllMatching(value === true)}
+            />
+            <span className="text-muted-foreground text-sm whitespace-nowrap">
+              <Trans>Apply to all</Trans>
+            </span>
+          </label>
+        )}
         <button
           type="button"
           className={cn([

@@ -47,10 +47,17 @@ vi.mock("./screens/listening", () => ({
 }));
 
 vi.mock("./renderer", () => ({
-  TranscriptViewer: ({ captureGeneration }: { captureGeneration: number }) => (
+  TranscriptViewer: ({
+    captureGeneration,
+    editMode,
+  }: {
+    captureGeneration: number;
+    editMode?: boolean;
+  }) => (
     <div
       data-testid="transcript-viewer"
       data-capture-generation={captureGeneration}
+      data-edit-mode={String(editMode ?? false)}
     />
   ),
 }));
@@ -167,5 +174,36 @@ describe("Transcript", () => {
 
     expect(screen.queryByTestId("listening-state")).toBeNull();
     expect(screen.getByTestId("batch-state")).not.toBeNull();
+  });
+
+  it("renders finalized transcripts in the requested edit mode", () => {
+    listenerState = {
+      ...listenerState,
+      getSessionMode: () => "inactive",
+    };
+    transcripts = [
+      { id: transcriptId, words: [{ id: "word-1", text: " Hello" }] },
+    ];
+
+    const view = render(
+      <Transcript
+        sessionId={sessionId}
+        scrollRef={createRef()}
+        editMode={false}
+      />,
+    );
+
+    expect(
+      screen.getByTestId("transcript-viewer").getAttribute("data-edit-mode"),
+    ).toBe("false");
+    expect(screen.queryByRole("button", { name: "Write" })).toBeNull();
+
+    view.rerender(
+      <Transcript sessionId={sessionId} scrollRef={createRef()} editMode />,
+    );
+
+    expect(
+      screen.getByTestId("transcript-viewer").getAttribute("data-edit-mode"),
+    ).toBe("true");
   });
 });

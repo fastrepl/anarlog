@@ -53,6 +53,7 @@ import {
   createLiveTranscript,
   createTranscript,
   removeHumanSpeakerAssignments,
+  updateTranscriptSegmentText,
   useSessionParticipantHumanIds,
   useSessionTranscripts,
   useTranscript,
@@ -407,6 +408,60 @@ describe("transcript SQLite queries", () => {
         word_id: "word-1",
         type: "user_speaker_assignment",
       }),
+    ]);
+  });
+
+  it("updates editable segment text without discarding word identity or timing", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        words_json: JSON.stringify([
+          {
+            id: "word-1",
+            text: "Hello",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 1,
+          },
+          {
+            id: "word-2",
+            text: "world",
+            start_ms: 100,
+            end_ms: 200,
+            channel: 1,
+          },
+          {
+            id: "word-3",
+            text: "Again",
+            start_ms: 200,
+            end_ms: 300,
+            channel: 1,
+          },
+        ]),
+        speaker_hints_json: "[]",
+      },
+    ]);
+
+    await updateTranscriptSegmentText({
+      transcriptId: "transcript-1",
+      wordIds: ["word-1", "word-2"],
+      text: "Hello brave new world",
+    });
+
+    const statement = mocks.executeTransaction.mock.calls[0]?.[0]?.[0];
+    expect(JSON.parse(String(statement?.params[0]))).toEqual([
+      expect.objectContaining({
+        id: "word-1",
+        text: "Hello",
+        start_ms: 0,
+        end_ms: 100,
+      }),
+      expect.objectContaining({
+        id: "word-2",
+        text: "brave new world",
+        start_ms: 100,
+        end_ms: 200,
+      }),
+      expect.objectContaining({ id: "word-3", text: "Again" }),
     ]);
   });
 

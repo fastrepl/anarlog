@@ -13,8 +13,10 @@ import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
   createTranscriptAccumulator,
+  parseTranscriptWords,
   parseTranscriptHints,
   updateTranscriptHints,
+  updateTranscriptWords,
   upsertSpeakerAssignment,
 } from "~/stt/utils";
 
@@ -350,6 +352,46 @@ export function assignTranscriptSpeaker({
       humanId,
       anchorWordId,
       { mode, wordIds },
+    );
+  });
+}
+
+export function updateTranscriptSegmentText({
+  transcriptId,
+  wordIds,
+  text,
+}: {
+  transcriptId: string;
+  wordIds: string[];
+  text: string;
+}): Promise<void> {
+  return mutateTranscript(transcriptId, (store) => {
+    const selectedWordIds = new Set(wordIds);
+    const words = parseTranscriptWords(store, transcriptId);
+    const selectedWords = words.filter((word) => selectedWordIds.has(word.id));
+    if (selectedWords.length === 0) {
+      return;
+    }
+
+    const tokens = text.match(/\S+/g) ?? [];
+    const textByWordId = new Map<string, string>();
+    for (const [index, word] of selectedWords.entries()) {
+      const isLastWord = index === selectedWords.length - 1;
+      textByWordId.set(
+        word.id,
+        isLastWord ? tokens.slice(index).join(" ") : (tokens[index] ?? ""),
+      );
+    }
+
+    updateTranscriptWords(
+      store,
+      transcriptId,
+      words.map((word) => {
+        const nextText = textByWordId.get(word.id);
+        return nextText === undefined || nextText === word.text
+          ? word
+          : { ...word, text: nextText };
+      }),
     );
   });
 }

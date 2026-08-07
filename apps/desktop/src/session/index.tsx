@@ -159,6 +159,9 @@ function TabContentNoteInner({
   const noteInputRef = React.useRef<NoteInputHandle>(null);
 
   const sessionId = tab.id;
+  const [editingTranscriptSessionId, setEditingTranscriptSessionId] =
+    React.useState<string | null>(null);
+  const transcriptEditMode = editingTranscriptSessionId === sessionId;
   usePendingUpload(sessionId);
 
   const hasTranscript = useHasTranscript(sessionId);
@@ -218,10 +221,23 @@ function TabContentNoteInner({
 
   const handleTabChange = React.useCallback(
     (view: typeof currentView) => {
+      if (view.type !== "transcript") {
+        blurActiveTranscriptEditor();
+        setEditingTranscriptSessionId(null);
+      }
       noteInputRef.current?.prepareForTabChange();
       updateSessionTabState(tab, { ...tab.state, view });
     },
     [tab, updateSessionTabState],
+  );
+  const handleTranscriptEditModeChange = React.useCallback(
+    (editMode: boolean) => {
+      if (!editMode) {
+        blurActiveTranscriptEditor();
+      }
+      setEditingTranscriptSessionId(editMode ? sessionId : null);
+    },
+    [sessionId],
   );
   return (
     <>
@@ -231,6 +247,8 @@ function TabContentNoteInner({
             sessionId={sessionId}
             currentView={currentView}
             standaloneWindow={standaloneWindow}
+            transcriptEditMode={transcriptEditMode}
+            onTranscriptEditModeChange={handleTranscriptEditModeChange}
             title={
               <NoteInputHeader
                 sessionId={sessionId}
@@ -274,6 +292,7 @@ function TabContentNoteInner({
                 currentTab={currentView}
                 handleTabChange={handleTabChange}
                 sessionMode={sessionMode}
+                transcriptEditMode={transcriptEditMode}
                 hideHeader
               />
             ) : (
@@ -284,6 +303,16 @@ function TabContentNoteInner({
       </SessionSurface>
     </>
   );
+}
+
+function blurActiveTranscriptEditor() {
+  const activeElement = document.activeElement;
+  if (
+    activeElement instanceof HTMLElement &&
+    activeElement.matches("[data-transcript-editor]")
+  ) {
+    activeElement.blur();
+  }
 }
 
 function SessionContentLoading() {

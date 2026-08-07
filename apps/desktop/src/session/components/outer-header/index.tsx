@@ -6,6 +6,7 @@ import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { cn, safeParseDate } from "@anlg/utils";
 
+import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
@@ -41,12 +42,16 @@ export function OuterHeader({
   standaloneWindow = false,
   title,
   centerTitle = false,
+  transcriptEditMode = false,
+  onTranscriptEditModeChange,
 }: {
   sessionId: string;
   currentView: EditorView;
   standaloneWindow?: boolean;
   title?: React.ReactNode;
   centerTitle?: boolean;
+  transcriptEditMode?: boolean;
+  onTranscriptEditModeChange?: (editMode: boolean) => void;
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -97,7 +102,13 @@ export function OuterHeader({
         data-tauri-drag-region
         className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
       >
-        <HeaderMeetingControl sessionId={sessionId} sessionMode={sessionMode} />
+        <HeaderMeetingControl
+          sessionId={sessionId}
+          sessionMode={sessionMode}
+          currentView={currentView}
+          transcriptEditMode={transcriptEditMode}
+          onTranscriptEditModeChange={onTranscriptEditModeChange}
+        />
         <SessionShareButton key={sessionId} sessionId={sessionId} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
@@ -112,16 +123,46 @@ export function OuterHeader({
 function HeaderMeetingControl({
   sessionId,
   sessionMode,
+  currentView,
+  transcriptEditMode,
+  onTranscriptEditModeChange,
 }: {
   sessionId: string;
   sessionMode: string;
+  currentView: EditorView;
+  transcriptEditMode: boolean;
+  onTranscriptEditModeChange?: (editMode: boolean) => void;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
+  const hasTranscript = useHasTranscript(sessionId);
   const now = useNow();
   const endedAt = sessionEvent?.ended_at
     ? safeParseDate(sessionEvent.ended_at)
     : null;
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
+  const canEditTranscript =
+    currentView.type === "transcript" &&
+    sessionMode === "inactive" &&
+    hasTranscript &&
+    (!sessionEvent || ended) &&
+    onTranscriptEditModeChange;
+
+  if (canEditTranscript) {
+    return (
+      <>
+        <TranscriptEditButton
+          editMode={transcriptEditMode}
+          onEditModeChange={onTranscriptEditModeChange}
+        />
+        {sessionEvent ? (
+          <div className="mr-1 shrink-0">
+            <MetadataButton sessionId={sessionId} />
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
 
@@ -142,6 +183,7 @@ function HeaderMeetingControl({
       sessionId={sessionId}
       event={sessionEvent}
       sessionMode={sessionMode}
+      hasTranscript={hasTranscript}
     />
   );
 }
@@ -150,6 +192,7 @@ function HeaderMeetingActionPill({
   sessionId,
   event,
   sessionMode,
+  hasTranscript,
 }: {
   sessionId: string;
   event: {
@@ -157,6 +200,7 @@ function HeaderMeetingActionPill({
     tracking_id?: string;
   } | null;
   sessionMode: string;
+  hasTranscript: boolean;
 }) {
   const startListening = useStartListening(sessionId);
   const { canStartLiveSession, stop, stopTranscription } = useListener(
@@ -178,7 +222,6 @@ function HeaderMeetingActionPill({
     meetingLink &&
     (remote !== null || event?.tracking_id === WELCOME_NOTE_TRACKING_ID),
   );
-  const hasTranscript = useHasTranscript(sessionId);
   const { audioExists } = useAudioPlayer();
   const canResume = audioExists || hasTranscript;
   const { t } = useLingui();

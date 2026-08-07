@@ -26,6 +26,10 @@ msgstr "(Unavailable — using current default)"
 msgid "{0} opened on"
 msgstr "{0} opened on"
 
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "{entryCount} selected"
+msgstr "{entryCount} selected"
+
 #. placeholder {0}: formatLanguageList(unsupportedLanguages)
 #: src/settings/ai/stt/select.tsx
 msgid "{model} can't transcribe {0}. Try another model or change your spoken languages."
@@ -399,6 +403,7 @@ msgstr "Automations"
 
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Back"
@@ -462,6 +467,10 @@ msgstr "Capture meeting chat in Memos"
 #: src/onboarding/folder-location.tsx
 msgid "Change"
 msgstr "Change"
+
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Change speaker"
+msgstr "Change speaker"
 
 #: src/main/sync-status.tsx
 msgid "Changes stay on this device until you resume sync"
@@ -766,6 +775,10 @@ msgstr "Continuing without trial"
 msgid "Control listening without reopening Anarlog."
 msgstr "Control listening without reopening Anarlog."
 
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Copy"
+msgstr "Copy"
+
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Copy link"
@@ -806,6 +819,10 @@ msgstr "Create a Slack canvas"
 #: src/onboarding/index.tsx
 msgid "Create account"
 msgstr "Create account"
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Create new speaker"
+msgstr "Create new speaker"
 
 #: src/main/sync-status.tsx
 msgid "Create or enter your recovery key in Sync settings to start syncing."
@@ -942,6 +959,10 @@ msgstr "Disconnect private repo access."
 #: src/settings/general/audio-settings.tsx
 msgid "Don't save"
 msgstr "Don't save"
+
+#: src/session/components/note-input/transcript/index.tsx
+msgid "Done writing"
+msgstr "Done writing"
 
 #: src/settings/ai/stt/select.tsx
 msgid "Download"
@@ -1877,6 +1898,10 @@ msgstr "Plan & Billing"
 msgid "Plans"
 msgstr "Plans"
 
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Play from here"
+msgstr "Play from here"
+
 #: src/settings/automations/index.tsx
 msgid "Post a meeting recap to a Slack channel."
 msgstr "Post a meeting recap to a Slack channel."
@@ -2184,10 +2209,6 @@ msgstr "Search or create new"
 msgid "Search or type owner/repo"
 msgstr "Search or type owner/repo"
 
-#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
-msgid "Search people"
-msgstr "Search people"
-
 #: src/sidebar/settings.tsx
 msgid "Search settings..."
 msgstr "Search settings..."
@@ -2243,6 +2264,10 @@ msgstr "Select day"
 #: src/settings/general/main-language.tsx
 msgid "Select language"
 msgstr "Select language"
+
+#: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
+msgid "Select or type to add speaker"
+msgstr "Select or type to add speaker"
 
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
@@ -3005,6 +3030,10 @@ msgstr "Where your notes and recordings are stored"
 #: src/task/tab-content.tsx
 msgid "Work on this task"
 msgstr "Work on this task"
+
+#: src/session/components/note-input/transcript/index.tsx
+msgid "Write"
+msgstr "Write"
 
 #: src/settings/automations/index.tsx
 msgid "Write the recap with a link to the Anarlog note."

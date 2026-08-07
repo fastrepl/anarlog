@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,6 +38,9 @@ vi.mock("~/audio-player/provider", () => ({
 
 vi.mock("./selection-menu", () => ({
   SelectionMenu: () => null,
+  MultiSelectionBar: ({ entryCount }: { entryCount: number }) => (
+    <div data-testid="multi-selection-bar">{entryCount}</div>
+  ),
 }));
 
 vi.mock("./transcript", () => ({
@@ -61,7 +64,26 @@ vi.mock("./transcript", () => ({
       data-live-segment-count={String(liveSegments.length)}
       data-should-scroll-to-end={String(shouldScrollToEnd)}
       data-transcript-id={transcriptId}
-    />
+    >
+      <section
+        data-testid={`segment-${transcriptId}`}
+        data-transcript-id={transcriptId}
+        data-session-id="session-1"
+        data-transcript-segment-id={`segment-${transcriptId}`}
+        data-segment-channel="RemoteParty"
+        data-segment-speaker-index="1"
+        data-transcript-offset-ms="0"
+      >
+        <div data-transcript-segment-content>
+          <span
+            data-transcript-word-id={`word-${transcriptId}`}
+            data-transcript-word-start-ms="0"
+          >
+            Transcript word
+          </span>
+        </div>
+      </section>
+    </div>
   ),
 }));
 
@@ -198,6 +220,26 @@ describe("TranscriptViewer", () => {
     expect(transcripts[0]?.getAttribute("data-live-segment-count")).toBe("0");
     expect(transcripts[1]?.getAttribute("data-current-active")).toBe("true");
     expect(transcripts[1]?.getAttribute("data-live-segment-count")).toBe("1");
+  });
+
+  it("supports scattered entry selection with command-click", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1", "transcript-2"]}
+        liveSegments={[]}
+        currentActive={false}
+        scrollRef={createRef()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("segment-transcript-1"), {
+      metaKey: true,
+    });
+    fireEvent.click(screen.getByTestId("segment-transcript-2"), {
+      metaKey: true,
+    });
+
+    expect(screen.getByTestId("multi-selection-bar").textContent).toBe("2");
   });
 
   it("does not show scroll controls when the transcript cannot scroll", () => {
