@@ -39,6 +39,7 @@ const hoisted = vi.hoisted(() => ({
   sessionMode: "inactive",
   isMainWebviewWindow: true,
   isDeletingRecording: false,
+  updateSession: vi.fn(() => Promise.resolve()),
   transcriptExportRequest: {},
   transcriptRenderDataCalls: 0,
   transcriptSegments: [{ speaker: "Speaker 1", text: "Hello transcript" }],
@@ -152,6 +153,7 @@ vi.mock("~/ai/hooks", () => ({
   }),
   useLanguageModel: () => "model",
   useLLMConnectionStatus: () => "connected",
+  useTitleGenerating: () => false,
 }));
 
 vi.mock("~/session/enhance-config", () => ({
@@ -191,6 +193,7 @@ vi.mock("~/session/queries", () => ({
   }),
   useEnhancedNoteRecords: () => [{ id: "note-1" }],
   useSession: () => ({ raw_md: "", title: hoisted.sessionTitle }),
+  useUpdateSession: () => hoisted.updateSession,
 }));
 
 vi.mock("~/session/components/note-input/transcript/actions", () => ({
@@ -464,7 +467,10 @@ describe("Header", () => {
       screen.queryByRole("group", { name: "Session note views" }),
     ).toBeNull();
     expect(screen.queryByRole("button")).toBeNull();
-    expect(screen.getByText("Weekly planning").className).toContain("truncate");
+    const title = screen.getByRole("textbox", { name: "Session title" });
+    expect((title as HTMLInputElement).value).toBe("Weekly planning");
+    expect(title.className).toContain("border-none");
+    expect(title.parentElement?.parentElement?.className).toContain("pl-2");
   });
 
   it("shows Untitled for an ad hoc memo with no title", () => {
@@ -479,8 +485,31 @@ describe("Header", () => {
       />,
     );
 
-    expect(screen.getByText("Untitled")).not.toBeNull();
+    const title = screen.getByPlaceholderText("Untitled");
+    expect((title as HTMLInputElement).value).toBe("");
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("persists edits to the session title", async () => {
+    render(
+      <Header
+        sessionId="session-1"
+        editorTabs={[{ type: "raw" }]}
+        currentTab={{ type: "raw" }}
+        handleTabChange={vi.fn()}
+      />,
+    );
+
+    const title = screen.getByRole("textbox", { name: "Session title" });
+    fireEvent.focus(title);
+    fireEvent.change(title, { target: { value: "Customer follow-up" } });
+    fireEvent.blur(title);
+
+    await waitFor(() => {
+      expect(hoisted.updateSession).toHaveBeenCalledWith({
+        title: "Customer follow-up",
+      });
+    });
   });
 
   it("can switch from transcript back to memo or summary tabs", () => {

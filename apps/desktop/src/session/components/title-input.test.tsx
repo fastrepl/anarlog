@@ -150,8 +150,9 @@ describe("TitleInput", () => {
     renderTitleInput();
 
     const input = screen.getByPlaceholderText("Untitled");
-    fireEvent.focus(input);
+    input.focus();
     fireEvent.change(input, { target: { value: "Customer call" } });
+    (input as HTMLInputElement).setSelectionRange(3, 3);
     fireEvent.keyDown(input, { key: "Enter" });
 
     expect(hoisted.setStoreTitle).toHaveBeenCalledWith("Customer call");
@@ -190,10 +191,10 @@ describe("TitleInput", () => {
     renderTitleInput();
 
     const input = screen.getByPlaceholderText("Untitled");
-    fireEvent.focus(input);
+    input.focus();
     fireEvent.change(input, { target: { value: "Customer call" } });
-    fireEvent.blur(input);
-    fireEvent.focus(input);
+    input.blur();
+    input.focus();
     fireEvent.keyDown(input, { key: "Enter" });
 
     await act(async () => {
