@@ -52,6 +52,7 @@ function createSnapshot() {
     event: null,
     eventId: null,
     rawNoteId: "session-1",
+    rawTemplateId: "",
     rawContent: "![post](asset://localhost/post.png)",
     rawContentFormat: "markdown",
     rawMarkdown: "![post](asset://localhost/post.png)",
@@ -118,6 +119,57 @@ describe("enhanceTransform.transformArgs", () => {
     expect(result.participants).toEqual([
       { name: "Alice", jobTitle: "Engineer" },
     ]);
+  });
+
+  it("uses the edited memo headings for its applied template", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue({
+      ...createSnapshot(),
+      rawTemplateId: "template-1",
+      rawContent: JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { level: 2 },
+            content: [{ type: "text", text: "Updates" }],
+          },
+          { type: "paragraph" },
+          {
+            type: "heading",
+            attrs: { level: 2 },
+            content: [{ type: "text", text: "Next Steps" }],
+          },
+        ],
+      }),
+      rawContentFormat: "prosemirror_json",
+      rawMarkdown: "## Updates\n\n## Next Steps",
+    });
+    mocks.getTemplateById.mockResolvedValue({
+      title: "1:1 Meeting",
+      description: "Weekly conversation",
+      sections: [
+        { title: "Updates", description: "Recent changes" },
+        { title: "Action Items", description: "Follow-ups" },
+      ],
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+        templateId: "template-1",
+      },
+      settingsValues,
+    );
+
+    expect(result.template).toEqual({
+      title: "1:1 Meeting",
+      description: "Weekly conversation",
+      sections: [
+        { title: "Updates", description: "Recent changes" },
+        { title: "Next Steps", description: "Follow-ups" },
+      ],
+    });
   });
 
   it("uses the saved prompt override for Auto summaries", async () => {

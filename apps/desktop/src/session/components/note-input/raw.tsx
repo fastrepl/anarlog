@@ -18,6 +18,7 @@ import { useNoteFileHandlerConfig } from "./file-handler";
 import { MeetingChatHighlights } from "./meeting-chat-highlights";
 
 import { trackAnalyticsEvent } from "~/analytics";
+import { useAudioPlayer } from "~/audio-player";
 import { useSessionEventParticipants } from "~/calendar/queries";
 import { AppLinkView } from "~/editor-bridge/app-link-view";
 import { useMentionConfig } from "~/editor-bridge/mention-config";
@@ -25,7 +26,10 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
-import { hasStoredNoteContent } from "~/session/components/shared";
+import {
+  hasStoredNoteContent,
+  useCanShowTranscript,
+} from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateSession } from "~/session/queries";
 import { removeDocumentTitle } from "~/session/title-content";
@@ -97,6 +101,8 @@ export const RawEditor = forwardRef<
   ) => {
     const { t } = useLingui();
     const updateSession = useUpdateSession(sessionId);
+    const { audioExists, audioExistsResolved } = useAudioPlayer();
+    const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
     const resolveAttachment = useAttachmentResolver(sessionId);
     const { audioDropTargetProps, fileHandlerConfig, isAudioDragActive } =
       useNoteFileHandlerConfig(sessionId);
@@ -130,15 +136,17 @@ export const RawEditor = forwardRef<
     );
 
     const persistChange = useCallback(
-      (input: JSONContent) => {
+      (input: JSONContent, templateId?: string) => {
         const portableInput = normalizePortableAttachmentUrls(input);
         return updateSession({
           raw_md: JSON.stringify(portableInput),
+          ...(templateId ? { raw_template_id: templateId } : {}),
         });
       },
       [updateSession],
     );
 
+    const pendingTemplateIdRef = useRef<string | undefined>(undefined);
     const hasTrackedWriteRef = useRef(false);
     const trackedSessionIdRef = useRef(sessionId);
     if (trackedSessionIdRef.current !== sessionId) {
@@ -155,7 +163,9 @@ export const RawEditor = forwardRef<
 
     const handleChange = useCallback(
       (input: JSONContent) => {
-        void persistChange(input).catch((error) => {
+        const templateId = pendingTemplateIdRef.current;
+        pendingTemplateIdRef.current = undefined;
+        void persistChange(input, templateId).catch((error) => {
           console.error("[raw-editor] failed to persist note", error);
         });
 
@@ -203,9 +213,13 @@ export const RawEditor = forwardRef<
         return;
       }
 
+      const editor = editorRef.current;
+      if (!editor) return;
+
       const nextContent = { type: "doc", content };
-      editorRef.current?.commands.replaceContent(nextContent);
-      editorRef.current?.flushPendingChanges();
+      pendingTemplateIdRef.current = template.id;
+      editor.commands.replaceContent(nextContent);
+      editor.flushPendingChanges();
       trackAnalyticsEvent("template_applied", {
         entry_point: "memo",
       });
@@ -257,7 +271,7 @@ export const RawEditor = forwardRef<
                 onViewDisposed?.(view);
               }}
             />
-            {isMemoEmpty ? (
+            {isMemoEmpty && audioExistsResolved && !canShowTranscript ? (
               <TemplateEmptyState
                 sessionId={sessionId}
                 eventTitle={eventTitle ?? sessionTitle}

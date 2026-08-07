@@ -114,6 +114,27 @@ describe("session SQLite operations", () => {
     expect(statements[1].params).toContain('{"type":"doc"}');
   });
 
+  it("stores a memo template without clearing it on later edits", async () => {
+    await updateSession("session-1", {
+      raw_md: '{"type":"doc"}',
+      raw_template_id: "template-1",
+    });
+
+    const templateStatement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(templateStatement.sql).toContain(
+      "template_id = excluded.template_id",
+    );
+    expect(templateStatement.params).toContain("template-1");
+
+    mocks.executeTransaction.mockClear();
+    await updateSession("session-1", { raw_md: '{"type":"doc"}' });
+
+    const editStatement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(editStatement.sql).not.toContain(
+      "template_id = excluded.template_id",
+    );
+  });
+
   it("creates a session with its initial event and note content atomically", async () => {
     await createSession("Welcome", "user-1", {
       event_json: '{"tracking_id":"welcome"}',

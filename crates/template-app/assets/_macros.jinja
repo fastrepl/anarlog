@@ -116,7 +116,8 @@ Description: {{ desc }}
 Sections:
 {% for section in tpl.sections -%}
 {{ loop.index }}. {{ section.title }}{% if section.description.is_some() %} - {{ section.description.as_ref().unwrap() }}{% endif %}
-{% endfor -%}
+{% endfor %}
+Use every section in order with its exact title. Keep sections without relevant content brief instead of inventing details.
 {%- when None %}
 
 # Instructions

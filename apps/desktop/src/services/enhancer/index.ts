@@ -172,6 +172,7 @@ function shouldHydrateTemplateTitle(
 function resolveTemplateId(
   opts: EnhanceOpts | undefined,
   getSelectedTemplateId: () => string | undefined,
+  memoTemplateId?: string,
 ) {
   if (opts?.templateId === null) {
     return undefined;
@@ -181,7 +182,7 @@ function resolveTemplateId(
     return opts.templateId || undefined;
   }
 
-  return getSelectedTemplateId();
+  return memoTemplateId || getSelectedTemplateId();
 }
 
 let instance: EnhancerService | null = null;
@@ -265,7 +266,11 @@ export class EnhancerService {
   ): Promise<QueueEmptySummaryResult> {
     return retryDatabaseLock(async () => {
       const snapshot = await this.loadSession(sessionId);
-      const templateId = this.deps.getSelectedTemplateId();
+      const templateId = resolveTemplateId(
+        undefined,
+        this.deps.getSelectedTemplateId,
+        snapshot.rawTemplateId,
+      );
       const existingNote = getAutoEnhancedNote(snapshot, templateId);
 
       if (
@@ -298,7 +303,11 @@ export class EnhancerService {
     if (mode === "regenerate") {
       const pendingAutoEnhance = await retryDatabaseLock(async () => {
         const snapshot = await this.loadSession(sessionId);
-        const selectedTemplateId = this.deps.getSelectedTemplateId();
+        const selectedTemplateId = resolveTemplateId(
+          undefined,
+          this.deps.getSelectedTemplateId,
+          snapshot.rawTemplateId,
+        );
         const existingNote = getAutoEnhancedNote(snapshot, selectedTemplateId);
         return ensurePendingAutoEnhanceDocument(
           sessionId,
@@ -452,7 +461,11 @@ export class EnhancerService {
     if (!model) return { type: "no_model" };
 
     const snapshot = await this.loadSession(sessionId);
-    let templateId = resolveTemplateId(opts, getSelectedTemplateId);
+    let templateId = resolveTemplateId(
+      opts,
+      getSelectedTemplateId,
+      snapshot.rawTemplateId,
+    );
     const pendingAutoEnhanceNote = opts?.pendingAutoEnhance
       ? getSessionEnhancedNote(snapshot, opts.pendingAutoEnhance.noteId)
       : undefined;

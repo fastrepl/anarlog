@@ -26,6 +26,7 @@ describe("session content SQLite snapshots", () => {
         event_json: JSON.stringify({ title: "Weekly planning" }),
         event_id: "event-1",
         raw_note_id: "session-1",
+        raw_template_id: "template-1",
         raw_body: JSON.stringify({
           type: "doc",
           content: [
@@ -92,6 +93,7 @@ describe("session content SQLite snapshots", () => {
       event: { title: "Weekly planning" },
       eventId: "event-1",
       rawNoteId: "session-1",
+      rawTemplateId: "template-1",
       rawContentFormat: "prosemirror_json",
       enhancedNotes: [
         { id: "summary-1", markdown: "First summary", position: 1 },

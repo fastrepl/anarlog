@@ -231,6 +231,8 @@ mod tests {
     Sections:
     1. Summary - Brief overview
     2. Action Items
+
+    Use every section in order with its exact title. Keep sections without relevant content brief instead of inventing details.
     "
     );
 

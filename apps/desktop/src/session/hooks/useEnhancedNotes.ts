@@ -6,6 +6,7 @@ import { useHasTranscript } from "~/session/components/shared";
 import {
   useEnhancedNote as useSqliteEnhancedNote,
   useEnhancedNoteRecords,
+  useSession,
 } from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
@@ -33,12 +34,14 @@ export function useEnsureDefaultSummary(sessionId: string) {
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const batchError = useListener((state) => state.batch[sessionId]?.error);
   const enhancedNoteIds = useEnhancedNotes(sessionId);
+  const memoTemplateId = useSession(sessionId)?.raw_template_id;
   useEnsureDefaultSummaryFromState({
     batchError: Boolean(batchError),
     enhancedNoteCount: enhancedNoteIds.length,
     hasTranscript,
     sessionId,
     sessionMode,
+    memoTemplateId,
   });
 }
 
@@ -47,6 +50,7 @@ export function useEnsureDefaultSummaryFromState({
   enabled = true,
   enhancedNoteCount,
   hasTranscript,
+  memoTemplateId,
   sessionId,
   sessionMode,
 }: {
@@ -54,11 +58,12 @@ export function useEnsureDefaultSummaryFromState({
   enabled?: boolean;
   enhancedNoteCount: number;
   hasTranscript: boolean;
+  memoTemplateId?: string;
   sessionId: string;
   sessionMode: SessionMode;
 }) {
   const selectedTemplateId = useConfigValue("selected_template_id");
-  const templateId = selectedTemplateId || undefined;
+  const templateId = memoTemplateId || selectedTemplateId || undefined;
 
   useEffect(() => {
     if (!enabled) {

@@ -21,6 +21,7 @@ type SessionSqlRow = {
   title: string;
   raw_body: string;
   raw_body_format: string;
+  raw_template_id: string;
 };
 
 type SessionSummarySqlRow = {
@@ -46,7 +47,8 @@ const SESSION_SELECT_SQL = `
     sessions.event_json,
     sessions.title,
     COALESCE(note.body, '') AS raw_body,
-    COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format
+    COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format,
+    COALESCE(note.template_id, '') AS raw_template_id
   FROM sessions
   LEFT JOIN session_documents AS note
     ON note.id = sessions.id
@@ -196,24 +198,33 @@ export function updateSession(
     }
 
     if (changes.raw_md !== undefined) {
+      const hasTemplateChange = changes.raw_template_id !== undefined;
       statements.push({
         sql: `
           INSERT INTO session_documents (
-            id, workspace_id, session_id, kind, body_format, body, created_by,
-            updated_by, created_at, updated_at, deleted_at
+            id, workspace_id, session_id, kind, template_id, body_format, body,
+            created_by, updated_by, created_at, updated_at, deleted_at
           )
-          SELECT ?, workspace_id, id, 'note', 'prosemirror_json', ?,
+          SELECT ?, workspace_id, id, 'note', ?, 'prosemirror_json', ?,
             owner_user_id, owner_user_id, ?, ?, NULL
           FROM sessions
           WHERE id = ? AND deleted_at IS NULL
           ON CONFLICT(id) DO UPDATE SET
+            ${hasTemplateChange ? "template_id = excluded.template_id," : ""}
             body_format = excluded.body_format,
             body = excluded.body,
             updated_by = excluded.updated_by,
             updated_at = excluded.updated_at,
             deleted_at = NULL
         `,
-        params: [sessionId, changes.raw_md, now, now, sessionId],
+        params: [
+          sessionId,
+          changes.raw_template_id ?? "",
+          changes.raw_md,
+          now,
+          now,
+          sessionId,
+        ],
       });
     }
 
@@ -239,5 +250,6 @@ function mapSessionRow(row: SessionSqlRow): SessionRecord {
     event_json: row.event_json,
     title: row.title,
     raw_md: rawMd,
+    raw_template_id: row.raw_template_id,
   };
 }

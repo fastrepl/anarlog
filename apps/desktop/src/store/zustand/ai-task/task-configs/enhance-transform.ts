@@ -1,7 +1,13 @@
+import {
+  md2json,
+  parseJsonContent,
+  type JSONContent,
+} from "@anlg/editor/markdown";
 import type {
   Participant,
   Segment,
   Session,
+  TemplateSection,
   Transcript,
 } from "@anlg/plugin-template";
 import { sessionEventSchema } from "@anlg/store";
@@ -62,13 +68,26 @@ async function transformArgs(
   );
   const sessionContext = getSessionContext(snapshot, meetingChatContext);
   const templateRecord = await loadTemplate(templateId);
-  const template = templateRecord
+  const memoTemplateSections =
+    templateId === snapshot.rawTemplateId
+      ? getMemoTemplateSections(snapshot, templateRecord?.sections ?? [])
+      : null;
+  let template: TaskArgsMapTransformed["enhance"]["template"] = templateRecord
     ? {
         title: templateRecord.title,
         description: templateRecord.description ?? null,
         sections: templateRecord.sections,
       }
     : null;
+  if (memoTemplateSections !== null) {
+    template = memoTemplateSections.length
+      ? {
+          title: templateRecord?.title ?? "Meeting memo",
+          description: templateRecord?.description ?? null,
+          sections: memoTemplateSections,
+        }
+      : null;
+  }
   const language = getLanguage(settingsValues);
   const promptOverride = getPromptOverride(settingsValues, templateId);
   const segments = await getTranscriptSegments(snapshot);
@@ -93,6 +112,42 @@ async function transformArgs(
     transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
     imageContext,
   };
+}
+
+function getMemoTemplateSections(
+  snapshot: SessionContentSnapshot,
+  originalSections: TemplateSection[],
+): TemplateSection[] {
+  const document =
+    snapshot.rawContentFormat === "markdown"
+      ? md2json(snapshot.rawContent)
+      : parseJsonContent(snapshot.rawContent);
+  const originalByTitle = new Map(
+    originalSections.map((section) => [section.title.trim(), section]),
+  );
+  const headings = (document.content ?? []).flatMap((node) => {
+    if (node.type !== "heading" || node.attrs?.level !== 2) return [];
+    const title = getNodeText(node).trim();
+    return title ? [title] : [];
+  });
+  const preservePositionDescriptions =
+    headings.length === originalSections.length;
+
+  return headings.map((title, index) => ({
+    title,
+    description:
+      originalByTitle.get(title)?.description ??
+      (preservePositionDescriptions
+        ? originalSections[index]?.description
+        : null) ??
+      null,
+  }));
+}
+
+function getNodeText(node: JSONContent): string {
+  return (
+    node.text ?? node.content?.map((child) => getNodeText(child)).join("") ?? ""
+  );
 }
 
 async function loadTemplate(templateId: string | undefined) {

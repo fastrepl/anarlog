@@ -58,6 +58,7 @@ function createSnapshot(title = "") {
     event: null,
     eventId: null,
     rawNoteId: "session-1",
+    rawTemplateId: "",
     rawContent: "",
     rawContentFormat: "prosemirror_json",
     rawMarkdown: "",
@@ -385,6 +386,43 @@ describe("enhanceSuccess.onSuccess", () => {
     expect(
       Array.from(markdown.replace(/\s+/gu, " ")).length,
     ).toBeLessThanOrEqual(MIN_SUMMARY_CHARACTERS);
+  });
+
+  it("keeps every selected template section for a short transcript", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      createSnapshot("Meeting title"),
+    );
+    const transformedArgs = createTransformedArgs();
+    transformedArgs.template = {
+      title: "1:1 Meeting",
+      description: null,
+      sections: [
+        { title: "Updates", description: null },
+        { title: "Feedback", description: null },
+        { title: "Next Steps", description: null },
+      ],
+    };
+    transformedArgs.transcripts = [
+      {
+        startedAt: null,
+        endedAt: null,
+        segments: [{ speaker: "John", text: "x".repeat(160) }],
+      },
+    ];
+
+    await enhanceSuccess.onSuccess?.(
+      createParams({
+        text: "# Updates\n\n- One\n\n# Feedback\n\n- Two\n\n# Next Steps\n\n- Three",
+        transformedArgs,
+      }),
+    );
+
+    const content =
+      mocks.persistGeneratedEnhancedNote.mock.calls[0][0].note.nextContent;
+    const markdown = json2md(JSON.parse(content));
+    expect(markdown).toContain("# Updates");
+    expect(markdown).toContain("# Feedback");
+    expect(markdown).toContain("# Next Steps");
   });
 
   it("does not claim success when the guarded SQLite write fails", async () => {

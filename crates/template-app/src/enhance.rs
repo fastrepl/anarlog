@@ -239,6 +239,8 @@ mod tests {
     Sections:
     1. Section 1 - Section 1 description
     2. Section 2 - Section 2 description
+
+    Use every section in order with its exact title. Keep sections without relevant content brief instead of inventing details.
     ");
 
     tpl_snapshot!(

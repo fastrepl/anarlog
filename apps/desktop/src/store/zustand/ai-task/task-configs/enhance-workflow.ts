@@ -48,6 +48,7 @@ async function* executeWorkflow(params: {
   const prompt = withLengthGuidance(
     withImageContextNote(await getUserPrompt(args), args.imageContext.length),
     args.transcripts,
+    Boolean(args.template?.sections.length),
   );
 
   yield* generateSummary({
@@ -201,7 +202,10 @@ ${IMAGE_CONTEXT_NOTE}`;
 function withLengthGuidance(
   prompt: string,
   transcripts: TaskArgsMapTransformed["enhance"]["transcripts"],
+  hasTemplateSections: boolean,
 ): string {
+  if (hasTemplateSections) return prompt;
+
   const guidance = formatSummaryLengthGuidance(
     getSummaryLengthPolicy(transcripts),
   );

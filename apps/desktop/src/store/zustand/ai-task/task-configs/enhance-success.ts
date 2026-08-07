@@ -47,7 +47,9 @@ export const runEnhanceSuccess = async ({
   signal,
   onPersisted,
 }: EnhanceSuccessParams) => {
-  const lengthPolicy = getSummaryLengthPolicy(transformedArgs.transcripts);
+  const lengthPolicy = transformedArgs.template?.sections.length
+    ? null
+    : getSummaryLengthPolicy(transformedArgs.transcripts);
   const constrainedText = constrainSummaryLength(text, lengthPolicy);
   if (!constrainedText) {
     return;

@@ -9,6 +9,7 @@ const hoisted = vi.hoisted(() => ({
   batchError: null as string | null,
   enhancedNoteIds: [] as string[],
   selectedTemplateId: "template-1" as string | undefined,
+  memoTemplateId: "" as string | undefined,
   llmStatus: {
     status: "success",
     providerId: "anarlog",
@@ -38,6 +39,7 @@ vi.mock("~/services/enhancer", () => ({
 
 vi.mock("~/session/queries", () => ({
   useEnhancedNoteRecords: () => hoisted.enhancedNoteIds.map((id) => ({ id })),
+  useSession: () => ({ raw_template_id: hoisted.memoTemplateId }),
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -69,6 +71,7 @@ describe("useEnsureDefaultSummary", () => {
     hoisted.batchError = null;
     hoisted.enhancedNoteIds = [];
     hoisted.selectedTemplateId = "template-1";
+    hoisted.memoTemplateId = "";
     hoisted.llmStatus = {
       status: "success",
       providerId: "anarlog",
@@ -90,6 +93,19 @@ describe("useEnsureDefaultSummary", () => {
     expect(
       hoisted.service.queueAutoEnhanceIfSummaryEmpty,
     ).not.toHaveBeenCalled();
+  });
+
+  it("uses the meeting memo template before the global default", async () => {
+    hoisted.memoTemplateId = "memo-template";
+
+    renderHook(() => useEnsureDefaultSummary("session-1"));
+
+    await waitFor(() => {
+      expect(hoisted.service.ensureNote).toHaveBeenCalledWith(
+        "session-1",
+        "memo-template",
+      );
+    });
   });
 
   it("does not create the summary row before transcript exists", async () => {

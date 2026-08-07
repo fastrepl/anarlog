@@ -74,6 +74,7 @@ function createSnapshot({
     event: null,
     eventId: null,
     rawNoteId: "session-1",
+    rawTemplateId: "",
     rawContent: "",
     rawContentFormat: "prosemirror_json",
     rawMarkdown: "",
@@ -258,6 +259,33 @@ describe("EnhancerService", () => {
     );
   });
 
+  it("prefers the meeting memo template over the global default", async () => {
+    snapshot = {
+      ...createSnapshot(),
+      rawTemplateId: "memo-template",
+    };
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(
+      createDeps({
+        aiTaskStore: ai.store,
+        getSelectedTemplateId: () => "global-template",
+      }),
+    );
+
+    await service.enhance("session-1");
+
+    expect(mocks.ensureSummaryDocument).toHaveBeenCalledWith(
+      "session-1",
+      "memo-template",
+    );
+    expect(ai.generate).toHaveBeenCalledWith(
+      "note-1-enhance",
+      expect.objectContaining({
+        args: expect.objectContaining({ templateId: "memo-template" }),
+      }),
+    );
+  });
+
   it("returns already_active while the note task is generating", async () => {
     snapshot = createSnapshot({ notes: [createNote()] });
     const ai = createMockAITaskStore(() => ({ status: "generating" }));
@@ -322,8 +350,11 @@ describe("EnhancerService", () => {
     );
   });
 
-  it("lets an explicit null template override the selected default", async () => {
-    snapshot = createSnapshot({ notes: [createNote({ templateId: "old" })] });
+  it("lets explicit Auto override the memo and global templates", async () => {
+    snapshot = {
+      ...createSnapshot({ notes: [createNote({ templateId: "old" })] }),
+      rawTemplateId: "memo-template",
+    };
     const service = new EnhancerService(
       createDeps({ getSelectedTemplateId: () => "default-template" }),
     );

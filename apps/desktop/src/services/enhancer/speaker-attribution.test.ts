@@ -50,6 +50,7 @@ function createSnapshot(channel = 1): SessionContentSnapshot {
     event: null,
     eventId: null,
     rawNoteId: "session-1",
+    rawTemplateId: "",
     rawContent: "",
     rawContentFormat: "prosemirror_json",
     rawMarkdown: "",

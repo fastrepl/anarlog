@@ -29,6 +29,7 @@ const hoisted = vi.hoisted(() => ({
   createTemplate: vi.fn(() => Promise.resolve("new-template")),
   openTemplatesTab: vi.fn(),
   noteEditorProps: [] as Record<string, unknown>[],
+  canShowTranscript: false,
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -96,6 +97,13 @@ vi.mock("@anlg/plugin-opener2", () => ({
   commands: { openUrl: vi.fn() },
 }));
 
+vi.mock("~/audio-player", () => ({
+  useAudioPlayer: () => ({
+    audioExists: false,
+    audioExistsResolved: true,
+  }),
+}));
+
 vi.mock("~/editor-bridge/app-link-view", () => ({
   AppLinkView: () => null,
 }));
@@ -128,6 +136,7 @@ vi.mock("~/session-sharing/comment-anchors", () => ({
 }));
 
 vi.mock("~/session/components/shared", () => ({
+  useCanShowTranscript: () => hoisted.canShowTranscript,
   hasStoredNoteContent: (value: unknown) => {
     if (typeof value !== "string" || !value.trim()) {
       return false;
@@ -236,6 +245,7 @@ describe("RawEditor", () => {
     hoisted.meetingChatRecords = [];
     hoisted.eventParticipants = [];
     hoisted.userTemplates = [];
+    hoisted.canShowTranscript = false;
     hoisted.replacementContent = null;
     hoisted.replaceContent.mockReset();
     hoisted.flushPendingChanges.mockReset();
@@ -390,6 +400,7 @@ describe("RawEditor", () => {
     await waitFor(() =>
       expect(hoisted.persistChange).toHaveBeenCalledWith({
         raw_md: JSON.stringify(expectedContent),
+        raw_template_id: "template-standup",
       }),
     );
   });
@@ -452,6 +463,25 @@ describe("RawEditor", () => {
       "New template",
     ]);
     expect(screen.queryByRole("button", { name: "Board Meeting" })).toBeNull();
+  });
+
+  it("hides template suggestions after the meeting", () => {
+    hoisted.canShowTranscript = true;
+    hoisted.userTemplates = [
+      {
+        id: "default-daily-standup",
+        title: "Daily Standup",
+        pinned: false,
+        icon: { type: "emoji", value: "☀️" },
+        sections: [{ title: "Today", description: "" }],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" />);
+
+    expect(screen.queryByText("Suggested templates")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Daily Standup" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "New template" })).toBeNull();
   });
 
   it("toggles template suggestions from live memo changes", () => {
