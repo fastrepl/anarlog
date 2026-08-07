@@ -264,8 +264,12 @@ pub async fn main() {
             #[cfg(any(windows, target_os = "linux"))]
             {
                 // https://v2.tauri.app/ko/plugin/deep-linking/#desktop-1
+                // Registration shells out to update-desktop-database/xdg-mime on Linux,
+                // which are missing on NixOS; failing setup here panics the app.
                 use tauri_plugin_deep_link::DeepLinkExt;
-                app.deep_link().register_all()?;
+                if let Err(error) = app.deep_link().register_all() {
+                    tracing::warn!(%error, "failed to register deep link handlers");
+                }
             }
 
             {
