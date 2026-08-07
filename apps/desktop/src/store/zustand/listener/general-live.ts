@@ -45,6 +45,7 @@ import {
   type TranscriptState,
 } from "./transcript";
 
+import { runMeetingCompletedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { getSessionResourcePath } from "~/session/resource-path";
 import { fromResult } from "~/stt/fromResult";
@@ -329,6 +330,7 @@ const createSessionEventHandlers = <T extends LiveStore>(
 
     const dispatchMeetingCompleted = () => {
       void localApiCommands.dispatchEvent("meeting.completed", targetSessionId);
+      void runMeetingCompletedAutomations(targetSessionId);
     };
 
     if (onStopped) {

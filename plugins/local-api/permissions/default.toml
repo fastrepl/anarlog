@@ -11,4 +11,5 @@ permissions = [
   "allow-delete-webhook",
   "allow-test-webhook",
   "allow-dispatch-event",
+  "allow-export-meeting-markdown",
 ]

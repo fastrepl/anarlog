@@ -9,6 +9,7 @@ const COMMANDS: &[&str] = &[
     "delete_webhook",
     "test_webhook",
     "dispatch_event",
+    "export_meeting_markdown",
 ];
 
 fn main() {

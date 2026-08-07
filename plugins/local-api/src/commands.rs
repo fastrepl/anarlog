@@ -209,6 +209,72 @@ pub async fn dispatch_event<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn export_meeting_markdown<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    meeting_id: String,
+    directory: String,
+) -> Result<String, String> {
+    let directory = directory.trim();
+    if directory.is_empty() {
+        return Err("export directory is not set".to_string());
+    }
+    let pool = pool(&app)?;
+    let export = anlg_agent_access::get_meeting_export(&pool, meeting_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    write_markdown_export(std::path::Path::new(directory), &export)
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+pub(crate) fn markdown_export_filename(meeting: &anlg_agent_access::Meeting) -> String {
+    let title = meeting.title.trim();
+    let title = if title.is_empty() {
+        "Untitled meeting"
+    } else {
+        title
+    };
+    let sanitized = title
+        .chars()
+        .map(|c| match c {
+            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect::<String>();
+    let sanitized = sanitized.trim_matches([' ', '.']);
+    let sanitized = if sanitized.is_empty() {
+        "Untitled meeting"
+    } else {
+        sanitized
+    };
+    let occurred_at = if meeting.started_at.is_empty() {
+        &meeting.created_at
+    } else {
+        &meeting.started_at
+    };
+    let id_prefix = meeting.id.chars().take(8).collect::<String>();
+    match occurred_at.get(..10) {
+        Some(date) => format!("{date} {sanitized} [{id_prefix}].md"),
+        None => format!("{sanitized} [{id_prefix}].md"),
+    }
+}
+
+pub(crate) fn write_markdown_export(
+    directory: &std::path::Path,
+    export: &anlg_agent_access::MeetingExport,
+) -> Result<std::path::PathBuf, String> {
+    std::fs::create_dir_all(directory)
+        .map_err(|error| format!("could not create export directory: {error}"))?;
+    let path = directory.join(markdown_export_filename(&export.meeting));
+    let mut markdown = export.to_markdown();
+    markdown.push('\n');
+    std::fs::write(&path, markdown)
+        .map_err(|error| format!("could not write markdown export: {error}"))?;
+    Ok(path)
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn get_cloud_snapshot<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     meeting_id: String,

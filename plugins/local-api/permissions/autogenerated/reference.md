@@ -14,6 +14,7 @@ Default permissions for the plugin
 - `allow-delete-webhook`
 - `allow-test-webhook`
 - `allow-dispatch-event`
+- `allow-export-meeting-markdown`
 
 ## Permission Table
 
@@ -124,6 +125,32 @@ Enables the dispatch_event command without any pre-configured scope.
 <td>
 
 Denies the dispatch_event command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-api:allow-export-meeting-markdown`
+
+</td>
+<td>
+
+Enables the export_meeting_markdown command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-api:deny-export-meeting-markdown`
+
+</td>
+<td>
+
+Denies the export_meeting_markdown command without any pre-configured scope.
 
 </td>
 </tr>

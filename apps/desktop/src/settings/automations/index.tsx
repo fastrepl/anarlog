@@ -4,22 +4,29 @@ import {
   ArrowRight,
   Eye,
   FloppyDisk,
+  FolderOpen,
   Lightning,
   Play,
   Sparkle,
 } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
+import { open as selectFolder } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { cn } from "@anlg/utils";
+import { cn, formatDistanceToNow } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
+import { parseAutomationRunRecord } from "~/automations/engine";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPageTitle } from "~/settings/page-title";
-import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
+import {
+  setSettingValue,
+  setSettingValues,
+  useStoredSettingValue,
+} from "~/settings/queries";
 import { StandardContentWrapper } from "~/shared/main";
 
 export function TabContentAutomations() {
@@ -199,6 +206,53 @@ export function SettingsAutomations() {
     saveDraftMutation.mutate();
   };
 
+  const markdownExportEnabled =
+    useStoredSettingValue("automation_markdown_export_enabled").value ?? false;
+  const markdownExportDirectory = (
+    useStoredSettingValue("automation_markdown_export_directory").value ?? ""
+  ).trim();
+  const markdownExportLastRun = parseAutomationRunRecord(
+    useStoredSettingValue("automation_markdown_export_last_run").value,
+  );
+  const isMarkdownDraft = draft?.id === "markdown-export";
+
+  const chooseFolderMutation = useMutation({
+    mutationKey: ["automation-markdown-export-folder"],
+    mutationFn: async () => {
+      const selected = await selectFolder({
+        title: t`Choose export folder`,
+        directory: true,
+        multiple: false,
+        defaultPath: markdownExportDirectory || undefined,
+      });
+      if (typeof selected === "string" && selected) {
+        await setSettingValue("automation_markdown_export_directory", selected);
+      }
+    },
+    onError: () => sonnerToast.error(t`Could not update the export folder`),
+  });
+  const setMarkdownExportEnabledMutation = useMutation({
+    mutationKey: ["automation-markdown-export-enabled"],
+    mutationFn: (enabled: boolean) =>
+      setSettingValues({
+        automation_markdown_export_enabled: enabled,
+        automation_draft_template: draftTemplateId,
+      }),
+    onSuccess: (_, enabled) =>
+      sonnerToast.success(
+        enabled ? t`Automation enabled` : t`Automation disabled`,
+      ),
+    onError: () => sonnerToast.error(t`Could not update the automation`),
+  });
+
+  const handleEnableMarkdownExport = () => {
+    if (!billing.isPro) {
+      billing.upgradeToPro();
+      return;
+    }
+    setMarkdownExportEnabledMutation.mutate(true);
+  };
+
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
       <div className="flex flex-col gap-2">
@@ -243,6 +297,11 @@ export function SettingsAutomations() {
                     {starter.description}
                   </span>
                 </span>
+                {starter.id === "markdown-export" && markdownExportEnabled ? (
+                  <Badge variant="outline" size="sm">
+                    <Trans>Enabled</Trans>
+                  </Badge>
+                ) : null}
                 <ArrowRight
                   className={cn([
                     "size-5 shrink-0 transition-transform group-hover:translate-x-0.5",
@@ -271,9 +330,15 @@ export function SettingsAutomations() {
                 >
                   {draft.title}
                 </h3>
-                <Badge variant="outline">
-                  <Trans>Draft</Trans>
-                </Badge>
+                {isMarkdownDraft && markdownExportEnabled ? (
+                  <Badge variant="outline">
+                    <Trans>Enabled</Trans>
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">
+                    <Trans>Draft</Trans>
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground mt-1 text-xs">
                 <Trans>Steps run from top to bottom.</Trans>
@@ -316,15 +381,57 @@ export function SettingsAutomations() {
                   <Trans>Upgrade to save</Trans>
                 )}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled
-                title={t`Enabling will be available when execution is connected.`}
-              >
-                <Lightning size={14} weight="fill" />
-                <Trans>Save &amp; enable</Trans>
-              </Button>
+              {isMarkdownDraft ? (
+                markdownExportEnabled ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setMarkdownExportEnabledMutation.mutate(false)
+                    }
+                    disabled={
+                      !billing.isReady ||
+                      setMarkdownExportEnabledMutation.isPending
+                    }
+                  >
+                    <Trans>Disable</Trans>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleEnableMarkdownExport}
+                    disabled={
+                      !billing.isReady ||
+                      setMarkdownExportEnabledMutation.isPending ||
+                      (billing.isPro && !markdownExportDirectory)
+                    }
+                    title={
+                      billing.isPro && !markdownExportDirectory
+                        ? t`Choose an export folder first.`
+                        : undefined
+                    }
+                  >
+                    <Lightning size={14} weight="fill" />
+                    {billing.isPro ? (
+                      <Trans>Save &amp; enable</Trans>
+                    ) : (
+                      <Trans>Upgrade to enable</Trans>
+                    )}
+                  </Button>
+                )
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled
+                  title={t`Enabling will be available when execution is connected.`}
+                >
+                  <Lightning size={14} weight="fill" />
+                  <Trans>Save &amp; enable</Trans>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -370,6 +477,62 @@ export function SettingsAutomations() {
               </div>
             ))}
           </div>
+
+          {isMarkdownDraft ? (
+            <div className="border-border border-t px-5 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h4 className="text-xs font-semibold">
+                    <Trans>Export folder</Trans>
+                  </h4>
+                  <p className="text-muted-foreground mt-1 truncate text-xs">
+                    {markdownExportDirectory || (
+                      <Trans>No folder selected yet.</Trans>
+                    )}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => chooseFolderMutation.mutate()}
+                  disabled={chooseFolderMutation.isPending}
+                >
+                  <FolderOpen size={14} />
+                  <Trans>Choose folder</Trans>
+                </Button>
+              </div>
+              {markdownExportLastRun ? (
+                <p
+                  className={cn([
+                    "mt-3 truncate text-xs",
+                    markdownExportLastRun.status === "error"
+                      ? "text-destructive"
+                      : "text-muted-foreground",
+                  ])}
+                  title={markdownExportLastRun.detail}
+                >
+                  {markdownExportLastRun.status === "success" ? (
+                    <Trans>
+                      Last exported{" "}
+                      {formatDistanceToNow(new Date(markdownExportLastRun.at), {
+                        addSuffix: true,
+                      })}
+                      : {markdownExportLastRun.detail}
+                    </Trans>
+                  ) : (
+                    <Trans>
+                      Last run failed{" "}
+                      {formatDistanceToNow(new Date(markdownExportLastRun.at), {
+                        addSuffix: true,
+                      })}
+                      : {markdownExportLastRun.detail}
+                    </Trans>
+                  )}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 
           {showPreview ? (
             <div className="border-border bg-muted/35 border-t px-5 py-4">

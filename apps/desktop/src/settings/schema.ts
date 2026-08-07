@@ -217,6 +217,21 @@ export const SETTING_DEFINITIONS = {
     path: ["automations", "draft_template"],
     default: "" as string,
   },
+  automation_markdown_export_enabled: {
+    type: "boolean",
+    path: ["automations", "markdown_export_enabled"],
+    default: false as boolean,
+  },
+  automation_markdown_export_directory: {
+    type: "string",
+    path: ["automations", "markdown_export_directory"],
+    default: "" as string,
+  },
+  automation_markdown_export_last_run: {
+    type: "string",
+    path: ["automations", "markdown_export_last_run"],
+    default: "" as string,
+  },
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;

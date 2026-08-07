@@ -381,7 +381,15 @@ msgid "Automatically install updates"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+msgid "Automation disabled"
+msgstr ""
+
+#: src/settings/automations/index.tsx
 msgid "Automation draft saved"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Automation enabled"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -510,8 +518,20 @@ msgstr ""
 msgid "Choose a transcription model to start listening."
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Choose an export folder first."
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Choose export folder"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Choose folder"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -794,6 +814,14 @@ msgstr ""
 msgid "Could not start trial"
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Could not update the automation"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Could not update the export folder"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr ""
@@ -929,6 +957,10 @@ msgstr ""
 msgid "Dictionary"
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Disable"
+msgstr ""
+
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
 msgstr ""
@@ -1005,6 +1037,10 @@ msgid "Enable {0}"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+msgid "Enabled"
+msgstr ""
+
+#: src/settings/automations/index.tsx
 msgid "Enabling will be available when execution is connected."
 msgstr ""
 
@@ -1068,6 +1104,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Export every meeting as Markdown"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Export folder"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1377,10 +1417,22 @@ msgstr ""
 msgid "Language & Region"
 msgstr "ژبه او سیمه"
 
+#. placeholder {0}: formatDistanceToNow(new Date(markdownExportLastRun.at), { addSuffix: true, })
+#. placeholder {1}: markdownExportLastRun.detail
+#: src/settings/automations/index.tsx
+msgid "Last exported {0}: {1}"
+msgstr ""
+
 #. placeholder {0}: lastRun.imported
 #. placeholder {1}: lastRun.matched
 #: src/imports/screen.tsx
 msgid "Last import: {0} added, {1} unchanged"
+msgstr ""
+
+#. placeholder {0}: formatDistanceToNow(new Date(markdownExportLastRun.at), { addSuffix: true, })
+#. placeholder {1}: markdownExportLastRun.detail
+#: src/settings/automations/index.tsx
+msgid "Last run failed {0}: {1}"
 msgstr ""
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
@@ -1642,6 +1694,10 @@ msgstr ""
 
 #: src/templates/template-icon-picker.tsx
 msgid "No emoji found"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "No folder selected yet."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2906,6 +2962,10 @@ msgstr ""
 
 #: src/settings/todo/provider-content.tsx
 msgid "Upgrade to connect"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Upgrade to enable"
 msgstr ""
 
 #: src/calendar/components/sidebar.tsx

@@ -33,6 +33,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::delete_webhook::<tauri::Wry>,
             commands::test_webhook::<tauri::Wry>,
             commands::dispatch_event::<tauri::Wry>,
+            commands::export_meeting_markdown::<tauri::Wry>,
             commands::get_cloud_snapshot::<tauri::Wry>,
             commands::list_cloud_snapshot_ids::<tauri::Wry>,
         ])
@@ -162,6 +163,51 @@ mod test {
             request = request.json(&body);
         }
         request.send().await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn markdown_export_writes_stable_file_into_directory() {
+        let pool = seeded_pool().await;
+        let export = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+
+        assert_eq!(
+            commands::markdown_export_filename(&export.meeting),
+            "2026-07-13 Planning [meeting-].md"
+        );
+
+        let untitled = anlg_agent_access::Meeting {
+            title: "  ".to_string(),
+            started_at: String::new(),
+            created_at: "bad".to_string(),
+            ..export.meeting.clone()
+        };
+        assert_eq!(
+            commands::markdown_export_filename(&untitled),
+            "Untitled meeting [meeting-].md"
+        );
+
+        let hostile = anlg_agent_access::Meeting {
+            title: "a/b:c*d?".to_string(),
+            ..export.meeting.clone()
+        };
+        assert_eq!(
+            commands::markdown_export_filename(&hostile),
+            "2026-07-13 a_b_c_d_ [meeting-].md"
+        );
+
+        let directory =
+            std::env::temp_dir().join(format!("anlg-md-export-{}", uuid::Uuid::new_v4()));
+        let path = commands::write_markdown_export(&directory, &export).unwrap();
+        assert_eq!(
+            path.file_name().unwrap().to_string_lossy(),
+            "2026-07-13 Planning [meeting-].md"
+        );
+        let written = std::fs::read_to_string(&path).unwrap();
+        assert!(written.contains("# Planning"));
+        assert!(written.contains("hello world"));
+        std::fs::remove_dir_all(&directory).ok();
     }
 
     #[tokio::test]

@@ -381,8 +381,16 @@ msgid "Automatically install updates"
 msgstr "Automatically install updates"
 
 #: src/settings/automations/index.tsx
+msgid "Automation disabled"
+msgstr "Automation disabled"
+
+#: src/settings/automations/index.tsx
 msgid "Automation draft saved"
 msgstr "Automation draft saved"
+
+#: src/settings/automations/index.tsx
+msgid "Automation enabled"
+msgstr "Automation enabled"
 
 #: src/settings/automations/index.tsx
 #: src/sidebar/settings.tsx
@@ -510,9 +518,21 @@ msgstr "Choose a starter or describe an automation in Chat."
 msgid "Choose a transcription model to start listening."
 msgstr "Choose a transcription model to start listening."
 
+#: src/settings/automations/index.tsx
+msgid "Choose an export folder first."
+msgstr "Choose an export folder first."
+
 #: src/templates/template-icon-picker.tsx
 msgid "Choose custom color"
 msgstr "Choose custom color"
+
+#: src/settings/automations/index.tsx
+msgid "Choose export folder"
+msgstr "Choose export folder"
+
+#: src/settings/automations/index.tsx
+msgid "Choose folder"
+msgstr "Choose folder"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Choose how Anarlog appears in the Dock."
@@ -794,6 +814,14 @@ msgstr "Could not save the automation draft"
 msgid "Could not start trial"
 msgstr "Could not start trial"
 
+#: src/settings/automations/index.tsx
+msgid "Could not update the automation"
+msgstr "Could not update the automation"
+
+#: src/settings/automations/index.tsx
+msgid "Could not update the export folder"
+msgstr "Could not update the export folder"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -929,6 +957,10 @@ msgstr "Device limit reached"
 msgid "Dictionary"
 msgstr "Dictionary"
 
+#: src/settings/automations/index.tsx
+msgid "Disable"
+msgstr "Disable"
+
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
 msgstr "Disconnect"
@@ -1005,6 +1037,10 @@ msgid "Enable {0}"
 msgstr "Enable {0}"
 
 #: src/settings/automations/index.tsx
+msgid "Enabled"
+msgstr "Enabled"
+
+#: src/settings/automations/index.tsx
 msgid "Enabling will be available when execution is connected."
 msgstr "Enabling will be available when execution is connected."
 
@@ -1069,6 +1105,10 @@ msgstr "Export"
 #: src/settings/automations/index.tsx
 msgid "Export every meeting as Markdown"
 msgstr "Export every meeting as Markdown"
+
+#: src/settings/automations/index.tsx
+msgid "Export folder"
+msgstr "Export folder"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Exporting..."
@@ -1377,11 +1417,23 @@ msgstr "Keep synced notes readable only on your devices."
 msgid "Language & Region"
 msgstr "Language & Region"
 
+#. placeholder {0}: formatDistanceToNow(new Date(markdownExportLastRun.at), { addSuffix: true, })
+#. placeholder {1}: markdownExportLastRun.detail
+#: src/settings/automations/index.tsx
+msgid "Last exported {0}: {1}"
+msgstr "Last exported {0}: {1}"
+
 #. placeholder {0}: lastRun.imported
 #. placeholder {1}: lastRun.matched
 #: src/imports/screen.tsx
 msgid "Last import: {0} added, {1} unchanged"
 msgstr "Last import: {0} added, {1} unchanged"
+
+#. placeholder {0}: formatDistanceToNow(new Date(markdownExportLastRun.at), { addSuffix: true, })
+#. placeholder {1}: markdownExportLastRun.detail
+#: src/settings/automations/index.tsx
+msgid "Last run failed {0}: {1}"
+msgstr "Last run failed {0}: {1}"
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
 #: src/main/sync-status.tsx
@@ -1643,6 +1695,10 @@ msgstr "No description provided."
 #: src/templates/template-icon-picker.tsx
 msgid "No emoji found"
 msgstr "No emoji found"
+
+#: src/settings/automations/index.tsx
+msgid "No folder selected yet."
+msgstr "No folder selected yet."
 
 #: src/templates/template-icon-picker.tsx
 msgid "No icons found"
@@ -2907,6 +2963,10 @@ msgstr "Upgrade for private repos."
 #: src/settings/todo/provider-content.tsx
 msgid "Upgrade to connect"
 msgstr "Upgrade to connect"
+
+#: src/settings/automations/index.tsx
+msgid "Upgrade to enable"
+msgstr "Upgrade to enable"
 
 #: src/calendar/components/sidebar.tsx
 #: src/session-sharing/index.tsx
