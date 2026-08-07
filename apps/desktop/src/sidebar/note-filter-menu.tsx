@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { FunnelSimple } from "@phosphor-icons/react";
 
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
@@ -42,20 +43,22 @@ export function SidebarNoteFilterMenu({
           />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-52">
-        <DropdownMenuRadioGroup
-          value={value}
-          onValueChange={(nextValue) =>
-            onValueChange(nextValue as SidebarNoteFilter)
-          }
-        >
-          <DropdownMenuRadioItem value="mine">
-            <Trans>My notes</Trans>
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="shared">
-            <Trans>Shared</Trans>
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+      <DropdownMenuContent variant="app" align="start" className="w-52">
+        <AppFloatingPanel className="overflow-hidden p-1">
+          <DropdownMenuRadioGroup
+            value={value}
+            onValueChange={(nextValue) =>
+              onValueChange(nextValue as SidebarNoteFilter)
+            }
+          >
+            <DropdownMenuRadioItem value="mine">
+              <Trans>My notes</Trans>
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="shared">
+              <Trans>Shared</Trans>
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>
   );
