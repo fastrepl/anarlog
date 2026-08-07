@@ -207,7 +207,67 @@ mod test {
         let written = std::fs::read_to_string(&path).unwrap();
         assert!(written.contains("# Planning"));
         assert!(written.contains("hello world"));
+
+        let other_meeting_file = directory.join("2026-07-13 Other [meeting2].md");
+        std::fs::write(&other_meeting_file, "other").unwrap();
+        let mut retitled = anlg_agent_access::get_meeting_export(&pool, "meeting-1".to_string())
+            .await
+            .unwrap();
+        retitled.meeting.title = "Planning follow-up".to_string();
+        let renamed = commands::write_markdown_export(&directory, &retitled).unwrap();
+        assert_eq!(
+            renamed.file_name().unwrap().to_string_lossy(),
+            "2026-07-13 Planning follow-up [meeting-].md"
+        );
+        assert!(!path.exists(), "stale export under the old title remains");
+        assert!(other_meeting_file.exists());
         std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[tokio::test]
+    async fn note_enhanced_reexports_markdown_and_records_the_run() {
+        let pool = seeded_pool().await;
+        let directory = std::env::temp_dir().join(format!("anlg-md-auto-{}", uuid::Uuid::new_v4()));
+        let settings = serde_json::json!({
+            "markdown_export_enabled": true,
+            "markdown_export_directory": directory.to_string_lossy(),
+        });
+        sqlx::query("INSERT INTO app_settings (id, value_json) VALUES ('automations', ?)")
+            .bind(settings.to_string())
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        commands::run_markdown_export_automation(&pool, "meeting-1").await;
+
+        let exported = directory.join("2026-07-13 Planning [meeting-].md");
+        assert!(exported.exists());
+        let last_run: String = sqlx::query_scalar(
+            "SELECT json_extract(value_json, '$.markdown_export_last_run') \
+             FROM app_settings WHERE id = 'automations'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let record: serde_json::Value = serde_json::from_str(&last_run).unwrap();
+        assert_eq!(record["status"], "success");
+        assert_eq!(record["detail"], exported.to_string_lossy().into_owned());
+        assert!(record["at"].as_str().is_some_and(|at| at.ends_with('Z')));
+        std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[tokio::test]
+    async fn note_enhanced_export_skips_silently_without_configuration() {
+        let pool = seeded_pool().await;
+
+        commands::run_markdown_export_automation(&pool, "meeting-1").await;
+
+        let row: Option<String> =
+            sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = 'automations'")
+                .fetch_optional(&pool)
+                .await
+                .unwrap();
+        assert!(row.is_none());
     }
 
     #[tokio::test]

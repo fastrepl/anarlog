@@ -203,8 +203,76 @@ pub async fn dispatch_event<R: tauri::Runtime>(
         ));
     }
     let pool = pool(&app)?;
+    if event == dispatch::EVENT_NOTE_ENHANCED {
+        run_markdown_export_automation(&pool, &meeting_id).await;
+    }
     let targeted = dispatch::dispatch_event(&pool, &event, &meeting_id).await?;
     Ok(targeted as u32)
+}
+
+// The markdown export automation first runs on meeting.completed, before
+// auto-enhance has generated the summary. The note.enhanced dispatch is the
+// signal that the summary is persisted, so re-export here to rewrite the file
+// with the summary included.
+pub(crate) async fn run_markdown_export_automation(pool: &sqlx::SqlitePool, meeting_id: &str) {
+    let settings: Option<String> =
+        match sqlx::query_scalar("SELECT value_json FROM app_settings WHERE id = 'automations'")
+            .fetch_optional(pool)
+            .await
+        {
+            Ok(value) => value,
+            Err(error) => {
+                tracing::warn!("[local-api] could not load automation settings: {error}");
+                return;
+            }
+        };
+    let Some(settings) =
+        settings.and_then(|value| serde_json::from_str::<serde_json::Value>(&value).ok())
+    else {
+        return;
+    };
+    let enabled = settings
+        .get("markdown_export_enabled")
+        .and_then(|value| value.as_bool())
+        .unwrap_or(false);
+    let directory = settings
+        .get("markdown_export_directory")
+        .and_then(|value| value.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if !enabled || directory.is_empty() {
+        return;
+    }
+
+    let result = match anlg_agent_access::get_meeting_export(pool, meeting_id.to_string()).await {
+        Ok(export) => write_markdown_export(std::path::Path::new(&directory), &export),
+        Err(error) => Err(error.to_string()),
+    };
+    let (status, detail) = match result {
+        Ok(path) => ("success", path.to_string_lossy().into_owned()),
+        Err(error) => {
+            tracing::warn!("[local-api] markdown re-export failed: {error}");
+            ("error", error)
+        }
+    };
+    let at: String = sqlx::query_scalar("SELECT strftime('%Y-%m-%dT%H:%M:%fZ', 'now')")
+        .fetch_one(pool)
+        .await
+        .unwrap_or_default();
+    let record = serde_json::json!({ "at": at, "status": status, "detail": detail }).to_string();
+    if let Err(error) = sqlx::query(
+        "UPDATE app_settings \
+         SET value_json = json_set(value_json, '$.markdown_export_last_run', ?), \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') \
+         WHERE id = 'automations'",
+    )
+    .bind(record)
+    .execute(pool)
+    .await
+    {
+        tracing::warn!("[local-api] could not record the markdown export run: {error}");
+    }
 }
 
 #[tauri::command]
@@ -265,12 +333,37 @@ pub(crate) fn write_markdown_export(
 ) -> Result<std::path::PathBuf, String> {
     std::fs::create_dir_all(directory)
         .map_err(|error| format!("could not create export directory: {error}"))?;
-    let path = directory.join(markdown_export_filename(&export.meeting));
+    let filename = markdown_export_filename(&export.meeting);
+    remove_stale_exports(directory, &export.meeting.id, &filename);
+    let path = directory.join(&filename);
     let mut markdown = export.to_markdown();
     markdown.push('\n');
     std::fs::write(&path, markdown)
         .map_err(|error| format!("could not write markdown export: {error}"))?;
     Ok(path)
+}
+
+// A meeting is re-exported when its note is enhanced, and by then the title
+// may have changed (e.g. auto-generated), renaming the export. Best-effort
+// remove the meeting's previous file so only the latest export remains.
+fn remove_stale_exports(directory: &std::path::Path, meeting_id: &str, keep_filename: &str) {
+    let id_prefix = meeting_id.chars().take(8).collect::<String>();
+    if id_prefix.is_empty() {
+        return;
+    }
+    let marker = format!(" [{id_prefix}].md");
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            continue;
+        };
+        if name != keep_filename && name.ends_with(&marker) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
 }
 
 #[tauri::command]
