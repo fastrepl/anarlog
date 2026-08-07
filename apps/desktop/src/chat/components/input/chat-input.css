@@ -49,6 +49,10 @@
   color: hsl(var(--muted-foreground)) !important;
 }
 
+[data-chat-input-surface="elevated"] .chat-input-editor.prosemirror-editor {
+  padding-bottom: 0;
+}
+
 .dark
   [data-chat-input-surface="elevated"]
   .chat-input-editor.prosemirror-editor,
