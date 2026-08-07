@@ -26,6 +26,7 @@ import { TrialStartedDialog } from "../billing/trial-started-dialog";
 import { env } from "../env";
 import { waitForBillingUpdate } from "../shared/billing";
 import { configurePaidSettings } from "../shared/config/configure-paid-settings";
+import { startTrialOnce } from "../shared/trial-start";
 import { buildWebAppUrl } from "../shared/utils";
 import { useAuth } from "./auth-context";
 import { type BillingAccess, BillingContext } from "./billing-context";
@@ -142,25 +143,28 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       canTrialQuery.data?.canStartTrial === true,
     queryKey: [auth?.session?.user.id ?? "", "startEligibleTrial"],
     queryFn: async () => {
+      const userId = auth?.session?.user.id;
       const headers = auth?.getHeaders();
-      if (!headers) {
+      if (!userId || !headers) {
         throw new Error("No authentication headers available");
       }
 
-      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { data, error } = await startTrialApi({
-        client,
-        query: { interval: "monthly" },
-      });
-      if (error) {
-        throw error;
-      }
+      return startTrialOnce(userId, async () => {
+        const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+        const { data, error } = await startTrialApi({
+          client,
+          query: { interval: "monthly" },
+        });
+        if (error) {
+          throw error;
+        }
 
-      await waitForBillingUpdate(
-        () => auth.refreshSession(),
-        data?.started ? 3000 : 1500,
-      );
-      return data;
+        await waitForBillingUpdate(
+          () => auth.refreshSession(),
+          data?.started ? 3000 : 1500,
+        );
+        return data;
+      });
     },
     retry: 1,
     refetchOnWindowFocus: false,
@@ -348,8 +352,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     ) {
       if (trialEligibilityRefreshPendingRef.current !== userId) {
         trialEligibilityRefreshPendingRef.current = userId;
-        void auth
-          .refreshSession()
+        void waitForBillingUpdate(() => auth.refreshSession(), 3000)
           .catch(() => null)
           .finally(() => {
             setTrialEligibilityRefreshedUserId(userId);

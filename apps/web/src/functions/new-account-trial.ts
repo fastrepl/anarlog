@@ -33,8 +33,12 @@ export async function ensureNewAccountTrial(
     throw error;
   }
 
-  if (data?.started || data?.reason === "not_eligible") {
-    return;
+  if (data?.started) {
+    return "started" as const;
+  }
+
+  if (data?.reason === "not_eligible") {
+    return "not_eligible" as const;
   }
 
   throw new Error("New account trial returned an invalid response");

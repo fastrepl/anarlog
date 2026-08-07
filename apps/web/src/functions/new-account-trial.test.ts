@@ -4,18 +4,20 @@ import test from "node:test";
 import { ensureNewAccountTrial } from "./new-account-trial.ts";
 
 test("accepts a newly started trial", async () => {
-  await assert.doesNotReject(() =>
-    ensureNewAccountTrial("access-token", async () => ({
+  assert.equal(
+    await ensureNewAccountTrial("access-token", async () => ({
       data: { started: true, reason: "started" },
     })),
+    "started",
   );
 });
 
 test("accepts an account that is already ineligible", async () => {
-  await assert.doesNotReject(() =>
-    ensureNewAccountTrial("access-token", async () => ({
+  assert.equal(
+    await ensureNewAccountTrial("access-token", async () => ({
       data: { started: false, reason: "not_eligible" },
     })),
+    "not_eligible",
   );
 });
 

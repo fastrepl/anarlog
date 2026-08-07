@@ -12,6 +12,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { waitForBillingUpdate } from "~/shared/billing";
 import { configurePaidSettings } from "~/shared/config/configure-paid-settings";
+import { startTrialOnce } from "~/shared/trial-start";
 
 export type TrialPhase =
   | "checking"
@@ -33,21 +34,25 @@ export function useTrialFlow(onContinue: () => void) {
     isSuccess,
   } = useMutation({
     mutationFn: async () => {
+      const userId = auth.session?.user.id;
       const headers = auth.getHeaders();
-      if (!headers) throw new Error("no headers");
-      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-      const { data, error } = await startTrial({
-        client,
-        query: { interval: "monthly" },
+      if (!userId || !headers) throw new Error("no headers");
+
+      return startTrialOnce(userId, async () => {
+        const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+        const { data, error } = await startTrial({
+          client,
+          query: { interval: "monthly" },
+        });
+        if (error) throw error;
+        await waitForBillingUpdate(
+          () => auth.refreshSession(),
+          data?.started ? 3000 : 1500,
+        );
+        return data;
       });
-      if (error) throw error;
-      return data;
     },
-    onSuccess: async (data) => {
-      await waitForBillingUpdate(
-        () => auth.refreshSession(),
-        data?.started ? 3000 : 1500,
-      );
+    onSuccess: () => {
       onContinue();
     },
     onError: async (e) => {
