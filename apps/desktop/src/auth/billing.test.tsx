@@ -2,7 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { canStartTrial as canStartTrialApi } from "@anlg/api-client";
+import {
+  canStartTrial as canStartTrialApi,
+  startTrial as startTrialApi,
+} from "@anlg/api-client";
 import { commands as authCommands } from "@anlg/plugin-auth";
 
 import * as billingProviderModule from "./billing";
@@ -49,6 +52,7 @@ vi.mock("./auth-context", () => ({
 
 vi.mock("@anlg/api-client", () => ({
   canStartTrial: vi.fn(),
+  startTrial: vi.fn(),
 }));
 
 vi.mock("@anlg/api-client/client", () => ({
@@ -88,6 +92,11 @@ vi.mock("~/settings/queries", async (importOriginal) => {
     setSettingValues: settingsState.setSettingValues,
   };
 });
+
+vi.mock("~/shared/billing", () => ({
+  waitForBillingUpdate: async (refreshSession: () => Promise<unknown>) =>
+    refreshSession(),
+}));
 
 vi.mock("../billing/trial-ended-dialog", () => ({
   TrialEndedDialog: ({ open }: { open: boolean }) => (
@@ -236,6 +245,14 @@ describe("BillingProvider", () => {
       request: new Request("https://api.example.test/can-start-trial"),
       response: new Response(),
     });
+    vi.mocked(startTrialApi)
+      .mockReset()
+      .mockResolvedValue({
+        data: { started: true, reason: "started" as const },
+        error: undefined,
+        request: new Request("https://api.example.test/start-trial"),
+        response: new Response(),
+      });
   });
 
   afterEach(() => {
@@ -256,6 +273,26 @@ describe("BillingProvider", () => {
       expect(
         screen.getByTestId("trial-ended-dialog").getAttribute("data-open"),
       ).toBe("true");
+    });
+  });
+
+  it("automatically starts a trial for an eligible signed-in account", async () => {
+    vi.mocked(canStartTrialApi).mockResolvedValue({
+      data: { canStartTrial: true, reason: "eligible" as const },
+      error: undefined,
+      request: new Request("https://api.example.test/can-start-trial"),
+      response: new Response(),
+    });
+
+    renderBillingProvider();
+
+    await waitFor(() => {
+      expect(startTrialApi).toHaveBeenCalledWith(
+        expect.objectContaining({ query: { interval: "monthly" } }),
+      );
+    });
+    await waitFor(() => {
+      expect(refreshSession).toHaveBeenCalledOnce();
     });
   });
 

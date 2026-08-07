@@ -6,9 +6,11 @@ import { isAdminEmail } from "@/functions/admin";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { mintDesktopSessionForAuthenticatedUser } from "@/functions/auth-session";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import { ensureNewAccountTrial } from "@/functions/new-account-trial";
 import {
+  isConfirmedNewAccount,
   type NewAccountAuthMethod,
-  shouldOfferNewAccountTrialCheckout,
+  shouldOfferNewAccountTrialCheckoutFallback,
 } from "@/functions/new-account-trial-policy";
 import {
   getSupabaseAdminClient,
@@ -34,16 +36,33 @@ type FlowTokenResult =
   | { ok: true; access_token: string; refresh_token: string }
   | { ok: false; error: string };
 
-function isNewWebAccount(
+async function prepareNewAccountTrial(
   flow: Flow,
   session: Session,
   method: NewAccountAuthMethod,
 ) {
-  return shouldOfferNewAccountTrialCheckout({
-    flow,
-    method,
-    user: session.user,
-  });
+  if (!isConfirmedNewAccount(session.user, method)) {
+    return false;
+  }
+
+  try {
+    await ensureNewAccountTrial(session.access_token);
+    return false;
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "new_account_trial_start",
+      context: {
+        flow,
+        method,
+        user_id: session.user.id,
+      },
+    });
+    return shouldOfferNewAccountTrialCheckoutFallback({
+      flow,
+      method,
+      user: session.user,
+    });
+  }
 }
 
 function buildAuthCallbackParams(data: {
@@ -293,13 +312,19 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
       method: "oauth",
       flow: data.flow,
     });
-    const newAccount = isNewWebAccount(data.flow, authData.session, "oauth");
+    const needsTrialCheckout = await prepareNewAccountTrial(
+      data.flow,
+      authData.session,
+      "oauth",
+    );
     const tokens = await resolveTokensForFlow({
       flow: data.flow,
       session: authData.session,
     });
     const response = toSuccessTokenResponse(tokens, authData.session.user.id);
-    return response.success ? { ...response, newAccount } : response;
+    return response.success
+      ? { ...response, newAccount: needsTrialCheckout }
+      : response;
   });
 
 export const doPasswordSignUp = createServerFn({ method: "POST" })
@@ -331,7 +356,7 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
     }
 
     if (authData.session) {
-      const newAccount = isNewWebAccount(
+      const needsTrialCheckout = await prepareNewAccountTrial(
         data.flow,
         authData.session,
         "password-signup",
@@ -345,7 +370,9 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
         tokens,
         authData.session.user.id,
       );
-      return response.success ? { ...response, newAccount } : response;
+      return response.success
+        ? { ...response, newAccount: needsTrialCheckout }
+        : response;
     }
 
     return {
@@ -412,7 +439,11 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       return { success: false, error: error?.message || "Unknown error" };
     }
 
-    const newAccount = isNewWebAccount(data.flow, authData.session, data.type);
+    const needsTrialCheckout = await prepareNewAccountTrial(
+      data.flow,
+      authData.session,
+      data.type,
+    );
 
     const shouldMintDesktopSession =
       data.flow === "desktop" &&
@@ -424,7 +455,9 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       session: authData.session,
     });
     const response = toSuccessTokenResponse(tokens, authData.session.user.id);
-    return response.success ? { ...response, newAccount } : response;
+    return response.success
+      ? { ...response, newAccount: needsTrialCheckout }
+      : response;
   });
 
 export const createDesktopSession = createServerFn({ method: "POST" }).handler(

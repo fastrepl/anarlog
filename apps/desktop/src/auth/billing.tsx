@@ -9,7 +9,10 @@ import {
   useState,
 } from "react";
 
-import { canStartTrial as canStartTrialApi } from "@anlg/api-client";
+import {
+  canStartTrial as canStartTrialApi,
+  startTrial as startTrialApi,
+} from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as authCommands } from "@anlg/plugin-auth";
@@ -21,6 +24,7 @@ import { TrialEndedDialog } from "../billing/trial-ended-dialog";
 import { TrialPaymentReminderDialog } from "../billing/trial-payment-reminder-dialog";
 import { TrialStartedDialog } from "../billing/trial-started-dialog";
 import { env } from "../env";
+import { waitForBillingUpdate } from "../shared/billing";
 import { configurePaidSettings } from "../shared/config/configure-paid-settings";
 import { buildWebAppUrl } from "../shared/utils";
 import { useAuth } from "./auth-context";
@@ -127,6 +131,40 @@ export function BillingProvider({ children }: { children: ReactNode }) {
       canTrialQuery.isPending,
     ],
   );
+
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- The user ID owns one automatic attempt; a refreshed token must not trigger another start.
+  useQuery({
+    enabled:
+      !!auth?.session &&
+      isReady &&
+      claimsAreCurrent &&
+      !billing.isPaid &&
+      canTrialQuery.data?.canStartTrial === true,
+    queryKey: [auth?.session?.user.id ?? "", "startEligibleTrial"],
+    queryFn: async () => {
+      const headers = auth?.getHeaders();
+      if (!headers) {
+        throw new Error("No authentication headers available");
+      }
+
+      const client = createClient({ baseUrl: env.VITE_API_URL, headers });
+      const { data, error } = await startTrialApi({
+        client,
+        query: { interval: "monthly" },
+      });
+      if (error) {
+        throw error;
+      }
+
+      await waitForBillingUpdate(
+        () => auth.refreshSession(),
+        data?.started ? 3000 : 1500,
+      );
+      return data;
+    },
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
 
   const [isUpgradingToPro, setIsUpgradingToPro] = useState(false);
   // State alone cannot gate re-entry: a second click can land before the

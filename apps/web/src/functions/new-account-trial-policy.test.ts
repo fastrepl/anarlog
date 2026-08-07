@@ -4,7 +4,7 @@ import test from "node:test";
 import {
   isConfirmedNewAccount,
   type NewAccountAuthMethod,
-  shouldOfferNewAccountTrialCheckout,
+  shouldOfferNewAccountTrialCheckoutFallback,
 } from "./new-account-trial-policy.ts";
 
 const confirmedAt = "2026-07-17T06:00:00.000Z";
@@ -41,7 +41,7 @@ for (const method of ["password-signup", "signup", "invite"] as const) {
 }
 
 for (const method of ["oauth", "email", "magiclink"] as const) {
-  test(`${method} qualifies for checkout on the initial confirmed session`, () => {
+  test(`${method} qualifies on the initial confirmed session`, () => {
     assert.equal(isConfirmedNewAccount(user(), method), true);
   });
 
@@ -67,7 +67,7 @@ test("a delayed first magic-link confirmation still qualifies", () => {
 });
 
 for (const method of ["recovery", "email_change"] as NewAccountAuthMethod[]) {
-  test(`${method} never offers a new-account trial`, () => {
+  test(`${method} never qualifies for a new-account trial`, () => {
     assert.equal(isConfirmedNewAccount(user(), method), false);
   });
 }
@@ -83,9 +83,9 @@ test("missing or invalid sign-in timestamps do not qualify", () => {
   );
 });
 
-test("only web auth offers the card-required trial checkout", () => {
+test("only web auth offers the card-required checkout fallback", () => {
   assert.equal(
-    shouldOfferNewAccountTrialCheckout({
+    shouldOfferNewAccountTrialCheckoutFallback({
       flow: "web",
       method: "oauth",
       user: user(),
@@ -93,7 +93,7 @@ test("only web auth offers the card-required trial checkout", () => {
     true,
   );
   assert.equal(
-    shouldOfferNewAccountTrialCheckout({
+    shouldOfferNewAccountTrialCheckoutFallback({
       flow: "desktop",
       method: "oauth",
       user: user(),

@@ -21,7 +21,7 @@ type ConfirmedAccountUser = Pick<
   | "last_sign_in_at"
 >;
 
-export function shouldOfferNewAccountTrialCheckout({
+export function shouldOfferNewAccountTrialCheckoutFallback({
   flow,
   method,
   user,
