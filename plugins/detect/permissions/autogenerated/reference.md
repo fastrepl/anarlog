@@ -5,6 +5,7 @@ Default permissions for the plugin
 #### This default permission set includes the following:
 
 - `allow-list-installed-applications`
+- `allow-get-installed-application-icons`
 - `allow-terminate-competing-applications`
 - `allow-set-competing-application-termination-paused`
 - `allow-list-mic-using-applications`
@@ -75,6 +76,32 @@ Enables the get_current_locale_identifier command without any pre-configured sco
 <td>
 
 Denies the get_current_locale_identifier command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:allow-get-installed-application-icons`
+
+</td>
+<td>
+
+Enables the get_installed_application_icons command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-get-installed-application-icons`
+
+</td>
+<td>
+
+Denies the get_installed_application_icons command without any pre-configured scope.
 
 </td>
 </tr>

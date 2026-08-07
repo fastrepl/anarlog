@@ -929,10 +929,6 @@ msgstr ""
 msgid "Detect meetings from microphone activity."
 msgstr ""
 
-#: src/imports/screen.tsx
-msgid "Detected"
-msgstr ""
-
 #: src/settings/general/notification.tsx
 msgid "Detection delay"
 msgstr ""
@@ -956,6 +952,10 @@ msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Disconnect private repo access."
+msgstr ""
+
+#: src/settings/imports/index.tsx
+msgid "Documentation"
 msgstr ""
 
 #: src/settings/general/audio-settings.tsx
@@ -1085,10 +1085,6 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Export every meeting as Markdown"
-msgstr ""
-
-#: src/imports/screen.tsx
-msgid "Export help"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1632,6 +1628,7 @@ msgstr ""
 msgid "Next match"
 msgstr ""
 
+#: src/imports/screen.tsx
 #: src/settings/general/notification.tsx
 msgid "No apps found."
 msgstr ""
@@ -2173,10 +2170,6 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Saved locally"
-msgstr ""
-
-#: src/imports/screen.tsx
-msgid "Search 30 supported apps"
 msgstr ""
 
 #: src/contacts/shared.tsx

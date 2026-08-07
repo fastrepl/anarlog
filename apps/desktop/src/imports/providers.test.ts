@@ -14,12 +14,19 @@ describe("meeting import providers", () => {
   });
 
   it("detects exact native names and bundle identifiers", () => {
-    expect(
-      detectMeetingImportProviders([
-        { id: "com.granola.app", name: "Granola" },
-        { id: "com.microsoft.teams2", name: "Microsoft Teams" },
-      ]).map((provider) => provider.id),
-    ).toEqual(["granola", "microsoft-teams"]);
+    const providers = detectMeetingImportProviders([
+      { id: "com.granola.app", name: "Granola" },
+      { id: "com.microsoft.teams2", name: "Microsoft Teams" },
+    ]);
+
+    expect(providers.map((provider) => provider.id)).toEqual([
+      "granola",
+      "microsoft-teams",
+    ]);
+    expect(providers.map((provider) => provider.installedAppId)).toEqual([
+      "com.granola.app",
+      "com.microsoft.teams2",
+    ]);
   });
 
   it("does not accept bundle identifier prefixes", () => {

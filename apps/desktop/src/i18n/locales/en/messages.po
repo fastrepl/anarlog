@@ -929,10 +929,6 @@ msgstr "Describe the template purpose..."
 msgid "Detect meetings from microphone activity."
 msgstr "Detect meetings from microphone activity."
 
-#: src/imports/screen.tsx
-msgid "Detected"
-msgstr "Detected"
-
 #: src/settings/general/notification.tsx
 msgid "Detection delay"
 msgstr "Detection delay"
@@ -957,6 +953,10 @@ msgstr "Disconnect"
 #: src/settings/todo/github.tsx
 msgid "Disconnect private repo access."
 msgstr "Disconnect private repo access."
+
+#: src/settings/imports/index.tsx
+msgid "Documentation"
+msgstr "Documentation"
 
 #: src/settings/general/audio-settings.tsx
 msgid "Don't save"
@@ -1086,10 +1086,6 @@ msgstr "Export"
 #: src/settings/automations/index.tsx
 msgid "Export every meeting as Markdown"
 msgstr "Export every meeting as Markdown"
-
-#: src/imports/screen.tsx
-msgid "Export help"
-msgstr "Export help"
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Exporting..."
@@ -1632,6 +1628,7 @@ msgstr "Newest"
 msgid "Next match"
 msgstr "Next match"
 
+#: src/imports/screen.tsx
 #: src/settings/general/notification.tsx
 msgid "No apps found."
 msgstr "No apps found."
@@ -2174,10 +2171,6 @@ msgstr "Save visible chat from supported meetings using Accessibility."
 #: src/settings/sync/index.tsx
 msgid "Saved locally"
 msgstr "Saved locally"
-
-#: src/imports/screen.tsx
-msgid "Search 30 supported apps"
-msgstr "Search 30 supported apps"
 
 #: src/contacts/shared.tsx
 msgid "Search contacts..."

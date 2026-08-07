@@ -9,6 +9,11 @@ export type MeetingImportProvider = {
   bundleIds?: string[];
 };
 
+export type DetectedMeetingImportProvider = MeetingImportProvider & {
+  installedAppId: string;
+  iconUrl?: string;
+};
+
 export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
   {
     id: "granola",
@@ -252,19 +257,24 @@ const normalize = (value: string) =>
 
 export function detectMeetingImportProviders(
   installedApps: InstalledApp[],
-): MeetingImportProvider[] {
+): DetectedMeetingImportProvider[] {
   const installed = installedApps.map((app) => ({
-    id: app.id.toLowerCase(),
+    id: app.id,
+    normalizedId: app.id.toLowerCase(),
     name: normalize(app.name),
   }));
 
-  return MEETING_IMPORT_PROVIDERS.filter((provider) =>
-    installed.some(
+  return MEETING_IMPORT_PROVIDERS.flatMap((provider) => {
+    const installedApp = installed.find(
       (app) =>
         provider.nativeNames?.some((name) => app.name === normalize(name)) ||
         provider.bundleIds?.some(
-          (bundleId) => app.id === bundleId.toLowerCase(),
+          (bundleId) => app.normalizedId === bundleId.toLowerCase(),
         ),
-    ),
-  );
+    );
+
+    return installedApp
+      ? [{ ...provider, installedAppId: installedApp.id }]
+      : [];
+  });
 }

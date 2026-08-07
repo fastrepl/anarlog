@@ -63,6 +63,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             commands::list_installed_applications::<tauri::Wry>,
+            commands::get_installed_application_icons::<tauri::Wry>,
             commands::terminate_competing_applications::<tauri::Wry>,
             commands::set_competing_application_termination_paused::<tauri::Wry>,
             commands::list_mic_using_applications::<tauri::Wry>,
