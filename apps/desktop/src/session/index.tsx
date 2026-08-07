@@ -188,6 +188,7 @@ function TabContentNoteInner({
     enabled: contentHydrated,
     enhancedNoteCount: enhancedNoteIds.length,
     hasTranscript,
+    memoTemplateId: session?.raw_template_id,
     sessionId,
     sessionMode,
   });

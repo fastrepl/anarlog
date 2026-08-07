@@ -34,14 +34,15 @@ export function useEnsureDefaultSummary(sessionId: string) {
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const batchError = useListener((state) => state.batch[sessionId]?.error);
   const enhancedNoteIds = useEnhancedNotes(sessionId);
-  const memoTemplateId = useSession(sessionId)?.raw_template_id;
+  const session = useSession(sessionId);
   useEnsureDefaultSummaryFromState({
     batchError: Boolean(batchError),
+    enabled: session !== null,
     enhancedNoteCount: enhancedNoteIds.length,
     hasTranscript,
     sessionId,
     sessionMode,
-    memoTemplateId,
+    memoTemplateId: session?.raw_template_id,
   });
 }
 
