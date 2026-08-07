@@ -172,6 +172,45 @@ describe("enhanceTransform.transformArgs", () => {
     });
   });
 
+  it("keeps the applied template when the memo has no section headings", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue({
+      ...createSnapshot(),
+      rawTemplateId: "template-1",
+      rawContent: JSON.stringify({
+        type: "doc",
+        content: [{ type: "paragraph" }],
+      }),
+      rawContentFormat: "prosemirror_json",
+      rawMarkdown: "Notes without headings",
+    });
+    mocks.getTemplateById.mockResolvedValue({
+      title: "1:1 Meeting",
+      description: "Weekly conversation",
+      sections: [
+        { title: "Updates", description: "Recent changes" },
+        { title: "Action Items", description: "Follow-ups" },
+      ],
+    });
+
+    const result = await enhanceTransform.transformArgs(
+      {
+        sessionId: "session-1",
+        enhancedNoteId: "note-1",
+        templateId: "template-1",
+      },
+      settingsValues,
+    );
+
+    expect(result.template).toEqual({
+      title: "1:1 Meeting",
+      description: "Weekly conversation",
+      sections: [
+        { title: "Updates", description: "Recent changes" },
+        { title: "Action Items", description: "Follow-ups" },
+      ],
+    });
+  });
+
   it("uses the saved prompt override for Auto summaries", async () => {
     const result = await enhanceTransform.transformArgs(
       { sessionId: "session-1", enhancedNoteId: "note-1" },

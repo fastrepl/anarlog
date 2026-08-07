@@ -79,14 +79,12 @@ async function transformArgs(
         sections: templateRecord.sections,
       }
     : null;
-  if (memoTemplateSections !== null) {
-    template = memoTemplateSections.length
-      ? {
-          title: templateRecord?.title ?? "Meeting memo",
-          description: templateRecord?.description ?? null,
-          sections: memoTemplateSections,
-        }
-      : null;
+  if (memoTemplateSections?.length) {
+    template = {
+      title: templateRecord?.title ?? "Meeting memo",
+      description: templateRecord?.description ?? null,
+      sections: memoTemplateSections,
+    };
   }
   const language = getLanguage(settingsValues);
   const promptOverride = getPromptOverride(settingsValues, templateId);
