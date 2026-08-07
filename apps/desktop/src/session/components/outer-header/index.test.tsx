@@ -801,7 +801,24 @@ describe("OuterHeader", () => {
     expect(mocks.openUrl).not.toHaveBeenCalled();
   });
 
-  it("hides meeting controls for an inactive ad hoc session with a transcript", () => {
+  it("shows record for a new ad hoc meeting note", () => {
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+
+    expect(mocks.startListening).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
+  });
+
+  it("shows only metadata for an inactive ad hoc session with a transcript", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -815,12 +832,12 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Open event metadata" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("hides meeting controls for an inactive ad hoc session with audio", () => {
+  it("shows only metadata for an inactive ad hoc session with audio", () => {
     mocks.audioExists = true;
 
     render(
@@ -834,8 +851,8 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Open event metadata" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
@@ -852,6 +869,9 @@ describe("OuterHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
+    expect(
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 
@@ -960,6 +980,9 @@ describe("OuterHeader", () => {
     fireEvent.click(screen.getByRole("button", { name: "Write" }));
     expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Open event metadata" }),
+    ).not.toBeNull();
 
     view.rerender(
       <OuterHeader

@@ -135,6 +135,7 @@ function HeaderMeetingControl({
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
+  const { audioExists } = useAudioPlayer();
   const now = useNow();
   const endedAt = sessionEvent?.ended_at
     ? safeParseDate(sessionEvent.ended_at)
@@ -154,11 +155,9 @@ function HeaderMeetingControl({
           editMode={transcriptEditMode}
           onEditModeChange={onTranscriptEditModeChange}
         />
-        {sessionEvent ? (
-          <div className="mr-1 shrink-0">
-            <MetadataButton sessionId={sessionId} />
-          </div>
-        ) : null}
+        <div className="mr-1 shrink-0">
+          <MetadataButton sessionId={sessionId} />
+        </div>
       </>
     );
   }
@@ -167,7 +166,27 @@ function HeaderMeetingControl({
     sessionMode === "active" || sessionMode === "running_batch";
 
   if (!sessionEvent && !isRecording) {
-    return null;
+    if (hasTranscript || audioExists) {
+      return (
+        <div className="mr-1 shrink-0">
+          <MetadataButton sessionId={sessionId} />
+        </div>
+      );
+    }
+
+    if (sessionMode === "finalizing") {
+      return null;
+    }
+
+    return (
+      <HeaderMeetingActionPill
+        sessionId={sessionId}
+        event={null}
+        sessionMode={sessionMode}
+        hasTranscript={hasTranscript}
+        audioExists={audioExists}
+      />
+    );
   }
 
   if (ended && !isRecording) {
@@ -184,6 +203,7 @@ function HeaderMeetingControl({
       event={sessionEvent}
       sessionMode={sessionMode}
       hasTranscript={hasTranscript}
+      audioExists={audioExists}
     />
   );
 }
@@ -193,6 +213,7 @@ function HeaderMeetingActionPill({
   event,
   sessionMode,
   hasTranscript,
+  audioExists,
 }: {
   sessionId: string;
   event: {
@@ -201,6 +222,7 @@ function HeaderMeetingActionPill({
   } | null;
   sessionMode: string;
   hasTranscript: boolean;
+  audioExists: boolean;
 }) {
   const startListening = useStartListening(sessionId);
   const { canStartLiveSession, stop, stopTranscription } = useListener(
@@ -222,7 +244,6 @@ function HeaderMeetingActionPill({
     meetingLink &&
     (remote !== null || event?.tracking_id === WELCOME_NOTE_TRACKING_ID),
   );
-  const { audioExists } = useAudioPlayer();
   const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
   const joiningMeetingRef = useRef(false);
