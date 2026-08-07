@@ -148,10 +148,6 @@ msgid "Add meeting decisions and follow-ups to a Notion project."
 msgstr "Add meeting decisions and follow-ups to a Notion project."
 
 #: src/settings/dictionary/index.tsx
-msgid "Add names, jargon, and product terms to improve transcription."
-msgstr "Add names, jargon, and product terms to improve transcription."
-
-#: src/settings/dictionary/index.tsx
 msgid "Add names, jargon, or product terms to prefer"
 msgstr "Add names, jargon, or product terms to prefer"
 
@@ -2834,6 +2830,10 @@ msgstr "Ticket"
 msgid "Timezone"
 msgstr "Timezone"
 
+#: src/settings/dictionary/index.tsx
+msgid "Tip: Add teammate names, acronyms, company jargon, and product terms."
+msgstr "Tip: Add teammate names, acronyms, company jargon, and product terms."
+
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Tip: The Anarlog team loves our users!"
 msgstr "Tip: The Anarlog team loves our users!"
@@ -3093,6 +3093,10 @@ msgstr "Your Account"
 #: src/session-sharing/comments.tsx
 msgid "Your comment couldn’t be added. Try again."
 msgstr "Your comment couldn’t be added. Try again."
+
+#: src/settings/dictionary/index.tsx
+msgid "Your dictionary is empty"
+msgstr "Your dictionary is empty"
 
 #: src/settings/sync/index.tsx
 msgid "Your notes remain available locally."

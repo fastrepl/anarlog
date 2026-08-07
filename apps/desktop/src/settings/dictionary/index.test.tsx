@@ -41,14 +41,31 @@ import { DictionarySettings } from "./index";
 describe("DictionarySettings", () => {
   afterEach(cleanup);
 
-  it("only shows the input when the dictionary is empty", () => {
+  it("shows an empty state and disabled add control", () => {
     render(<DictionarySettings terms={[]} onSave={vi.fn()} />);
 
     const input = screen.getByRole("textbox");
+    const addButton = screen.getByRole("button", {
+      name: "Add",
+    }) as HTMLButtonElement;
     expect(input).toBeTruthy();
     expect(input.closest("[data-slot='input-group']")?.className).toContain(
       "border-border",
     );
+    expect(addButton.disabled).toBe(true);
+    expect(addButton.className).toContain("bg-black");
+    expect(screen.getByText("Add")).toBeTruthy();
+    expect(screen.getByText("Your dictionary is empty")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Tip: Add teammate names, acronyms, company jargon, and product terms.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        "Add names, jargon, and product terms to improve transcription.",
+      ),
+    ).toBeNull();
     expect(screen.queryByText("FastConformer")).toBeNull();
   });
 

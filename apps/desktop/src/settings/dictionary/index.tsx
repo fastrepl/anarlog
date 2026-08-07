@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { MinusCircle, Plus } from "@phosphor-icons/react";
+import { BookOpen, MinusCircle, Plus } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -9,7 +9,6 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@anlg/ui/components/ui/input-group";
-import { cn } from "@anlg/utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -78,12 +77,6 @@ export function DictionarySettings({
         void form.handleSubmit();
       }}
     >
-      <p className="text-muted-foreground text-sm">
-        <Trans>
-          Add names, jargon, and product terms to improve transcription.
-        </Trans>
-      </p>
-
       <InputGroup className="border-border bg-card has-[[data-slot=input-group-control]:focus-visible]:border-border rounded-full shadow-none has-[[data-slot=input-group-control]:focus-visible]:ring-0">
         <form.Field name="term">
           {(field) => (
@@ -96,10 +89,9 @@ export function DictionarySettings({
             />
           )}
         </form.Field>
-        <InputGroupAddon align="inline-end" className="pr-1.5">
+        <InputGroupAddon align="inline-end">
           <form.Subscribe selector={(state) => state.values.term}>
             {(value) => {
-              const hasInput = parseDictionaryTermsText(value).length > 0;
               const canAdd =
                 appendDictionaryTerms(normalizedTerms, value).length !==
                 normalizedTerms.length;
@@ -108,14 +100,10 @@ export function DictionarySettings({
                 <InputGroupButton
                   type="submit"
                   variant="ghost"
-                  size="sm"
-                  className={cn([
-                    "rounded-full px-3",
-                    hasInput
-                      ? "bg-black text-white hover:bg-black/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
-                      : null,
-                  ])}
+                  size="xs"
+                  className="rounded-full bg-black text-white hover:bg-black/90 hover:text-white dark:bg-white dark:text-black dark:hover:bg-white/90 dark:hover:text-black"
                   disabled={!canAdd}
+                  aria-label={t`Add`}
                 >
                   <Plus className="size-3.5" />
                   <Trans>Add</Trans>
@@ -133,6 +121,23 @@ export function DictionarySettings({
             value,
           );
           const hasSearch = parseDictionaryTermsText(value).length > 0;
+
+          if (normalizedTerms.length === 0) {
+            return (
+              <div className="border-border bg-card flex min-h-40 flex-col items-center justify-center rounded-2xl border px-6 text-center">
+                <BookOpen className="text-muted-foreground mb-3 size-5" />
+                <p className="text-sm font-medium">
+                  <Trans>Your dictionary is empty</Trans>
+                </p>
+                <p className="text-muted-foreground mt-1 max-w-sm text-xs">
+                  <Trans>
+                    Tip: Add teammate names, acronyms, company jargon, and
+                    product terms.
+                  </Trans>
+                </p>
+              </div>
+            );
+          }
 
           if (visibleTerms.length === 0) {
             return hasSearch ? (
