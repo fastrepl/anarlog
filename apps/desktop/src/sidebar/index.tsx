@@ -10,6 +10,7 @@ import { SettingsNav } from "./settings";
 import { SharedNotesNav } from "./shared-notes";
 import { TemplatesNav } from "./templates";
 import { TimelineView } from "./timeline";
+import { hasOwnSidebarHeaderTab } from "./use-custom-sidebar";
 
 import { useTabs } from "~/store/zustand/tabs";
 
@@ -38,11 +39,16 @@ export function LeftSidebar({
     isTemplatesMode ||
     isAutomationsMode;
   const isTimelineSidebarLayout = !isSpecialMode;
+  // Navs with their own CustomSidebarHeader fill the chrome row themselves; a
+  // top padding here would push the header out of it (and overflow-hidden
+  // would clip a pulled-up header).
+  const needsChromeRowGutter =
+    isSpecialMode && !hasOwnSidebarHeaderTab(currentTab);
   return (
     <div
       className={cn([
         "flex h-full w-full shrink-0 flex-col gap-1 overflow-hidden",
-        isTimelineSidebarLayout ? "pt-0" : "pt-11",
+        needsChromeRowGutter ? "pt-11" : "pt-0",
         !isTimelineSidebarLayout && "pr-1",
       ])}
     >

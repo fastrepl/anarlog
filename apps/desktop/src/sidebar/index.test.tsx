@@ -114,11 +114,8 @@ describe("LeftSidebar", () => {
   });
 
   it.each([
-    ["settings", "settings-nav"],
-    ["calendar", "calendar-nav"],
     ["contacts", "contacts-nav"],
     ["templates", "templates-nav"],
-    ["automations", "automations-nav"],
   ])("keeps %s below the window chrome", (type, testId) => {
     mocks.currentTab = { type };
 
@@ -130,4 +127,23 @@ describe("LeftSidebar", () => {
     expect(classList).toContain("pr-1");
     expect(classList).not.toContain("pt-0");
   });
+
+  it.each([
+    ["settings", "settings-nav"],
+    ["calendar", "calendar-nav"],
+    ["automations", "automations-nav"],
+  ])(
+    "lets the %s nav place its own header in the chrome row",
+    (type, testId) => {
+      mocks.currentTab = { type };
+
+      const { container } = render(<LeftSidebar />);
+      const classList = container.firstElementChild?.className.split(" ") ?? [];
+
+      expect(screen.getByTestId(testId)).toBeTruthy();
+      expect(classList).toContain("pt-0");
+      expect(classList).toContain("pr-1");
+      expect(classList).not.toContain("pt-11");
+    },
+  );
 });

@@ -50,6 +50,7 @@ import type { SidebarNoteFilter } from "~/sidebar/note-filter";
 import {
   hasCustomSidebarTab,
   hasLeftSurfaceCustomSidebarTab,
+  hasOwnSidebarHeaderTab,
 } from "~/sidebar/use-custom-sidebar";
 import { type Tab, uniqueIdfromTab, useTabs } from "~/store/zustand/tabs";
 
@@ -95,6 +96,7 @@ export function ClassicMainBody() {
   const mountLeftSidebarPanel = !isOnboarding;
   const showLeftSidebarPanel = mountLeftSidebarPanel && leftsidebar.expanded;
   const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
+  const sidebarOwnsChromeRow = hasOwnSidebarHeaderTab(currentTab);
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
   const mainAreaTopDrag = useMainAreaTopWindowDrag(enableMainAreaTopDrag);
@@ -458,7 +460,10 @@ export function ClassicMainBody() {
           data-tauri-drag-region
           data-left-sidebar-chrome
           style={leftSidebarChromeStyle}
-          className="absolute top-0 left-0 z-40 h-10"
+          className={cn([
+            "absolute top-0 left-0 z-40 h-10",
+            sidebarOwnsChromeRow && "pointer-events-none",
+          ])}
         />
       ) : (
         <div data-tauri-drag-region className="relative h-10 shrink-0">
@@ -476,7 +481,12 @@ export function ClassicMainBody() {
           data-tauri-drag-region
           data-left-sidebar-chrome
           style={leftSidebarChromeStyle}
-          className="absolute top-0 left-0 z-50 h-12"
+          className={cn([
+            "absolute top-0 left-0 z-50 h-12",
+            // The sidebar header underneath carries the drag region and its
+            // own actions; only the back button here must stay interactive.
+            sidebarOwnsChromeRow && "pointer-events-none",
+          ])}
         >
           <div
             data-tauri-drag-region

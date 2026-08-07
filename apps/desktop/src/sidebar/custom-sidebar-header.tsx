@@ -46,7 +46,7 @@ export function CustomSidebarHeader({
     <div
       data-tauri-drag-region
       className={cn([
-        "-mt-11 flex h-12 shrink-0 items-start py-0 pt-[9px] pr-1",
+        "flex h-12 shrink-0 items-start py-0 pt-[9px] pr-1",
         showWindowControlsGutter ? "pl-[76px]" : "pl-2",
       ])}
     >
