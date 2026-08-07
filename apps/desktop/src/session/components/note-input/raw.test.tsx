@@ -453,9 +453,16 @@ describe("RawEditor", () => {
         button.className.includes("text-muted-foreground"),
       ),
     ).toBe(true);
-    expect(buttons.every((button) => !button.className.includes("px-2"))).toBe(
-      true,
-    );
+    expect(
+      buttons.every(
+        (button) =>
+          button.className.includes("w-fit") &&
+          button.className.includes("pointer-events-auto") &&
+          // px-2 offset by -ml-2 keeps content aligned with the editor column
+          button.className.includes("-ml-2") &&
+          button.className.includes("px-2"),
+      ),
+    ).toBe(true);
     expect(buttons.map((button) => button.textContent)).toEqual([
       "Template iconProject Kickoff",
       "Template iconDaily Standup",

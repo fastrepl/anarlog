@@ -408,7 +408,7 @@ function TemplateEmptyState({
   }, [createTemplate, openTemplatesTab]);
 
   return (
-    <div className="absolute inset-x-0 top-8 z-10 flex flex-col">
+    <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex flex-col">
       <TemplateSection
         label={t`Start with a favorite template`}
         templates={favoriteTemplates}
@@ -423,7 +423,7 @@ function TemplateEmptyState({
         type="button"
         onClick={handleCreateTemplate}
         className={cn([
-          "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left",
+          "hover:bg-accent focus-visible:bg-accent pointer-events-auto -ml-2 flex h-8 w-fit max-w-full items-center gap-2 rounded-md px-2 text-left",
           "text-muted-foreground hover:text-foreground focus-visible:text-foreground transition-colors focus-visible:outline-hidden",
         ])}
       >
@@ -459,7 +459,7 @@ function TemplateSection({
           type="button"
           onClick={() => onApply(template)}
           className={cn([
-            "hover:bg-accent focus-visible:bg-accent flex h-8 w-full items-center gap-2 rounded-md pr-2 text-left",
+            "hover:bg-accent focus-visible:bg-accent pointer-events-auto -ml-2 flex h-8 w-fit max-w-full items-center gap-2 rounded-md px-2 text-left",
             "text-muted-foreground hover:text-foreground focus-visible:text-foreground transition-colors focus-visible:outline-hidden",
           ])}
         >
