@@ -175,6 +175,7 @@ type NodeViewComponents = NonNullable<
 export interface NoteEditorProps {
   className?: string;
   handleChange?: (content: JSONContent) => void;
+  onDocumentChange?: (content: JSONContent) => void;
   initialContent?: JSONContent;
   resolveAttachment?: AttachmentResolver;
   mentionConfig?: MentionConfig;
@@ -584,6 +585,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
   function NoteEditor(props, ref) {
     const {
       handleChange,
+      onDocumentChange,
       className,
       initialContent,
       resolveAttachment,
@@ -611,6 +613,8 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
 
     const commentAnchorsEventRef = useRef(onCommentAnchorsEvent);
     commentAnchorsEventRef.current = onCommentAnchorsEvent;
+    const onDocumentChangeRef = useRef(onDocumentChange);
+    onDocumentChangeRef.current = onDocumentChange;
 
     const taskStorage = useTaskStorageOptional();
     const normalizedInitialContent = useMemo(
@@ -692,6 +696,9 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     );
     const onUpdateRef = useRef(onUpdate);
     onUpdateRef.current = onUpdate;
+    const notifyDocumentChange = useCallback((doc: PMNode) => {
+      onDocumentChangeRef.current?.(doc.toJSON() as JSONContent);
+    }, []);
 
     useImperativeHandle(
       ref,
@@ -723,7 +730,10 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         reactKeys(),
         createCompositionStatePlugin(setCompositionActive),
         ...(readOnly ? [createReadOnlyPlugin()] : []),
-        docChangeListenerPlugin((doc) => onUpdateRef.current(doc)),
+        docChangeListenerPlugin((doc) => {
+          notifyDocumentChange(doc);
+          onUpdateRef.current(doc);
+        }),
         buildInputRules(),
         ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
         taskIdentityPlugin(),
@@ -767,6 +777,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         readOnly,
         setCompositionActive,
         commentAnchorsEnabled,
+        notifyDocumentChange,
       ],
     );
     const nodeViews = useMemo(
@@ -847,6 +858,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
           });
           onUpdate.cancel();
           view.updateState(state);
+          notifyDocumentChange(view.state.doc);
           previousContentRef.current = reconciledInitialContent;
         } catch {
           // invalid content
@@ -865,6 +877,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
       syncContentWhenFocused,
       enforceTitleHeading,
       onUpdate,
+      notifyDocumentChange,
     ]);
 
     const onViewReady = useCallback(

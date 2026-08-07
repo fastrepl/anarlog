@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { Plus } from "@phosphor-icons/react";
 import type { EditorView } from "prosemirror-view";
-import { forwardRef, useCallback, useMemo, useRef } from "react";
+import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
 
 import { parseJsonContent } from "@anlg/editor/markdown";
 import {
@@ -104,10 +104,18 @@ export const RawEditor = forwardRef<
       () => removeDocumentTitle(parseJsonContent(rawMd), sessionTitle),
       [rawMd, sessionTitle],
     );
-    const isMemoEmpty = useMemo(
+    const persistedIsMemoEmpty = useMemo(
       () => !hasStoredNoteContent(JSON.stringify(initialContent)),
       [initialContent],
     );
+    const [liveMemoState, setLiveMemoState] = useState(() => ({
+      sessionId,
+      isEmpty: persistedIsMemoEmpty,
+    }));
+    const isMemoEmpty =
+      liveMemoState.sessionId === sessionId
+        ? liveMemoState.isEmpty
+        : persistedIsMemoEmpty;
     const editorRef = useRef<NoteEditorRef>(null);
     const setEditorRef = useCallback(
       (editor: NoteEditorRef | null) => {
@@ -160,6 +168,19 @@ export const RawEditor = forwardRef<
         }
       },
       [persistChange, hasNonEmptyText],
+    );
+
+    const handleDocumentChange = useCallback(
+      (input: JSONContent) => {
+        const isEmpty = !hasStoredNoteContent(JSON.stringify(input));
+        setLiveMemoState((current) => {
+          if (current.sessionId === sessionId && current.isEmpty === isEmpty) {
+            return current;
+          }
+          return { sessionId, isEmpty };
+        });
+      },
+      [sessionId],
     );
 
     const handleApplyTemplate = useCallback((template: UserTemplate) => {
@@ -215,6 +236,7 @@ export const RawEditor = forwardRef<
               initialContent={initialContent}
               resolveAttachment={resolveAttachment}
               handleChange={handleChange}
+              onDocumentChange={handleDocumentChange}
               placeholderComponent={placeholderComponent}
               mentionConfig={mentionConfig}
               sessionMentionDropConfig={sessionMentionDropConfig}

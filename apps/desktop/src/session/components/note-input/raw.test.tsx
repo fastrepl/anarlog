@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   createEvent,
   fireEvent,
@@ -65,6 +66,9 @@ vi.mock("@anlg/editor/note", async () => {
           replaceContent: (content: unknown) => {
             hoisted.replacementContent = content;
             hoisted.replaceContent(content);
+            (
+              props.onDocumentChange as ((content: unknown) => void) | undefined
+            )?.(content);
           },
         },
         flushPendingChanges: () => {
@@ -448,6 +452,53 @@ describe("RawEditor", () => {
       "New template",
     ]);
     expect(screen.queryByRole("button", { name: "Board Meeting" })).toBeNull();
+  });
+
+  it("toggles template suggestions from live memo changes", () => {
+    hoisted.userTemplates = [
+      {
+        id: "default-project-kickoff",
+        title: "Project Kickoff",
+        pinned: false,
+        icon: { type: "emoji", value: "🚀" },
+        sections: [{ title: "Goals", description: "" }],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" />);
+
+    expect(
+      screen.getByRole("button", { name: "Project Kickoff" }),
+    ).not.toBeNull();
+    const onDocumentChange = hoisted.noteEditorProps[
+      hoisted.noteEditorProps.length - 1
+    ]?.onDocumentChange as (content: unknown) => void;
+
+    act(() => {
+      onDocumentChange({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Live memo" }],
+          },
+        ],
+      });
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Project Kickoff" }),
+    ).toBeNull();
+    expect(hoisted.persistChange).not.toHaveBeenCalled();
+
+    act(() => {
+      onDocumentChange({ type: "doc", content: [{ type: "paragraph" }] });
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Project Kickoff" }),
+    ).not.toBeNull();
+    expect(hoisted.persistChange).not.toHaveBeenCalled();
   });
 
   it("prioritizes event-aware template suggestions", () => {

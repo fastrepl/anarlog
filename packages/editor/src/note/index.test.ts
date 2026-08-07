@@ -248,6 +248,40 @@ describe("createReadOnlyPlugin", () => {
 });
 
 describe("browser-safe editor controls", () => {
+  it("reports document changes before debounced persistence", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const handleChange = vi.fn();
+    const onDocumentChange = vi.fn();
+    render(
+      createElement(NoteEditor, {
+        ref,
+        initialContent: baseDoc,
+        handleChange,
+        onDocumentChange,
+        enforceTitleHeading: false,
+      }),
+    );
+
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+
+    act(() => {
+      const view = ref.current?.view;
+      view?.dispatch(view.state.tr.insertText("!", 4));
+    });
+
+    expect(onDocumentChange).toHaveBeenCalledOnce();
+    expect(onDocumentChange.mock.calls[0]?.[0]).toMatchObject({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "old!" }],
+        },
+      ],
+    });
+    expect(handleChange).not.toHaveBeenCalled();
+  });
+
   it("flushes the current document through the change handler immediately", async () => {
     const ref = createRef<NoteEditorRef>();
     const handleChange = vi.fn();
