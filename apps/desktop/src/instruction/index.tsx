@@ -87,12 +87,6 @@ function InstructionShell({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 pt-1">
-            <div className="bg-muted-foreground/75 h-1.5 w-1.5 rounded-full" />
-            <div className="bg-muted h-1.5 w-1.5 rounded-full" />
-            <div className="bg-muted h-1.5 w-1.5 rounded-full" />
-          </div>
-
           {action ? <div className="w-full">{action}</div> : null}
           {children ? (
             <div className="flex w-full flex-col items-center gap-3">
