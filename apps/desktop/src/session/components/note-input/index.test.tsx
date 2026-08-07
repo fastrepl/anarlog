@@ -167,10 +167,14 @@ function renderNoteInput({
   currentTab = { type: "raw" },
   handleTabChange = vi.fn(),
   transcriptEditMode = false,
+  eventTitle,
+  eventDescription,
 }: {
   currentTab?: EditorView;
   handleTabChange?: (view: EditorView) => void;
   transcriptEditMode?: boolean;
+  eventTitle?: string;
+  eventDescription?: string;
 } = {}) {
   return {
     handleTabChange,
@@ -186,6 +190,8 @@ function renderNoteInput({
         }}
         rawMd="stored memo"
         sessionTitle="Stored title"
+        eventTitle={eventTitle}
+        eventDescription={eventDescription}
         editorTabs={hoisted.editorTabs}
         currentTab={currentTab}
         handleTabChange={handleTabChange}
@@ -320,13 +326,18 @@ describe("NoteInput tab selection", () => {
   });
 
   it("passes hydrated session content to the memo editor", () => {
-    renderNoteInput();
+    renderNoteInput({
+      eventTitle: "Customer discovery",
+      eventDescription: "Learn about the prospect's workflow",
+    });
 
     expect(
       hoisted.rawEditorProps[hoisted.rawEditorProps.length - 1],
     ).toMatchObject({
       rawMd: "stored memo",
       sessionTitle: "Stored title",
+      eventTitle: "Customer discovery",
+      eventDescription: "Learn about the prospect's workflow",
     });
   });
 

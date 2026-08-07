@@ -28,6 +28,7 @@ import {
   useEnsureDefaultSummaryFromState,
 } from "./hooks/useEnhancedNotes";
 import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
+import { getSessionEvent } from "./utils";
 
 import * as AudioPlayer from "~/audio-player";
 import {
@@ -180,6 +181,7 @@ function TabContentNoteInner({
   });
   const enhancedNoteIds = useEnhancedNotes(sessionId);
   const session = useSession(sessionId);
+  const sessionEvent = session ? getSessionEvent(session) : null;
   const contentHydrated = session !== null;
   useEnsureDefaultSummaryFromState({
     batchError: Boolean(batchError),
@@ -288,6 +290,8 @@ function TabContentNoteInner({
                 tab={tab}
                 rawMd={session.raw_md}
                 sessionTitle={session.title}
+                eventTitle={sessionEvent?.title}
+                eventDescription={sessionEvent?.description}
                 editorTabs={editorTabs}
                 currentTab={currentView}
                 handleTabChange={handleTabChange}

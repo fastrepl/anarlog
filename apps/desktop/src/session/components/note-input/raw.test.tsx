@@ -20,6 +20,7 @@ const hoisted = vi.hoisted(() => ({
   unminimizeWindow: vi.fn(),
   focusWindow: vi.fn(),
   meetingChatRecords: [] as unknown[],
+  eventParticipants: [] as Array<Record<string, unknown>>,
   userTemplates: [] as Array<Record<string, unknown>>,
   createTemplate: vi.fn(() => Promise.resolve("new-template")),
   openTemplatesTab: vi.fn(),
@@ -69,6 +70,10 @@ vi.mock("@anlg/plugin-opener2", () => ({
 
 vi.mock("~/editor-bridge/app-link-view", () => ({
   AppLinkView: () => null,
+}));
+
+vi.mock("~/calendar/queries", () => ({
+  useSessionEventParticipants: () => hoisted.eventParticipants,
 }));
 
 vi.mock("~/editor-bridge/mention-config", () => ({
@@ -140,9 +145,13 @@ vi.mock("~/templates", () => ({
 function RawEditor({
   sessionId,
   className,
+  eventTitle,
+  eventDescription,
 }: {
   sessionId: string;
   className?: string;
+  eventTitle?: string;
+  eventDescription?: string;
 }) {
   return (
     <SessionRawEditor
@@ -150,6 +159,8 @@ function RawEditor({
       rawMd={hoisted.rawMd}
       sessionTitle={hoisted.sessionTitle}
       className={className}
+      eventTitle={eventTitle}
+      eventDescription={eventDescription}
     />
   );
 }
@@ -195,6 +206,7 @@ describe("RawEditor", () => {
     hoisted.fileUpload = vi.fn();
     hoisted.processAudioFile = vi.fn();
     hoisted.meetingChatRecords = [];
+    hoisted.eventParticipants = [];
     hoisted.userTemplates = [];
     hoisted.createTemplate.mockReset();
     hoisted.createTemplate.mockResolvedValue("new-template");
@@ -311,16 +323,16 @@ describe("RawEditor", () => {
 
     render(<RawEditor sessionId="session-1" />);
 
+    expect(screen.getByText("Start with a favorite template")).not.toBeNull();
+    expect(screen.getByText("Suggested templates")).not.toBeNull();
     expect(
       screen.getAllByRole("button").map((button) => button.textContent),
     ).toEqual([
       "Template iconStandup",
       "Template iconRetrospective",
+      "Template iconProject Kickoff",
       "New template",
     ]);
-    expect(
-      screen.queryByRole("button", { name: "Project Kickoff" }),
-    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Standup" }));
 
@@ -393,12 +405,100 @@ describe("RawEditor", () => {
       true,
     );
     expect(buttons.map((button) => button.textContent)).toEqual([
+      "Template iconProject Kickoff",
+      "Template iconDaily Standup",
+      "Template icon1:1 Meeting",
+      "New template",
+    ]);
+    expect(screen.queryByRole("button", { name: "Board Meeting" })).toBeNull();
+  });
+
+  it("prioritizes event-aware template suggestions", () => {
+    hoisted.eventParticipants = [
+      { name: "John", is_current_user: true },
+      { name: "Ada", is_current_user: false },
+    ];
+    hoisted.userTemplates = [
+      {
+        id: "default-daily-standup",
+        title: "Daily Standup",
+        pinned: false,
+        sections: [{ title: "Today", description: "" }],
+      },
+      {
+        id: "default-project-kickoff",
+        title: "Project Kickoff",
+        pinned: false,
+        sections: [{ title: "Goals", description: "" }],
+      },
+      {
+        id: "default-one-on-one-meeting",
+        title: "1:1 Meeting",
+        pinned: false,
+        sections: [{ title: "Updates", description: "" }],
+      },
+      {
+        id: "default-sales-discovery-call",
+        title: "Sales Discovery Call",
+        pinned: false,
+        sections: [{ title: "Customer Needs", description: "" }],
+      },
+    ];
+
+    render(
+      <RawEditor
+        sessionId="session-1"
+        eventTitle="Acme product demo"
+        eventDescription="Qualify the prospect and understand their budget"
+      />,
+    );
+
+    expect(
+      screen.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual([
+      "Template iconSales Discovery Call",
+      "Template icon1:1 Meeting",
+      "Template iconProject Kickoff",
+      "New template",
+    ]);
+  });
+
+  it("prioritizes one-on-one notes for two-person events", () => {
+    hoisted.eventParticipants = [
+      { name: "John", is_current_user: true },
+      { name: "Ada", is_current_user: false },
+    ];
+    hoisted.userTemplates = [
+      {
+        id: "default-daily-standup",
+        title: "Daily Standup",
+        pinned: false,
+        sections: [{ title: "Today", description: "" }],
+      },
+      {
+        id: "default-project-kickoff",
+        title: "Project Kickoff",
+        pinned: false,
+        sections: [{ title: "Goals", description: "" }],
+      },
+      {
+        id: "default-one-on-one-meeting",
+        title: "1:1 Meeting",
+        pinned: false,
+        sections: [{ title: "Updates", description: "" }],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" eventTitle="Weekly catch-up" />);
+
+    expect(
+      screen.getAllByRole("button").map((button) => button.textContent),
+    ).toEqual([
       "Template icon1:1 Meeting",
       "Template iconProject Kickoff",
       "Template iconDaily Standup",
       "New template",
     ]);
-    expect(screen.queryByRole("button", { name: "Board Meeting" })).toBeNull();
   });
 
   it("creates a template from the empty memo state", async () => {
