@@ -31,12 +31,6 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
     let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
     let is_stereo = prepare_existing_audio_state(&encoded_path, &ogg_path, &wav_path)?;
 
-    let stereo_spec = hound::WavSpec {
-        channels: 2,
-        sample_rate: super::super::SAMPLE_RATE,
-        bits_per_sample: 32,
-        sample_format: hound::SampleFormat::Float,
-    };
     let mono_spec = hound::WavSpec {
         channels: 1,
         sample_rate: super::super::SAMPLE_RATE,
@@ -46,8 +40,6 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
 
     let writer = if wav_path.exists() {
         hound::WavWriter::append(&wav_path)?
-    } else if is_stereo {
-        hound::WavWriter::create(&wav_path, stereo_spec)?
     } else {
         hound::WavWriter::create(&wav_path, mono_spec)?
     };
@@ -173,7 +165,7 @@ fn prepare_existing_audio_state(
         return Ok(wav_is_stereo(wav_path)?);
     }
 
-    Ok(true)
+    Ok(false)
 }
 
 fn decode_mp3_to_wav(encoded_path: &Path, wav_path: &Path) -> Result<(), ActorProcessingErr> {
@@ -311,6 +303,27 @@ mod tests {
 
         assert!(session_dir.join(WAV_FILE).exists());
         assert!(!session_dir.join(FINAL_AUDIO_FILE).exists());
+    }
+
+    #[test]
+    fn create_disk_sink_mixes_new_recordings_to_mono() {
+        let dir = tempdir().unwrap();
+        let session_dir = dir.path().join("session");
+        std::fs::create_dir_all(&session_dir).unwrap();
+
+        let mut sink = create_disk_sink(&session_dir).unwrap();
+        write_dual(&mut sink, &[0.25, -0.25], &[0.5, 0.5]).unwrap();
+        finalize_writer(&mut sink.writer, Some(&sink.wav_path)).unwrap();
+
+        let mut reader = hound::WavReader::open(session_dir.join(WAV_FILE)).unwrap();
+        assert_eq!(reader.spec().channels, 1);
+        assert_eq!(
+            reader
+                .samples::<f32>()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            vec![0.75, 0.25]
+        );
     }
 
     #[test]
