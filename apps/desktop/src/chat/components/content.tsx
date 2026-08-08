@@ -237,6 +237,7 @@ export function ChatContent({
           />
           <ChatMessageInput
             draftKey={sessionId}
+            layout={layout}
             disabled={disabled}
             onSendMessage={submitOrQueueMessage}
             onDraftContentChange={onDraftContentChange}

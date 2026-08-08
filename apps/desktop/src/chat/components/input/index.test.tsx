@@ -188,6 +188,7 @@ describe("ChatMessageInput", () => {
     render(
       <ChatMessageInput
         draftKey="chat-input-test"
+        layout="right-panel"
         onDraftContentChange={onDraftContentChange}
         onSendMessage={onSendMessage}
       />,
@@ -231,6 +232,7 @@ describe("ChatMessageInput", () => {
     render(
       <ChatMessageInput
         draftKey="chat-input-test"
+        layout="right-panel"
         onDraftContentChange={onDraftContentChange}
         onSendMessage={vi.fn()}
       />,
@@ -274,6 +276,7 @@ describe("ChatMessageInput", () => {
     render(
       <ChatMessageInput
         draftKey="chat-input-test"
+        layout="right-panel"
         isStreaming
         onSendMessage={onSendMessage}
       />,
@@ -338,7 +341,11 @@ describe("ChatMessageInput", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
-      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+      <ChatMessageInput
+        draftKey="chat-input-test"
+        layout="right-panel"
+        onSendMessage={vi.fn()}
+      />,
     );
 
     const sendButton = screen.getByRole<HTMLButtonElement>("button", {
@@ -436,7 +443,11 @@ describe("ChatMessageInput", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
-      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+      <ChatMessageInput
+        draftKey="chat-input-test"
+        layout="right-panel"
+        onSendMessage={vi.fn()}
+      />,
     );
 
     const editor = screen.getByTestId("chat-editor");
@@ -471,7 +482,11 @@ describe("ChatMessageInput", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
-      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+      <ChatMessageInput
+        draftKey="chat-input-test"
+        layout="right-panel"
+        onSendMessage={vi.fn()}
+      />,
     );
 
     const messageInput = screen
@@ -491,6 +506,7 @@ describe("ChatMessageInput", () => {
     render(
       <ChatMessageInput
         draftKey="chat-input-history-walk"
+        layout="right-panel"
         onSendMessage={vi.fn()}
       />,
     );
@@ -543,6 +559,7 @@ describe("ChatMessageInput", () => {
     render(
       <ChatMessageInput
         draftKey="chat-input-history-empty"
+        layout="right-panel"
         onSendMessage={vi.fn()}
       />,
     );
@@ -560,6 +577,7 @@ describe("ChatMessageInput", () => {
     render(
       <ChatMessageInput
         draftKey="chat-input-history-edit"
+        layout="right-panel"
         onSendMessage={vi.fn()}
       />,
     );
@@ -586,7 +604,11 @@ describe("ChatMessageInput", () => {
     shellState.mode = "RightPanelOpen";
     const draftKey = "chat-input-history-unmount";
     const { unmount } = render(
-      <ChatMessageInput draftKey={draftKey} onSendMessage={vi.fn()} />,
+      <ChatMessageInput
+        draftKey={draftKey}
+        layout="right-panel"
+        onSendMessage={vi.fn()}
+      />,
     );
 
     editorState.json = docWithText("Sent");
@@ -612,7 +634,11 @@ describe("ChatMessageInput", () => {
     shellState.mode = "RightPanelOpen";
 
     render(
-      <ChatMessageInput draftKey="chat-input-test" onSendMessage={vi.fn()} />,
+      <ChatMessageInput
+        draftKey="chat-input-test"
+        layout="right-panel"
+        onSendMessage={vi.fn()}
+      />,
     );
 
     const editor = screen.getByTestId("chat-editor");
