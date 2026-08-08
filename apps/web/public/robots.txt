@@ -24,13 +24,9 @@ Allow: /api/og/
 Allow: /blog
 Allow: /docs
 Allow: /changelog
-Allow: /pricing
-Allow: /enterprise
 Allow: /privacy
 Allow: /terms
 Allow: /download
-Allow: /faq
-Allow: /about
 
 # Disallow private or intentionally non-indexed routes
 Disallow: /product/

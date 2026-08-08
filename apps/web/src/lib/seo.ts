@@ -2,7 +2,7 @@ export const ANARLOG_SITE_URL = "https://anarlog.so";
 export const DEFAULT_OG_IMAGE_URL = `${ANARLOG_SITE_URL}/og.jpg`;
 
 /**
- * The site serves every page at a trailing-slash URL and 307-redirects the
+ * The site serves every page at a trailing-slash URL and 308-redirects the
  * bare form, so canonical tags, og:url, and sitemap entries must all carry the
  * slash or they point at a redirect.
  */

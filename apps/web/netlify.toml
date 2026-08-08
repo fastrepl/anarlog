@@ -123,6 +123,31 @@ to = "https://anarlog.so/:splat"
 status = 301
 force = true
 
+# Char-era marketing pages that no longer exist; 301 to keep backlink equity
+[[redirects]]
+from = "/pricing"
+to = "/"
+status = 301
+force = true
+
+[[redirects]]
+from = "/faq"
+to = "/"
+status = 301
+force = true
+
+[[redirects]]
+from = "/about"
+to = "/"
+status = 301
+force = true
+
+[[redirects]]
+from = "/enterprise"
+to = "/"
+status = 301
+force = true
+
 [[redirects]]
 from = "/roadmap"
 to = "/changelog/"
