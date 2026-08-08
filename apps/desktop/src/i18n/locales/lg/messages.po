@@ -334,10 +334,6 @@ msgstr ""
 msgid "Approve"
 msgstr ""
 
-#: src/chat/components/input/index.tsx
-msgid "Ask & search about anything, or be creative!"
-msgstr ""
-
 #: src/shared/chat-cta.tsx
 msgid "Ask Anarlog anything"
 msgstr ""

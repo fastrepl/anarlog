@@ -74,9 +74,7 @@ export function ChatMessageInput({
   const isRightPanel = chat.mode === "RightPanelOpen";
   const isFloating = chat.mode === "FloatingOpen";
   const showSendControl = !isFloating || isStreaming || hasContent;
-  const placeholderText = isFloating
-    ? t`Ask anything`
-    : t`Ask & search about anything, or be creative!`;
+  const placeholderText = t`Ask anything`;
   const placeholderTextRef = useRef(placeholderText);
   placeholderTextRef.current = placeholderText;
   const placeholder = useMemo(
