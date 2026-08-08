@@ -890,6 +890,51 @@ describe("EnhancerService", () => {
     });
   });
 
+  it("retires a durable job when the transcript stays too short", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({ wordCount: 1 });
+    const service = new EnhancerService(createDeps());
+    const pendingJob = createPendingJob();
+
+    service.queueAutoEnhance("session-1", pendingJob);
+    await vi.advanceTimersByTimeAsync(10_500);
+
+    expect(mocks.discardPendingAutoEnhanceJob).toHaveBeenCalledWith(pendingJob);
+  });
+
+  it("refuses manual enhancement when the transcript is too short", async () => {
+    snapshot = createSnapshot({ wordCount: 5 });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+    const event = vi.fn();
+    service.on(event);
+
+    await expect(service.enhance("session-1")).resolves.toEqual({
+      type: "too_short",
+    });
+
+    expect(ai.generate).not.toHaveBeenCalled();
+    expect(mocks.ensureSummaryDocument).not.toHaveBeenCalled();
+    expect(mocks.replaceSummaryDocumentTemplate).not.toHaveBeenCalled();
+    expect(event).toHaveBeenCalledWith({
+      type: "auto-enhance-skipped",
+      sessionId: "session-1",
+      reason: "Transcript too short to summarize (24/160 characters minimum)",
+      reasonCode: "transcript_too_short",
+    });
+  });
+
+  it("still enhances sessions without any transcript", async () => {
+    snapshot = createSnapshot({ notes: [createNote()] });
+    const ai = createMockAITaskStore();
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    await expect(service.enhance("session-1")).resolves.toEqual({
+      type: "started",
+      noteId: "note-1",
+    });
+  });
+
   it("cancels a pending retry when the session becomes active", async () => {
     vi.useFakeTimers();
     snapshot = createSnapshot({ wordCount: 1 });

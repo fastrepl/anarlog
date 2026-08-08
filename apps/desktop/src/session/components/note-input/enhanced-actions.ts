@@ -10,6 +10,7 @@ import {
   requestMainAITaskCancel,
   requestMainEnhance,
 } from "~/ai/task-window-sync";
+import { getEnhancerService } from "~/services/enhancer";
 import { useEnhancedNote } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
@@ -41,6 +42,21 @@ export function useEnhancedNoteActions({
           "Set up Intelligence in Settings before regenerating this summary.",
         );
         return;
+      }
+
+      const service = getEnhancerService();
+      if (service) {
+        const eligibility = await service.checkEligibility(sessionId);
+        if (
+          !eligibility.eligible &&
+          eligibility.code === "transcript_too_short"
+        ) {
+          sonnerToast.warning("Summary wasn't generated", {
+            id: `auto-summary-too-short-${sessionId}`,
+            description: eligibility.reason,
+          });
+          return;
+        }
       }
 
       if (!isMainAITaskHostWindow()) {

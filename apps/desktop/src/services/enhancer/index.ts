@@ -29,7 +29,8 @@ import { getTemplateById } from "~/templates/queries";
 type EnhanceResult =
   | { type: "started"; noteId: string }
   | { type: "already_active"; noteId: string }
-  | { type: "no_model" };
+  | { type: "no_model" }
+  | { type: "too_short" };
 
 type QueueEmptySummaryResult =
   | { type: "queued" }
@@ -387,7 +388,11 @@ export class EnhancerService {
         return;
       }
 
+      const pendingJob = this.activeAutoEnhance.get(sessionId);
       this.activeAutoEnhance.delete(sessionId);
+      if (pendingJob) {
+        await discardPendingAutoEnhanceJob(pendingJob);
+      }
       this.emit({
         type: "auto-enhance-skipped",
         sessionId,
@@ -403,6 +408,14 @@ export class EnhancerService {
       pendingAutoEnhance,
     });
     if (!this.activeAutoEnhance.has(sessionId)) return;
+
+    if (result.type === "too_short") {
+      this.activeAutoEnhance.delete(sessionId);
+      if (pendingAutoEnhance) {
+        await discardPendingAutoEnhanceJob(pendingAutoEnhance);
+      }
+      return;
+    }
 
     if (result.type === "no_model") {
       this.activeAutoEnhance.delete(sessionId);
@@ -461,6 +474,17 @@ export class EnhancerService {
     if (!model) return { type: "no_model" };
 
     const snapshot = await this.loadSession(sessionId);
+    const eligibility = getEligibility(snapshot.transcripts);
+    if (!eligibility.eligible && eligibility.code === "transcript_too_short") {
+      this.emit({
+        type: "auto-enhance-skipped",
+        sessionId,
+        reason: eligibility.reason,
+        reasonCode: eligibility.code,
+      });
+      return { type: "too_short" };
+    }
+
     let templateId = resolveTemplateId(
       opts,
       getSelectedTemplateId,
