@@ -479,10 +479,10 @@ describe("ChatMessageInput", () => {
       .closest("[data-chat-message-input]");
     const outerContainer = messageInput?.parentElement?.parentElement;
 
-    expect(outerContainer?.className).toContain("px-3");
-    expect(outerContainer?.className).toContain("pb-4");
+    expect(outerContainer?.className).toContain("px-2");
+    expect(outerContainer?.className).toContain("pb-3");
     expect(outerContainer?.className).not.toContain("px-5");
-    expect(outerContainer?.className).not.toContain("px-2");
+    expect(outerContainer?.className).not.toContain("px-3");
     expect(outerContainer?.className).not.toContain("pr-0");
   });
 

@@ -153,7 +153,7 @@ describe("ChatView", () => {
     );
     expect(screen.queryByTestId("chat-toolbar")).toBeNull();
     expect(mocks.toolbarControls).not.toHaveBeenCalled();
-    expect(container.firstElementChild?.className).toContain("pb-3");
+    expect(container.firstElementChild?.className).not.toContain("pb-3");
   });
 
   it("uses the sidebar card shell in the right panel layout", () => {

@@ -130,7 +130,6 @@ export function ChatPanelFrame({
         "flex min-h-0 flex-col overflow-hidden",
         isFloating ? "max-h-full" : "h-full",
         isFloating ? chatFloatingPanelClassNames() : panelClassName,
-        chat.scope === "automations" && !isFloating && "pb-3",
       ])}
     >
       {chat.scope === "automations" ? null : (
