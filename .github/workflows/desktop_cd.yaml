@@ -622,6 +622,7 @@ jobs:
           POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           VITE_POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN_HYPRNOTE_2 }}
+          CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
           APP_VERSION: ${{ needs.compute-version.outputs.version }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -631,6 +632,43 @@ jobs:
           VITE_API_URL: https://api.anarlog.so
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - if: ${{ inputs.channel == 'stable' }}
+        uses: ./.github/actions/sentry_cli
+      - if: ${{ inputs.channel == 'stable' }}
+        name: Upload Windows debug symbols to Sentry
+        shell: bash
+        env:
+          INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+          INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
+        run: |
+          release_dir="apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release"
+          if [[ ! -f "$release_dir/anarlog.pdb" ]]; then
+            echo "::error::Missing anarlog.pdb next to the Windows binary"
+            exit 1
+          fi
+          sentry-cli debug-files check "$release_dir/anarlog.pdb"
+
+          response=$(
+            curl --fail --silent --show-error --get \
+              --header "Authorization: Bearer $INFISICAL_TOKEN" \
+              --data-urlencode "projectId=$INFISICAL_PROJECT_ID" \
+              --data-urlencode "environment=prod" \
+              --data-urlencode "secretPath=/anarlog/github" \
+              --data-urlencode "expandSecretReferences=false" \
+              "https://app.infisical.com/api/v4/secrets/SENTRY_AUTH_TOKEN"
+          )
+          if ! SENTRY_AUTH_TOKEN=$(jq -er '.secret.secretValue | select(length > 0)' <<< "$response"); then
+            echo "::error::Missing SENTRY_AUTH_TOKEN in Infisical prod:/anarlog/github"
+            exit 1
+          fi
+          export SENTRY_AUTH_TOKEN
+
+          sentry-cli debug-files upload \
+            --org fastrepl \
+            --project hyprnote2 \
+            --include-sources \
+            "$release_dir/anarlog.exe" \
+            "$release_dir/anarlog.pdb"
       - if: ${{ inputs.channel == 'stable' }}
         name: Sign in to Azure
         uses: azure/login@v3

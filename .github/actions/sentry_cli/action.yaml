@@ -5,7 +5,17 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - run: curl -sL https://sentry.io/get-cli/ | SENTRY_CLI_VERSION="${{ inputs.version }}" sh
+    - if: runner.os != 'Windows'
+      run: curl -sL https://sentry.io/get-cli/ | SENTRY_CLI_VERSION="${{ inputs.version }}" sh
       shell: bash
+    - if: runner.os == 'Windows'
+      run: |
+        $dir = Join-Path $env:RUNNER_TEMP "sentry-cli"
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        Invoke-WebRequest `
+          "https://downloads.sentry-cdn.com/sentry-cli/${{ inputs.version }}/sentry-cli-Windows-x86_64.exe" `
+          -OutFile (Join-Path $dir "sentry-cli.exe")
+        Add-Content $env:GITHUB_PATH $dir
+      shell: pwsh
     - run: sentry-cli --version
       shell: bash
