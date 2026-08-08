@@ -234,6 +234,30 @@ export async function getChatMessageGroupId(
   return rows[0]?.chat_group_id || null;
 }
 
+export function deleteChatGroup(chatGroupId: string): Promise<void> {
+  return enqueueDatabaseWrite(chatWriteKey(chatGroupId), async () => {
+    const now = new Date().toISOString();
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE chat_groups
+          SET deleted_at = ?, updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [now, now, chatGroupId],
+      },
+      {
+        sql: `
+          UPDATE chat_messages
+          SET deleted_at = ?, updated_at = ?
+          WHERE chat_group_id = ? AND deleted_at IS NULL
+        `,
+        params: [now, now, chatGroupId],
+      },
+    ]);
+  });
+}
+
 export function deleteChatMessage(
   chatGroupId: string,
   messageId: string,

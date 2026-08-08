@@ -63,15 +63,15 @@ msgstr "1 week"
 msgid "3 days"
 msgstr "3 days"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "A dated Notion update with the meeting summary."
 msgstr "A dated Notion update with the meeting summary."
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "A Markdown file with the note, summary, and transcript."
 msgstr "A Markdown file with the note, summary, and transcript."
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "A Slack message with the meeting title and recap."
 msgstr "A Slack message with the meeting title and recap."
 
@@ -127,7 +127,7 @@ msgstr "Add {0} account"
 msgid "Add {0} in System Settings > General > Language & Region to transcribe with {model}, or choose another model."
 msgstr "Add {0} in System Settings > General > Language & Region to transcribe with {model}, or choose another model."
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Add a dated update to the selected Notion page."
 msgstr "Add a dated update to the selected Notion page."
 
@@ -143,7 +143,7 @@ msgstr "Add API key"
 msgid "Add language"
 msgstr "Add language"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Add meeting decisions and follow-ups to a Notion project."
 msgstr "Add meeting decisions and follow-ups to a Notion project."
 
@@ -322,7 +322,7 @@ msgstr "App icon"
 msgid "Appearance"
 msgstr "Appearance"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Append the meeting update"
 msgstr "Append the meeting update"
 
@@ -377,6 +377,14 @@ msgid "Automatically install updates"
 msgstr "Automatically install updates"
 
 #: src/settings/automations/index.tsx
+msgid "Automation actions"
+msgstr "Automation actions"
+
+#: src/automations/actions.ts
+msgid "Automation deleted"
+msgstr "Automation deleted"
+
+#: src/settings/automations/index.tsx
 msgid "Automation disabled"
 msgstr "Automation disabled"
 
@@ -387,6 +395,10 @@ msgstr "Automation draft saved"
 #: src/settings/automations/index.tsx
 msgid "Automation enabled"
 msgstr "Automation enabled"
+
+#: src/automations/actions.ts
+msgid "Automation removed"
+msgstr "Automation removed"
 
 #: src/settings/automations/index.tsx
 #: src/sidebar/settings.tsx
@@ -528,8 +540,8 @@ msgid "Choose a Slack channel first."
 msgstr "Choose a Slack channel first."
 
 #: src/settings/automations/index.tsx
-msgid "Choose a starter or describe an automation in Chat."
-msgstr "Choose a starter or describe an automation in Chat."
+msgid "Choose a starter from the sidebar or describe an automation in Chat."
+msgstr "Choose a starter from the sidebar or describe an automation in Chat."
 
 #: src/settings/automations/starter-config.tsx
 msgid "Choose a team"
@@ -596,6 +608,7 @@ msgid "Cleaning up..."
 msgstr "Cleaning up..."
 
 #: src/contacts/shared.tsx
+#: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Clear search"
@@ -685,7 +698,7 @@ msgstr "Cloud sync unavailable"
 msgid "Collaborator"
 msgstr "Collaborator"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Collect action items"
 msgstr "Collect action items"
 
@@ -693,7 +706,7 @@ msgstr "Collect action items"
 msgid "Color theme"
 msgstr "Color theme"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Combine metadata, summary, notes, and transcript."
 msgstr "Combine metadata, summary, notes, and transcript."
 
@@ -839,9 +852,17 @@ msgstr "Copy message"
 msgid "Copy recovery key"
 msgstr "Copy recovery key"
 
+#: src/automations/actions.ts
+msgid "Could not delete the automation"
+msgstr "Could not delete the automation"
+
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr "Could not load Slack channels. Reconnect Slack and try again."
+
+#: src/automations/actions.ts
+msgid "Could not remove the automation"
+msgstr "Could not remove the automation"
 
 #: src/settings/automations/index.tsx
 msgid "Could not save the automation draft"
@@ -871,7 +892,7 @@ msgstr "Create a recovery key"
 msgid "Create account"
 msgstr "Create account"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Create Linear issues"
 msgstr "Create Linear issues"
 
@@ -890,6 +911,10 @@ msgstr "Create template"
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Created"
 msgstr "Created"
+
+#: src/settings/automations/index.tsx
+msgid "Created {createdAt}"
+msgstr "Created {createdAt}"
 
 #: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
@@ -924,6 +949,7 @@ msgstr "Default"
 
 #: src/contacts/contact-page-header.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
+#: src/sidebar/automations.tsx
 #: src/sidebar/timeline/index.tsx
 #: src/templates/sections-editor.tsx
 #: src/templates/template-form.tsx
@@ -941,6 +967,10 @@ msgstr "Delete 1 selected note?"
 #: src/sidebar/timeline/item.tsx
 msgid "Delete All Recurring Events"
 msgstr "Delete All Recurring Events"
+
+#: src/settings/automations/index.tsx
+msgid "Delete automation"
+msgstr "Delete automation"
 
 #: src/sidebar/timeline/item.tsx
 msgid "Delete Event"
@@ -977,6 +1007,10 @@ msgstr "Deny"
 #: src/templates/template-form.tsx
 msgid "Describe the template purpose..."
 msgstr "Describe the template purpose..."
+
+#: src/settings/automations/index.tsx
+msgid "Describe what should happen and when. This draft becomes an automation once you send the first message."
+msgstr "Describe what should happen and when. This draft becomes an automation once you send the first message."
 
 #: src/settings/general/notification.tsx
 msgid "Detect meetings from microphone activity."
@@ -1032,8 +1066,13 @@ msgid "Download recovery key (.txt)"
 msgstr "Download recovery key (.txt)"
 
 #: src/settings/automations/index.tsx
+#: src/sidebar/automations.tsx
 msgid "Draft"
 msgstr "Draft"
+
+#: src/settings/automations/index.tsx
+msgid "Drafted in Chat"
+msgstr "Drafted in Chat"
 
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
@@ -1043,6 +1082,10 @@ msgstr "Duplicate"
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Duration"
 msgstr "Duration"
+
+#: src/sidebar/automations.tsx
+msgid "Edit"
+msgstr "Edit"
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
@@ -1140,7 +1183,7 @@ msgstr "Expected output"
 msgid "Export"
 msgstr "Export"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Export every meeting as Markdown"
 msgstr "Export every meeting as Markdown"
 
@@ -1176,7 +1219,7 @@ msgstr "Failed to load pull request"
 msgid "Favorite template"
 msgstr "Favorite template"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "File each action item as an issue in the selected team."
 msgstr "File each action item as an issue in the selected team."
 
@@ -1257,8 +1300,8 @@ msgid "Get Pro"
 msgstr "Get Pro"
 
 #: src/onboarding/account/before-login.tsx
-#: src/settings/automations/index.tsx
 #: src/settings/general/account.tsx
+#: src/sidebar/automations.tsx
 msgid "Get started"
 msgstr "Get started"
 
@@ -1469,7 +1512,7 @@ msgstr "Learn more"
 msgid "Light"
 msgstr "Light"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Linear issues created from meeting follow-ups."
 msgstr "Linear issues created from meeting follow-ups."
 
@@ -1559,7 +1602,7 @@ msgstr "Meeting"
 msgid "Meeting details access turned on"
 msgstr "Meeting details access turned on"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Meeting ends"
 msgstr "Meeting ends"
 
@@ -1651,6 +1694,10 @@ msgstr "Move down"
 msgid "Move up"
 msgstr "Move up"
 
+#: src/sidebar/automations.tsx
+msgid "My automations"
+msgstr "My automations"
+
 #: src/sidebar/note-filter-menu.tsx
 msgid "My notes"
 msgstr "My notes"
@@ -1659,6 +1706,10 @@ msgstr "My notes"
 #: src/contacts/organization-details.tsx
 msgid "Name"
 msgstr "Name"
+
+#: src/sidebar/automations.tsx
+msgid "New automation"
+msgstr "New automation"
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "New chat"
@@ -1688,6 +1739,14 @@ msgstr "No apps found."
 #: src/settings/automations/index.tsx
 msgid "No automation draft yet"
 msgstr "No automation draft yet"
+
+#: src/sidebar/automations.tsx
+msgid "No automations found"
+msgstr "No automations found"
+
+#: src/sidebar/automations.tsx
+msgid "No automations yet"
+msgstr "No automations yet"
 
 #: src/calendar/components/calendar-selection.tsx
 msgid "No calendars found"
@@ -1985,7 +2044,7 @@ msgstr "Plans"
 msgid "Play from here"
 msgstr "Play from here"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Post a meeting recap to a Slack channel."
 msgstr "Post a meeting recap to a Slack channel."
 
@@ -1997,7 +2056,7 @@ msgstr "Post recording disclosure in meeting chat"
 msgid "Post the meeting summary to a channel you can access."
 msgstr "Post the meeting summary to a channel you can access."
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Post to a channel"
 msgstr "Post to a channel"
 
@@ -2115,9 +2174,17 @@ msgstr "Related Notes"
 msgid "Reminders"
 msgstr "Reminders"
 
+#: src/sidebar/automations.tsx
+msgid "Remove"
+msgstr "Remove"
+
 #: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
 msgstr "Remove {term}"
+
+#: src/settings/automations/index.tsx
+msgid "Remove automation"
+msgstr "Remove automation"
 
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"
@@ -2127,7 +2194,7 @@ msgstr "Remove photo"
 msgid "Remove repository"
 msgstr "Remove repository"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Render canonical Markdown"
 msgstr "Render canonical Markdown"
 
@@ -2227,7 +2294,7 @@ msgstr "Retry"
 msgid "Runs after the recording finishes, not during the meeting."
 msgstr "Runs after the recording finishes, not during the meeting."
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr "Runs once the AI summary for the meeting is ready."
 
@@ -2239,7 +2306,7 @@ msgstr "Save"
 msgid "Save & enable"
 msgstr "Save & enable"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Save completed meetings as local Markdown files."
 msgstr "Save completed meetings as local Markdown files."
 
@@ -2267,6 +2334,10 @@ msgstr "Saved locally"
 #: src/settings/automations/starter-config.tsx
 msgid "Search"
 msgstr "Search"
+
+#: src/sidebar/automations.tsx
+msgid "Search automations..."
+msgstr "Search automations..."
 
 #: src/contacts/shared.tsx
 msgid "Search contacts..."
@@ -2384,7 +2455,7 @@ msgstr "Send email"
 msgid "Send message"
 msgstr "Send message"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Send the recap to the selected Slack channel."
 msgstr "Send the recap to the selected Slack channel."
 
@@ -2450,7 +2521,7 @@ msgstr "Settings"
 msgid "Share"
 msgstr "Share"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Share a meeting recap in Slack"
 msgstr "Share a meeting recap in Slack"
 
@@ -2684,6 +2755,10 @@ msgstr "Start a Pro trial or add your own LLM API key to generate a summary from
 msgid "Start Anarlog at login"
 msgstr "Start Anarlog at login"
 
+#: src/settings/automations/index.tsx
+msgid "Start in Chat"
+msgstr "Start in Chat"
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Start listening when a scheduled meeting begins."
 msgstr "Start listening when a scheduled meeting begins."
@@ -2846,11 +2921,11 @@ msgstr "System audio"
 msgid "System audio enabled"
 msgstr "System audio enabled"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Take the enhanced note with decisions and action items."
 msgstr "Take the enhanced note with decisions and action items."
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Take the enhanced note with decisions and follow-ups."
 msgstr "Take the enhanced note with decisions and follow-ups."
 
@@ -2902,6 +2977,10 @@ msgstr "Thinking..."
 #: src/main/sync-status.tsx
 msgid "This account already syncs on 5 devices. Remove another device to sync here."
 msgstr "This account already syncs on 5 devices. Remove another device to sync here."
+
+#: src/settings/automations/index.tsx
+msgid "This automation is drafted in Chat. Continue the conversation on the right to refine what it should do."
+msgstr "This automation is drafted in Chat. Continue the conversation on the right to refine what it should do."
 
 #: src/main/sync-status.tsx
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
@@ -2970,11 +3049,11 @@ msgstr "Trigger"
 msgid "Try again"
 msgstr "Try again"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Turn action items into Linear issues"
 msgstr "Turn action items into Linear issues"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Turn assigned follow-ups into Linear issue drafts."
 msgstr "Turn assigned follow-ups into Linear issue drafts."
 
@@ -3020,11 +3099,16 @@ msgstr "Unpin"
 msgid "Untitled"
 msgstr "Untitled"
 
+#: src/settings/automations/index.tsx
+#: src/sidebar/automations.tsx
+msgid "Untitled automation"
+msgstr "Untitled automation"
+
 #: src/contacts/details.tsx
 msgid "Untitled Note"
 msgstr "Untitled Note"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Update project notes in Notion"
 msgstr "Update project notes in Notion"
 
@@ -3077,7 +3161,7 @@ msgstr "Upload audio"
 msgid "Upload transcript"
 msgstr "Upload transcript"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Use a stable filename in the configured export directory."
 msgstr "Use a stable filename in the configured export directory."
 
@@ -3089,11 +3173,11 @@ msgstr "Use an existing key"
 msgid "Use system audio to capture other speakers"
 msgstr "Use system audio to capture other speakers"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Use the AI meeting summary"
 msgstr "Use the AI meeting summary"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Use the meeting's action items and summary tasks."
 msgstr "Use the meeting's action items and summary tasks."
 
@@ -3125,7 +3209,7 @@ msgstr "View plans"
 msgid "Wait before treating microphone activity as a meeting."
 msgstr "Wait before treating microphone activity as a meeting."
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Wait until the transcript and note are complete."
 msgstr "Wait until the transcript and note are complete."
 
@@ -3157,7 +3241,7 @@ msgstr "Workspace"
 msgid "Write"
 msgstr "Write"
 
-#: src/settings/automations/index.tsx
+#: src/automations/starters.tsx
 msgid "Write to a folder"
 msgstr "Write to a folder"
 
