@@ -16,6 +16,7 @@ const baseParams = {
   isAiTranscriptionTabActive: false,
   isAiIntelligenceTabActive: false,
   isBatchTranscribingInActiveTranscriptTab: false,
+  isLiveMeetingActive: false,
   cloudsyncInitialSyncToastId: null,
   hasActiveDownload: false,
   downloadingModel: null,
@@ -208,6 +209,23 @@ describe("sidebar toast registry", () => {
 
     toast?.primaryAction?.onClick();
     expect(downloadUpdate).toHaveBeenCalledOnce();
+  });
+
+  it("hides the desktop update toast while a meeting is recording", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        isLiveMeetingActive: true,
+        update: {
+          ...baseParams.update,
+          status: "available",
+          version: "1.0.34",
+        },
+      }),
+      () => false,
+    );
+
+    expect(toast).toBeNull();
   });
 
   it("keeps desktop update progress in the toast", () => {

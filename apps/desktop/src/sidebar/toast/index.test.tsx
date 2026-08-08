@@ -15,6 +15,13 @@ const mocks = vi.hoisted(() => ({
   dismiss: vi.fn(),
   dismissedToastIds: new Set<string>(),
   sessionMode: "inactive",
+  live: {
+    status: "inactive" as "inactive" | "active" | "finalizing",
+    sessionId: null as string | null,
+  },
+  visibilityHandlers: [] as Array<
+    (event: { payload: { window: { type: string }; visible: boolean } }) => void
+  >,
   currentTab: {
     type: "empty",
   } as {
@@ -48,6 +55,26 @@ const mocks = vi.hoisted(() => ({
     installing: false,
     downloadUpdate: vi.fn(),
     installUpdate: vi.fn(),
+  },
+}));
+
+vi.mock("@anlg/plugin-windows", () => ({
+  events: {
+    visibilityEvent: {
+      listen: (
+        handler: (event: {
+          payload: { window: { type: string }; visible: boolean };
+        }) => void,
+      ) => {
+        mocks.visibilityHandlers.push(handler);
+        return Promise.resolve(() => {
+          const index = mocks.visibilityHandlers.indexOf(handler);
+          if (index !== -1) {
+            mocks.visibilityHandlers.splice(index, 1);
+          }
+        });
+      },
+    },
   },
 }));
 
@@ -119,8 +146,11 @@ vi.mock("~/stt/capabilities", () => ({
 
 vi.mock("~/stt/contexts", () => ({
   useListener: (
-    selector: (state: { getSessionMode: () => string }) => unknown,
-  ) => selector({ getSessionMode: () => mocks.sessionMode }),
+    selector: (state: {
+      getSessionMode: () => string;
+      live: typeof mocks.live;
+    }) => unknown,
+  ) => selector({ getSessionMode: () => mocks.sessionMode, live: mocks.live }),
 }));
 
 vi.mock("./useDismissedToasts", () => ({
@@ -143,6 +173,8 @@ describe("ToastNotifications", () => {
     mocks.loading.mockClear();
     mocks.dismiss.mockClear();
     mocks.dismissedToastIds.clear();
+    mocks.live = { status: "inactive", sessionId: null };
+    mocks.visibilityHandlers.length = 0;
     mocks.openNew.mockClear();
     mocks.updateSettingsTabState.mockClear();
     mocks.currentTab = { type: "empty" };
@@ -247,11 +279,11 @@ describe("ToastNotifications", () => {
     expect(mocks.openNew).not.toHaveBeenCalled();
   });
 
-  it("dismisses update notices only for the current launch", () => {
+  it("snoozes dismissed update notices without persisting them", () => {
     mocks.update.status = "available";
     mocks.update.version = "1.0.34";
 
-    const firstLaunch = render(<ToastNotifications />);
+    const view = render(<ToastNotifications />);
     act(() => vi.advanceTimersByTime(500));
 
     const firstOptions = mocks.message.mock.calls[0][1];
@@ -266,10 +298,104 @@ describe("ToastNotifications", () => {
     act(() => firstOptions.onDismiss());
     expect(mocks.dismissToast).not.toHaveBeenCalled();
 
+    mocks.message.mockClear();
+    view.rerender(<ToastNotifications />);
+    expect(mocks.message).not.toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.anything(),
+    );
+  });
+
+  it("resurfaces the update notice on relaunch", () => {
+    mocks.update.status = "available";
+    mocks.update.version = "1.0.34";
+
+    const firstLaunch = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    const firstOptions = mocks.message.mock.calls[0][1];
+    act(() => firstOptions.onDismiss());
+
     firstLaunch.unmount();
     mocks.message.mockClear();
     render(<ToastNotifications />);
     act(() => vi.advanceTimersByTime(500));
+
+    expect(mocks.message).toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.objectContaining({ id: "desktop-update:1.0.34" }),
+    );
+  });
+
+  it("hides the update notice while a meeting is recording and resurfaces it after", () => {
+    mocks.update.status = "available";
+    mocks.update.version = "1.0.34";
+
+    const view = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    expect(mocks.message).toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.objectContaining({ id: "desktop-update:1.0.34" }),
+    );
+
+    mocks.live = { status: "active", sessionId: "meeting-1" };
+    view.rerender(<ToastNotifications />);
+    expect(mocks.dismiss).toHaveBeenCalledWith("desktop-update:1.0.34");
+
+    mocks.message.mockClear();
+    mocks.live = { status: "inactive", sessionId: null };
+    view.rerender(<ToastNotifications />);
+
+    expect(mocks.message).toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.objectContaining({ id: "desktop-update:1.0.34" }),
+    );
+  });
+
+  it("resurfaces a dismissed update notice after a meeting ends", () => {
+    mocks.update.status = "available";
+    mocks.update.version = "1.0.34";
+
+    const view = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    const firstOptions = mocks.message.mock.calls[0][1];
+    act(() => firstOptions.onDismiss());
+
+    mocks.message.mockClear();
+    mocks.live = { status: "active", sessionId: "meeting-1" };
+    view.rerender(<ToastNotifications />);
+    expect(mocks.message).not.toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.anything(),
+    );
+
+    mocks.live = { status: "inactive", sessionId: null };
+    view.rerender(<ToastNotifications />);
+
+    expect(mocks.message).toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.objectContaining({ id: "desktop-update:1.0.34" }),
+    );
+  });
+
+  it("resurfaces the update notice when the main window is shown again", () => {
+    mocks.update.status = "available";
+    mocks.update.version = "1.0.34";
+
+    render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    const firstOptions = mocks.message.mock.calls[0][1];
+    act(() => firstOptions.onDismiss());
+    mocks.message.mockClear();
+
+    act(() => {
+      mocks.visibilityHandlers.forEach((handler) =>
+        handler({ payload: { window: { type: "main" }, visible: true } }),
+      );
+    });
 
     expect(mocks.message).toHaveBeenCalledWith(
       "Anarlog 1.0.34 is available",

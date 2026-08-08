@@ -23,6 +23,7 @@ type ToastRegistryParams = {
   isAiTranscriptionTabActive: boolean;
   isAiIntelligenceTabActive: boolean;
   isBatchTranscribingInActiveTranscriptTab: boolean;
+  isLiveMeetingActive: boolean;
   cloudsyncInitialSyncToastId: string | null;
   hasActiveDownload: boolean;
   downloadingModel: string | null;
@@ -52,6 +53,7 @@ export function createToastRegistry({
   isAiTranscriptionTabActive,
   isAiIntelligenceTabActive,
   isBatchTranscribingInActiveTranscriptTab,
+  isLiveMeetingActive,
   cloudsyncInitialSyncToastId,
   hasActiveDownload,
   downloadingModel,
@@ -99,7 +101,8 @@ export function createToastRegistry({
       ? [
           {
             toast: updateToast,
-            condition: () => true,
+            // Never show update prompts mid-meeting; they resurface after.
+            condition: () => !isLiveMeetingActive,
           },
         ]
       : []),

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { events as windowsEvents } from "@anlg/plugin-windows";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
@@ -31,9 +32,12 @@ export function ToastNotifications() {
   const auth = useAuth();
   const cloudsyncProgress = useCloudsyncInitialSyncProgress();
   const { dismissToast, isDismissed } = useDismissedToasts();
-  const [dismissedForLaunch, setDismissedForLaunch] = useState<Set<string>>(
-    () => new Set(),
-  );
+  // Update-toast dismissals are only a snooze: they expire when a meeting
+  // ends, when the main window is shown again, or on relaunch — so the toast
+  // keeps resurfacing until the update is installed.
+  const [snoozedUpdateToastId, setSnoozedUpdateToastId] = useState<
+    string | null
+  >(null);
   const shouldShowToast = useShouldShowToast();
   const {
     hasActiveDownload,
@@ -88,6 +92,43 @@ export function ToastNotifications() {
       ? state.getSessionMode(activeTranscriptSessionId) === "running_batch"
       : false,
   );
+  const activeLiveSessionId = useListener((state) =>
+    state.live.status === "active" ? state.live.sessionId : null,
+  );
+  const isLiveMeetingActive = activeLiveSessionId !== null;
+
+  const [lastLiveSessionId, setLastLiveSessionId] =
+    useState(activeLiveSessionId);
+  if (lastLiveSessionId !== activeLiveSessionId) {
+    setLastLiveSessionId(activeLiveSessionId);
+    if (lastLiveSessionId !== null) {
+      setSnoozedUpdateToastId(null);
+    }
+  }
+
+  useMountEffect(() => {
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+
+    void windowsEvents.visibilityEvent
+      .listen(({ payload }) => {
+        if (payload.window.type === "main" && payload.visible) {
+          setSnoozedUpdateToastId(null);
+        }
+      })
+      .then((fn) => {
+        if (cancelled) {
+          fn();
+        } else {
+          unlisten = fn;
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  });
 
   const openNew = useTabs((state) => state.openNew);
   const updateSettingsTabState = useTabs(
@@ -131,6 +172,7 @@ export function ToastNotifications() {
         isAiTranscriptionTabActive,
         isAiIntelligenceTabActive,
         isBatchTranscribingInActiveTranscriptTab,
+        isLiveMeetingActive,
         cloudsyncInitialSyncToastId:
           cloudsyncProgress.state === "syncing"
             ? cloudsyncProgress.toastId
@@ -155,6 +197,7 @@ export function ToastNotifications() {
       isAiTranscriptionTabActive,
       isAiIntelligenceTabActive,
       isBatchTranscribingInActiveTranscriptTab,
+      isLiveMeetingActive,
       cloudsyncProgress,
       hasActiveDownload,
       downloadingModel,
@@ -172,10 +215,10 @@ export function ToastNotifications() {
     () =>
       getToastToShow(registry, (id) =>
         isDesktopUpdateToastId(id)
-          ? dismissedForLaunch.has(id)
+          ? snoozedUpdateToastId === id
           : isDismissed(id),
       ),
-    [dismissedForLaunch, registry, isDismissed],
+    [snoozedUpdateToastId, registry, isDismissed],
   );
   const devtoolsToast = useMemo(
     () =>
@@ -207,11 +250,7 @@ export function ToastNotifications() {
 
     if (currentToast) {
       if (isDesktopUpdateToastId(currentToast.id)) {
-        setDismissedForLaunch((dismissed) => {
-          const nextDismissed = new Set(dismissed);
-          nextDismissed.add(currentToast.id);
-          return nextDismissed;
-        });
+        setSnoozedUpdateToastId(currentToast.id);
         return;
       }
       dismissToast(currentToast.id);
