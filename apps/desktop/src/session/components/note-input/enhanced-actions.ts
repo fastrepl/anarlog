@@ -10,7 +10,8 @@ import {
   requestMainAITaskCancel,
   requestMainEnhance,
 } from "~/ai/task-window-sync";
-import { getEnhancerService } from "~/services/enhancer";
+import { getEligibility } from "~/services/enhancer/eligibility";
+import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { useEnhancedNote } from "~/session/queries";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 
@@ -44,9 +45,9 @@ export function useEnhancedNoteActions({
         return;
       }
 
-      const service = getEnhancerService();
-      if (service) {
-        const eligibility = await service.checkEligibility(sessionId);
+      const snapshot = await loadSessionContentSnapshot(sessionId);
+      if (snapshot) {
+        const eligibility = getEligibility(snapshot.transcripts);
         if (
           !eligibility.eligible &&
           eligibility.code === "transcript_too_short"
