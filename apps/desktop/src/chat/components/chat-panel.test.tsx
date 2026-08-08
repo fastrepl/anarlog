@@ -164,7 +164,7 @@ describe("ChatView", () => {
     expect(root?.className).toContain("text-card-foreground");
     expect(root?.className).toContain("h-full");
     expect(root?.className).not.toContain("bg-primary");
-    expect(root?.firstElementChild?.className).toContain("h-12");
+    expect(root?.firstElementChild?.className).toContain("h-9");
     expect(root?.firstElementChild?.className).not.toContain("border-b");
     expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
     expect(mocks.toolbarControls).toHaveBeenCalledWith(

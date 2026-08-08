@@ -49,10 +49,17 @@ export function ChatToolbarControls({
   const { t } = useLingui();
   const isDark = surface === "dark";
   const isRightPanel = layout === "right-panel";
+  const actionButtonClassName = cn([
+    isDark ? darkToolbarButtonClassName : lightToolbarButtonClassName,
+    isRightPanel && "size-7",
+  ]);
 
   return (
     <div
-      className={cn(["flex h-full w-full min-w-0 items-center gap-2", "px-3"])}
+      className={cn([
+        "flex h-full w-full min-w-0 items-center gap-2",
+        isRightPanel ? "pr-1 pl-3" : "px-3",
+      ])}
     >
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <ChatGroups
@@ -71,9 +78,7 @@ export function ChatToolbarControls({
           icon={<Plus size={16} />}
           label={t`New chat`}
           onClick={onNewChat}
-          className={
-            isDark ? darkToolbarButtonClassName : lightToolbarButtonClassName
-          }
+          className={actionButtonClassName}
         />
         {isRightPanel ? (
           <>
@@ -81,21 +86,13 @@ export function ChatToolbarControls({
               icon={<PictureInPicture size={16} />}
               label={t`Float chat`}
               onClick={onOpenFloating ?? (() => {})}
-              className={
-                isDark
-                  ? darkToolbarButtonClassName
-                  : lightToolbarButtonClassName
-              }
+              className={actionButtonClassName}
             />
             <ChatActionButton
               icon={<X size={16} />}
               label={t`Close chat`}
               onClick={onClose ?? (() => {})}
-              className={
-                isDark
-                  ? darkToolbarButtonClassName
-                  : lightToolbarButtonClassName
-              }
+              className={actionButtonClassName}
             />
           </>
         ) : (
@@ -104,11 +101,7 @@ export function ChatToolbarControls({
               icon={<SidebarSimple size={16} />}
               label={t`Open in right panel`}
               onClick={onOpenRightPanel ?? (() => {})}
-              className={
-                isDark
-                  ? darkToolbarButtonClassName
-                  : lightToolbarButtonClassName
-              }
+              className={actionButtonClassName}
             />
           </>
         )}
@@ -175,6 +168,7 @@ function ChatGroups({
           size="sm"
           className={cn([
             "group -ml-2 h-8 w-auto shrink-0 gap-1.5 rounded-full px-2.5 py-0 transition-colors",
+            layout === "right-panel" && "h-7",
             isDark
               ? "text-primary-foreground/70 hover:bg-primary-foreground/14 hover:text-primary-foreground data-[state=open]:bg-primary-foreground/14 data-[state=open]:text-primary-foreground"
               : "text-muted-foreground hover:bg-muted/80 hover:text-foreground data-[state=open]:bg-muted/80 data-[state=open]:text-foreground",

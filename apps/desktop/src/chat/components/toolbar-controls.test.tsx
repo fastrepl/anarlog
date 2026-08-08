@@ -233,7 +233,7 @@ describe("ChatToolbarControls", () => {
     expect(screen.queryByRole("button", { name: "Close chat" })).toBeNull();
   });
 
-  it("uses the shared toolbar padding in the right panel", () => {
+  it("uses sidebar-matched toolbar metrics in the right panel", () => {
     const onClose = vi.fn();
     const onOpenFloating = vi.fn();
     const { container } = render(
@@ -251,16 +251,16 @@ describe("ChatToolbarControls", () => {
 
     const historyButton = screen.getByRole("button", { name: "Chat history" });
 
-    expect(container.firstElementChild?.className).toContain("px-3");
+    expect(container.firstElementChild?.className).toContain("pl-3");
+    expect(container.firstElementChild?.className).toContain("pr-1");
     expect(container.firstElementChild?.className).not.toContain("px-5");
-    expect(container.firstElementChild?.className).not.toContain("px-2");
+    expect(container.firstElementChild?.className).not.toContain("px-3");
     expect(container.firstElementChild?.className).not.toContain("pr-0");
-    expect(container.firstElementChild?.className).not.toContain("pr-1");
     const actions = container.querySelector("[data-chat-toolbar-actions]");
     expect(actions?.className).toContain("gap-0");
     expect(actions?.className).not.toContain("gap-1");
     expect(historyButton.className).toContain("-ml-2");
-    expect(historyButton.className).toContain("h-8");
+    expect(historyButton.className).toContain("h-7");
     expect(historyButton.className).toContain("w-auto");
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
     const floatButton = screen.getByRole("button", { name: "Float chat" });
