@@ -4,14 +4,12 @@ import type { ReactNode } from "react";
 
 import { Button, type ButtonProps } from "@anlg/ui/components/ui/button";
 
-import { TemplateCategoryLabel } from "../template-category-label";
-
 import { getTemplateCreatorLabel } from "~/templates/utils";
 
 export function ResourcePreviewHeader({
+  icon,
   title,
   description,
-  category,
   targets,
   onClone,
   actionLabel,
@@ -23,9 +21,9 @@ export function ResourcePreviewHeader({
   footer,
   children,
 }: {
+  icon?: ReactNode;
   title: string;
   description?: string | null;
-  category?: string | null;
   targets?: string[] | null;
   onClone?: () => void;
   actionLabel?: string;
@@ -57,8 +55,12 @@ export function ResourcePreviewHeader({
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-12 items-center justify-between gap-3 pr-1 pl-3">
-        <div className="min-w-0">
-          <TemplateCategoryLabel category={category} />
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {icon}
+          <h2 className="min-w-0 truncate text-sm font-semibold">
+            {title || t`Untitled`}
+          </h2>
+          {titleMeta}
         </div>
         <div className="flex items-center gap-0">
           {actions}
@@ -68,14 +70,8 @@ export function ResourcePreviewHeader({
 
       <div className="scroll-fade-y min-h-0 flex-1 overflow-y-auto px-6 pt-3 pb-6">
         <div className="min-w-0">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h2 className="min-w-0 truncate text-lg font-semibold">
-              {title || t`Untitled`}
-            </h2>
-            {titleMeta}
-          </div>
           {description && (
-            <p className="text-muted-foreground mt-1 min-h-[24px] text-sm">
+            <p className="text-muted-foreground min-h-[24px] text-sm">
               {description}
             </p>
           )}

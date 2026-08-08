@@ -170,9 +170,11 @@ function SearchField({
 export function TemplateIconPicker({
   value,
   onChange,
+  size = "default",
 }: {
   value: TemplateIcon;
   onChange: (value: TemplateIcon) => void;
+  size?: "default" | "sm";
 }) {
   const { t } = useLingui();
   const selected = normalizeTemplateIcon(value);
@@ -258,14 +260,24 @@ export function TemplateIconPicker({
         <button
           type="button"
           className={cn([
-            "border-border bg-muted/60 hover:bg-accent relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md border transition-colors",
-            "after:border-t-background after:absolute after:top-0 after:right-0 after:size-0 after:border-t-[8px] after:border-l-[8px] after:border-l-transparent",
+            "relative flex shrink-0 items-center justify-center overflow-hidden rounded-md transition-colors",
+            size === "sm"
+              ? "hover:bg-accent size-7"
+              : "border-border bg-muted/60 hover:bg-accent after:border-t-background size-9 border after:absolute after:top-0 after:right-0 after:size-0 after:border-t-[8px] after:border-l-[8px] after:border-l-transparent",
           ])}
           aria-label={t`Choose template icon`}
         >
           <TemplateIconGlyph
             icon={selected}
-            className={selected.type === "emoji" ? "text-lg" : "size-[18px]"}
+            className={
+              selected.type === "emoji"
+                ? size === "sm"
+                  ? "text-sm"
+                  : "text-lg"
+                : size === "sm"
+                  ? "size-4"
+                  : "size-[18px]"
+            }
           />
         </button>
       </PopoverTrigger>

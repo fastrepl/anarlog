@@ -17,6 +17,7 @@ import { type WebTemplate } from "./codec";
 import { type UserTemplate, type UserTemplateDraft } from "./queries";
 import { SectionsList } from "./sections-editor";
 import { TemplateForm } from "./template-form";
+import { TemplateIconGlyph } from "./template-icon";
 import { getTemplateCreatorLabel } from "./utils";
 
 import {
@@ -127,12 +128,14 @@ function WebTemplatePreview({
   return (
     <div className="flex h-full flex-1 flex-col">
       <ResourcePreviewHeader
+        icon={
+          <TemplateIconGlyph icon={template.icon} className="size-4 text-sm" />
+        }
         title={template.title || t`Untitled`}
         description={template.description}
-        category={template.category}
         targets={template.targets}
         titleMeta={
-          <span className="text-muted-foreground shrink-0 text-sm font-normal whitespace-nowrap">
+          <span className="text-muted-foreground shrink-0 text-xs font-normal whitespace-nowrap">
             {getTemplateCreatorLabel({
               isUserTemplate: false,
               format: "short",
