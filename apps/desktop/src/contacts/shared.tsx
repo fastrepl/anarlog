@@ -44,7 +44,12 @@ function SortDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="icon" variant="ghost" aria-label={t`Sort options`}>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-muted-foreground hover:text-foreground"
+          aria-label={t`Sort options`}
+        >
           <ArrowsDownUp size={16} />
         </Button>
       </DropdownMenuTrigger>
@@ -119,7 +124,13 @@ export function ColumnHeader({
               />
             </div>
           )}
-          <Button onClick={onAdd} size="icon" variant="ghost" title={t`Add`}>
+          <Button
+            onClick={onAdd}
+            size="icon"
+            variant="ghost"
+            className="text-muted-foreground hover:text-foreground"
+            title={t`Add`}
+          >
             <Plus size={16} />
           </Button>
         </div>

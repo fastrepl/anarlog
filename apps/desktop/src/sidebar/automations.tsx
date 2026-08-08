@@ -36,7 +36,7 @@ export function AutomationsNav() {
           type="button"
           size="icon"
           variant="ghost"
-          className="text-muted-foreground hover:text-foreground relative z-[60] size-6 rounded-full"
+          className="text-muted-foreground hover:text-foreground relative z-[60]"
           aria-label="New automation"
           onClick={() => startNewChat("automations")}
         >

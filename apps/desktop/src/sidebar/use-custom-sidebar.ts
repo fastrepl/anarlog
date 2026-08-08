@@ -22,6 +22,8 @@ const LEFT_SURFACE_CUSTOM_SIDEBAR_TYPES: Tab["type"][] = [
 const OWN_SIDEBAR_HEADER_TYPES: Tab["type"][] = [
   "calendar",
   "settings",
+  "contacts",
+  "templates",
   "automations",
 ];
 

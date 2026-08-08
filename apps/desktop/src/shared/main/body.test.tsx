@@ -541,7 +541,7 @@ describe("ClassicMainBody", () => {
   });
 
   it.each(["calendar", "settings", "contacts", "templates"])(
-    "runs the escape shortcut from the %s left chrome back button",
+    "renders no chrome back button over the %s sidebar header",
     (type) => {
       mocks.currentTab = {
         active: true,
@@ -552,17 +552,9 @@ describe("ClassicMainBody", () => {
 
       render(<ClassicMainBody />);
 
-      const backButton = screen.getByRole("button", { name: "Go back" });
-      const topArea = backButton.parentElement?.parentElement;
-
-      fireEvent.click(backButton);
-
       expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
-      expect(backButton.hasAttribute("disabled")).toBe(false);
-      expect(topArea?.className).toContain("h-12");
-      expect(topArea?.className).toContain("absolute");
-      expect(mocks.goBack).not.toHaveBeenCalled();
-      expect(mocks.runEscapeShortcut).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+      expect(mocks.runEscapeShortcut).not.toHaveBeenCalled();
     },
   );
 

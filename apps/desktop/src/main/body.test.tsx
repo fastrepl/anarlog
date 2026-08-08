@@ -398,28 +398,14 @@ describe("ClassicMainBody", () => {
   });
 
   it.each([
-    ["windows", "settings", { state: { tab: "app" } }],
-    ["windows", "calendar", {}],
-    ["windows", "contacts", { state: { selected: null } }],
-    ["windows", "automations", {}],
-    [
-      "windows",
-      "templates",
-      { state: { selectedMineId: null, selectedWebIndex: null } },
-    ],
-    ["linux", "settings", { state: { tab: "app" } }],
-    ["linux", "calendar", {}],
-    ["linux", "contacts", { state: { selected: null } }],
-    ["linux", "automations", {}],
-    [
-      "linux",
-      "templates",
-      { state: { selectedMineId: null, selectedWebIndex: null } },
-    ],
+    ["settings", { state: { tab: "app" } }],
+    ["calendar", {}],
+    ["contacts", { state: { selected: null } }],
+    ["automations", {}],
+    ["templates", { state: { selectedMineId: null, selectedWebIndex: null } }],
   ] as const)(
-    "uses the 8px %s fallback gutter for the %s back button",
-    (runtimePlatform, type, extraTabState) => {
-      mocks.runtimePlatform = runtimePlatform;
+    "leaves the %s chrome row back button to the sidebar header",
+    (type, extraTabState) => {
       mocks.currentTab = {
         active: true,
         pinned: false,
@@ -430,9 +416,7 @@ describe("ClassicMainBody", () => {
 
       render(<ClassicMainBody />);
 
-      const backButton = screen.getByRole("button", { name: "Go back" });
-      expect(backButton.parentElement?.className).toContain("pl-2");
-      expect(backButton.parentElement?.className).not.toContain("pl-[76px]");
+      expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     },
   );
 

@@ -1,4 +1,3 @@
-import { ArrowLeft } from "@phosphor-icons/react";
 import {
   type CSSProperties,
   type WheelEvent as ReactWheelEvent,
@@ -29,10 +28,7 @@ import {
 } from "./left-sidebar-panel";
 import { useMainAreaTopWindowDrag } from "./main-area-window-drag";
 import { ClassicMainSidebar } from "./shell-sidebar";
-import {
-  LeftSurfaceChromeButton,
-  SidebarTimelineChromeWithUpcomingMeeting,
-} from "./sidebar-timeline-chrome";
+import { SidebarTimelineChromeWithUpcomingMeeting } from "./sidebar-timeline-chrome";
 import { ClassicMainTabContent } from "./tab-content";
 import { useClassicMainShortcuts } from "./useShortcuts";
 
@@ -62,7 +58,7 @@ type LeftSidebarSizeStyle = CSSProperties & {
 export function ClassicMainBody() {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
-  const { runEscapeShortcut } = useClassicMainShortcuts();
+  useClassicMainShortcuts();
   const [leftSidebarPanelConstraints, setLeftSidebarPanelConstraints] =
     useState(createLeftSidebarPanelConstraints);
   const [leftSidebarPanelSize, setLeftSidebarPanelSize] = useState(
@@ -95,7 +91,6 @@ export function ClassicMainBody() {
     showSidebarTimelineChrome && !leftsidebar.expanded;
   const mountLeftSidebarPanel = !isOnboarding;
   const showLeftSidebarPanel = mountLeftSidebarPanel && leftsidebar.expanded;
-  const showLeftSurfaceChromeBack = hasLeftSurfaceCustomSidebar;
   const sidebarOwnsChromeRow = hasOwnSidebarHeaderTab(currentTab);
   const enableMainAreaTopDrag =
     showSidebarTimelineChrome || hasLeftSurfaceCustomSidebar;
@@ -476,34 +471,6 @@ export function ClassicMainBody() {
           />
         </div>
       )}
-      {showLeftSurfaceChromeBack ? (
-        <div
-          data-tauri-drag-region
-          data-left-sidebar-chrome
-          style={leftSidebarChromeStyle}
-          className={cn([
-            "absolute top-0 left-0 z-50 h-12",
-            // The sidebar header underneath carries the drag region and its
-            // own actions; only the back button here must stay interactive.
-            sidebarOwnsChromeRow && "pointer-events-none",
-          ])}
-        >
-          <div
-            data-tauri-drag-region
-            className={cn([
-              "flex h-full min-w-0 items-start pt-[9px]",
-              showWindowControlsGutter ? "pl-[76px]" : "pl-2",
-            ])}
-          >
-            <LeftSurfaceChromeButton
-              ariaLabel="Go back"
-              onClick={runEscapeShortcut}
-            >
-              <ArrowLeft size={16} />
-            </LeftSurfaceChromeButton>
-          </div>
-        </div>
-      ) : null}
       <ResizablePanelGroup
         autoSaveId={
           mountLeftSidebarPanel && canResizeLeftSidebarPanel
