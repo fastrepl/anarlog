@@ -18,11 +18,13 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
 
+import { ContactPageHeader } from "./contact-page-header";
 import {
   createOrganization,
   type HumanRecord,
   mergeHumans,
   type OrganizationRecord,
+  toggleContactPin,
   updateHuman,
   useHumanSessions,
 } from "./queries";
@@ -33,11 +35,13 @@ export function DetailsColumn({
   humans,
   organizations,
   handleSessionClick,
+  onDelete,
 }: {
   human: HumanRecord | null;
   humans: HumanRecord[];
   organizations: OrganizationRecord[];
   handleSessionClick: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const { t } = useLingui();
   const personSessions = useHumanSessions(human?.id ?? "");
@@ -68,16 +72,21 @@ export function DetailsColumn({
     <div className="flex h-full flex-1 flex-col">
       {human ? (
         <>
-          <div
-            data-tauri-drag-region
-            className="border-border flex items-center justify-center border-b py-6"
-          >
-            <div data-tauri-drag-region="false">
-              <ContactFacehash name={facehashName} size={64} />
-            </div>
-          </div>
+          <ContactPageHeader
+            pinned={Boolean(human.pinned)}
+            onTogglePin={() => {
+              void toggleContactPin("human", human.id).catch((error) => {
+                console.error("[contacts] failed to toggle contact pin", error);
+              });
+            }}
+            onDelete={() => onDelete(human.id)}
+          />
 
           <div className="flex-1 overflow-y-auto">
+            <div className="border-border flex items-center justify-center border-b py-6">
+              <ContactFacehash name={facehashName} size={64} />
+            </div>
+
             {duplicatesWithData.length > 0 && (
               <div className="border-border border-b bg-red-50 px-6 py-4">
                 <h4 className="mb-1 text-sm font-semibold text-red-900">

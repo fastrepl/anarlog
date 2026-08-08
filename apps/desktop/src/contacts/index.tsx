@@ -4,7 +4,12 @@ import type { ContactsSelection } from "@anlg/plugin-windows";
 
 import { DetailsColumn } from "./details";
 import { OrganizationDetailsColumn } from "./organization-details";
-import { useHumans, useOrganizations } from "./queries";
+import {
+  deleteHuman,
+  deleteOrganization,
+  useHumans,
+  useOrganizations,
+} from "./queries";
 
 import { StandardContentWrapper } from "~/shared/main";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
@@ -26,6 +31,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
     (state) => state.updateContactsTabState,
   );
   const openCurrent = useTabs((state) => state.openCurrent);
+  const invalidateResource = useTabs((state) => state.invalidateResource);
 
   const selected = tab.state.selected;
   const humans = useHumans();
@@ -43,6 +49,28 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
       openCurrent({ type: "sessions", id });
     },
     [openCurrent],
+  );
+
+  const handleDeletePerson = useCallback(
+    (id: string) => {
+      invalidateResource("humans", id);
+      void deleteHuman(id).catch((error) => {
+        console.error("[contacts] failed to delete contact", error);
+      });
+      setSelected(null);
+    },
+    [invalidateResource, setSelected],
+  );
+
+  const handleDeleteOrganization = useCallback(
+    (id: string) => {
+      invalidateResource("organizations", id);
+      void deleteOrganization(id).catch((error) => {
+        console.error("[contacts] failed to delete organization", error);
+      });
+      setSelected(null);
+    },
+    [invalidateResource, setSelected],
   );
 
   const effectiveSelection =
@@ -66,6 +94,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
           onPersonClick={(personId) =>
             setSelected({ type: "person", id: personId })
           }
+          onDelete={handleDeleteOrganization}
         />
       ) : (
         <DetailsColumn
@@ -78,6 +107,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
           humans={humans}
           organizations={organizations}
           handleSessionClick={handleSessionClick}
+          onDelete={handleDeletePerson}
         />
       )}
     </div>

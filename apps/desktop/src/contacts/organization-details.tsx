@@ -6,9 +6,11 @@ import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 
+import { ContactPageHeader } from "./contact-page-header";
 import {
   type HumanRecord,
   type OrganizationRecord,
+  toggleContactPin,
   updateOrganization,
 } from "./queries";
 import { ContactFacehash } from "./shared";
@@ -17,10 +19,12 @@ export function OrganizationDetailsColumn({
   organization,
   humans,
   onPersonClick,
+  onDelete,
 }: {
   organization: OrganizationRecord | null;
   humans: HumanRecord[];
   onPersonClick?: (personId: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const { t } = useLingui();
   const peopleInOrg = organization
@@ -28,19 +32,31 @@ export function OrganizationDetailsColumn({
     : [];
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex h-full flex-1 flex-col">
       {organization ? (
         <>
-          <div
-            data-tauri-drag-region
-            className="border-border flex items-center justify-center border-b py-6"
-          >
-            <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
-              <Buildings className="text-muted-foreground h-8 w-8" />
-            </div>
-          </div>
+          <ContactPageHeader
+            pinned={Boolean(organization.pinned)}
+            onTogglePin={() => {
+              void toggleContactPin("organization", organization.id).catch(
+                (error) => {
+                  console.error(
+                    "[contacts] failed to toggle contact pin",
+                    error,
+                  );
+                },
+              );
+            }}
+            onDelete={() => onDelete(organization.id)}
+          />
 
           <div className="flex-1 overflow-y-auto">
+            <div className="border-border flex items-center justify-center border-b py-6">
+              <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
+                <Buildings className="text-muted-foreground h-8 w-8" />
+              </div>
+            </div>
+
             <div>
               <div className="border-border flex items-center border-b px-4 py-3">
                 <div className="text-muted-foreground w-28 text-sm">
@@ -64,7 +80,7 @@ export function OrganizationDetailsColumn({
                   {peopleInOrg.length === 1 ? t`member` : t`members`}
                 </span>
               </h3>
-              <div className="overflow-y-auto" style={{ maxHeight: "55vh" }}>
+              <div>
                 {peopleInOrg.length > 0 ? (
                   <div className="grid grid-cols-3 gap-4">
                     {peopleInOrg.map((human) => {

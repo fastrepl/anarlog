@@ -796,6 +796,10 @@ msgstr "Connect your integration"
 msgid "Connecting..."
 msgstr "Connecting..."
 
+#: src/contacts/contact-page-header.tsx
+msgid "Contact options"
+msgstr "Contact options"
+
 #: src/sidebar/settings.tsx
 msgid "Contacts"
 msgstr "Contacts"
@@ -917,6 +921,7 @@ msgstr "Date and time are required"
 msgid "Default"
 msgstr "Default"
 
+#: src/contacts/contact-page-header.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
 #: src/sidebar/timeline/index.tsx
 #: src/templates/sections-editor.tsx
@@ -1963,6 +1968,10 @@ msgstr "Permissions granted"
 msgid "Phone"
 msgstr "Phone"
 
+#: src/contacts/contact-page-header.tsx
+msgid "Pin"
+msgstr "Pin"
+
 #: src/settings/general/account.tsx
 msgid "Plan & Billing"
 msgstr "Plan & Billing"
@@ -2987,6 +2996,10 @@ msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry savin
 #: src/contacts/organization-details.tsx
 msgid "Unnamed"
 msgstr "Unnamed"
+
+#: src/contacts/contact-page-header.tsx
+msgid "Unpin"
+msgstr "Unpin"
 
 #: src/session/components/note-input/header.tsx
 #: src/session/components/note-input/raw.tsx

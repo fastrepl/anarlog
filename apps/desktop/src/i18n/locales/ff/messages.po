@@ -796,6 +796,10 @@ msgstr ""
 msgid "Connecting..."
 msgstr ""
 
+#: src/contacts/contact-page-header.tsx
+msgid "Contact options"
+msgstr ""
+
 #: src/sidebar/settings.tsx
 msgid "Contacts"
 msgstr ""
@@ -917,6 +921,7 @@ msgstr ""
 msgid "Default"
 msgstr ""
 
+#: src/contacts/contact-page-header.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
 #: src/sidebar/timeline/index.tsx
 #: src/templates/sections-editor.tsx
@@ -1963,6 +1968,10 @@ msgstr ""
 msgid "Phone"
 msgstr ""
 
+#: src/contacts/contact-page-header.tsx
+msgid "Pin"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Plan & Billing"
 msgstr ""
@@ -2986,6 +2995,10 @@ msgstr ""
 
 #: src/contacts/organization-details.tsx
 msgid "Unnamed"
+msgstr ""
+
+#: src/contacts/contact-page-header.tsx
+msgid "Unpin"
 msgstr ""
 
 #: src/session/components/note-input/header.tsx
