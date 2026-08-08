@@ -40,6 +40,7 @@ import {
   reorderPinnedContacts,
   searchContacts,
   toggleContactPin,
+  updateContactAvatar,
   updateHuman,
   updateOrganization,
   useHumans,
@@ -68,6 +69,7 @@ describe("contact SQLite queries", () => {
         memo: "",
         pinned: 1,
         pin_order: 2,
+        avatar_data_url: "data:image/jpeg;base64,abc",
       },
     ];
 
@@ -87,6 +89,7 @@ describe("contact SQLite queries", () => {
         memo: "",
         pinned: true,
         pinOrder: 2,
+        avatarDataUrl: "data:image/jpeg;base64,abc",
       },
     ]);
   });
@@ -134,6 +137,7 @@ describe("contact SQLite queries", () => {
         memo: "Customer",
         pinned: 0,
         pin_order: null,
+        avatar_data_url: null,
       },
     ];
 
@@ -148,6 +152,7 @@ describe("contact SQLite queries", () => {
         memo: "Customer",
         pinned: false,
         pinOrder: null,
+        avatarDataUrl: null,
       },
     ]);
   });
@@ -246,6 +251,29 @@ describe("contact SQLite queries", () => {
       "Staff Engineer",
     ]);
     expect(statement.params[statement.params.length - 1]).toBe("human-1");
+  });
+
+  it("stores contact avatars inside metadata_json", async () => {
+    await updateContactAvatar("human", "human-1", "data:image/jpeg;base64,abc");
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.sql).toContain("UPDATE humans");
+    expect(statement.sql).toContain("json_set");
+    expect(statement.sql).toContain("$.avatarDataUrl");
+    expect(statement.params[0]).toBe("data:image/jpeg;base64,abc");
+    expect(statement.params[statement.params.length - 1]).toBe("human-1");
+  });
+
+  it("removes contact avatars from metadata_json", async () => {
+    await updateContactAvatar("organization", "organization-1", null);
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.sql).toContain("UPDATE organizations");
+    expect(statement.sql).toContain("json_remove");
+    expect(statement.sql).toContain("$.avatarDataUrl");
+    expect(statement.params[statement.params.length - 1]).toBe(
+      "organization-1",
+    );
   });
 
   it("soft-deletes contacts without removing their rows", async () => {

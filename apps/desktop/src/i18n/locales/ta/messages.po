@@ -460,6 +460,11 @@ msgstr ""
 msgid "Change"
 msgstr ""
 
+#: src/contacts/details.tsx
+#: src/contacts/organization-details.tsx
+msgid "Change photo"
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Change speaker"
 msgstr ""
@@ -2112,6 +2117,10 @@ msgstr ""
 
 #: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
+msgstr ""
+
+#: src/contacts/contact-page-header.tsx
+msgid "Remove photo"
 msgstr ""
 
 #: src/settings/todo/github.tsx

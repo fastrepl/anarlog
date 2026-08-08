@@ -3,6 +3,7 @@ import React, { useCallback } from "react";
 
 import { cn } from "@anlg/utils";
 
+import { ContactImage } from "~/contacts/contact-avatar";
 import { type HumanRecord, toggleContactPin } from "~/contacts/queries";
 import { ContactFacehash } from "~/contacts/shared";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
@@ -67,7 +68,11 @@ export function PersonItem({
         active ? "bg-accent" : "hover:bg-accent/50",
       ])}
     >
-      <ContactFacehash name={facehashName} size={32} />
+      {person.avatarDataUrl ? (
+        <ContactImage src={person.avatarDataUrl} size={32} />
+      ) : (
+        <ContactFacehash name={facehashName} size={32} />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1 truncate font-medium">
           {personName || personEmail || "Unnamed"}

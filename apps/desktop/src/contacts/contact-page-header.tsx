@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { DotsThree, PushPin, Trash } from "@phosphor-icons/react";
+import { DotsThree, MinusCircle, PushPin, Trash } from "@phosphor-icons/react";
 
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -16,10 +16,12 @@ export function ContactPageHeader({
   pinned,
   onTogglePin,
   onDelete,
+  onRemoveAvatar,
 }: {
   pinned: boolean;
   onTogglePin: () => void;
   onDelete: () => void;
+  onRemoveAvatar?: () => void;
 }) {
   const { t } = useLingui();
 
@@ -55,6 +57,17 @@ export function ContactPageHeader({
                   {pinned ? <Trans>Unpin</Trans> : <Trans>Pin</Trans>}
                 </span>
               </DropdownMenuItem>
+              {onRemoveAvatar && (
+                <DropdownMenuItem
+                  onClick={onRemoveAvatar}
+                  className="cursor-pointer"
+                >
+                  <MinusCircle />
+                  <span>
+                    <Trans>Remove photo</Trans>
+                  </span>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={onDelete}

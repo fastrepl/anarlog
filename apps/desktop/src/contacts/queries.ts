@@ -16,6 +16,7 @@ type HumanSqlRow = {
   memo: string;
   pinned: boolean | number;
   pin_order: number | null;
+  avatar_data_url: string | null;
 };
 
 export type HumanRecord = {
@@ -31,6 +32,7 @@ export type HumanRecord = {
   memo: string;
   pinned: boolean;
   pinOrder: number | null;
+  avatarDataUrl: string | null;
 };
 
 type OrganizationSqlRow = {
@@ -41,6 +43,7 @@ type OrganizationSqlRow = {
   memo: string;
   pinned: boolean | number;
   pin_order: number | null;
+  avatar_data_url: string | null;
 };
 
 export type OrganizationRecord = {
@@ -51,7 +54,13 @@ export type OrganizationRecord = {
   memo: string;
   pinned: boolean;
   pinOrder: number | null;
+  avatarDataUrl: string | null;
 };
+
+const AVATAR_SQL = `CASE
+  WHEN json_valid(metadata_json)
+  THEN json_extract(metadata_json, '$.avatarDataUrl')
+END AS avatar_data_url`;
 
 type HumanSessionSqlRow = {
   id: string;
@@ -104,7 +113,8 @@ export function useHumans(): HumanRecord[] {
         linkedin_username,
         memo,
         pinned,
-        pin_order
+        pin_order,
+        ${AVATAR_SQL}
       FROM humans
       WHERE deleted_at IS NULL
       ORDER BY name, email, id
@@ -120,7 +130,8 @@ export function useOrganizations(): OrganizationRecord[] {
     OrganizationRecord[]
   >({
     sql: `
-      SELECT id, owner_user_id, created_at, name, memo, pinned, pin_order
+      SELECT id, owner_user_id, created_at, name, memo, pinned, pin_order,
+        ${AVATAR_SQL}
       FROM organizations
       WHERE deleted_at IS NULL
       ORDER BY name, id
@@ -156,7 +167,8 @@ export async function loadHumansByIds(
         linkedin_username,
         memo,
         pinned,
-        pin_order
+        pin_order,
+        ${AVATAR_SQL}
       FROM humans
       WHERE id IN (${uniqueIds.map(() => "?").join(", ")})
         AND deleted_at IS NULL
@@ -173,7 +185,8 @@ export async function loadOrganization(
   if (!organizationId) return null;
   const rows = await liveQueryClient.execute<OrganizationSqlRow>(
     `
-      SELECT id, owner_user_id, created_at, name, memo, pinned, pin_order
+      SELECT id, owner_user_id, created_at, name, memo, pinned, pin_order,
+        ${AVATAR_SQL}
       FROM organizations
       WHERE id = ? AND deleted_at IS NULL
       LIMIT 1
@@ -431,6 +444,37 @@ export function deleteOrganization(organizationId: string): Promise<void> {
   return softDeleteContact("organizations", organizationId);
 }
 
+export function updateContactAvatar(
+  type: "human" | "organization",
+  contactId: string,
+  avatarDataUrl: string | null,
+): Promise<void> {
+  const table = type === "human" ? "humans" : "organizations";
+  const validMetadata =
+    "CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END";
+  return enqueueDatabaseWrite(`${table}:${contactId}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE ${table}
+          SET
+            metadata_json = ${
+              avatarDataUrl === null
+                ? `json_remove(${validMetadata}, '$.avatarDataUrl')`
+                : `json_set(${validMetadata}, '$.avatarDataUrl', ?)`
+            },
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params:
+          avatarDataUrl === null
+            ? [new Date().toISOString(), contactId]
+            : [avatarDataUrl, new Date().toISOString(), contactId],
+      },
+    ]);
+  });
+}
+
 export function toggleContactPin(
   type: "human" | "organization",
   contactId: string,
@@ -672,6 +716,7 @@ function mapHumanRow(row: HumanSqlRow): HumanRecord {
     memo: row.memo,
     pinned: Boolean(row.pinned),
     pinOrder: row.pin_order,
+    avatarDataUrl: row.avatar_data_url ?? null,
   };
 }
 
@@ -684,6 +729,7 @@ function mapOrganizationRow(row: OrganizationSqlRow): OrganizationRecord {
     memo: row.memo,
     pinned: Boolean(row.pinned),
     pinOrder: row.pin_order,
+    avatarDataUrl: row.avatar_data_url ?? null,
   };
 }
 

@@ -18,6 +18,11 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
 
+import {
+  AvatarUploadButton,
+  ContactImage,
+  persistContactAvatar,
+} from "./contact-avatar";
 import { ContactPageHeader } from "./contact-page-header";
 import {
   createOrganization,
@@ -80,11 +85,27 @@ export function DetailsColumn({
               });
             }}
             onDelete={() => onDelete(human.id)}
+            onRemoveAvatar={
+              human.avatarDataUrl
+                ? () => persistContactAvatar("human", human.id, null)
+                : undefined
+            }
           />
 
           <div className="flex-1 overflow-y-auto">
             <div className="border-border flex items-center justify-center border-b py-6">
-              <ContactFacehash name={facehashName} size={64} />
+              <AvatarUploadButton
+                label={t`Change photo`}
+                onUpload={(dataUrl) =>
+                  persistContactAvatar("human", human.id, dataUrl)
+                }
+              >
+                {human.avatarDataUrl ? (
+                  <ContactImage src={human.avatarDataUrl} size={64} />
+                ) : (
+                  <ContactFacehash name={facehashName} size={64} />
+                )}
+              </AvatarUploadButton>
             </div>
 
             {duplicatesWithData.length > 0 && (
@@ -108,10 +129,14 @@ export function DetailsColumn({
                       className="border-border bg-muted flex items-center justify-between rounded-md border p-2"
                     >
                       <div className="flex items-center gap-2">
-                        <ContactFacehash
-                          name={String(dup.name || dup.email || dup.id)}
-                          size={32}
-                        />
+                        {dup.avatarDataUrl ? (
+                          <ContactImage src={dup.avatarDataUrl} size={32} />
+                        ) : (
+                          <ContactFacehash
+                            name={String(dup.name || dup.email || dup.id)}
+                            size={32}
+                          />
+                        )}
                         <div>
                           <div className="text-foreground text-sm font-medium">
                             {dup.name || "Unnamed Contact"}

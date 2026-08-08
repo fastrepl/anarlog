@@ -6,6 +6,11 @@ import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 
+import {
+  AvatarUploadButton,
+  ContactImage,
+  persistContactAvatar,
+} from "./contact-avatar";
 import { ContactPageHeader } from "./contact-page-header";
 import {
   type HumanRecord,
@@ -48,13 +53,30 @@ export function OrganizationDetailsColumn({
               );
             }}
             onDelete={() => onDelete(organization.id)}
+            onRemoveAvatar={
+              organization.avatarDataUrl
+                ? () =>
+                    persistContactAvatar("organization", organization.id, null)
+                : undefined
+            }
           />
 
           <div className="flex-1 overflow-y-auto">
             <div className="border-border flex items-center justify-center border-b py-6">
-              <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
-                <Buildings className="text-muted-foreground h-8 w-8" />
-              </div>
+              <AvatarUploadButton
+                label={t`Change photo`}
+                onUpload={(dataUrl) =>
+                  persistContactAvatar("organization", organization.id, dataUrl)
+                }
+              >
+                {organization.avatarDataUrl ? (
+                  <ContactImage src={organization.avatarDataUrl} size={64} />
+                ) : (
+                  <div className="bg-accent flex h-16 w-16 items-center justify-center rounded-full">
+                    <Buildings className="text-muted-foreground h-8 w-8" />
+                  </div>
+                )}
+              </AvatarUploadButton>
             </div>
 
             <div>
@@ -91,12 +113,19 @@ export function OrganizationDetailsColumn({
                           onClick={() => onPersonClick?.(human.id)}
                         >
                           <div className="flex flex-col items-center gap-3 text-center">
-                            <ContactFacehash
-                              name={String(
-                                human.name || human.email || human.id,
-                              )}
-                              size={48}
-                            />
+                            {human.avatarDataUrl ? (
+                              <ContactImage
+                                src={human.avatarDataUrl}
+                                size={48}
+                              />
+                            ) : (
+                              <ContactFacehash
+                                name={String(
+                                  human.name || human.email || human.id,
+                                )}
+                                size={48}
+                              />
+                            )}
                             <div className="w-full">
                               <div className="truncate text-sm font-semibold">
                                 {human.name || human.email || t`Unnamed`}

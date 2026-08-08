@@ -460,6 +460,11 @@ msgstr "Capture meeting chat in Memos"
 msgid "Change"
 msgstr "Change"
 
+#: src/contacts/details.tsx
+#: src/contacts/organization-details.tsx
+msgid "Change photo"
+msgstr "Change photo"
+
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Change speaker"
 msgstr "Change speaker"
@@ -2113,6 +2118,10 @@ msgstr "Reminders"
 #: src/settings/dictionary/index.tsx
 msgid "Remove {term}"
 msgstr "Remove {term}"
+
+#: src/contacts/contact-page-header.tsx
+msgid "Remove photo"
+msgstr "Remove photo"
 
 #: src/settings/todo/github.tsx
 msgid "Remove repository"

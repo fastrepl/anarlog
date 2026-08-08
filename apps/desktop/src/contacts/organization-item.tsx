@@ -3,6 +3,7 @@ import React, { useCallback } from "react";
 
 import { cn } from "@anlg/utils";
 
+import { ContactImage } from "~/contacts/contact-avatar";
 import { type OrganizationRecord, toggleContactPin } from "~/contacts/queries";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
@@ -63,9 +64,13 @@ export function OrganizationItem({
         active ? "bg-accent" : "hover:bg-accent/50",
       ])}
     >
-      <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
-        <Buildings className="text-muted-foreground h-4 w-4" />
-      </div>
+      {organization.avatarDataUrl ? (
+        <ContactImage src={organization.avatarDataUrl} size={32} />
+      ) : (
+        <div className="bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full">
+          <Buildings className="text-muted-foreground h-4 w-4" />
+        </div>
+      )}
       <div className="min-w-0 flex-1">
         <div className="truncate font-medium">{organization.name}</div>
       </div>
