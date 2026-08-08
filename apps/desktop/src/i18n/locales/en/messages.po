@@ -431,7 +431,6 @@ msgstr "Browser handoff not working? Paste the callback link instead"
 
 #: src/calendar/components/sidebar.tsx
 #: src/settings/general/permissions.tsx
-#: src/sidebar/calendar.tsx
 #: src/sidebar/settings.tsx
 msgid "Calendar"
 msgstr "Calendar"
@@ -797,7 +796,6 @@ msgstr "Connect your integration"
 msgid "Connecting..."
 msgstr "Connecting..."
 
-#: src/sidebar/contacts.tsx
 #: src/sidebar/settings.tsx
 msgid "Contacts"
 msgstr "Contacts"
@@ -2430,7 +2428,6 @@ msgid "Setting up encrypted cloud sync."
 msgstr "Setting up encrypted cloud sync."
 
 #: src/main/empty.tsx
-#: src/sidebar/settings.tsx
 msgid "Settings"
 msgstr "Settings"
 
@@ -2857,7 +2854,6 @@ msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr "Template content with Jinja2: {{ variable }}, {% if condition %}"
 
 #: src/sidebar/settings.tsx
-#: src/templates/template-sidebar.tsx
 msgid "Templates"
 msgstr "Templates"
 

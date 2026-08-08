@@ -31,7 +31,7 @@ export function AutomationsNav() {
 
   return (
     <div className="flex h-full flex-col overflow-hidden pb-2">
-      <CustomSidebarHeader title="Automations">
+      <CustomSidebarHeader>
         <Button
           type="button"
           size="icon"

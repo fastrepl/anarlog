@@ -8,13 +8,7 @@ import { useShell } from "~/contexts/shell";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { useTabs } from "~/store/zustand/tabs";
 
-export function CustomSidebarHeader({
-  title,
-  children,
-}: {
-  title: ReactNode;
-  children?: ReactNode;
-}) {
+export function CustomSidebarHeader({ children }: { children?: ReactNode }) {
   const { t } = useLingui();
   const { chat } = useShell();
   const showWindowControlsGutter = useWindowControlsGutter();
@@ -61,9 +55,6 @@ export function CustomSidebarHeader({
         >
           <ArrowLeft size={14} />
         </CustomSidebarHeaderButton>
-        <h3 className="truncate font-sans text-sm font-medium select-none">
-          {title}
-        </h3>
       </div>
       {children ? (
         <div

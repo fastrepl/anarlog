@@ -46,7 +46,7 @@ describe("CustomSidebarHeader", () => {
   });
 
   it("opens home from the back button", () => {
-    render(<CustomSidebarHeader title="Settings" />);
+    render(<CustomSidebarHeader />);
 
     fireEvent.click(screen.getByRole("button", { name: "Go home" }));
 
@@ -57,7 +57,7 @@ describe("CustomSidebarHeader", () => {
     const homeTab = { type: "empty" };
     mocks.tabs = [homeTab];
 
-    render(<CustomSidebarHeader title="Calendar" />);
+    render(<CustomSidebarHeader />);
 
     fireEvent.click(screen.getByRole("button", { name: "Go home" }));
 
@@ -68,7 +68,7 @@ describe("CustomSidebarHeader", () => {
   it("closes floating chat before opening home", () => {
     mocks.chatMode = "FloatingOpen";
 
-    render(<CustomSidebarHeader title="Contacts" />);
+    render(<CustomSidebarHeader />);
 
     fireEvent.click(screen.getByRole("button", { name: "Go home" }));
 
@@ -79,7 +79,7 @@ describe("CustomSidebarHeader", () => {
   it("closes right panel chat before opening home", () => {
     mocks.chatMode = "RightPanelOpen";
 
-    render(<CustomSidebarHeader title="Contacts" />);
+    render(<CustomSidebarHeader />);
 
     fireEvent.click(screen.getByRole("button", { name: "Go home" }));
 
@@ -91,7 +91,7 @@ describe("CustomSidebarHeader", () => {
     mocks.chatMode = "RightPanelOpen";
     mocks.currentTab = { type: "automations" };
 
-    render(<CustomSidebarHeader title="Automations" />);
+    render(<CustomSidebarHeader />);
 
     fireEvent.click(screen.getByRole("button", { name: "Go home" }));
 
@@ -100,7 +100,7 @@ describe("CustomSidebarHeader", () => {
   });
 
   it("does not render history controls", () => {
-    render(<CustomSidebarHeader title="Settings" />);
+    render(<CustomSidebarHeader />);
 
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();

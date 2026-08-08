@@ -70,7 +70,7 @@ vi.mock("@lingui/react/macro", () => ({
 }));
 
 vi.mock("./custom-sidebar-header", () => ({
-  CustomSidebarHeader: ({ title }: { title: ReactNode }) => <div>{title}</div>,
+  CustomSidebarHeader: () => <div />,
 }));
 
 vi.mock("~/store/zustand/tabs", () => {

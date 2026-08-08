@@ -431,7 +431,6 @@ msgstr ""
 
 #: src/calendar/components/sidebar.tsx
 #: src/settings/general/permissions.tsx
-#: src/sidebar/calendar.tsx
 #: src/sidebar/settings.tsx
 msgid "Calendar"
 msgstr ""
@@ -797,7 +796,6 @@ msgstr ""
 msgid "Connecting..."
 msgstr ""
 
-#: src/sidebar/contacts.tsx
 #: src/sidebar/settings.tsx
 msgid "Contacts"
 msgstr ""
@@ -2430,7 +2428,6 @@ msgid "Setting up encrypted cloud sync."
 msgstr ""
 
 #: src/main/empty.tsx
-#: src/sidebar/settings.tsx
 msgid "Settings"
 msgstr ""
 
@@ -2857,7 +2854,6 @@ msgid "Template content with Jinja2: {{ variable }}, {% if condition %}"
 msgstr ""
 
 #: src/sidebar/settings.tsx
-#: src/templates/template-sidebar.tsx
 msgid "Templates"
 msgstr ""
 

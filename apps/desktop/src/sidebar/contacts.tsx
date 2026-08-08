@@ -1,4 +1,3 @@
-import { Trans } from "@lingui/react/macro";
 import { Reorder } from "motion/react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -211,7 +210,6 @@ function ContactsList({
   return (
     <div className="flex h-full w-full flex-col">
       <ColumnHeader
-        title={<Trans>Contacts</Trans>}
         sortOption={sortOption}
         setSortOption={setSortOption}
         onAdd={handleAdd}

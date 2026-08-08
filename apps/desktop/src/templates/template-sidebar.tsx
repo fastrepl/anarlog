@@ -337,7 +337,7 @@ export function TemplatesSidebarContent({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
       <div>
-        <CustomSidebarHeader title={<Trans>Templates</Trans>}>
+        <CustomSidebarHeader>
           {userTemplates.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -39,17 +39,8 @@ vi.mock("~/chat/state/chat-context", () => ({
 }));
 
 vi.mock("~/sidebar/custom-sidebar-header", () => ({
-  CustomSidebarHeader: ({
-    children,
-    title,
-  }: {
-    children?: React.ReactNode;
-    title: React.ReactNode;
-  }) => (
-    <header>
-      <span>{title}</span>
-      {children}
-    </header>
+  CustomSidebarHeader: ({ children }: { children?: React.ReactNode }) => (
+    <header>{children}</header>
   ),
 }));
 

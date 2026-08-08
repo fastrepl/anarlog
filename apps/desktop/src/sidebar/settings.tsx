@@ -147,7 +147,7 @@ export function SettingsNav() {
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden">
-      <CustomSidebarHeader title={<Trans>Settings</Trans>} />
+      <CustomSidebarHeader />
       <div className="pb-2">
         <div
           className={cn([
