@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  session: { user: { id: "user-1" } } as { user: { id: string } } | null,
   currentTab: { type: "settings", state: { tab: "app" } } as {
     type: "settings";
     state: { tab?: string };
@@ -73,6 +74,10 @@ vi.mock("./custom-sidebar-header", () => ({
   CustomSidebarHeader: () => <div />,
 }));
 
+vi.mock("~/auth", () => ({
+  useAuth: () => ({ session: mocks.session }),
+}));
+
 vi.mock("~/store/zustand/tabs", () => {
   const getState = () => ({
     currentTab: mocks.currentTab,
@@ -99,6 +104,7 @@ describe("SettingsNav", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
+    mocks.session = { user: { id: "user-1" } };
     mocks.currentTab = { type: "settings", state: { tab: "app" } };
     mocks.tabs = [];
     mocks.openNew.mockClear();
@@ -232,6 +238,15 @@ describe("SettingsNav", () => {
       mocks.currentTab,
       { tab: "sync" },
     );
+  });
+
+  it("hides Sync when the user is not signed in", () => {
+    mocks.session = null;
+
+    render(<SettingsNav />);
+
+    expect(screen.queryByText("Sync")).toBeNull();
+    expect(screen.getByText("Imports")).toBeTruthy();
   });
 
   it("opens Imports inside settings", () => {

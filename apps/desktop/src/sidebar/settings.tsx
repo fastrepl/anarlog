@@ -26,6 +26,7 @@ import { cn } from "@anlg/utils";
 
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
+import { useAuth } from "~/auth";
 import { type SettingsTab, type TabInput, useTabs } from "~/store/zustand/tabs";
 
 type SettingsNavItem =
@@ -41,6 +42,7 @@ type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
 export function SettingsNav() {
   const { t } = useLingui();
+  const signedIn = Boolean(useAuth().session);
   const [search, setSearch] = useState("");
   const currentTab = useTabs((state) => state.currentTab);
   const updateSettingsTabState = useTabs(
@@ -116,7 +118,9 @@ export function SettingsNav() {
     {
       label: t`Data`,
       items: [
-        { id: "sync", label: t`Sync`, icon: ArrowsClockwise },
+        ...(signedIn
+          ? [{ id: "sync" as const, label: t`Sync`, icon: ArrowsClockwise }]
+          : []),
         { id: "imports", label: t`Imports`, icon: DownloadSimple },
       ],
     },
