@@ -18057,6 +18057,7 @@ version = "0.1.0"
 dependencies = [
  "host",
  "intercept",
+ "libloading 0.8.9",
  "open",
  "serde",
  "serde_json",

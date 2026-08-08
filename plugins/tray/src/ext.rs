@@ -128,11 +128,32 @@ pub struct Tray<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     _runtime: std::marker::PhantomData<fn() -> R>,
 }
 
+// libappindicator-sys panics at first use when it cannot dlopen any
+// appindicator library, so probe the same candidates before tray-icon
+// reaches it.
+#[cfg(target_os = "linux")]
+fn linux_tray_backend_available() -> bool {
+    [
+        "libayatana-appindicator3.so.1",
+        "libappindicator3.so.1",
+        "libayatana-appindicator3.so",
+        "libappindicator3.so",
+    ]
+    .iter()
+    .any(|name| unsafe { libloading::Library::new(name) }.is_ok())
+}
+
 impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     pub fn create_tray_menu(&self) -> Result<()> {
         let app = self.manager.app_handle();
 
         if app.tray_by_id(TRAY_ID).is_some() {
+            return Ok(());
+        }
+
+        #[cfg(target_os = "linux")]
+        if !linux_tray_backend_available() {
+            tracing::warn!("appindicator_library_missing_skipping_tray_icon");
             return Ok(());
         }
 

@@ -39,3 +39,6 @@ unicode-width = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 anlg-intercept = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libloading = { workspace = true }
