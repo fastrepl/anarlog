@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-meeting-active"
+description = "Enables the set_meeting_active command without any pre-configured scope."
+commands.allow = ["set_meeting_active"]
+
+[[permission]]
+identifier = "deny-set-meeting-active"
+description = "Denies the set_meeting_active command without any pre-configured scope."
+commands.deny = ["set_meeting_active"]

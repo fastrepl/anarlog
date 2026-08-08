@@ -33,6 +33,7 @@ import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
 import { TrayRecordingSync } from "./services/tray-recording";
 import { TrayScheduleSync } from "./services/tray-schedule";
+import { UpdaterMeetingSync } from "./services/updater-meeting";
 import { useRemoteSessionDeletionUndoListener } from "./session/hooks/useDeleteSession";
 import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
 import { migratePlaintextAiProviderApiKeys } from "./settings/providers";
@@ -101,6 +102,7 @@ function AppRoot() {
         {isMainWindow ? <EventListeners /> : null}
         {isMainWindow ? <TrayScheduleSync /> : null}
         {isMainWindow ? <TrayRecordingSync /> : null}
+        {isMainWindow ? <UpdaterMeetingSync /> : null}
         <Toaster position="bottom-right" theme={theme} />
       </TinyTickProvider>
     </QueryClientProvider>

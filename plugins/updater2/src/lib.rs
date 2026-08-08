@@ -23,6 +23,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::is_downloaded::<tauri::Wry>,
             commands::postinstall::<tauri::Wry>,
             commands::set_automatic_updates_enabled::<tauri::Wry>,
+            commands::set_meeting_active::<tauri::Wry>,
             commands::maybe_emit_updated::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
@@ -83,6 +84,13 @@ async fn check_and_download<R: tauri::Runtime>(
             tracing::error!("automatic_update_policy_read_failed: {}", e);
             return;
         }
+    }
+
+    // Never install (which restarts the app) or download while a meeting is
+    // being recorded; the next 30-minute tick retries after the meeting.
+    if updater2.meeting_active() {
+        tracing::info!("automatic_update_deferred_meeting_active");
+        return;
     }
 
     let version = match updater2.check().await {

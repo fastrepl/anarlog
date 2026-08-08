@@ -66,6 +66,12 @@ pub(crate) fn set_automatic_updates_enabled<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) fn set_meeting_active<R: tauri::Runtime>(app: tauri::AppHandle<R>, active: bool) {
+    app.updater2().set_meeting_active(active);
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) fn maybe_emit_updated<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
     app.updater2().maybe_emit_updated();
 }

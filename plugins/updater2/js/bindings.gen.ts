@@ -54,6 +54,9 @@ async setAutomaticUpdatesEnabled(enabled: boolean) : Promise<Result<null, string
     else return { status: "error", error: e  as any };
 }
 },
+async setMeetingActive(active: boolean) : Promise<void> {
+    await TAURI_INVOKE("plugin:updater2|set_meeting_active", { active });
+},
 async maybeEmitUpdated() : Promise<void> {
     await TAURI_INVOKE("plugin:updater2|maybe_emit_updated");
 }

@@ -13,6 +13,8 @@ use crate::events::{
 static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
     LazyLock::new(|| tokio::sync::Mutex::new(()));
 
+static MEETING_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum InstallResult {
@@ -37,6 +39,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         let store = self.manager.store2().scoped_store(crate::PLUGIN_NAME)?;
         store.set(crate::StoreKey::AutomaticUpdatesEnabled, enabled)?;
         Ok(())
+    }
+
+    pub fn meeting_active(&self) -> bool {
+        MEETING_ACTIVE.load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn set_meeting_active(&self, active: bool) {
+        MEETING_ACTIVE.store(active, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn get_last_seen_version(&self) -> Result<Option<String>, crate::Error> {
