@@ -429,7 +429,6 @@ msgstr "Bring your meeting history"
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr "Browser handoff not working? Paste the callback link instead"
 
-#: src/calendar/components/sidebar.tsx
 #: src/settings/general/permissions.tsx
 #: src/sidebar/calendar.tsx
 #: src/sidebar/settings.tsx
@@ -749,6 +748,8 @@ msgstr "Confirm"
 
 #. placeholder {0}: config.displayName
 #. placeholder {0}: integration.displayName
+#. placeholder {0}: provider.displayName
+#: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"

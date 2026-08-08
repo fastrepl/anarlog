@@ -14,7 +14,7 @@ import {
 import { cn } from "@anlg/utils";
 
 import { AppleCalendarSelection } from "./apple/calendar-selection";
-import { AccessPermissionRow, TroubleShootingLink } from "./apple/permission";
+import { TroubleShootingLink } from "./apple/permission";
 import { OAuthProviderContent } from "./oauth/provider-content";
 import { type CalendarProvider, PROVIDERS } from "./shared";
 
@@ -171,6 +171,8 @@ function ProviderAccordionItem({
     ) ?? [];
 
   const requiresPro = !!provider.nangoIntegrationId && !isPro;
+  const appleNeedsPermission =
+    provider.id === "apple" && calendar.status !== "authorized";
 
   const canAddAccount =
     !!provider.nangoIntegrationId &&
@@ -181,10 +183,23 @@ function ProviderAccordionItem({
   const shouldConnectOnClick =
     canAddAccount && providerConnections.length === 0;
 
+  const handleAppleConnect = useCallback(() => {
+    if (calendar.isPending) return;
+    if (calendar.status === "denied") {
+      void calendar.open();
+    } else {
+      calendar.request();
+    }
+  }, [calendar]);
   const handleTriggerClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
       if (requiresPro) {
         event.preventDefault();
+        return;
+      }
+      if (appleNeedsPermission) {
+        event.preventDefault();
+        handleAppleConnect();
         return;
       }
       if (!shouldConnectOnClick) return;
@@ -196,6 +211,8 @@ function ProviderAccordionItem({
       });
     },
     [
+      appleNeedsPermission,
+      handleAppleConnect,
       openIntegration,
       provider.nangoIntegrationId,
       requiresPro,
@@ -308,6 +325,20 @@ function ProviderAccordionItem({
             )}
             {t`Upgrade to Pro`}
           </button>
+        ) : appleNeedsPermission ? (
+          <button
+            type="button"
+            onClick={handleAppleConnect}
+            disabled={calendar.isPending}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground shrink-0 rounded-full p-1 transition-colors disabled:opacity-50"
+            aria-label={t`Connect ${provider.displayName}`}
+          >
+            {calendar.isPending ? (
+              <CircleNotch className="size-4 animate-spin" />
+            ) : (
+              <Plus className="size-4" />
+            )}
+          </button>
         ) : hasAddAccountButton ? (
           <button
             type="button"
@@ -324,7 +355,7 @@ function ProviderAccordionItem({
           </button>
         ) : null}
 
-        {!requiresPro && (
+        {!requiresPro && !appleNeedsPermission && (
           <CaretRight
             className={cn([
               "text-muted-foreground size-4 shrink-0 transition-transform duration-200",
@@ -333,31 +364,20 @@ function ProviderAccordionItem({
           />
         )}
       </div>
-      {!requiresPro && (
+      {!requiresPro && !appleNeedsPermission && (
         <AccordionContent className="pb-3">
           {provider.id === "apple" && (
             <div className="flex flex-col gap-3">
-              {calendar.status !== "authorized" ? (
-                <AccessPermissionRow
-                  title={t`Calendar`}
-                  status={calendar.status}
-                  isPending={calendar.isPending}
-                  onOpen={calendar.open}
-                  onRequest={calendar.request}
-                  onReset={calendar.reset}
-                />
-              ) : (
-                <AppleCalendarSelection
-                  leftAction={
-                    <TroubleShootingLink
-                      isPending={calendar.isPending}
-                      onOpen={calendar.open}
-                      onRequest={calendar.request}
-                      onReset={calendar.reset}
-                    />
-                  }
-                />
-              )}
+              <AppleCalendarSelection
+                leftAction={
+                  <TroubleShootingLink
+                    isPending={calendar.isPending}
+                    onOpen={calendar.open}
+                    onRequest={calendar.request}
+                    onReset={calendar.reset}
+                  />
+                }
+              />
             </div>
           )}
           {provider.nangoIntegrationId && (
