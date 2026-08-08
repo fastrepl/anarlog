@@ -1,13 +1,11 @@
-import { ArrowClockwise, DownloadSimple } from "@phosphor-icons/react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   commands as updaterCommands,
   events as updaterEvents,
   type Result,
 } from "@anlg/plugin-updater2";
-import { cn } from "@anlg/utils";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useDevtoolsOtaPreview } from "~/store/zustand/devtools-ota-preview";
@@ -328,118 +326,6 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
     downloadUpdate: handleDownload,
     installUpdate: handleInstall,
   };
-}
-
-export function SidebarTimelineUpdateButton({
-  update,
-}: {
-  update: DesktopUpdateControl;
-}) {
-  if (!update.status || !update.version) {
-    return null;
-  }
-
-  const isDownloading = update.status === "downloading";
-  const isReady = update.status === "ready";
-  const label = sidebarUpdateLabel(update.status, update.progress);
-
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      data-tauri-drag-region="false"
-      disabled={isDownloading || update.downloadStarting || update.installing}
-      className={cn([
-        "relative ml-2 flex h-7 min-h-7 w-7 min-w-7 shrink-0 items-center justify-center rounded-full p-0",
-        "bg-blue-500 text-white shadow-sm transition-colors hover:bg-blue-600",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-        "disabled:cursor-default disabled:bg-blue-500 disabled:text-white disabled:opacity-70 disabled:hover:bg-blue-500",
-      ])}
-      onClick={isReady ? update.installUpdate : update.downloadUpdate}
-    >
-      {isDownloading ? (
-        <SidebarCircularProgress progress={update.progress} />
-      ) : (
-        <span className="relative z-10 flex items-center justify-center">
-          {sidebarActionIcon(update.status)}
-        </span>
-      )}
-    </button>
-  );
-}
-
-function SidebarCircularProgress({ progress }: { progress: number | null }) {
-  const pct = Math.max(0, Math.min(1, progress ?? 0));
-  const radius = 7.5;
-  const circumference = 2 * Math.PI * radius;
-
-  return (
-    <svg
-      aria-hidden="true"
-      className="pointer-events-none absolute top-1/2 left-1/2 size-[18px] -translate-x-1/2 -translate-y-1/2 -rotate-90"
-      viewBox="0 0 18 18"
-    >
-      <circle
-        cx="9"
-        cy="9"
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeOpacity="0.14"
-        strokeWidth="1.5"
-      />
-      <circle
-        cx="9"
-        cy="9"
-        r={radius}
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.5"
-        strokeDasharray={circumference}
-        strokeDashoffset={circumference * (1 - pct)}
-        className="transition-[stroke-dashoffset] duration-200 ease-out"
-      />
-    </svg>
-  );
-}
-
-function sidebarUpdateLabel(
-  status: UpdateBannerStatus,
-  progress: number | null,
-): string {
-  if (status === "ready") {
-    return "Restart to update";
-  }
-
-  if (status === "downloading") {
-    if (progress === null) {
-      return "Downloading update";
-    }
-
-    return `Downloading update, ${Math.round(progress * 100)}% complete`;
-  }
-
-  if (status === "failed") {
-    return "Retry update";
-  }
-
-  return "Download update";
-}
-
-function sidebarActionIcon(status: UpdateBannerStatus): ReactNode {
-  if (status === "ready") {
-    return <ArrowClockwise size={14} aria-hidden="true" />;
-  }
-
-  return (
-    <DownloadSimple
-      size={14}
-      aria-hidden="true"
-      data-testid="update-download-icon"
-    />
-  );
 }
 
 function unwrapResult<T>(result: Result<T, string>): T {

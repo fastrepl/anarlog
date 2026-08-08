@@ -95,16 +95,13 @@ vi.mock("@anlg/plugin-updater2", () => ({
   },
 }));
 
-import {
-  SidebarTimelineUpdateButton,
-  useDesktopUpdateControl,
-} from "./update-banner";
+import { useDesktopUpdateControl } from "./update-banner";
 
 import { useDevtoolsOtaPreview } from "~/store/zustand/devtools-ota-preview";
 
 const queryClients: QueryClient[] = [];
 
-describe("SidebarTimelineUpdateButton", () => {
+describe("useDesktopUpdateControl", () => {
   beforeEach(() => {
     checkMock.mockReset();
     downloadMock.mockReset();
@@ -169,30 +166,22 @@ describe("SidebarTimelineUpdateButton", () => {
     useDevtoolsOtaPreview.getState().clearPreview();
   });
 
-  it("downloads from the sidebar update button", async () => {
+  it("downloads the update reported by the update check", async () => {
     checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
 
-    renderSidebarUpdateButton();
+    renderUpdateControl();
 
-    const button = await screen.findByRole("button", {
-      name: "Download update",
-    });
-
-    expect(button.className.split(" ")).toEqual(
-      expect.arrayContaining(["h-7", "w-7", "min-h-7", "min-w-7", "p-0"]),
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("available"),
     );
-    expect(button.className.split(" ")).toEqual(
-      expect.arrayContaining(["bg-blue-500", "hover:bg-blue-600"]),
-    );
-    expect(button.className.split(" ")).not.toContain("bg-primary");
 
-    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: "download" }));
 
     await waitFor(() => expect(downloadMock).toHaveBeenCalledWith("1.0.34"));
   });
 
-  it("shows download when an external update check reports an available version", async () => {
-    renderSidebarUpdateButton();
+  it("reports available when an external update check emits an event", async () => {
+    renderUpdateControl();
 
     await waitFor(() =>
       expect(eventHandlers.updateAvailable).toBeTypeOf("function"),
@@ -202,13 +191,15 @@ describe("SidebarTimelineUpdateButton", () => {
       eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Download update" }));
+    expect(screen.getByTestId("status").textContent).toBe("available");
+
+    fireEvent.click(screen.getByRole("button", { name: "download" }));
 
     await waitFor(() => expect(downloadMock).toHaveBeenCalledWith("1.0.34"));
   });
 
   it("clears stale available state after a successful check finds no update", async () => {
-    renderSidebarUpdateButton();
+    renderUpdateControl();
 
     await waitFor(() =>
       expect(eventHandlers.updateAvailable).toBeTypeOf("function"),
@@ -218,9 +209,7 @@ describe("SidebarTimelineUpdateButton", () => {
       eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
     });
 
-    expect(
-      screen.getByRole("button", { name: "Download update" }),
-    ).toBeTruthy();
+    expect(screen.getByTestId("status").textContent).toBe("available");
 
     await act(async () => {
       await queryClients[queryClients.length - 1]?.refetchQueries({
@@ -229,14 +218,12 @@ describe("SidebarTimelineUpdateButton", () => {
     });
 
     await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "Download update" }),
-      ).toBeNull(),
+      expect(screen.getByTestId("status").textContent).toBe("none"),
     );
   });
 
-  it("keeps retry visible when a failed update is rechecked", async () => {
-    renderSidebarUpdateButton();
+  it("keeps failed state when a failed update is rechecked", async () => {
+    renderUpdateControl();
 
     await waitFor(() =>
       expect(eventHandlers.updateDownloadFailed).toBeTypeOf("function"),
@@ -248,56 +235,45 @@ describe("SidebarTimelineUpdateButton", () => {
       });
     });
 
-    expect(screen.getByRole("button", { name: "Retry update" })).toBeTruthy();
+    expect(screen.getByTestId("status").textContent).toBe("failed");
 
     act(() => {
       eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
     });
 
-    expect(screen.getByRole("button", { name: "Retry update" })).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Download update" }),
-    ).toBeNull();
+    expect(screen.getByTestId("status").textContent).toBe("failed");
   });
 
-  it("shows restart when the checked update is already downloaded", async () => {
+  it("reports ready when the checked update is already downloaded", async () => {
     checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
     isDownloadedMock.mockResolvedValue({ status: "ok", data: true });
 
-    renderSidebarUpdateButton();
+    renderUpdateControl();
 
-    expect(
-      await screen.findByRole("button", { name: "Restart to update" }),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Download update" }),
-    ).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("ready"),
+    );
   });
 
-  it("keeps restart visible when an already-downloaded update also emits available", async () => {
+  it("keeps ready state when an already-downloaded update also emits available", async () => {
     checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
     isDownloadedMock.mockResolvedValue({ status: "ok", data: true });
 
-    renderSidebarUpdateButton();
+    renderUpdateControl();
 
-    expect(
-      await screen.findByRole("button", { name: "Restart to update" }),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("ready"),
+    );
 
     act(() => {
       eventHandlers.updateAvailable?.({ payload: { version: "1.0.34" } });
     });
 
-    expect(
-      screen.getByRole("button", { name: "Restart to update" }),
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole("button", { name: "Download update" }),
-    ).toBeNull();
+    expect(screen.getByTestId("status").textContent).toBe("ready");
   });
 
-  it("shows sidebar circular progress while downloading", async () => {
-    renderSidebarUpdateButton();
+  it("tracks download progress from updater events", async () => {
+    renderUpdateControl();
 
     await waitFor(() =>
       expect(eventHandlers.updateDownloadProgress).toBeTypeOf("function"),
@@ -314,18 +290,12 @@ describe("SidebarTimelineUpdateButton", () => {
       });
     });
 
-    const button = screen.getByRole("button", {
-      name: "Downloading update, 50% complete",
-    });
-
-    expect(button.hasAttribute("disabled")).toBe(true);
-    expect(
-      button.querySelector("[data-testid='update-download-icon']"),
-    ).toBeNull();
+    expect(screen.getByTestId("status").textContent).toBe("downloading");
+    expect(screen.getByTestId("progress").textContent).toBe("0.5");
   });
 
-  it("restarts from the sidebar update button when ready", async () => {
-    renderSidebarUpdateButton();
+  it("installs the update when ready", async () => {
+    renderUpdateControl();
 
     await waitFor(() =>
       expect(eventHandlers.updateReady).toBeTypeOf("function"),
@@ -335,7 +305,9 @@ describe("SidebarTimelineUpdateButton", () => {
       eventHandlers.updateReady?.({ payload: { version: "1.0.34" } });
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Restart to update" }));
+    expect(screen.getByTestId("status").textContent).toBe("ready");
+
+    fireEvent.click(screen.getByRole("button", { name: "install" }));
 
     await waitFor(() => {
       expect(installMock).toHaveBeenCalledWith("1.0.34");
@@ -345,14 +317,14 @@ describe("SidebarTimelineUpdateButton", () => {
     });
   });
 
-  it("clears the button after the app reports it has updated", async () => {
+  it("clears the update after the app reports it has updated", async () => {
     checkMock.mockResolvedValue({ status: "ok", data: "1.0.34" });
 
-    renderSidebarUpdateButton();
+    renderUpdateControl();
 
-    expect(
-      await screen.findByRole("button", { name: "Download update" }),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("available"),
+    );
 
     await waitFor(() => expect(eventHandlers.updated).toBeTypeOf("function"));
 
@@ -363,38 +335,49 @@ describe("SidebarTimelineUpdateButton", () => {
     });
 
     await waitFor(() =>
-      expect(
-        screen.queryByRole("button", { name: "Download update" }),
-      ).toBeNull(),
+      expect(screen.getByTestId("status").textContent).toBe("none"),
     );
   });
 
   it("shows the devtools OTA preview state without a real updater result", async () => {
     useDevtoolsOtaPreview.getState().showPreview("available");
 
-    renderSidebarUpdateButton();
+    renderUpdateControl();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Download update" }),
+    expect(screen.getByTestId("status").textContent).toBe("available");
+
+    fireEvent.click(screen.getByRole("button", { name: "download" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("status").textContent).toBe("downloading"),
     );
-
-    expect(
-      await screen.findByRole("button", {
-        name: "Downloading update, 58% complete",
-      }),
-    ).toBeTruthy();
+    expect(screen.getByTestId("progress").textContent).toBe("0.58");
     expect(downloadMock).not.toHaveBeenCalled();
   });
 });
 
-function renderSidebarUpdateButton() {
-  return renderWithQueryClient(<SidebarUpdateButtonHarness />);
+function renderUpdateControl() {
+  return renderWithQueryClient(<UpdateControlProbe />);
 }
 
-function SidebarUpdateButtonHarness() {
+function UpdateControlProbe() {
   const update = useDesktopUpdateControl();
 
-  return <SidebarTimelineUpdateButton update={update} />;
+  return (
+    <div>
+      <span data-testid="status">{update.status ?? "none"}</span>
+      <span data-testid="version">{update.version ?? "none"}</span>
+      <span data-testid="progress">
+        {update.progress === null ? "none" : String(update.progress)}
+      </span>
+      <button type="button" onClick={update.downloadUpdate}>
+        download
+      </button>
+      <button type="button" onClick={update.installUpdate}>
+        install
+      </button>
+    </div>
+  );
 }
 
 function renderWithQueryClient(ui: ReactNode) {
