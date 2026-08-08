@@ -102,6 +102,12 @@ async fn check_and_download<R: tauri::Runtime>(
         }
     };
 
+    // A meeting may have started while the check was in flight.
+    if updater2.meeting_active() {
+        tracing::info!("automatic_update_deferred_meeting_active");
+        return;
+    }
+
     if install_cached_update && updater2.has_cached_update(&version) {
         let result = match updater2.install(&version).await {
             Ok(result) => result,

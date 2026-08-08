@@ -22,7 +22,8 @@ const publishMeetingActive = (() => {
 export function UpdaterMeetingSync() {
   const meetingActive = useStore(
     listenerStore,
-    (state) => state.live.status === "active",
+    (state) =>
+      state.live.status === "active" || state.live.status === "finalizing",
   );
 
   return (

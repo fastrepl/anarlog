@@ -93,7 +93,9 @@ export function ToastNotifications() {
       : false,
   );
   const activeLiveSessionId = useListener((state) =>
-    state.live.status === "active" ? state.live.sessionId : null,
+    state.live.status === "active" || state.live.status === "finalizing"
+      ? state.live.sessionId
+      : null,
   );
   const isLiveMeetingActive = activeLiveSessionId !== null;
 
@@ -109,10 +111,19 @@ export function ToastNotifications() {
   useMountEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | undefined;
+    // Main.show() emits visible:true even when the window is already visible
+    // (e.g. dock Reopen), so only a show that follows a hide clears the snooze.
+    let mainWindowWasHidden = false;
 
     void windowsEvents.visibilityEvent
       .listen(({ payload }) => {
-        if (payload.window.type === "main" && payload.visible) {
+        if (payload.window.type !== "main") {
+          return;
+        }
+        if (!payload.visible) {
+          mainWindowWasHidden = true;
+        } else if (mainWindowWasHidden) {
+          mainWindowWasHidden = false;
           setSnoozedUpdateToastId(null);
         }
       })

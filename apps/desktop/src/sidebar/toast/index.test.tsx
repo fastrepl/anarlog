@@ -380,7 +380,7 @@ describe("ToastNotifications", () => {
     );
   });
 
-  it("resurfaces the update notice when the main window is shown again", () => {
+  it("resurfaces the update notice only after the main window is hidden and shown again", () => {
     mocks.update.status = "available";
     mocks.update.version = "1.0.34";
 
@@ -391,10 +391,22 @@ describe("ToastNotifications", () => {
     act(() => firstOptions.onDismiss());
     mocks.message.mockClear();
 
+    // A show without a prior hide (e.g. dock Reopen while visible) keeps the snooze.
     act(() => {
       mocks.visibilityHandlers.forEach((handler) =>
         handler({ payload: { window: { type: "main" }, visible: true } }),
       );
+    });
+    expect(mocks.message).not.toHaveBeenCalledWith(
+      "Anarlog 1.0.34 is available",
+      expect.anything(),
+    );
+
+    act(() => {
+      mocks.visibilityHandlers.forEach((handler) => {
+        handler({ payload: { window: { type: "main" }, visible: false } });
+        handler({ payload: { window: { type: "main" }, visible: true } });
+      });
     });
 
     expect(mocks.message).toHaveBeenCalledWith(
