@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-complete-connected-import"
+description = "Enables the complete_connected_import command without any pre-configured scope."
+commands.allow = ["complete_connected_import"]
+
+[[permission]]
+identifier = "deny-complete-connected-import"
+description = "Denies the complete_connected_import command without any pre-configured scope."
+commands.deny = ["complete_connected_import"]

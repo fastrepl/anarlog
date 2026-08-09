@@ -248,10 +248,6 @@ msgstr ""
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr ""
 
-#: src/imports/screen.tsx
-msgid "Anarlog detects installed meeting assistants and imports their official JSON, CSV, Markdown, text, VTT, or SRT exports."
-msgstr ""
-
 #: src/main/sync-status.tsx
 msgid "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
 msgstr ""
@@ -445,6 +441,16 @@ msgstr ""
 msgid "Bring your meeting history"
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "Bring your meeting history with you. Connect supported assistants to keep new meetings coming into Anarlog, or use export files as a fallback."
+msgstr ""
+
+#. placeholder {0}: latestResult.imported
+#. placeholder {1}: latestResult.matched
+#: src/imports/screen.tsx
+msgid "Brought in {0} new meetings. {1} were already here."
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr ""
@@ -502,6 +508,10 @@ msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "Chat history"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Checking connection"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
@@ -576,6 +586,14 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Choose export folder"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Choose files"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Choose files exported from this app."
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
@@ -784,6 +802,10 @@ msgstr ""
 msgid "Connect {0}"
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "Connect & import"
+msgstr ""
+
 #: src/onboarding/calendar.tsx
 #: src/onboarding/index.tsx
 msgid "Connect calendar"
@@ -805,6 +827,11 @@ msgstr ""
 msgid "Connect Notion"
 msgstr ""
 
+#. placeholder {0}: provider.name
+#: src/imports/screen.tsx
+msgid "Connect once to bring over your {0} history and keep new meetings coming in while you switch."
+msgstr ""
+
 #: src/onboarding/calendar.tsx
 msgid "Connect Outlook"
 msgstr ""
@@ -820,6 +847,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Connect your integration"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Connected · New meetings are imported automatically while Anarlog is running."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -1058,10 +1089,15 @@ msgstr ""
 msgid "Dictionary"
 msgstr ""
 
+#: src/imports/screen.tsx
+msgid "Direct connection is not available yet. You can still bring your history over with files."
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Disable"
 msgstr ""
 
+#: src/imports/screen.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
 msgstr ""
@@ -1197,6 +1233,10 @@ msgstr ""
 #. placeholder {0}: workspace.name
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Everything is already here."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -1416,20 +1456,8 @@ msgstr ""
 msgid "If Anarlog stays closed, paste the link in the sign-in window."
 msgstr ""
 
-#: src/imports/screen.tsx
-msgid "Import"
-msgstr ""
-
 #: src/onboarding/index.tsx
 msgid "Import notes and transcripts from the meeting apps you already use."
-msgstr ""
-
-#. placeholder {0}: importMutation.data.imported
-#. placeholder {1}: importMutation.data.matched
-#. placeholder {2}: importMutation.data.conflicts
-#. placeholder {3}: importMutation.data.errors
-#: src/imports/screen.tsx
-msgid "Imported {0} meetings. Matched {1} unchanged meetings; {2} conflicts; {3} errors."
 msgstr ""
 
 #: src/settings/imports/index.tsx
@@ -1919,6 +1947,12 @@ msgstr ""
 
 #: src/contacts/details.tsx
 msgid "Notes"
+msgstr ""
+
+#. placeholder {0}: latestResult.conflicts
+#. placeholder {1}: latestResult.errors
+#: src/imports/screen.tsx
+msgid "Nothing new was imported. {0} meetings need review and {1} could not be imported."
 msgstr ""
 
 #: src/settings/general/index.tsx
@@ -2959,6 +2993,7 @@ msgstr ""
 msgid "Sync needs attention"
 msgstr ""
 
+#: src/imports/screen.tsx
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Sync now"
@@ -3259,6 +3294,10 @@ msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Use an existing key"
+msgstr ""
+
+#: src/imports/screen.tsx
+msgid "Use files"
 msgstr ""
 
 #: src/onboarding/permissions.tsx

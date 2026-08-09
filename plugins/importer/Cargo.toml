@@ -29,9 +29,11 @@ serde_json = { workspace = true }
 specta = { workspace = true }
 tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+url = { workspace = true }
 
 chrono = { workspace = true }
 dirs = { workspace = true }
+rmcp = { workspace = true, features = ["auth", "client", "transport-streamable-http-client-reqwest"] }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "macros", "sync", "time"] }
 uuid = { workspace = true, features = ["v4", "v5"] }

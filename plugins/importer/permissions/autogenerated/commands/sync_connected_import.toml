@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-sync-connected-import"
+description = "Enables the sync_connected_import command without any pre-configured scope."
+commands.allow = ["sync_connected_import"]
+
+[[permission]]
+identifier = "deny-sync-connected-import"
+description = "Denies the sync_connected_import command without any pre-configured scope."
+commands.deny = ["sync_connected_import"]

@@ -1,5 +1,6 @@
 use crate::ext::ImporterPluginExt;
 use crate::types::{
+    ConnectedImportAuthorization, ConnectedImportCredentials, ConnectedImportSyncResult,
     ImportDataResult, ImportSourceInfo, ImportSourceKind, ImportStats, ImportTextFile,
 };
 
@@ -7,6 +8,34 @@ const MAX_IMPORT_FILE_COUNT: usize = 1_000;
 const MAX_IMPORT_FILE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_TOTAL_IMPORT_BYTES: u64 = 100 * 1024 * 1024;
 const SUPPORTED_EXTENSIONS: &[&str] = &["csv", "json", "md", "markdown", "srt", "txt", "vtt"];
+
+#[tauri::command]
+#[specta::specta]
+pub async fn begin_connected_import(
+    provider_id: String,
+    state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+) -> Result<ConnectedImportAuthorization, String> {
+    crate::connected_mcp::begin_connection(&provider_id, &state).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn complete_connected_import(
+    provider_id: String,
+    state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+) -> Result<ConnectedImportCredentials, String> {
+    crate::connected_mcp::complete_connection(&provider_id, &state).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn sync_connected_import(
+    provider_id: String,
+    credentials: ConnectedImportCredentials,
+    known_meeting_ids: Vec<String>,
+) -> Result<ConnectedImportSyncResult, String> {
+    crate::connected_mcp::sync(&provider_id, credentials, known_meeting_ids).await
+}
 
 #[tauri::command]
 #[specta::specta]

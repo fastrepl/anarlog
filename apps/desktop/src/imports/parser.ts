@@ -107,6 +107,10 @@ function normalizeMeeting(value: unknown, fallbackTitle: string) {
     "note",
     "content",
     "markdown",
+    "private_notes",
+    "privateNotes",
+    "enhanced_notes",
+    "enhancedNotes",
     "meeting_notes",
     "meetingNotes",
   ]);
@@ -122,13 +126,33 @@ function normalizeMeeting(value: unknown, fallbackTitle: string) {
   const noteMarkdown = composeNote(summary, notes, record, transcript.length);
 
   return emptyMeeting(
-    firstText(record, ["title", "name", "subject", "meeting_title"]) ||
-      fallbackTitle,
+    firstText(record, [
+      "title",
+      "name",
+      "subject",
+      "meeting_title",
+      "meetingTitle",
+      "call_title",
+      "callTitle",
+      "recording_title",
+      "recordingTitle",
+      "meeting_name",
+      "meetingName",
+      "topic",
+    ]) || fallbackTitle,
     {
       externalId: firstText(record, [
         "id",
         "meeting_id",
         "meetingId",
+        "transcript_id",
+        "transcriptId",
+        "document_id",
+        "documentId",
+        "call_id",
+        "callId",
+        "recording_id",
+        "recordingId",
         "conversation_id",
         "conversationId",
         "uuid",
@@ -139,6 +163,8 @@ function normalizeMeeting(value: unknown, fallbackTitle: string) {
           "startedAt",
           "start_time",
           "startTime",
+          "meeting_date",
+          "meetingDate",
           "date",
           "created_at",
           "createdAt",
@@ -151,8 +177,14 @@ function normalizeMeeting(value: unknown, fallbackTitle: string) {
         "url",
         "meeting_url",
         "meetingUrl",
+        "call_url",
+        "callUrl",
+        "recording_url",
+        "recordingUrl",
         "share_url",
         "shareUrl",
+        "granola_url",
+        "granolaUrl",
       ]),
       noteMarkdown,
       transcript,
@@ -455,6 +487,18 @@ function firstText(record: JsonRecord, keys: string[]): string {
   const value = firstValue(record, keys);
   if (typeof value === "string") return value.trim();
   if (typeof value === "number") return String(value);
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        const nested = asRecord(item);
+        return nested
+          ? firstText(nested, ["text", "content", "value", "name"])
+          : "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
   const nested = asRecord(value);
   return nested ? firstText(nested, ["text", "content", "value", "name"]) : "";
 }

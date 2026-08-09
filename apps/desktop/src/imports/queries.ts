@@ -11,6 +11,8 @@ export const EMPTY_MEETING_IMPORT_HISTORY: MeetingImportRun[] = [];
 
 type ImportItemRow = { discovered_count: number };
 type SessionIdRow = { id: string };
+type ExternalMeetingIdRow = { external_event_id: string };
+type MeetingImportMode = "connection" | "export";
 
 export type MeetingImportResult = {
   discovered: number;
@@ -68,14 +70,52 @@ export function useMeetingImportHistory() {
   });
 }
 
+export async function getImportedMeetingIds(providerId: string) {
+  const rows = await liveQueryClient.execute<ExternalMeetingIdRow>(
+    `
+      SELECT external_event_id
+      FROM sessions
+      WHERE external_provider = ? AND external_event_id <> ''
+        AND deleted_at IS NULL
+    `,
+    [providerId],
+  );
+  return rows.map((row) => row.external_event_id);
+}
+
 export async function importMeetingFiles(
   providerId: string,
   files: ImportTextFile[],
 ): Promise<MeetingImportResult> {
   if (files.length === 0) throw new Error("Select at least one export file");
 
+  return runMeetingImport(providerId, files, "export");
+}
+
+export async function importConnectedMeetings(
+  providerId: string,
+  files: ImportTextFile[],
+): Promise<MeetingImportResult> {
+  if (files.length === 0) {
+    return {
+      discovered: 0,
+      imported: 0,
+      matched: 0,
+      conflicts: 0,
+      errors: 0,
+    };
+  }
+
+  return runMeetingImport(providerId, files, "connection");
+}
+
+async function runMeetingImport(
+  providerId: string,
+  files: ImportTextFile[],
+  mode: MeetingImportMode,
+): Promise<MeetingImportResult> {
   const runId = id();
-  const sourceKind = `meeting-export:${providerId}`;
+  const sourceKind = `meeting-${mode}:${providerId}`;
   const totals: MeetingImportResult = {
     discovered: 0,
     imported: 0,
@@ -143,14 +183,16 @@ export async function importMeetingFiles(
         );
       }
 
-      const conflictCount = targets.length - importedTargets.length;
+      const existingCount = targets.length - importedTargets.length;
+      const matchedCount = mode === "connection" ? existingCount : 0;
+      const conflictCount = mode === "export" ? existingCount : 0;
       statements.push({
         sql: `
           INSERT INTO migration_import_items (
             id, run_id, source_path, source_kind, source_sha256, status,
             discovered_count, imported_count, matched_count, skipped_count,
             conflict_count, error, completed_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, '', ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '', ?)
         `,
         params: [
           itemId,
@@ -161,6 +203,7 @@ export async function importMeetingFiles(
           conflictCount > 0 ? "conflict" : "complete",
           targets.length,
           importedTargets.length,
+          matchedCount,
           conflictCount,
           new Date().toISOString(),
         ],
@@ -180,7 +223,11 @@ export async function importMeetingFiles(
             file.path,
             sourceKind,
             target.sessionId,
-            existingIds.has(target.sessionId) ? "conflict" : "inserted",
+            existingIds.has(target.sessionId)
+              ? mode === "connection"
+                ? "matched"
+                : "conflict"
+              : "inserted",
           ],
         });
       }
@@ -188,6 +235,7 @@ export async function importMeetingFiles(
 
       totals.discovered += targets.length;
       totals.imported += importedTargets.length;
+      totals.matched += matchedCount;
       totals.conflicts += conflictCount;
     } catch (error) {
       totals.discovered += 1;

@@ -295,6 +295,30 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the begin_connected_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-begin-connected-import",
+          "markdownDescription": "Enables the begin_connected_import command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the begin_connected_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-begin-connected-import",
+          "markdownDescription": "Denies the begin_connected_import command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the complete_connected_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-complete-connected-import",
+          "markdownDescription": "Enables the complete_connected_import command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the complete_connected_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-complete-connected-import",
+          "markdownDescription": "Denies the complete_connected_import command without any pre-configured scope."
+        },
+        {
           "description": "Enables the list_available_sources command without any pre-configured scope.",
           "type": "string",
           "const": "allow-list-available-sources",
@@ -343,10 +367,22 @@
           "markdownDescription": "Denies the run_import_dry command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-available-sources`\n- `allow-run-import`\n- `allow-run-import-dry`\n- `allow-read-text-files`",
+          "description": "Enables the sync_connected_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-sync-connected-import",
+          "markdownDescription": "Enables the sync_connected_import command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sync_connected_import command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-sync-connected-import",
+          "markdownDescription": "Denies the sync_connected_import command without any pre-configured scope."
+        },
+        {
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-list-available-sources`\n- `allow-run-import`\n- `allow-run-import-dry`\n- `allow-read-text-files`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-available-sources`\n- `allow-run-import`\n- `allow-run-import-dry`\n- `allow-read-text-files`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-begin-connected-import`\n- `allow-complete-connected-import`\n- `allow-sync-connected-import`\n- `allow-list-available-sources`\n- `allow-run-import`\n- `allow-run-import-dry`\n- `allow-read-text-files`"
         }
       ]
     }

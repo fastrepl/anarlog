@@ -50,6 +50,49 @@ describe("meeting export parser", () => {
     ]);
   });
 
+  it("parses Granola MCP meeting fields", () => {
+    const [meeting] = parseMeetingExport({
+      path: "mcp://granola/meeting-1.json",
+      name: "meeting-1.json",
+      content: JSON.stringify({
+        document_id: "meeting-1",
+        meetingTitle: "Customer handoff",
+        meeting_date: "2026-08-08T04:30:00Z",
+        enhanced_notes: "## Decisions\n\nMove forward with the migration.",
+        granola_url: "https://app.granola.ai/d/meeting-1",
+      }),
+    });
+
+    expect(meeting).toMatchObject({
+      externalId: "meeting-1",
+      title: "Customer handoff",
+      startedAt: "2026-08-08T04:30:00.000Z",
+      sourceUrl: "https://app.granola.ai/d/meeting-1",
+    });
+    expect(meeting?.noteMarkdown).toContain("Move forward with the migration");
+  });
+
+  it("normalizes call-oriented MCP meeting fields", () => {
+    const [meeting] = parseMeetingExport({
+      path: "mcp://jiminny/call-1.json",
+      name: "call-1.json",
+      content: JSON.stringify({
+        call_id: "call-1",
+        call_title: "Customer discovery",
+        summary: ["Pricing is the blocker", "Follow up next week"],
+        recording_url: "https://example.com/calls/call-1",
+      }),
+    });
+
+    expect(meeting).toMatchObject({
+      externalId: "call-1",
+      title: "Customer discovery",
+      sourceUrl: "https://example.com/calls/call-1",
+    });
+    expect(meeting?.noteMarkdown).toContain("Pricing is the blocker");
+    expect(meeting?.noteMarkdown).toContain("Follow up next week");
+  });
+
   it("handles quoted multiline CSV cells", () => {
     expect(
       parseCsvRows('title,notes\n"Planning","Line one\nLine two"'),

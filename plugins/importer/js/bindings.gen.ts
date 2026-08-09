@@ -6,6 +6,30 @@
 
 
 export const commands = {
+async beginConnectedImport(providerId: string) : Promise<Result<ConnectedImportAuthorization, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|begin_connected_import", { providerId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async completeConnectedImport(providerId: string) : Promise<Result<ConnectedImportCredentials, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|complete_connected_import", { providerId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async syncConnectedImport(providerId: string, credentials: ConnectedImportCredentials, knownMeetingIds: string[]) : Promise<Result<ConnectedImportSyncResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|sync_connected_import", { providerId, credentials, knownMeetingIds }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async listAvailableSources() : Promise<Result<ImportSourceInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:importer|list_available_sources") };
@@ -50,6 +74,9 @@ async readTextFiles(paths: string[]) : Promise<Result<ImportTextFile[], string>>
 
 /** user-defined types **/
 
+export type ConnectedImportAuthorization = { providerId: string; authorizationUrl: string }
+export type ConnectedImportCredentials = { providerId: string; clientId: string; clientSecret: string | null; tokenJson: string; tokenReceivedAt: number | null }
+export type ConnectedImportSyncResult = { files: ImportTextFile[]; credentials: ConnectedImportCredentials; warnings: string[] }
 export type ImportDataResult = { stats: ImportStats; data: JsonValue }
 export type ImportSourceInfo = { kind: ImportSourceKind | null; transform: TransformKind; name: string; path: string; revealPath: string }
 export type ImportSourceKind = "hyprnote_v0_stable" | "hyprnote_v0_nightly" | "as_is"

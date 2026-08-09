@@ -13,6 +13,23 @@ describe("meeting import providers", () => {
     ).toBe(MEETING_IMPORT_PROVIDERS.length);
   });
 
+  it("enables direct OAuth imports for every provider with a public MCP server", () => {
+    expect(
+      MEETING_IMPORT_PROVIDERS.filter((provider) => provider.directImport).map(
+        (provider) => provider.id,
+      ),
+    ).toEqual([
+      "granola",
+      "circleback",
+      "fireflies",
+      "krisp",
+      "read-ai",
+      "fellow",
+      "tactiq",
+      "jiminny",
+    ]);
+  });
+
   it("detects exact native names and bundle identifiers", () => {
     const providers = detectMeetingImportProviders([
       { id: "com.granola.app", name: "Granola" },
