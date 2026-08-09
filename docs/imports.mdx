@@ -1,0 +1,45 @@
+---
+title: "Import meeting history"
+description: "Bring notes and transcripts from another meeting assistant into Anarlog."
+---
+
+Meeting-history import turns official exports from another meeting assistant into Anarlog notes. It is designed for moving a library of past meetings, not for uploading one recording.
+
+<Note>
+  To import one audio, SRT, or VTT file, use [Import audio or a transcript](/import-recordings).
+</Note>
+
+## Import exported meetings
+
+1. Export your meetings from the original assistant.
+2. Open **Settings → Imports** in Anarlog.
+3. Find the detected assistant and click **Import**.
+4. Select one or more JSON, CSV, Markdown, text, VTT, or SRT export files.
+5. Review the result shown when the import finishes.
+
+Anarlog detects supported meeting-assistant apps installed on your computer. Supported sources include Granola, Circleback, Fireflies.ai, Fathom, Krisp, Otter.ai, Notion AI Meeting Notes, Zoom, Microsoft Teams, Google Meet, Webex, ChatGPT Record, Slack Huddles, and others.
+
+The exact content depends on the source export. Anarlog keeps supported titles, dates, notes, summaries, transcripts, speakers, and participants when those fields are available.
+
+## Understand the result
+
+The result separates meetings into four groups:
+
+- **Imported** meetings were added as new notes.
+- **Matched** meetings were already present and were left unchanged.
+- **Conflicts** need review because Anarlog could not safely choose between versions.
+- **Errors** could not be read or converted.
+
+You can select the same export again. Meetings that still match are not duplicated.
+
+## What is not imported
+
+Meeting-history import reads text-based exports. It does not copy the original audio or video.
+
+If you only have an audio recording, [upload the audio to an empty note](/import-recordings#import-audio) and let your selected Transcription model process it.
+
+## If your assistant is missing
+
+Anarlog lists assistants it detects on your computer. Open or reinstall the source app, restart Anarlog, and check **Settings → Imports** again. You can also export to SRT or VTT and [import the transcript directly](/import-recordings#import-a-transcript).
+
+See [Troubleshooting](/troubleshooting#meeting-history-import-shows-no-apps) if no supported app appears or an export fails.

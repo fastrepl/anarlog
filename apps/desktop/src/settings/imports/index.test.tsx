@@ -23,6 +23,9 @@ describe("SettingsImports", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Documentation" }));
 
-    expect(mocks.openUrl).toHaveBeenCalledWith("https://docs.anarlog.so", null);
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://docs.anarlog.so/imports",
+      null,
+    );
   });
 });

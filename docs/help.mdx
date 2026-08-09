@@ -1,33 +1,74 @@
 ---
-title: "Common questions"
-description: "Find the right guide for the questions people ask most often about Anarlog."
+title: "Frequently asked questions"
+description: "Answers about recording, AI, privacy, sharing, sync, and developer tools."
 ---
 
-<CardGroup cols={2}>
-  <Card title="Does Anarlog join the call?" icon="video-slash" href="/meetings">
-    No. Anarlog captures microphone and computer audio on your Mac without adding a meeting bot.
-  </Card>
-  <Card title="Can I use it offline?" icon="wifi-slash" href="/offline">
-    Yes. Prepare local transcription and Intelligence models before disconnecting.
-  </Card>
-  <Card title="Where is my data stored?" icon="hard-drive" href="/data-and-privacy">
-    App data is stored locally. Hosted and connected features receive only the data needed for the feature.
-  </Card>
-  <Card title="Can I import an old recording?" icon="file-arrow-up" href="/import-recordings">
-    Import common audio formats, or start from an SRT or VTT transcript.
-  </Card>
-  <Card title="Can recording start automatically?" icon="clock" href="/automatic-capture">
-    Start calendar-backed meetings on schedule and get prompts for unscheduled calls.
-  </Card>
-  <Card title="How do I improve summaries?" icon="wand-magic-sparkles" href="/customize-summaries">
-    Choose a template, set standing instructions, and add specialized terms.
-  </Card>
-  <Card title="Can a meeting use multiple languages?" icon="language" href="/languages">
-    Choose the output language and add every language you expect people to speak.
-  </Card>
-  <Card title="How do I export my notes?" icon="file-export" href="/notes#export-a-meeting">
-    Export any combination of the memo, summary, and transcript.
-  </Card>
-</CardGroup>
+## Recording and notes
+
+### Does Anarlog join the call?
+
+No. Anarlog captures your microphone and computer audio from the desktop without adding a meeting bot. See [Record meetings](/meetings).
+
+### Can recording start automatically?
+
+Yes. Anarlog can start calendar-backed meetings on schedule and prompt you when it detects an unscheduled call. You control both behaviors under **Settings → App → Automatic recording**. See [Automatic capture](/automatic-capture).
+
+### Can I edit a transcript or fix a speaker?
+
+Yes. Use **Write** to edit transcript text. Select text or a speaker label to assign the correct person, create a speaker, or apply the change to every matching segment. See [Correct a transcript](/notes#correct-a-transcript).
+
+### Can I add more audio to an existing note?
+
+Yes. Right-click **Transcript** and choose **Resume listening**. The new recording stays in the same meeting note.
+
+### Can I import older meetings?
+
+Yes. Upload one audio, SRT, or VTT file to an empty note, or use **Settings → Imports** for meeting-history exports from another assistant. See [Import audio or a transcript](/import-recordings) and [Import meeting history](/imports).
+
+## AI, offline use, and privacy
+
+### Can I use Anarlog offline?
+
+Yes, if you prepare local models before disconnecting. Built-in on-device transcription is currently available only on Apple Silicon. LM Studio and Ollama can provide local Intelligence models on supported platforms. See [Use Anarlog offline](/offline).
+
+### Where is my data stored?
+
+Anarlog stores app data locally by default. Hosted AI, calendars, sync, sharing, and the optional Cloud API receive the content needed for the feature you enable. See [Data, privacy, and retention](/data-and-privacy).
+
+### Does Anarlog train on my meetings?
+
+The answer depends on the provider you choose. Local providers keep the model request on your computer. For Anarlog Cloud or a bring-your-own-key provider, review that provider's retention and training policy before sending sensitive content.
+
+### Can a meeting use multiple languages?
+
+Yes. Choose the summary language and add every spoken language you expect. The selected Transcription model must support them. See [Languages](/languages).
+
+## Sharing, sync, and automation
+
+### What gets shared with another person?
+
+Anarlog shares the generated summary, not your private memo. Retained audio is optional and must be included separately. Sharing is a Pro feature. See [Share meetings](/sharing).
+
+### Can Anarlog recover my sync recovery key?
+
+No. The key is shown only during setup and Anarlog cannot read or recover it. Save it in a password manager before closing the setup window. See [Cloud sync](/sync#save-the-recovery-key).
+
+### Can I automate follow-up work?
+
+Yes, with Anarlog Pro. Built-in starters can post a Slack recap, update a Notion page, create Linear issues, or export each meeting as Markdown. See [Automate meeting follow-up](/automations).
+
+## Platforms and developer tools
+
+### Which desktop platforms are supported?
+
+Anarlog supports macOS 15 or later. Windows x64 and Linux x64 or ARM64 builds are available in beta. See [Install the desktop app](/desktop-installation).
+
+### Is there a mobile app?
+
+Not yet. Anarlog currently ships as a desktop app.
+
+### Does the local API work while Anarlog is closed?
+
+No. The local API listens only on `127.0.0.1` while the desktop app is open. The CLI and local MCP server can read the local database while the app is closed. For hosted access, explicitly enable [Cloud API & Connectors](/reference/api-cloud).
 
 If something is not working, go to [Troubleshooting](/troubleshooting). For a question not covered here, email [founders@anarlog.so](mailto:founders@anarlog.so) or [join Discord](https://anarlog.so/discord).

@@ -7,7 +7,7 @@ import { Button } from "@anlg/ui/components/ui/button";
 import { MeetingImportScreen } from "~/imports/screen";
 import { SettingsPageTitle } from "~/settings/page-title";
 
-const IMPORTS_DOCUMENTATION_URL = "https://docs.anarlog.so";
+const IMPORTS_DOCUMENTATION_URL = "https://docs.anarlog.so/imports";
 
 export function SettingsImports() {
   return (

@@ -10,7 +10,9 @@ Open **Settings → Permissions** and confirm:
 - **Microphone** is allowed so Anarlog can hear you.
 - **System Audio** is allowed so Anarlog can hear the other people on the call.
 
-If a permission is denied, use **Open** to change it in macOS Settings, then restart Anarlog.
+If a permission is denied, use **Open** to change it in your operating system's settings, then restart Anarlog.
+
+On Linux, confirm that your desktop audio service can see the microphone and the output-monitor source. On Windows or Linux, include the app and operating-system versions if audio works in other apps but not in Anarlog.
 
 ## The transcript is not live
 
@@ -42,8 +44,60 @@ Audio imports accept WAV, MP3, OGG, MP4, M4A, FLAC, WebM, and AAC. Transcript im
 
 For audio, confirm that a Transcription model is selected and that a local provider is running. See [Import audio or a transcript](/import-recordings).
 
+## Meeting-history import shows no apps
+
+Anarlog lists supported meeting assistants it detects on your computer. Open the source app, restart Anarlog, and return to **Settings → Imports**.
+
+If you already removed the source app, reinstall it long enough to complete the import or export the transcript as SRT or VTT and [import it into an empty note](/import-recordings#import-a-transcript).
+
+## Chat has no meeting context
+
+Open the meeting before opening Chat and wait for its transcript or summary to finish. Check the context chips above the input. If no Intelligence model is configured, open **Settings → Intelligence**.
+
+See [Chat with your meetings](/chat) for context controls and example requests.
+
+## Sharing does not work
+
+Sharing requires Anarlog Pro, a signed-in account, an internet connection, and a generated summary. If a recipient cannot open the note, check their invitation and **General access** under **Share**.
+
+For an **Anyone with the link** share, copy the current link again. Replacing a link invalidates the earlier URL. See [Share meetings](/sharing).
+
+## An automation did not run
+
+Open **Automations**, select the automation, and check whether it is enabled and what its last run reports. Confirm that:
+
+- The destination channel, page, team, or folder is selected.
+- Slack, Notion, or Linear is still connected.
+- The meeting finished and produced the summary or action items the automation needs.
+- A local Markdown folder still exists and is writable.
+
+See [Automate meeting follow-up](/automations).
+
+## Cloud sync is blocked
+
+Open **Settings → Sync** and use the message shown there:
+
+- **Setup required:** Create a recovery key or enter the existing key.
+- **Sign in again** or **Identity mismatch:** Sign out and sign back in with the account that owns the synced notes.
+- **Device limit reached:** Remove an unused device before adding another one. An account can sync up to five devices.
+- **macOS Keychain error:** Click **Repair Keychain Access**, then resume sync.
+
+Do not move or delete local data while an identity problem is unresolved. See [Cloud sync](/sync#fix-a-blocked-sync).
+
+## The app does not open after installation
+
+Confirm that you downloaded the build for your operating system and CPU. On Linux, make an AppImage executable before opening it:
+
+```bash
+chmod +x ./anarlog-*.AppImage
+```
+
+For Debian or Ubuntu, install the DEB with `sudo apt install ./anarlog-*.deb` so the package manager can resolve dependencies. See [Install the desktop app](/desktop-installation).
+
 ## Get more help
 
 Email [founders@anarlog.so](mailto:founders@anarlog.so), [join Discord](https://anarlog.so/discord), or [open a GitHub issue](https://github.com/fastrepl/anarlog/issues).
+
+Include your operating system, Anarlog version, the exact error, what you expected, and the shortest steps that reproduce the problem. For AI failures, include the selected provider and model, but never include API keys, recovery keys, meeting content, or private share links.
 
 For CLI and MCP errors, use the [error reference](/reference/errors).

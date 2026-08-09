@@ -12,7 +12,34 @@ Cloud sync keeps your notes up to date across your signed-in devices. It is part
 
 Sync runs automatically in the background. Use **Sync now** to send and receive the latest changes immediately. Your notes always remain available locally, even while sync is paused or you are offline.
 
-Your recovery key encrypts synced notes before they leave your device, so Anarlog cannot read them. See [Data, privacy, and retention](/data-and-privacy) for what stays on your computer.
+Pause sync when you want changes to remain only on the current device for a while. Resume it to send pending changes and receive updates from your other devices.
+
+## Save the recovery key
+
+Your recovery key encrypts synced notes before they leave your device, so Anarlog cannot read or recover it.
+
+When you create the key:
+
+1. Copy it into a password manager or download the text file.
+2. Confirm that you can find the saved copy before closing the setup window.
+3. Keep it separate from the computer you are syncing.
+
+The key is shown only during setup. Clipboard copies clear after 60 seconds when the operating system supports it.
+
+<Warning>
+  If you lose the recovery key, your existing local notes remain on their devices, but you cannot use that key to add another device. Anarlog support cannot recover it for you.
+</Warning>
+
+## Add another device
+
+1. Install Anarlog and sign in with the same account.
+2. Open **Settings → Sync** and turn on Cloud sync.
+3. Choose the option to enter an existing recovery key.
+4. Paste the key from your password manager, then wait for the first sync to finish.
+
+One account can sync up to five devices. If you reach the limit, remove an unused device before enabling sync on another one.
+
+See [Data, privacy, and retention](/data-and-privacy) for what stays on your computer.
 
 Cloud API & Connectors is a separate, optional feature. If you enable it under **Settings → Developers**, Anarlog uploads a server-readable copy for remote agents; it does not decrypt or weaken your end-to-end encrypted sync data. See [Cloud API and connectors](/reference/api-cloud).
 
@@ -27,3 +54,13 @@ Keep your Anarlog storage location out of folders managed by a file-syncing serv
 This includes Obsidian vaults stored in iCloud Drive. If you selected one as your storage location, choose a local folder instead.
 
 Anarlog shows a warning in **Settings → Sync** when your storage location is inside a known cloud-storage folder. Backup tools that snapshot files without continuously syncing them back are fine.
+
+## Fix a blocked sync
+
+- **Setup required:** Create a recovery key or enter the key from an existing device.
+- **Sign in again:** Sign out and sign back in, then resume sync.
+- **Identity mismatch:** Sign in again with the account that owns the synced notes. Check Sync settings before changing local files.
+- **Device limit reached:** Remove an unused device, then try again.
+- **macOS Keychain error:** Open **Settings → Sync**, click **Repair Keychain Access**, and resume sync.
+
+If sync is paused during recording or an import, let that activity finish. Anarlog resumes background sync when it is safe to do so.

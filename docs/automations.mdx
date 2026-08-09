@@ -1,0 +1,44 @@
+---
+title: "Automate meeting follow-up"
+description: "Send recaps, create issues, update project notes, or export every meeting."
+---
+
+Automations run repeatable work when a meeting ends. They are part of Anarlog Pro.
+
+## Use a starter
+
+Open **Automations** and choose a starter from the sidebar:
+
+| Starter | What it does | Configuration |
+| --- | --- | --- |
+| Share a meeting recap in Slack | Posts the meeting title and AI summary. | Connect Slack and choose a channel. |
+| Update project notes in Notion | Appends a dated meeting update to a page. | Connect Notion and choose a page. |
+| Turn action items into Linear issues | Creates issue drafts from assigned follow-ups. | Connect Linear and choose a team. |
+| Export every meeting as Markdown | Writes the memo, summary, and transcript to a local file. | Choose an export folder. |
+
+1. Select the starter.
+2. Connect the service or choose the local folder it needs.
+3. Review the trigger, source content, and result preview.
+4. Click **Save & enable**.
+
+An enabled starter runs after a meeting ends and the content it needs is ready. Disable it when you want to keep the setup without running it.
+
+## Check whether it ran
+
+The automation detail shows whether it is enabled and the result of its last run. A failed run includes a short error. Check the selected destination and reconnect the service when authorization has expired.
+
+For Markdown exports, confirm that the chosen folder still exists and is writable. The local export does not need Slack, Notion, or Linear access.
+
+## Draft a custom automation in Chat
+
+You can describe a workflow in Chat, including what should happen and when. The draft and its conversation appear with your automations so you can return to them.
+
+Examples:
+
+- “After customer calls, draft Linear issues for action items assigned to our team.”
+- “Save completed interviews as Markdown in my research folder.”
+- “Post the summary of weekly planning meetings to the product Slack channel.”
+
+A Chat-created automation remains a draft and does not run automatically. Continue its Chat conversation to refine the workflow. Use one of the guided starters for an automation you can enable today.
+
+Automations send meeting content to the destination you configure. Use only workspaces, channels, pages, teams, and folders that should receive that content.

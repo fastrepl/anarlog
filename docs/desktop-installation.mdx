@@ -1,0 +1,56 @@
+---
+title: "Install the desktop app"
+description: "Choose the right Anarlog build for macOS, Windows, or Linux."
+---
+
+[Download Anarlog](https://anarlog.so/download) to get the latest stable desktop release. The download page offers every supported platform from the same release.
+
+## Choose the right build
+
+| Platform | Build | Notes |
+| --- | --- | --- |
+| macOS | Apple Silicon DMG | For Macs with an M-series chip. Requires macOS 15 or later. |
+| macOS | Intel DMG | For Intel-based Macs. Requires macOS 15 or later. |
+| Windows | Windows x64 EXE | For 64-bit Windows PCs. Windows support is in beta. |
+| Linux | x64 or ARM64 AppImage | Portable build. Linux support is in beta. |
+| Linux | x64 or ARM64 DEB | For Debian, Ubuntu, and compatible distributions. Linux support is in beta. |
+
+On a Mac, open **Apple menu → About This Mac** if you do not know whether it uses an Apple or Intel chip.
+
+## macOS
+
+1. Download the DMG that matches your Mac.
+2. Open the DMG and move Anarlog to **Applications**.
+3. Open Anarlog and follow the setup screen.
+4. Allow microphone, system audio, and calendar access when you want to use those features.
+
+## Windows
+
+1. Download the **Windows x64** installer.
+2. Run the EXE and follow the installer.
+3. Open Anarlog and complete setup.
+4. Allow microphone and system-audio access when prompted.
+
+## Linux
+
+For Debian or Ubuntu, install the downloaded package:
+
+```bash
+sudo apt install ./anarlog-*.deb
+```
+
+For an AppImage, make it executable and open it:
+
+```bash
+chmod +x ./anarlog-*.AppImage
+./anarlog-*.AppImage
+```
+
+## Platform differences
+
+- Apple Calendar integration is available on macOS. Google Calendar works through your Anarlog account on every supported platform.
+- Built-in on-device transcription is currently available only on Apple Silicon. On other platforms, choose Anarlog Cloud or configure a supported transcription provider.
+- Windows and Linux support are in beta. Include your operating system and Anarlog version when you report a platform-specific problem.
+- Anarlog does not currently offer a mobile app.
+
+When installation is complete, continue to [Your first meeting](/quickstart). If the app does not open or cannot capture audio, see [Troubleshooting](/troubleshooting).

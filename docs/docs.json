@@ -17,7 +17,7 @@
     "pages": [
       {
         "group": "Getting started",
-        "pages": ["index", "quickstart"]
+        "pages": ["index", "desktop-installation", "quickstart"]
       },
       {
         "group": "Using Anarlog",
@@ -25,10 +25,14 @@
           "meetings",
           "automatic-capture",
           "import-recordings",
+          "imports",
           "notes",
+          "sharing",
+          "chat",
           "customize-summaries",
           "calendar",
           "sync",
+          "automations",
           "languages"
         ]
       },
