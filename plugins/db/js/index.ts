@@ -96,6 +96,15 @@ export type CloudsyncNetworkResult = {
   };
 };
 
+export type CloudsyncActivityEntry = {
+  timestamp_ms: number;
+  trigger: "background" | "manual";
+  status: "completed" | "progress" | "failed";
+  sent_bytes: number;
+  received_bytes: number;
+  error: string | null;
+};
+
 export type CloudsyncStatus = {
   cloudsync_enabled: boolean;
   extension_loaded: boolean;
@@ -120,6 +129,7 @@ export type CloudsyncStatus = {
     | "need_witness_repair"
     | "need_barrier_cleanup"
     | null;
+  activity_log?: CloudsyncActivityEntry[];
 };
 
 export type QueryEvent<T = Record<string, unknown>> =

@@ -58,6 +58,31 @@ pub enum CloudsyncErrorKind {
     Fatal,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CloudsyncActivityTrigger {
+    Background,
+    Manual,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CloudsyncActivityStatus {
+    Completed,
+    Progress,
+    Failed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CloudsyncActivityEntry {
+    pub timestamp_ms: u64,
+    pub trigger: CloudsyncActivityTrigger,
+    pub status: CloudsyncActivityStatus,
+    pub sent_bytes: u64,
+    pub received_bytes: u64,
+    pub error: Option<String>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CloudsyncStatus {
     pub cloudsync_enabled: bool,
@@ -72,6 +97,7 @@ pub struct CloudsyncStatus {
     pub last_error: Option<String>,
     pub last_error_kind: Option<CloudsyncErrorKind>,
     pub consecutive_failures: u32,
+    pub activity_log: Vec<CloudsyncActivityEntry>,
 }
 
 #[derive(Debug, thiserror::Error)]

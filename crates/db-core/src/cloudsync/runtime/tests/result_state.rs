@@ -24,7 +24,12 @@ fn embedded_sync_failures_update_runtime_error_state() {
         }),
     };
 
-    record_sync_result(&runtime, result, false);
+    record_sync_result(
+        &runtime,
+        result,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
 
     let runtime = runtime.lock().unwrap();
     assert!(runtime.last_sync.is_some());
@@ -59,7 +64,12 @@ fn embedded_sqlite_contention_remains_retryable() {
         }),
     };
 
-    record_sync_result(&runtime, result, false);
+    record_sync_result(
+        &runtime,
+        result,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
 
     let runtime = runtime.lock().unwrap();
     assert_eq!(
@@ -93,7 +103,12 @@ fn embedded_sync_in_progress_preserves_last_successful_sync() {
         }),
     };
 
-    record_sync_result(&runtime, result, false);
+    record_sync_result(
+        &runtime,
+        result,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
 
     let runtime = runtime.lock().unwrap();
     assert_eq!(runtime.last_sync_at_ms, Some(42));
@@ -117,7 +132,12 @@ fn initial_sync_stays_unsettled_while_receive_is_in_progress() {
         }),
     };
 
-    record_sync_result(&runtime, result, false);
+    record_sync_result(
+        &runtime,
+        result,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
 
     let runtime = runtime.lock().unwrap();
     assert!(runtime.last_sync_at_ms.is_none());
@@ -140,7 +160,12 @@ fn completed_receive_marks_sync_complete_without_a_send_result() {
         }),
     };
 
-    record_sync_result(&runtime, result, false);
+    record_sync_result(
+        &runtime,
+        result,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
 
     assert!(runtime.lock().unwrap().last_sync_at_ms.is_some());
 }
@@ -171,7 +196,7 @@ fn settled_network_preserves_last_success_while_local_work_remains() {
         }),
     };
 
-    record_sync_result(&runtime, result, true);
+    record_sync_result(&runtime, result, true, CloudsyncActivityTrigger::Background);
 
     assert_eq!(runtime.lock().unwrap().last_sync_at_ms, Some(42));
 }
@@ -207,4 +232,127 @@ fn bounded_sync_combines_send_and_receive_results() {
     assert_eq!(result.send, send.send);
     assert_eq!(result.receive, receive.receive);
     assert!(sync_result_needs_receive_progress(&result));
+}
+
+#[test]
+fn manual_noop_sync_is_recorded() {
+    let runtime = Mutex::new(CloudsyncRuntimeState::default());
+    let result = CloudsyncNetworkResult {
+        send: None,
+        receive: Some(anlg_cloudsync::NetworkReceiveResult {
+            rows: 0,
+            tables: Vec::new(),
+            chunks: 0,
+            bytes: 0,
+            complete: true,
+            error: None,
+            last_failure: None,
+        }),
+    };
+
+    record_sync_result(&runtime, result, false, CloudsyncActivityTrigger::Manual);
+
+    let runtime = runtime.lock().unwrap();
+    assert_eq!(runtime.activity_log.len(), 1);
+    assert_eq!(
+        runtime.activity_log.front().unwrap().status,
+        crate::CloudsyncActivityStatus::Completed
+    );
+    assert_eq!(
+        runtime.activity_log.front().unwrap().trigger,
+        CloudsyncActivityTrigger::Manual
+    );
+}
+
+#[test]
+fn background_noop_sync_is_not_recorded() {
+    let runtime = Mutex::new(CloudsyncRuntimeState::default());
+    let result = CloudsyncNetworkResult {
+        send: None,
+        receive: Some(anlg_cloudsync::NetworkReceiveResult {
+            rows: 0,
+            tables: Vec::new(),
+            chunks: 0,
+            bytes: 0,
+            complete: true,
+            error: None,
+            last_failure: None,
+        }),
+    };
+
+    record_sync_result(
+        &runtime,
+        result,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
+
+    assert!(runtime.lock().unwrap().activity_log.is_empty());
+}
+
+#[test]
+fn background_completion_closes_a_progress_entry() {
+    let runtime = Mutex::new(CloudsyncRuntimeState::default());
+    let progress = CloudsyncNetworkResult {
+        send: None,
+        receive: Some(anlg_cloudsync::NetworkReceiveResult {
+            rows: 3,
+            tables: vec!["sessions".to_string()],
+            chunks: 1,
+            bytes: 0,
+            complete: false,
+            error: None,
+            last_failure: None,
+        }),
+    };
+    let completed = CloudsyncNetworkResult {
+        send: None,
+        receive: Some(anlg_cloudsync::NetworkReceiveResult {
+            rows: 0,
+            tables: Vec::new(),
+            chunks: 0,
+            bytes: 0,
+            complete: true,
+            error: None,
+            last_failure: None,
+        }),
+    };
+
+    record_sync_result(
+        &runtime,
+        progress,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
+    record_sync_result(
+        &runtime,
+        completed,
+        false,
+        CloudsyncActivityTrigger::Background,
+    );
+
+    let runtime = runtime.lock().unwrap();
+    assert_eq!(runtime.activity_log.len(), 2);
+    assert_eq!(
+        runtime.activity_log.back().unwrap().status,
+        crate::CloudsyncActivityStatus::Completed
+    );
+}
+
+#[test]
+fn sync_activity_log_is_bounded() {
+    let runtime = Mutex::new(CloudsyncRuntimeState::default());
+
+    for _ in 0..=MAX_ACTIVITY_LOG_ENTRIES {
+        record_sync_error(
+            &runtime,
+            &anlg_cloudsync::Error::Io(std::io::Error::other("offline")),
+            CloudsyncActivityTrigger::Background,
+        );
+    }
+
+    assert_eq!(
+        runtime.lock().unwrap().activity_log.len(),
+        MAX_ACTIVITY_LOG_ENTRIES
+    );
 }

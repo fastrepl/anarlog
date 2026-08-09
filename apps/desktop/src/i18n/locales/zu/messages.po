@@ -413,6 +413,10 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Background sync"
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "Base URL"
 msgstr ""
@@ -494,6 +498,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Checking connection…"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Checking for changes"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -1362,6 +1370,10 @@ msgstr ""
 msgid "Hide preview"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Hide sync log"
+msgstr ""
+
 #. placeholder {0}: history.position
 #. placeholder {1}: history.total
 #: src/chat/components/input/index.tsx
@@ -1583,6 +1595,10 @@ msgstr "Ulimi oluyinhloko"
 msgid "Manage billing"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Manual sync"
+msgstr ""
+
 #: src/session/components/note-input/search/bar.tsx
 msgid "Match case"
 msgstr ""
@@ -1757,6 +1773,10 @@ msgstr ""
 msgid "No changelog available for this version."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "No changes to sync"
+msgstr ""
+
 #: src/settings/automations/starter-config.tsx
 msgid "No channel selected yet."
 msgstr ""
@@ -1846,6 +1866,10 @@ msgstr ""
 
 #: src/sidebar/shared-notes.tsx
 msgid "No shared notes"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "No sync activity yet."
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
@@ -2117,8 +2141,17 @@ msgstr ""
 msgid "Ready to go"
 msgstr ""
 
+#. placeholder {0}: formatSyncBytes(entry.received_bytes)
+#: src/settings/sync/index.tsx
+msgid "Received {0}"
+msgstr ""
+
 #: src/shared/open-note-dialog.tsx
 msgid "Recent"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Recent activity from this app session."
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
@@ -2470,6 +2503,11 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Sending and receiving your latest changes."
+msgstr ""
+
+#. placeholder {0}: formatSyncBytes(entry.sent_bytes)
+#: src/settings/sync/index.tsx
+msgid "Sent {0}"
 msgstr ""
 
 #: src/templates/auto-form.tsx
@@ -2868,8 +2906,16 @@ msgstr ""
 msgid "Sync"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Sync failed"
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Sync issue"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Sync log"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -3204,6 +3250,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "View plans"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "View sync log"
 msgstr ""
 
 #: src/settings/general/notification.tsx

@@ -13,9 +13,9 @@ mod background;
 pub(super) use background::cloudsync_activity_paused;
 #[cfg(test)]
 use background::{
-    CLOUDSYNC_PROGRESS_INTERVAL, CloudsyncWake, cloudsync_busy_delay, cloudsync_next_delay,
-    cloudsync_request_pending, merge_bounded_sync_results, run_after_sync_hook,
-    run_before_sync_hook, run_or_shutdown, sync_result_needs_receive_progress,
+    CLOUDSYNC_PROGRESS_INTERVAL, CloudsyncWake, MAX_ACTIVITY_LOG_ENTRIES, cloudsync_busy_delay,
+    cloudsync_next_delay, cloudsync_request_pending, merge_bounded_sync_results,
+    run_after_sync_hook, run_before_sync_hook, run_or_shutdown, sync_result_needs_receive_progress,
     wait_for_retry_request_or_shutdown,
 };
 use background::{
@@ -27,8 +27,8 @@ use super::state::CloudsyncBackgroundTask;
 #[cfg(test)]
 use super::state::CloudsyncRuntimeState;
 use super::types::{
-    CloudsyncErrorKind, CloudsyncNetworkResult, CloudsyncRuntimeConfig, CloudsyncRuntimeError,
-    CloudsyncStatus,
+    CloudsyncActivityTrigger, CloudsyncErrorKind, CloudsyncNetworkResult, CloudsyncRuntimeConfig,
+    CloudsyncRuntimeError, CloudsyncStatus,
 };
 use crate::Db;
 
@@ -353,6 +353,7 @@ impl Db {
             let mut runtime = self.cloudsync_runtime.lock().unwrap();
             runtime.config = None;
             runtime.outbound_work_state = None;
+            runtime.activity_log.clear();
             return Ok(());
         }
 
@@ -431,6 +432,7 @@ impl Db {
             runtime.last_error = None;
             runtime.last_error_kind = None;
             runtime.consecutive_failures = 0;
+            runtime.activity_log.clear();
         }
         drop(runtime);
 
@@ -459,6 +461,7 @@ impl Db {
             last_error,
             last_error_kind,
             consecutive_failures,
+            activity_log,
         ) = {
             let runtime = self.cloudsync_runtime.lock().unwrap();
             (
@@ -471,6 +474,7 @@ impl Db {
                 runtime.last_error.clone(),
                 runtime.last_error_kind.map(CloudsyncErrorKind::from),
                 runtime.consecutive_failures,
+                runtime.activity_log.iter().rev().cloned().collect(),
             )
         };
 
@@ -507,6 +511,7 @@ impl Db {
             last_error,
             last_error_kind,
             consecutive_failures,
+            activity_log,
         })
     }
 
@@ -548,12 +553,17 @@ impl Db {
                     &self.cloudsync_runtime,
                     step.network.clone(),
                     step.local_work_remaining,
+                    CloudsyncActivityTrigger::Manual,
                 );
                 Ok(step.network)
             }
             Ok(CloudsyncStepOutcome::Deferred) => Ok(CloudsyncNetworkResult::default()),
             Err(error) => {
-                record_sync_error(&self.cloudsync_runtime, &error);
+                record_sync_error(
+                    &self.cloudsync_runtime,
+                    &error,
+                    CloudsyncActivityTrigger::Manual,
+                );
                 Err(error.into())
             }
         }

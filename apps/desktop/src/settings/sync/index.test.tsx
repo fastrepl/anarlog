@@ -115,6 +115,7 @@ function syncedStatus() {
     last_error: null,
     last_error_kind: null,
     consecutive_failures: 0,
+    activity_log: [],
   };
 }
 
@@ -172,6 +173,40 @@ describe("SettingsSync", () => {
       screen.getByText(/Keep synced notes readable only on your devices/),
     ).toBeTruthy();
     expect(screen.queryByText(/conflicted copies/)).toBeNull();
+  });
+
+  it("shows recent sync activity on demand", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue({
+      ...syncedStatus(),
+      activity_log: [
+        {
+          timestamp_ms: Date.now(),
+          trigger: "manual",
+          status: "completed",
+          sent_bytes: 2048,
+          received_bytes: 1024,
+          error: null,
+        },
+        {
+          timestamp_ms: Date.now() - 1_000,
+          trigger: "background",
+          status: "failed",
+          sent_bytes: 0,
+          received_bytes: 0,
+          error: "Network unavailable",
+        },
+      ],
+    });
+    renderSettings();
+
+    expect(await screen.findByText("Synced")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "View sync log" }));
+
+    expect(screen.getByText("Manual sync")).toBeTruthy();
+    expect(screen.getByText("Sent 2.0 KB · Received 1.0 KB")).toBeTruthy();
+    expect(screen.getByText("Background sync")).toBeTruthy();
+    expect(screen.getByText("Network unavailable")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Hide sync log" })).toBeTruthy();
   });
 
   it("warns when the storage location is inside a cloud-synced folder", async () => {

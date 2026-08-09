@@ -9,14 +9,32 @@ use sqlx::{Sqlite, SqlitePool};
 use tokio::sync::oneshot;
 
 use super::super::state::CloudsyncRuntimeState;
-use super::super::types::CloudsyncNetworkResult;
+use super::super::types::{
+    CloudsyncActivityEntry, CloudsyncActivityStatus, CloudsyncActivityTrigger,
+    CloudsyncNetworkResult,
+};
+
+pub(super) const MAX_ACTIVITY_LOG_ENTRIES: usize = 50;
 
 pub(super) fn record_sync_result(
     runtime: &Mutex<CloudsyncRuntimeState>,
     result: CloudsyncNetworkResult,
     local_work_remaining: bool,
+    trigger: CloudsyncActivityTrigger,
 ) {
+    let (activity, transferred_data) =
+        activity_entry_from_result(&result, local_work_remaining, trigger);
     let mut runtime = runtime.lock().unwrap();
+    let should_record_activity = trigger == CloudsyncActivityTrigger::Manual
+        || activity.status == CloudsyncActivityStatus::Failed
+        || transferred_data
+        || (activity.status == CloudsyncActivityStatus::Completed
+            && runtime.activity_log.back().is_some_and(|previous| {
+                matches!(
+                    previous.status,
+                    CloudsyncActivityStatus::Progress | CloudsyncActivityStatus::Failed
+                )
+            }));
     runtime.last_sync = Some(result);
 
     if let Some(error) = runtime.last_sync.as_ref().and_then(embedded_sync_error) {
@@ -26,6 +44,9 @@ pub(super) fn record_sync_result(
             .last_error
             .as_deref()
             .map(|error| anlg_cloudsync::Error::Io(std::io::Error::other(error)).kind());
+        if should_record_activity {
+            push_activity(&mut runtime, activity);
+        }
         return;
     }
 
@@ -39,6 +60,56 @@ pub(super) fn record_sync_result(
     runtime.last_error = None;
     runtime.last_error_kind = None;
     runtime.consecutive_failures = 0;
+    if should_record_activity {
+        push_activity(&mut runtime, activity);
+    }
+}
+
+fn activity_entry_from_result(
+    result: &CloudsyncNetworkResult,
+    local_work_remaining: bool,
+    trigger: CloudsyncActivityTrigger,
+) -> (CloudsyncActivityEntry, bool) {
+    let error = embedded_sync_error(result);
+    let sent_bytes = result
+        .send
+        .as_ref()
+        .map_or(0, |send| send.bytes.max(0) as u64);
+    let received_bytes = result
+        .receive
+        .as_ref()
+        .map_or(0, |receive| receive.bytes.max(0) as u64);
+    let received_rows = result
+        .receive
+        .as_ref()
+        .map_or(0, |receive| receive.rows.max(0) as u64);
+    let transferred_data = sent_bytes > 0 || received_bytes > 0 || received_rows > 0;
+    let status = if error.is_some() {
+        CloudsyncActivityStatus::Failed
+    } else if sync_result_settled(result) && !local_work_remaining {
+        CloudsyncActivityStatus::Completed
+    } else {
+        CloudsyncActivityStatus::Progress
+    };
+
+    (
+        CloudsyncActivityEntry {
+            timestamp_ms: now_ms(),
+            trigger,
+            status,
+            sent_bytes,
+            received_bytes,
+            error,
+        },
+        transferred_data,
+    )
+}
+
+fn push_activity(runtime: &mut CloudsyncRuntimeState, activity: CloudsyncActivityEntry) {
+    if runtime.activity_log.len() >= MAX_ACTIVITY_LOG_ENTRIES {
+        runtime.activity_log.pop_front();
+    }
+    runtime.activity_log.push_back(activity);
 }
 
 fn sync_result_settled(result: &CloudsyncNetworkResult) -> bool {
@@ -110,11 +181,24 @@ fn embedded_sync_error(result: &CloudsyncNetworkResult) -> Option<String> {
 pub(super) fn record_sync_error(
     runtime: &Mutex<CloudsyncRuntimeState>,
     error: &anlg_cloudsync::Error,
-) {
+    trigger: CloudsyncActivityTrigger,
+) -> u32 {
     let mut runtime = runtime.lock().unwrap();
     runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
     runtime.last_error = Some(error.to_string());
     runtime.last_error_kind = Some(error.kind());
+    push_activity(
+        &mut runtime,
+        CloudsyncActivityEntry {
+            timestamp_ms: now_ms(),
+            trigger,
+            status: CloudsyncActivityStatus::Failed,
+            sent_bytes: 0,
+            received_bytes: 0,
+            error: Some(error.to_string()),
+        },
+    );
+    runtime.consecutive_failures
 }
 const MAX_BACKOFF_SECS: u64 = 300;
 pub(super) const CLOUDSYNC_PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
@@ -199,17 +283,19 @@ pub(super) async fn cloudsync_background_loop(
                     &context.runtime_state,
                     step.network,
                     step.local_work_remaining,
+                    CloudsyncActivityTrigger::Background,
                 );
             }
             Ok(CloudsyncStepOutcome::Deferred) => {
                 next_sync_delay = context.config.interval;
             }
             Err(error) => {
-                let kind = error.kind();
+                record_sync_error(
+                    &context.runtime_state,
+                    &error,
+                    CloudsyncActivityTrigger::Background,
+                );
                 let mut runtime = context.runtime_state.lock().unwrap();
-                runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
-                runtime.last_error = Some(error.to_string());
-                runtime.last_error_kind = Some(kind);
                 runtime.running = false;
                 break;
             }
@@ -236,13 +322,11 @@ async fn sync_cloudsync_with_retry(
                     return Some(Err(error));
                 };
 
-                let failures = {
-                    let mut runtime = context.runtime_state.lock().unwrap();
-                    runtime.consecutive_failures = runtime.consecutive_failures.saturating_add(1);
-                    runtime.last_error = Some(error.to_string());
-                    runtime.last_error_kind = Some(error.kind());
-                    runtime.consecutive_failures
-                };
+                let failures = record_sync_error(
+                    &context.runtime_state,
+                    &error,
+                    CloudsyncActivityTrigger::Background,
+                );
                 tracing::warn!(
                     error = %error,
                     retry_after = ?retry_after,
