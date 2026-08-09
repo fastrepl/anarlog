@@ -3,6 +3,9 @@ use crate::WindowImpl;
 const NOTE_WINDOW_WIDTH: f64 = 720.0;
 const NOTE_WINDOW_HEIGHT: f64 = 820.0;
 const NOTE_WINDOW_POSITION_TOLERANCE: f64 = 1.0;
+const WINDOW_TITLEBAR_HEIGHT: f64 = 64.0;
+const MIN_VISIBLE_TITLEBAR_WIDTH: f64 = 128.0;
+const MIN_VISIBLE_TITLEBAR_HEIGHT: f64 = 32.0;
 const NOTE_WINDOW_OFFSETS: [(f64, f64); 6] = [
     (0.0, 0.0),
     (144.0, 72.0),
@@ -54,6 +57,105 @@ impl std::str::FromStr for AppWindow {
 }
 
 impl AppWindow {
+    pub fn center_on_primary(
+        &self,
+        app: &tauri::AppHandle<tauri::Wry>,
+        window: &tauri::WebviewWindow<tauri::Wry>,
+    ) -> Result<(), crate::Error> {
+        if !matches!(self, Self::Main) {
+            return Ok(());
+        }
+
+        use tauri::PhysicalPosition;
+
+        let Some(monitor) = app.primary_monitor()? else {
+            return Ok(());
+        };
+        let window_scale_factor = window.scale_factor()?;
+        let window_size = window
+            .outer_size()?
+            .to_logical::<f64>(window_scale_factor)
+            .to_physical::<u32>(monitor.scale_factor());
+        let work_area = monitor.work_area();
+        let window_frame = WindowFrame::new(
+            0.0,
+            0.0,
+            f64::from(window_size.width),
+            f64::from(window_size.height),
+        );
+        let work_area = WindowFrame::from_physical(work_area.position, work_area.size);
+        let (x, y) = centered_window_position(window_frame, work_area);
+
+        window.set_position(PhysicalPosition::new(x, y))?;
+        tracing::info!("main_window_centered_on_primary");
+
+        Ok(())
+    }
+
+    pub(crate) fn ensure_visible(
+        &self,
+        app: &tauri::AppHandle<tauri::Wry>,
+        window: &tauri::WebviewWindow<tauri::Wry>,
+    ) {
+        if !matches!(self, Self::Main) {
+            return;
+        }
+
+        use tauri::PhysicalPosition;
+
+        let (Ok(position), Ok(size), Ok(scale_factor), Ok(monitors)) = (
+            window.outer_position(),
+            window.outer_size(),
+            window.scale_factor(),
+            app.available_monitors(),
+        ) else {
+            return;
+        };
+        let window_frame = WindowFrame::new(
+            f64::from(position.x),
+            f64::from(position.y),
+            f64::from(size.width),
+            f64::from(size.height),
+        );
+        let work_areas = monitors
+            .iter()
+            .map(|monitor| {
+                let work_area = monitor.work_area();
+                WindowFrame::from_physical(work_area.position, work_area.size)
+            })
+            .collect::<Vec<_>>();
+
+        if has_accessible_titlebar(window_frame, &work_areas, scale_factor) {
+            return;
+        }
+
+        let primary_work_area = app.primary_monitor().ok().flatten().map(|monitor| {
+            let work_area = monitor.work_area();
+            WindowFrame::from_physical(work_area.position, work_area.size)
+        });
+        let Some(work_area) = recenter_work_area(window_frame, &work_areas, primary_work_area)
+        else {
+            return;
+        };
+        let target_scale_factor = monitors
+            .iter()
+            .find(|monitor| {
+                let monitor_work_area = monitor.work_area();
+                WindowFrame::from_physical(monitor_work_area.position, monitor_work_area.size)
+                    == work_area
+            })
+            .map(tauri::Monitor::scale_factor)
+            .unwrap_or(scale_factor);
+        let target_window_frame =
+            window_frame_at_scale(window_frame, scale_factor, target_scale_factor);
+        let (x, y) = centered_window_position(target_window_frame, work_area);
+
+        match window.set_position(PhysicalPosition::new(x, y)) {
+            Ok(()) => tracing::info!("window_recentered"),
+            Err(error) => tracing::warn!(%error, "window_recenter_failed"),
+        }
+    }
+
     fn window_builder<'a>(
         &'a self,
         app: &'a tauri::AppHandle<tauri::Wry>,
@@ -303,6 +405,114 @@ fn same_window_position(a: (f64, f64), b: (f64, f64)) -> bool {
         && (a.1 - b.1).abs() <= NOTE_WINDOW_POSITION_TOLERANCE
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct WindowFrame {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+impl WindowFrame {
+    fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    fn from_physical(
+        position: tauri::PhysicalPosition<i32>,
+        size: tauri::PhysicalSize<u32>,
+    ) -> Self {
+        Self::new(
+            f64::from(position.x),
+            f64::from(position.y),
+            f64::from(size.width),
+            f64::from(size.height),
+        )
+    }
+
+    fn intersection(self, other: Self) -> Option<Self> {
+        let left = self.x.max(other.x);
+        let top = self.y.max(other.y);
+        let right = (self.x + self.width).min(other.x + other.width);
+        let bottom = (self.y + self.height).min(other.y + other.height);
+
+        (right > left && bottom > top).then(|| Self::new(left, top, right - left, bottom - top))
+    }
+
+    fn area(self) -> f64 {
+        self.width.max(0.0) * self.height.max(0.0)
+    }
+}
+
+fn has_accessible_titlebar(
+    window: WindowFrame,
+    work_areas: &[WindowFrame],
+    scale_factor: f64,
+) -> bool {
+    let titlebar = WindowFrame::new(
+        window.x,
+        window.y,
+        window.width,
+        window.height.min(WINDOW_TITLEBAR_HEIGHT * scale_factor),
+    );
+    let required_width = titlebar
+        .width
+        .min(MIN_VISIBLE_TITLEBAR_WIDTH * scale_factor);
+    let required_height = titlebar
+        .height
+        .min(MIN_VISIBLE_TITLEBAR_HEIGHT * scale_factor);
+
+    work_areas.iter().any(|work_area| {
+        titlebar.intersection(*work_area).is_some_and(|visible| {
+            visible.width >= required_width && visible.height >= required_height
+        })
+    })
+}
+
+fn recenter_work_area(
+    window: WindowFrame,
+    work_areas: &[WindowFrame],
+    primary_work_area: Option<WindowFrame>,
+) -> Option<WindowFrame> {
+    work_areas
+        .iter()
+        .copied()
+        .filter_map(|work_area| {
+            window
+                .intersection(work_area)
+                .map(|overlap| (work_area, overlap.area()))
+        })
+        .max_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map(|(work_area, _)| work_area)
+        .or(primary_work_area)
+        .or_else(|| work_areas.first().copied())
+}
+
+fn centered_window_position(window: WindowFrame, work_area: WindowFrame) -> (i32, i32) {
+    let x = work_area.x + ((work_area.width - window.width).max(0.0) / 2.0);
+    let y = work_area.y + ((work_area.height - window.height).max(0.0) / 2.0);
+
+    (x.round() as i32, y.round() as i32)
+}
+
+fn window_frame_at_scale(
+    window: WindowFrame,
+    current_scale_factor: f64,
+    target_scale_factor: f64,
+) -> WindowFrame {
+    WindowFrame::new(
+        window.x,
+        window.y,
+        window.width / current_scale_factor * target_scale_factor,
+        window.height / current_scale_factor * target_scale_factor,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -387,5 +597,96 @@ mod tests {
             ),
             (488.0, 188.0)
         );
+    }
+
+    #[test]
+    fn keeps_windows_with_an_accessible_titlebar_in_place() {
+        let monitor = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
+
+        assert!(has_accessible_titlebar(
+            WindowFrame::new(200.0, 100.0, 900.0, 600.0),
+            &[monitor],
+            1.0,
+        ));
+        assert!(has_accessible_titlebar(
+            WindowFrame::new(1792.0, 100.0, 900.0, 600.0),
+            &[monitor],
+            1.0,
+        ));
+    }
+
+    #[test]
+    fn recenters_windows_without_an_accessible_titlebar() {
+        let monitor = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
+
+        assert!(!has_accessible_titlebar(
+            WindowFrame::new(1800.0, 100.0, 900.0, 600.0),
+            &[monitor],
+            1.0,
+        ));
+        assert!(!has_accessible_titlebar(
+            WindowFrame::new(200.0, -50.0, 900.0, 600.0),
+            &[monitor],
+            1.0,
+        ));
+        assert!(!has_accessible_titlebar(
+            WindowFrame::new(2200.0, 100.0, 900.0, 600.0),
+            &[monitor],
+            1.0,
+        ));
+    }
+
+    #[test]
+    fn applies_the_window_scale_factor_to_titlebar_visibility() {
+        let monitor = WindowFrame::new(0.0, 0.0, 3840.0, 2100.0);
+        let window = WindowFrame::new(3600.0, 200.0, 1800.0, 1200.0);
+
+        assert!(has_accessible_titlebar(window, &[monitor], 1.0));
+        assert!(!has_accessible_titlebar(window, &[monitor], 2.0));
+    }
+
+    #[test]
+    fn recenters_on_the_display_with_the_largest_overlap() {
+        let primary = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
+        let secondary = WindowFrame::new(1920.0, 50.0, 1496.0, 939.0);
+        let window = WindowFrame::new(3300.0, 300.0, 900.0, 600.0);
+
+        assert_eq!(
+            recenter_work_area(window, &[primary, secondary], Some(primary)),
+            Some(secondary)
+        );
+        assert_eq!(centered_window_position(window, secondary), (2218, 220));
+    }
+
+    #[test]
+    fn recenters_fully_offscreen_windows_on_the_primary_display() {
+        let primary = WindowFrame::new(-1920.0, 0.0, 1920.0, 1050.0);
+        let secondary = WindowFrame::new(0.0, 0.0, 1496.0, 939.0);
+        let window = WindowFrame::new(4000.0, 300.0, 900.0, 600.0);
+
+        assert_eq!(
+            recenter_work_area(window, &[primary, secondary], Some(primary)),
+            Some(primary)
+        );
+        assert_eq!(centered_window_position(window, primary), (-1410, 225));
+    }
+
+    #[test]
+    fn keeps_the_titlebar_visible_when_the_window_is_larger_than_the_display() {
+        let monitor = WindowFrame::new(1920.0, 50.0, 1496.0, 939.0);
+        let window = WindowFrame::new(4000.0, 300.0, 1800.0, 1200.0);
+
+        assert_eq!(centered_window_position(window, monitor), (1920, 50));
+    }
+
+    #[test]
+    fn recenters_using_the_target_display_scale() {
+        let window = WindowFrame::new(4000.0, 300.0, 1800.0, 1200.0);
+        let target = WindowFrame::new(0.0, 0.0, 1920.0, 1050.0);
+        let scaled_window = window_frame_at_scale(window, 2.0, 1.0);
+
+        assert_eq!(scaled_window.width, 900.0);
+        assert_eq!(scaled_window.height, 600.0);
+        assert_eq!(centered_window_position(scaled_window, target), (510, 225));
     }
 }

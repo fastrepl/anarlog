@@ -51,6 +51,27 @@ fn should_force_quit() -> bool {
     false
 }
 
+fn versions_indicate_update(previous: Option<&str>, current: Option<&str>) -> bool {
+    matches!(
+        (previous, current),
+        (Some(previous), Some(current)) if !previous.is_empty() && previous != current
+    )
+}
+
+fn should_recenter_after_update(app: &tauri::AppHandle<tauri::Wry>) -> bool {
+    use tauri_plugin_updater2::Updater2PluginExt;
+
+    let previous = match app.updater2().get_last_seen_version() {
+        Ok(previous) => previous,
+        Err(error) => {
+            tracing::warn!(%error, "failed to read the previous app version during startup");
+            return false;
+        }
+    };
+
+    versions_indicate_update(previous.as_deref(), app.config().version.as_deref())
+}
+
 fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actual::AudioProvider> {
     #[cfg(any(feature = "dev", feature = "devtools"))]
     {
@@ -216,7 +237,11 @@ pub async fn main() {
         .plugin(tauri_plugin_windows::init())
         .plugin(tauri_plugin_js::init())
         .plugin(tauri_plugin_flag::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .skip_initial_state("main")
+                .build(),
+        )
         .plugin(tauri_plugin_transcription::init())
         .plugin(tauri_plugin_tantivy::init())
         .plugin(tauri_plugin_audio_priority::init())
@@ -371,8 +396,15 @@ pub async fn main() {
 
     {
         let app_handle = app.handle().clone();
-        if let Err(error) = AppWindow::Main.show(&app_handle) {
-            exit_after_startup_failure(&error);
+        let recenter_after_update = should_recenter_after_update(&app_handle);
+        match AppWindow::Main.show(&app_handle) {
+            Ok(window) if recenter_after_update => {
+                if let Err(error) = AppWindow::Main.center_on_primary(&app_handle, &window) {
+                    tracing::warn!(%error, "failed to recenter the main window after an update");
+                }
+            }
+            Ok(_) => {}
+            Err(error) => exit_after_startup_failure(&error),
         }
     }
 
@@ -517,6 +549,15 @@ mod test {
             message,
             "Anarlog failed to start: legacy import did not pass parity verification"
         );
+    }
+
+    #[test]
+    fn recenters_after_the_app_version_changes() {
+        assert!(versions_indicate_update(Some("1.4.7"), Some("1.4.8")));
+        assert!(!versions_indicate_update(Some("1.4.8"), Some("1.4.8")));
+        assert!(!versions_indicate_update(None, Some("1.4.8")));
+        assert!(!versions_indicate_update(Some(""), Some("1.4.8")));
+        assert!(!versions_indicate_update(Some("1.4.7"), None));
     }
 
     #[test]

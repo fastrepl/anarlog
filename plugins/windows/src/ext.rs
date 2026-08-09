@@ -270,6 +270,13 @@ impl AppWindow {
         }
 
         if let Some(window) = self.get(app) {
+            if matches!(self, Self::Main) {
+                use tauri_plugin_window_state::{StateFlags, WindowExt};
+
+                let _ = window.restore_state(StateFlags::SIZE | StateFlags::POSITION);
+            }
+
+            self.ensure_visible(app, &window);
             window.show()?;
             window.set_focus()?;
             return Ok(Some(window));
@@ -287,9 +294,15 @@ impl AppWindow {
     {
         use tauri_plugin_window_state::{StateFlags, WindowExt};
 
-        let _ = window.restore_state(StateFlags::SIZE);
+        let state_flags = if matches!(self, Self::Main) {
+            StateFlags::SIZE | StateFlags::POSITION
+        } else {
+            StateFlags::SIZE
+        };
+        let _ = window.restore_state(state_flags);
 
         self.position_new_window(app, window)?;
+        self.ensure_visible(app, window);
         window.show()?;
         window.set_focus()?;
 
