@@ -17,6 +17,11 @@
       "persistent": true,
       "cache": false
     },
+    "//#dev:web": {
+      "dependsOn": ["@anlg/ui#build"],
+      "persistent": true,
+      "cache": false
+    },
     "tauri:dev": {
       "persistent": true,
       "cache": false

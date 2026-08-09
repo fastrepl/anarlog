@@ -1,6 +1,7 @@
 {
   "scripts": {
     "dev:desktop": "pnpm -F @anlg/desktop tauri:dev",
+    "dev:web": "pnpm -F @anlg/web dev",
     "fmt:check": "dprint check",
     "fmt": "dprint fmt",
     "lint": "pnpm lint:oxlint && pnpm lint:eslint",

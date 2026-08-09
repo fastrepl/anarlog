@@ -10,7 +10,7 @@ SQLite is the primary data store (schema and migrations in `crates/db-app/`, des
 - Typecheck (TS): `pnpm -r typecheck`
 - Typecheck (Rust): `cargo check`
 - Desktop dev: `turbo dev:desktop`
-- Web dev: `pnpm -F @anlg/web dev`
+- Web dev: `turbo dev:web`
 - Dev docs: https://docs.anarlog.so
 
 ## Pre-commit verification
