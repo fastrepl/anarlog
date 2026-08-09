@@ -417,6 +417,11 @@ jobs:
           VITE_API_URL: https://api.anarlog.so
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
+      - run: node scripts/repack-linux-appimage.mjs "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
+        env:
+          ARCH: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64' || 'x86_64' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - if: ${{ inputs.channel == 'stable' }}
         uses: ./.github/actions/sentry_cli
       - if: ${{ inputs.channel == 'stable' }}

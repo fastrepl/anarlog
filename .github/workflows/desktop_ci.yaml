@@ -7,6 +7,8 @@ on:
     paths:
       - .github/actions/install_desktop_deps/**
       - .github/workflows/desktop_ci.yaml
+      - scripts/repack-linux-appimage.mjs
+      - scripts/repack-linux-appimage.test.mjs
       - apps/cli/**
       - apps/desktop/**
       - plugins/**
@@ -17,6 +19,8 @@ on:
     paths:
       - .github/actions/install_desktop_deps/**
       - .github/workflows/desktop_ci.yaml
+      - scripts/repack-linux-appimage.mjs
+      - scripts/repack-linux-appimage.test.mjs
       - apps/cli/**
       - apps/desktop/**
       - plugins/**
@@ -450,6 +454,12 @@ jobs:
           VITE_APP_URL: https://anarlog.so
           VITE_API_URL: https://api.anarlog.so
           VITE_PRO_PRODUCT_ID: ${{ secrets.VITE_PRO_PRODUCT_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - if: github.event_name == 'workflow_dispatch'
+        run: node scripts/repack-linux-appimage.mjs "apps/desktop/src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
+        env:
+          ARCH: ${{ matrix.target == 'aarch64-unknown-linux-gnu' && 'aarch64' || 'x86_64' }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - if: github.event_name == 'workflow_dispatch'
