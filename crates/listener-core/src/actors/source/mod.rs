@@ -260,7 +260,7 @@ impl Actor for SourceActor {
                     }
                 }
                 SourceMsg::StreamFailed(reason) => {
-                    tracing::error!(%reason, "source_stream_failed_stopping");
+                    tracing::warn!(%reason, "source_stream_failed_stopping");
                     st.runtime.emit_error(SessionErrorEvent::AudioError {
                         session_id: st.session_id.clone(),
                         error: reason.clone(),

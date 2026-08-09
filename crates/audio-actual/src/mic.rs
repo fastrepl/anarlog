@@ -33,6 +33,16 @@ pub struct MicInput {
 const MIC_READ_CHUNK_SIZE: usize = 256;
 const MIC_BUFFER_SIZE: usize = MIC_READ_CHUNK_SIZE * 256;
 
+fn build_stream_error_type(error: &cpal::BuildStreamError) -> &'static str {
+    match error {
+        cpal::BuildStreamError::DeviceNotAvailable => "device_not_available",
+        cpal::BuildStreamError::StreamConfigNotSupported => "stream_config_not_supported",
+        cpal::BuildStreamError::InvalidArgument => "invalid_argument",
+        cpal::BuildStreamError::StreamIdOverflow => "stream_id_overflow",
+        cpal::BuildStreamError::BackendSpecific { .. } => "backend_specific",
+    }
+}
+
 impl MicInput {
     pub fn device_name(&self) -> String {
         self.device
@@ -235,7 +245,11 @@ impl MicInput {
                 };
 
                 let stream = stream.map_err(|err| {
-                    tracing::error!(error = %err, "mic_stream_build_failed");
+                    tracing::error!(
+                        error = %err,
+                        error.type = build_stream_error_type(&err),
+                        "mic_stream_build_failed"
+                    );
                     format!("failed to build microphone stream: {err}")
                 })?;
 
@@ -344,6 +358,34 @@ impl AsyncSource for MicStream {
 mod tests {
     use super::*;
     use futures_util::StreamExt;
+
+    #[test]
+    fn build_stream_errors_have_stable_types() {
+        assert_eq!(
+            build_stream_error_type(&cpal::BuildStreamError::DeviceNotAvailable),
+            "device_not_available"
+        );
+        assert_eq!(
+            build_stream_error_type(&cpal::BuildStreamError::StreamConfigNotSupported),
+            "stream_config_not_supported"
+        );
+        assert_eq!(
+            build_stream_error_type(&cpal::BuildStreamError::InvalidArgument),
+            "invalid_argument"
+        );
+        assert_eq!(
+            build_stream_error_type(&cpal::BuildStreamError::StreamIdOverflow),
+            "stream_id_overflow"
+        );
+        assert_eq!(
+            build_stream_error_type(&cpal::BuildStreamError::BackendSpecific {
+                err: cpal::BackendSpecificError {
+                    description: "private driver detail".to_string(),
+                },
+            }),
+            "backend_specific"
+        );
+    }
 
     fn rms(samples: &[f32]) -> f32 {
         (samples.iter().map(|sample| sample * sample).sum::<f32>() / samples.len() as f32).sqrt()

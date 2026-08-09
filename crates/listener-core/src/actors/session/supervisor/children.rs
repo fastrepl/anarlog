@@ -30,6 +30,10 @@ const RETRY_STRATEGY: RetryStrategy = RetryStrategy {
 
 const CHILD_STOP_TIMEOUT: Duration = Duration::from_secs(30);
 
+fn source_restart_delay(restart_count: u32) -> Duration {
+    Duration::from_secs(1 << restart_count.saturating_sub(1).min(2))
+}
+
 pub(super) fn identify_child(state: &SessionState, cell: &ActorCell) -> Option<ChildKind> {
     if state
         .source_cell
@@ -136,6 +140,17 @@ pub(super) async fn try_restart_source(
 ) -> bool {
     if count_against_budget && !state.source_restarts.record_restart(&RESTART_BUDGET) {
         return false;
+    }
+
+    if count_against_budget {
+        let restart_count = state.source_restarts.count();
+        let delay = source_restart_delay(restart_count);
+        tracing::info!(
+            restart_count,
+            delay_ms = delay.as_millis() as u64,
+            "source_restart_backoff"
+        );
+        tokio::time::sleep(delay).await;
     }
 
     let sup = supervisor_cell;
@@ -262,5 +277,18 @@ async fn stop_child(cell: &ActorCell, reason: &str, child: &str) {
         .await
     {
         tracing::warn!(?error, %child, "child_stop_and_wait_failed");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_restart_backoff_is_capped() {
+        assert_eq!(source_restart_delay(1), Duration::from_secs(1));
+        assert_eq!(source_restart_delay(2), Duration::from_secs(2));
+        assert_eq!(source_restart_delay(3), Duration::from_secs(4));
+        assert_eq!(source_restart_delay(10), Duration::from_secs(4));
     }
 }
