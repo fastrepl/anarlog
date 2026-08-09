@@ -346,7 +346,7 @@ async fn stop_stream_task(
 
     let _ = shutdown_tx.send(());
     match tokio::time::timeout(timeout, &mut *rx_task).await {
-        Ok(Ok(responses)) => responses,
+        Ok(Ok(responses)) => discard_final_stream_errors(responses),
         Ok(Err(error)) => {
             tracing::warn!(error.message = ?error, "listener_stream_task_join_failed");
             Vec::new()
@@ -359,6 +359,29 @@ async fn stop_stream_task(
     }
 }
 
+fn discard_final_stream_errors(responses: Vec<StreamResponse>) -> Vec<StreamResponse> {
+    responses
+        .into_iter()
+        .filter_map(|response| match response {
+            StreamResponse::ErrorResponse {
+                error_code,
+                provider,
+                ..
+            } => {
+                let error_code =
+                    error_code.map_or_else(|| "unknown".to_string(), |code| code.to_string());
+                tracing::warn!(
+                    error.code = %error_code,
+                    anarlog.stt.provider.name = %provider,
+                    "stream_provider_error_during_shutdown"
+                );
+                None
+            }
+            response => Some(response),
+        })
+        .collect()
+}
+
 fn process_stream_response(
     state: &mut ListenerState,
     mut response: StreamResponse,
@@ -369,10 +392,12 @@ fn process_stream_response(
         provider,
     } = &response
     {
+        let error_code_tag =
+            error_code.map_or_else(|| "unknown".to_string(), |code| code.to_string());
         tracing::error!(
-            ?error_code,
-            %error_message,
-            %provider,
+            error.code = %error_code_tag,
+            error.message = %error_message,
+            anarlog.stt.provider.name = %provider,
             "stream_provider_error"
         );
         state
@@ -389,14 +414,11 @@ fn process_stream_response(
                         .unwrap_or_else(|| "none".to_string())
                 ),
             });
-        return Some(match *error_code {
-            Some(401) | Some(403) => DegradedError::AuthenticationFailed {
-                provider: provider.clone(),
-            },
-            _ => DegradedError::StreamError {
-                message: format!("{}: {}", provider, error_message),
-            },
-        });
+        return Some(classify_provider_error(
+            *error_code,
+            error_message,
+            provider,
+        ));
     }
 
     match state.args.mode {
@@ -427,6 +449,25 @@ fn process_stream_response(
     None
 }
 
+fn classify_provider_error(
+    error_code: Option<i32>,
+    error_message: &str,
+    provider: &str,
+) -> DegradedError {
+    match error_code {
+        Some(401) | Some(403) => DegradedError::AuthenticationFailed {
+            provider: provider.to_string(),
+        },
+        Some(400) | Some(402) | Some(404) | Some(422) => DegradedError::ProviderConfiguration {
+            provider: provider.to_string(),
+            message: error_message.to_string(),
+        },
+        _ => DegradedError::StreamError {
+            message: format!("{provider}: {error_message}"),
+        },
+    }
+}
+
 fn stop_with_degraded_error(myself: &ActorRef<ListenerMsg>, error: DegradedError) {
     let reason = serde_json::to_string(&error).ok();
     myself.stop(reason);
@@ -451,5 +492,46 @@ mod tests {
             .await
             .expect("aborted stream task should stop promptly");
         assert!(join_result.unwrap_err().is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn stream_task_shutdown_discards_queued_provider_errors() {
+        let (shutdown_tx, _shutdown_rx) = tokio::sync::oneshot::channel();
+        let mut shutdown_tx = Some(shutdown_tx);
+        let mut task = tokio::spawn(async {
+            vec![StreamResponse::ErrorResponse {
+                error_code: Some(400),
+                error_message: "invalid request".to_string(),
+                provider: "openai".to_string(),
+            }]
+        });
+
+        let responses = stop_stream_task(&mut shutdown_tx, &mut task, Duration::from_secs(1)).await;
+
+        assert!(responses.is_empty());
+    }
+
+    #[test]
+    fn permanent_provider_errors_do_not_use_the_retryable_stream_error() {
+        assert!(matches!(
+            classify_provider_error(Some(401), "invalid key", "openai"),
+            DegradedError::AuthenticationFailed { .. }
+        ));
+        assert!(matches!(
+            classify_provider_error(Some(400), "invalid model", "openai"),
+            DegradedError::ProviderConfiguration { .. }
+        ));
+        assert!(matches!(
+            classify_provider_error(Some(402), "quota exhausted", "openai"),
+            DegradedError::ProviderConfiguration { .. }
+        ));
+        assert!(matches!(
+            classify_provider_error(Some(429), "rate limited", "openai"),
+            DegradedError::StreamError { .. }
+        ));
+        assert!(matches!(
+            classify_provider_error(Some(500), "server error", "openai"),
+            DegradedError::StreamError { .. }
+        ));
     }
 }

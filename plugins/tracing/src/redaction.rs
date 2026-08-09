@@ -15,6 +15,7 @@ const SAFE_TAGS: &[&str] = &[
     "anarlog.error.stage",
     "anarlog.operation",
     "anarlog.session.type",
+    "anarlog.stt.provider.name",
     "anarlog.surface",
     "enduser.pseudo.id",
     "error.code",
@@ -33,6 +34,15 @@ fn safe_identifier(value: &str) -> Option<&str> {
             .chars()
             .all(|character| character.is_ascii_alphanumeric() || "_.:/-".contains(character)))
     .then_some(value)
+}
+
+fn safe_tag_value(value: &Value) -> Option<String> {
+    match value {
+        Value::String(value) => safe_identifier(value).map(str::to_owned),
+        Value::Number(value) => Some(value.to_string()),
+        Value::Bool(value) => Some(value.to_string()),
+        _ => None,
+    }
 }
 
 fn looks_like_absolute_path(value: &str) -> bool {
@@ -155,7 +165,18 @@ fn sanitize_sentry_event_with_home(
     event.logentry = None;
     event.server_name = None;
     event.request = None;
+    let safe_extra_tags = event
+        .extra
+        .iter()
+        .filter_map(|(key, value)| {
+            if !SAFE_TAGS.contains(&key.as_str()) {
+                return None;
+            }
+            safe_tag_value(value).map(|value| (key.clone(), value))
+        })
+        .collect::<Vec<_>>();
     event.extra.clear();
+    event.tags.extend(safe_extra_tags);
 
     if let Some(user) = event.user.take() {
         event.user = user.id.map(|id| User {
@@ -166,7 +187,9 @@ fn sanitize_sentry_event_with_home(
 
     for breadcrumb in &mut event.breadcrumbs {
         breadcrumb.message = None;
-        breadcrumb.data.clear();
+        breadcrumb.data.retain(|key, value| {
+            SAFE_TAGS.contains(&key.as_str()) && safe_tag_value(value).is_some()
+        });
     }
     for exception in &mut event.exception {
         exception.value = Some(format!("{} captured", exception.ty));
@@ -595,6 +618,56 @@ mod tests {
             Some(&Value::String("[HOME]/src/download_task.rs".to_string()))
         );
         assert!(!location.contains_key("private"));
+    }
+
+    #[test]
+    fn sentry_event_preserves_only_safe_provider_error_metadata() {
+        let mut event = Event {
+            message: Some("stream_provider_error".to_string()),
+            breadcrumbs: vec![Breadcrumb {
+                message: Some("provider rejected private transcript".to_string()),
+                data: [
+                    ("error.type".to_string(), json!("invalid_request_error")),
+                    ("error.code".to_string(), json!("invalid_value")),
+                    ("error.message".to_string(), json!("private transcript")),
+                ]
+                .into_iter()
+                .collect(),
+                ..Default::default()
+            }]
+            .into(),
+            ..Default::default()
+        };
+        event.extra.extend([
+            ("error.code".to_string(), json!(400)),
+            ("anarlog.stt.provider.name".to_string(), json!("openai")),
+            ("error.message".to_string(), json!("private transcript")),
+        ]);
+
+        let event = sanitize_sentry_event_with_home(event, None);
+
+        assert_eq!(
+            event.tags.get("error.code").map(String::as_str),
+            Some("400")
+        );
+        assert_eq!(
+            event
+                .tags
+                .get("anarlog.stt.provider.name")
+                .map(String::as_str),
+            Some("openai")
+        );
+        assert!(!event.tags.contains_key("error.message"));
+        assert!(event.breadcrumbs[0].message.is_none());
+        assert_eq!(
+            event.breadcrumbs[0].data,
+            [
+                ("error.code".to_string(), json!("invalid_value")),
+                ("error.type".to_string(), json!("invalid_request_error")),
+            ]
+            .into_iter()
+            .collect()
+        );
     }
 
     #[test]

@@ -314,14 +314,17 @@ impl RealtimeSttAdapter for OpenAIAdapter {
             ServerEvent::ConversationItemInputAudioTranscriptionSegment { .. } => vec![],
             ServerEvent::Error { error, .. } => {
                 let error_type = error.error_type.as_deref().unwrap_or("unknown_error");
+                let provider_code = error.code.as_deref().unwrap_or("unknown_code");
                 let message = error.message.as_deref().unwrap_or("unknown error");
-                tracing::error!(
+                let error_code = openai_error_status(error_type, error.code.as_deref());
+                tracing::warn!(
                     error.type = %error_type,
-                    error = %message,
+                    error.code = %provider_code,
+                    error.message = %message,
                     "openai_error"
                 );
                 vec![StreamResponse::ErrorResponse {
-                    error_code: None,
+                    error_code,
                     error_message: format!("{error_type}: {message}"),
                     provider: "openai".to_string(),
                 }]
@@ -672,6 +675,28 @@ fn synthetic_end_ms(start_ms: u64, transcript: &str) -> u64 {
     start_ms + transcript.split_whitespace().count().max(1) as u64
 }
 
+fn openai_error_status(error_type: &str, provider_code: Option<&str>) -> Option<i32> {
+    provider_code
+        .and_then(openai_error_value_status)
+        .or_else(|| openai_error_value_status(error_type))
+}
+
+fn openai_error_value_status(value: &str) -> Option<i32> {
+    match value {
+        "authentication_error" | "invalid_api_key" => Some(401),
+        "insufficient_quota" | "billing_hard_limit_reached" => Some(402),
+        "permission_denied" | "permission_error" => Some(403),
+        "model_not_found" => Some(404),
+        "rate_limit_error" | "rate_limit_exceeded" => Some(429),
+        "server_error" => Some(500),
+        "invalid_request_error"
+        | "invalid_value"
+        | "missing_required_parameter"
+        | "unknown_parameter" => Some(400),
+        _ => None,
+    }
+}
+
 fn resample_pcm16(audio: &[u8], input_rate: u32, output_rate: u32) -> Vec<u8> {
     if input_rate == 0 || input_rate == output_rate {
         return audio.to_vec();
@@ -741,6 +766,35 @@ mod tests {
         );
         assert!(transcription.get("language").is_none());
         assert!(json["session"].get("include").is_none());
+    }
+
+    #[test]
+    fn openai_error_codes_preserve_retry_classification() {
+        let responses = OpenAIAdapter::default().parse_response(
+            r#"{"type":"error","event_id":"e1","error":{"type":"invalid_request_error","code":"invalid_value","message":"Invalid model"}}"#,
+        );
+        assert!(matches!(
+            responses.as_slice(),
+            [StreamResponse::ErrorResponse {
+                error_code: Some(400),
+                provider,
+                ..
+            }] if provider == "openai"
+        ));
+        assert_eq!(
+            openai_error_status("invalid_request_error", Some("invalid_value")),
+            Some(400)
+        );
+        assert_eq!(
+            openai_error_status("invalid_request_error", Some("insufficient_quota")),
+            Some(402)
+        );
+        assert_eq!(
+            openai_error_status("rate_limit_error", Some("rate_limit_exceeded")),
+            Some(429)
+        );
+        assert_eq!(openai_error_status("server_error", None), Some(500));
+        assert_eq!(openai_error_status("unknown_error", None), None);
     }
 
     #[test]
