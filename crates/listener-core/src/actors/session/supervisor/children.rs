@@ -17,9 +17,21 @@ pub(super) enum ChildKind {
     Recorder,
 }
 
-pub(super) const RESTART_BUDGET: RestartBudget = RestartBudget {
-    max_restarts: 3,
-    max_window: Duration::from_secs(15),
+const MAX_RESTARTS: u32 = 3;
+const RESTART_FAILURE_WINDOW_SECS: u64 = 15;
+const SOURCE_RESTART_BACKOFF_ALLOWANCE_SECS: u64 = 1 + 2 + 4;
+
+pub(super) const SOURCE_RESTART_BUDGET: RestartBudget = RestartBudget {
+    max_restarts: MAX_RESTARTS,
+    max_window: Duration::from_secs(
+        RESTART_FAILURE_WINDOW_SECS + SOURCE_RESTART_BACKOFF_ALLOWANCE_SECS,
+    ),
+    reset_after: Some(Duration::from_secs(30)),
+};
+
+pub(super) const RECORDER_RESTART_BUDGET: RestartBudget = RestartBudget {
+    max_restarts: MAX_RESTARTS,
+    max_window: Duration::from_secs(RESTART_FAILURE_WINDOW_SECS),
     reset_after: Some(Duration::from_secs(30)),
 };
 
@@ -138,7 +150,7 @@ pub(super) async fn try_restart_source(
     state: &mut SessionState,
     count_against_budget: bool,
 ) -> bool {
-    if count_against_budget && !state.source_restarts.record_restart(&RESTART_BUDGET) {
+    if count_against_budget && !state.source_restarts.record_restart(&SOURCE_RESTART_BUDGET) {
         return false;
     }
 
@@ -183,7 +195,10 @@ pub(super) async fn try_restart_recorder(
     supervisor_cell: ActorCell,
     state: &mut SessionState,
 ) -> bool {
-    if !state.recorder_restarts.record_restart(&RESTART_BUDGET) {
+    if !state
+        .recorder_restarts
+        .record_restart(&RECORDER_RESTART_BUDGET)
+    {
         return false;
     }
 
@@ -290,5 +305,17 @@ mod tests {
         assert_eq!(source_restart_delay(2), Duration::from_secs(2));
         assert_eq!(source_restart_delay(3), Duration::from_secs(4));
         assert_eq!(source_restart_delay(10), Duration::from_secs(4));
+    }
+
+    #[test]
+    fn source_restart_budget_excludes_backoff() {
+        let total_backoff = (1..=SOURCE_RESTART_BUDGET.max_restarts)
+            .map(source_restart_delay)
+            .sum::<Duration>();
+
+        assert_eq!(
+            SOURCE_RESTART_BUDGET.max_window,
+            RECORDER_RESTART_BUDGET.max_window + total_backoff
+        );
     }
 }

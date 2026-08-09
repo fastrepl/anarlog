@@ -12,7 +12,7 @@ use crate::actors::session::types::{
 use crate::actors::{ListenerConfigUpdate, ListenerInitError, ListenerMsg};
 use owhisper_client::AdapterKind;
 
-use self::children::{ChildKind, RESTART_BUDGET};
+use self::children::ChildKind;
 use self::mode::SessionModeState;
 
 const LISTENER_RETRY_DELAYS: [Duration; 5] = [
@@ -156,8 +156,12 @@ impl Actor for SessionActor {
     ) -> Result<(), ActorProcessingErr> {
         let span = session_span(&state.ctx.params.session_id);
         async {
-            state.source_restarts.maybe_reset(&RESTART_BUDGET);
-            state.recorder_restarts.maybe_reset(&RESTART_BUDGET);
+            state
+                .source_restarts
+                .maybe_reset(&children::SOURCE_RESTART_BUDGET);
+            state
+                .recorder_restarts
+                .maybe_reset(&children::RECORDER_RESTART_BUDGET);
 
             if state.shutting_down {
                 return Ok(());
