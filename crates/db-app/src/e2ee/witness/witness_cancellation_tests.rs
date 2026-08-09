@@ -321,6 +321,69 @@ async fn cancelled_all_match_witness_scan_stays_bounded_and_releases_local_write
 }
 
 #[tokio::test]
+async fn witness_scan_selects_only_records_that_need_repair() {
+    let db = test_db().await;
+    let workspace_keys = HashMap::from([("workspace-a".to_string(), workspace_key())]);
+    sqlx::query(
+        "WITH RECURSIVE counter(value) AS (
+           SELECT 0
+           UNION ALL
+           SELECT value + 1 FROM counter WHERE value < 255
+         )
+         INSERT INTO e2ee_witness_records (
+           workspace_id, record_id, revision, writer_id,
+           payload_hash, payload, sequence
+         )
+         SELECT
+           'workspace-a',
+           printf('record-%03d', value),
+           1,
+           'writer-a',
+           printf('hash-%03d', value),
+           printf('payload-%03d', value),
+           value + 1
+         FROM counter",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+         SELECT record_id, workspace_id, payload FROM e2ee_witness_records",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let cancellation_checks = AtomicUsize::new(0);
+    let (repairs, remaining) =
+        load_bounded_e2ee_witness_repairs(db.pool(), &workspace_keys, true, 2, usize::MAX, &|| {
+            cancellation_checks.fetch_add(1, Ordering::SeqCst);
+            false
+        })
+        .await
+        .unwrap();
+    assert!(repairs.is_empty());
+    assert!(!remaining);
+    assert!(cancellation_checks.load(Ordering::SeqCst) <= 10);
+
+    sqlx::query("UPDATE e2ee_records SET payload = 'changed' WHERE id = 'record-255'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    let (repairs, remaining) =
+        load_bounded_e2ee_witness_repairs(db.pool(), &workspace_keys, true, 2, usize::MAX, &|| {
+            false
+        })
+        .await
+        .unwrap();
+    assert_eq!(repairs.len(), 1);
+    assert_eq!(repairs[0].record_id, "record-255");
+    assert!(!remaining);
+}
+
+#[tokio::test]
 async fn cancelled_witness_upload_processing_releases_local_writes() {
     let db = test_db().await;
     let key = workspace_key();

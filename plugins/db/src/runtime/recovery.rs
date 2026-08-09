@@ -430,6 +430,20 @@ impl PluginDbRuntime {
                                 return Ok(CloudsyncRecoveryStep::Deferred);
                             }
                             let keys = e2ee_sync_hook.snapshot();
+                            let apply = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
+                                db.pool(),
+                                &keys,
+                                false,
+                                || cloudsync_recovery_cancelled(&recovery_cancelled),
+                            )
+                            .await
+                            .map_err(|error| std::io::Error::other(error.to_string()))?;
+                            if cloudsync_recovery_cancelled(&recovery_cancelled) {
+                                return Ok(CloudsyncRecoveryStep::Deferred);
+                            }
+                            if apply.applied_fields > 0 {
+                                return Ok(CloudsyncRecoveryStep::Progressed);
+                            }
                             let repair =
                                 anlg_db_app::repair_e2ee_replica_from_witness_bounded_cancellable(
                                     db.pool(),
@@ -444,18 +458,7 @@ impl PluginDbRuntime {
                             if cloudsync_recovery_cancelled(&recovery_cancelled) {
                                 return Ok(CloudsyncRecoveryStep::Deferred);
                             }
-                            let apply = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
-                                db.pool(),
-                                &keys,
-                                false,
-                                || cloudsync_recovery_cancelled(&recovery_cancelled),
-                            )
-                            .await
-                            .map_err(|error| std::io::Error::other(error.to_string()))?;
-                            if cloudsync_recovery_cancelled(&recovery_cancelled) {
-                                return Ok(CloudsyncRecoveryStep::Deferred);
-                            }
-                            if repair.repaired_records > 0 || apply.applied_fields > 0 {
+                            if repair.repaired_records > 0 {
                                 return Ok(CloudsyncRecoveryStep::Progressed);
                             }
                             if repair.remaining || apply.remaining_replica_changes {

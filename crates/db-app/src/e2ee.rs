@@ -183,6 +183,7 @@ pub use replica_apply::{
 #[cfg(test)]
 use replica_apply::{
     apply_e2ee_replica_changes_inner, apply_received_e2ee_replica_changes_with_witness_bounded,
+    load_changed_e2ee_record_metadata,
 };
 use replica_encrypt::check_e2ee_cancellation;
 pub use replica_encrypt::{

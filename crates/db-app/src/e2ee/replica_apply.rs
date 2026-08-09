@@ -139,7 +139,7 @@ async fn commit_e2ee_apply_transaction(
     check_e2ee_apply_cancellation(is_cancelled)
 }
 
-async fn load_changed_e2ee_record_metadata(
+pub(super) async fn load_changed_e2ee_record_metadata(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
     cursor: Option<&(String, String)>,
@@ -151,6 +151,8 @@ async fn load_changed_e2ee_record_metadata(
            SELECT input.id, input.workspace_id
            FROM e2ee_records AS input
            INDEXED BY idx_e2ee_records_workspace
+           LEFT JOIN e2ee_local_state AS local
+             ON local.record_id = input.id
            WHERE input.workspace_id IN (",
     );
     {
@@ -159,7 +161,14 @@ async fn load_changed_e2ee_record_metadata(
             separated.push_bind(workspace_id);
         }
     }
-    query.push(")");
+    query.push(
+        ")
+           AND (
+             local.record_id IS NULL
+             OR local.workspace_id != input.workspace_id
+             OR local.payload != input.payload
+           )",
+    );
     if let Some((workspace_id, record_id)) = cursor {
         query
             .push(

@@ -761,3 +761,58 @@ async fn failed_remote_apply_rolls_back_the_guard() {
     .unwrap();
     assert_eq!(dirty_count, 1);
 }
+
+#[tokio::test]
+async fn replica_apply_scan_selects_only_records_that_need_work() {
+    let workspace_keys = keys("workspace-a");
+    let target = test_db().await;
+    sqlx::query(
+        "WITH RECURSIVE counter(value) AS (
+           SELECT 0
+           UNION ALL
+           SELECT value + 1 FROM counter WHERE value < 255
+         )
+         INSERT INTO e2ee_witness_records (
+           workspace_id, record_id, revision, writer_id,
+           payload_hash, payload, sequence
+         )
+         SELECT
+           'workspace-a',
+           printf('record-%03d', value),
+           1,
+           'writer-a',
+           printf('hash-%03d', value),
+           printf('payload-%03d', value),
+           value + 1
+         FROM counter",
+    )
+    .execute(target.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+         SELECT record_id, workspace_id, payload FROM e2ee_witness_records",
+    )
+    .execute(target.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO e2ee_local_state (record_id, workspace_id, payload)
+         SELECT id, workspace_id, payload FROM e2ee_records",
+    )
+    .execute(target.pool())
+    .await
+    .unwrap();
+
+    sqlx::query("UPDATE e2ee_records SET payload = 'changed' WHERE id = 'record-255'")
+        .execute(target.pool())
+        .await
+        .unwrap();
+
+    let changed = load_changed_e2ee_record_metadata(target.pool(), &workspace_keys, None)
+        .await
+        .unwrap();
+    assert_eq!(changed.len(), 1);
+    assert_eq!(changed[0].id, "record-255");
+    assert!(changed[0].changed);
+}
