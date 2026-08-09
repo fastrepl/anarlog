@@ -4,7 +4,6 @@ import {
   CircleNotch,
   Code,
   Copy,
-  Plug,
   Terminal,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +25,21 @@ async function loadStatus() {
     throw new Error(result.error);
   }
   return result.data;
+}
+
+async function copyText(
+  text: string,
+  successMessage: string,
+  fallbackErrorMessage: string,
+) {
+  try {
+    await navigator.clipboard.writeText(text);
+    sonnerToast.success(successMessage);
+  } catch (error) {
+    sonnerToast.error(
+      error instanceof Error ? error.message : fallbackErrorMessage,
+    );
+  }
 }
 
 export function buildMcpConfiguration(command: string) {
@@ -86,16 +100,13 @@ export function CliSettingsSections() {
   const status = statusQuery.data;
 
   return (
-    <>
-      <CliSection
-        status={status}
-        isLoading={statusQuery.isPending}
-        error={statusQuery.error}
-        isInstalling={installMutation.isPending}
-        onInstall={() => installMutation.mutate()}
-      />
-      <McpSection status={status} />
-    </>
+    <CliSection
+      status={status}
+      isLoading={statusQuery.isPending}
+      error={statusQuery.error}
+      isInstalling={installMutation.isPending}
+      onInstall={() => installMutation.mutate()}
+    />
   );
 }
 
@@ -121,18 +132,18 @@ function CliSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-sm font-medium">CLI</h2>
-      <div className="border-border bg-card overflow-hidden rounded-2xl border">
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
+      <h2 className="text-muted-foreground text-sm font-medium">CLI & MCP</h2>
+      <div className="border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border">
+        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 gap-3">
             <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
               <Terminal className="size-5" />
             </div>
             <div className="min-w-0">
               <h3 className="font-medium">Anarlog CLI</h3>
-              <p className="text-muted-foreground mt-1 text-sm leading-5">
-                Use Anarlog meetings from scripts and coding agents.
-              </p>
+              <CopyableCommand
+                command={`${commandName} --json meetings list`}
+              />
               <CliStatus status={status} isLoading={isLoading} error={error} />
             </div>
           </div>
@@ -162,19 +173,7 @@ function CliSection({
             </Button>
           </div>
         </div>
-
-        <div className="border-border divide-border divide-y border-t">
-          <CommandExample
-            icon={<Terminal className="size-4" />}
-            command={`${commandName} --json meetings list`}
-            description="List recent meetings for scripts and coding agents."
-          />
-          <CommandExample
-            icon={<Plug className="size-4" />}
-            command={`${commandName} mcp`}
-            description="Connect local Anarlog meeting context over MCP."
-          />
-        </div>
+        <McpRow status={status} />
       </div>
     </section>
   );
@@ -191,16 +190,16 @@ function CliStatus({
 }) {
   if (isLoading) {
     return (
-      <span className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs">
+      <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
         <CircleNotch className="size-3 animate-spin" />
-        Checking installation…
+        Checking…
       </span>
     );
   }
 
   if (error) {
     return (
-      <p className="text-destructive mt-2 text-xs">
+      <p className="text-destructive mt-1 text-xs">
         Could not check the CLI: {error.message}
       </p>
     );
@@ -210,9 +209,14 @@ function CliStatus({
     return null;
   }
 
+  const isInstalled = status.state === "installed";
+  const showDetails = ["conflict", "unsupported", "resource_missing"].includes(
+    status.state,
+  );
+
   return (
-    <div className="mt-2 flex items-start gap-1.5 text-xs">
-      {status.state === "installed" ? (
+    <div className="mt-1 flex items-start gap-1.5 text-xs">
+      {isInstalled ? (
         <CheckCircle className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
       ) : (
         <span
@@ -224,103 +228,84 @@ function CliStatus({
           ])}
         />
       )}
-      <span className="text-muted-foreground break-all">{status.details}</span>
+      <span className="text-muted-foreground break-all">
+        {isInstalled
+          ? "Installed"
+          : showDetails
+            ? (status.details ?? "Unavailable")
+            : "Not installed"}
+      </span>
     </div>
   );
 }
 
-function CommandExample({
-  icon,
-  command,
-  description,
-}: {
-  icon: React.ReactNode;
-  command: string;
-  description: string;
-}) {
+function CopyableCommand({ command }: { command: string }) {
   return (
-    <div className="flex items-start gap-3 px-4 py-3">
-      <span className="text-muted-foreground mt-0.5 shrink-0">{icon}</span>
-      <div className="min-w-0">
-        <code className="bg-muted rounded-md px-1.5 py-0.5 text-xs font-medium">
-          {command}
-        </code>
-        <p className="text-muted-foreground mt-1 text-xs">{description}</p>
-      </div>
+    <div className="mt-1 flex min-w-0 items-center gap-1">
+      <code className="bg-muted scrollbar-hide min-w-0 overflow-x-auto rounded-md px-1.5 py-0.5 text-xs font-medium">
+        {command}
+      </code>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-6 shrink-0"
+        aria-label={`Copy ${command}`}
+        onClick={() =>
+          void copyText(command, "Command copied", "Could not copy the command")
+        }
+      >
+        <Copy className="size-3.5" />
+      </Button>
     </div>
   );
 }
 
-function McpSection({ status }: { status: EmbeddedCliStatus | undefined }) {
+function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
   const isInstalled = status?.state === "installed";
-  const command = isInstalled
-    ? status.installPath
-    : (status?.commandName ?? "anarlog");
-  const configuration = buildMcpConfiguration(command);
-
-  const copyConfiguration = async () => {
-    try {
-      await navigator.clipboard.writeText(configuration);
-      sonnerToast.success("MCP configuration copied");
-    } catch (error) {
-      sonnerToast.error(
-        error instanceof Error
-          ? error.message
-          : "Could not copy the MCP configuration",
-      );
-    }
-  };
+  const commandName = status?.commandName ?? "anarlog";
+  const configuration = buildMcpConfiguration(
+    isInstalled ? status.installPath : commandName,
+  );
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-sm font-medium">MCP</h2>
-      <div className="border-border bg-card overflow-hidden rounded-2xl border">
-        <div className="flex items-start justify-between gap-4 p-4">
-          <div className="flex min-w-0 gap-3">
-            <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <Code className="size-5" />
-            </div>
-            <div>
-              <h3 className="font-medium">Anarlog MCP server</h3>
-              <p className="text-muted-foreground mt-1 text-sm leading-5">
-                Add read-only local meeting context to agents that support MCP.
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            onClick={() => void openerCommands.openUrl(MCP_GUIDE_URL, null)}
-          >
-            Guide
-            <ArrowSquareOut className="size-3.5" />
-          </Button>
+    <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 gap-3">
+        <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
+          <Code className="size-5" />
         </div>
-
-        <div className="border-border bg-muted/30 border-t p-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <span className="text-muted-foreground text-xs font-medium">
-              mcp.json
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7"
-              disabled={!isInstalled}
-              onClick={() => void copyConfiguration()}
-            >
-              <Copy className="size-3.5" />
-              Copy
-            </Button>
-          </div>
-          <pre className="scrollbar-hide overflow-x-auto text-xs leading-5">
-            <code>{configuration}</code>
-          </pre>
+        <div className="min-w-0">
+          <h3 className="font-medium">MCP server</h3>
+          <CopyableCommand command={`${commandName} mcp`} />
         </div>
       </div>
-    </section>
+      <div className="flex shrink-0 gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void openerCommands.openUrl(MCP_GUIDE_URL, null)}
+        >
+          Guide
+          <ArrowSquareOut className="size-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!isInstalled}
+          onClick={() =>
+            void copyText(
+              configuration,
+              "MCP configuration copied",
+              "Could not copy the MCP configuration",
+            )
+          }
+        >
+          <Copy className="size-3.5" />
+          Copy config
+        </Button>
+      </div>
+    </div>
   );
 }

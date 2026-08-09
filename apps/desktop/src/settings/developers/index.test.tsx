@@ -144,7 +144,12 @@ describe("SettingsDevelopers", () => {
     cleanup();
   });
 
-  it("shows the installed CLI and uses its absolute path for MCP", async () => {
+  it("uses the installed CLI path when copying the MCP configuration", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
     mocks.checkEmbeddedCli.mockResolvedValue({
       status: "ok",
       data: {
@@ -168,8 +173,64 @@ describe("SettingsDevelopers", () => {
 
     expect(await screen.findByText("Reinstall")).toBeTruthy();
     expect(
-      screen.getAllByText(/\/Users\/test\/\.local\/bin\/anarlog/).length,
-    ).toBeGreaterThan(0);
+      screen.queryByText(/\/Users\/test\/\.local\/bin\/anarlog/),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy config" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    expect(JSON.parse(writeText.mock.calls[0][0])).toEqual({
+      mcpServers: {
+        anarlog: {
+          command: "/Users/test/.local/bin/anarlog",
+          args: ["mcp"],
+        },
+      },
+    });
+  });
+
+  it("copies each CLI command", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    mocks.checkEmbeddedCli.mockResolvedValue({
+      status: "ok",
+      data: {
+        supported: true,
+        commandName: "anarlog",
+        installPath: "/Users/test/.local/bin/anarlog",
+        state: "installed",
+        details: "Installed.",
+      },
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDevelopers />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Copy anarlog --json meetings list",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Copy anarlog mcp" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenNthCalledWith(
+        1,
+        "anarlog --json meetings list",
+      );
+      expect(writeText).toHaveBeenNthCalledWith(2, "anarlog mcp");
+    });
+    expect(mocks.toastSuccess).toHaveBeenCalledTimes(2);
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("Command copied");
   });
 
   it("does not expose a nonexistent MCP path when the CLI is unsupported", async () => {
@@ -193,7 +254,9 @@ describe("SettingsDevelopers", () => {
       </QueryClientProvider>,
     );
 
-    const copyButton = await screen.findByRole("button", { name: "Copy" });
+    const copyButton = await screen.findByRole("button", {
+      name: "Copy config",
+    });
     expect(copyButton.hasAttribute("disabled")).toBe(true);
     expect(
       screen.queryByText(/\/Users\/test\/\.local\/bin\/anarlog-dev/),
