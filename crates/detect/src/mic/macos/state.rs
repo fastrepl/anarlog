@@ -92,6 +92,9 @@ pub(super) struct SharedContext {
     pub(super) current_device: Arc<Mutex<Option<cidre::core_audio::Device>>>,
     pub(super) state: Arc<Mutex<DetectorState>>,
     pub(super) polling_active: Arc<AtomicBool>,
+    polling_fallback_active: Arc<AtomicBool>,
+    polling_fallback_required: Arc<AtomicBool>,
+    device_listener_context_retention_required: Arc<AtomicBool>,
     listener_callbacks_active: Arc<AtomicBool>,
 }
 
@@ -102,6 +105,9 @@ impl SharedContext {
             current_device: Arc::new(Mutex::new(None)),
             state: Arc::new(Mutex::new(DetectorState::new())),
             polling_active: Arc::new(AtomicBool::new(false)),
+            polling_fallback_active: Arc::new(AtomicBool::new(false)),
+            polling_fallback_required: Arc::new(AtomicBool::new(false)),
+            device_listener_context_retention_required: Arc::new(AtomicBool::new(false)),
             listener_callbacks_active: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -112,6 +118,11 @@ impl SharedContext {
             current_device: self.current_device.clone(),
             state: self.state.clone(),
             polling_active: self.polling_active.clone(),
+            polling_fallback_active: self.polling_fallback_active.clone(),
+            polling_fallback_required: self.polling_fallback_required.clone(),
+            device_listener_context_retention_required: self
+                .device_listener_context_retention_required
+                .clone(),
             listener_callbacks_active: self.listener_callbacks_active.clone(),
         }
     }
@@ -120,10 +131,47 @@ impl SharedContext {
         self.listener_callbacks_active
             .store(false, Ordering::SeqCst);
         self.polling_active.store(false, Ordering::SeqCst);
+        self.polling_fallback_active.store(false, Ordering::SeqCst);
+        self.polling_fallback_required
+            .store(false, Ordering::SeqCst);
     }
 
     pub(super) fn listener_callbacks_active(&self) -> bool {
         self.listener_callbacks_active.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn enable_polling_fallback(&self) {
+        self.polling_fallback_active.store(true, Ordering::SeqCst);
+    }
+
+    pub(super) fn require_polling_fallback(&self) {
+        self.polling_fallback_required.store(true, Ordering::SeqCst);
+        self.enable_polling_fallback();
+    }
+
+    pub(super) fn disable_polling_fallback(&self) {
+        if !self.polling_fallback_required.load(Ordering::SeqCst) {
+            self.polling_fallback_active.store(false, Ordering::SeqCst);
+        }
+    }
+
+    pub(super) fn polling_fallback_active(&self) -> bool {
+        self.polling_fallback_active.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn app_polling_active(&self) -> bool {
+        self.polling_active.load(Ordering::SeqCst)
+            || self.polling_fallback_active.load(Ordering::SeqCst)
+    }
+
+    pub(super) fn require_device_listener_context_retention(&self) {
+        self.device_listener_context_retention_required
+            .store(true, Ordering::SeqCst);
+    }
+
+    pub(super) fn device_listener_context_retention_required(&self) -> bool {
+        self.device_listener_context_retention_required
+            .load(Ordering::SeqCst)
     }
 
     pub(super) fn emit(&self, event: DetectEvent) {
@@ -144,6 +192,21 @@ impl SharedContext {
             Ok(Vec::new())
         };
         self.handle_mic_change_with_snapshot(mic_in_use, app_snapshot);
+    }
+
+    pub(super) fn sync_polling_fallback_state(
+        &self,
+        mic_in_use: bool,
+        current_apps: Vec<InstalledApp>,
+    ) -> bool {
+        let should_sync = self
+            .state
+            .lock()
+            .is_ok_and(|state| state.last_state != mic_in_use);
+        if should_sync {
+            self.handle_mic_change_with_snapshot(mic_in_use, Ok(current_apps));
+        }
+        should_sync
     }
 
     pub(super) fn flush_pending_mic_change(&self) {
@@ -426,10 +489,71 @@ mod tests {
     fn deactivated_listener_context_ignores_late_callbacks() {
         let (ctx, events) = test_context();
 
+        ctx.enable_polling_fallback();
         ctx.deactivate_listener_callbacks();
         ctx.handle_mic_change(true);
 
+        assert!(!ctx.app_polling_active());
         assert!(!ctx.state.lock().unwrap().last_state);
         assert!(events.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn polling_fallback_keeps_app_polling_active_without_a_running_mic() {
+        let (ctx, _) = test_context();
+
+        assert!(!ctx.app_polling_active());
+        ctx.enable_polling_fallback();
+        assert!(ctx.app_polling_active());
+        ctx.disable_polling_fallback();
+        assert!(!ctx.app_polling_active());
+    }
+
+    #[test]
+    fn required_polling_fallback_survives_healthy_device_callbacks() {
+        let (ctx, _) = test_context();
+
+        ctx.require_polling_fallback();
+        ctx.disable_polling_fallback();
+
+        assert!(ctx.polling_fallback_active());
+    }
+
+    #[test]
+    fn polling_fallback_updates_coreaudio_state_without_duplicate_recovery_edge() {
+        let (ctx, events) = test_context();
+
+        ctx.enable_polling_fallback();
+        assert!(ctx.sync_polling_fallback_state(true, vec![app("recorder")]));
+        ctx.disable_polling_fallback();
+        ctx.handle_mic_change_with_snapshot(true, Ok(vec![app("recorder")]));
+
+        let state = ctx.state.lock().unwrap();
+        assert!(state.last_state);
+        assert_eq!(state.active_apps.len(), 1);
+        assert_eq!(state.active_apps[0].id, "recorder");
+        drop(state);
+        assert_eq!(events.lock().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn polling_fallback_preserves_running_state_while_apps_are_not_visible() {
+        let (ctx, events) = test_context();
+
+        ctx.handle_mic_change_with_snapshot(true, Ok(Vec::new()));
+
+        assert!(!ctx.sync_polling_fallback_state(true, Vec::new()));
+        assert!(ctx.state.lock().unwrap().last_state);
+        assert!(events.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn device_listener_context_retention_is_shared() {
+        let (ctx, _) = test_context();
+        let cloned_ctx = ctx.clone_shared();
+
+        cloned_ctx.require_device_listener_context_retention();
+
+        assert!(ctx.device_listener_context_retention_required());
     }
 }

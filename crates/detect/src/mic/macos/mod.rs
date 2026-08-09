@@ -88,10 +88,13 @@ struct ListenerRetention {
 fn listener_retention(
     system_unregister_failed: bool,
     device_unregister_failed: bool,
+    device_context_retention_required: bool,
 ) -> ListenerRetention {
     ListenerRetention {
         system: system_unregister_failed,
-        device: system_unregister_failed || device_unregister_failed,
+        device: system_unregister_failed
+            || device_unregister_failed
+            || device_context_retention_required,
     }
 }
 
@@ -159,6 +162,7 @@ impl CoreAudioListeners {
         if self.system_listener_registered {
             tracing::info!("adding_system_listener_success");
         } else {
+            self.ctx.require_polling_fallback();
             tracing::error!("adding_system_listener_failed");
         }
 
@@ -166,28 +170,35 @@ impl CoreAudioListeners {
             Ok(device) => {
                 let mic_in_use = device::is_mic_running(&device);
                 let device_listener_ptr = self.device_listener_ptr();
-                if device
-                    .add_prop_listener(
-                        &DEVICE_IS_RUNNING_SOMEWHERE,
-                        device_listener,
-                        device_listener_ptr,
-                    )
-                    .is_ok()
-                {
-                    tracing::info!("adding_device_listener_success");
+                match device.add_prop_listener(
+                    &DEVICE_IS_RUNNING_SOMEWHERE,
+                    device_listener,
+                    device_listener_ptr,
+                ) {
+                    Ok(()) => {
+                        tracing::info!("adding_device_listener_success");
 
-                    let mut device_guard = self
-                        .ctx
-                        .current_device
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                    *device_guard = Some(device);
-                    drop(device_guard);
-                    if let Some(mic_in_use) = mic_in_use {
-                        self.ctx.seed_running_state(mic_in_use);
+                        let mut device_guard = self
+                            .ctx
+                            .current_device
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                        *device_guard = Some(device);
+                        drop(device_guard);
+                        if let Some(mic_in_use) = mic_in_use {
+                            self.ctx.seed_running_state(mic_in_use);
+                        } else {
+                            self.ctx.enable_polling_fallback();
+                        }
                     }
-                } else {
-                    tracing::error!("adding_device_listener_failed");
+                    Err(error) => {
+                        self.ctx.enable_polling_fallback();
+                        tracing::error!(
+                            ?error,
+                            tags.error.code = error.status().0,
+                            "adding_device_listener_failed"
+                        );
+                    }
                 }
             }
             Err(_) => tracing::warn!("no_default_input_device_found"),
@@ -239,7 +250,11 @@ impl Drop for CoreAudioListeners {
             false
         };
 
-        let retention = listener_retention(system_unregister_failed, device_unregister_failed);
+        let retention = listener_retention(
+            system_unregister_failed,
+            device_unregister_failed,
+            self.ctx.device_listener_context_retention_required(),
+        );
         if retention.system {
             retain_callback_context(&mut self.system_listener_data);
         }
@@ -362,7 +377,7 @@ mod tests {
     #[test]
     fn retains_only_device_context_when_device_unregister_fails() {
         assert_eq!(
-            listener_retention(false, true),
+            listener_retention(false, true, false),
             ListenerRetention {
                 system: false,
                 device: true,
@@ -373,7 +388,7 @@ mod tests {
     #[test]
     fn system_unregister_failure_retains_both_reachable_contexts() {
         assert_eq!(
-            listener_retention(true, false),
+            listener_retention(true, false, false),
             ListenerRetention {
                 system: true,
                 device: true,
@@ -384,10 +399,21 @@ mod tests {
     #[test]
     fn successful_unregisters_release_both_contexts() {
         assert_eq!(
-            listener_retention(false, false),
+            listener_retention(false, false, false),
             ListenerRetention {
                 system: false,
                 device: false,
+            }
+        );
+    }
+
+    #[test]
+    fn orphaned_device_listener_retains_device_context() {
+        assert_eq!(
+            listener_retention(false, false, true),
+            ListenerRetention {
+                system: false,
+                device: true,
             }
         );
     }

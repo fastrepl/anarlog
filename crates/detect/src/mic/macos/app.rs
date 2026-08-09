@@ -1,8 +1,8 @@
 use std::collections::HashSet;
-use std::sync::atomic::Ordering;
 
 use crate::{DetectEvent, InstalledApp};
 
+use super::device::is_mic_running;
 use super::state::SharedContext;
 
 fn diff_apps(
@@ -28,13 +28,20 @@ fn diff_apps(
 }
 
 pub(super) fn poll_apps(ctx: &SharedContext) {
-    if !ctx.polling_active.load(Ordering::SeqCst) {
+    if !ctx.app_polling_active() {
         return;
     }
 
     let Ok(current_apps) = crate::list_mic_using_apps() else {
         return;
     };
+    if ctx.polling_fallback_active()
+        && let Ok(device) = cidre::core_audio::System::default_input_device()
+        && let Some(mic_in_use) = is_mic_running(&device)
+        && ctx.sync_polling_fallback_state(mic_in_use, current_apps.clone())
+    {
+        return;
+    }
     let Ok(mut state_guard) = ctx.state.lock() else {
         return;
     };
