@@ -43,3 +43,16 @@ fn default_permissions_include_legacy_migration_workflow() {
         assert!(permissions.contains(permission), "missing {permission}");
     }
 }
+
+#[test]
+fn default_permissions_include_device_enrollment_workflow() {
+    let permissions = include_str!("../../permissions/default.toml");
+
+    for permission in [
+        "allow-get-or-create-e2ee-device-identity",
+        "allow-seal-e2ee-recovery-key-for-device",
+        "allow-import-e2ee-device-enrollment",
+    ] {
+        assert!(permissions.contains(permission), "missing {permission}");
+    }
+}

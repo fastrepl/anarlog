@@ -19,6 +19,9 @@ Default permissions for the plugin
 - `allow-inspect-e2ee-recovery-key`
 - `allow-create-e2ee-identity`
 - `allow-import-e2ee-identity`
+- `allow-get-or-create-e2ee-device-identity`
+- `allow-seal-e2ee-recovery-key-for-device`
+- `allow-import-e2ee-device-enrollment`
 - `allow-subscribe`
 - `allow-unsubscribe`
 - `allow-bind-cloudsync-account`
@@ -457,6 +460,32 @@ Denies the get_meeting_transcript command without any pre-configured scope.
 <tr>
 <td>
 
+`db:allow-get-or-create-e2ee-device-identity`
+
+</td>
+<td>
+
+Enables the get_or_create_e2ee_device_identity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-or-create-e2ee-device-identity`
+
+</td>
+<td>
+
+Denies the get_or_create_e2ee_device_identity command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `db:allow-get-recurring-meeting-history`
 
 </td>
@@ -476,6 +505,32 @@ Enables the get_recurring_meeting_history command without any pre-configured sco
 <td>
 
 Denies the get_recurring_meeting_history command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-import-e2ee-device-enrollment`
+
+</td>
+<td>
+
+Enables the import_e2ee_device_enrollment command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-import-e2ee-device-enrollment`
+
+</td>
+<td>
+
+Denies the import_e2ee_device_enrollment command without any pre-configured scope.
 
 </td>
 </tr>
@@ -580,6 +635,32 @@ Enables the run_legacy_import command without any pre-configured scope.
 <td>
 
 Denies the run_legacy_import command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-seal-e2ee-recovery-key-for-device`
+
+</td>
+<td>
+
+Enables the seal_e2ee_recovery_key_for_device command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-seal-e2ee-recovery-key-for-device`
+
+</td>
+<td>
+
+Denies the seal_e2ee_recovery_key_for_device command without any pre-configured scope.
 
 </td>
 </tr>

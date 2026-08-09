@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-get-or-create-e2ee-device-identity"
+description = "Enables the get_or_create_e2ee_device_identity command without any pre-configured scope."
+commands.allow = ["get_or_create_e2ee_device_identity"]
+
+[[permission]]
+identifier = "deny-get-or-create-e2ee-device-identity"
+description = "Denies the get_or_create_e2ee_device_identity command without any pre-configured scope."
+commands.deny = ["get_or_create_e2ee_device_identity"]

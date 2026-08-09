@@ -8,6 +8,8 @@ import type {
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
   E2eeIdentityStatus,
+  E2eeDeviceEnrollmentPackage,
+  E2eeDeviceIdentity,
   E2eeRecoveryKeyIdentity,
   LegacyCleanupResult,
   LegacyCleanupStatus,
@@ -24,6 +26,8 @@ export type {
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
   E2eeIdentityStatus,
+  E2eeDeviceEnrollmentPackage,
+  E2eeDeviceIdentity,
   E2eeRecoveryKeyIdentity,
   GetMeetingInput,
   LegacyCleanupResult,
@@ -212,6 +216,38 @@ export async function importE2eeIdentity(
   return invoke("plugin:db|import_e2ee_identity", {
     accountUserId,
     recoveryKey,
+  });
+}
+
+export async function getOrCreateE2eeDeviceIdentity(
+  accountUserId: string,
+): Promise<E2eeDeviceIdentity> {
+  return invoke("plugin:db|get_or_create_e2ee_device_identity", {
+    accountUserId,
+  });
+}
+
+export async function sealE2eeRecoveryKeyForDevice(
+  accountUserId: string,
+  requestId: string,
+  recipientPublicKey: string,
+): Promise<E2eeDeviceEnrollmentPackage> {
+  return invoke("plugin:db|seal_e2ee_recovery_key_for_device", {
+    accountUserId,
+    requestId,
+    recipientPublicKey,
+  });
+}
+
+export async function importE2eeDeviceEnrollment(
+  accountUserId: string,
+  requestId: string,
+  packageValue: E2eeDeviceEnrollmentPackage,
+): Promise<E2eeRecoveryKeyIdentity> {
+  return invoke("plugin:db|import_e2ee_device_enrollment", {
+    accountUserId,
+    requestId,
+    package: packageValue,
   });
 }
 

@@ -25,6 +25,9 @@ const WORKSPACE_KEY_SALT: &[u8] = b"anarlog-e2ee-workspace-key-v1";
 const FIELD_ID_DOMAIN: &[u8] = b"anarlog-e2ee-field-id-v1";
 const VALUE_TAG_DOMAIN: &[u8] = b"anarlog-e2ee-value-tag-v1";
 const PAYLOAD_AAD_DOMAIN: &[u8] = b"anarlog-e2ee-payload-v1";
+const DEVICE_ENROLLMENT_KEY_PREFIX: &str = "anarlog-device-key-v1:";
+const DEVICE_ENROLLMENT_KDF_SALT: &[u8] = b"anarlog-device-enrollment-kdf-v1";
+const DEVICE_ENROLLMENT_AAD_DOMAIN: &[u8] = b"anarlog-device-enrollment-v1";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -42,9 +45,163 @@ pub enum Error {
     AuthenticationFailed,
     #[error("cryptographic randomness is unavailable")]
     RandomnessUnavailable,
+    #[error("the device enrollment key is invalid")]
+    InvalidDeviceEnrollmentKey,
+    #[error("the device enrollment package is invalid")]
+    InvalidDeviceEnrollmentPackage,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Zeroize, ZeroizeOnDrop)]
+pub struct DeviceEnrollmentKey([u8; 32]);
+
+impl DeviceEnrollmentKey {
+    pub fn generate() -> Result<Self> {
+        let mut bytes = [0_u8; 32];
+        getrandom::fill(&mut bytes).map_err(|_| Error::RandomnessUnavailable)?;
+        Ok(Self(bytes))
+    }
+
+    pub fn parse(value: &str) -> Result<Self> {
+        let encoded = value
+            .trim()
+            .strip_prefix(DEVICE_ENROLLMENT_KEY_PREFIX)
+            .ok_or(Error::InvalidDeviceEnrollmentKey)?;
+        let decoded = URL_SAFE_NO_PAD
+            .decode(encoded)
+            .map_err(|_| Error::InvalidDeviceEnrollmentKey)?;
+        Ok(Self(
+            decoded
+                .try_into()
+                .map_err(|_| Error::InvalidDeviceEnrollmentKey)?,
+        ))
+    }
+
+    pub fn expose_code(&self) -> Zeroizing<String> {
+        Zeroizing::new(format!(
+            "{DEVICE_ENROLLMENT_KEY_PREFIX}{}",
+            URL_SAFE_NO_PAD.encode(self.0)
+        ))
+    }
+
+    pub fn public_key(&self) -> String {
+        let secret = x25519_dalek::StaticSecret::from(self.0);
+        URL_SAFE_NO_PAD.encode(x25519_dalek::PublicKey::from(&secret).as_bytes())
+    }
+
+    pub fn open_recovery_key(
+        &self,
+        account_user_id: &str,
+        request_id: &str,
+        package: &DeviceEnrollmentPackage,
+    ) -> Result<RecoveryKey> {
+        let ephemeral_public = decode_enrollment_bytes(&package.ephemeral_public_key)?;
+        let nonce: [u8; 24] = URL_SAFE_NO_PAD
+            .decode(&package.nonce)
+            .map_err(|_| Error::InvalidDeviceEnrollmentPackage)?
+            .try_into()
+            .map_err(|_| Error::InvalidDeviceEnrollmentPackage)?;
+        let ciphertext = URL_SAFE_NO_PAD
+            .decode(&package.ciphertext)
+            .map_err(|_| Error::InvalidDeviceEnrollmentPackage)?;
+        let shared = x25519_dalek::StaticSecret::from(self.0)
+            .diffie_hellman(&x25519_dalek::PublicKey::from(ephemeral_public));
+        if !shared.was_contributory() {
+            return Err(Error::InvalidDeviceEnrollmentPackage);
+        }
+        let cipher = enrollment_cipher(shared.as_bytes(), account_user_id, request_id)?;
+        let nonce = XNonce::from(nonce);
+        let plaintext = cipher
+            .decrypt(
+                &nonce,
+                Payload {
+                    msg: &ciphertext,
+                    aad: &enrollment_aad(account_user_id, request_id),
+                },
+            )
+            .map_err(|_| Error::AuthenticationFailed)?;
+        let code =
+            String::from_utf8(plaintext).map_err(|_| Error::InvalidDeviceEnrollmentPackage)?;
+        RecoveryKey::parse(&code)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct DeviceEnrollmentPackage {
+    pub ephemeral_public_key: String,
+    pub nonce: String,
+    pub ciphertext: String,
+}
+
+pub fn seal_recovery_key_for_device(
+    recovery_key: &RecoveryKey,
+    recipient_public_key: &str,
+    account_user_id: &str,
+    request_id: &str,
+) -> Result<DeviceEnrollmentPackage> {
+    let recipient_public = decode_enrollment_bytes(recipient_public_key)?;
+    let ephemeral_secret = DeviceEnrollmentKey::generate()?;
+    let ephemeral_static = x25519_dalek::StaticSecret::from(ephemeral_secret.0);
+    let ephemeral_public = x25519_dalek::PublicKey::from(&ephemeral_static);
+    let shared = ephemeral_static.diffie_hellman(&x25519_dalek::PublicKey::from(recipient_public));
+    if !shared.was_contributory() {
+        return Err(Error::InvalidDeviceEnrollmentKey);
+    }
+    let cipher = enrollment_cipher(shared.as_bytes(), account_user_id, request_id)?;
+    let mut nonce = [0_u8; 24];
+    getrandom::fill(&mut nonce).map_err(|_| Error::RandomnessUnavailable)?;
+    let recovery_code = recovery_key.expose_code();
+    let nonce_value = XNonce::from(nonce);
+    let ciphertext = cipher
+        .encrypt(
+            &nonce_value,
+            Payload {
+                msg: recovery_code.as_bytes(),
+                aad: &enrollment_aad(account_user_id, request_id),
+            },
+        )
+        .map_err(|_| Error::InvalidDeviceEnrollmentPackage)?;
+    Ok(DeviceEnrollmentPackage {
+        ephemeral_public_key: URL_SAFE_NO_PAD.encode(ephemeral_public.as_bytes()),
+        nonce: URL_SAFE_NO_PAD.encode(nonce),
+        ciphertext: URL_SAFE_NO_PAD.encode(ciphertext),
+    })
+}
+
+fn decode_enrollment_bytes(value: &str) -> Result<[u8; 32]> {
+    URL_SAFE_NO_PAD
+        .decode(value)
+        .map_err(|_| Error::InvalidDeviceEnrollmentKey)?
+        .try_into()
+        .map_err(|_| Error::InvalidDeviceEnrollmentKey)
+}
+
+fn enrollment_cipher(
+    shared_secret: &[u8; 32],
+    account_user_id: &str,
+    request_id: &str,
+) -> Result<XChaCha20Poly1305> {
+    if account_user_id.trim().is_empty() || request_id.trim().is_empty() {
+        return Err(Error::InvalidDeviceEnrollmentPackage);
+    }
+    let hkdf = Hkdf::<Sha256>::new(Some(DEVICE_ENROLLMENT_KDF_SALT), shared_secret);
+    let mut key = Zeroizing::new([0_u8; 32]);
+    hkdf.expand(&enrollment_aad(account_user_id, request_id), key.as_mut())
+        .map_err(|_| Error::InvalidDeviceEnrollmentPackage)?;
+    Ok(XChaCha20Poly1305::new_from_slice(key.as_ref())
+        .expect("XChaCha20Poly1305 accepts 32-byte keys"))
+}
+
+fn enrollment_aad(account_user_id: &str, request_id: &str) -> Vec<u8> {
+    [
+        DEVICE_ENROLLMENT_AAD_DOMAIN,
+        account_user_id.as_bytes(),
+        request_id.as_bytes(),
+    ]
+    .join(&0)
+}
 
 #[derive(Zeroize, ZeroizeOnDrop)]
 pub struct RecoveryKey([u8; 32]);
@@ -480,5 +637,100 @@ mod tests {
         assert_eq!(first, same);
         assert_ne!(first, changed);
         assert_ne!(first, "A");
+    }
+
+    #[test]
+    fn transfers_recovery_keys_between_devices() {
+        let recipient = DeviceEnrollmentKey::generate().unwrap();
+        let package = seal_recovery_key_for_device(
+            &recovery_key(),
+            &recipient.public_key(),
+            "account-a",
+            "request-a",
+        )
+        .unwrap();
+
+        let opened = recipient
+            .open_recovery_key("account-a", "request-a", &package)
+            .unwrap();
+        assert_eq!(opened.key_id(), recovery_key().key_id());
+    }
+
+    #[test]
+    fn device_enrollment_packages_are_bound_to_account_and_request() {
+        let recipient = DeviceEnrollmentKey::generate().unwrap();
+        let package = seal_recovery_key_for_device(
+            &recovery_key(),
+            &recipient.public_key(),
+            "account-a",
+            "request-a",
+        )
+        .unwrap();
+
+        assert!(
+            recipient
+                .open_recovery_key("account-b", "request-a", &package)
+                .is_err()
+        );
+        assert!(
+            recipient
+                .open_recovery_key("account-a", "request-b", &package)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn rejects_noncontributory_recipient_public_key() {
+        let noncontributory_public_key = URL_SAFE_NO_PAD.encode([0_u8; 32]);
+
+        assert!(matches!(
+            seal_recovery_key_for_device(
+                &recovery_key(),
+                &noncontributory_public_key,
+                "account-a",
+                "request-a",
+            ),
+            Err(Error::InvalidDeviceEnrollmentKey)
+        ));
+    }
+
+    #[test]
+    fn rejects_noncontributory_ephemeral_public_key() {
+        let account_user_id = "account-a";
+        let request_id = "request-a";
+        let nonce = [0_u8; 24];
+        let cipher = enrollment_cipher(&[0_u8; 32], account_user_id, request_id).unwrap();
+        let recovery_code = recovery_key().expose_code();
+        let ciphertext = cipher
+            .encrypt(
+                &XNonce::from(nonce),
+                Payload {
+                    msg: recovery_code.as_bytes(),
+                    aad: &enrollment_aad(account_user_id, request_id),
+                },
+            )
+            .unwrap();
+        let package = DeviceEnrollmentPackage {
+            ephemeral_public_key: URL_SAFE_NO_PAD.encode([0_u8; 32]),
+            nonce: URL_SAFE_NO_PAD.encode(nonce),
+            ciphertext: URL_SAFE_NO_PAD.encode(ciphertext),
+        };
+
+        assert!(matches!(
+            DeviceEnrollmentKey::generate().unwrap().open_recovery_key(
+                account_user_id,
+                request_id,
+                &package,
+            ),
+            Err(Error::InvalidDeviceEnrollmentPackage)
+        ));
+    }
+
+    #[test]
+    fn device_enrollment_keys_round_trip() {
+        let key = DeviceEnrollmentKey::generate().unwrap();
+        let encoded = key.expose_code();
+        let parsed = DeviceEnrollmentKey::parse(&encoded).unwrap();
+        assert_eq!(parsed.public_key(), key.public_key());
     }
 }

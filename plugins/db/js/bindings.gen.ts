@@ -126,6 +126,30 @@ async importE2eeIdentity(accountUserId: string, recoveryKey: string) : Promise<R
     else return { status: "error", error: e  as any };
 }
 },
+async getOrCreateE2eeDeviceIdentity(accountUserId: string) : Promise<Result<E2eeDeviceIdentity, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|get_or_create_e2ee_device_identity", { accountUserId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async sealE2eeRecoveryKeyForDevice(accountUserId: string, requestId: string, recipientPublicKey: string) : Promise<Result<E2eeDeviceEnrollmentPackage, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|seal_e2ee_recovery_key_for_device", { accountUserId, requestId, recipientPublicKey }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async importE2eeDeviceEnrollment(accountUserId: string, requestId: string, package: E2eeDeviceEnrollmentPackage) : Promise<Result<E2eeRecoveryKeyIdentity, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|import_e2ee_device_enrollment", { accountUserId, requestId, package }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async subscribe(sql: string, params: JsonValue[], onEvent: TAURI_CHANNEL<QueryEvent>) : Promise<Result<SubscriptionRegistration, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|subscribe", { sql, params, onEvent }) };
@@ -258,6 +282,8 @@ export type CloudsyncWorkspaceProjectionEntry = { id: string; ownerUserId: strin
 export type DependencyAnalysis = { kind: "reactive"; data: { targets: DependencyTarget[] } } | { kind: "non_reactive"; data: { reason: string } }
 export type DependencyTarget = { kind: "table"; data: string } | { kind: "virtual_table"; data: string }
 export type Document = { id: string; kind: string; template_id: string; title: string; markdown: string; sort_order: number; created_at: string; updated_at: string }
+export type E2eeDeviceEnrollmentPackage = { ephemeralPublicKey: string; nonce: string; ciphertext: string }
+export type E2eeDeviceIdentity = { publicKey: string }
 export type E2eeIdentityStatus = { configured: boolean; keyId: string | null }
 export type E2eeRecoveryKeyIdentity = { keyId: string }
 export type ExecuteProxyResult = { rows: JsonValue[] }

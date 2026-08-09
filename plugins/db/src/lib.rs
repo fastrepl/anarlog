@@ -119,6 +119,40 @@ pub struct E2eeRecoveryKeyIdentity {
     pub key_id: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct E2eeDeviceIdentity {
+    pub public_key: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct E2eeDeviceEnrollmentPackage {
+    pub ephemeral_public_key: String,
+    pub nonce: String,
+    pub ciphertext: String,
+}
+
+impl From<anlg_e2ee::DeviceEnrollmentPackage> for E2eeDeviceEnrollmentPackage {
+    fn from(value: anlg_e2ee::DeviceEnrollmentPackage) -> Self {
+        Self {
+            ephemeral_public_key: value.ephemeral_public_key,
+            nonce: value.nonce,
+            ciphertext: value.ciphertext,
+        }
+    }
+}
+
+impl From<E2eeDeviceEnrollmentPackage> for anlg_e2ee::DeviceEnrollmentPackage {
+    fn from(value: E2eeDeviceEnrollmentPackage) -> Self {
+        Self {
+            ephemeral_public_key: value.ephemeral_public_key,
+            nonce: value.nonce,
+            ciphertext: value.ciphertext,
+        }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq)]
 pub struct ExecuteProxyResult {
     rows: Vec<serde_json::Value>,
@@ -214,6 +248,9 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::inspect_e2ee_recovery_key,
             commands::create_e2ee_identity<tauri::Wry>,
             commands::import_e2ee_identity<tauri::Wry>,
+            commands::get_or_create_e2ee_device_identity<tauri::Wry>,
+            commands::seal_e2ee_recovery_key_for_device<tauri::Wry>,
+            commands::import_e2ee_device_enrollment<tauri::Wry>,
             commands::subscribe,
             commands::unsubscribe,
             commands::configure_cloudsync,

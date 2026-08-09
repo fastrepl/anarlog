@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-seal-e2ee-recovery-key-for-device"
+description = "Enables the seal_e2ee_recovery_key_for_device command without any pre-configured scope."
+commands.allow = ["seal_e2ee_recovery_key_for_device"]
+
+[[permission]]
+identifier = "deny-seal-e2ee-recovery-key-for-device"
+description = "Denies the seal_e2ee_recovery_key_for_device command without any pre-configured scope."
+commands.deny = ["seal_e2ee_recovery_key_for_device"]
