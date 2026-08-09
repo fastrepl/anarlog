@@ -98,7 +98,7 @@ export const useSTTConnection = () => {
       return {
         provider: current_stt_provider,
         model: current_stt_model,
-        baseUrl: baseUrl ?? new URL("/stt", env.VITE_API_URL).toString(),
+        baseUrl: baseUrl || new URL("/stt", env.VITE_API_URL).toString(),
         apiKey: auth.session.access_token,
       };
     }
