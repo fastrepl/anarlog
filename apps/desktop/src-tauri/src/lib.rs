@@ -81,7 +81,11 @@ pub async fn main() {
         };
 
     let sentry_client = {
-        let dsn = option_env!("SENTRY_DSN");
+        let dsn = if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
+            None
+        } else {
+            option_env!("SENTRY_DSN")
+        };
 
         if let Some(dsn) = dsn {
             let release =
