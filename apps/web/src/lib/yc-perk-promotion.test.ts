@@ -6,7 +6,6 @@ import {
   createYcPromotionCode,
   getOrCreateYcPromotionCode,
   getYcPerkClaimId,
-  YC_FOUNDER_COUPON_ID,
 } from "./yc-perk-promotion.ts";
 
 const claimId = "0123456789abcdef0123456789abcdef";
@@ -75,7 +74,7 @@ test("reports an existing redeemed promotion code as claimed", async () => {
   );
 });
 
-test("creates a single-use promotion code for the YC coupon", async () => {
+test("creates a single-use promotion code for the one-year YC coupon", async () => {
   const calls: Array<{ params: unknown; options: unknown }> = [];
   const stripe = {
     promotionCodes: {
@@ -94,7 +93,7 @@ test("creates a single-use promotion code for the YC coupon", async () => {
   assert.deepEqual(calls, [
     {
       params: {
-        promotion: { type: "coupon", coupon: YC_FOUNDER_COUPON_ID },
+        promotion: { type: "coupon", coupon: "yc-founders-1-year-free" },
         code,
         max_redemptions: 1,
         metadata: { claim_id: claimId, source: "yc_perk_page" },

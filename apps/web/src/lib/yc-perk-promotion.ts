@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type Stripe from "stripe";
 
-export const YC_FOUNDER_COUPON_ID = "yc-founders-3-months-free";
+export const YC_FOUNDER_COUPON_ID = "yc-founders-1-year-free";
 
 export function getYcPerkClaimId(email: string) {
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");

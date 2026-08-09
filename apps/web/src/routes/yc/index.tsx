@@ -13,7 +13,7 @@ import { validateYcVerificationUrl, ycPerkRequestSchema } from "@/lib/yc-perk";
 
 const title = "YC founder perk · Anarlog";
 const description =
-  "YC founders get three months of Anarlog Pro free for private, bot-free meeting notes.";
+  "YC founders get one year of Anarlog Pro free for private, bot-free meeting notes.";
 
 const invalidVerificationMessages = {
   not_verified: "This YC link is no longer active.",
@@ -91,8 +91,7 @@ function YcPerkPage() {
             Build the company. Keep every decision.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-            Get 3 months of Anarlog Pro free for private, bot-free meeting
-            notes.
+            Get 1 year of Anarlog Pro free for private, bot-free meeting notes.
           </p>
 
           <div className="mx-auto mt-8 max-w-xl">
