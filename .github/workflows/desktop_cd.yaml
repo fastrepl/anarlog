@@ -642,11 +642,19 @@ jobs:
           INFISICAL_TOKEN: ${{ secrets.INFISICAL_SENTRY_TOKEN }}
         run: |
           release_dir="apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release"
-          if [[ ! -f "$release_dir/anarlog.pdb" ]]; then
-            echo "::error::Missing anarlog.pdb next to the Windows binary"
+          # Tauri renames the exe to mainBinaryName (anarlog.exe) but the PDB
+          # keeps the cargo target name (desktop.pdb), so glob instead of
+          # hardcoding a name that never exists.
+          shopt -s nullglob
+          pdbs=("$release_dir"/*.pdb)
+          if [[ ${#pdbs[@]} -eq 0 ]]; then
+            echo "::error::No PDB found next to the Windows binary"
             exit 1
           fi
-          sentry-cli debug-files check "$release_dir/anarlog.pdb"
+          echo "Found PDBs: ${pdbs[*]}"
+          for pdb in "${pdbs[@]}"; do
+            sentry-cli debug-files check "$pdb"
+          done
 
           response=$(
             curl --fail --silent --show-error --get \
@@ -668,7 +676,7 @@ jobs:
             --project hyprnote2 \
             --include-sources \
             "$release_dir/anarlog.exe" \
-            "$release_dir/anarlog.pdb"
+            "${pdbs[@]}"
       - if: ${{ inputs.channel == 'stable' }}
         name: Sign in to Azure
         uses: azure/login@v3
