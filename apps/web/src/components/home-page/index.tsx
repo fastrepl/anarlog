@@ -59,7 +59,7 @@ export function HomePage({
               </div>
               <div className="mt-10 flex w-full flex-col items-start pt-2">
                 <div className="flex w-fit max-w-full flex-col items-start gap-3">
-                  <div className="flex -space-x-2">
+                  <div className="flex gap-1">
                     {manifestoSigners.map((member) =>
                       member.links.twitter ? (
                         <a
@@ -68,7 +68,7 @@ export function HomePage({
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`${member.name} on X`}
-                          className="block rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
+                          className="block size-[30px] shrink-0 overflow-hidden rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
                         >
                           <img
                             src={getResizedImageUrl(member.avatar, {
@@ -79,7 +79,7 @@ export function HomePage({
                             alt=""
                             width={30}
                             height={30}
-                            className="size-[30px] rounded-full object-cover"
+                            className="size-full object-cover"
                             decoding="async"
                             loading="lazy"
                           />
@@ -88,7 +88,7 @@ export function HomePage({
                         <span
                           key={member.id}
                           aria-label={`${member.name} profile picture`}
-                          className="block rounded-full"
+                          className="block size-[30px] shrink-0 overflow-hidden rounded-full"
                           role="img"
                         >
                           <img
@@ -100,7 +100,7 @@ export function HomePage({
                             alt=""
                             width={30}
                             height={30}
-                            className="size-[30px] rounded-full object-cover"
+                            className="size-full object-cover"
                             decoding="async"
                             loading="lazy"
                           />
