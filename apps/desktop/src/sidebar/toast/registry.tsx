@@ -223,13 +223,14 @@ export function createDesktopUpdateToast(
 
   if (update.status === "ready") {
     return {
-      id,
+      // A new ID prevents Sonner from retaining the loading state used while
+      // this update was downloading.
+      id: `${id}:ready`,
       description: `Anarlog ${update.version} is ready to install`,
       primaryAction: busy
         ? undefined
         : { label: "Restart", onClick: update.installUpdate },
       dismissible: true,
-      loading: update.installing,
     };
   }
 

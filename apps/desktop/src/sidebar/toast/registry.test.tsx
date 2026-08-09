@@ -265,6 +265,28 @@ describe("sidebar toast registry", () => {
     expect(toast?.primaryAction).toBeUndefined();
   });
 
+  it("offers a ready desktop update without a spinner", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        update: {
+          ...baseParams.update,
+          status: "ready",
+          version: "1.0.34",
+        },
+      }),
+      () => false,
+    );
+
+    expect(toast).toMatchObject({
+      id: "desktop-update:1.0.34:ready",
+      description: "Anarlog 1.0.34 is ready to install",
+      dismissible: true,
+      primaryAction: { label: "Restart" },
+    });
+    expect(toast?.loading).toBeUndefined();
+  });
+
   it("creates devtools previews with app toast content", () => {
     const languageModelToast = createDevtoolsToastPreview({
       preview: "language-model",
