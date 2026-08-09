@@ -83,7 +83,7 @@ export function createToastRegistry({
       toast: {
         id: "downloading-model",
         description: downloadTitle,
-        dismissible: false,
+        lifecycle: { type: "condition-bound" },
         loading: true,
       },
       condition: () => hasActiveDownload,
@@ -92,7 +92,7 @@ export function createToastRegistry({
       toast: {
         id: cloudsyncInitialSyncToastId ?? "cloudsync-initial-sync",
         description: "Syncing your data in the background...",
-        dismissible: true,
+        lifecycle: { type: "condition-bound" },
         loading: true,
       },
       condition: () => cloudsyncInitialSyncToastId !== null,
@@ -110,7 +110,7 @@ export function createToastRegistry({
       toast: {
         id: "local-stt-loading",
         description: "Starting transcription...",
-        dismissible: false,
+        lifecycle: { type: "condition-bound" },
         loading: true,
       },
       condition: () =>
@@ -127,7 +127,7 @@ export function createToastRegistry({
           label: "Settings",
           onClick: onOpenSTTSettings,
         },
-        dismissible: true,
+        lifecycle: { type: "condition-bound" },
         variant: "error",
       },
       condition: () =>
@@ -151,7 +151,11 @@ export function createToastRegistry({
           label: "Sign in",
           onClick: onSignIn,
         },
-        dismissible: true,
+        lifecycle: {
+          type: "persistent",
+          dismissal: "permanent",
+          dismissalId: "auth-promotion",
+        },
       },
       condition: () => !isAuthLoading && !isAuthenticated,
     },
@@ -163,7 +167,7 @@ export function createToastRegistry({
           label: "Add",
           onClick: onOpenSTTSettings,
         },
-        dismissible: false,
+        lifecycle: { type: "condition-bound" },
       },
       condition: () => !hasUsableSttConfigured && !isAiTranscriptionTabActive,
     },
@@ -175,7 +179,7 @@ export function createToastRegistry({
           label: "Add",
           onClick: onOpenLLMSettings,
         },
-        dismissible: false,
+        lifecycle: { type: "condition-bound" },
       },
       condition: () =>
         hasUsableSttConfigured &&
@@ -190,7 +194,11 @@ export function createToastRegistry({
           label: "Upgrade",
           onClick: onSignIn,
         },
-        dismissible: true,
+        lifecycle: {
+          type: "persistent",
+          dismissal: "permanent",
+          dismissalId: "auth-promotion",
+        },
       },
       // suppress until auth resolves to avoid flash on startup
       condition: () =>
@@ -202,10 +210,6 @@ export function createToastRegistry({
         !hasProLlmConfigured,
     },
   ];
-}
-
-export function isDesktopUpdateToastId(id: string): boolean {
-  return id.startsWith(DESKTOP_UPDATE_TOAST_PREFIX);
 }
 
 export function createDesktopUpdateToast(
@@ -230,7 +234,7 @@ export function createDesktopUpdateToast(
       primaryAction: busy
         ? undefined
         : { label: "Restart", onClick: update.installUpdate },
-      dismissible: true,
+      lifecycle: { type: "persistent", dismissal: "session" },
     };
   }
 
@@ -240,44 +244,44 @@ export function createDesktopUpdateToast(
         ? ""
         : ` (${Math.round(update.progress * 100)}%)`;
     return {
-      id,
+      id: `${id}:downloading`,
       description: `Downloading Anarlog ${update.version}${progress}`,
-      dismissible: true,
+      lifecycle: { type: "condition-bound" },
       loading: true,
     };
   }
 
   if (update.status === "failed") {
     return {
-      id,
+      id: `${id}:failed`,
       description: update.errorMessage || "The update download failed",
       primaryAction: busy
         ? undefined
         : { label: "Retry", onClick: update.downloadUpdate },
-      dismissible: true,
+      lifecycle: { type: "persistent", dismissal: "session" },
       variant: "error",
     };
   }
 
   return {
-    id,
+    id: `${id}:available`,
     description: `Anarlog ${update.version} is available`,
     primaryAction: busy
       ? undefined
       : { label: "Download", onClick: update.downloadUpdate },
-    dismissible: true,
-    loading: update.downloadStarting,
+    lifecycle: { type: "persistent", dismissal: "day" },
   };
 }
 
 export function getToastToShow(
   registry: ToastRegistryEntry[],
-  isDismissed: (id: string) => boolean,
+  isDismissed: (toast: ToastType) => boolean,
 ): ToastType | null {
   for (const entry of registry) {
     if (
       entry.condition() &&
-      (!entry.toast.dismissible || !isDismissed(entry.toast.id))
+      (entry.toast.lifecycle.type === "condition-bound" ||
+        !isDismissed(entry.toast))
     ) {
       return entry.toast;
     }
@@ -300,7 +304,7 @@ export function createDevtoolsToastPreview({
           label: "Add",
           onClick: onOpenLLMSettings,
         },
-        dismissible: false,
+        lifecycle: { type: "condition-bound" },
       };
     case "transcription-model":
       return {
@@ -310,7 +314,7 @@ export function createDevtoolsToastPreview({
           label: "Add",
           onClick: onOpenSTTSettings,
         },
-        dismissible: false,
+        lifecycle: { type: "condition-bound" },
       };
     case "transcription-error":
       return {
@@ -320,14 +324,14 @@ export function createDevtoolsToastPreview({
           label: "Settings",
           onClick: onOpenSTTSettings,
         },
-        dismissible: true,
+        lifecycle: { type: "condition-bound" },
         variant: "error",
       };
     case "download":
       return {
         id: "devtools-downloading-model",
         description: "Downloading model",
-        dismissible: false,
+        lifecycle: { type: "condition-bound" },
         loading: true,
       };
     case "pro":
@@ -338,7 +342,7 @@ export function createDevtoolsToastPreview({
           label: "Upgrade",
           onClick: onSignIn,
         },
-        dismissible: true,
+        lifecycle: { type: "persistent", dismissal: "session" },
       };
   }
 }

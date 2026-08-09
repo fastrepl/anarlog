@@ -199,6 +199,7 @@ export function useStartListening(sessionId: string) {
     if (!conn) {
       sonnerToast.warning("Live transcription is not configured", {
         id: "recording-without-transcription",
+        duration: Infinity,
         description:
           "Audio is being saved. Choose a transcription provider to ensure this recording can be transcribed.",
         action: {

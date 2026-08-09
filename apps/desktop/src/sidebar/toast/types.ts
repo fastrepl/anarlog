@@ -12,12 +12,20 @@ export type DownloadProgress = {
   progress: number;
 };
 
+export type ToastLifecycle =
+  | { type: "condition-bound" }
+  | {
+      type: "persistent";
+      dismissal: "permanent" | "session" | "day";
+      dismissalId?: string;
+    };
+
 export type ToastType = {
   id: string;
   icon?: ReactNode;
   description: ReactNode;
   primaryAction?: ToastAction;
-  dismissible: boolean;
+  lifecycle: ToastLifecycle;
   variant?: "default" | "error" | "warning";
   loading?: boolean;
 };

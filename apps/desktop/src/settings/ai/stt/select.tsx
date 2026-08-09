@@ -233,6 +233,7 @@ export function SelectProviderAndModel() {
         id="stt-settings-alert"
         description={alertDescription}
         variant={hasError ? "error" : "warning"}
+        lifecycle="condition-bound"
       />
       {!alertDescription && <TranscriptionLanguageWarningToast />}
 
@@ -358,22 +359,41 @@ export function SelectProviderAndModel() {
 const TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID =
   "transcription-language-warning";
 const MAX_DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS = 128;
-const dismissedTranscriptionLanguageWarningKeys = new Set<string>();
+const DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS_KEY =
+  "anarlog:dismissed-transcription-language-warnings";
 
 function rememberDismissedTranscriptionLanguageWarning(warningKey: string) {
-  dismissedTranscriptionLanguageWarningKeys.delete(warningKey);
-  dismissedTranscriptionLanguageWarningKeys.add(warningKey);
-  while (
-    dismissedTranscriptionLanguageWarningKeys.size >
-    MAX_DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS
-  ) {
-    const oldestWarningKey = dismissedTranscriptionLanguageWarningKeys
-      .values()
-      .next().value;
-    if (oldestWarningKey === undefined) {
-      break;
-    }
-    dismissedTranscriptionLanguageWarningKeys.delete(oldestWarningKey);
+  try {
+    const warnings = readDismissedTranscriptionLanguageWarnings().filter(
+      (key) => key !== warningKey,
+    );
+    warnings.push(warningKey);
+    localStorage.setItem(
+      DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS_KEY,
+      JSON.stringify(
+        warnings.slice(-MAX_DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS),
+      ),
+    );
+  } catch {
+    return;
+  }
+}
+
+function isTranscriptionLanguageWarningDismissed(warningKey: string) {
+  return readDismissedTranscriptionLanguageWarnings().includes(warningKey);
+}
+
+function readDismissedTranscriptionLanguageWarnings(): string[] {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(DISMISSED_TRANSCRIPTION_LANGUAGE_WARNINGS_KEY) ??
+        "[]",
+    );
+    return Array.isArray(stored)
+      ? stored.filter((key): key is string => typeof key === "string")
+      : [];
+  } catch {
+    return [];
   }
 }
 
@@ -381,7 +401,7 @@ function TranscriptionLanguageWarningToast() {
   const { i18n, t } = useLingui();
   const warning = useTranscriptionLanguageWarning();
 
-  if (!warning || dismissedTranscriptionLanguageWarningKeys.has(warning.key)) {
+  if (!warning || isTranscriptionLanguageWarningDismissed(warning.key)) {
     return null;
   }
 
@@ -425,6 +445,7 @@ function TranscriptionLanguageWarningToastLifecycle({
   actionLabel: string;
 }) {
   useMountEffect(() => {
+    let shouldRememberDismissal = true;
     sonnerToast.warning(description, {
       id: TRANSCRIPTION_LANGUAGE_WARNING_TOAST_ID,
       duration: Infinity,
@@ -432,13 +453,22 @@ function TranscriptionLanguageWarningToastLifecycle({
       action: {
         label: actionLabel,
         onClick: () => {
+          shouldRememberDismissal = false;
           rememberDismissedTranscriptionLanguageWarning(warningKey);
           clearTranscriptionLanguageWarningToast();
         },
       },
+      onDismiss: () => {
+        if (shouldRememberDismissal) {
+          rememberDismissedTranscriptionLanguageWarning(warningKey);
+        }
+      },
     });
 
-    return clearTranscriptionLanguageWarningToast;
+    return () => {
+      shouldRememberDismissal = false;
+      clearTranscriptionLanguageWarningToast();
+    };
   });
 
   return null;

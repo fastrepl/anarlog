@@ -37,12 +37,15 @@ describe("SettingsAlertToast", () => {
         id="settings-alert"
         description="Provider not configured."
         variant="error"
+        lifecycle="persistent"
       />,
     );
 
     expect(mocks.error).toHaveBeenCalledWith("Provider not configured.", {
       id: "settings-alert",
       duration: Infinity,
+      dismissible: true,
+      closeButton: true,
     });
   });
 
@@ -51,6 +54,7 @@ describe("SettingsAlertToast", () => {
       <SettingsAlertToast
         id="settings-alert"
         description="Provider not configured."
+        lifecycle="condition-bound"
       />,
     );
 
@@ -67,7 +71,7 @@ describe("SettingsAlertToast", () => {
         id="keychain-alert"
         description="Repair Keychain access."
         variant="error"
-        dismissible={false}
+        lifecycle="condition-bound"
         action={{ label: "Repair", onClick }}
       />,
     );

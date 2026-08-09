@@ -353,6 +353,7 @@ export function SelectProviderAndModel() {
         id="llm-settings-alert"
         description={alertDescription}
         variant={hasError ? "error" : "warning"}
+        lifecycle="condition-bound"
       />
 
       <h3 className="text-md font-sans font-semibold">

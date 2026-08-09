@@ -53,6 +53,7 @@ const {
   audioSourceMetadataMock,
   sonnerToastWarningMock,
   sonnerToastErrorMock,
+  sonnerToastDismissMock,
   startMeetingChatCaptureMock,
   stopMeetingChatCaptureMock,
   catalogLocalSessionAudioMock,
@@ -101,6 +102,7 @@ const {
   audioSourceMetadataMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
   sonnerToastErrorMock: vi.fn(),
+  sonnerToastDismissMock: vi.fn(),
   startMeetingChatCaptureMock: vi.fn(),
   stopMeetingChatCaptureMock: vi.fn(),
   catalogLocalSessionAudioMock: vi.fn(),
@@ -147,6 +149,7 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: {
     warning: sonnerToastWarningMock,
     error: sonnerToastErrorMock,
+    dismiss: sonnerToastDismissMock,
   },
 }));
 
@@ -2495,7 +2498,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not save part of the live transcript.",
-      { id: "live-transcript-persist-failed" },
+      { id: "live-transcript-persist-failed", duration: Infinity },
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
@@ -2545,7 +2548,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
-      { id: "post-capture-transcript-incomplete" },
+      { id: "post-capture-transcript-incomplete", duration: Infinity },
     );
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
@@ -2584,7 +2587,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Post-meeting transcription failed. The recording was kept so you can try again.",
-      { id: "post-capture-batch-failed" },
+      { id: "post-capture-batch-failed", duration: Infinity },
     );
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
@@ -2664,7 +2667,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
-      { id: "post-capture-transcript-incomplete" },
+      { id: "post-capture-transcript-incomplete", duration: Infinity },
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
@@ -2908,7 +2911,7 @@ describe("useStartListening", () => {
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
-      { id: "post-capture-summary-failed" },
+      { id: "post-capture-summary-failed", duration: Infinity },
     );
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(
@@ -3390,7 +3393,7 @@ describe("useStartListening", () => {
     );
     expect(sonnerToastWarningMock).toHaveBeenCalledWith(
       "Recording started, but Anarlog could not post the meeting chat disclosure.",
-      { id: "meeting-disclosure-send-failed" },
+      { id: "meeting-disclosure-send-failed", duration: Infinity },
     );
     warn.mockRestore();
   });
@@ -3540,7 +3543,7 @@ describe("useStartListening", () => {
     );
     expect(sonnerToastWarningMock).toHaveBeenCalledWith(
       "Recording started, but Anarlog could not post the meeting chat disclosure.",
-      { id: "meeting-disclosure-send-failed" },
+      { id: "meeting-disclosure-send-failed", duration: Infinity },
     );
     warn.mockRestore();
   });

@@ -177,6 +177,7 @@ export function SessionSharePopoverContent({
       if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error(
         "Could not publish the desktop edits. Check the latest web copy and try again.",
+        { id: "desktop-edits-publish-failed", duration: Infinity },
       );
     },
     onSettled: onChanged,

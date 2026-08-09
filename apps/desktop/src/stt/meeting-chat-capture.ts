@@ -18,6 +18,7 @@ export function startMeetingChatCapture({
   isEnabled?: () => boolean | Promise<boolean>;
   excludedTexts?: string[];
 }) {
+  sonnerToast.dismiss("meeting-chat-capture-warning");
   const excludedMessages = new Set(excludedTexts.map(normalizeMessageText));
   const seenSignatures = new Set<string>();
   let baselineContext: { bundleId: string; contextId: string } | null = null;
@@ -211,7 +212,7 @@ function showCaptureWarning(warnings: string[], previousWarning: string) {
       "Meeting chat capture needs Accessibility permission in Settings",
       {
         id: "meeting-chat-capture-warning",
-        duration: 6_000,
+        duration: Infinity,
       },
     );
   }

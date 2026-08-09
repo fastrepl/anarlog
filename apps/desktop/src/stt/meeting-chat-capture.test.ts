@@ -9,12 +9,14 @@ const {
   listMicUsingApplicationsMock,
   persistMeetingChatRecordsMock,
   sonnerToastWarningMock,
+  sonnerToastDismissMock,
   captureSettingState,
 } = vi.hoisted(() => ({
   captureMeetingChatMessagesMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   persistMeetingChatRecordsMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
+  sonnerToastDismissMock: vi.fn(),
   captureSettingState: { value: true },
 }));
 
@@ -30,7 +32,10 @@ vi.mock("~/stt/meeting-chat-records", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { warning: sonnerToastWarningMock },
+  sonnerToast: {
+    warning: sonnerToastWarningMock,
+    dismiss: sonnerToastDismissMock,
+  },
 }));
 
 vi.mock("~/settings/queries", () => ({
@@ -622,7 +627,7 @@ describe("startMeetingChatCapture", () => {
       "Meeting chat capture needs Accessibility permission in Settings",
       {
         id: "meeting-chat-capture-warning",
-        duration: 6_000,
+        duration: Infinity,
       },
     );
   });

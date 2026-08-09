@@ -67,7 +67,7 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: { error: vi.fn() },
+  sonnerToast: { error: vi.fn(), dismiss: vi.fn() },
 }));
 
 const NOW = new Date("2026-07-13T00:00:00Z");

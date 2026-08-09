@@ -69,6 +69,7 @@ async function revokeManagedShare(sessionId: string) {
       console.error("[delete-session] failed to look up managed share", error);
       sonnerToast.warning(
         "Note deleted, but its shared link could not be verified as removed.",
+        { id: "shared-link-removal-unverified", duration: Infinity },
       );
       return null;
     });
@@ -93,6 +94,7 @@ async function revokeManagedShare(sessionId: string) {
     );
     sonnerToast.warning(
       "Note deleted, but its shared link could not be removed.",
+      { id: "shared-link-removal-failed", duration: Infinity },
     );
     return;
   }

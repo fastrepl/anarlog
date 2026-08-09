@@ -1149,6 +1149,7 @@ describe("SessionShareButton", () => {
     await waitFor(() =>
       expect(mocks.toastError).toHaveBeenCalledWith(
         "Could not publish the desktop edits. Check the latest web copy and try again.",
+        { id: "desktop-edits-publish-failed", duration: Infinity },
       ),
     );
     expect(mocks.recordPublishedSessionShareState).not.toHaveBeenCalled();

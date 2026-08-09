@@ -51,7 +51,7 @@ describe("sidebar toast registry", () => {
     expect(toast?.id).toBe("missing-llm");
     expect(toast?.description).toBe("Language model needed");
     expect(toast?.primaryAction?.label).toBe("Add");
-    expect(toast?.dismissible).toBe(false);
+    expect(toast?.lifecycle).toEqual({ type: "condition-bound" });
   });
 
   it("shows required setup even if it was dismissed previously", () => {
@@ -60,7 +60,7 @@ describe("sidebar toast registry", () => {
         ...baseParams,
         hasLLMConfigured: false,
       }),
-      (id) => id === "missing-llm",
+      (toast) => toast.id === "missing-llm",
     );
 
     expect(toast?.id).toBe("missing-llm");
@@ -78,7 +78,7 @@ describe("sidebar toast registry", () => {
     expect(toast?.id).toBe("missing-stt");
     expect(toast?.description).toBe("Transcription provider needed");
     expect(toast?.primaryAction?.label).toBe("Add");
-    expect(toast?.dismissible).toBe(false);
+    expect(toast?.lifecycle).toEqual({ type: "condition-bound" });
   });
 
   it("suggests signing in before provider setup", () => {
@@ -104,7 +104,7 @@ describe("sidebar toast registry", () => {
         isAuthenticated: false,
         hasProSttConfigured: true,
       }),
-      (id) => id === "sign-in-benefits",
+      (toast) => toast.id === "sign-in-benefits",
     );
 
     expect(toast?.id).toBe("missing-stt");
@@ -163,7 +163,7 @@ describe("sidebar toast registry", () => {
     expect(toast?.description).toBe("Starting transcription...");
   });
 
-  it("shows a dismissible loading toast during initial cloud sync", () => {
+  it("keeps initial cloud sync condition-bound", () => {
     const toast = getToastToShow(
       createToastRegistry({
         ...baseParams,
@@ -174,7 +174,7 @@ describe("sidebar toast registry", () => {
 
     expect(toast?.id).toBe("cloudsync-initial-sync-user-1");
     expect(toast?.description).toBe("Syncing your data in the background...");
-    expect(toast?.dismissible).toBe(true);
+    expect(toast?.lifecycle).toEqual({ type: "condition-bound" });
     expect(toast?.loading).toBe(true);
   });
 
@@ -184,7 +184,7 @@ describe("sidebar toast registry", () => {
         ...baseParams,
         isAuthenticated: false,
       }),
-      (id) => id === "sign-in-benefits",
+      (toast) => toast.id === "sign-in-benefits",
     );
     const previewToast = createDevtoolsToastPreview({
       preview: "pro",
@@ -199,7 +199,21 @@ describe("sidebar toast registry", () => {
     expect(previewToast.icon).toBeUndefined();
   });
 
-  it("offers an available desktop update as a dismissible toast", () => {
+  it("uses one permanent dismissal for sign-in and Pro promotions", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        isAuthenticated: false,
+      }),
+      (candidate) =>
+        candidate.lifecycle.type === "persistent" &&
+        candidate.lifecycle.dismissalId === "auth-promotion",
+    );
+
+    expect(toast).toBeNull();
+  });
+
+  it("offers an available desktop update with a one-day snooze", () => {
     const downloadUpdate = vi.fn();
     const toast = getToastToShow(
       createToastRegistry({
@@ -215,9 +229,9 @@ describe("sidebar toast registry", () => {
     );
 
     expect(toast).toMatchObject({
-      id: "desktop-update:1.0.34",
+      id: "desktop-update:1.0.34:available",
       description: "Anarlog 1.0.34 is available",
-      dismissible: true,
+      lifecycle: { type: "persistent", dismissal: "day" },
       primaryAction: { label: "Download" },
     });
 
@@ -257,9 +271,9 @@ describe("sidebar toast registry", () => {
     );
 
     expect(toast).toMatchObject({
-      id: "desktop-update:1.0.34",
+      id: "desktop-update:1.0.34:downloading",
       description: "Downloading Anarlog 1.0.34 (58%)",
-      dismissible: true,
+      lifecycle: { type: "condition-bound" },
       loading: true,
     });
     expect(toast?.primaryAction).toBeUndefined();
@@ -281,7 +295,7 @@ describe("sidebar toast registry", () => {
     expect(toast).toMatchObject({
       id: "desktop-update:1.0.34:ready",
       description: "Anarlog 1.0.34 is ready to install",
-      dismissible: true,
+      lifecycle: { type: "persistent", dismissal: "session" },
       primaryAction: { label: "Restart" },
     });
     expect(toast?.loading).toBeUndefined();
@@ -304,7 +318,7 @@ describe("sidebar toast registry", () => {
     expect(languageModelToast.id).toBe("devtools-missing-llm");
     expect(languageModelToast.description).toBe("Language model needed");
     expect(languageModelToast.primaryAction?.label).toBe("Add");
-    expect(languageModelToast.dismissible).toBe(false);
+    expect(languageModelToast.lifecycle).toEqual({ type: "condition-bound" });
     const transcriptionModelToast = createDevtoolsToastPreview({
       preview: "transcription-model",
       onSignIn: vi.fn(),
@@ -314,7 +328,9 @@ describe("sidebar toast registry", () => {
     expect(transcriptionModelToast.description).toBe(
       "Transcription provider needed",
     );
-    expect(transcriptionModelToast.dismissible).toBe(false);
+    expect(transcriptionModelToast.lifecycle).toEqual({
+      type: "condition-bound",
+    });
     expect(downloadToast.id).toBe("devtools-downloading-model");
     expect(downloadToast.loading).toBe(true);
   });

@@ -298,7 +298,7 @@ export function NonAnarlogProviderCard({
           hasUnresolvedKeychainError ? keychainToastDescription : undefined
         }
         variant="error"
-        dismissible={false}
+        lifecycle="condition-bound"
         action={
           isKeychainRecoveryInProgress
             ? undefined

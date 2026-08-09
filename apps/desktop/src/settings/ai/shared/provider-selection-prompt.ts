@@ -41,6 +41,7 @@ export function useProviderSelectionPrompt({
 
     sonnerToast.success(t`API key saved`, {
       id: `provider-selection:${providerType}:${providerId}`,
+      duration: Infinity,
       description: t`Set ${providerName} as the current provider?`,
       action: {
         label: t`Set as current`,

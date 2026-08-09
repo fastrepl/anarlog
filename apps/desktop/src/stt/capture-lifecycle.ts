@@ -332,9 +332,12 @@ export function useCaptureLifecycle(sessionId: string) {
         details: Parameters<OnStoppedCallback>[1],
         requestRecoveryOnFailure: boolean,
       ) => {
+        sonnerToast.dismiss("recording-without-transcription");
+        sonnerToast.dismiss("live-transcription-stalled");
+        sonnerToast.dismiss("meeting-disclosure-send-failed");
         const notifyFailure = (message: string, id: string) => {
           if (requestRecoveryOnFailure) {
-            sonnerToast.error(message, { id });
+            sonnerToast.error(message, { id, duration: Infinity });
           }
         };
         const requestRecovery = async () => {

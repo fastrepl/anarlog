@@ -49,6 +49,7 @@ describe("useProviderSelectionPrompt", () => {
 
     expect(mocks.toastSuccess).toHaveBeenCalledWith("API key saved", {
       id: "provider-selection:llm:openai",
+      duration: Infinity,
       description: "Set OpenAI as the current provider?",
       action: {
         label: "Set as current",

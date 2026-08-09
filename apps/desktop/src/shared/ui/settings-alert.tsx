@@ -8,13 +8,13 @@ export function SettingsAlertToast({
   id,
   description,
   variant = "default",
-  dismissible,
+  lifecycle,
   action,
 }: {
   id: string;
   description?: string;
   variant?: "default" | "error" | "warning";
-  dismissible?: boolean;
+  lifecycle: "condition-bound" | "persistent";
   action?: {
     label: string;
     onClick: () => void | Promise<void>;
@@ -26,11 +26,11 @@ export function SettingsAlertToast({
 
   return (
     <SettingsAlertToastLifecycle
-      key={`${id}:${description}:${dismissible ?? "default"}:${action?.label ?? ""}`}
+      key={`${id}:${description}:${lifecycle}:${action?.label ?? ""}`}
       id={id}
       description={description}
       variant={variant}
-      dismissible={dismissible}
+      lifecycle={lifecycle}
       action={action}
     />
   );
@@ -40,28 +40,25 @@ function SettingsAlertToastLifecycle({
   id,
   description,
   variant,
-  dismissible,
+  lifecycle,
   action,
 }: {
   id: string;
   description: string;
   variant: "default" | "error" | "warning";
-  dismissible?: boolean;
+  lifecycle: "condition-bound" | "persistent";
   action?: {
     label: string;
     onClick: () => void | Promise<void>;
   };
 }) {
   useMountEffect(() => {
+    const dismissible = lifecycle === "persistent";
     const options = {
       id,
       duration: Infinity,
-      ...(dismissible === undefined
-        ? {}
-        : {
-            dismissible,
-            ...(dismissible ? {} : { closeButton: false }),
-          }),
+      dismissible,
+      closeButton: dismissible,
       ...(action
         ? {
             action: {

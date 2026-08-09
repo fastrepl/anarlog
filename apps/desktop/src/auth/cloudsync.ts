@@ -987,7 +987,7 @@ async function activateCloudsync(
       if (credentialErrorCode === DEVICE_LIMIT_ERROR_CODE) {
         sonnerToast.error(
           t`Cloud sync is limited to 5 devices. Remove another device to sync here.`,
-          { id: DEVICE_LIMIT_TOAST_ID },
+          { id: DEVICE_LIMIT_TOAST_ID, duration: Infinity },
         );
         console.warn(
           "[cloudsync] device limit reached; sync remains disabled on this device",
@@ -1072,6 +1072,7 @@ async function activateCloudsync(
   }
 
   setCredentialBlock(null);
+  sonnerToast.dismiss(DEVICE_LIMIT_TOAST_ID);
 
   try {
     const configured = await enqueuePluginOperation(async () => {

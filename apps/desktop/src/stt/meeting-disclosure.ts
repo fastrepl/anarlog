@@ -61,7 +61,7 @@ function meetingDisclosureFailure(reason: unknown): MeetingDisclosureOutcome {
   console.warn("[listener] meeting disclosure was not sent", reason);
   sonnerToast.warning(
     "Recording started, but Anarlog could not post the meeting chat disclosure.",
-    { id: "meeting-disclosure-send-failed" },
+    { id: "meeting-disclosure-send-failed", duration: Infinity },
   );
   return { status: "notSent", reason: detail };
 }

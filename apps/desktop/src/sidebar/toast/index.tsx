@@ -1,13 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 
-import { events as windowsEvents } from "@anlg/plugin-windows";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   createDevtoolsToastPreview,
   createToastRegistry,
   getToastToShow,
-  isDesktopUpdateToastId,
 } from "./registry";
 import type { ToastType } from "./types";
 import { useDismissedToasts } from "./useDismissedToasts";
@@ -32,12 +30,9 @@ export function ToastNotifications() {
   const auth = useAuth();
   const cloudsyncProgress = useCloudsyncInitialSyncProgress();
   const { dismissToast, isDismissed } = useDismissedToasts();
-  // Update-toast dismissals are only a snooze: they expire when a meeting
-  // ends, when the main window is shown again, or on relaunch — so the toast
-  // keeps resurfacing until the update is installed.
-  const [snoozedUpdateToastId, setSnoozedUpdateToastId] = useState<
-    string | null
-  >(null);
+  const [sessionDismissedToastIds, setSessionDismissedToastIds] = useState(
+    () => new Set<string>(),
+  );
   const shouldShowToast = useShouldShowToast();
   const {
     hasActiveDownload,
@@ -47,6 +42,18 @@ export function ToastNotifications() {
     isLocalSttModel,
   } = useNotifications();
   const update = useDesktopUpdateControl();
+  const [observedUpdateStatus, setObservedUpdateStatus] = useState(
+    update.status,
+  );
+  if (observedUpdateStatus !== update.status) {
+    setObservedUpdateStatus(update.status);
+    if (observedUpdateStatus === "failed") {
+      setSessionDismissedToastIds(
+        (current) =>
+          new Set([...current].filter((id) => !id.endsWith(":failed"))),
+      );
+    }
+  }
 
   const isAuthenticated = !!auth?.session;
   const isAuthLoading = auth.session === undefined;
@@ -98,48 +105,6 @@ export function ToastNotifications() {
       : null,
   );
   const isLiveMeetingActive = activeLiveSessionId !== null;
-
-  const [lastLiveSessionId, setLastLiveSessionId] =
-    useState(activeLiveSessionId);
-  if (lastLiveSessionId !== activeLiveSessionId) {
-    setLastLiveSessionId(activeLiveSessionId);
-    if (lastLiveSessionId !== null) {
-      setSnoozedUpdateToastId(null);
-    }
-  }
-
-  useMountEffect(() => {
-    let cancelled = false;
-    let unlisten: (() => void) | undefined;
-    // Main.show() emits visible:true even when the window is already visible
-    // (e.g. dock Reopen), so only a show that follows a hide clears the snooze.
-    let mainWindowWasHidden = false;
-
-    void windowsEvents.visibilityEvent
-      .listen(({ payload }) => {
-        if (payload.window.type !== "main") {
-          return;
-        }
-        if (!payload.visible) {
-          mainWindowWasHidden = true;
-        } else if (mainWindowWasHidden) {
-          mainWindowWasHidden = false;
-          setSnoozedUpdateToastId(null);
-        }
-      })
-      .then((fn) => {
-        if (cancelled) {
-          fn();
-        } else {
-          unlisten = fn;
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  });
 
   const openNew = useTabs((state) => state.openNew);
   const updateSettingsTabState = useTabs(
@@ -222,14 +187,30 @@ export function ToastNotifications() {
     ],
   );
 
+  const isToastDismissed = useCallback(
+    (toast: ToastType) => {
+      if (toast.lifecycle.type === "condition-bound") {
+        return false;
+      }
+
+      const dismissalId = toast.lifecycle.dismissalId ?? toast.id;
+      if (toast.lifecycle.dismissal === "permanent") {
+        return isDismissed(dismissalId);
+      }
+      if (sessionDismissedToastIds.has(dismissalId)) {
+        return true;
+      }
+      return (
+        toast.lifecycle.dismissal === "day" &&
+        hasActiveDayToastSnooze(dismissalId)
+      );
+    },
+    [isDismissed, sessionDismissedToastIds],
+  );
+
   const currentToast = useMemo(
-    () =>
-      getToastToShow(registry, (id) =>
-        isDesktopUpdateToastId(id)
-          ? snoozedUpdateToastId === id
-          : isDismissed(id),
-      ),
-    [snoozedUpdateToastId, registry, isDismissed],
+    () => getToastToShow(registry, isToastDismissed),
+    [registry, isToastDismissed],
   );
   const devtoolsToast = useMemo(
     () =>
@@ -260,11 +241,22 @@ export function ToastNotifications() {
     }
 
     if (currentToast) {
-      if (isDesktopUpdateToastId(currentToast.id)) {
-        setSnoozedUpdateToastId(currentToast.id);
+      if (currentToast.lifecycle.type === "condition-bound") {
         return;
       }
-      dismissToast(currentToast.id);
+
+      const dismissalId = currentToast.lifecycle.dismissalId ?? currentToast.id;
+      if (currentToast.lifecycle.dismissal === "permanent") {
+        dismissToast(dismissalId);
+        return;
+      }
+      if (currentToast.lifecycle.dismissal === "day") {
+        saveDayToastSnooze(dismissalId);
+        return;
+      }
+      setSessionDismissedToastIds((current) =>
+        new Set(current).add(dismissalId),
+      );
     }
   }, [clearDevtoolsPreview, currentToast, devtoolsToast, dismissToast]);
 
@@ -285,7 +277,9 @@ export function ToastNotifications() {
     <SonnerNotification
       key={previewKey}
       toast={displayToast}
-      onDismiss={displayToast.dismissible ? handleDismiss : undefined}
+      onDismiss={
+        displayToast.lifecycle.type === "persistent" ? handleDismiss : undefined
+      }
     />
   );
 }
@@ -302,10 +296,12 @@ function SonnerNotification({
 
   useMountEffect(() => {
     let shouldPersistDismissal = true;
+    const dismissible = toast.lifecycle.type === "persistent";
     const options = {
       id: toast.id,
       duration: Infinity,
-      closeButton: toast.dismissible,
+      closeButton: dismissible,
+      dismissible,
       icon: toast.icon,
       action: toast.primaryAction
         ? {
@@ -340,6 +336,34 @@ function SonnerNotification({
   });
 
   return null;
+}
+
+const DAY_TOAST_SNOOZE_MS = 24 * 60 * 60 * 1_000;
+const DAY_TOAST_SNOOZE_KEY_PREFIX = "anarlog:toast:snoozed-until:";
+
+function hasActiveDayToastSnooze(id: string): boolean {
+  try {
+    const storageKey = `${DAY_TOAST_SNOOZE_KEY_PREFIX}${id}`;
+    const snoozedUntil = Number(localStorage.getItem(storageKey));
+    if (Number.isFinite(snoozedUntil) && snoozedUntil > Date.now()) {
+      return true;
+    }
+    localStorage.removeItem(storageKey);
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+function saveDayToastSnooze(id: string) {
+  try {
+    localStorage.setItem(
+      `${DAY_TOAST_SNOOZE_KEY_PREFIX}${id}`,
+      String(Date.now() + DAY_TOAST_SNOOZE_MS),
+    );
+  } catch {
+    return;
+  }
 }
 
 function useShouldShowToast() {
