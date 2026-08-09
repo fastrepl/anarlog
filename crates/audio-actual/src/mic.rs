@@ -33,6 +33,14 @@ pub struct MicInput {
 const MIC_READ_CHUNK_SIZE: usize = 256;
 const MIC_BUFFER_SIZE: usize = MIC_READ_CHUNK_SIZE * 256;
 
+fn default_stream_config_error_type(error: &cpal::DefaultStreamConfigError) -> &'static str {
+    match error {
+        cpal::DefaultStreamConfigError::DeviceNotAvailable => "device_not_available",
+        cpal::DefaultStreamConfigError::StreamTypeNotSupported => "stream_type_not_supported",
+        cpal::DefaultStreamConfigError::BackendSpecific { .. } => "backend_specific",
+    }
+}
+
 fn build_stream_error_type(error: &cpal::BuildStreamError) -> &'static str {
     match error {
         cpal::BuildStreamError::DeviceNotAvailable => "device_not_available",
@@ -115,7 +123,12 @@ impl MicInput {
 
         let device_name = get_device_name(&device);
         let config = device.default_input_config().map_err(|err| {
-            tracing::error!(error = %err, device_name, "mic_default_input_config_failed");
+            tracing::error!(
+                error = %err,
+                error.type = default_stream_config_error_type(&err),
+                device_name,
+                "mic_default_input_config_failed"
+            );
             crate::Error::MicOpenFailed
         })?;
         tracing::info!(
@@ -358,6 +371,28 @@ impl AsyncSource for MicStream {
 mod tests {
     use super::*;
     use futures_util::StreamExt;
+
+    #[test]
+    fn default_stream_config_errors_have_stable_types() {
+        assert_eq!(
+            default_stream_config_error_type(&cpal::DefaultStreamConfigError::DeviceNotAvailable),
+            "device_not_available"
+        );
+        assert_eq!(
+            default_stream_config_error_type(
+                &cpal::DefaultStreamConfigError::StreamTypeNotSupported
+            ),
+            "stream_type_not_supported"
+        );
+        assert_eq!(
+            default_stream_config_error_type(&cpal::DefaultStreamConfigError::BackendSpecific {
+                err: cpal::BackendSpecificError {
+                    description: "private driver detail".to_string(),
+                },
+            }),
+            "backend_specific"
+        );
+    }
 
     #[test]
     fn build_stream_errors_have_stable_types() {
