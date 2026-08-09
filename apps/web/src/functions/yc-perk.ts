@@ -50,17 +50,17 @@ export const submitYcPerkRequest = createServerFn({ method: "POST" })
       return { status: "submitted" as const };
     }
 
-    const email = data.email.trim().toLowerCase();
     const verificationUrl = normalizeYcVerificationUrl(data.verificationUrl);
+    const verification = await verifyYcFounder({ verificationUrl });
+    if (verification.status === "invalid") {
+      return verification;
+    }
+
+    const email = verification.email;
     const claimId = getYcPerkClaimId(email);
     const requestId = createHash("sha256")
       .update(`${email}\n${verificationUrl}`)
       .digest("hex");
-
-    const verification = await verifyYcFounder({ email, verificationUrl });
-    if (verification.status === "invalid") {
-      return verification;
-    }
 
     const promotionCode = await getOrCreateYcPerkClaimCode(claimId);
     const promotion = await getOrCreateYcPromotionCode({

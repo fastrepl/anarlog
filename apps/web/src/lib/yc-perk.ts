@@ -27,10 +27,11 @@ export type YcFounderVerificationResult =
   | {
       status: "verified";
       firstName: string;
+      email: string;
     }
   | {
       status: "invalid";
-      reason: "not_verified" | "email_missing" | "email_mismatch";
+      reason: "not_verified" | "email_missing";
     };
 
 export function isYcVerificationUrl(value: string) {
@@ -53,12 +54,6 @@ export function isYcVerificationUrl(value: string) {
 }
 
 export const ycPerkRequestSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .min(1, "Enter your work email")
-    .email("Enter a valid email")
-    .max(320),
   verificationUrl: z
     .string()
     .trim()
@@ -67,11 +62,6 @@ export const ycPerkRequestSchema = z.object({
     .refine(isYcVerificationUrl, "Use your ycombinator.com/verify link"),
   additionalComments: z.string().max(200),
 });
-
-export function validateYcPerkEmail(value: string) {
-  const result = ycPerkRequestSchema.shape.email.safeParse(value);
-  return result.success ? undefined : result.error.issues[0]?.message;
-}
 
 export function validateYcVerificationUrl(value: string) {
   const result = ycPerkRequestSchema.shape.verificationUrl.safeParse(value);
@@ -92,12 +82,10 @@ export function getYcVerificationApiUrl(value: string) {
 }
 
 export async function verifyYcFounder({
-  email,
   verificationUrl,
   fetcher = fetch,
   signal = AbortSignal.timeout(5_000),
 }: {
-  email: string;
   verificationUrl: string;
   fetcher?: typeof fetch;
   signal?: AbortSignal;
@@ -123,14 +111,10 @@ export async function verifyYcFounder({
   if (!verification.data.email) {
     return { status: "invalid", reason: "email_missing" };
   }
-  if (
-    verification.data.email.trim().toLowerCase() !== email.trim().toLowerCase()
-  ) {
-    return { status: "invalid", reason: "email_mismatch" };
-  }
 
   return {
     status: "verified",
     firstName: verification.data.name?.trim().split(/\s+/)[0] || "there",
+    email: verification.data.email.trim().toLowerCase(),
   };
 }

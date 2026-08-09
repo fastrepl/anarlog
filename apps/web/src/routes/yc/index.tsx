@@ -1,9 +1,4 @@
-import {
-  ArrowUpRight,
-  Check,
-  CircleNotch,
-  LockKey,
-} from "@phosphor-icons/react";
+import { ArrowUpRight, Check, CircleNotch } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -11,24 +6,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
+import { SiteFooter } from "@/components/site-footer";
 import { submitYcPerkRequest } from "@/functions/yc-perk";
 import { getCanonicalUrl } from "@/lib/seo";
-import {
-  validateYcPerkEmail,
-  validateYcVerificationUrl,
-  ycPerkRequestSchema,
-} from "@/lib/yc-perk";
+import { validateYcVerificationUrl, ycPerkRequestSchema } from "@/lib/yc-perk";
 
 const title = "YC founder perk · Anarlog";
 const description =
-  "YC founders get three months of Anarlog Pro free for bot-free, local-first meeting notes.";
+  "YC founders get three months of Anarlog Pro free for private, bot-free meeting notes.";
 
 const invalidVerificationMessages = {
-  not_verified: "This YC verification link is no longer active.",
-  email_missing:
-    "Update your YC verification link to include your email, then try again.",
-  email_mismatch:
-    "Use the same email shown on your YC verification link, then try again.",
+  not_verified: "This YC link is no longer active.",
+  email_missing: "Update your YC link to include your email.",
 };
 
 export const Route = createFileRoute("/yc/")({
@@ -51,14 +40,12 @@ export const Route = createFileRoute("/yc/")({
 function YcPerkPage() {
   const requestMutation = useMutation({
     mutationFn: (data: {
-      email: string;
       verificationUrl: string;
       additionalComments: string;
     }) => submitYcPerkRequest({ data }),
   });
   const form = useForm({
     defaultValues: {
-      email: "",
       verificationUrl: "",
       additionalComments: "",
     },
@@ -74,32 +61,22 @@ function YcPerkPage() {
       : undefined;
   const requestErrorMessage =
     requestMutation.data?.status === "already_claimed"
-      ? "This YC perk has already been claimed for this email."
+      ? "This perk has already been claimed."
       : invalidVerificationMessage;
 
   return (
-    <main className="bg-page text-color min-h-screen">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
-        <Link to="/" aria-label="Anarlog home" className="inline-flex">
-          <AnarlogLogo className="h-8 w-auto" />
-        </Link>
-        <div className="flex items-center gap-3">
-          <span className="text-color-secondary hidden text-sm sm:inline">
-            Built by YC founders
-          </span>
-          <img
-            src="/icons/yc.svg"
-            alt="Y Combinator"
-            width={28}
-            height={28}
-            className="size-7 rounded"
-          />
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col bg-white text-[#181613]">
+      <main className="mx-auto w-full max-w-[700px] flex-1 px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
+        <section className="pt-10 pb-20 text-center md:pt-12 md:pb-24">
+          <Link
+            to="/"
+            aria-label="Anarlog home"
+            className="flex justify-center"
+          >
+            <AnarlogLogo className="h-8 w-auto md:h-9" />
+          </Link>
 
-      <section className="mx-auto grid min-h-[calc(100vh-92px)] w-full max-w-6xl items-center gap-14 px-5 py-12 sm:px-8 md:py-16 lg:grid-cols-[minmax(0,0.92fr)_minmax(420px,1.08fr)] lg:gap-20 lg:px-10 lg:py-20">
-        <div className="max-w-xl">
-          <div className="brand-yellow border-color-subtle inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium">
+          <div className="mt-12 inline-flex items-center gap-2 text-sm font-medium text-[#756b5d] md:mt-16">
             <img
               src="/icons/yc.svg"
               alt=""
@@ -107,22 +84,21 @@ function YcPerkPage() {
               height={20}
               className="size-5 rounded-sm"
             />
-            The YC founder offer
+            YC founder perk
           </div>
 
-          <h1 className="mt-8 text-5xl leading-[0.98]! font-medium tracking-[-0.045em] text-balance sm:text-6xl lg:text-7xl">
+          <h1 className="font-hand mx-auto mt-5 max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl">
             Build the company. Keep every decision.
           </h1>
-          <p className="text-color-secondary mt-7 max-w-lg text-lg leading-8">
-            Get three months of Anarlog Pro free. Keep private, bot-free notes
-            from customer calls, investor conversations, and the meetings that
-            move your startup forward.
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+            Get 3 months of Anarlog Pro free for private, bot-free meeting
+            notes.
           </p>
 
-          <div className="mt-9 max-w-lg">
+          <div className="mx-auto mt-8 max-w-xl">
             {requestSucceeded ? (
               <div
-                className="surface border-color-subtle rounded-2xl border p-6 shadow-sm"
+                className="mx-auto max-w-lg rounded-[3px] border border-[#eadfce] bg-[#fffaf0] p-6 text-left shadow-[0_18px_50px_rgba(68,54,36,0.12)]"
                 role="status"
               >
                 <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
@@ -131,9 +107,8 @@ function YcPerkPage() {
                 <h2 className="mt-5 text-xl font-semibold tracking-tight">
                   You’re verified.
                 </h2>
-                <p className="text-color-secondary mt-2 text-base leading-7">
-                  Your three-month Pro code is on its way to{" "}
-                  {requestMutation.variables?.email}.
+                <p className="mt-2 text-base leading-7 text-[#4f4940]">
+                  We sent your Pro code to your YC email.
                 </p>
               </div>
             ) : (
@@ -145,45 +120,6 @@ function YcPerkPage() {
                   void form.handleSubmit();
                 }}
               >
-                <form.Field
-                  name="email"
-                  validators={{
-                    onChange: ({ value }) => validateYcPerkEmail(value),
-                    onBlur: ({ value }) => validateYcPerkEmail(value),
-                    onSubmit: ({ value }) => validateYcPerkEmail(value),
-                  }}
-                >
-                  {(field) => (
-                    <div>
-                      <label htmlFor={field.name} className="sr-only">
-                        Work email
-                      </label>
-                      <input
-                        id={field.name}
-                        name={field.name}
-                        type="email"
-                        autoComplete="email"
-                        required
-                        placeholder="Work email"
-                        value={field.state.value}
-                        onBlur={field.handleBlur}
-                        onChange={(event) =>
-                          field.handleChange(event.target.value)
-                        }
-                        className={cn([
-                          "surface text-color min-h-13 w-full rounded-xl border px-4 text-base shadow-sm transition outline-none",
-                          "placeholder:text-color-muted focus:border-stone-500 focus:ring-3 focus:ring-stone-300/40",
-                          field.state.meta.errors.length > 0
-                            ? "border-red-500"
-                            : "border-color-subtle",
-                        ])}
-                        aria-invalid={field.state.meta.errors.length > 0}
-                      />
-                      <FieldError errors={field.state.meta.errors} />
-                    </div>
-                  )}
-                </form.Field>
-
                 <form.Field
                   name="verificationUrl"
                   validators={{
@@ -203,18 +139,18 @@ function YcPerkPage() {
                         type="url"
                         autoComplete="url"
                         required
-                        placeholder="https://www.ycombinator.com/verify/..."
+                        placeholder="YC verification link"
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(event) =>
                           field.handleChange(event.target.value)
                         }
                         className={cn([
-                          "surface text-color min-h-13 w-full rounded-xl border px-4 text-base shadow-sm transition outline-none",
-                          "placeholder:text-color-muted focus:border-stone-500 focus:ring-3 focus:ring-stone-300/40",
+                          "min-h-13 w-full rounded-full border bg-white px-5 text-base text-[#181613] shadow-sm transition outline-none",
+                          "placeholder:text-[#918a80] focus:border-[#756b5d] focus:ring-3 focus:ring-[#d8d3cc]/40",
                           field.state.meta.errors.length > 0
                             ? "border-red-500"
-                            : "border-color-subtle",
+                            : "border-[#d8d3cc]",
                         ])}
                         aria-invalid={field.state.meta.errors.length > 0}
                       />
@@ -248,14 +184,14 @@ function YcPerkPage() {
                 {(requestMutation.isError || requestErrorMessage) && (
                   <p className="text-sm text-red-700" role="alert">
                     {requestErrorMessage ??
-                      "We couldn’t process your YC perk right now. Please try again."}
+                      "We couldn’t process this. Try again."}
                   </p>
                 )}
 
                 <button
                   type="submit"
                   disabled={requestMutation.isPending}
-                  className="mt-1 inline-flex min-h-13 items-center justify-center gap-2 rounded-xl bg-linear-to-t from-stone-600 to-stone-500 px-5 text-base font-medium text-white shadow-md transition hover:-translate-y-0.5 hover:shadow-lg disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mx-auto mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#363029] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {requestMutation.isPending ? (
                     <>
@@ -266,7 +202,7 @@ function YcPerkPage() {
                       Submitting…
                     </>
                   ) : (
-                    "Claim your YC perk"
+                    "Claim YC perk"
                   )}
                 </button>
 
@@ -274,91 +210,17 @@ function YcPerkPage() {
                   href="https://www.ycombinator.com/verify"
                   target="_blank"
                   rel="noreferrer"
-                  className="text-color-secondary mt-1 inline-flex w-fit items-center gap-1 text-sm underline decoration-stone-400 underline-offset-4 transition hover:text-stone-900"
+                  className="mx-auto mt-1 inline-flex w-fit items-center gap-1 text-sm text-[#756b5d] underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
                 >
-                  Get your YC verification link
+                  Get verification link
                   <ArrowUpRight size={14} aria-hidden="true" />
                 </a>
               </form>
             )}
           </div>
-
-          <div className="text-color-secondary mt-8 flex items-center gap-2 text-sm">
-            <LockKey size={16} aria-hidden="true" />
-            Verified directly with Y Combinator. Your link is only used to
-            confirm YC status.
-          </div>
-        </div>
-
-        <FounderMeetingVisual />
-      </section>
-    </main>
-  );
-}
-
-function FounderMeetingVisual() {
-  return (
-    <div
-      className="relative mx-auto flex aspect-square w-full max-w-[560px] items-center justify-center"
-      aria-hidden="true"
-    >
-      <div className="brand-yellow absolute inset-[8%] rounded-full blur-3xl" />
-      <div className="surface border-color-subtle absolute top-[10%] left-[14%] z-10 flex size-28 -rotate-8 flex-col justify-between rounded-3xl border p-4 shadow-[0_24px_55px_rgba(68,54,36,0.18)] sm:size-32">
-        <img
-          src="/icons/yc.svg"
-          alt=""
-          width={48}
-          height={48}
-          className="size-12 rounded-lg shadow-sm"
-        />
-        <span className="text-right text-sm font-semibold">S25</span>
-      </div>
-      <div className="surface border-color-subtle absolute top-[13%] right-[12%] size-28 rotate-9 rounded-3xl border p-4 shadow-[0_24px_55px_rgba(68,54,36,0.16)] sm:size-32">
-        <span className="text-color-secondary text-xs font-medium tracking-[0.14em] uppercase">
-          Today
-        </span>
-        <p className="mt-3 text-sm leading-5 font-semibold">
-          Customer interview
-        </p>
-      </div>
-
-      <div className="surface-dark relative z-20 mt-14 w-[82%] rotate-[-2deg] rounded-[2rem] p-6 text-white shadow-[0_36px_80px_rgba(68,54,36,0.28)] sm:p-8">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold text-white">Anarlog</span>
-          <div className="flex items-center gap-1.5">
-            {[8, 14, 20, 12, 17, 9].map((height, index) => (
-              <span
-                key={`${height}-${index}`}
-                className="w-1 rounded-full bg-stone-300"
-                style={{ height }}
-              />
-            ))}
-          </div>
-        </div>
-        <div className="mt-10">
-          <p className="text-xs tracking-[0.15em] text-stone-400 uppercase">
-            Founder sync
-          </p>
-          <h2 className="mt-2 text-2xl leading-tight font-medium tracking-tight text-white sm:text-3xl">
-            Decisions, without another bot in the room.
-          </h2>
-        </div>
-        <div className="mt-8 space-y-3">
-          {[
-            "Ship onboarding this week",
-            "John owns customer follow-up",
-            "Review pricing on Friday",
-          ].map((item) => (
-            <div
-              key={item}
-              className="flex items-center gap-3 rounded-xl bg-white/8 px-4 py-3"
-            >
-              <span className="size-1.5 shrink-0 rounded-full bg-stone-300" />
-              <span className="text-sm text-stone-200">{item}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+        </section>
+      </main>
+      <SiteFooter />
     </div>
   );
 }
