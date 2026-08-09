@@ -1,5 +1,4 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { Check } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { getIdentifier } from "@tauri-apps/api/app";
 import { platform } from "@tauri-apps/plugin-os";
@@ -69,7 +68,7 @@ export function AppIconSelector() {
       <div
         role="radiogroup"
         aria-label={t`App icon`}
-        className="grid grid-cols-4 gap-3"
+        className="flex flex-wrap gap-3"
       >
         {options.map((option) => {
           const selected =
@@ -85,27 +84,16 @@ export function AppIconSelector() {
               aria-label={labels[option]}
               title={labels[option]}
               className={cn([
-                "group bg-background text-foreground focus-visible:ring-ring focus-visible:ring-offset-background relative flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border p-4 transition-[background-color,border-color,box-shadow,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]",
+                "group text-foreground focus-visible:ring-ring focus-visible:ring-offset-background flex cursor-pointer items-center justify-center rounded-[22px] border bg-transparent p-1 transition-[border-color,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]",
                 selected
-                  ? "border-foreground/50 bg-accent/40 shadow-xs"
-                  : "border-border hover:border-foreground/30 hover:bg-accent/20",
+                  ? "border-foreground/50"
+                  : "border-border hover:border-foreground/30",
               ])}
               onClick={() => {
                 void applyAppIconPreference(option, theme);
                 setAppIcon(option);
               }}
             >
-              <span
-                aria-hidden="true"
-                className={cn([
-                  "bg-foreground text-background absolute top-2 right-2 flex size-5 items-center justify-center rounded-full transition-[filter,opacity,scale] duration-150",
-                  selected
-                    ? "scale-100 opacity-100 blur-none"
-                    : "scale-25 opacity-0 blur-[4px]",
-                ])}
-              >
-                <Check className="size-3" weight="bold" />
-              </span>
               {theme === "system" ? (
                 <picture>
                   <source
