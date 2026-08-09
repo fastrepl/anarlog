@@ -148,7 +148,7 @@ describe("SettingsAccount", () => {
     });
   });
 
-  it("keeps the manage-plan control once the trial has a payment method", () => {
+  it("renders the current plan as status once the trial has a payment method", () => {
     mocks.billing = {
       canStartTrial: { data: false, isPending: false },
       hasPaymentMethod: true,
@@ -164,5 +164,7 @@ describe("SettingsAccount", () => {
       screen.queryByRole("button", { name: "Add payment method" }),
     ).toBeNull();
     expect(screen.getByText("Current plan")).toBeTruthy();
+    expect(screen.queryByText("Cancel")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Current plan/ })).toBeNull();
   });
 });

@@ -469,7 +469,6 @@ msgid "Can transcribe while the meeting is happening."
 msgstr ""
 
 #: src/session-sharing/comments.tsx
-#: src/settings/general/account.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx

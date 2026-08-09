@@ -191,8 +191,8 @@ function PlanBillingSection({
 
   const [actionPending, setActionPending] = useState(false);
 
-  // A cardless trial cancels at the end unless a card is added, so the plan
-  // control has to be "Add payment method" rather than hover-to-Cancel.
+  // A cardless trial cancels at the end unless a card is added, so replace the
+  // static current-plan status with an explicit payment-method action.
   const needsPaymentMethod = isTrialing && !hasPaymentMethod;
 
   const openBillingUrl = useCallback(
@@ -274,57 +274,15 @@ function PlanBillingSection({
       }
 
       if (compact) {
-        if (!isPaid) {
-          return (
-            <span className="text-muted-foreground text-xs">
-              {action.label}
-            </span>
-          );
-        }
-
         return (
-          <button
-            type="button"
-            onClick={handleOpenBillingPortal}
-            disabled={actionPending}
-            className={cn([
-              "group text-muted-foreground hover:text-muted-foreground relative min-w-[88px] text-xs font-medium transition-colors disabled:opacity-50",
-            ])}
-          >
-            <span className="block transition-opacity duration-150 group-hover:opacity-0">
-              {action.label}
-            </span>
-            <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-              <Trans>Cancel</Trans>
-            </span>
-          </button>
-        );
-      }
-
-      if (!isPaid) {
-        return (
-          <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
-            {action.label}
-          </div>
+          <span className="text-muted-foreground text-xs">{action.label}</span>
         );
       }
 
       return (
-        <button
-          type="button"
-          onClick={handleOpenBillingPortal}
-          disabled={actionPending}
-          className={cn([
-            "group border-border from-card to-background text-muted-foreground relative flex h-8 w-full items-center justify-center overflow-hidden rounded-full border bg-linear-to-b text-xs font-medium shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100",
-          ])}
-        >
-          <span className="transition-opacity duration-150 group-hover:opacity-0">
-            {action.label}
-          </span>
-          <span className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <Trans>Cancel</Trans>
-          </span>
-        </button>
+        <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
+          {action.label}
+        </div>
       );
     }
 
