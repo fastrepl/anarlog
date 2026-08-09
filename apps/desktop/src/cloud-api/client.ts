@@ -45,6 +45,7 @@ let backfillRetryTimer: ReturnType<typeof setTimeout> | null = null;
 type SnapshotIntent = { kind: "delete" | "upsert" };
 const snapshotIntents = new Map<string, SnapshotIntent>();
 const snapshotSyncs = new Map<string, Promise<void>>();
+let snapshotRequestQueue = Promise.resolve();
 
 function setSnapshotIntent(sessionId: string, kind: SnapshotIntent["kind"]) {
   const intent = { kind };
@@ -311,17 +312,25 @@ async function performCloudApiSnapshotSync(
   if (hasSnapshotIntent(sessionId, "delete")) {
     return;
   }
-  await request(
-    `/v1/sync-snapshots/${encodeURIComponent(sessionId)}`,
-    {
-      method: "PUT",
-      body: JSON.stringify(result.data),
-    },
-    true,
-    true,
-    userId,
-  );
-  removePendingChange(userId, sessionId, "upserts");
+  const uploaded = await enqueueSnapshotRequest(async () => {
+    if (hasSnapshotIntent(sessionId, "delete")) {
+      return false;
+    }
+    await request(
+      `/v1/sync-snapshots/${encodeURIComponent(sessionId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(result.data),
+      },
+      true,
+      true,
+      userId,
+    );
+    return true;
+  });
+  if (uploaded) {
+    removePendingChange(userId, sessionId, "upserts");
+  }
 }
 
 export async function deleteCloudApiSnapshot(sessionId: string): Promise<void> {
@@ -348,12 +357,14 @@ async function deleteCloudApiSnapshotForUser(
     removePendingChange(userId, sessionId, "deletes");
     return;
   }
-  await request(
-    `/v1/sync-snapshots/${encodeURIComponent(sessionId)}`,
-    { method: "DELETE" },
-    true,
-    true,
-    userId,
+  await enqueueSnapshotRequest(() =>
+    request(
+      `/v1/sync-snapshots/${encodeURIComponent(sessionId)}`,
+      { method: "DELETE" },
+      true,
+      true,
+      userId,
+    ),
   );
   removePendingChange(userId, sessionId, "deletes");
 }
@@ -634,6 +645,15 @@ function shouldRetry(error: unknown) {
   );
 }
 
+function enqueueSnapshotRequest(operation: () => Promise<unknown>) {
+  const queuedRequest = snapshotRequestQueue.catch(() => {}).then(operation);
+  snapshotRequestQueue = queuedRequest.then(
+    () => undefined,
+    () => undefined,
+  );
+  return queuedRequest;
+}
+
 function getStoredValue(key: string) {
   try {
     return localStorage.getItem(key);
@@ -669,6 +689,10 @@ function reportBackgroundError(error: unknown) {
   }
   console.error(
     "[cloud-api] background sync failed",
-    error instanceof Error ? error.name : typeof error,
+    error instanceof CloudApiClientError
+      ? `${error.name} [${error.code}]: ${error.message}`
+      : error instanceof Error
+        ? `${error.name}: ${error.message}`
+        : typeof error,
   );
 }
