@@ -5,8 +5,11 @@ import {
   CheckCircle,
   CircleNotch,
   CloudSlash,
+  Devices,
+  Plus,
   Shield,
   ShieldCheck,
+  Trash,
   Warning,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +26,14 @@ import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
 import { commands as store2Commands } from "@anlg/plugin-store2";
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { Switch } from "@anlg/ui/components/ui/switch";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
@@ -37,6 +48,8 @@ import {
   getCloudsyncCredentialBlock,
   subscribeCloudsyncCredentialBlock,
 } from "~/auth/cloudsync";
+import { getDeviceIdentity } from "~/auth/cloudsync-credentials";
+import { env } from "~/env";
 import { captureOperationalError } from "~/error-reporting";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
@@ -48,6 +61,21 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
 const SYNC_GUIDE_URL = "https://docs.anarlog.so/sync";
+
+type SyncDevice = {
+  deviceFingerprint: string;
+  deviceName: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+};
+
+async function requestSyncDevices(accessToken: string) {
+  const response = await fetch(new URL("/sync/devices", env.VITE_API_URL), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error("Could not load your devices.");
+  return (await response.json()) as { devices: SyncDevice[] };
+}
 
 async function readE2eeIdentityStatus(accountUserId: string) {
   try {
@@ -132,6 +160,7 @@ export function SettingsSync() {
   const queryClient = useQueryClient();
   const [e2eeSetupOpen, setE2eeSetupOpen] = useState(false);
   const [syncLogOpen, setSyncLogOpen] = useState(false);
+  const [addDeviceOpen, setAddDeviceOpen] = useState(false);
   const lastTrackedSyncAtRef = useRef<number | null>(null);
   const lastTrackedFailureCountRef = useRef<number | null>(null);
   const manualSyncBaselineRef = useRef<number | null>(null);
@@ -159,6 +188,34 @@ export function SettingsSync() {
     queryFn: () => readE2eeIdentityStatus(session!.user.id),
     enabled: Boolean(session?.user.id),
     retry: false,
+  });
+  const devicesQuery = useQuery({
+    queryKey: ["sync-devices", session?.user.id],
+    queryFn: () => requestSyncDevices(session!.access_token),
+    enabled: Boolean(session && isPro),
+  });
+  const deviceIdentityQuery = useQuery({
+    queryKey: ["device-identity"],
+    queryFn: getDeviceIdentity,
+  });
+  const removeDeviceMutation = useMutation({
+    mutationFn: async (fingerprint: string) => {
+      const response = await fetch(
+        new URL(
+          `/sync/devices/${encodeURIComponent(fingerprint)}`,
+          env.VITE_API_URL,
+        ),
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session!.access_token}` },
+        },
+      );
+      if (!response.ok) throw new Error("Could not remove this device.");
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["sync-devices", session?.user.id],
+      }),
   });
   const vaultBaseQuery = useQuery({
     queryKey: ["vault-base-path"],
@@ -641,6 +698,67 @@ export function SettingsSync() {
       )}
 
       <section>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <h2 className="font-sans text-lg font-semibold">
+            <Trans>Devices</Trans>
+          </h2>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAddDeviceOpen(true)}
+          >
+            <Plus className="size-3.5" />
+            <Trans>Add device</Trans>
+          </Button>
+        </div>
+        <div className="border-border/60 divide-border/60 divide-y overflow-hidden rounded-xl border">
+          {devicesQuery.data?.devices.map((device) => {
+            const current =
+              device.deviceFingerprint ===
+              deviceIdentityQuery.data?.fingerprint;
+            return (
+              <div
+                key={device.deviceFingerprint}
+                className="flex items-center gap-3 px-4 py-3"
+              >
+                <Devices className="text-muted-foreground size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {device.deviceName || t`Unnamed device`}
+                    {current ? ` · ${t`This device`}` : ""}
+                  </p>
+                  <p className="text-muted-foreground text-[11px]">{t`Last seen ${formatDistanceToNow(new Date(device.lastSeenAt))}`}</p>
+                </div>
+                {!current && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={t`Remove device`}
+                    disabled={removeDeviceMutation.isPending}
+                    onClick={() =>
+                      removeDeviceMutation.mutate(device.deviceFingerprint)
+                    }
+                  >
+                    <Trash className="size-3.5" />
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+          {!devicesQuery.isPending && !devicesQuery.data?.devices.length && (
+            <p className="text-muted-foreground px-4 py-5 text-center text-xs">
+              <Trans>No devices registered yet.</Trans>
+            </p>
+          )}
+        </div>
+        {removeDeviceMutation.error && (
+          <p className="mt-2 text-xs text-red-500">
+            {removeDeviceMutation.error.message}
+          </p>
+        )}
+      </section>
+
+      <section>
         <h2 className="mb-4 font-sans text-lg font-semibold">
           <Trans>Security</Trans>
         </h2>
@@ -699,6 +817,33 @@ export function SettingsSync() {
           setSyncEnabledMutation.mutate(true);
         }}
       />
+      <Dialog open={addDeviceOpen} onOpenChange={setAddDeviceOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              <Trans>Add another device</Trans>
+            </DialogTitle>
+            <DialogDescription>
+              <Trans>
+                Install Anarlog and sign in with this account on the new device.
+                Choose “Use an existing key” when prompted, then enter your
+                saved recovery key.
+              </Trans>
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-muted-foreground text-xs leading-5">
+            <Trans>
+              Device-to-device approval is being connected next. Until then,
+              your recovery key remains the secure cross-platform fallback.
+            </Trans>
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setAddDeviceOpen(false)}>
+              <Trans>Done</Trans>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

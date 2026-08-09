@@ -35,6 +35,77 @@ struct SyncDeviceClaimRow {
     device_count: i64,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct SyncDeviceRow {
+    pub device_fingerprint: String,
+    pub device_name: Option<String>,
+    pub created_at: String,
+    pub last_seen_at: String,
+}
+
+pub(super) async fn list_sync_devices(
+    state: &AppState,
+    account_user_id: &str,
+) -> Result<Vec<SyncDeviceRow>> {
+    let response = state
+        .client
+        .get(format!(
+            "{}/rest/v1/sync_devices",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .query(&[
+            ("user_id", format!("eq.{account_user_id}")),
+            (
+                "select",
+                "device_fingerprint,device_name,created_at,last_seen_at".to_string(),
+            ),
+            ("order", "last_seen_at.desc".to_string()),
+        ])
+        .timeout(SUPABASE_REQUEST_TIMEOUT)
+        .send()
+        .await
+        .map_err(|_| SyncError::Upstream)?;
+    if !response.status().is_success() {
+        return Err(SyncError::Upstream);
+    }
+    response.json().await.map_err(|_| SyncError::Upstream)
+}
+
+pub(super) async fn remove_sync_device(
+    state: &AppState,
+    account_user_id: &str,
+    fingerprint: &str,
+) -> Result<()> {
+    if !is_valid_device_fingerprint(fingerprint) {
+        return Err(SyncError::BadRequest(
+            "Sync device identity is invalid".to_string(),
+        ));
+    }
+    let response = state
+        .client
+        .delete(format!(
+            "{}/rest/v1/sync_devices",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .query(&[
+            ("user_id", format!("eq.{account_user_id}")),
+            ("device_fingerprint", format!("eq.{fingerprint}")),
+        ])
+        .timeout(SUPABASE_REQUEST_TIMEOUT)
+        .send()
+        .await
+        .map_err(|_| SyncError::Upstream)?;
+    if !response.status().is_success() {
+        return Err(SyncError::Upstream);
+    }
+    Ok(())
+}
+
 fn is_valid_device_fingerprint(fingerprint: &str) -> bool {
     (8..=128).contains(&fingerprint.len())
         && fingerprint

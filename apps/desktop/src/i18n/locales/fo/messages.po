@@ -135,8 +135,16 @@ msgstr ""
 msgid "Add another account"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Add another device"
+msgstr ""
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Add API key"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Add device"
 msgstr ""
 
 #: src/settings/general/spoken-languages.tsx
@@ -1037,6 +1045,14 @@ msgstr ""
 msgid "Device limit reached"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Device-to-device approval is being connected next. Until then, your recovery key remains the secure cross-platform fallback."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Devices"
+msgstr ""
+
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
@@ -1060,6 +1076,10 @@ msgstr ""
 
 #: src/settings/general/audio-settings.tsx
 msgid "Don't save"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Done"
 msgstr ""
 
 #: src/session/components/note-input/transcript/index.tsx
@@ -1437,6 +1457,10 @@ msgstr ""
 msgid "Insert below"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Install Anarlog and sign in with this account on the new device. Choose “Use an existing key” when prompted, then enter your saved recovery key."
+msgstr ""
+
 #: src/settings/ai/llm/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Intelligence"
@@ -1505,6 +1529,11 @@ msgstr ""
 #. placeholder {0}: lastRun.detail
 #: src/settings/automations/starter-config.tsx
 msgid "Last run failed {relative}: {0}"
+msgstr ""
+
+#. placeholder {0}: formatDistanceToNow(new Date(device.lastSeenAt))
+#: src/settings/sync/index.tsx
+msgid "Last seen {0}"
 msgstr ""
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
@@ -1791,6 +1820,10 @@ msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "No description provided."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "No devices registered yet."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2218,6 +2251,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Remove automation"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Remove device"
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx
@@ -3029,6 +3066,10 @@ msgstr ""
 msgid "This automation is drafted in Chat. Continue the conversation on the right to refine what it should do."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "This device"
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr ""
@@ -3126,6 +3167,10 @@ msgstr ""
 
 #: src/contacts/organization-details.tsx
 msgid "Unnamed"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Unnamed device"
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx

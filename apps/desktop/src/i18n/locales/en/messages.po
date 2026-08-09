@@ -135,9 +135,17 @@ msgstr "Add a dated update to the selected Notion page."
 msgid "Add another account"
 msgstr "Add another account"
 
+#: src/settings/sync/index.tsx
+msgid "Add another device"
+msgstr "Add another device"
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Add API key"
 msgstr "Add API key"
+
+#: src/settings/sync/index.tsx
+msgid "Add device"
+msgstr "Add device"
 
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
@@ -1037,6 +1045,14 @@ msgstr "Developers"
 msgid "Device limit reached"
 msgstr "Device limit reached"
 
+#: src/settings/sync/index.tsx
+msgid "Device-to-device approval is being connected next. Until then, your recovery key remains the secure cross-platform fallback."
+msgstr "Device-to-device approval is being connected next. Until then, your recovery key remains the secure cross-platform fallback."
+
+#: src/settings/sync/index.tsx
+msgid "Devices"
+msgstr "Devices"
+
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
@@ -1061,6 +1077,10 @@ msgstr "Documentation"
 #: src/settings/general/audio-settings.tsx
 msgid "Don't save"
 msgstr "Don't save"
+
+#: src/settings/sync/index.tsx
+msgid "Done"
+msgstr "Done"
 
 #: src/session/components/note-input/transcript/index.tsx
 msgid "Done writing"
@@ -1437,6 +1457,10 @@ msgstr "Insert above"
 msgid "Insert below"
 msgstr "Insert below"
 
+#: src/settings/sync/index.tsx
+msgid "Install Anarlog and sign in with this account on the new device. Choose “Use an existing key” when prompted, then enter your saved recovery key."
+msgstr "Install Anarlog and sign in with this account on the new device. Choose “Use an existing key” when prompted, then enter your saved recovery key."
+
 #: src/settings/ai/llm/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Intelligence"
@@ -1506,6 +1530,11 @@ msgstr "Last run {relative}: {0}"
 #: src/settings/automations/starter-config.tsx
 msgid "Last run failed {relative}: {0}"
 msgstr "Last run failed {relative}: {0}"
+
+#. placeholder {0}: formatDistanceToNow(new Date(device.lastSeenAt))
+#: src/settings/sync/index.tsx
+msgid "Last seen {0}"
+msgstr "Last seen {0}"
 
 #. placeholder {0}: formatDistanceToNow( new Date(status.last_sync_at_ms), { addSuffix: true }, )
 #: src/main/sync-status.tsx
@@ -1792,6 +1821,10 @@ msgstr "No content."
 #: src/task/resource-view.tsx
 msgid "No description provided."
 msgstr "No description provided."
+
+#: src/settings/sync/index.tsx
+msgid "No devices registered yet."
+msgstr "No devices registered yet."
 
 #: src/templates/template-icon-picker.tsx
 msgid "No emoji found"
@@ -2219,6 +2252,10 @@ msgstr "Remove {term}"
 #: src/settings/automations/index.tsx
 msgid "Remove automation"
 msgstr "Remove automation"
+
+#: src/settings/sync/index.tsx
+msgid "Remove device"
+msgstr "Remove device"
 
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"
@@ -3029,6 +3066,10 @@ msgstr "This account already syncs on 5 devices. Remove another device to sync h
 msgid "This automation is drafted in Chat. Continue the conversation on the right to refine what it should do."
 msgstr "This automation is drafted in Chat. Continue the conversation on the right to refine what it should do."
 
+#: src/settings/sync/index.tsx
+msgid "This device"
+msgstr "This device"
+
 #: src/main/sync-status.tsx
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr "This device's sync identity does not match your account. Sign in again or check Sync settings."
@@ -3127,6 +3168,10 @@ msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry savin
 #: src/contacts/organization-details.tsx
 msgid "Unnamed"
 msgstr "Unnamed"
+
+#: src/settings/sync/index.tsx
+msgid "Unnamed device"
+msgstr "Unnamed device"
 
 #: src/contacts/contact-page-header.tsx
 msgid "Unpin"

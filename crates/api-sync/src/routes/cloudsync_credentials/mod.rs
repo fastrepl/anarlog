@@ -1,9 +1,9 @@
 use anlg_api_auth::AuthContext;
 use axum::{
     Extension, Json, Router,
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, HeaderValue, header},
-    routing::{post, put},
+    routing::{delete, get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
@@ -18,7 +18,10 @@ mod identity;
 mod projection;
 mod token;
 
-use identity::{claim_personal_e2ee_key, claim_sync_device, is_valid_e2ee_key_id};
+use identity::{
+    SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, is_valid_e2ee_key_id,
+    list_sync_devices, remove_sync_device,
+};
 pub use projection::CloudsyncWorkspace;
 pub(super) use projection::encode_workspace_token_attributes;
 use projection::{fetch_workspace_projection, validate_workspace_projection};
@@ -99,6 +102,38 @@ pub(super) fn router() -> Router<AppState> {
     Router::new()
         .route("/token", post(create_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
+        .route("/devices", get(get_devices))
+        .route("/devices/{fingerprint}", delete(delete_device))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncDevicesResponse {
+    devices: Vec<SyncDeviceRow>,
+}
+
+async fn get_devices(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+) -> Result<Json<SyncDevicesResponse>> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+    Ok(Json(SyncDevicesResponse {
+        devices: list_sync_devices(&state, &auth.claims.sub).await?,
+    }))
+}
+
+async fn delete_device(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Path(fingerprint): Path<String>,
+) -> Result<axum::http::StatusCode> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+    remove_sync_device(&state, &auth.claims.sub, &fingerprint).await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
