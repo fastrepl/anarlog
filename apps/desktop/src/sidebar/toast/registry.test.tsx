@@ -51,6 +51,7 @@ describe("sidebar toast registry", () => {
     expect(toast?.id).toBe("missing-llm");
     expect(toast?.description).toBe("Language model needed");
     expect(toast?.primaryAction?.label).toBe("Add");
+    expect(toast?.dismissible).toBe(false);
   });
 
   it("keeps the missing transcription provider message short", () => {
@@ -65,6 +66,7 @@ describe("sidebar toast registry", () => {
     expect(toast?.id).toBe("missing-stt");
     expect(toast?.description).toBe("Transcription provider needed");
     expect(toast?.primaryAction?.label).toBe("Add");
+    expect(toast?.dismissible).toBe(false);
   });
 
   it("suggests signing in before provider setup", () => {
@@ -268,6 +270,7 @@ describe("sidebar toast registry", () => {
     expect(languageModelToast.id).toBe("devtools-missing-llm");
     expect(languageModelToast.description).toBe("Language model needed");
     expect(languageModelToast.primaryAction?.label).toBe("Add");
+    expect(languageModelToast.dismissible).toBe(false);
     const transcriptionModelToast = createDevtoolsToastPreview({
       preview: "transcription-model",
       onSignIn: vi.fn(),
@@ -277,6 +280,7 @@ describe("sidebar toast registry", () => {
     expect(transcriptionModelToast.description).toBe(
       "Transcription provider needed",
     );
+    expect(transcriptionModelToast.dismissible).toBe(false);
     expect(downloadToast.id).toBe("devtools-downloading-model");
     expect(downloadToast.loading).toBe(true);
   });

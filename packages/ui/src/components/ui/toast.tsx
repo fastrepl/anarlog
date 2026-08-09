@@ -9,6 +9,7 @@ const Toaster = ({
   theme = "system",
   position = "bottom-right",
   richColors = true,
+  closeButton = true,
   style,
   ...props
 }: ToasterProps) => (
@@ -16,6 +17,7 @@ const Toaster = ({
     theme={theme}
     position={position}
     richColors={richColors}
+    closeButton={closeButton}
     className="toaster group"
     style={{ "--width": "300px", ...style } as CSSProperties}
     toastOptions={{

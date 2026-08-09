@@ -158,6 +158,7 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
     sonnerToast.message(label, {
       id: toastId,
       duration: Infinity,
+      closeButton: false,
       description: (
         <span
           aria-hidden="true"

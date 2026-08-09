@@ -175,7 +175,7 @@ export function createToastRegistry({
           label: "Add",
           onClick: onOpenLLMSettings,
         },
-        dismissible: true,
+        dismissible: false,
       },
       condition: () =>
         hasUsableSttConfigured &&
@@ -296,7 +296,7 @@ export function createDevtoolsToastPreview({
           label: "Add",
           onClick: onOpenLLMSettings,
         },
-        dismissible: true,
+        dismissible: false,
       };
     case "transcription-model":
       return {
