@@ -9,17 +9,22 @@ import { cn } from "@anlg/utils";
 
 const privacyCommitments = [
   {
+    title: "Invisible while you meet",
     description:
-      "Your meeting data stays local by default; attachments and recordings remain on your device.",
+      "No bot joins the participant list, and Anarlog's floating controls stay hidden when you share your screen.",
+    visual: "meeting",
+  },
+  {
+    title: "Local by default",
+    description:
+      "Your notes, transcripts, attachments, and recordings stay on your device by default.",
     visual: "files",
   },
   {
-    description: "Choose on-device models, your own key, or hosted AI.",
+    title: "Use your own stack",
+    description:
+      "Export your data or process it with local models, your own API keys, and the tools you trust.",
     visual: "key",
-  },
-  {
-    description: "Capture meeting audio without adding a bot to the call.",
-    visual: "meeting",
   },
 ];
 
@@ -28,11 +33,11 @@ export function PrivacySection() {
     <section className="py-16 md:py-20">
       <div>
         <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-          Your data stays yours
+          Private from call to file
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
-          Anarlog is built around data you own, privacy you control, and notes
-          that stay useful outside our app.
+          Anarlog works quietly from your desktop, without joining your calls,
+          forcing your data into the cloud, or locking it inside our app.
         </p>
       </div>
 
@@ -45,7 +50,10 @@ export function PrivacySection() {
                 className="flex flex-col px-6 py-3 text-center md:w-[31%] md:p-4"
               >
                 <PrivacyVisual type={commitment.visual} />
-                <p className="mx-auto mt-3 max-w-[15rem] text-sm leading-6 text-[#4f4940] md:mt-5">
+                <h3 className="mt-3 text-base font-medium text-[#4f4940] md:mt-5">
+                  {commitment.title}
+                </h3>
+                <p className="mx-auto mt-1 max-w-[17rem] text-sm leading-6 text-[#4f4940]">
                   {commitment.description}
                 </p>
               </div>
