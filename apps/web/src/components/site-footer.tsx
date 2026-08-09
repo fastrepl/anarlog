@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 
 export function SiteFooter() {
   return (
-    <footer className="mx-auto flex w-full max-w-[700px] flex-wrap items-center justify-between gap-5 px-5 py-8 text-xs text-[#4f4940] md:px-8">
+    <footer className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-5 px-5 py-8 text-xs text-[#4f4940] md:px-8">
       <a
         href="https://fastrepl.com"
         target="_blank"
@@ -21,6 +21,9 @@ export function SiteFooter() {
           className="hover:text-[#181613]"
         >
           GitHub
+        </a>
+        <a href="https://x.com/anarlogapp" className="hover:text-[#181613]">
+          X
         </a>
         <Link to="/discord/" className="hover:text-[#181613]">
           Discord
