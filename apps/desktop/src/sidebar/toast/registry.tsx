@@ -274,7 +274,10 @@ export function getToastToShow(
   isDismissed: (id: string) => boolean,
 ): ToastType | null {
   for (const entry of registry) {
-    if (entry.condition() && !isDismissed(entry.toast.id)) {
+    if (
+      entry.condition() &&
+      (!entry.toast.dismissible || !isDismissed(entry.toast.id))
+    ) {
       return entry.toast;
     }
   }

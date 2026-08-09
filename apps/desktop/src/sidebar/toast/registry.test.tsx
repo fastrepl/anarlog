@@ -54,6 +54,18 @@ describe("sidebar toast registry", () => {
     expect(toast?.dismissible).toBe(false);
   });
 
+  it("shows required setup even if it was dismissed previously", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        hasLLMConfigured: false,
+      }),
+      (id) => id === "missing-llm",
+    );
+
+    expect(toast?.id).toBe("missing-llm");
+  });
+
   it("keeps the missing transcription provider message short", () => {
     const toast = getToastToShow(
       createToastRegistry({
