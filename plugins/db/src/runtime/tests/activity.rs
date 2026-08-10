@@ -679,3 +679,18 @@ fn cloudsync_activity_identifiers_are_bounded() {
     assert!(normalized_cloudsync_activity_part("a".repeat(33), "activity").is_err());
     assert!(normalized_cloudsync_activity_part("k".repeat(129), "key").is_err());
 }
+
+#[test]
+fn focus_nudges_are_throttled() {
+    let base = std::time::Instant::now();
+
+    assert!(focus_nudge_due(None, base));
+    assert!(!focus_nudge_due(
+        Some(base),
+        base + std::time::Duration::from_secs(1)
+    ));
+    assert!(focus_nudge_due(
+        Some(base),
+        base + CLOUDSYNC_FOCUS_NUDGE_THROTTLE
+    ));
+}

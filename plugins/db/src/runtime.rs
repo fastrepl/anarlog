@@ -45,6 +45,11 @@ const E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT: i64 = 64;
 const CLOUDSYNC_WRITE_FILTER: &str =
     "workspace_id IN (SELECT allowed_workspace_id FROM cloudsync_writable_workspaces)";
 const CLOUDSYNC_CAPTURE_ACTIVITY: &str = "capture";
+const CLOUDSYNC_FOCUS_NUDGE_THROTTLE: std::time::Duration = std::time::Duration::from_secs(10);
+
+fn focus_nudge_due(last: Option<std::time::Instant>, now: std::time::Instant) -> bool {
+    last.is_none_or(|last| now.duration_since(last) >= CLOUDSYNC_FOCUS_NUDGE_THROTTLE)
+}
 
 #[derive(Clone)]
 pub struct QueryEventChannel(Channel<QueryEvent>);
@@ -137,6 +142,7 @@ pub struct PluginDbRuntime {
     cloudsync_activity_acquisition: tokio::sync::Mutex<()>,
     cloudsync_auth_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
     cloudsync_auth_changed: std::sync::Arc<tokio::sync::Notify>,
+    cloudsync_focus_nudge_at: std::sync::Mutex<Option<std::time::Instant>>,
     #[cfg(test)]
     pause_transaction_after_begin: std::sync::atomic::AtomicBool,
     #[cfg(test)]
@@ -193,6 +199,7 @@ impl PluginDbRuntime {
             cloudsync_activity_acquisition: Default::default(),
             cloudsync_auth_generation: Default::default(),
             cloudsync_auth_changed: Default::default(),
+            cloudsync_focus_nudge_at: Default::default(),
             #[cfg(test)]
             pause_transaction_after_begin: Default::default(),
             #[cfg(test)]
@@ -213,6 +220,20 @@ impl PluginDbRuntime {
 
     pub fn pool(&self) -> &sqlx::SqlitePool {
         self.db.pool()
+    }
+
+    /// Ask CloudSync to pull promptly when the user comes back to the app,
+    /// throttled so rapid window switches do not stack sync rounds.
+    pub fn nudge_cloudsync_on_focus(&self) {
+        let now = std::time::Instant::now();
+        {
+            let mut last = self.cloudsync_focus_nudge_at.lock().unwrap();
+            if !focus_nudge_due(*last, now) {
+                return;
+            }
+            *last = Some(now);
+        }
+        self.db.cloudsync_request_sync();
     }
 
     #[cfg(test)]

@@ -202,6 +202,7 @@ pub(super) fn record_sync_error(
 }
 const MAX_BACKOFF_SECS: u64 = 300;
 pub(super) const CLOUDSYNC_PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
+pub(super) const CLOUDSYNC_CHANGE_DEBOUNCE: Duration = Duration::from_secs(1);
 
 pub(super) struct CloudsyncStepResult {
     pub(super) network: CloudsyncNetworkResult,
@@ -224,6 +225,8 @@ pub(super) struct CloudsyncLoopContext {
     pub(super) interrupt: Arc<super::super::CloudsyncInterruptHandle>,
     pub(super) sync_operation: Arc<tokio::sync::Mutex<()>>,
     pub(super) sync_requested: Arc<tokio::sync::Notify>,
+    pub(super) change_rx: tokio::sync::broadcast::Receiver<anlg_db_change::TableChange>,
+    pub(super) synced_tables: std::collections::HashSet<String>,
     pub(super) runtime_state: Arc<Mutex<CloudsyncRuntimeState>>,
     pub(super) sync_hook: Arc<Mutex<Option<Arc<dyn super::super::CloudsyncSyncHook>>>>,
     pub(super) config: CloudsyncLoopConfig,
@@ -233,6 +236,7 @@ pub(super) struct CloudsyncLoopContext {
 pub(super) enum CloudsyncWake {
     Interval,
     Requested,
+    Changed,
 }
 
 pub(super) fn cloudsync_request_pending(request_pending: bool, wake: CloudsyncWake) -> bool {
@@ -247,38 +251,101 @@ pub(super) fn cloudsync_busy_delay(request_pending: bool, interval: Duration) ->
     }
 }
 
+pub(super) fn cloudsync_wake_deadline(
+    next_sync_deadline: tokio::time::Instant,
+    change_deadline: Option<tokio::time::Instant>,
+) -> tokio::time::Instant {
+    change_deadline.map_or(next_sync_deadline, |deadline| {
+        deadline.min(next_sync_deadline)
+    })
+}
+
+/// Completes when a commit touches a CloudSync-relevant table. Irrelevant
+/// tables are skipped without completing so a pending interval timer keeps
+/// its deadline; a lagged subscription wakes conservatively.
+pub(super) async fn next_synced_change(
+    change_rx: &mut tokio::sync::broadcast::Receiver<anlg_db_change::TableChange>,
+    synced_tables: &std::collections::HashSet<String>,
+    closed: &mut bool,
+) {
+    if *closed {
+        return std::future::pending().await;
+    }
+    loop {
+        match change_rx.recv().await {
+            Ok(change) => {
+                if synced_tables.contains(&change.table.to_ascii_lowercase()) {
+                    return;
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => return,
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                *closed = true;
+                return std::future::pending().await;
+            }
+        }
+    }
+}
+
+/// Change events emitted while a sync applied remote rows (or reconciled
+/// them) are echoes of that sync, not new local work; drop them so they do
+/// not immediately schedule another round.
+pub(super) fn drain_pending_changes(
+    change_rx: &mut tokio::sync::broadcast::Receiver<anlg_db_change::TableChange>,
+) {
+    while let Ok(_) | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) =
+        change_rx.try_recv()
+    {}
+}
+
 pub(super) async fn cloudsync_background_loop(
-    context: CloudsyncLoopContext,
+    mut context: CloudsyncLoopContext,
     mut shutdown_rx: oneshot::Receiver<()>,
 ) {
-    let mut next_sync_delay = cloudsync_next_delay(None, false, context.config.interval);
+    let mut next_sync_deadline =
+        tokio::time::Instant::now() + cloudsync_next_delay(None, false, context.config.interval);
+    let mut change_deadline: Option<tokio::time::Instant> = None;
     let mut request_pending = false;
+    let mut change_rx_closed = false;
     loop {
         let wake = tokio::select! {
             biased;
             _ = &mut shutdown_rx => break,
             _ = context.sync_requested.notified() => CloudsyncWake::Requested,
-            _ = tokio::time::sleep(next_sync_delay) => CloudsyncWake::Interval,
+            _ = tokio::time::sleep_until(cloudsync_wake_deadline(next_sync_deadline, change_deadline)) => CloudsyncWake::Interval,
+            _ = next_synced_change(&mut context.change_rx, &context.synced_tables, &mut change_rx_closed) => CloudsyncWake::Changed,
         };
+        if wake == CloudsyncWake::Changed {
+            change_deadline = Some(tokio::time::Instant::now() + CLOUDSYNC_CHANGE_DEBOUNCE);
+            continue;
+        }
         request_pending = cloudsync_request_pending(request_pending, wake);
         let Ok(sync_available) = context.sync_operation.try_lock() else {
             tracing::debug!("cloudsync interval skipped because another sync is active");
-            next_sync_delay = cloudsync_busy_delay(request_pending, context.config.interval);
+            let now = tokio::time::Instant::now();
+            next_sync_deadline =
+                now + cloudsync_busy_delay(request_pending, context.config.interval);
+            if change_deadline.is_some() {
+                change_deadline = Some(now + CLOUDSYNC_PROGRESS_INTERVAL);
+            }
             continue;
         };
         drop(sync_available);
         request_pending = false;
+        change_deadline = None;
         let Some(result) = sync_cloudsync_with_retry(&context, &mut shutdown_rx).await else {
             break;
         };
+        drain_pending_changes(&mut context.change_rx);
 
         match result {
             Ok(CloudsyncStepOutcome::Completed(step)) => {
-                next_sync_delay = cloudsync_next_delay(
-                    Some(&step.network),
-                    step.local_work_remaining,
-                    context.config.interval,
-                );
+                next_sync_deadline = tokio::time::Instant::now()
+                    + cloudsync_next_delay(
+                        Some(&step.network),
+                        step.local_work_remaining,
+                        context.config.interval,
+                    );
                 record_sync_result(
                     &context.runtime_state,
                     step.network,
@@ -287,7 +354,7 @@ pub(super) async fn cloudsync_background_loop(
                 );
             }
             Ok(CloudsyncStepOutcome::Deferred) => {
-                next_sync_delay = context.config.interval;
+                next_sync_deadline = tokio::time::Instant::now() + context.config.interval;
             }
             Err(error) => {
                 record_sync_error(

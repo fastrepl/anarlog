@@ -313,6 +313,16 @@ pub fn init_with_cloudsync<R: tauri::Runtime>(
             app.manage(std::sync::Arc::new(runtime::PluginDbRuntime::new(db)));
             Ok(())
         })
+        .on_event(|app, event| {
+            if let tauri::RunEvent::WindowEvent {
+                event: tauri::WindowEvent::Focused(true),
+                ..
+            } = event
+                && let Some(runtime) = app.try_state::<ManagedState>()
+            {
+                runtime.nudge_cloudsync_on_focus();
+            }
+        })
         .build()
 }
 

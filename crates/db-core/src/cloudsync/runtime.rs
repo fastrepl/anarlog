@@ -14,8 +14,9 @@ pub(super) use background::cloudsync_activity_paused;
 #[cfg(test)]
 use background::{
     CLOUDSYNC_PROGRESS_INTERVAL, CloudsyncWake, MAX_ACTIVITY_LOG_ENTRIES, cloudsync_busy_delay,
-    cloudsync_next_delay, cloudsync_request_pending, merge_bounded_sync_results,
-    run_after_sync_hook, run_before_sync_hook, run_or_shutdown, sync_result_needs_receive_progress,
+    cloudsync_next_delay, cloudsync_request_pending, cloudsync_wake_deadline,
+    drain_pending_changes, merge_bounded_sync_results, next_synced_change, run_after_sync_hook,
+    run_before_sync_hook, run_or_shutdown, sync_result_needs_receive_progress,
     wait_for_retry_request_or_shutdown,
 };
 use background::{
@@ -254,6 +255,16 @@ impl Db {
             interrupt,
             sync_operation,
             sync_requested,
+            change_rx: self.change_notifier().subscribe(),
+            // Every registry table, enabled or not: in E2EE mode the app tables
+            // are disabled (only e2ee_records syncs directly) yet their writes
+            // must still wake the loop, since the reconcile hook picks them up
+            // at sync time.
+            synced_tables: config
+                .tables
+                .iter()
+                .map(|table| table.table_name.to_ascii_lowercase())
+                .collect(),
             runtime_state,
             sync_hook,
             config: CloudsyncLoopConfig {
