@@ -111,6 +111,7 @@ static CLOUDSYNC_TABLE_REGISTRY: LazyLock<Vec<CloudsyncTableSpec>> = LazyLock::n
         ("session_participants", false),
         ("session_tags", false),
         ("sessions", false),
+        ("synced_preferences", false),
         ("tags", false),
         ("templates", false),
         ("transcripts", false),

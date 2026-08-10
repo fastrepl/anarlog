@@ -19,6 +19,7 @@ import {
 } from "~/settings/legacy-snapshots";
 import {
   SETTING_DEFINITIONS,
+  SYNCED_SETTING_KEYS,
   type SettingKey,
   type SettingValue,
   type SettingValues,
@@ -54,13 +55,18 @@ const MIGRATED_SUMMARY_INSTRUCTIONS_HEADER = `# Custom Summary Instructions
 
 For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.`;
 
+// Synced rows sort after device rows so parseSettingRows' last-write-wins map
+// prefers the synced value when a key exists in both tables.
+const SETTING_ROWS_SQL = `
+  SELECT id, value_json, 0 AS source_rank FROM app_settings
+  UNION ALL
+  SELECT id, value_json, 1 AS source_rank FROM synced_preferences
+  ORDER BY id, source_rank
+`;
+
 export function useStoredSettingValuesQuery() {
   return useLiveQuery<AppSettingRow, StoredSettingValues>({
-    sql: `
-      SELECT id, value_json
-      FROM app_settings
-      ORDER BY id
-    `,
+    sql: SETTING_ROWS_SQL,
     mapRows: parseSettingRows,
   });
 }
@@ -89,9 +95,7 @@ export function useStoredSettingValue<K extends SettingKey>(
 }
 
 export async function getStoredSettingValues(): Promise<StoredSettingValues> {
-  const rows = await liveQueryClient.execute<AppSettingRow>(
-    `SELECT id, value_json FROM app_settings ORDER BY id`,
-  );
+  const rows = await liveQueryClient.execute<AppSettingRow>(SETTING_ROWS_SQL);
   return parseSettingRows(rows);
 }
 
@@ -283,7 +287,20 @@ export function parseSettingRows(rows: AppSettingRow[]): StoredSettingValues {
 async function persistSettingValues(values: SettingValues): Promise<void> {
   const now = new Date().toISOString();
   const statements = Object.entries(values).map(([key, value]) => ({
-    sql: `
+    sql: SYNCED_SETTING_KEYS.has(key as SettingKey)
+      ? `
+      INSERT INTO synced_preferences (id, workspace_id, value_json, updated_at)
+      VALUES (?, NULLIF((
+        SELECT json_extract(value_json, '$.workspace_id')
+        FROM app_settings
+        WHERE id = 'cloudsync_workspace_binding'
+      ), ''), ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        workspace_id = excluded.workspace_id,
+        value_json = excluded.value_json,
+        updated_at = excluded.updated_at
+    `
+      : `
       INSERT INTO app_settings (id, value_json, updated_at)
       VALUES (?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET

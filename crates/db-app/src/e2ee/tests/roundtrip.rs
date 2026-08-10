@@ -114,6 +114,7 @@ async fn reconstructs_every_protected_table_and_applies_deletions() {
         ("session_documents", "document-1"),
         ("session_participants", "participant-1"),
         ("sessions", "session-1"),
+        ("synced_preferences", "preference-1"),
         ("transcripts", "transcript-1"),
     ] {
         let sql = format!("INSERT INTO {table} (id, workspace_id) VALUES (?, 'workspace-a')");

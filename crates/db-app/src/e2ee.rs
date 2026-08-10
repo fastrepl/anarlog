@@ -31,6 +31,7 @@ pub const E2EE_DOMAIN_TABLES: &[&str] = &[
     "session_documents",
     "session_participants",
     "sessions",
+    "synced_preferences",
     "transcripts",
 ];
 

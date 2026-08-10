@@ -73,11 +73,13 @@ export const SETTING_DEFINITIONS = {
     type: "string",
     path: ["general", "theme"],
     default: "system" as string,
+    synced: true,
   },
   app_icon: {
     type: "string",
     path: ["general", "app_icon"],
     default: "default" as string,
+    synced: true,
   },
   save_recordings: {
     type: "boolean",
@@ -197,6 +199,7 @@ export const SETTING_DEFINITIONS = {
   week_start: {
     type: "string",
     path: ["general", "week_start"],
+    synced: true,
   },
   selected_template_id: {
     type: "string",
@@ -295,6 +298,14 @@ export const SETTING_DEFINITIONS = {
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;
+
+// Keys marked `synced` persist to the E2EE-replicated synced_preferences table
+// instead of the device-local app_settings table.
+export const SYNCED_SETTING_KEYS: ReadonlySet<SettingKey> = new Set(
+  (Object.keys(SETTING_DEFINITIONS) as SettingKey[]).filter(
+    (key) => "synced" in SETTING_DEFINITIONS[key],
+  ),
+);
 
 type SettingTypeMap = {
   boolean: boolean;

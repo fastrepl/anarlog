@@ -614,6 +614,13 @@ export const appSettings = sqliteTable("app_settings", {
   updatedAt: text("updated_at").notNull().default(currentTimestamp),
 });
 
+export const syncedPreferences = sqliteTable("synced_preferences", {
+  id: text("id").primaryKey().notNull(),
+  workspaceId: text("workspace_id").notNull().default(""),
+  valueJson: text("value_json").notNull().default("null"),
+  updatedAt: text("updated_at").notNull().default(currentTimestamp),
+});
+
 export const migrationImportRuns = sqliteTable("migration_import_runs", {
   id: text("id").primaryKey().notNull(),
   importerVersion: integer("importer_version").notNull().default(1),

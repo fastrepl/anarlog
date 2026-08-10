@@ -73,6 +73,7 @@ async fn migrations_apply_cleanly() {
             "shared_session_attachment_cache",
             "shared_session_cache",
             "storage_migration_state",
+            "synced_preferences",
             "tags",
             "templates",
             "transcripts",
@@ -235,7 +236,11 @@ async fn search_index_migrations_apply_to_initialized_cloudsync_tables() {
     )
     .await
     .unwrap();
-    for table_name in E2EE_DOMAIN_TABLES {
+    // synced_preferences does not exist yet at this point in the migration history.
+    for table_name in E2EE_DOMAIN_TABLES
+        .iter()
+        .filter(|table_name| **table_name != "synced_preferences")
+    {
         db.cloudsync_init(table_name, None, None).await.unwrap();
     }
 
@@ -370,6 +375,69 @@ async fn prepare_schema_recreates_templates_after_repair_migration_was_already_a
     assert_eq!(
         icon_json,
         r##"{"type":"icon","value":"notebook-tabs","color":"#9ca3af"}"##
+    );
+}
+
+#[tokio::test]
+async fn synced_preferences_backfill_reads_legacy_documents() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260810120000_synced_preferences"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    sqlx::query(
+        r#"INSERT INTO app_settings (id, value_json, updated_at) VALUES
+             ('cloudsync_workspace_binding', '{"workspace_id":"ws-1"}', '2026-08-01T00:00:00.000Z'),
+             ('theme', '"dark"', '2026-08-02T00:00:00.000Z'),
+             ('legacy_settings_document',
+              '{"general":{"theme":"light","app_icon":"classic"}}',
+              '2026-08-03T00:00:00.000Z'),
+             ('legacy_main_values_document',
+              '{"app_icon":"shadowed","week_start":"monday"}',
+              '2026-08-04T00:00:00.000Z')"#,
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+
+    let rows = sqlx::query_as::<_, (String, String, String, String)>(
+        "SELECT id, workspace_id, value_json, updated_at FROM synced_preferences ORDER BY id",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+
+    assert_eq!(
+        rows,
+        vec![
+            (
+                "app_icon".to_string(),
+                "ws-1".to_string(),
+                "\"classic\"".to_string(),
+                "2026-08-03T00:00:00.000Z".to_string(),
+            ),
+            (
+                "theme".to_string(),
+                "ws-1".to_string(),
+                "\"dark\"".to_string(),
+                "2026-08-02T00:00:00.000Z".to_string(),
+            ),
+            (
+                "week_start".to_string(),
+                "ws-1".to_string(),
+                "\"monday\"".to_string(),
+                "2026-08-04T00:00:00.000Z".to_string(),
+            ),
+        ],
+        "direct rows win, then the settings document, then the main values document"
     );
 }
 

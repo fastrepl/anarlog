@@ -150,16 +150,27 @@ describe("SQLite settings", () => {
 
     const statements = mocks.executeTransaction.mock.calls[0][0];
     expect(statements).toHaveLength(2);
-    expect(statements[0].sql).toContain("INSERT INTO app_settings");
+    expect(statements[0].sql).toContain("INSERT INTO synced_preferences");
+    expect(statements[0].sql).toContain("cloudsync_workspace_binding");
     expect(statements[0].sql).toContain("ON CONFLICT(id) DO UPDATE");
     expect(statements[0].params.slice(0, 2)).toEqual([
       "theme",
       JSON.stringify("dark"),
     ]);
+    expect(statements[1].sql).toContain("INSERT INTO app_settings");
     expect(statements[1].params.slice(0, 2)).toEqual([
       "notification_event",
       JSON.stringify(false),
     ]);
+  });
+
+  it("prefers the synced row over a stale device-local row", () => {
+    const result = parseSettingRows([
+      { id: "theme", value_json: JSON.stringify("light") },
+      { id: "theme", value_json: JSON.stringify("dark") },
+    ]);
+
+    expect(result.values.theme).toBe("dark");
   });
 
   it("applies the automatic update policy when it changes", async () => {

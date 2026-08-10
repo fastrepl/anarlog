@@ -283,6 +283,30 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260804110000_session_share_activation.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260810120000_synced_preferences",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260810120000_synced_preferences.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260810120100_e2ee_dirty_synced_preferences_triggers",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "synced_preferences",
+        },
+        sql: include_str!(
+            "../migrations/20260810120100_e2ee_dirty_synced_preferences_triggers.sql"
+        ),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260810120200_synced_preferences_backfill",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260810120200_synced_preferences_backfill.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260810120300_synced_preferences_backfill_legacy",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260810120300_synced_preferences_backfill_legacy.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

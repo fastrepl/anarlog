@@ -9,7 +9,7 @@ fn cloudsync_registry_enables_only_the_encrypted_replica() {
         .map(|table| table.table_name.as_str())
         .collect();
 
-    assert_eq!(registry.len(), 20);
+    assert_eq!(registry.len(), 21);
     assert_eq!(enabled, vec!["e2ee_records"]);
     assert!(
         !registry
@@ -33,6 +33,7 @@ fn cloudsync_registry_enables_only_the_encrypted_replica() {
             .any(|table| { table.table_name == "workspace_memberships" && !table.enabled })
     );
     assert!(cloudsync_alter_guard_required("sessions"));
+    assert!(cloudsync_alter_guard_required("synced_preferences"));
     assert!(cloudsync_alter_guard_required("e2ee_records"));
     assert!(!cloudsync_alter_guard_required("workspaces"));
     assert!(!cloudsync_alter_guard_required("workspace_memberships"));
@@ -249,7 +250,7 @@ fn e2ee_dirty_rows_is_local_only_with_scoped_domain_triggers() {
 
     let trigger_migrations: Vec<_> = APP_MIGRATION_STEPS
         .iter()
-        .filter(|step| step.id.starts_with("2026072312") && step.id.ends_with("_triggers"))
+        .filter(|step| step.id.contains("_e2ee_dirty_") && step.id.ends_with("_triggers"))
         .collect();
     assert_eq!(trigger_migrations.len(), E2EE_DOMAIN_TABLES.len());
     for table_name in E2EE_DOMAIN_TABLES {
@@ -275,7 +276,13 @@ async fn e2ee_dirty_rows_migration_seeds_existing_domain_rows_and_tombstones() {
     .await
     .unwrap();
 
-    for table_name in E2EE_DOMAIN_TABLES {
+    // Only the domain tables that predate the dirty-rows migration were backfilled.
+    let backfilled_tables: Vec<&str> = E2EE_DOMAIN_TABLES
+        .iter()
+        .copied()
+        .filter(|table_name| *table_name != "synced_preferences")
+        .collect();
+    for table_name in &backfilled_tables {
         let insert_sql = format!(
             "INSERT INTO {table_name} (id, workspace_id, deleted_at)
                  VALUES (?, 'workspace-a', NULL), (?, 'workspace-a', '2026-07-23T00:00:00Z')"
@@ -309,8 +316,8 @@ async fn e2ee_dirty_rows_migration_seeds_existing_domain_rows_and_tombstones() {
     .fetch_all(db.pool())
     .await
     .unwrap();
-    assert_eq!(dirty_rows.len(), E2EE_DOMAIN_TABLES.len() * 3);
-    for table_name in E2EE_DOMAIN_TABLES {
+    assert_eq!(dirty_rows.len(), backfilled_tables.len() * 3);
+    for table_name in &backfilled_tables {
         assert!(dirty_rows.contains(&(
             "workspace-a".to_string(),
             table_name.to_string(),
@@ -330,6 +337,103 @@ async fn e2ee_dirty_rows_migration_seeds_existing_domain_rows_and_tombstones() {
             1,
         )));
     }
+}
+
+#[tokio::test]
+async fn synced_preferences_migration_backfills_settings_and_marks_them_dirty() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260810120000_synced_preferences"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    sqlx::raw_sql(
+        "INSERT INTO app_settings (id, value_json, updated_at) VALUES
+           ('cloudsync_workspace_binding', '{\"workspace_id\":\"workspace-a\"}', '2026-08-10T00:00:00Z'),
+           ('theme', '\"dark\"', '2026-08-01T00:00:00Z'),
+           ('app_icon', '\"anagram\"', '2026-08-02T00:00:00Z'),
+           ('microphone_device', '\"builtin\"', '2026-08-03T00:00:00Z')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+
+    let preferences: Vec<(String, String, String, String)> = sqlx::query_as(
+        "SELECT id, workspace_id, value_json, updated_at
+             FROM synced_preferences
+             ORDER BY id",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        preferences,
+        vec![
+            (
+                "app_icon".to_string(),
+                "workspace-a".to_string(),
+                "\"anagram\"".to_string(),
+                "2026-08-02T00:00:00Z".to_string(),
+            ),
+            (
+                "theme".to_string(),
+                "workspace-a".to_string(),
+                "\"dark\"".to_string(),
+                "2026-08-01T00:00:00Z".to_string(),
+            ),
+        ]
+    );
+
+    let dirty_rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT workspace_id, row_id
+             FROM e2ee_dirty_rows
+             WHERE table_name = 'synced_preferences'
+             ORDER BY row_id",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        dirty_rows,
+        vec![
+            ("workspace-a".to_string(), "app_icon".to_string()),
+            ("workspace-a".to_string(), "theme".to_string()),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn synced_preferences_backfill_is_skipped_without_a_workspace_binding() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260810120000_synced_preferences"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    sqlx::query("INSERT INTO app_settings (id, value_json) VALUES ('theme', '\"dark\"')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+
+    let preference_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM synced_preferences")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(preference_count, 0);
 }
 
 #[tokio::test]
@@ -541,7 +645,11 @@ async fn e2ee_dirty_triggers_apply_to_initialized_cloudsync_tables() {
     )
     .await
     .unwrap();
-    for table_name in E2EE_DOMAIN_TABLES {
+    // synced_preferences does not exist yet at this point in the migration history.
+    for table_name in E2EE_DOMAIN_TABLES
+        .iter()
+        .filter(|table_name| **table_name != "synced_preferences")
+    {
         db.cloudsync_init(table_name, None, None).await.unwrap();
     }
 
