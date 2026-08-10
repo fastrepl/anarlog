@@ -287,15 +287,30 @@ pub(super) async fn next_synced_change(
     }
 }
 
-/// Change events emitted while a sync applied remote rows (or reconciled
-/// them) are echoes of that sync, not new local work; drop them so they do
-/// not immediately schedule another round.
+/// Change events that arrive while a sync is in flight mix echoes of that
+/// sync (applied remote rows, hook reconciliation) with real concurrent
+/// local commits, and the two are indistinguishable. Drain the queue so
+/// echoes cannot immediately schedule another round, but report whether a
+/// synced-table event was dropped so the caller can debounce one follow-up
+/// round; when the events were only echoes that round finds nothing,
+/// writes nothing, and the loop settles. A lagged subscription reports
+/// conservatively.
 pub(super) fn drain_pending_changes(
     change_rx: &mut tokio::sync::broadcast::Receiver<anlg_db_change::TableChange>,
-) {
-    while let Ok(_) | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) =
-        change_rx.try_recv()
-    {}
+    synced_tables: &std::collections::HashSet<String>,
+) -> bool {
+    let mut synced_change_seen = false;
+    loop {
+        match change_rx.try_recv() {
+            Ok(change) => {
+                synced_change_seen |= synced_tables.contains(&change.table.to_ascii_lowercase());
+            }
+            Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {
+                synced_change_seen = true;
+            }
+            Err(_) => return synced_change_seen,
+        }
+    }
 }
 
 pub(super) async fn cloudsync_background_loop(
@@ -336,7 +351,9 @@ pub(super) async fn cloudsync_background_loop(
         let Some(result) = sync_cloudsync_with_retry(&context, &mut shutdown_rx).await else {
             break;
         };
-        drain_pending_changes(&mut context.change_rx);
+        if drain_pending_changes(&mut context.change_rx, &context.synced_tables) {
+            change_deadline = Some(tokio::time::Instant::now() + CLOUDSYNC_CHANGE_DEBOUNCE);
+        }
 
         match result {
             Ok(CloudsyncStepOutcome::Completed(step)) => {
