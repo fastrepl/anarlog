@@ -244,6 +244,98 @@ describe("inferAutomaticSpeakerAssignments", () => {
     ]);
   });
 
+  it("continues after one candidate attribution fails", async () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.generateText
+      .mockRejectedValueOnce(new Error("Invalid speaker attribution JSON"))
+      .mockImplementationOnce(({ prompt }: { prompt: string }) => {
+        const payload = JSON.parse(prompt) as {
+          clusters: Array<{
+            cluster_id: string;
+            evidence: { id: string };
+          }>;
+        };
+        const cluster = payload.clusters.find((candidate) =>
+          candidate.cluster_id.endsWith(":0"),
+        )!;
+        return Promise.resolve({
+          text: JSON.stringify({
+            mapping: {
+              cluster_id: cluster.cluster_id,
+              confidence: 0.98,
+              evidence_id: cluster.evidence.id,
+            },
+          }),
+        });
+      });
+
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary:
+        "Lex Fridman asked about Llama. George Hotz said Zuckerberg is a good guy.",
+      model: {} as LanguageModel,
+      snapshot: createSnapshot(),
+      signal: new AbortController().signal,
+    });
+
+    expect(automaticHumanIds(updates[0]!)).toEqual([
+      "human-lex",
+      "human-george",
+    ]);
+    expect(consoleWarn).toHaveBeenCalledOnce();
+    consoleWarn.mockRestore();
+  });
+
+  it("uses public evidence with Apple when the summary omits participant names", async () => {
+    mocks.generateText.mockImplementation(({ prompt }: { prompt: string }) => {
+      expect(prompt).toMatch(
+        /^Here is the U\.S\. English meeting data to evaluate:\n/,
+      );
+      const payload = JSON.parse(prompt.slice(prompt.indexOf("\n") + 1)) as {
+        candidate: { human_id: string; summary_mentions: unknown[] };
+        clusters: Array<{
+          cluster_id: string;
+          evidence: { id: string };
+        }>;
+      };
+      expect(payload.candidate.summary_mentions).toEqual([]);
+
+      if (payload.candidate.human_id === "human-george") {
+        const cluster = payload.clusters.find((candidate) =>
+          candidate.cluster_id.endsWith(":1"),
+        )!;
+        return Promise.resolve({
+          text: JSON.stringify({
+            mapping: {
+              cluster_id: cluster.cluster_id,
+              confidence: 0.98,
+              evidence_id: cluster.evidence.id,
+            },
+          }),
+        });
+      }
+
+      return Promise.resolve({
+        text: JSON.stringify({ mapping: null }),
+      });
+    });
+
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary: "The conversation explored open source AI.",
+      model: {
+        provider: "apple_foundation",
+        modelId: "System Language Model",
+      } as unknown as LanguageModel,
+      snapshot: createSnapshot(),
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(automaticHumanIds(updates[0]!)).toEqual([
+      "human-lex",
+      "human-george",
+    ]);
+  });
+
   it("matches unique given names in generated summaries", async () => {
     mockDirectCandidateMatches();
 
