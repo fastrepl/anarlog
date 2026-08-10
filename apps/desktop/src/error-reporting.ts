@@ -10,6 +10,47 @@ type ErrorContextValue = null | boolean | number | string;
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z0-9_.:/-]{1,128}$/;
 const SESSION_REPLAY_DISABLED_EVENT = "anlg:session-replay-disabled";
 
+// Failures caused by the user's own account state (exhausted credits, expired
+// plans, bad API keys) are not actionable for engineering, so they never reach
+// Sentry. Keep in sync with `crates/user-error`.
+const USER_ERROR_MARKERS = [
+  "billing_hard_limit_reached",
+  "credit balance is too low",
+  "exceeded your current quota",
+  "incorrect api key",
+  "insufficient balance",
+  "insufficient credits",
+  "insufficient funds",
+  "insufficient_quota",
+  "invalid api key",
+  "invalid x-api-key",
+  "invalid_api_key",
+  "not enough credits",
+  "payment required",
+  "plans & billing",
+  "plans and billing",
+  "quota exceeded",
+  "upgrade or purchase credits",
+];
+
+function serializeForUserErrorMatch(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value instanceof Error) {
+    return `${value.name}: ${value.message} ${serializeForUserErrorMatch({ ...value })}`;
+  }
+
+  try {
+    return JSON.stringify(value) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function isUserError(value: unknown): boolean {
+  const text = serializeForUserErrorMatch(value).toLowerCase();
+  return USER_ERROR_MARKERS.some((marker) => text.includes(marker));
+}
+
 function safeIdentifier(value: unknown): string | undefined {
   return typeof value === "string" && SAFE_IDENTIFIER_RE.test(value)
     ? value
@@ -87,7 +128,9 @@ function sanitizeUrl(value: string | undefined) {
   }
 }
 
-export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent {
+export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent | null {
+  if (isUserError(event)) return null;
+
   if (event.user) {
     event.user = event.user.id ? { id: event.user.id } : undefined;
   }
@@ -222,6 +265,8 @@ export function captureOperationalError(
     context?: Record<string, ErrorContextValue>;
   },
 ) {
+  if (isUserError(error)) return;
+
   const metadata = operationalErrorMetadata(error);
   const exception = normalizeOperationalError(error, operation);
 

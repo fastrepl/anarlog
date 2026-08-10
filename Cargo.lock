@@ -405,6 +405,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "url",
+ "user-error",
 ]
 
 [[package]]
@@ -593,6 +594,7 @@ dependencies = [
  "tracing-subscriber",
  "transcribe-proxy",
  "url",
+ "user-error",
  "utoipa",
  "wiremock",
 ]
@@ -19228,6 +19230,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "user-error",
 ]
 
 [[package]]
@@ -21736,6 +21739,13 @@ dependencies = [
  "serde",
  "unic-ucd-ident",
  "url",
+]
+
+[[package]]
+name = "user-error"
+version = "0.1.0"
+dependencies = [
+ "sentry",
 ]
 
 [[package]]

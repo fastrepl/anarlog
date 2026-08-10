@@ -260,6 +260,10 @@ fn sanitize_sentry_event_with_home(
 }
 
 pub fn sanitize_sentry_event(event: Event<'static>) -> Option<Event<'static>> {
+    if anlg_user_error::is_user_error_event(&event) {
+        return None;
+    }
+
     let home_dir = dirs::home_dir().map(|path| path.to_string_lossy().into_owned());
     Some(sanitize_sentry_event_with_home(event, home_dir.as_deref()))
 }
@@ -618,6 +622,19 @@ mod tests {
             Some(&Value::String("[HOME]/src/download_task.rs".to_string()))
         );
         assert!(!location.contains_key("private"));
+    }
+
+    #[test]
+    fn sentry_event_dropped_when_caused_by_user_account_state() {
+        let event = Event {
+            message: Some(
+                "[Object {\"data\": Object {\"error\": Object {\"message\": String(\"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.\")}}}]"
+                    .to_string(),
+            ),
+            ..Default::default()
+        };
+
+        assert!(sanitize_sentry_event(event).is_none());
     }
 
     #[test]

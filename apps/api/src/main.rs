@@ -609,6 +609,7 @@ fn main() -> std::io::Result<()> {
         session_mode: sentry::SessionMode::Request,
         attach_stacktrace: true,
         max_breadcrumbs: 100,
+        before_send: Some(Arc::new(anlg_user_error::drop_user_error_event)),
         ..Default::default()
     });
 

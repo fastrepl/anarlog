@@ -11,6 +11,7 @@ path = "src/main.rs"
 anlg-agent-access = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
+anlg-user-error = { workspace = true }
 
 clap = { workspace = true, features = ["derive", "env"] }
 dirs = { workspace = true }

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   publicStopReplay: vi.fn(),
   replayIntegration: vi.fn(),
   stopReplay: vi.fn(),
+  withScope: vi.fn(),
 }));
 
 vi.mock("@sentry/react", () => ({
@@ -19,7 +20,7 @@ vi.mock("@sentry/react", () => ({
   init: vi.fn(),
   replayIntegration: mocks.replayIntegration,
   setUser: vi.fn(),
-  withScope: vi.fn(),
+  withScope: mocks.withScope,
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -39,6 +40,7 @@ vi.mock("./env", () => ({
 }));
 
 import {
+  captureOperationalError,
   normalizeOperationalError,
   operationalErrorMetadata,
   sanitizeErrorEvent,
@@ -169,15 +171,15 @@ describe("sanitizeErrorEvent", () => {
       ],
     });
 
-    expect(event.user).toEqual({ id: "user-1" });
-    expect(event.request).toEqual({
+    expect(event?.user).toEqual({ id: "user-1" });
+    expect(event?.request).toEqual({
       method: "POST",
       url: "https://anarlog.so/note/123",
     });
-    expect(event.extra).toBeUndefined();
-    expect(event.message).toBeUndefined();
-    expect(event.logentry).toBeUndefined();
-    expect(event.exception?.values).toEqual([
+    expect(event?.extra).toBeUndefined();
+    expect(event?.message).toBeUndefined();
+    expect(event?.logentry).toBeUndefined();
+    expect(event?.exception?.values).toEqual([
       {
         type: "RouteError",
         value: "RouteError captured",
@@ -187,7 +189,7 @@ describe("sanitizeErrorEvent", () => {
         },
       },
     ]);
-    expect(event.breadcrumbs).toEqual([
+    expect(event?.breadcrumbs).toEqual([
       {
         category: "console",
         level: undefined,
@@ -205,6 +207,44 @@ describe("sanitizeErrorEvent", () => {
         },
       },
     ]);
+  });
+});
+
+describe("user-caused failures", () => {
+  const creditBalanceMessage =
+    "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.";
+
+  it("drops account and credential failures before they reach Sentry", () => {
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        exception: {
+          values: [{ type: "ProviderError", value: creditBalanceMessage }],
+        },
+      }),
+    ).toBeNull();
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        breadcrumbs: [
+          { category: "http", data: { code: "insufficient_quota" } },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("never captures them as operational errors", () => {
+    captureOperationalError(new Error(creditBalanceMessage), {
+      operation: "chat_completion",
+    });
+
+    expect(mocks.withScope).not.toHaveBeenCalled();
+
+    captureOperationalError(new Error("socket hang up"), {
+      operation: "chat_completion",
+    });
+
+    expect(mocks.withScope).toHaveBeenCalledOnce();
   });
 });
 

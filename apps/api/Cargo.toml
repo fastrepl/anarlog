@@ -22,6 +22,7 @@ anlg-linear = { workspace = true }
 anlg-llm-proxy = { workspace = true }
 anlg-observability = { workspace = true }
 anlg-transcribe-proxy = { workspace = true }
+anlg-user-error = { workspace = true }
 owhisper-client = { workspace = true }
 
 axum = { workspace = true, features = ["ws"] }

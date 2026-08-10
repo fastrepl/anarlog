@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 pub fn init() -> Option<sentry::ClientInitGuard> {
@@ -19,6 +20,7 @@ pub fn init() -> Option<sentry::ClientInitGuard> {
         }),
         send_default_pii: false,
         attach_stacktrace: true,
+        before_send: Some(Arc::new(anlg_user_error::drop_user_error_event)),
         ..Default::default()
     });
     sentry::configure_scope(|scope| {

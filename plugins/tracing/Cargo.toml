@@ -20,6 +20,7 @@ tracing-appender = { version = "0.2" }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [dependencies]
+anlg-user-error = { workspace = true }
 tauri = { workspace = true }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 

@@ -388,6 +388,10 @@ Sentry is for:
 
 It is not the canonical trace schema. OTEL is.
 
+### Dropped events
+
+Failures caused by the end user's own account state (exhausted provider credits, expired plans, rejected API keys) are dropped before they leave the process. `crates/user-error` owns the marker list and is wired into every Rust `before_send` (desktop, API, CLI); `apps/desktop/src/error-reporting.ts` keeps a matching list for the desktop webview. Add new markers in both places.
+
 ### Tag naming
 
 Reuse OTEL names when possible.
