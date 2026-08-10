@@ -6,6 +6,7 @@ import { supabase } from "~/auth/client";
 import { env } from "~/env";
 
 const REQUEST_TIMEOUT_MS = 30_000;
+const SCHEDULED_INVALID_REQUEST_RETRY_DELAYS_MS = [5_000, 15_000] as const;
 
 export type CloudApiSettings = {
   enabled: boolean;
@@ -425,7 +426,7 @@ export function syncCloudApiSnapshotBestEffort(sessionId: string): void {
       }
       addPendingChange(current.user.id, sessionId, "upserts");
       try {
-        await syncCloudApiSnapshotForUser(sessionId, current.user.id);
+        await syncLiveCloudApiSnapshot(sessionId, current.user.id, intent);
       } catch (error) {
         if (shouldRetry(error)) {
           addPendingChange(current.user.id, sessionId, "upserts");
@@ -478,7 +479,7 @@ export function scheduleCloudApiSnapshotSync(sessionId: string): void {
         if (snapshotIntents.get(sessionId) !== intent) {
           return;
         }
-        void syncCloudApiSnapshotForUser(sessionId, current.user.id)
+        void syncLiveCloudApiSnapshot(sessionId, current.user.id, intent)
           .catch((error: unknown) => {
             if (shouldRetry(error)) {
               addPendingChange(current.user.id, sessionId, "upserts");
@@ -493,6 +494,33 @@ export function scheduleCloudApiSnapshotSync(sessionId: string): void {
       clearSnapshotIntent(sessionId, intent);
       reportBackgroundError(error);
     });
+}
+
+async function syncLiveCloudApiSnapshot(
+  sessionId: string,
+  userId: string,
+  intent: SnapshotIntent,
+) {
+  for (
+    let attempt = 0;
+    snapshotIntents.get(sessionId) === intent;
+    attempt += 1
+  ) {
+    try {
+      await syncCloudApiSnapshotForUser(sessionId, userId);
+      return;
+    } catch (error) {
+      const retryDelay = SCHEDULED_INVALID_REQUEST_RETRY_DELAYS_MS[attempt];
+      if (
+        !(error instanceof CloudApiClientError) ||
+        error.code !== "invalid_request" ||
+        retryDelay === undefined
+      ) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
+    }
+  }
 }
 
 export function scheduleCloudApiBackfillRetry(): void {

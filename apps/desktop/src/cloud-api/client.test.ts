@@ -425,6 +425,97 @@ describe("cloud API client", () => {
     vi.useRealTimers();
   });
 
+  it("retries a scheduled snapshot after a transient invalid request", async () => {
+    vi.useFakeTimers();
+    mocks.getSession.mockResolvedValue(authSession("user-scheduled-retry"));
+    mocks.fetch.mockImplementation(async (input: string | URL | Request) => {
+      if (!String(input).includes("/v1/sync-snapshots/")) {
+        return new Response(
+          JSON.stringify({ enabled: true, updated_at: null }),
+          { status: 200 },
+        );
+      }
+      if (
+        mocks.fetch.mock.calls.filter(([url]) =>
+          String(url).includes("/v1/sync-snapshots/"),
+        ).length === 1
+      ) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "invalid_request",
+              message: "Snapshot rows are still settling",
+            },
+          }),
+          { status: 400 },
+        );
+      }
+      return new Response(null, { status: 204 });
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    scheduleCloudApiSnapshotSync("meeting-scheduled-retry");
+    await vi.advanceTimersByTimeAsync(1_500);
+
+    expect(mocks.getCloudSnapshot).toHaveBeenCalledOnce();
+    expect(consoleError).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(mocks.getCloudSnapshot).toHaveBeenCalledTimes(2);
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("retries the latest live snapshot when an immediate sync supersedes a scheduled retry", async () => {
+    vi.useFakeTimers();
+    mocks.getSession.mockResolvedValue(authSession("user-superseded-retry"));
+    mocks.fetch.mockImplementation(async (input: string | URL | Request) => {
+      if (!String(input).includes("/v1/sync-snapshots/")) {
+        return new Response(
+          JSON.stringify({ enabled: true, updated_at: null }),
+          { status: 200 },
+        );
+      }
+      const uploadCount = mocks.fetch.mock.calls.filter(([url]) =>
+        String(url).includes("/v1/sync-snapshots/"),
+      ).length;
+      if (uploadCount <= 2) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "invalid_request",
+              message: "Snapshot rows are still settling",
+            },
+          }),
+          { status: 400 },
+        );
+      }
+      return new Response(null, { status: 204 });
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    scheduleCloudApiSnapshotSync("meeting-superseded-retry");
+    await vi.advanceTimersByTimeAsync(1_500);
+    expect(mocks.getCloudSnapshot).toHaveBeenCalledOnce();
+
+    syncCloudApiSnapshotBestEffort("meeting-superseded-retry");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.getCloudSnapshot).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(mocks.getCloudSnapshot).toHaveBeenCalledTimes(3);
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+    vi.useRealTimers();
+  });
+
   it("deletes a pending snapshot after its local meeting disappears", async () => {
     mocks.getSession.mockResolvedValue(authSession("user-gone"));
     mocks.getCloudSnapshot.mockResolvedValue({
