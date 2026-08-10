@@ -118,6 +118,13 @@ struct ReadEvent {
     payload: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct WaitResponse {
+    initialized: bool,
+    head_sequence: u64,
+}
+
 impl E2eeWitnessClient {
     pub(crate) fn new(config: crate::CloudsyncE2eeWitness, workspace_id: &str) -> io::Result<Self> {
         let endpoint = reqwest::Url::parse(&config.endpoint)
@@ -440,6 +447,42 @@ impl E2eeWitnessClient {
     async fn read_page(&self, after: u64, through: Option<u64>) -> io::Result<ReadPage> {
         self.read_page_cancellable(after, through, &E2eeWitnessCancellation::default())
             .await
+    }
+
+    /// Long-poll the witness service until its head advances past `after` or
+    /// the server's hold expires. Returns the new head when it advanced.
+    pub(crate) async fn wait_for_remote_head(
+        &self,
+        after: u64,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<Option<u64>> {
+        let mut endpoint = self.endpoint.clone();
+        endpoint
+            .path_segments_mut()
+            .map_err(|()| invalid_data("E2EE witness endpoint is invalid"))?
+            .push("wait");
+        let response = self
+            .send_with_rate_limit_retry(
+                || {
+                    self.client
+                        .get(endpoint.clone())
+                        .bearer_auth(&self.access_token)
+                        .query(&[("afterSequence", after)])
+                },
+                cancellation,
+            )
+            .await?;
+        let status = response.status();
+        let bytes = cancellation.run_network(read_bounded(response)).await??;
+        if !status.is_success() {
+            return Err(io::Error::other(format!(
+                "E2EE witness wait was rejected with status {status}"
+            )));
+        }
+        let response: WaitResponse = serde_json::from_slice(&bytes)
+            .map_err(|_| invalid_data("E2EE witness wait response is invalid"))?;
+        Ok((response.initialized && response.head_sequence > after)
+            .then_some(response.head_sequence))
     }
 
     async fn read_page_cancellable(

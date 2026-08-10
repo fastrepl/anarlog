@@ -647,3 +647,75 @@ fn retry_after_delays_are_bounded_and_allow_immediate_test_retries() {
     headers.insert(reqwest::header::RETRY_AFTER, "120".parse().unwrap());
     assert_eq!(retry_after_delay(&headers), MAX_RETRY_AFTER);
 }
+
+#[tokio::test]
+async fn wait_for_remote_head_reports_only_advanced_heads() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/wait"))
+        .and(wiremock::matchers::query_param("afterSequence", "3"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "headSequence": 5,
+        })))
+        .mount(&server)
+        .await;
+    let client = E2eeWitnessClient::new(
+        crate::CloudsyncE2eeWitness {
+            endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+            access_token: "access-token".to_string(),
+        },
+        "user-a",
+    )
+    .unwrap();
+
+    let head = client
+        .wait_for_remote_head(3, &E2eeWitnessCancellation::default())
+        .await
+        .unwrap();
+
+    assert_eq!(head, Some(5));
+}
+
+#[tokio::test]
+async fn wait_for_remote_head_ignores_stale_and_uninitialized_heads() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/wait"))
+        .and(wiremock::matchers::query_param("afterSequence", "5"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": true,
+            "headSequence": 5,
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a/wait"))
+        .and(wiremock::matchers::query_param("afterSequence", "0"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "initialized": false,
+            "headSequence": 0,
+        })))
+        .mount(&server)
+        .await;
+    let client = E2eeWitnessClient::new(
+        crate::CloudsyncE2eeWitness {
+            endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+            access_token: "access-token".to_string(),
+        },
+        "user-a",
+    )
+    .unwrap();
+
+    let stale = client
+        .wait_for_remote_head(5, &E2eeWitnessCancellation::default())
+        .await
+        .unwrap();
+    let uninitialized = client
+        .wait_for_remote_head(0, &E2eeWitnessCancellation::default())
+        .await
+        .unwrap();
+
+    assert_eq!(stale, None);
+    assert_eq!(uninitialized, None);
+}

@@ -21,6 +21,10 @@ const MAX_WITNESS_PAGE_BYTES: i32 = 48 * 1024 * 1024;
 const WITNESS_PAGE_SIZE: i32 = 1024;
 const LEGACY_WITNESS_PAGE_SIZE: i32 = 3;
 const WITNESS_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+const WITNESS_WAIT_HOLD: std::time::Duration = std::time::Duration::from_secs(25);
+const WITNESS_WAIT_RECHECK: std::time::Duration = std::time::Duration::from_secs(10);
+const WITNESS_WAIT_HEAD_LIMIT: i32 = 1;
+const WITNESS_WAIT_HEAD_BYTES: i32 = 1024;
 
 #[derive(Clone, Debug, Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -50,6 +54,20 @@ pub struct ReadE2eeWitnessQuery {
     #[serde(default)]
     after_sequence: u64,
     through_sequence: Option<u64>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WaitE2eeWitnessQuery {
+    #[serde(default)]
+    after_sequence: u64,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct E2eeWitnessWaitResponse {
+    initialized: bool,
+    head_sequence: u64,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -130,13 +148,14 @@ struct PostgrestError {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(read_e2ee_witness, publish_e2ee_witness),
+    paths(read_e2ee_witness, publish_e2ee_witness, wait_e2ee_witness),
     components(schemas(
         E2eeWitnessEvent,
         PublishE2eeWitnessRequest,
         PublishE2eeWitnessResponse,
         E2eeWitnessPageEvent,
-        E2eeWitnessPage
+        E2eeWitnessPage,
+        E2eeWitnessWaitResponse
     ))
 )]
 pub struct ApiDoc;
@@ -151,6 +170,7 @@ pub fn router() -> Router<AppState> {
             "/e2ee/witness/{workspace_id}",
             get(read_e2ee_witness).post(publish_e2ee_witness),
         )
+        .route("/e2ee/witness/{workspace_id}/wait", get(wait_e2ee_witness))
         .layer(DefaultBodyLimit::max(MAX_WITNESS_REQUEST_BYTES))
 }
 
@@ -208,6 +228,125 @@ async fn read_e2ee_witness(
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
         Json(page),
     ))
+}
+
+#[utoipa::path(
+    get,
+    path = "/e2ee/witness/{workspace_id}/wait",
+    tag = "sync",
+    params(
+        ("workspace_id" = String, Path, description = "Personal workspace ID"),
+        ("afterSequence" = Option<u64>, Query, description = "Last witness sequence known to the caller")
+    ),
+    responses(
+        (status = 200, description = "Witness head state, held until it advances past the cursor or the hold expires", body = E2eeWitnessWaitResponse),
+        (status = 400, description = "Invalid witness cursor"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Witness workspace access denied"),
+        (status = 502, description = "Witness service unavailable")
+    )
+)]
+async fn wait_e2ee_witness(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+    Query(query): Query<WaitE2eeWitnessQuery>,
+) -> Result<(
+    [(header::HeaderName, HeaderValue); 1],
+    Json<E2eeWitnessWaitResponse>,
+)> {
+    require_personal_workspace(&auth, &workspace_id)?;
+    i64::try_from(query.after_sequence)
+        .map_err(|_| SyncError::BadRequest("E2EE witness cursor is invalid".to_string()))?;
+    let wake = state.witness_wakes.subscribe(&workspace_id);
+    let deadline = tokio::time::Instant::now() + WITNESS_WAIT_HOLD;
+    loop {
+        let notified = wake.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+        let head = read_witness_head(&state, &auth.claims.sub, &workspace_id).await?;
+        let now = tokio::time::Instant::now();
+        if head.head_sequence > query.after_sequence || !head.initialized || now >= deadline {
+            return Ok((
+                [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+                Json(head),
+            ));
+        }
+        tokio::select! {
+            () = &mut notified => {}
+            () = tokio::time::sleep(WITNESS_WAIT_RECHECK.min(deadline - now)) => {}
+        }
+    }
+}
+
+async fn read_witness_head(
+    state: &AppState,
+    actor_user_id: &str,
+    workspace_id: &str,
+) -> Result<E2eeWitnessWaitResponse> {
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/read_e2ee_freshness_page_v2",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .timeout(WITNESS_TIMEOUT)
+        // through=0 keeps the event window empty, so the page RPC returns the
+        // head-only singleton row without materializing any event ciphertext.
+        .json(&ReadRpcRequest {
+            p_actor_user_id: actor_user_id,
+            p_workspace_id: workspace_id,
+            p_after_sequence: 0,
+            p_through_sequence: Some(0),
+            p_limit: WITNESS_WAIT_HEAD_LIMIT,
+            p_max_bytes: WITNESS_WAIT_HEAD_BYTES,
+        })
+        .send()
+        .await
+        .map_err(|error| witness_transport_error(error, "wait"))?;
+    let (status, bytes) = read_bounded_response(response, "wait").await?;
+    let (status, bytes) = if is_missing_v2_rpc(status, &bytes) {
+        let response = state
+            .client
+            .post(format!(
+                "{}/rest/v1/rpc/read_e2ee_freshness_page",
+                state.config.supabase_url
+            ))
+            .header("apikey", &state.config.supabase_service_role_key)
+            .bearer_auth(&state.config.supabase_service_role_key)
+            .timeout(WITNESS_TIMEOUT)
+            .json(&LegacyReadRpcRequest {
+                p_actor_user_id: actor_user_id,
+                p_workspace_id: workspace_id,
+                p_after_sequence: 0,
+                p_through_sequence: Some(0),
+                p_limit: WITNESS_WAIT_HEAD_LIMIT,
+            })
+            .send()
+            .await
+            .map_err(|error| witness_transport_error(error, "wait"))?;
+        read_bounded_response(response, "wait").await?
+    } else {
+        (status, bytes)
+    };
+    if !status.is_success() {
+        return Err(map_postgrest_error(status, &bytes));
+    }
+    let rows = serde_json::from_slice::<Vec<ReadRpcRow>>(&bytes).map_err(|error| {
+        tracing::warn!(%error, "Supabase E2EE witness head response was invalid");
+        SyncError::E2eeWitnessServiceUnavailable
+    })?;
+    let Some(first) = rows.first() else {
+        return Err(SyncError::E2eeWitnessServiceUnavailable);
+    };
+    let head_sequence =
+        u64::try_from(first.head_sequence).map_err(|_| SyncError::E2eeWitnessServiceUnavailable)?;
+    Ok(E2eeWitnessWaitResponse {
+        initialized: first.initialized_at.is_some(),
+        head_sequence,
+    })
 }
 
 async fn read_witness_page(
@@ -338,6 +477,7 @@ async fn publish_e2ee_witness(
         .to_rfc3339();
     let head_sequence =
         u64::try_from(row.head_sequence).map_err(|_| SyncError::E2eeWitnessServiceUnavailable)?;
+    state.witness_wakes.notify(&workspace_id);
     Ok((
         [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
         Json(PublishE2eeWitnessResponse {
@@ -710,6 +850,180 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(response_json(response).await["headSequence"], 1);
+    }
+
+    #[tokio::test]
+    async fn wait_returns_immediately_when_the_head_is_ahead() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page_v2"))
+            .and(body_partial_json(json!({
+                "p_actor_user_id": OWNER,
+                "p_workspace_id": OWNER,
+                "p_through_sequence": 0,
+                "p_limit": 1,
+                "p_max_bytes": 1024
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "initialized_at": "2026-07-17T00:00:00Z",
+                "head_sequence": 5,
+                "through_sequence": 5,
+                "event_sequence": null,
+                "record_id": null,
+                "payload_hash": null,
+                "payload": null
+            }])))
+            .mount(&server)
+            .await;
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            test_router(&server).oneshot(request(
+                Method::GET,
+                &format!("/e2ee/witness/{OWNER}/wait?afterSequence=3"),
+                None,
+            )),
+        )
+        .await
+        .expect("an advanced head must resolve the wait immediately")
+        .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["initialized"], true);
+        assert_eq!(body["headSequence"], 5);
+    }
+
+    #[tokio::test]
+    async fn wait_reports_an_uninitialized_witness_immediately() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page_v2"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "initialized_at": null,
+                "head_sequence": 0,
+                "through_sequence": 0,
+                "event_sequence": null,
+                "record_id": null,
+                "payload_hash": null,
+                "payload": null
+            }])))
+            .mount(&server)
+            .await;
+
+        let response = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            test_router(&server).oneshot(request(
+                Method::GET,
+                &format!("/e2ee/witness/{OWNER}/wait?afterSequence=0"),
+                None,
+            )),
+        )
+        .await
+        .expect("an uninitialized witness must resolve the wait immediately")
+        .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["initialized"], false);
+        assert_eq!(body["headSequence"], 0);
+    }
+
+    #[derive(Clone)]
+    struct HeadFromCounter {
+        head: std::sync::Arc<std::sync::atomic::AtomicI64>,
+    }
+
+    impl wiremock::Respond for HeadFromCounter {
+        fn respond(&self, _request: &wiremock::Request) -> ResponseTemplate {
+            let head = self.head.load(std::sync::atomic::Ordering::SeqCst);
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "initialized_at": "2026-07-17T00:00:00Z",
+                "head_sequence": head,
+                "through_sequence": head,
+                "event_sequence": null,
+                "record_id": null,
+                "payload_hash": null,
+                "payload": null
+            }]))
+        }
+    }
+
+    #[derive(Clone)]
+    struct PublishBumpsCounter {
+        head: std::sync::Arc<std::sync::atomic::AtomicI64>,
+    }
+
+    impl wiremock::Respond for PublishBumpsCounter {
+        fn respond(&self, _request: &wiremock::Request) -> ResponseTemplate {
+            let head = self
+                .head
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+                .saturating_add(1);
+            ResponseTemplate::new(200).set_body_json(json!([{
+                "initialized_at": "2026-07-17T00:00:00Z",
+                "head_sequence": head
+            }]))
+        }
+    }
+
+    #[tokio::test]
+    async fn wait_wakes_when_a_publish_lands_on_the_same_instance() {
+        let server = MockServer::start().await;
+        let head = std::sync::Arc::new(std::sync::atomic::AtomicI64::new(3));
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page_v2"))
+            .respond_with(HeadFromCounter {
+                head: std::sync::Arc::clone(&head),
+            })
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/publish_e2ee_freshness_events"))
+            .respond_with(PublishBumpsCounter {
+                head: std::sync::Arc::clone(&head),
+            })
+            .mount(&server)
+            .await;
+
+        let router = test_router(&server);
+        let waiter = router.clone();
+        let wait = tokio::spawn(async move {
+            waiter
+                .oneshot(request(
+                    Method::GET,
+                    &format!("/e2ee/witness/{OWNER}/wait?afterSequence=3"),
+                    None,
+                ))
+                .await
+                .unwrap()
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+        let publish = router
+            .oneshot(request(
+                Method::POST,
+                &format!("/e2ee/witness/{OWNER}"),
+                Some(json!({
+                    "initialize": false,
+                    "events": [{
+                        "recordId": RECORD_ID,
+                        "payloadHash": PAYLOAD_HASH,
+                        "payload": "opaque"
+                    }]
+                })),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(publish.status(), StatusCode::OK);
+
+        // Well under the 10s periodic recheck, so only the publish wake can
+        // explain a prompt response.
+        let response = tokio::time::timeout(std::time::Duration::from_secs(5), wait)
+            .await
+            .expect("a same-instance publish must wake the held wait")
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = response_json(response).await;
+        assert_eq!(body["headSequence"], 4);
     }
 
     #[test]

@@ -13,6 +13,7 @@ mod e2ee_sync;
 mod open;
 mod recovery;
 mod sync_result;
+mod witness_watch;
 
 pub(crate) use e2ee_sync::CloudsyncTokenConfiguration;
 use e2ee_sync::E2eeSyncHook;
@@ -143,6 +144,7 @@ pub struct PluginDbRuntime {
     cloudsync_auth_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
     cloudsync_auth_changed: std::sync::Arc<tokio::sync::Notify>,
     cloudsync_focus_nudge_at: std::sync::Mutex<Option<std::time::Instant>>,
+    _witness_watch: witness_watch::WitnessWatchTask,
     #[cfg(test)]
     pause_transaction_after_begin: std::sync::atomic::AtomicBool,
     #[cfg(test)]
@@ -186,6 +188,10 @@ impl PluginDbRuntime {
     pub fn new(db: std::sync::Arc<Db>) -> Self {
         let e2ee_sync_hook = std::sync::Arc::new(E2eeSyncHook::default());
         db.set_cloudsync_sync_hook(e2ee_sync_hook.clone());
+        let witness_watch = witness_watch::spawn_witness_watch(
+            std::sync::Arc::clone(&db),
+            std::sync::Arc::clone(&e2ee_sync_hook),
+        );
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
@@ -193,6 +199,7 @@ impl PluginDbRuntime {
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
             e2ee_sync_hook,
+            _witness_watch: witness_watch,
             scheduled_cloudsync_full_resync: Default::default(),
             cloudsync_full_resync_task: Default::default(),
             cloudsync_control_operation: Default::default(),

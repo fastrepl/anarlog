@@ -39,6 +39,7 @@ impl CloudsyncTokenConfiguration {
 pub(super) struct E2eeSyncHook {
     keys: std::sync::RwLock<HashMap<String, anlg_e2ee::WorkspaceKey>>,
     witness: std::sync::RwLock<Option<crate::e2ee_witness::E2eeWitnessClient>>,
+    pub(super) witness_changed: tokio::sync::Notify,
     activities: std::sync::RwLock<HashSet<CloudsyncActivity>>,
     pub(super) activity_changed: tokio::sync::Notify,
     reconciliation_requested_epoch: std::sync::atomic::AtomicU64,
@@ -93,6 +94,7 @@ impl E2eeSyncHook {
     pub(super) fn clear(&self) {
         self.keys.write().unwrap().clear();
         *self.witness.write().unwrap() = None;
+        self.witness_changed.notify_waiters();
         let requested = self
             .reconciliation_requested_epoch
             .load(std::sync::atomic::Ordering::Acquire);
@@ -113,6 +115,7 @@ impl E2eeSyncHook {
 
     pub(super) fn set_witness(&self, witness: crate::e2ee_witness::E2eeWitnessClient) {
         *self.witness.write().unwrap() = Some(witness);
+        self.witness_changed.notify_waiters();
         self.request_reconciliation();
     }
 

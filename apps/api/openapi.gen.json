@@ -2714,6 +2714,65 @@
         ]
       }
     },
+    "/sync/e2ee/witness/{workspace_id}/wait": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "wait_e2ee_witness",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Personal workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "afterSequence",
+            "in": "query",
+            "description": "Last witness sequence known to the caller",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Witness head state, held until it advances past the cursor or the hold expires",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/E2eeWitnessWaitResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid witness cursor"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Witness workspace access denied"
+          },
+          "502": {
+            "description": "Witness service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/shares/{share_id}/attachments/finalize": {
       "post": {
         "tags": [
@@ -5801,6 +5860,23 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          }
+        }
+      },
+      "E2eeWitnessWaitResponse": {
+        "type": "object",
+        "required": [
+          "initialized",
+          "headSequence"
+        ],
+        "properties": {
+          "headSequence": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "initialized": {
+            "type": "boolean"
           }
         }
       },
