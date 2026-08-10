@@ -29,10 +29,12 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
     let wav_path = session_dir.join(WAV_FILE);
     let ogg_path = session_dir.join(OGG_FILE);
     let encoded_path = session_dir.join(FINAL_AUDIO_FILE);
-    let is_stereo = prepare_existing_audio_state(&encoded_path, &ogg_path, &wav_path)?;
+    let has_existing_audio = encoded_path.exists() || ogg_path.exists() || wav_path.exists();
+    let is_stereo =
+        prepare_existing_audio_state(&encoded_path, &ogg_path, &wav_path)? || !has_existing_audio;
 
-    let mono_spec = hound::WavSpec {
-        channels: 1,
+    let spec = hound::WavSpec {
+        channels: if is_stereo { 2 } else { 1 },
         sample_rate: super::super::SAMPLE_RATE,
         bits_per_sample: 32,
         sample_format: hound::SampleFormat::Float,
@@ -41,7 +43,12 @@ pub(super) fn create_disk_sink(session_dir: &Path) -> Result<DiskSink, ActorProc
     let writer = if wav_path.exists() {
         hound::WavWriter::append(&wav_path)?
     } else {
-        hound::WavWriter::create(&wav_path, mono_spec)?
+        hound::WavWriter::create(&wav_path, spec)?
+    };
+
+    let mono_spec = hound::WavSpec {
+        channels: 1,
+        ..spec
     };
 
     let (writer_mic, writer_spk) = if is_debug_mode() {
@@ -306,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn create_disk_sink_mixes_new_recordings_to_mono() {
+    fn create_disk_sink_preserves_new_recording_channels() {
         let dir = tempdir().unwrap();
         let session_dir = dir.path().join("session");
         std::fs::create_dir_all(&session_dir).unwrap();
@@ -316,13 +323,34 @@ mod tests {
         finalize_writer(&mut sink.writer, Some(&sink.wav_path)).unwrap();
 
         let mut reader = hound::WavReader::open(session_dir.join(WAV_FILE)).unwrap();
-        assert_eq!(reader.spec().channels, 1);
+        assert_eq!(reader.spec().channels, 2);
         assert_eq!(
             reader
                 .samples::<f32>()
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap(),
-            vec![0.75, 0.25]
+            vec![0.25, 0.5, -0.25, 0.5]
+        );
+    }
+
+    #[test]
+    fn create_disk_sink_duplicates_new_single_channel_recordings() {
+        let dir = tempdir().unwrap();
+        let session_dir = dir.path().join("session");
+        std::fs::create_dir_all(&session_dir).unwrap();
+
+        let mut sink = create_disk_sink(&session_dir).unwrap();
+        write_single(&mut sink, &[0.25, -0.25]).unwrap();
+        finalize_writer(&mut sink.writer, Some(&sink.wav_path)).unwrap();
+
+        let mut reader = hound::WavReader::open(session_dir.join(WAV_FILE)).unwrap();
+        assert_eq!(reader.spec().channels, 2);
+        assert_eq!(
+            reader
+                .samples::<f32>()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap(),
+            vec![0.25, 0.25, -0.25, -0.25]
         );
     }
 
