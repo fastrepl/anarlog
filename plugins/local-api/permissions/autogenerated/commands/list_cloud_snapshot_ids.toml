@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-cloud-snapshot-ids"
+description = "Enables the list_cloud_snapshot_ids command without any pre-configured scope."
+commands.allow = ["list_cloud_snapshot_ids"]
+
+[[permission]]
+identifier = "deny-list-cloud-snapshot-ids"
+description = "Denies the list_cloud_snapshot_ids command without any pre-configured scope."
+commands.deny = ["list_cloud_snapshot_ids"]

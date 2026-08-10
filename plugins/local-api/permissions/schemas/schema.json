@@ -355,6 +355,18 @@
           "markdownDescription": "Denies the export_meeting_markdown command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_cloud_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-cloud-snapshot",
+          "markdownDescription": "Enables the get_cloud_snapshot command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_cloud_snapshot command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-cloud-snapshot",
+          "markdownDescription": "Denies the get_cloud_snapshot command without any pre-configured scope."
+        },
+        {
           "description": "Enables the get_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-get-status",
@@ -377,6 +389,18 @@
           "type": "string",
           "const": "deny-list-api-keys",
           "markdownDescription": "Denies the list_api_keys command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_cloud_snapshot_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-list-cloud-snapshot-ids",
+          "markdownDescription": "Enables the list_cloud_snapshot_ids command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_cloud_snapshot_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-list-cloud-snapshot-ids",
+          "markdownDescription": "Denies the list_cloud_snapshot_ids command without any pre-configured scope."
         },
         {
           "description": "Enables the list_webhooks command without any pre-configured scope.",
@@ -427,10 +451,10 @@
           "markdownDescription": "Denies the test_webhook command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-status`\n- `allow-set-enabled`\n- `allow-list-api-keys`\n- `allow-create-api-key`\n- `allow-revoke-api-key`\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-status`\n- `allow-set-enabled`\n- `allow-list-api-keys`\n- `allow-create-api-key`\n- `allow-revoke-api-key`\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`\n- `allow-get-cloud-snapshot`\n- `allow-list-cloud-snapshot-ids`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-status`\n- `allow-set-enabled`\n- `allow-list-api-keys`\n- `allow-create-api-key`\n- `allow-revoke-api-key`\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-get-status`\n- `allow-set-enabled`\n- `allow-list-api-keys`\n- `allow-create-api-key`\n- `allow-revoke-api-key`\n- `allow-list-webhooks`\n- `allow-create-webhook`\n- `allow-delete-webhook`\n- `allow-test-webhook`\n- `allow-dispatch-event`\n- `allow-export-meeting-markdown`\n- `allow-get-cloud-snapshot`\n- `allow-list-cloud-snapshot-ids`"
         }
       ]
     }
