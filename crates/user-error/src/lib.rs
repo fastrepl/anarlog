@@ -50,13 +50,6 @@ pub fn is_user_error_event(event: &Event<'_>) -> bool {
         exception.value.as_deref().is_some_and(is_user_error_text)
             || is_user_error_text(&exception.ty)
     });
-    let breadcrumbs = event.breadcrumbs.iter().any(|breadcrumb| {
-        breadcrumb
-            .message
-            .as_deref()
-            .is_some_and(is_user_error_text)
-            || breadcrumb.data.values().any(value_is_user_error)
-    });
     let extra = event.extra.values().any(value_is_user_error);
     let tags = event.tags.values().any(|tag| is_user_error_text(tag));
     let contexts = event.contexts.values().any(|context| match context {
@@ -64,7 +57,7 @@ pub fn is_user_error_event(event: &Event<'_>) -> bool {
         _ => false,
     });
 
-    message || logentry || exception || breadcrumbs || extra || tags || contexts
+    message || logentry || exception || extra || tags || contexts
 }
 
 pub fn drop_user_error_event(event: Event<'static>) -> Option<Event<'static>> {
@@ -109,23 +102,34 @@ mod tests {
             .into(),
             ..Default::default()
         };
-        let from_breadcrumb = Event {
+        let from_extra = Event {
+            extra: [(
+                "error.message".to_string(),
+                Value::String(ANTHROPIC_CREDIT_ERROR.into()),
+            )]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+
+        for event in [from_message, from_logentry, from_exception, from_extra] {
+            assert!(drop_user_error_event(event).is_none());
+        }
+    }
+
+    #[test]
+    fn keeps_events_whose_only_match_is_an_earlier_breadcrumb() {
+        let event = Event {
+            message: Some("database_migration_failed".to_string()),
             breadcrumbs: vec![Breadcrumb {
-                data: [(
-                    "error.code".to_string(),
-                    Value::String("insufficient_quota".into()),
-                )]
-                .into_iter()
-                .collect(),
+                message: Some(ANTHROPIC_CREDIT_ERROR.to_string()),
                 ..Default::default()
             }]
             .into(),
             ..Default::default()
         };
 
-        for event in [from_message, from_logentry, from_exception, from_breadcrumb] {
-            assert!(drop_user_error_event(event).is_none());
-        }
+        assert!(drop_user_error_event(event).is_some());
     }
 
     #[test]

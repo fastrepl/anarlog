@@ -51,6 +51,14 @@ export function isUserError(value: unknown): boolean {
   return USER_ERROR_MARKERS.some((marker) => text.includes(marker));
 }
 
+// Breadcrumbs are deliberately excluded: they outlive the failure that produced
+// them and would suppress later, unrelated errors.
+function isUserErrorEvent(event: ErrorEvent): boolean {
+  return [event.message, event.logentry, event.exception, event.extra].some(
+    isUserError,
+  );
+}
+
 function safeIdentifier(value: unknown): string | undefined {
   return typeof value === "string" && SAFE_IDENTIFIER_RE.test(value)
     ? value
@@ -129,7 +137,7 @@ function sanitizeUrl(value: string | undefined) {
 }
 
 export function sanitizeErrorEvent(event: ErrorEvent): ErrorEvent | null {
-  if (isUserError(event)) return null;
+  if (isUserErrorEvent(event)) return null;
 
   if (event.user) {
     event.user = event.user.id ? { id: event.user.id } : undefined;

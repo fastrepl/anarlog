@@ -226,11 +226,19 @@ describe("user-caused failures", () => {
     expect(
       sanitizeErrorEvent({
         type: undefined,
-        breadcrumbs: [
-          { category: "http", data: { code: "insufficient_quota" } },
-        ],
+        extra: { "error.code": "insufficient_quota" },
       }),
     ).toBeNull();
+  });
+
+  it("keeps errors whose only match is an earlier breadcrumb", () => {
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        exception: { values: [{ type: "RouteError", value: "boom" }] },
+        breadcrumbs: [{ category: "http", message: creditBalanceMessage }],
+      }),
+    ).not.toBeNull();
   });
 
   it("never captures them as operational errors", () => {
