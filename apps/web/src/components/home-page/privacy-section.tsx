@@ -11,7 +11,7 @@ const privacyCommitments = [
   {
     title: "Invisible while you meet",
     description:
-      "No bot joins the participant list, and Anarlog's floating controls stay hidden when you share your screen.",
+      "No bot joins the meeting, and Anarlog stays hidden while sharing screens.",
     visual: "meeting",
   },
   {
