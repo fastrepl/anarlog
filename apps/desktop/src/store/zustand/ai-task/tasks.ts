@@ -616,22 +616,44 @@ function normalizeTaskError(error: Error): Error {
   return normalized;
 }
 
+const MAX_CLASSIFIABLE_MESSAGE_LENGTH = 1_000;
+
 export function isRetryableAIError(error: Error): boolean {
-  if (APICallError.isInstance(error)) {
-    if (error.statusCode === 409) {
+  if (APICallError.isInstance(error) || isAPICallErrorShape(error)) {
+    const apiError = error as Error & {
+      statusCode?: number;
+      isRetryable?: boolean;
+    };
+    if (apiError.statusCode === 409) {
       return false;
     }
 
     return (
-      error.isRetryable ||
-      error.statusCode === 429 ||
-      error.statusCode === 408 ||
-      (typeof error.statusCode === "number" && error.statusCode >= 500)
+      apiError.isRetryable === true ||
+      apiError.statusCode === 429 ||
+      apiError.statusCode === 408 ||
+      (typeof apiError.statusCode === "number" && apiError.statusCode >= 500)
     );
+  }
+
+  // API call error messages embed the request body, so scanning long messages
+  // would match transient-looking words inside user content and misclassify
+  // permanent failures as retryable.
+  if (error.message.length > MAX_CLASSIFIABLE_MESSAGE_LENGTH) {
+    return false;
   }
 
   const message = error.message.toLowerCase();
   return TRANSIENT_AI_ERROR_PATTERNS.some((pattern) =>
     message.includes(pattern),
+  );
+}
+
+// A duplicated `ai` package in the bundle defeats APICallError.isInstance, so
+// also match the serialized shape.
+function isAPICallErrorShape(error: Error): boolean {
+  return (
+    error.name === "AI_APICallError" &&
+    typeof (error as { isRetryable?: unknown }).isRetryable === "boolean"
   );
 }

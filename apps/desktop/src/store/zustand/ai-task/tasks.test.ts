@@ -6,6 +6,7 @@ import {
   createTasksSlice,
   extractUnderlyingError,
   getTaskStreamStartTimeoutMs,
+  isRetryableAIError,
   MAX_AI_TASK_STREAM_CHARACTERS,
   MAX_RETAINED_AI_TASKS,
   TASK_STREAM_IDLE_TIMEOUT_MS,
@@ -548,5 +549,39 @@ describe("extractUnderlyingError", () => {
     const error = new Error("Invalid API key");
 
     expect(extractUnderlyingError(error)).toBe(error);
+  });
+});
+
+describe("isRetryableAIError", () => {
+  it("classifies API call errors that lost their prototype by shape", () => {
+    const error = new Error(
+      `Bad Request ${"transcript mentioning a timeout ".repeat(100)}`,
+    );
+    error.name = "AI_APICallError";
+    (error as any).isRetryable = false;
+    (error as any).statusCode = 400;
+
+    expect(isRetryableAIError(error)).toBe(false);
+  });
+
+  it("keeps retryable shape-matched API call errors retryable", () => {
+    const error = new Error("Overloaded");
+    error.name = "AI_APICallError";
+    (error as any).isRetryable = false;
+    (error as any).statusCode = 529;
+
+    expect(isRetryableAIError(error)).toBe(true);
+  });
+
+  it("does not pattern-match transient words inside long messages", () => {
+    const error = new Error(
+      `Invalid prompt: ${"the deploy timed out around 429 requests ".repeat(50)}`,
+    );
+
+    expect(isRetryableAIError(error)).toBe(false);
+  });
+
+  it("pattern-matches transient words in concise messages", () => {
+    expect(isRetryableAIError(new Error("Request timed out"))).toBe(true);
   });
 });

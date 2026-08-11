@@ -69,6 +69,9 @@ const UUID_TITLE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_TITLE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
 const PENDING_AUTO_ENHANCE_RECOVERY_INTERVAL_MS = 5_000;
+const MAX_AUTO_ENHANCE_FAILURES = 8;
+const AUTO_ENHANCE_BACKOFF_BASE_MS = 30_000;
+const AUTO_ENHANCE_BACKOFF_MAX_MS = 15 * 60_000;
 const TEXT_CONTAINER_TYPES = new Set([
   "doc",
   "heading",
@@ -204,6 +207,10 @@ export class EnhancerService {
     string,
     PendingAutoEnhanceJob | undefined
   >();
+  private autoEnhanceFailures = new Map<
+    string,
+    { attempts: number; nextAttemptAt: number }
+  >();
   private pendingRetries = new Map<string, ReturnType<typeof setTimeout>>();
   private pendingResumeTimer: ReturnType<typeof setTimeout> | null = null;
   private unsubscribe: (() => void) | null = null;
@@ -235,6 +242,7 @@ export class EnhancerService {
     if (this.pendingResumeTimer) clearTimeout(this.pendingResumeTimer);
     this.pendingResumeTimer = null;
     this.activeAutoEnhance.clear();
+    this.autoEnhanceFailures.clear();
     this.eventListeners.clear();
     if (instance === this) instance = null;
   }
@@ -357,6 +365,10 @@ export class EnhancerService {
         if (live.status === "active" && live.sessionId === job.sessionId) {
           continue;
         }
+        const failure = this.autoEnhanceFailures.get(this.failureKey(job));
+        if (failure && Date.now() < failure.nextAttemptAt) {
+          continue;
+        }
         console.info("[enhancer] resuming pending auto-enhance", {
           sessionId: job.sessionId,
         });
@@ -431,6 +443,51 @@ export class EnhancerService {
       type: "auto-enhance-started",
       sessionId,
       noteId: result.noteId,
+    });
+  }
+
+  private failureKey(job: PendingAutoEnhanceJob): string {
+    return `${job.sessionId}:${job.generation}`;
+  }
+
+  // Retryable failures back off exponentially and give up after a fixed
+  // budget; otherwise a persistently failing provider retries every resume
+  // tick forever.
+  private async recordAutoEnhanceFailure(
+    sessionId: string,
+    job: PendingAutoEnhanceJob,
+  ) {
+    const key = this.failureKey(job);
+    const attempts = (this.autoEnhanceFailures.get(key)?.attempts ?? 0) + 1;
+
+    if (attempts >= MAX_AUTO_ENHANCE_FAILURES) {
+      // Hold the budget entry until the durable job is actually gone. Clearing
+      // it first lets the 5s resume tick pick the still-pending job back up
+      // with no backoff and restart the attempt count, and leaves retries
+      // unbounded if the discard throws.
+      this.autoEnhanceFailures.set(key, {
+        attempts,
+        nextAttemptAt: Date.now() + AUTO_ENHANCE_BACKOFF_MAX_MS,
+      });
+      await retryDatabaseLock(() => discardPendingAutoEnhanceJob(job));
+      this.autoEnhanceFailures.delete(key);
+      this.emit({
+        type: "auto-enhance-skipped",
+        sessionId,
+        reason: "Could not generate the summary after repeated attempts.",
+        reasonCode: "error",
+      });
+      return;
+    }
+
+    this.autoEnhanceFailures.set(key, {
+      attempts,
+      nextAttemptAt:
+        Date.now() +
+        Math.min(
+          AUTO_ENHANCE_BACKOFF_BASE_MS * 2 ** (attempts - 1),
+          AUTO_ENHANCE_BACKOFF_MAX_MS,
+        ),
     });
   }
 
@@ -583,14 +640,20 @@ export class EnhancerService {
             llm_provider: llmConn?.providerId ?? "unknown",
             failure_stage: "generation",
           });
-          if (
-            opts?.pendingAutoEnhance &&
-            taskState.error &&
-            !isRetryableAIError(taskState.error)
-          ) {
-            await retryDatabaseLock(() =>
-              discardPendingAutoEnhanceJob(opts.pendingAutoEnhance!),
-            );
+          if (opts?.pendingAutoEnhance && taskState.error) {
+            if (isRetryableAIError(taskState.error)) {
+              await this.recordAutoEnhanceFailure(
+                sessionId,
+                opts.pendingAutoEnhance,
+              );
+            } else {
+              this.autoEnhanceFailures.delete(
+                this.failureKey(opts.pendingAutoEnhance),
+              );
+              await retryDatabaseLock(() =>
+                discardPendingAutoEnhanceJob(opts.pendingAutoEnhance!),
+              );
+            }
           }
         }
       })

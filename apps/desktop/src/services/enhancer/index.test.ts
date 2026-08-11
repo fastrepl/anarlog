@@ -690,6 +690,73 @@ describe("EnhancerService", () => {
     service.dispose();
   });
 
+  it("backs off a durable job after a retryable generation failure", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({
+      notes: [createNote()],
+      wordCount: 40,
+    });
+    const pendingJob = createPendingJob();
+    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([pendingJob]);
+    const ai = createMockAITaskStore(() => ({
+      status: "error",
+      error: new Error("Request timed out"),
+    }));
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+
+    service.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ai.generate).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(ai.generate).toHaveBeenCalledOnce();
+    expect(mocks.discardPendingAutoEnhanceJob).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(ai.generate).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+    service.dispose();
+  });
+
+  it("retires a durable job after exhausting retryable failures", async () => {
+    vi.useFakeTimers();
+    snapshot = createSnapshot({
+      notes: [createNote()],
+      wordCount: 40,
+    });
+    const pendingJob = createPendingJob();
+    mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([pendingJob]);
+    mocks.discardPendingAutoEnhanceJob.mockImplementation(async () => {
+      mocks.loadPendingAutoEnhanceJobs.mockResolvedValue([]);
+    });
+    const ai = createMockAITaskStore(() => ({
+      status: "error",
+      error: new Error("Request timed out"),
+    }));
+    const service = new EnhancerService(createDeps({ aiTaskStore: ai.store }));
+    const events: any[] = [];
+    service.on((event) => events.push(event));
+
+    service.start();
+
+    for (let i = 0; i < 200; i += 1) {
+      await vi.advanceTimersByTimeAsync(60_000);
+      if (mocks.discardPendingAutoEnhanceJob.mock.calls.length > 0) break;
+    }
+
+    expect(mocks.discardPendingAutoEnhanceJob).toHaveBeenCalledWith(pendingJob);
+    expect(ai.generate).toHaveBeenCalledTimes(8);
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "auto-enhance-skipped",
+        sessionId: "session-1",
+        reasonCode: "error",
+      }),
+    );
+    vi.useRealTimers();
+    service.dispose();
+  });
+
   it("retries a lock during actual auto-enhance execution without duplicating generation", async () => {
     vi.useFakeTimers();
     snapshot = createSnapshot({ wordCount: 40 });
