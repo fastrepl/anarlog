@@ -5,6 +5,9 @@ enum FloatingBarLayout {
   static let inset: CGFloat = 4
   static let screenMargin: CGFloat = 8
   static let compactHeight: CGFloat = 38
+  static let compactCornerRadius: CGFloat = 14
+  static let controlCornerRadius: CGFloat = 10
+  static let innerStrokeInset: CGFloat = 1
   static let compactStopWidth: CGFloat = 62
   static let compactSoloStopWidth: CGFloat = 68
   static let compactIconSize: CGFloat = 30
@@ -88,10 +91,13 @@ struct FloatingBarView: View {
       FloatingBarLayout.compactHeight
       + (isBarHovered ? FloatingBarLayout.hoverHandleReservedHeight : 0)
     let width = FloatingBarLayout.compactWidth(showsExpand: model.liveCaptionToggleVisible)
-    let radius = FloatingBarLayout.compactHeight / 2
-    let pillShape = FloatingBarSurfaceShape(
-      topRadius: radius,
-      bottomRadius: radius
+    let pillShape = RoundedRectangle(
+      cornerRadius: FloatingBarLayout.compactCornerRadius,
+      style: .continuous
+    )
+    let innerStrokeShape = RoundedRectangle(
+      cornerRadius: FloatingBarLayout.compactCornerRadius - FloatingBarLayout.innerStrokeInset,
+      style: .continuous
     )
 
     return ZStack(alignment: .bottom) {
@@ -137,18 +143,22 @@ struct FloatingBarView: View {
         .strokeBorder(outerStrokeColor, lineWidth: 0.5)
     )
     .overlay(
-      pillShape
+      innerStrokeShape
         .strokeBorder(innerStrokeColor, lineWidth: 0.5)
-        .padding(1)
+        .padding(FloatingBarLayout.innerStrokeInset)
     )
     .clipShape(pillShape)
     .animation(.easeOut(duration: 0.12), value: isBarHovered)
   }
 
   private var expandedPanel: some View {
-    let surfaceShape = FloatingBarSurfaceShape(
-      topRadius: FloatingBarLayout.expandedCornerRadius,
-      bottomRadius: FloatingBarLayout.expandedCornerRadius
+    let surfaceShape = RoundedRectangle(
+      cornerRadius: FloatingBarLayout.expandedCornerRadius,
+      style: .continuous
+    )
+    let innerStrokeShape = RoundedRectangle(
+      cornerRadius: FloatingBarLayout.expandedCornerRadius - FloatingBarLayout.innerStrokeInset,
+      style: .continuous
     )
 
     return VStack(spacing: FloatingBarLayout.hoverHandleGap) {
@@ -264,9 +274,9 @@ struct FloatingBarView: View {
         .strokeBorder(outerStrokeColor, lineWidth: 0.5)
     )
     .overlay(
-      surfaceShape
+      innerStrokeShape
         .strokeBorder(innerStrokeColor, lineWidth: 0.5)
-        .padding(1)
+        .padding(FloatingBarLayout.innerStrokeInset)
     )
     .clipShape(surfaceShape)
     .animation(.easeOut(duration: 0.12), value: isBarHovered)
@@ -295,7 +305,12 @@ struct FloatingBarView: View {
   }
 
   private func audioControl(width: CGFloat, height: CGFloat) -> some View {
-    Button(action: { performClick(RustBridge.stopListening) }) {
+    let shape = RoundedRectangle(
+      cornerRadius: FloatingBarLayout.controlCornerRadius,
+      style: .continuous
+    )
+
+    return Button(action: { performClick(RustBridge.stopListening) }) {
       Group {
         if isStopHovered {
           HStack(spacing: 6) {
@@ -321,10 +336,10 @@ struct FloatingBarView: View {
       }
       .frame(width: width, height: height)
       .background(
-        Capsule(style: .continuous)
+        shape
           .fill(isStopHovered ? accentColor.opacity(0.18) : controlHoverFill)
       )
-      .contentShape(Capsule(style: .continuous))
+      .contentShape(shape)
     }
     .buttonStyle(.plain)
     .accessibilityLabel("Stop listening")
@@ -487,7 +502,12 @@ struct FloatingBarView: View {
   }
 
   private func transcriptBottomChip(action: @escaping () -> Void) -> some View {
-    Button(action: action) {
+    let shape = RoundedRectangle(
+      cornerRadius: FloatingBarLayout.controlCornerRadius,
+      style: .continuous
+    )
+
+    return Button(action: action) {
       HStack(spacing: 6) {
         Image(systemName: "arrow.down")
           .font(.system(size: 10, weight: .semibold))
@@ -498,11 +518,11 @@ struct FloatingBarView: View {
       .padding(.horizontal, 12)
       .padding(.vertical, 7)
       .background(
-        Capsule(style: .continuous)
+        shape
           .fill(transcriptChipFillColor)
       )
       .overlay(
-        Capsule(style: .continuous)
+        shape
           .strokeBorder(transcriptChipStrokeColor, lineWidth: 0.5)
       )
     }
@@ -530,71 +550,6 @@ struct FloatingBarView: View {
 private struct FloatingBarDragStart {
   let panelOrigin: NSPoint
   let mouseLocation: NSPoint
-}
-
-private struct FloatingBarSurfaceShape: InsettableShape {
-  let topRadius: CGFloat
-  let bottomRadius: CGFloat
-  let cornerControlFactor: CGFloat
-  var insetAmount: CGFloat = 0
-
-  init(
-    topRadius: CGFloat,
-    bottomRadius: CGFloat,
-    cornerControlFactor: CGFloat = 0.447715,
-    insetAmount: CGFloat = 0
-  ) {
-    self.topRadius = topRadius
-    self.bottomRadius = bottomRadius
-    self.cornerControlFactor = cornerControlFactor
-    self.insetAmount = insetAmount
-  }
-
-  func path(in rect: CGRect) -> Path {
-    let insetRect = rect.insetBy(dx: insetAmount, dy: insetAmount)
-    let topRadius = min(topRadius, insetRect.width / 2, insetRect.height / 2)
-    let bottomRadius = min(bottomRadius, insetRect.width / 2, insetRect.height / 2)
-    let topControl = topRadius * cornerControlFactor
-    let bottomControl = bottomRadius * cornerControlFactor
-    var path = Path()
-
-    path.move(to: CGPoint(x: insetRect.minX + topRadius, y: insetRect.minY))
-    path.addLine(to: CGPoint(x: insetRect.maxX - topRadius, y: insetRect.minY))
-    path.addCurve(
-      to: CGPoint(x: insetRect.maxX, y: insetRect.minY + topRadius),
-      control1: CGPoint(x: insetRect.maxX - topRadius + topControl, y: insetRect.minY),
-      control2: CGPoint(x: insetRect.maxX, y: insetRect.minY + topRadius - topControl)
-    )
-    path.addLine(to: CGPoint(x: insetRect.maxX, y: insetRect.maxY - bottomRadius))
-    path.addCurve(
-      to: CGPoint(x: insetRect.maxX - bottomRadius, y: insetRect.maxY),
-      control1: CGPoint(x: insetRect.maxX, y: insetRect.maxY - bottomRadius + bottomControl),
-      control2: CGPoint(x: insetRect.maxX - bottomRadius + bottomControl, y: insetRect.maxY)
-    )
-    path.addLine(to: CGPoint(x: insetRect.minX + bottomRadius, y: insetRect.maxY))
-    path.addCurve(
-      to: CGPoint(x: insetRect.minX, y: insetRect.maxY - bottomRadius),
-      control1: CGPoint(x: insetRect.minX + bottomRadius - bottomControl, y: insetRect.maxY),
-      control2: CGPoint(x: insetRect.minX, y: insetRect.maxY - bottomRadius + bottomControl)
-    )
-    path.addLine(to: CGPoint(x: insetRect.minX, y: insetRect.minY + topRadius))
-    path.addCurve(
-      to: CGPoint(x: insetRect.minX + topRadius, y: insetRect.minY),
-      control1: CGPoint(x: insetRect.minX, y: insetRect.minY + topRadius - topControl),
-      control2: CGPoint(x: insetRect.minX + topRadius - topControl, y: insetRect.minY)
-    )
-    path.closeSubpath()
-    return path
-  }
-
-  func inset(by amount: CGFloat) -> FloatingBarSurfaceShape {
-    FloatingBarSurfaceShape(
-      topRadius: topRadius,
-      bottomRadius: bottomRadius,
-      cornerControlFactor: cornerControlFactor,
-      insetAmount: insetAmount + amount
-    )
-  }
 }
 
 private struct FloatingBarHoverHandle: View {
@@ -720,16 +675,21 @@ private struct FloatingIconButton: View {
   @State private var isHovered = false
 
   var body: some View {
-    Button(action: action) {
+    let shape = RoundedRectangle(
+      cornerRadius: FloatingBarLayout.controlCornerRadius,
+      style: .continuous
+    )
+
+    return Button(action: action) {
       Image(systemName: systemName)
         .font(.system(size: 12, weight: .semibold))
         .foregroundStyle(color)
         .frame(width: size, height: size)
         .background(
-          Circle()
+          shape
             .fill(isHovered ? hoverFill : Color.clear)
         )
-        .contentShape(Circle())
+        .contentShape(shape)
     }
     .buttonStyle(.plain)
     .accessibilityLabel(accessibilityLabel)
