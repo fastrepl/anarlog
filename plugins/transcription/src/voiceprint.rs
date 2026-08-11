@@ -77,6 +77,22 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
         return Ok(0);
     };
 
+    // Repair and re-transcription flows can finalize the same transcript
+    // more than once; extract only for transcripts we have not seen.
+    let already_extracted: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM voiceprint_candidates
+           WHERE source_transcript_id = ? AND deleted_at IS NULL
+         )",
+    )
+    .bind(&transcript_id)
+    .fetch_one(&pool)
+    .await
+    .map_err(|error| error.to_string())?;
+    if already_extracted {
+        return Ok(0);
+    }
+
     let spans = spans_from_transcript(&words_json, &hints_json)?;
     if spans.is_empty() {
         return Ok(0);
@@ -139,14 +155,11 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
             Ok(_) => stored += 1,
             Err(error) => {
                 tracing::warn!(%error, "voiceprint_candidate_insert_failed");
-                let cleanup_app = app.clone();
-                let _ = tauri::async_runtime::spawn_blocking(move || {
-                    tauri_plugin_store2::delete_secret_blocking(
-                        &cleanup_app,
-                        anlg_db_app::VOICEPRINT_CANDIDATE_KEYRING_SCOPE,
-                        &id,
-                    )
-                })
+                delete_secret(
+                    &app,
+                    anlg_db_app::VOICEPRINT_CANDIDATE_KEYRING_SCOPE.to_string(),
+                    id,
+                )
                 .await;
             }
         }
@@ -159,6 +172,174 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
         "voiceprint_candidates_extracted"
     );
     Ok(stored)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn promote_voiceprint_candidates<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    transcript_id: String,
+    speaker_channel: i32,
+    speaker_index: Option<i32>,
+    human_id: String,
+) -> Result<u32, String> {
+    let pool = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.pool().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+
+    let Some(workspace_id) = sqlx::query_scalar::<_, String>(
+        "SELECT workspace_id FROM transcripts WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+    )
+    .bind(&transcript_id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(|error| error.to_string())?
+    else {
+        return Ok(0);
+    };
+
+    let label = speaker_label(&SelectedSpan {
+        channel: speaker_channel as i64,
+        speaker_index: speaker_index.map(i64::from),
+        start_ms: 0,
+        end_ms: 0,
+        quality_score: 0.0,
+    });
+
+    let stale = anlg_db_app::tombstone_voiceprint_exemplars_for_source_speaker(
+        &pool,
+        &workspace_id,
+        &transcript_id,
+        &label,
+        &human_id,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    for secret in stale {
+        delete_secret(&app, secret.keyring_scope, secret.keyring_key.clone()).await;
+        let _ = anlg_db_app::purge_tombstoned_voiceprint_exemplar(
+            &pool,
+            &workspace_id,
+            &secret.keyring_key,
+        )
+        .await;
+    }
+
+    let candidates = anlg_db_app::list_active_voiceprint_candidates_for_speaker(
+        &pool,
+        &workspace_id,
+        &transcript_id,
+        speaker_channel as i64,
+        speaker_index.map(i64::from),
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+
+    let mut promoted: u32 = 0;
+    for candidate in candidates {
+        let Ok(Some(secret_value)) = tauri_plugin_store2::read_secret(
+            app.clone(),
+            candidate.keyring_scope.clone(),
+            candidate.keyring_key.clone(),
+        )
+        .await
+        else {
+            tracing::warn!(candidate_id = %candidate.id, "voiceprint_candidate_secret_missing");
+            continue;
+        };
+
+        // Secret moves before the row transition so a crash can leave an
+        // orphan secret but never an exemplar without its vector.
+        if let Err(error) = tauri_plugin_store2::write_secret(
+            app.clone(),
+            anlg_db_app::VOICEPRINT_KEYRING_SCOPE.to_string(),
+            candidate.id.clone(),
+            secret_value,
+        )
+        .await
+        {
+            tracing::warn!(?error, "voiceprint_exemplar_secret_write_failed");
+            continue;
+        }
+
+        match anlg_db_app::promote_voiceprint_candidate(
+            &pool,
+            anlg_db_app::PromoteVoiceprintCandidate {
+                candidate_id: &candidate.id,
+                workspace_id: &workspace_id,
+                human_id: &human_id,
+                confirmation_source: "manual_speaker_assignment",
+                label_confidence: 1.0,
+            },
+        )
+        .await
+        {
+            Ok((_, candidate_secret)) => {
+                promoted += 1;
+                delete_secret(
+                    &app,
+                    candidate_secret.keyring_scope,
+                    candidate_secret.keyring_key,
+                )
+                .await;
+            }
+            Err(error) => {
+                tracing::warn!(%error, "voiceprint_candidate_promotion_failed");
+                delete_secret(
+                    &app,
+                    anlg_db_app::VOICEPRINT_KEYRING_SCOPE.to_string(),
+                    candidate.id.clone(),
+                )
+                .await;
+            }
+        }
+    }
+
+    tracing::info!(
+        transcript_id = %transcript_id,
+        speaker_channel,
+        promoted,
+        "voiceprint_candidates_promoted"
+    );
+    Ok(promoted)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn cleanup_expired_voiceprint_candidates<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<u32, String> {
+    let pool = app
+        .try_state::<tauri_plugin_db::ManagedState>()
+        .map(|state| state.pool().clone())
+        .ok_or_else(|| "database is not ready yet".to_string())?;
+
+    let now = chrono::Utc::now()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string();
+    let expired = anlg_db_app::tombstone_expired_voiceprint_candidates(&pool, &now)
+        .await
+        .map_err(|error| error.to_string())?;
+    let removed = expired.len() as u32;
+
+    for secret in expired {
+        delete_secret(&app, secret.keyring_scope, secret.keyring_key).await;
+    }
+    let _ = anlg_db_app::purge_expired_tombstoned_voiceprint_candidates(&pool, &now).await;
+
+    if removed > 0 {
+        tracing::info!(removed, "voiceprint_candidates_expired");
+    }
+    Ok(removed)
+}
+
+async fn delete_secret<R: tauri::Runtime>(app: &tauri::AppHandle<R>, scope: String, key: String) {
+    let app = app.clone();
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        tauri_plugin_store2::delete_secret_blocking(&app, &scope, &key)
+    })
+    .await;
 }
 
 fn spans_from_transcript(words_json: &str, hints_json: &str) -> Result<Vec<SelectedSpan>, String> {

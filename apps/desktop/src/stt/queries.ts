@@ -4,6 +4,7 @@ import type {
   LiveTranscriptDelta,
   RenderTranscriptHuman,
 } from "@anlg/plugin-transcription";
+import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -353,6 +354,33 @@ export function assignTranscriptSpeaker({
       anchorWordId,
       { mode, wordIds },
     );
+  }).then(() => {
+    if ((mode ?? "all") !== "all") {
+      return;
+    }
+    const channel =
+      segmentKey.channel === "DirectMic"
+        ? 0
+        : segmentKey.channel === "RemoteParty"
+          ? 1
+          : 2;
+    transcriptionCommands
+      .promoteVoiceprintCandidates(
+        transcriptId,
+        channel,
+        typeof segmentKey.speaker_index === "number"
+          ? segmentKey.speaker_index
+          : null,
+        humanId,
+      )
+      .then((result) => {
+        if (result.status === "error") {
+          console.error("[voiceprint] promotion failed", result.error);
+        }
+      })
+      .catch((error) => {
+        console.error("[voiceprint] promotion failed", error);
+      });
   });
 }
 

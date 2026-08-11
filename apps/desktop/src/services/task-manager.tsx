@@ -21,6 +21,7 @@ import {
   EVENT_NOTIFICATION_TASK_ID,
   type NotifiedEventsMap,
 } from "./event-notification";
+import { cleanupExpiredVoiceprintCandidates } from "./voiceprint";
 
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -129,6 +130,7 @@ export function TaskManager() {
           queryKey: ["audio", sessionId, "url"],
         });
       }
+      void cleanupExpiredVoiceprintCandidates();
     },
     [audioRetention, queryClient],
     undefined,

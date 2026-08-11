@@ -181,6 +181,22 @@ async extractVoiceprintCandidates(sessionId: string, transcriptId: string, audio
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async promoteVoiceprintCandidates(transcriptId: string, speakerChannel: number, speakerIndex: number | null, humanId: string) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|promote_voiceprint_candidates", { transcriptId, speakerChannel, speakerIndex, humanId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cleanupExpiredVoiceprintCandidates() : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|cleanup_expired_voiceprint_candidates") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

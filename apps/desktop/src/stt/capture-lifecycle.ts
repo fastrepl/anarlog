@@ -24,6 +24,7 @@ import {
   normalizeAudioRetention,
 } from "~/services/audio-retention";
 import { getEnhancerService } from "~/services/enhancer";
+import { maybeExtractVoiceprintCandidates } from "~/services/voiceprint";
 import { flushCanonicalSessionEditorChanges } from "~/session-sharing/editor-activity";
 import {
   catalogLocalSessionAudio,
@@ -154,6 +155,7 @@ export function useCaptureLifecycle(sessionId: string) {
   const audioRetention = normalizeAudioRetention(
     useConfigValue("audio_retention"),
   );
+  const rememberSpeakers = useConfigValue("remember_speakers") === true;
   const { conn } = useSTTConnection();
   const runBatch = useRunBatch(sessionId);
   const setBatchTranscriptionPending = useListener(
@@ -590,6 +592,12 @@ export function useCaptureLifecycle(sessionId: string) {
 
         try {
           if (details.audioPath && transcriptIsComplete) {
+            await maybeExtractVoiceprintCandidates({
+              enabled: rememberSpeakers,
+              sessionId,
+              transcriptId,
+              audioPath: details.audioPath,
+            });
             await persistTranscriptWrite(() =>
               markSessionAudioTranscriptionComplete(sessionId),
             );
@@ -723,6 +731,7 @@ export function useCaptureLifecycle(sessionId: string) {
       conn?.model,
       conn?.provider,
       participantHumanIds,
+      rememberSpeakers,
       session?.raw_md,
       session?.user_id,
       sessionId,

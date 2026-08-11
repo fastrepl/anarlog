@@ -210,6 +210,54 @@ pub async fn tombstone_voiceprint_exemplars_for_human(
     Ok(secret_refs)
 }
 
+// Removes exemplars a re-assignment invalidated: the spans previously bound
+// to one human are being bound to a different one.
+pub async fn tombstone_voiceprint_exemplars_for_source_speaker(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    source_transcript_id: &str,
+    source_speaker_label: &str,
+    keep_human_id: &str,
+) -> Result<Vec<VoiceprintSecretRef>, sqlx::Error> {
+    let mut transaction = pool.begin().await?;
+    let secret_refs = sqlx::query_as(
+        "SELECT keyring_scope, keyring_key
+         FROM voiceprint_exemplars
+         WHERE workspace_id = ?
+           AND source_transcript_id = ?
+           AND source_speaker_label = ?
+           AND human_id <> ?
+           AND deleted_at IS NULL
+         ORDER BY created_at, id",
+    )
+    .bind(workspace_id)
+    .bind(source_transcript_id)
+    .bind(source_speaker_label)
+    .bind(keep_human_id)
+    .fetch_all(&mut *transaction)
+    .await?;
+
+    sqlx::query(
+        "UPDATE voiceprint_exemplars
+         SET
+           deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE workspace_id = ?
+           AND source_transcript_id = ?
+           AND source_speaker_label = ?
+           AND human_id <> ?
+           AND deleted_at IS NULL",
+    )
+    .bind(workspace_id)
+    .bind(source_transcript_id)
+    .bind(source_speaker_label)
+    .bind(keep_human_id)
+    .execute(&mut *transaction)
+    .await?;
+    transaction.commit().await?;
+    Ok(secret_refs)
+}
+
 pub async fn purge_tombstoned_voiceprint_exemplar(
     pool: &SqlitePool,
     workspace_id: &str,
@@ -481,6 +529,20 @@ pub async fn tombstone_expired_voiceprint_candidates(
     .await?;
     transaction.commit().await?;
     Ok(secret_refs)
+}
+
+pub async fn purge_expired_tombstoned_voiceprint_candidates(
+    pool: &SqlitePool,
+    now_iso: &str,
+) -> Result<u64, sqlx::Error> {
+    let result = sqlx::query(
+        "DELETE FROM voiceprint_candidates
+         WHERE deleted_at IS NOT NULL AND expires_at <= ?",
+    )
+    .bind(now_iso)
+    .execute(pool)
+    .await?;
+    Ok(result.rows_affected())
 }
 
 pub async fn purge_tombstoned_voiceprint_candidate(

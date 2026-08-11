@@ -91,6 +91,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "audio_retention"],
     default: "forever" as string,
   },
+  remember_speakers: {
+    type: "boolean",
+    path: ["general", "remember_speakers"],
+    default: false as boolean,
+  },
   microphone_device: {
     type: "string",
     path: ["general", "microphone_device"],
