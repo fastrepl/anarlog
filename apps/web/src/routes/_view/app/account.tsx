@@ -13,10 +13,14 @@ import { getSupabaseBrowserClient } from "@/functions/supabase";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 import { AccountAccessSection } from "./-account-access";
+import { ApiKeysSection } from "./-account-api-keys";
 import { DangerAreaSection } from "./-account-danger";
+import { DevicesSection } from "./-account-devices";
+import { IntegrationsSection } from "./-account-integrations";
 import { PlanSection } from "./-account-plan";
 import { ProfileInfoSection } from "./-account-profile-info";
 import { accountSessionQueryKey } from "./-account-session";
+import { SharedNotesSection } from "./-account-shares";
 
 const validateSearch = z
   .object({
@@ -143,6 +147,55 @@ function Component() {
             </p>
             <div className="mt-6">
               <PlanSection />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Integrations
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Calendars and tools connected to Anarlog.
+            </p>
+            <div className="mt-6">
+              <IntegrationsSection />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Synced devices
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Anarlog syncs up to five devices. Remove one to free a slot.
+            </p>
+            <div className="mt-6">
+              <DevicesSection />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Shared notes
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Notes you've shared with others. Restricting a note turns off link
+              and public access.
+            </p>
+            <div className="mt-6">
+              <SharedNotesSection />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Cloud API keys
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Keys that let your own tools talk to the Anarlog Cloud API.
+            </p>
+            <div className="mt-6">
+              <ApiKeysSection />
             </div>
           </section>
 

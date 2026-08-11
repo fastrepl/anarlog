@@ -10,6 +10,9 @@ export const accountSessionQueryKey = ["account-session"];
 export function useAccountSession() {
   return useQuery({
     queryKey: accountSessionQueryKey,
+    // Skip the SSR fetch: the browser-only Supabase client throws on the
+    // server, and this data is session-scoped anyway.
+    enabled: typeof window !== "undefined",
     queryFn: async () => {
       const supabase = getSupabaseBrowserClient();
       const { data } = await supabase.auth.getSession();

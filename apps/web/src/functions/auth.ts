@@ -319,6 +319,20 @@ export const signOutFn = createServerFn({ method: "POST" }).handler(
   },
 );
 
+export const signOutEverywhereFn = createServerFn({ method: "POST" }).handler(
+  async () => {
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase.auth.signOut({ scope: "global" });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    clearServerAnalyticsIdentity();
+    return { success: true };
+  },
+);
+
 export const exchangeOAuthCode = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
