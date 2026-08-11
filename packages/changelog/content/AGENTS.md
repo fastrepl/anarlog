@@ -43,7 +43,7 @@ done
 3. To actually see what's changed between two versions, you can use this.
 
 ```bash
-gh api repos/fastrepl/char/compare/<>...<>  --jq '.commits'
+gh api repos/fastrepl/anarlog/compare/<>...<>  --jq '.commits'
 ```
 
 # Custom Tags

@@ -3,7 +3,7 @@ import postgres from "postgres";
 import { env, requireEnv } from "@/env";
 
 const FASTREPL_ORG = "fastrepl";
-const CHAR_REPO = "fastrepl/char";
+const ANARLOG_REPO = "fastrepl/anarlog";
 const OPENROUTER_MODEL = "openai/gpt-4o-mini";
 
 function getSql() {
@@ -317,7 +317,7 @@ export async function fetchGitHubStargazers(): Promise<StarLeadSyncResult> {
 
   while (true) {
     const response = await fetch(
-      `https://api.github.com/repos/${CHAR_REPO}/stargazers?per_page=${perPage}&page=${page}`,
+      `https://api.github.com/repos/${ANARLOG_REPO}/stargazers?per_page=${perPage}&page=${page}`,
       {
         headers: getGitHubHeaders("application/vnd.github.star+json"),
       },
@@ -346,7 +346,7 @@ export async function fetchGitHubStargazers(): Promise<StarLeadSyncResult> {
         avatarUrl: stargazer.user.avatar_url,
         profileUrl: stargazer.user.html_url,
         eventType: "star",
-        repoName: CHAR_REPO,
+        repoName: ANARLOG_REPO,
         eventAt: stargazer.starred_at,
         eventSource: "stargazers",
       });

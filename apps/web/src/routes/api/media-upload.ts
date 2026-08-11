@@ -8,7 +8,7 @@ import {
   readBoundedBody,
 } from "@/lib/media-upload-request";
 
-const GITHUB_REPO = "fastrepl/char";
+const GITHUB_REPO = "fastrepl/anarlog";
 const GITHUB_BRANCH = "main";
 const MAX_FILENAME_LENGTH = 255;
 const ALLOWED_FOLDERS = [

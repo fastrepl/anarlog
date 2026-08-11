@@ -2,7 +2,7 @@ import * as path from "path";
 
 import { getSupabaseServerClient } from "@/functions/supabase";
 
-export const GITHUB_REPO = "fastrepl/char";
+export const GITHUB_REPO = "fastrepl/anarlog";
 export const GITHUB_BRANCH = "main";
 export const CONTENT_PATH = "apps/web/content";
 
