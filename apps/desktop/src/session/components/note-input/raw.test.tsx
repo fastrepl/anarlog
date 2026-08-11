@@ -137,31 +137,6 @@ vi.mock("~/session-sharing/comment-anchors", () => ({
 
 vi.mock("~/session/components/shared", () => ({
   useCanShowTranscript: () => hoisted.canShowTranscript,
-  hasStoredNoteContent: (value: unknown) => {
-    if (typeof value !== "string" || !value.trim()) {
-      return false;
-    }
-
-    try {
-      const hasText = (node: unknown): boolean => {
-        if (!node || typeof node !== "object") {
-          return false;
-        }
-        const content = node as {
-          text?: string;
-          content?: unknown[];
-        };
-        return (
-          Boolean(content.text?.trim()) ||
-          Boolean(content.content?.some(hasText))
-        );
-      };
-
-      return hasText(JSON.parse(value));
-    } catch {
-      return true;
-    }
-  },
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -536,6 +511,59 @@ describe("RawEditor", () => {
       screen.getByRole("button", { name: "Project Kickoff" }),
     ).not.toBeNull();
     expect(hoisted.persistChange).not.toHaveBeenCalled();
+  });
+
+  it("hides template suggestions for structure-only content", () => {
+    hoisted.userTemplates = [
+      {
+        id: "default-project-kickoff",
+        title: "Project Kickoff",
+        pinned: false,
+        icon: { type: "emoji", value: "🚀" },
+        sections: [{ title: "Goals", description: "" }],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" />);
+
+    const onDocumentChange = hoisted.noteEditorProps[
+      hoisted.noteEditorProps.length - 1
+    ]?.onDocumentChange as (content: unknown) => void;
+
+    act(() => {
+      onDocumentChange({
+        type: "doc",
+        content: [
+          {
+            type: "taskList",
+            content: [{ type: "taskItem", content: [{ type: "paragraph" }] }],
+          },
+        ],
+      });
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Project Kickoff" }),
+    ).toBeNull();
+
+    act(() => {
+      onDocumentChange({
+        type: "doc",
+        content: [{ type: "paragraph" }, { type: "paragraph" }],
+      });
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Project Kickoff" }),
+    ).toBeNull();
+
+    act(() => {
+      onDocumentChange({ type: "doc", content: [{ type: "paragraph" }] });
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Project Kickoff" }),
+    ).not.toBeNull();
   });
 
   it("prioritizes event-aware template suggestions", () => {

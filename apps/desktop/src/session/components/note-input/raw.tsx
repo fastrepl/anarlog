@@ -26,10 +26,7 @@ import { openEditorLink } from "~/editor-bridge/open-editor-link";
 import { sessionMentionDropConfig } from "~/editor-bridge/session-mention-drop";
 import { SessionNodeView } from "~/editor-bridge/session-view";
 import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
-import {
-  hasStoredNoteContent,
-  useCanShowTranscript,
-} from "~/session/components/shared";
+import { useCanShowTranscript } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
 import { useUpdateSession } from "~/session/queries";
 import { removeDocumentTitle } from "~/session/title-content";
@@ -47,6 +44,16 @@ const defaultSuggestedTemplateIds = [
   "default-daily-standup",
   "default-one-on-one-meeting",
 ];
+// Structural check: any block beyond a single empty paragraph (checkbox, list,
+// extra empty lines) counts as content, unlike the text-based hasStoredNoteContent
+export function isPristineNoteDoc(doc: JSONContent): boolean {
+  const content = doc.content ?? [];
+  if (content.length === 0) return true;
+  if (content.length > 1) return false;
+  const node = content[0];
+  return node.type === "paragraph" && !node.content?.length;
+}
+
 const contextualTemplateRules = [
   {
     id: "default-sales-discovery-call",
@@ -111,7 +118,7 @@ export const RawEditor = forwardRef<
       [rawMd, sessionTitle],
     );
     const persistedIsMemoEmpty = useMemo(
-      () => !hasStoredNoteContent(JSON.stringify(initialContent)),
+      () => isPristineNoteDoc(initialContent),
       [initialContent],
     );
     const [liveMemoState, setLiveMemoState] = useState(() => ({
@@ -182,7 +189,7 @@ export const RawEditor = forwardRef<
 
     const handleDocumentChange = useCallback(
       (input: JSONContent) => {
-        const isEmpty = !hasStoredNoteContent(JSON.stringify(input));
+        const isEmpty = isPristineNoteDoc(input);
         setLiveMemoState((current) => {
           if (current.sessionId === sessionId && current.isEmpty === isEmpty) {
             return current;
