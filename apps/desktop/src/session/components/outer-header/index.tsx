@@ -25,7 +25,6 @@ import {
   type RemoteMeeting,
 } from "~/session/hooks/useRemoteMeeting";
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
-import { useConfigValue } from "~/shared/config";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { getScheme } from "~/shared/utils";
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -225,19 +224,10 @@ function HeaderMeetingActionPill({
   audioExists: boolean;
 }) {
   const startListening = useStartListening(sessionId);
-  const { canStartLiveSession, stop, stopTranscription } = useListener(
-    (state) => ({
-      canStartLiveSession: state.canStartLiveSession(sessionId),
-      stop: state.stop,
-      stopTranscription: state.stopTranscription,
-    }),
-  );
-  const autoJoinScheduledMeetings = useConfigValue(
-    "auto_join_scheduled_meetings",
-  );
-  const autoStartScheduledMeetings = useConfigValue(
-    "auto_start_scheduled_meetings",
-  );
+  const { stop, stopTranscription } = useListener((state) => ({
+    stop: state.stop,
+    stopTranscription: state.stopTranscription,
+  }));
   const remote = getRemoteMeeting(event?.meeting_link);
   const meetingLink = event?.meeting_link || null;
   const canJoinFromHeader = Boolean(
@@ -293,27 +283,7 @@ function HeaderMeetingActionPill({
       setJoiningMeeting(false);
     }
   }, [openMeeting, start]);
-  const handleCountdownExpire = useCallback(() => {
-    if (!autoStartScheduledMeetings || !canStartLiveSession) {
-      return;
-    }
-
-    if (autoJoinScheduledMeetings && meetingLink) {
-      void joinMeeting();
-    } else {
-      void start();
-    }
-  }, [
-    autoJoinScheduledMeetings,
-    autoStartScheduledMeetings,
-    canStartLiveSession,
-    joinMeeting,
-    meetingLink,
-    start,
-  ]);
-  const countdown = useEventCountdown(sessionId, {
-    onExpire: handleCountdownExpire,
-  });
+  const countdown = useEventCountdown(sessionId);
   const stopListening = useCallback(() => {
     if (!isMainWebviewWindow()) {
       void requestMainListenerControl("stop", sessionId);

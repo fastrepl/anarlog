@@ -633,35 +633,9 @@ describe("OuterHeader", () => {
     expect(joinButton.textContent).not.toContain("starts in");
   });
 
-  it("starts listening without joining when only scheduled listening is enabled", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-05T09:59:58.000Z"));
-    mocks.nowMs = Date.now();
-    mocks.configValues.auto_start_scheduled_meetings = true;
-    mocks.sessionEvents = {
-      "session-1": {
-        started_at: "2026-06-05T10:00:00.000Z",
-        ended_at: "2026-06-05T10:30:00.000Z",
-        meeting_link: "https://meet.google.com/abc-defg-hij",
-      },
-    };
-
-    render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "raw" } as EditorView}
-      />,
-    );
-
-    act(() => {
-      vi.advanceTimersByTime(2000);
-    });
-
-    expect(mocks.startListening).toHaveBeenCalledTimes(1);
-    expect(mocks.openUrl).not.toHaveBeenCalled();
-  });
-
-  it("joins and starts when both scheduled meeting settings are enabled", () => {
+  // Scheduled auto-start is owned by ScheduledMeetingAutoStart so it fires
+  // regardless of which tab is open; the header must not start a second one.
+  it("does not auto-start when the countdown reaches the meeting start time", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-06-05T09:59:58.000Z"));
     mocks.nowMs = Date.now();
@@ -686,39 +660,8 @@ describe("OuterHeader", () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(mocks.openUrl).toHaveBeenCalledWith(
-      "https://meet.google.com/abc-defg-hij",
-      null,
-    );
-    expect(mocks.startListening).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not join or start when scheduled listening is disabled", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-05T09:59:58.000Z"));
-    mocks.nowMs = Date.now();
-    mocks.configValues.auto_join_scheduled_meetings = true;
-    mocks.sessionEvents = {
-      "session-1": {
-        started_at: "2026-06-05T10:00:00.000Z",
-        ended_at: "2026-06-05T10:30:00.000Z",
-        meeting_link: "https://meet.google.com/abc-defg-hij",
-      },
-    };
-
-    render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "raw" } as EditorView}
-      />,
-    );
-
-    act(() => {
-      vi.advanceTimersByTime(2000);
-    });
-
-    expect(mocks.openUrl).not.toHaveBeenCalled();
     expect(mocks.startListening).not.toHaveBeenCalled();
+    expect(mocks.openUrl).not.toHaveBeenCalled();
   });
 
   it("hides the meeting countdown while listening is active", () => {

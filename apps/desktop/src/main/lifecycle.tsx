@@ -21,6 +21,7 @@ import { useConfigValue } from "~/shared/config";
 import { useDesktopTabLifecycle } from "~/shared/desktop-tab-lifecycle";
 import { useTabs } from "~/store/zustand/tabs";
 import { LiveCaptureRecovery } from "~/stt/live-capture-recovery";
+import { ScheduledMeetingAutoStart } from "~/stt/scheduled-auto-start";
 import { MainListenerControlBridge } from "~/stt/window-control";
 
 export function useClassicMainLifecycle() {
@@ -54,6 +55,7 @@ export function ClassicMainServices() {
       <OwnedSharedNotePublisher />
       <SharedNotePreviewAuthLifecycle />
       <LiveCaptureRecovery />
+      <ScheduledMeetingAutoStart />
       <MainListenerControlBridge />
       <ToolRegistration />
       <EnhancerInit />

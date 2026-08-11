@@ -22,15 +22,12 @@ describe("useEventCountdown", () => {
     vi.useRealTimers();
   });
 
-  test("fires onExpire when an active countdown reaches the start time", () => {
-    const onExpire = vi.fn();
+  test("clears the label when an active countdown reaches the start time", () => {
     useSessionEventMock.mockReturnValue({
       started_at: new Date(Date.now() + 2000).toISOString(),
     });
 
-    const { result } = renderHook(() =>
-      useEventCountdown("session-1", { onExpire }),
-    );
+    const { result } = renderHook(() => useEventCountdown("session-1"));
 
     expect(result.current.label).toBe("starts in 2s");
 
@@ -39,17 +36,31 @@ describe("useEventCountdown", () => {
     });
 
     expect(result.current.label).toBeNull();
-    expect(onExpire).toHaveBeenCalledTimes(1);
   });
 
-  test("does not fire onExpire for an event that is already in the past", () => {
-    const onExpire = vi.fn();
+  test("shows no label for an event that is already in the past", () => {
     useSessionEventMock.mockReturnValue({
       started_at: new Date(Date.now() - 1000).toISOString(),
     });
 
-    renderHook(() => useEventCountdown("session-1", { onExpire }));
+    const { result } = renderHook(() => useEventCountdown("session-1"));
 
-    expect(onExpire).not.toHaveBeenCalled();
+    expect(result.current.label).toBeNull();
+  });
+
+  test("shows no label until the event is within five minutes", () => {
+    useSessionEventMock.mockReturnValue({
+      started_at: new Date(Date.now() + 6 * 60_000).toISOString(),
+    });
+
+    const { result } = renderHook(() => useEventCountdown("session-1"));
+
+    expect(result.current.label).toBeNull();
+
+    act(() => {
+      vi.advanceTimersByTime(61_000);
+    });
+
+    expect(result.current.label).toBe("starts in 4m 59s");
   });
 });

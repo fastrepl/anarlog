@@ -1,17 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-export function useEventCountdown(
-  sessionId: string,
-  { onExpire }: { onExpire?: () => void } = {},
-) {
+export function useEventCountdown(sessionId: string) {
   const sessionEvent = useSessionEvent(sessionId);
   const startedAt = sessionEvent?.started_at;
-  const onExpireRef = useRef(onExpire);
-  onExpireRef.current = onExpire;
 
   const [label, setLabel] = useState<string | null>(null);
 
@@ -22,8 +17,6 @@ export function useEventCountdown(
     }
 
     const eventStart = new Date(startedAt).getTime();
-    let fired = false;
-    let armed = false;
 
     let interval: ReturnType<typeof setInterval>;
 
@@ -33,10 +26,6 @@ export function useEventCountdown(
       if (diff <= 0) {
         setLabel(null);
         clearInterval(interval);
-        if (armed && !fired) {
-          fired = true;
-          onExpireRef.current?.();
-        }
         return;
       }
 
@@ -45,7 +34,6 @@ export function useEventCountdown(
         return;
       }
 
-      armed = true;
       const totalSeconds = Math.floor(diff / 1000);
       const mins = Math.floor(totalSeconds / 60);
       const secs = totalSeconds % 60;

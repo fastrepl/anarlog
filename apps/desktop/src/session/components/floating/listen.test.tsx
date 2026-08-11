@@ -5,15 +5,7 @@ import { ListenButton } from "./listen";
 
 import type { Tab } from "~/store/zustand/tabs";
 
-const {
-  countdownCallbacks,
-  updateSessionTabStateMock,
-  useConfigValueMock,
-  useListenerMock,
-} = vi.hoisted(() => ({
-  countdownCallbacks: [] as Array<() => void>,
-  updateSessionTabStateMock: vi.fn(),
-  useConfigValueMock: vi.fn(() => true),
+const { useListenerMock } = vi.hoisted(() => ({
   useListenerMock: vi.fn((selector) =>
     selector({
       live: { loading: false, sessionId: null },
@@ -37,27 +29,6 @@ vi.mock("~/session/components/shared", () => ({
   }),
 }));
 
-vi.mock("~/session/hooks/useEventCountdown", () => ({
-  useEventCountdown: (
-    _sessionId: string,
-    options?: { onExpire?: () => void },
-  ) => {
-    if (options?.onExpire) {
-      countdownCallbacks.push(options.onExpire);
-    }
-    return { label: "starts in 1s" };
-  },
-}));
-
-vi.mock("~/shared/config", () => ({
-  useConfigValue: useConfigValueMock,
-}));
-
-vi.mock("~/store/zustand/tabs", () => ({
-  useTabs: (selector: any) =>
-    selector({ updateSessionTabState: updateSessionTabStateMock }),
-}));
-
 vi.mock("~/stt/contexts", () => ({
   useListener: useListenerMock,
 }));
@@ -65,23 +36,6 @@ vi.mock("~/stt/contexts", () => ({
 describe("floating ListenButton", () => {
   afterEach(() => {
     cleanup();
-  });
-
-  test("requests auto-start when the event countdown expires", () => {
-    const tab = {
-      type: "sessions",
-      id: "session-1",
-      state: { view: null, autoStart: null },
-    } as Extract<Tab, { type: "sessions" }>;
-
-    render(<ListenButton tab={tab} />);
-
-    countdownCallbacks[countdownCallbacks.length - 1]?.();
-
-    expect(updateSessionTabStateMock).toHaveBeenCalledWith(tab, {
-      view: null,
-      autoStart: true,
-    });
   });
 
   test("keeps remote meeting join controls out of the floating slot", () => {
