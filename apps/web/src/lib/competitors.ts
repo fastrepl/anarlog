@@ -30,6 +30,7 @@ export const ANARLOG_ROW: ComparisonRow = {
 export const COMPARISON_ROWS: ComparisonRow[] = [
   {
     name: "Otter.ai",
+    icon: "/icons/otter.png",
     url: "https://otter.ai/",
     paidFrom: "$16.99/user/mo",
     freeTier: "300 min/mo",
@@ -40,6 +41,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Fireflies.ai",
+    icon: "/icons/fireflies.png",
     url: "https://fireflies.ai/",
     paidFrom: "$18/mo",
     freeTier: "Limited transcription",
@@ -50,6 +52,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Fathom",
+    icon: "/icons/fathom.png",
     url: "https://www.fathom.ai/pricing",
     paidFrom: "$19/mo",
     freeTier: "Unlimited recording",
@@ -60,6 +63,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Granola",
+    icon: "/icons/granola.png",
     url: "https://www.granola.ai/pricing",
     paidFrom: "$14/mo",
     freeTier: "Trial only",
@@ -70,6 +74,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "tl;dv",
+    icon: "/icons/tldv.png",
     url: "https://tldv.io/",
     paidFrom: "$29/user/mo",
     freeTier: "Unlimited recording",
@@ -80,6 +85,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Notta",
+    icon: "/icons/notta.png",
     url: "https://www.notta.ai/en",
     paidFrom: "$13.49/user/mo",
     freeTier: "Limited transcription",
@@ -90,6 +96,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Avoma",
+    icon: "/icons/avoma.png",
     url: "https://www.avoma.com/pricing",
     paidFrom: "$19/mo",
     freeTier: "Limited",
@@ -100,6 +107,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Read AI",
+    icon: "/icons/readai.png",
     url: "https://www.read.ai",
     paidFrom: "$19.75/mo",
     freeTier: "5 transcripts/mo",
@@ -110,6 +118,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "MeetGeek",
+    icon: "/icons/meetgeek.png",
     url: "https://meetgeek.ai/",
     paidFrom: "$19/user/mo",
     freeTier: "3 hrs/mo",
@@ -120,6 +129,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Tactiq",
+    icon: "/icons/tactiq.png",
     url: "https://tactiq.io/buy",
     paidFrom: "$12/user/mo",
     freeTier: "10 meetings",
@@ -130,6 +140,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Sembly AI",
+    icon: "/icons/sembly.png",
     url: "https://www.sembly.ai/",
     paidFrom: "$15/user/mo",
     freeTier: "60 min/mo",
@@ -140,6 +151,7 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
   },
   {
     name: "Meetily",
+    icon: "/icons/meetily.png",
     url: "https://github.com/Zackriya-Solutions/meetily",
     paidFrom: "$10/mo",
     freeTier: "Unlimited local transcription",
