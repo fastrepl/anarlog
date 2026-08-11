@@ -2866,6 +2866,10 @@ msgstr "Sketch"
 msgid "Skip"
 msgstr "Skip"
 
+#: src/onboarding/imports.tsx
+msgid "Skip for now"
+msgstr "Skip for now"
+
 #: src/onboarding/index.tsx
 msgid "Skipped"
 msgstr "Skipped"

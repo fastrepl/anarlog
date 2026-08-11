@@ -156,7 +156,7 @@ export function OnboardingButton({
         variant === "primary" &&
           "border-primary bg-primary text-primary-foreground hover:bg-primary/90 border-2 shadow-[0_2px_6px_rgba(87,83,78,0.22),0_10px_18px_-10px_rgba(87,83,78,0.65)]",
         variant === "secondary" &&
-          "border-border text-muted-foreground hover:border-border hover:text-foreground border",
+          "border-border/60 bg-card/55 text-muted-foreground hover:bg-card/75 hover:text-foreground border shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-sm disabled:opacity-50",
         variant === "ghost" &&
           "text-muted-foreground hover:text-muted-foreground",
         className,

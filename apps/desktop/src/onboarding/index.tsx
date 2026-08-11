@@ -319,7 +319,7 @@ function OnboardingScreenContent({
             onNext={goNext}
             onSkip={skipCurrentStep}
           >
-            <ImportSection onContinue={goNext} />
+            <ImportSection onContinue={goNext} onSkip={skipCurrentStep} />
           </OnboardingSection>
 
           <OnboardingSection

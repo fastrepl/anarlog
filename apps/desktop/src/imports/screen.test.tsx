@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -64,7 +65,9 @@ vi.mock("./termination-pause", () => ({
 import { MEETING_IMPORT_PROVIDERS } from "./providers";
 import { MeetingImportScreen } from "./screen";
 
-function renderImports(props: { compact?: boolean } = {}) {
+function renderImports(
+  props: { compact?: boolean; secondaryAction?: ReactNode } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -147,6 +150,20 @@ describe("MeetingImportScreen", () => {
     expect(
       screen.getAllByRole("button", { name: "Choose files" }),
     ).toHaveLength(1);
+  });
+
+  it("renders the secondary action even before anything is imported", async () => {
+    mockDetected(["granola"]);
+
+    renderImports({
+      compact: true,
+      secondaryAction: <button type="button">Skip for now</button>,
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "Skip for now" }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
   });
 
   it("shows the empty state when nothing is detected", async () => {

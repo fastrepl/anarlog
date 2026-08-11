@@ -12,6 +12,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { open as selectFiles } from "@tauri-apps/plugin-dialog";
+import type { ReactNode } from "react";
 
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -73,9 +74,11 @@ function ProviderIcon({
 export function MeetingImportScreen({
   compact = false,
   onContinue,
+  secondaryAction,
 }: {
   compact?: boolean;
   onContinue?: () => void;
+  secondaryAction?: ReactNode;
 }) {
   const { t } = useLingui();
   const queryClient = useQueryClient();
@@ -392,14 +395,19 @@ export function MeetingImportScreen({
         </div>
       ) : null}
 
-      {onContinue && latestResult ? (
-        <Button
-          type="button"
-          className="w-fit rounded-full"
-          onClick={onContinue}
-        >
-          <Trans>Continue</Trans>
-        </Button>
+      {secondaryAction || (onContinue && latestResult) ? (
+        <div className="flex items-center gap-3">
+          {onContinue && latestResult ? (
+            <Button
+              type="button"
+              className="w-fit rounded-full"
+              onClick={onContinue}
+            >
+              <Trans>Continue</Trans>
+            </Button>
+          ) : null}
+          {secondaryAction}
+        </div>
       ) : null}
     </div>
   );

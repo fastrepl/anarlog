@@ -30,14 +30,14 @@ export function BeforeLogin({ onContinue: _ }: { onContinue: () => void }) {
           <Trans>Get started</Trans>
         </OnboardingButton>
 
-        <button
-          type="button"
+        <OnboardingButton
+          variant="secondary"
           onClick={handleSignIn}
           disabled={isOpening}
-          className="border-border/60 bg-card/55 text-muted-foreground hover:bg-card/75 hover:text-foreground rounded-full border px-6 py-2 text-sm font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] backdrop-blur-sm transition-colors disabled:opacity-50"
+          className="px-6 py-2"
         >
           <Trans>Login</Trans>
-        </button>
+        </OnboardingButton>
       </div>
     </div>
   );

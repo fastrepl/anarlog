@@ -2866,6 +2866,10 @@ msgstr ""
 msgid "Skip"
 msgstr ""
 
+#: src/onboarding/imports.tsx
+msgid "Skip for now"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Skipped"
 msgstr ""
