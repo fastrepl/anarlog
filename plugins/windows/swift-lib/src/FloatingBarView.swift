@@ -26,8 +26,9 @@ enum FloatingBarLayout {
   static let hoverHandleReservedHeight: CGFloat =
     hoverHandleTopPadding + hoverHandleHeight + hoverHandleGap
   static let hoverHandleDotSize: CGFloat = 1.6
-  static let hoverHandleDotSpacing: CGFloat = 7
-  static let hoverHandleHorizontalPadding: CGFloat = 17
+  static let hoverHandleDotColumnSpacing: CGFloat = 5
+  static let hoverHandleDotRowSpacing: CGFloat = 7
+  static let hoverHandleHorizontalPadding: CGFloat = 8
   static let dragClickThreshold: CGFloat = 4
 
   static func compactControlsWidth(showsExpand: Bool) -> CGFloat {
@@ -582,9 +583,9 @@ private struct FloatingBarDotPattern: View {
             height: FloatingBarLayout.hoverHandleDotSize
           )
           context.fill(Path(ellipseIn: rect), with: .color(color))
-          x += FloatingBarLayout.hoverHandleDotSpacing
+          x += FloatingBarLayout.hoverHandleDotColumnSpacing
         }
-        y += FloatingBarLayout.hoverHandleDotSpacing
+        y += FloatingBarLayout.hoverHandleDotRowSpacing
       }
     }
   }
