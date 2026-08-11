@@ -15,6 +15,7 @@ import {
 } from "./batch";
 
 import { trackAnalyticsEvent } from "~/analytics";
+import { requestAppAttention } from "~/shared/app-attention";
 import { isAppWindowInactive } from "~/shared/window-activity";
 import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 import { BatchResponseProcessingError } from "~/stt/batch-response-processing-error";
@@ -271,6 +272,7 @@ export const runBatchSession = async <T extends BatchStore>(
   });
 
   await showBatchCompletedNotification(sessionId);
+  void requestAppAttention("transcript_ready");
 };
 
 export function shouldUseSyntheticBatchProgress(params: TranscriptionParams) {

@@ -29,6 +29,7 @@ import {
 } from "~/session/content-mutations";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
+import { requestAppAttention } from "~/shared/app-attention";
 import { id } from "~/shared/utils";
 import { hasLiveSessionTitleDraft } from "~/store/zustand/live-title";
 
@@ -199,6 +200,7 @@ export const runEnhanceSuccess = async ({
       void runNoteEnhancedAutomations(args.sessionId);
       syncCloudApiSnapshotBestEffort(args.sessionId);
       void showSummaryReadyNotification(args.sessionId, trimmedTitle);
+      void requestAppAttention("summary_ready");
     }
   } finally {
     await releaseCloudsyncActivityEventually("enhance", cloudsyncLeaseKey);

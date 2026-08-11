@@ -58,6 +58,8 @@ export function NotificationSettingsView() {
   const configs = useConfigValues([
     "notification_event",
     "notification_detect",
+    "notification_bounce_summary",
+    "notification_bounce_transcript",
     "respect_dnd",
     "ignored_platforms",
     "included_platforms",
@@ -109,6 +111,8 @@ export function NotificationSettingsView() {
     defaultValues: {
       notification_event: configs.notification_event,
       notification_detect: configs.notification_detect,
+      notification_bounce_summary: configs.notification_bounce_summary,
+      notification_bounce_transcript: configs.notification_bounce_transcript,
       respect_dnd: configs.respect_dnd,
       ignored_platforms: configs.ignored_platforms,
       included_platforms: configs.included_platforms,
@@ -123,6 +127,8 @@ export function NotificationSettingsView() {
       setSettingValues({
         notification_event: value.notification_event,
         notification_detect: value.notification_detect,
+        notification_bounce_summary: value.notification_bounce_summary,
+        notification_bounce_transcript: value.notification_bounce_transcript,
         respect_dnd: value.respect_dnd,
         ignored_platforms: JSON.stringify(value.ignored_platforms),
         included_platforms: JSON.stringify(value.included_platforms),
@@ -165,6 +171,38 @@ export function NotificationSettingsView() {
             title={<Trans>Event notifications</Trans>}
             description={
               <Trans>Prepare for events with a 5-minute reminder.</Trans>
+            }
+            checked={field.state.value}
+            onChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="notification_bounce_transcript">
+        {(field) => (
+          <SettingSwitchRow
+            title={<Trans>Bounce app icon when a transcript is ready</Trans>}
+            description={
+              <Trans>
+                Get dock attention when transcription finishes while Anarlog is
+                in the background.
+              </Trans>
+            }
+            checked={field.state.value}
+            onChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="notification_bounce_summary">
+        {(field) => (
+          <SettingSwitchRow
+            title={<Trans>Bounce app icon when a summary is ready</Trans>}
+            description={
+              <Trans>
+                Get dock attention when your summary finishes while Anarlog is
+                in the background.
+              </Trans>
             }
             checked={field.state.value}
             onChange={field.handleChange}

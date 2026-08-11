@@ -95,7 +95,13 @@ function renderAutomations() {
 }
 
 describe("AutomationsContent", () => {
-  afterEach(cleanup);
+  // Radix's focus scope schedules a focus dispatch on unmount, so drain the
+  // timer queue while jsdom is still alive; left pending it fires against a
+  // torn-down realm and vitest reports an unhandled error.
+  afterEach(async () => {
+    cleanup();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 
   beforeEach(() => {
     mocks.billing.isPro = true;

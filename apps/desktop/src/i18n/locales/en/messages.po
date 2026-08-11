@@ -433,6 +433,14 @@ msgstr "Best for this Mac"
 msgid "Blueprint"
 msgstr "Blueprint"
 
+#: src/settings/general/notification.tsx
+msgid "Bounce app icon when a summary is ready"
+msgstr "Bounce app icon when a summary is ready"
+
+#: src/settings/general/notification.tsx
+msgid "Bounce app icon when a transcript is ready"
+msgstr "Bounce app icon when a transcript is ready"
+
 #: src/settings/appearance/theme.tsx
 msgid "Bright canvas"
 msgstr "Bright canvas"
@@ -1366,6 +1374,14 @@ msgstr "General access"
 #: src/session/components/title-input.tsx
 msgid "Generating title..."
 msgstr "Generating title..."
+
+#: src/settings/general/notification.tsx
+msgid "Get dock attention when transcription finishes while Anarlog is in the background."
+msgstr "Get dock attention when transcription finishes while Anarlog is in the background."
+
+#: src/settings/general/notification.tsx
+msgid "Get dock attention when your summary finishes while Anarlog is in the background."
+msgstr "Get dock attention when your summary finishes while Anarlog is in the background."
 
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Get Pro"

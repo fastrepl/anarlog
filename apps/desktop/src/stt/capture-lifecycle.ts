@@ -32,6 +32,7 @@ import {
 } from "~/session/attachments";
 import { enqueueSessionAudioOperation } from "~/session/audio-operations";
 import { useSession, useSessionTranscriptExistence } from "~/session/queries";
+import { requestAppAttention } from "~/shared/app-attention";
 import { useConfigValue } from "~/shared/config";
 import { id } from "~/shared/utils";
 import type {
@@ -513,6 +514,16 @@ export function useCaptureLifecycle(sessionId: string) {
         }
         if (!(await finishCaptureSyncDeferral())) {
           return;
+        }
+
+        // Batch repair already requests attention when runBatchSession
+        // finishes; a recovered summary-only pass has no new transcript.
+        if (
+          !batchCompleted &&
+          !pendingSummaryMode &&
+          (transcriptTouched || preserveExistingTranscript)
+        ) {
+          void requestAppAttention("transcript_ready");
         }
 
         try {

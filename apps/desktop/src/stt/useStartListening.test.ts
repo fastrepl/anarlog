@@ -119,6 +119,10 @@ const {
 vi.mock("@anlg/plugin-db", () => ({
   beginCloudsyncActivity: beginCloudsyncActivityMock,
   endCloudsyncActivity: endCloudsyncActivityMock,
+  execute: vi.fn(async () => []),
+  executeProxy: vi.fn(async () => []),
+  executeTransaction: vi.fn(async () => []),
+  subscribe: vi.fn(async () => () => {}),
 }));
 
 vi.mock("@anlg/plugin-transcription", () => ({
