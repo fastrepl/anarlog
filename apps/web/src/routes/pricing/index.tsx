@@ -5,6 +5,7 @@ import { MARKETING_PLAN_TIERS } from "@anlg/pricing";
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
+import { EnterpriseCallout } from "@/components/enterprise-callout";
 import { SiteFooter } from "@/components/site-footer";
 import {
   ANARLOG_ROW,
@@ -85,14 +86,16 @@ function PricingPage() {
               <div className="overflow-x-auto rounded-3xl border border-[#eadfce] [corner-shape:squircle]">
                 <table className="w-full min-w-[860px] border-collapse text-left text-sm">
                   <thead>
-                    <tr className="border-b border-[#eadfce] bg-[#fffaf0]">
-                      <Th>Tool</Th>
+                    <tr className="border-b border-[#eadfce]">
+                      <Th sticky>Tool</Th>
                       <Th>Paid from</Th>
                       <Th>Free tier</Th>
-                      <Th>Capture</Th>
-                      <Th>Meeting data</Th>
+                      <Th center>Bot-free</Th>
+                      <Th center>Local data</Th>
+                      <Th center>Offline</Th>
+                      <Th center>Local models</Th>
+                      <Th center>Own keys</Th>
                       <Th center>Open source</Th>
-                      <Th center>Your own keys</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -105,12 +108,22 @@ function PricingPage() {
               </div>
 
               <p className="mt-4 text-left text-xs leading-5 text-[#756b5d]">
-                Competitor pricing verified {verifiedOnLabel} from each vendor's
-                published plans, using the lowest regularly available paid tier.
-                Plans change — follow the links above before deciding. Anarlog
-                pricing is always current.
+                Bot-free means capture without adding a participant to the call.
+                Local data means the meeting record is stored on your device by
+                default. Offline means recording and transcription work with no
+                connection.
+              </p>
+              <p className="mt-2 text-left text-xs leading-5 text-[#756b5d]">
+                Competitor details verified {verifiedOnLabel} from each vendor's
+                published material, using the lowest regularly available paid
+                tier. Plans change — follow the links above before deciding.
+                Anarlog pricing is always current.
               </p>
             </div>
+          </section>
+
+          <section className="pt-4 pb-4 md:pt-6 md:pb-6">
+            <EnterpriseCallout />
           </section>
 
           <section className="pt-8 pb-20 md:pt-10 md:pb-24">
@@ -141,16 +154,19 @@ function PricingPage() {
 function Th({
   children,
   center = false,
+  sticky = false,
 }: {
   children: React.ReactNode;
   center?: boolean;
+  sticky?: boolean;
 }) {
   return (
     <th
       scope="col"
       className={cn([
-        "px-4 py-3 text-xs font-semibold whitespace-nowrap text-[#756b5d]",
+        "bg-[#fffaf0] px-4 py-3 text-xs font-semibold whitespace-nowrap text-[#756b5d]",
         center && "text-center",
+        sticky && "sticky left-0 z-10",
       ])}
     >
       {children}
@@ -168,7 +184,12 @@ function Row({ row, highlight }: { row: ComparisonRow; highlight?: boolean }) {
         highlight && "bg-[#fff8e6]",
       ])}
     >
-      <td className="px-4 py-3 whitespace-nowrap">
+      <td
+        className={cn([
+          "sticky left-0 z-10 px-4 py-3 whitespace-nowrap",
+          highlight ? "bg-[#fff8e6]" : "bg-white",
+        ])}
+      >
         <div className="flex items-center gap-2.5">
           {row.icon ? (
             <img
@@ -207,20 +228,15 @@ function Row({ row, highlight }: { row: ComparisonRow; highlight?: boolean }) {
       >
         {row.paidFrom}
       </td>
-      <td className="px-4 py-3 text-[#4f4940]">{row.freeTier}</td>
       <td className="px-4 py-3 whitespace-nowrap text-[#4f4940]">
-        {row.capture}
+        {row.freeTier}
       </td>
-      <td
-        className={cn([
-          "px-4 py-3 whitespace-nowrap",
-          highlight ? "font-semibold text-[#181613]" : "text-[#4f4940]",
-        ])}
-      >
-        {row.dataLocation}
-      </td>
-      <Bool value={row.openSource} />
+      <Bool value={row.botFree} />
+      <Bool value={row.localData} />
+      <Bool value={row.offline} />
+      <Bool value={row.localModels} />
       <Bool value={row.ownKeys} />
+      <Bool value={row.openSource} />
     </tr>
   );
 }

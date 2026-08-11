@@ -1,5 +1,14 @@
-// Competitor pricing drifts. Every figure here must be re-checked against the
-// vendor's own pricing page and PRICING_VERIFIED_ON bumped when it is.
+// Competitor rows make public claims about named products. Every field here
+// must be checkable against the vendor's own published material; bump
+// PRICING_VERIFIED_ON whenever a row is re-checked.
+//
+// Column definitions, kept narrow so each boolean stays defensible:
+//   botFree      - can capture without adding a participant to the call
+//   localData    - meeting record is stored on your device by default
+//   offline      - can record and transcribe with no internet connection
+//   localModels  - can run local STT/LLM models such as Ollama or LM Studio
+//   ownKeys      - can supply your own AI provider API keys
+//   openSource   - source is publicly licensed
 export const PRICING_VERIFIED_ON = "2026-08-11";
 
 export type ComparisonRow = {
@@ -9,10 +18,12 @@ export type ComparisonRow = {
   url: string;
   paidFrom: string;
   freeTier: string;
-  capture: string;
-  dataLocation: string;
-  openSource: boolean;
+  botFree: boolean;
+  localData: boolean;
+  offline: boolean;
+  localModels: boolean;
   ownKeys: boolean;
+  openSource: boolean;
 };
 
 export const ANARLOG_ROW: ComparisonRow = {
@@ -20,11 +31,13 @@ export const ANARLOG_ROW: ComparisonRow = {
   icon: "/icon-192x192.png",
   url: "/",
   paidFrom: "$15/mo",
-  freeTier: "Unlimited local transcription",
-  capture: "Desktop audio",
-  dataLocation: "Local SQLite",
-  openSource: true,
+  freeTier: "Unlimited local",
+  botFree: true,
+  localData: true,
+  offline: true,
+  localModels: true,
   ownKeys: true,
+  openSource: true,
 };
 
 export const COMPARISON_ROWS: ComparisonRow[] = [
@@ -34,21 +47,25 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://otter.ai/",
     paidFrom: "$16.99/user/mo",
     freeTier: "300 min/mo",
-    capture: "Meeting bot",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: true,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Fireflies.ai",
     icon: "/icons/fireflies.png",
     url: "https://fireflies.ai/",
     paidFrom: "$18/mo",
-    freeTier: "Limited transcription",
-    capture: "Bot or desktop",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    freeTier: "Limited",
+    botFree: true,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Fathom",
@@ -56,10 +73,12 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://www.fathom.ai/pricing",
     paidFrom: "$19/mo",
     freeTier: "Unlimited recording",
-    capture: "Bot or desktop",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: true,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Granola",
@@ -67,10 +86,12 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://www.granola.ai/pricing",
     paidFrom: "$14/mo",
     freeTier: "Trial only",
-    capture: "Desktop audio",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: true,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "tl;dv",
@@ -78,21 +99,25 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://tldv.io/",
     paidFrom: "$29/user/mo",
     freeTier: "Unlimited recording",
-    capture: "Meeting bot",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: false,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Notta",
     icon: "/icons/notta.png",
     url: "https://www.notta.ai/en",
     paidFrom: "$13.49/user/mo",
-    freeTier: "Limited transcription",
-    capture: "Bot or files",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    freeTier: "Limited",
+    botFree: true,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Avoma",
@@ -100,10 +125,12 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://www.avoma.com/pricing",
     paidFrom: "$19/mo",
     freeTier: "Limited",
-    capture: "Meeting bot",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: false,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Read AI",
@@ -111,10 +138,12 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://www.read.ai",
     paidFrom: "$19.75/mo",
     freeTier: "5 transcripts/mo",
-    capture: "Meeting bot",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: false,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "MeetGeek",
@@ -122,10 +151,12 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://meetgeek.ai/",
     paidFrom: "$19/user/mo",
     freeTier: "3 hrs/mo",
-    capture: "Meeting bot",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: false,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Tactiq",
@@ -133,10 +164,12 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://tactiq.io/buy",
     paidFrom: "$12/user/mo",
     freeTier: "10 meetings",
-    capture: "Chrome extension",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: true,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Sembly AI",
@@ -144,20 +177,24 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     url: "https://www.sembly.ai/",
     paidFrom: "$15/user/mo",
     freeTier: "60 min/mo",
-    capture: "Meeting bot",
-    dataLocation: "Vendor cloud",
-    openSource: false,
+    botFree: false,
+    localData: false,
+    offline: false,
+    localModels: false,
     ownKeys: false,
+    openSource: false,
   },
   {
     name: "Meetily",
     icon: "/icons/meetily.png",
     url: "https://github.com/Zackriya-Solutions/meetily",
     paidFrom: "$10/mo",
-    freeTier: "Unlimited local transcription",
-    capture: "Desktop audio",
-    dataLocation: "Local",
-    openSource: true,
+    freeTier: "Unlimited local",
+    botFree: true,
+    localData: true,
+    offline: true,
+    localModels: true,
     ownKeys: true,
+    openSource: true,
   },
 ];
