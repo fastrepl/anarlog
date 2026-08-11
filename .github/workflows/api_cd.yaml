@@ -27,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency: api-fly-deploy
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
@@ -34,6 +37,19 @@ jobs:
         with:
           platform: linux
       - uses: ./.github/actions/infisical_install
+      # Machine-identity OIDC login instead of a static service token: scopes
+      # live in the identity's editable project role, so secret reorganizations
+      # never require re-minting a token into GitHub secrets.
+      - name: Infisical OIDC login
+        run: |
+          set -euo pipefail
+          oidc_jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value')
+          infisical_token=$(infisical login --method=oidc-auth \
+            --machine-identity-id=7dde9440-cec4-4cf0-a13f-1588ba67feb2 \
+            --jwt="$oidc_jwt" --silent --plain)
+          echo "::add-mask::$infisical_token"
+          echo "INFISICAL_TOKEN=$infisical_token" >> "$GITHUB_ENV"
       - name: Verify encrypted CloudSync
         run: |
           set -euo pipefail
@@ -53,7 +69,6 @@ jobs:
 
           python3 .github/scripts/verify_cloudsync_e2ee.py "$cloudsync_secrets_json"
         env:
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       - run: |
           set -euo pipefail
@@ -130,7 +145,6 @@ jobs:
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
       - run: flyctl deploy --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only --build-arg APP_VERSION=${{ needs.compute-version.outputs.version }}
         env:
