@@ -4,6 +4,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MARKETING_PLAN_TIERS } from "@anlg/pricing";
 import { cn } from "@anlg/utils";
 
+import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SiteFooter } from "@/components/site-footer";
 import {
   ANARLOG_ROW,
@@ -46,8 +47,11 @@ function PricingPage() {
     <main className="min-h-screen bg-white text-[#181613]">
       <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
         <div className="min-w-0 text-center">
-          <section className="pt-20 pb-4 md:pt-24 md:pb-6">
-            <h1 className="font-hand text-4xl leading-none font-semibold text-[#181613] md:text-5xl">
+          <section className="pt-10 pb-4 md:pt-12 md:pb-6">
+            <Link to="/" aria-label="Anarlog home" className="inline-flex">
+              <AnarlogLogo className="h-8 w-auto md:h-9" />
+            </Link>
+            <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
               Simple pricing
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
@@ -58,19 +62,12 @@ function PricingPage() {
                 : null}{" "}
               when you want hosted transcription, AI, sync, and sharing.
             </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <div className="mt-8">
               <Link
                 to="/download/"
                 className="inline-flex h-11 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]"
               >
                 Download for free
-              </Link>
-              <Link
-                to="/"
-                hash="pricing"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#f4efe6] px-6 text-sm font-medium text-[#181613] transition-all hover:scale-[102%] hover:bg-[#eadfce] active:scale-[98%]"
-              >
-                See what's in each plan
               </Link>
             </div>
           </section>
@@ -117,28 +114,20 @@ function PricingPage() {
           </section>
 
           <section className="pt-8 pb-20 md:pt-10 md:pb-24">
-            <div className="mx-auto max-w-2xl rounded-3xl border border-[#eadfce] bg-[#fffaf0] px-7 py-10 [corner-shape:squircle] sm:px-10">
-              <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
-                Keep your meetings yours
-              </h2>
-              <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-[#4f4940]">
-                No bot joins your call, the meeting record stays in local SQLite
-                on your machine, and the free plan never expires.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                <Link
-                  to="/download/"
-                  className="inline-flex h-11 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]"
-                >
-                  Download for free
-                </Link>
-                <Link
-                  to="/download/"
-                  className="inline-flex h-11 items-center justify-center rounded-full bg-white px-6 text-sm font-medium text-[#181613] ring-1 ring-[#eadfce] transition-all hover:scale-[102%] hover:bg-[#f4efe6] active:scale-[98%]"
-                >
-                  Start your 3-week Pro trial
-                </Link>
-              </div>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
+              Keep your meetings yours
+            </h2>
+            <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-[#4f4940]">
+              No bot joins your call, the meeting record stays in local SQLite
+              on your machine, and the free plan never expires.
+            </p>
+            <div className="mt-8">
+              <Link
+                to="/download/"
+                className="inline-flex h-11 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]"
+              >
+                Download for free
+              </Link>
             </div>
           </section>
         </div>
