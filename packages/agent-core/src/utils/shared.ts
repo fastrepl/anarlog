@@ -23,7 +23,9 @@ export function createModel(
 ) {
   const model = new ChatOpenAI({
     model: config.model ?? "anthropic/claude-opus-4.5",
-    temperature: config.temperature ?? 0,
+    ...(config.temperature !== undefined
+      ? { temperature: config.temperature }
+      : {}),
     configuration: {
       baseURL: "https://openrouter.ai/api/v1",
       apiKey: env.OPENROUTER_API_KEY,

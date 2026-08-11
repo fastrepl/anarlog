@@ -33,7 +33,6 @@ export function createAgentNode(
     let messages = compressedMessages;
     let promptConfig: PromptConfig = {
       model: "anthropic/claude-opus-4.5",
-      temperature: 0,
     };
 
     const hasAIMessages = compressedMessages.some((m) =>

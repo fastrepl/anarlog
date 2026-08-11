@@ -7,8 +7,6 @@ import {
 } from "@anlg/plugin-template";
 import type { EventParticipant, SessionEvent } from "@anlg/store";
 
-import { deterministicGenerationSettings } from "~/ai/model-settings";
-
 const MAX_EVENT_TEXT_CHARS = 6000;
 const MAX_CONTACTS_TO_EXTRACT = 8;
 
@@ -193,7 +191,6 @@ export async function extractEventContacts({
 
   const result = await generateText({
     model,
-    ...deterministicGenerationSettings(model),
     maxRetries: 2,
     maxOutputTokens: 384,
     system,

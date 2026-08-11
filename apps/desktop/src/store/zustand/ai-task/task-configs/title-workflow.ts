@@ -4,8 +4,6 @@ import { commands as templateCommands } from "@anlg/plugin-template";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
 
-import { deterministicGenerationSettings } from "~/ai/model-settings";
-
 const AI_GENERATION_MAX_RETRIES = 4;
 const TITLE_MAX_OUTPUT_TOKENS = 128;
 
@@ -33,7 +31,6 @@ async function* executeWorkflow(params: {
   const id = generateId();
   const result = streamText({
     model,
-    ...deterministicGenerationSettings(model),
     system,
     prompt,
     abortSignal: signal,

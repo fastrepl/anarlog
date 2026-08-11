@@ -51,7 +51,6 @@ describe("chat title", () => {
     expect(generateText).toHaveBeenCalledWith(
       expect.objectContaining({
         model,
-        temperature: 0,
         maxOutputTokens: 32,
         prompt: expect.stringContaining(
           "Can you review the onboarding flow regressions?",

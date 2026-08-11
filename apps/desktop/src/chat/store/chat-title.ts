@@ -1,7 +1,5 @@
 import { generateText, type LanguageModel } from "ai";
 
-import { deterministicGenerationSettings } from "~/ai/model-settings";
-
 const FALLBACK_CHAT_TITLE_MAX_LENGTH = 50;
 const GENERATED_CHAT_TITLE_MAX_LENGTH = 60;
 const INITIAL_REQUEST_MAX_LENGTH = 4000;
@@ -34,7 +32,6 @@ export async function generateChatTitle({
 
   const result = await generateText({
     model,
-    ...deterministicGenerationSettings(model),
     maxRetries: 2,
     maxOutputTokens: 32,
     system:
