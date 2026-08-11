@@ -71,40 +71,7 @@ function PrivacyVisual({
   type: (typeof privacyCommitments)[number]["visual"];
 }) {
   if (type === "files") {
-    return (
-      <div className="flex h-20 items-center justify-center gap-2 select-none md:h-28 md:w-full md:justify-between md:gap-1">
-        <img
-          src="/icons/file.webp"
-          alt=""
-          className="w-10 rotate-[3deg] object-contain transition-transform duration-300 ease-out hover:rotate-[7deg]"
-          draggable={false}
-        />
-        <img
-          src="/icons/file.webp"
-          alt=""
-          className="w-10 rotate-[-5deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-9deg]"
-          draggable={false}
-        />
-        <img
-          src="/icons/folderchar.svg"
-          alt=""
-          className="w-14 object-contain transition-transform duration-300 ease-out hover:rotate-[3deg]"
-          draggable={false}
-        />
-        <img
-          src="/icons/file.webp"
-          alt=""
-          className="w-10 rotate-[6deg] object-contain transition-transform duration-300 ease-out hover:rotate-[10deg]"
-          draggable={false}
-        />
-        <img
-          src="/icons/file.webp"
-          alt=""
-          className="w-10 rotate-[-4deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-8deg]"
-          draggable={false}
-        />
-      </div>
-    );
+    return <LocalFilesVisual />;
   }
 
   if (type === "key") {
@@ -135,6 +102,47 @@ function PrivacyVisual({
     );
   }
 
+  return <MeetingCaptureVisual />;
+}
+
+export function LocalFilesVisual() {
+  return (
+    <div className="flex h-20 items-center justify-center gap-2 select-none md:h-28 md:w-full md:justify-between md:gap-1">
+      <img
+        src="/icons/file.webp"
+        alt=""
+        className="w-10 rotate-[3deg] object-contain transition-transform duration-300 ease-out hover:rotate-[7deg]"
+        draggable={false}
+      />
+      <img
+        src="/icons/file.webp"
+        alt=""
+        className="w-10 rotate-[-5deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-9deg]"
+        draggable={false}
+      />
+      <img
+        src="/icons/folderchar.svg"
+        alt=""
+        className="w-14 object-contain transition-transform duration-300 ease-out hover:rotate-[3deg]"
+        draggable={false}
+      />
+      <img
+        src="/icons/file.webp"
+        alt=""
+        className="w-10 rotate-[6deg] object-contain transition-transform duration-300 ease-out hover:rotate-[10deg]"
+        draggable={false}
+      />
+      <img
+        src="/icons/file.webp"
+        alt=""
+        className="w-10 rotate-[-4deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-8deg]"
+        draggable={false}
+      />
+    </div>
+  );
+}
+
+export function MeetingCaptureVisual() {
   return (
     <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
       <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">

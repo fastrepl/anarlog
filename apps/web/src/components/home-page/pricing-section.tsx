@@ -7,7 +7,13 @@ import {
 } from "@anlg/pricing";
 import { cn } from "@anlg/utils";
 
-export function PricingSection() {
+import { EnterpriseCallout } from "@/components/enterprise-callout";
+
+export function PricingSection({
+  compareLink = false,
+}: {
+  compareLink?: boolean;
+}) {
   return (
     <section id="pricing" className="pt-24 pb-8 md:pt-28 md:pb-10">
       <div>
@@ -25,6 +31,21 @@ export function PricingSection() {
           <PricingCard key={plan.id} plan={plan} />
         ))}
       </div>
+
+      <div className="relative left-1/2 mt-6 w-screen max-w-[760px] -translate-x-1/2 px-5 md:px-8">
+        <EnterpriseCallout />
+      </div>
+
+      {compareLink ? (
+        <div className="mt-8">
+          <Link
+            to="/pricing/"
+            className="text-sm text-[#756b5d] underline decoration-[#d9cdb8] underline-offset-4 transition-colors hover:text-[#181613]"
+          >
+            Compare with other AI notetakers
+          </Link>
+        </div>
+      ) : null}
     </section>
   );
 }

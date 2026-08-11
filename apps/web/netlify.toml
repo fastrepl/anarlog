@@ -151,12 +151,6 @@ status = 301
 force = true
 
 [[redirects]]
-from = "/enterprise"
-to = "/"
-status = 301
-force = true
-
-[[redirects]]
 from = "/roadmap"
 to = "/changelog/"
 status = 301

@@ -8,6 +8,7 @@ const footerGroups = [
     title: "Product",
     links: [
       { label: "Download", to: "/download/" },
+      { label: "Enterprise", to: "/enterprise/" },
       { label: "Blog", to: "/blog/" },
       { label: "Changelog", to: "/changelog/" },
       { label: "Status", href: "https://status.anarlog.so" },
