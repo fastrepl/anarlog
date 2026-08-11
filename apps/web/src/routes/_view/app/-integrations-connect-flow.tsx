@@ -1,4 +1,4 @@
-import Nango from "@nangohq/frontend";
+import Nango, { type ConnectUI } from "@nangohq/frontend";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
@@ -8,6 +8,7 @@ import { createClient } from "@anlg/api-client/client";
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
 import { useAnalytics } from "@/hooks/use-posthog";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { captureOperationalError } from "@/lib/error-reporting";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
@@ -28,6 +29,8 @@ export function ConnectFlow() {
     "idle" | "loading" | "connecting" | "success" | "error"
   >("idle");
   const inFlightRef = useRef(false);
+  const connectUIRef = useRef<ConnectUI | null>(null);
+  const disposedRef = useRef(false);
 
   const display = getIntegrationDisplay(search.integration_id);
 
@@ -106,6 +109,8 @@ export function ConnectFlow() {
       return;
     }
 
+    if (disposedRef.current) return;
+
     updateStatus("connecting");
 
     const connect = nango.openConnectUI({
@@ -155,8 +160,25 @@ export function ConnectFlow() {
       },
     });
 
+    connectUIRef.current = connect;
     connect.setSessionToken(sessionToken);
   };
+
+  // Nango's Connect UI repeats the connect prompt, so only calendars (which
+  // must show the OAuth data-use disclosure first) wait for a manual click.
+  // The Connect UI lives outside the React tree, so unmount must close it and
+  // stop in-flight session work from opening one on a stale view.
+  useMountEffect(() => {
+    disposedRef.current = false;
+    if (!isConnectedCalendar) {
+      void handleConnect();
+    }
+    return () => {
+      disposedRef.current = true;
+      connectUIRef.current?.close();
+      connectUIRef.current = null;
+    };
+  });
 
   const isLoading = status === "loading";
   const isConnecting = status === "connecting";

@@ -1,4 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { jwtDecode } from "jwt-decode";
 import { useCallback, useEffect, useState } from "react";
 
@@ -46,6 +50,9 @@ export function useBilling() {
       return deriveBillingInfo(jwtDecode<SupabaseJwtPayload>(accessToken));
     },
     enabled: accessToken !== undefined,
+    // Keep isReady stable across token refreshes so consumers gating on it
+    // (e.g. the integration connect flow) do not unmount mid-flow.
+    placeholderData: keepPreviousData,
     retry: false,
   });
 
