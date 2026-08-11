@@ -36,10 +36,7 @@ import { useShell } from "~/contexts/shell";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
-import {
-  NOTE_SURFACE_MIN_WIDTH_PX,
-  usesNoteSurfaceMinWidth,
-} from "~/shared/main/layout-widths";
+import { getMainContentMinWidth } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
 import type { SidebarNoteFilter } from "~/sidebar/note-filter";
@@ -80,7 +77,7 @@ export function ClassicMainBody() {
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
 
   const isOnboarding = currentTab?.type === "onboarding";
-  const reserveNoteSurfaceMinWidth = usesNoteSurfaceMinWidth(currentTab);
+  const mainContentMinWidth = getMainContentMinWidth(currentTab);
   const hasCustomSidebar = hasCustomSidebarTab(currentTab);
   const hasLeftSurfaceCustomSidebar =
     hasLeftSurfaceCustomSidebarTab(currentTab);
@@ -541,11 +538,7 @@ export function ClassicMainBody() {
           id="classic-main-content"
           order={2}
           className="min-h-0 flex-1 overflow-hidden"
-          style={{
-            minWidth: reserveNoteSurfaceMinWidth
-              ? NOTE_SURFACE_MIN_WIDTH_PX
-              : undefined,
-          }}
+          style={{ minWidth: mainContentMinWidth }}
         >
           <div
             data-main-content-panel

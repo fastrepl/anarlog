@@ -9,6 +9,7 @@ import {
 } from "@anlg/ui/components/ui/resizable";
 
 import {
+  AUTOMATIONS_SURFACE_MIN_WIDTH_PX,
   NOTE_SURFACE_MIN_WIDTH_PX,
   usesNoteSurfaceMinWidth,
 } from "./layout-widths";
@@ -125,6 +126,13 @@ function getMainBodyMinWidth({
   leftSidebarExpanded: boolean;
   noteSurfaceMinWidth: number;
 }) {
+  if (currentTab?.type === "automations") {
+    return (
+      AUTOMATIONS_SURFACE_MIN_WIDTH_PX +
+      (leftSidebarExpanded ? LEFT_SIDEBAR_MIN_WIDTH_PX : 0)
+    );
+  }
+
   if (!usesNoteSurfaceMinWidth(currentTab)) {
     return undefined;
   }

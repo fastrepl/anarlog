@@ -231,6 +231,19 @@ describe("MainChatPanels", () => {
     expect(mocks.persistentChatPanel).not.toHaveBeenCalled();
   });
 
+  it("reserves enough main-body width for a 600px automations surface beside the sidebar", () => {
+    mocks.currentTab = { type: "automations" };
+    mocks.leftSidebarExpanded = true;
+
+    render(
+      <MainChatPanels>
+        <div data-testid="main-content" />
+      </MainChatPanels>,
+    );
+
+    expect(screen.getAllByTestId("panel")[0]?.dataset.minWidth).toBe("800");
+  });
+
   it("reserves enough main-body width for a 500px note surface beside the sidebar", () => {
     mocks.currentTab = { type: "sessions" };
     mocks.leftSidebarExpanded = true;
