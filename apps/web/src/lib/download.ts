@@ -56,7 +56,8 @@ export const desktopDownloadSections = [
     platform: "linux",
     name: "Linux",
     status: "Beta",
-    description: "AppImage and Debian packages for x64 and ARM64.",
+    description:
+      "AppImage and Debian packages for x64 and ARM64, plus a PKGBUILD for Arch.",
     downloads: [
       {
         name: "AppImage x64",
@@ -80,6 +81,13 @@ export const desktopDownloadSections = [
         name: "Debian ARM64",
         detail: "Debian or Ubuntu on 64-bit ARM · DEB",
         url: getStableDownloadUrl("debian-aarch64"),
+        showInMenu: false,
+      },
+      {
+        name: "Arch Linux",
+        detail: "Arch-based distros · PKGBUILD",
+        url: "https://github.com/fastrepl/anarlog/tree/main/packaging/aur/anarlog-bin",
+        actionLabel: "View PKGBUILD",
         showInMenu: false,
       },
     ],

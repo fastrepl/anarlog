@@ -32,7 +32,13 @@ test("offers macOS, Windows, and Linux downloads", () => {
     linuxDownloads.map((download) =>
       new URL(download.url).pathname.split("/").at(-1),
     ),
-    ["appimage-x86_64", "debian-x86_64", "appimage-aarch64", "debian-aarch64"],
+    [
+      "appimage-x86_64",
+      "debian-x86_64",
+      "appimage-aarch64",
+      "debian-aarch64",
+      "anarlog-bin",
+    ],
   );
 });
 

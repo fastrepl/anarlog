@@ -1,5 +1,5 @@
 import { Icon } from "@iconify-icon/react";
-import { DownloadSimple } from "@phosphor-icons/react";
+import { ArrowSquareOut, DownloadSimple } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -78,7 +78,19 @@ function Component() {
                         <span className="font-medium">{download.name}</span>
                         <a
                           href={download.url}
-                          aria-label={`Download ${download.name} for ${section.name}`}
+                          // Entries with an actionLabel link out to a package
+                          // registry rather than starting a download.
+                          {...("actionLabel" in download
+                            ? {
+                                target: "_blank",
+                                rel: "noreferrer",
+                              }
+                            : {})}
+                          aria-label={
+                            "actionLabel" in download
+                              ? `${download.actionLabel}: ${download.name}`
+                              : `Download ${download.name} for ${section.name}`
+                          }
                           onClick={() =>
                             track("download_clicked", {
                               platform: section.platform,
@@ -88,8 +100,17 @@ function Component() {
                           }
                           className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#181613] px-4 py-3 text-[13px] font-medium text-white sm:px-5 sm:text-sm"
                         >
-                          Download
-                          <DownloadSimple size={16} aria-hidden="true" />
+                          {"actionLabel" in download ? (
+                            <>
+                              {download.actionLabel}
+                              <ArrowSquareOut size={16} aria-hidden="true" />
+                            </>
+                          ) : (
+                            <>
+                              Download
+                              <DownloadSimple size={16} aria-hidden="true" />
+                            </>
+                          )}
                         </a>
                       </div>
                     </li>
