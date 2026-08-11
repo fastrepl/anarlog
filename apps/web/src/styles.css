@@ -371,24 +371,24 @@
     0%,
     26% {
       z-index: 3;
-      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+      transform: translate(1.3rem, 0.35rem) rotate(8deg) scale(1);
     }
 
     36%,
     60% {
       z-index: 1;
-      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+      transform: translate(-1.4rem, 0.7rem) rotate(-14deg) scale(0.92);
     }
 
     70%,
     94% {
       z-index: 2;
-      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+      transform: translate(-0.1rem, 0.2rem) rotate(-5deg) scale(0.96);
     }
 
     100% {
       z-index: 3;
-      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+      transform: translate(1.3rem, 0.35rem) rotate(8deg) scale(1);
     }
   }
 
@@ -396,24 +396,24 @@
     0%,
     26% {
       z-index: 2;
-      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+      transform: translate(-0.1rem, 0.2rem) rotate(-5deg) scale(0.96);
     }
 
     36%,
     60% {
       z-index: 3;
-      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+      transform: translate(1.3rem, 0.35rem) rotate(8deg) scale(1);
     }
 
     70%,
     94% {
       z-index: 1;
-      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+      transform: translate(-1.4rem, 0.7rem) rotate(-14deg) scale(0.92);
     }
 
     100% {
       z-index: 2;
-      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+      transform: translate(-0.1rem, 0.2rem) rotate(-5deg) scale(0.96);
     }
   }
 
@@ -421,24 +421,24 @@
     0%,
     26% {
       z-index: 1;
-      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+      transform: translate(-1.4rem, 0.7rem) rotate(-14deg) scale(0.92);
     }
 
     36%,
     60% {
       z-index: 2;
-      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+      transform: translate(-0.1rem, 0.2rem) rotate(-5deg) scale(0.96);
     }
 
     70%,
     94% {
       z-index: 3;
-      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+      transform: translate(1.3rem, 0.35rem) rotate(8deg) scale(1);
     }
 
     100% {
       z-index: 1;
-      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+      transform: translate(-1.4rem, 0.7rem) rotate(-14deg) scale(0.92);
     }
   }
 
@@ -447,17 +447,17 @@
     top: 0.2rem;
     left: 50%;
     display: flex;
-    width: 4.25rem;
-    height: 5.75rem;
+    width: 3.4rem;
+    height: 4.6rem;
     align-items: center;
     justify-content: center;
     overflow: hidden;
     border: 1.5px solid #d6d3cc;
-    border-radius: 0.42rem;
+    border-radius: 0.35rem;
     background: #fffefa;
     box-shadow: 0 10px 18px rgba(24, 22, 19, 0.14);
     color: #181613;
-    margin-left: -2.125rem;
+    margin-left: -1.7rem;
     animation-duration: 9s;
     animation-iteration-count: infinite;
     animation-timing-function: ease-in-out;
@@ -471,15 +471,15 @@
 
   .ai-option-card-face {
     display: flex;
-    width: 2.35rem;
-    height: 2.35rem;
+    width: 1.9rem;
+    height: 1.9rem;
     align-items: center;
     justify-content: center;
   }
 
   .ai-option-card-face svg {
-    width: 2rem;
-    height: 2rem;
+    width: 1.6rem;
+    height: 1.6rem;
     stroke-width: 2.4;
   }
 
@@ -487,7 +487,7 @@
     position: absolute;
     display: flex;
     align-items: center;
-    font-size: 0.82rem;
+    font-size: 0.7rem;
     font-weight: 700;
     line-height: 0.86;
     letter-spacing: 0;
@@ -499,13 +499,13 @@
   }
 
   .ai-option-card-corner-top {
-    top: 0.42rem;
-    left: 0.42rem;
+    top: 0.35rem;
+    left: 0.35rem;
   }
 
   .ai-option-card-corner-bottom {
-    right: 0.42rem;
-    bottom: 0.42rem;
+    right: 0.35rem;
+    bottom: 0.35rem;
     transform: rotate(180deg);
   }
 
@@ -533,17 +533,17 @@
 
     .ai-option-card-cloud {
       z-index: 3;
-      transform: translate(1.6rem, 0.45rem) rotate(8deg) scale(1);
+      transform: translate(1.3rem, 0.35rem) rotate(8deg) scale(1);
     }
 
     .ai-option-card-key {
       z-index: 2;
-      transform: translate(-0.15rem, 0.25rem) rotate(-5deg) scale(0.96);
+      transform: translate(-0.1rem, 0.2rem) rotate(-5deg) scale(0.96);
     }
 
     .ai-option-card-chip {
       z-index: 1;
-      transform: translate(-1.75rem, 0.9rem) rotate(-14deg) scale(0.92);
+      transform: translate(-1.4rem, 0.7rem) rotate(-14deg) scale(0.92);
     }
   }
 }

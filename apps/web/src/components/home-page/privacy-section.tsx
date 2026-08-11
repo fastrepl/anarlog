@@ -21,9 +21,9 @@ const privacyCommitments = [
     visual: "files",
   },
   {
-    title: "Use your own stack",
+    title: "Own your AI stack",
     description:
-      "Export your data or process it with local models, your own API keys, and the tools you trust.",
+      "Run models on your device, bring your own keys, or use our AI.",
     visual: "key",
   },
 ];
@@ -50,7 +50,7 @@ export function PrivacySection() {
                 className="flex flex-col px-6 py-3 text-center md:w-[31%] md:p-4"
               >
                 <PrivacyVisual type={commitment.visual} />
-                <h3 className="mt-3 text-base font-medium text-[#4f4940] md:mt-5">
+                <h3 className="mt-5 text-base font-medium text-[#4f4940] md:mt-7">
                   {commitment.title}
                 </h3>
                 <p className="mx-auto mt-1 max-w-[17rem] text-sm leading-6 text-[#4f4940]">
@@ -111,7 +111,7 @@ function PrivacyVisual({
     return (
       <div className="flex h-24 items-center justify-center select-none md:h-28 md:w-full">
         <div
-          className="relative h-24 w-52 md:h-28 md:w-60"
+          className="relative h-20 w-44 md:h-24 md:w-48"
           role="img"
           aria-label="AI option cards cycling between cloud, key, and chip"
         >
