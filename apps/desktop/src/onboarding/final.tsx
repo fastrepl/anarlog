@@ -27,13 +27,13 @@ const SOCIALS = [
   {
     label: "GitHub",
     icon: "simple-icons:github",
-    url: "https://github.com/fastrepl/char",
+    url: "https://github.com/fastrepl/anarlog",
   },
   {
     label: "X",
     icon: "simple-icons:x",
     size: 14,
-    url: "https://x.com/getcharnotes",
+    url: "https://x.com/anarlogapp",
   },
 ] as const;
 
