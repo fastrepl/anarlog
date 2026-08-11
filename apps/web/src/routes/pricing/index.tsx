@@ -122,26 +122,8 @@ function PricingPage() {
             </div>
           </section>
 
-          <section className="pt-4 pb-4 md:pt-6 md:pb-6">
-            <EnterpriseCallout />
-          </section>
-
           <section className="pt-8 pb-20 md:pt-10 md:pb-24">
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
-              Keep your meetings yours
-            </h2>
-            <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-[#4f4940]">
-              No bot joins your call, the meeting record stays in local SQLite
-              on your machine, and the free plan never expires.
-            </p>
-            <div className="mt-8">
-              <Link
-                to="/download/"
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]"
-              >
-                Download for free
-              </Link>
-            </div>
+            <EnterpriseCallout centered />
           </section>
         </div>
       </div>
