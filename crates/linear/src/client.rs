@@ -55,7 +55,7 @@ impl<C: HttpClient> LinearClient<C> {
 
         let query = r#"
             query ListTeams($first: Int!, $after: String) {
-                teams(first: $first, after: $after) {
+                teams(first: $first, after: $after, filter: { retiredAt: { null: true } }) {
                     nodes {
                         id
                         name
