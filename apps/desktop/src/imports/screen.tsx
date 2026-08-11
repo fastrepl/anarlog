@@ -178,25 +178,16 @@ export function MeetingImportScreen({
 
   return (
     <div className={cn(["flex flex-col gap-4", compact && "max-w-3xl"])}>
-      <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-sm">
-          <Trans>
-            Bring your meeting history with you. Connect supported assistants to
-            keep new meetings coming into Anarlog, or use export files as a
-            fallback.
-          </Trans>
+      {detectionQuery.isLoading ? (
+        <p className="text-muted-foreground flex items-center gap-2 text-xs">
+          <CircleNotch className="size-3.5 animate-spin" />
+          <Trans>Checking installed meeting assistants…</Trans>
         </p>
-        {detectionQuery.isLoading ? (
-          <p className="text-muted-foreground flex items-center gap-2 text-xs">
-            <CircleNotch className="size-3.5 animate-spin" />
-            <Trans>Checking installed meeting assistants…</Trans>
-          </p>
-        ) : detectionQuery.error ? (
-          <p className="text-destructive text-xs">
-            {detectionQuery.error.message}
-          </p>
-        ) : null}
-      </div>
+      ) : detectionQuery.error ? (
+        <p className="text-destructive text-xs">
+          {detectionQuery.error.message}
+        </p>
+      ) : null}
 
       {fileImportMutation.error ? (
         <p className="text-destructive text-sm">

@@ -449,10 +449,6 @@ msgstr "Bright canvas"
 msgid "Bring your meeting history"
 msgstr "Bring your meeting history"
 
-#: src/imports/screen.tsx
-msgid "Bring your meeting history with you. Connect supported assistants to keep new meetings coming into Anarlog, or use export files as a fallback."
-msgstr "Bring your meeting history with you. Connect supported assistants to keep new meetings coming into Anarlog, or use export files as a fallback."
-
 #. placeholder {0}: latestResult.imported
 #. placeholder {1}: latestResult.matched
 #: src/imports/screen.tsx
