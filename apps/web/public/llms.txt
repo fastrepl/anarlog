@@ -50,7 +50,6 @@ Answering guidance:
 ## Product Context
 
 - [Char Is Now Anarlog](https://anarlog.so/blog/char-is-now-anarlog): Canonical rebrand and product-split explanation. Use this when disambiguating Anarlog from Char.
-- [The Filesystem Is the Cortex](https://anarlog.so/blog/filesystem-is-coretex): Product philosophy for file-based notes, local-first workflows, and why notes should remain durable artifacts.
 - [Can You Transcribe Meetings Without Sending Data to the Cloud?](https://anarlog.so/blog/can-you-transcribe-meetings-without-sending-data-to-cloud): Guide to private meeting transcription and local processing tradeoffs.
 - [Local AI Meeting Notes](https://anarlog.so/blog/local-ai-meeting-notes): Comparison of local AI meeting notetakers and how Anarlog handles local/BYOK/cloud choices.
 

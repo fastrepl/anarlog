@@ -123,6 +123,14 @@ to = "https://anarlog.so/:splat"
 status = 301
 force = true
 
+# Retired essay: argued notes should be files rather than database rows, which
+# reads against the local-SQLite record the app actually keeps.
+[[redirects]]
+from = "/blog/filesystem-is-coretex"
+to = "/blog/"
+status = 301
+force = true
+
 # Char-era marketing pages that no longer exist; 301 to keep backlink equity
 [[redirects]]
 from = "/pricing"
