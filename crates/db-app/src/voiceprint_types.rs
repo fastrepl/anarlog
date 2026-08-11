@@ -1,4 +1,5 @@
 pub const VOICEPRINT_KEYRING_SCOPE: &str = "voiceprint_exemplars";
+pub const VOICEPRINT_CANDIDATE_KEYRING_SCOPE: &str = "voiceprint_candidates";
 pub const VOICEPRINT_SYNC_SCOPE: &str = "local_only";
 
 #[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
@@ -46,6 +47,58 @@ pub struct NewVoiceprintExemplar<'a> {
     pub label_confidence: f64,
 }
 
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
+pub struct VoiceprintCandidate {
+    pub id: String,
+    pub workspace_id: String,
+    pub keyring_scope: String,
+    pub keyring_key: String,
+    pub sync_scope: String,
+    pub model_provider: String,
+    pub model_version: String,
+    pub capture_domain: String,
+    pub source_session_id: String,
+    pub source_transcript_id: String,
+    pub source_attachment_id: String,
+    pub source_speaker_label: String,
+    pub speaker_channel: i64,
+    pub speaker_index: Option<i64>,
+    pub source_start_ms: i64,
+    pub source_end_ms: i64,
+    pub quality_score: f64,
+    pub expires_at: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub deleted_at: Option<String>,
+}
+
+pub struct NewVoiceprintCandidate<'a> {
+    pub id: &'a str,
+    pub workspace_id: &'a str,
+    pub keyring_key: &'a str,
+    pub model_provider: &'a str,
+    pub model_version: &'a str,
+    pub capture_domain: &'a str,
+    pub source_session_id: &'a str,
+    pub source_transcript_id: &'a str,
+    pub source_attachment_id: &'a str,
+    pub source_speaker_label: &'a str,
+    pub speaker_channel: i64,
+    pub speaker_index: Option<i64>,
+    pub source_start_ms: i64,
+    pub source_end_ms: i64,
+    pub quality_score: f64,
+    pub expires_at: &'a str,
+}
+
+pub struct PromoteVoiceprintCandidate<'a> {
+    pub candidate_id: &'a str,
+    pub workspace_id: &'a str,
+    pub human_id: &'a str,
+    pub confirmation_source: &'a str,
+    pub label_confidence: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
 pub struct VoiceprintSecretRef {
     pub keyring_scope: String,
@@ -57,6 +110,7 @@ pub enum VoiceprintExemplarError {
     InvalidField(&'static str),
     HumanNotFound,
     SourceNotFound,
+    CandidateNotFound,
     Sqlx(sqlx::Error),
 }
 
@@ -66,6 +120,7 @@ impl std::fmt::Display for VoiceprintExemplarError {
             Self::InvalidField(field) => write!(f, "invalid voiceprint exemplar {field}"),
             Self::HumanNotFound => write!(f, "voiceprint exemplar human does not exist"),
             Self::SourceNotFound => write!(f, "voiceprint exemplar source does not exist"),
+            Self::CandidateNotFound => write!(f, "voiceprint candidate does not exist"),
             Self::Sqlx(error) => write!(f, "{error}"),
         }
     }
