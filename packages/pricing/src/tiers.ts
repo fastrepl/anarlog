@@ -57,10 +57,10 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "CLI", included: true },
       { label: "MCP", included: true },
       {
-        label: "Local API & Webhooks",
+        label: "Webhooks",
         included: true,
         tooltip:
-          "Local REST API with API keys, plus signed webhooks when meetings finish and summaries are generated.",
+          "Signed webhooks when meetings finish and summaries are generated.",
       },
       { label: "Transcript Editor", included: true },
       { label: "Shortcuts", included: true },

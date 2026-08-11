@@ -18618,7 +18618,6 @@ name = "tauri-plugin-local-api"
 version = "0.1.0"
 dependencies = [
  "agent-access",
- "axum 0.8.9",
  "bytes",
  "chrono",
  "db-app",
@@ -18635,7 +18634,6 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-db",
  "tauri-specta",
- "thiserror 2.0.18",
  "tokio",
  "tracing",
  "uuid",

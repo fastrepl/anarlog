@@ -22,6 +22,9 @@ const DELIVERY_BUSY_ERROR: &str = "webhook delivery is busy; try again";
 
 pub(crate) const MAX_WEBHOOK_ENDPOINTS: usize = 64;
 
+static CREATE_ENDPOINT_LOCK: std::sync::OnceLock<tokio::sync::Mutex<()>> =
+    std::sync::OnceLock::new();
+
 static DELIVERY_SLOTS: std::sync::OnceLock<std::sync::Arc<tokio::sync::Semaphore>> =
     std::sync::OnceLock::new();
 static DELIVERY_WAITING_SLOTS: std::sync::OnceLock<std::sync::Arc<tokio::sync::Semaphore>> =
@@ -134,6 +137,56 @@ async fn meeting_payload(pool: &SqlitePool, meeting_id: &str) -> Result<serde_js
     }))
 }
 
+pub async fn create_endpoint(
+    pool: &SqlitePool,
+    url: &str,
+    events: &[String],
+) -> Result<crate::CreatedWebhook, String> {
+    let _guard = CREATE_ENDPOINT_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await;
+    let url = url.trim();
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("url must start with http:// or https://".to_string());
+    }
+    if let Some(unknown) = events
+        .iter()
+        .find(|event| !KNOWN_EVENTS.contains(&event.as_str()))
+    {
+        return Err(format!(
+            "unknown event '{unknown}'; known events: {}",
+            KNOWN_EVENTS.join(", ")
+        ));
+    }
+    let endpoint_count = anlg_db_app::list_webhook_endpoints(pool)
+        .await
+        .map_err(|error| error.to_string())?
+        .len();
+    if endpoint_count >= MAX_WEBHOOK_ENDPOINTS {
+        return Err(format!(
+            "at most {MAX_WEBHOOK_ENDPOINTS} webhook endpoints can be configured"
+        ));
+    }
+
+    let events_json = serde_json::to_string(events).map_err(|error| error.to_string())?;
+    let secret = anlg_db_app::generate_webhook_secret();
+    let row = anlg_db_app::insert_webhook_endpoint(
+        pool,
+        &uuid::Uuid::new_v4().to_string(),
+        url,
+        &secret,
+        &events_json,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+
+    Ok(crate::CreatedWebhook {
+        info: crate::WebhookInfo::from(row),
+        secret,
+    })
+}
+
 /// Fans an event out to every active endpoint subscribed to it. Deliveries run
 /// in background tasks; the returned count is the number of endpoints targeted.
 pub async fn dispatch_event(
@@ -141,14 +194,6 @@ pub async fn dispatch_event(
     event: &str,
     meeting_id: &str,
 ) -> Result<usize, String> {
-    if !crate::settings::load(pool)
-        .await
-        .map_err(|error| error.to_string())?
-        .enabled
-    {
-        return Ok(0);
-    }
-
     let fanout_permit = acquire_fanout_slot().await?;
     let mut endpoints = anlg_db_app::list_active_webhook_endpoints(pool)
         .await
@@ -376,7 +421,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn disabled_api_skips_webhook_dispatch() {
+    async fn dispatch_without_subscribed_endpoints_is_a_no_op() {
         let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
         anlg_db_app::prepare_schema(&db).await.unwrap();
         anlg_db_app::insert_webhook_endpoint(
@@ -384,7 +429,7 @@ mod tests {
             "webhook-1",
             "https://example.com",
             "whsec_test",
-            "[]",
+            "[\"note.enhanced\"]",
         )
         .await
         .unwrap();
@@ -394,6 +439,65 @@ mod tests {
             .unwrap();
 
         assert_eq!(targeted, 0);
+    }
+
+    #[tokio::test]
+    async fn endpoint_creation_stops_at_the_fanout_limit() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+
+        for index in 0..MAX_WEBHOOK_ENDPOINTS {
+            anlg_db_app::insert_webhook_endpoint(
+                db.pool(),
+                &format!("webhook-{index}"),
+                "https://example.com",
+                "whsec_test",
+                "[]",
+            )
+            .await
+            .unwrap();
+        }
+
+        let error = create_endpoint(db.pool(), "https://example.com", &[])
+            .await
+            .unwrap_err();
+
+        assert_eq!(
+            error,
+            format!("at most {MAX_WEBHOOK_ENDPOINTS} webhook endpoints can be configured")
+        );
+        assert_eq!(
+            anlg_db_app::list_webhook_endpoints(db.pool())
+                .await
+                .unwrap()
+                .len(),
+            MAX_WEBHOOK_ENDPOINTS
+        );
+    }
+
+    #[tokio::test]
+    async fn endpoint_creation_rejects_bad_urls_and_unknown_events() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+
+        assert_eq!(
+            create_endpoint(db.pool(), "example.com", &[])
+                .await
+                .unwrap_err(),
+            "url must start with http:// or https://"
+        );
+        assert!(
+            create_endpoint(db.pool(), "https://example.com", &["nope".to_string()])
+                .await
+                .unwrap_err()
+                .starts_with("unknown event 'nope'")
+        );
+        assert!(
+            anlg_db_app::list_webhook_endpoints(db.pool())
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[tokio::test]

@@ -59,8 +59,8 @@
         "pages": [
           "reference/cli",
           "reference/mcp",
-          "reference/api",
           "reference/api-cloud",
+          "reference/webhooks",
           "reference/errors"
         ]
       },
@@ -113,6 +113,12 @@
       "vscode"
     ]
   },
+  "redirects": [
+    {
+      "source": "/reference/api",
+      "destination": "/reference/api-cloud"
+    }
+  ],
   "footer": {
     "socials": {
       "github": "https://github.com/fastrepl/anarlog"

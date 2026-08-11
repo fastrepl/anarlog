@@ -1,7 +1,7 @@
 import { CliSettingsSections } from "./cli";
 import { CloudApiSection } from "./cloud-api";
 import { DevtoolsSection } from "./devtools";
-import { LocalApiSection } from "./local-api";
+import { WebhooksSection } from "./webhooks";
 
 import { SettingsPageTitle } from "~/settings/page-title";
 
@@ -13,7 +13,7 @@ export function SettingsDevelopers() {
       <SettingsPageTitle title="Developers" />
       <CliSettingsSections />
       <CloudApiSection />
-      <LocalApiSection />
+      <WebhooksSection />
       <DevtoolsSection />
     </div>
   );

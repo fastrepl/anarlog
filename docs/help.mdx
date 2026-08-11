@@ -67,8 +67,8 @@ Anarlog supports macOS 15 or later. Windows x64 and Linux x64 or ARM64 builds ar
 
 Not yet. Anarlog currently ships as a desktop app.
 
-### Does the local API work while Anarlog is closed?
+### Can agents reach my meetings while Anarlog is closed?
 
-No. The local API listens only on `127.0.0.1` while the desktop app is open. The CLI and local MCP server can read the local database while the app is closed. For hosted access, explicitly enable [Cloud API & Connectors](/reference/api-cloud).
+The CLI and local MCP server read the local database, so they work while the app is closed. Webhooks only deliver while the app is open. For hosted access from anywhere, explicitly enable [Cloud API & Connectors](/reference/api-cloud).
 
 If something is not working, go to [Troubleshooting](/troubleshooting). For a question not covered here, email [founders@anarlog.so](mailto:founders@anarlog.so) or [join Discord](https://anarlog.so/discord).

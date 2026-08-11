@@ -1,7 +1,5 @@
 #![forbid(unsafe_code)]
 
-mod api_ops;
-mod api_types;
 mod calendar_ops;
 mod calendar_types;
 mod cloudsync;
@@ -15,9 +13,9 @@ mod template_ops;
 mod template_types;
 mod voiceprint_ops;
 mod voiceprint_types;
+mod webhook_ops;
+mod webhook_types;
 
-pub use api_ops::*;
-pub use api_types::*;
 pub use calendar_ops::*;
 pub use calendar_types::*;
 pub use cloudsync::*;
@@ -32,6 +30,8 @@ pub use template_ops::*;
 pub use template_types::*;
 pub use voiceprint_ops::*;
 pub use voiceprint_types::*;
+pub use webhook_ops::*;
+pub use webhook_types::*;
 
 pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
     anlg_db_migrate::MigrationStep {
@@ -311,6 +311,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         id: "20260811090000_voiceprint_candidates",
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260811090000_voiceprint_candidates.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260811100000_drop_api_keys",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260811100000_drop_api_keys.sql"),
     },
 ];
 

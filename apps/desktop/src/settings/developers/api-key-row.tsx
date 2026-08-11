@@ -1,14 +1,15 @@
-import type { ApiKeyInfo } from "@anlg/plugin-local-api";
 import { Button } from "@anlg/ui/components/ui/button";
 
 export function ApiKeyRow({
   apiKey,
   onRevoke,
 }: {
-  apiKey: Pick<
-    ApiKeyInfo,
-    "id" | "name" | "key_prefix" | "created_at" | "last_used_at"
-  >;
+  apiKey: {
+    name: string;
+    key_prefix: string;
+    created_at: string;
+    last_used_at: string | null;
+  };
   onRevoke: () => void;
 }) {
   return (

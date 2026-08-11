@@ -36,7 +36,6 @@ async fn migrations_apply_cleanly() {
         vec![
             "_sqlx_migrations",
             "action_items",
-            "api_keys",
             "app_settings",
             "attachment_local_state",
             "attachment_transfer_jobs",

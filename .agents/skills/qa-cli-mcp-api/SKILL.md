@@ -1,6 +1,6 @@
 ---
 name: qa-cli-mcp-api
-description: Select and run risk-based QA for Anarlog's CLI, local REST API, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes for a branch or regression; use every lane only for an explicit programmatic-interface release gate.
+description: Select and run risk-based QA for Anarlog's CLI, webhooks, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes for a branch or regression; use every lane only for an explicit programmatic-interface release gate.
 ---
 
 # QA: CLI, MCP, and API
@@ -25,8 +25,7 @@ reason for each before testing.
 Select lanes by behavior, not by the existence of this checklist:
 
 - CLI parsing, output, or local DB access → CLI plus the closest contract tests.
-- Local API routes, keys, loopback lifecycle, or webhooks → the affected local
-  REST/webhook cases only.
+- Webhook endpoints, signing, or delivery retries → the webhook cases only.
 - Shared agent-access DTOs, exports, filtering, or pagination → every direct
   consumer, including hosted REST or remote MCP when affected, plus
   cross-surface parity only for the changed fields.
@@ -145,33 +144,21 @@ binary for every step.
 6. A missing meeting ID and an unreadable or incompatible database must return
    machine-readable errors, a nonzero exit, and no panic or partial export.
 
-## Local REST API
+## Webhooks
 
-Launch the exact desktop candidate, enable **Settings → Developers → Local
-API**, create a short-lived local key, and use `http://127.0.0.1:33443`.
+Launch the exact desktop candidate and add a temporary receiver under
+**Settings → Developers → Webhooks**.
 
-1. `GET /health` must work without authentication.
-2. A protected route with no key, a malformed key, and a revoked key must
-   return `401` with the documented JSON error envelope.
-3. Exercise every read endpoint:
-   - `GET /v1/meetings`
-   - `GET /v1/meetings/{meeting_id}`
-   - `GET /v1/meetings/{meeting_id}/transcript`
-   - `GET /v1/meetings/{meeting_id}/history`
-   - `GET /v1/meetings/{meeting_id}/export?format=json`
-   - `GET /v1/meetings/{meeting_id}/export?format=markdown`
-4. Repeat query, series, limit, offset, missing-ID, and transcript boundary
-   cases from the CLI lane.
-5. Confirm the server listens only on loopback and becomes unavailable when
-   disabled or when the desktop app exits.
-6. Restart the desktop app. The enabled state and non-revoked key must retain
-   their documented behavior.
-7. Create a temporary webhook receiver, subscribe to each documented event,
-   and trigger a test, meeting completion, and note enhancement.
+1. Adding an endpoint must return a `whsec_` secret exactly once, and a
+   non-HTTP URL must be rejected.
+2. Trigger a test delivery, a meeting completion, and a note enhancement.
    - Verify the event name, delivery ID, timestamp, body, and HMAC-SHA256
      signature over the exact raw body.
    - Verify retry behavior with one deliberate transient failure.
-   - Delete the webhook and prove that no later delivery arrives.
+3. Confirm the last-delivery status shown in settings matches the receiver.
+4. Delete the webhook and prove that no later delivery arrives.
+5. Quit the desktop app, complete no further work, and confirm no deliveries
+   are queued or replayed on the next launch.
 
 ## Local stdio MCP
 
@@ -189,7 +176,7 @@ lane by invoking server handlers directly.
 4. Run `resources/list`, `resources/templates/list`, and `resources/read` for a
    meeting, transcript page, and recurring series.
 5. Require read-only, non-destructive, and idempotent tool annotations.
-6. Compare the returned values with the CLI and local REST lanes.
+6. Compare the returned values with the CLI lane.
 7. Capture stdout and stderr separately. Stdout must contain only MCP protocol
    frames; diagnostics belong on stderr. Client shutdown must terminate the
    server without leaving a process behind.
@@ -203,7 +190,7 @@ Begin with **Cloud API & Connectors** disabled.
    account and a previously valid key returns `403 cloud_api_not_enabled`.
 2. Enable the feature in the desktop UI and wait for backfill to finish.
 3. Create a short-lived cloud key and exercise the same read endpoints,
-   filters, pagination, error cases, and exports as the local REST lane.
+   filters, pagination, error cases, and exports as the CLI lane.
 4. Require:
    - no key, malformed key, and revoked key → `401`;
    - free or expired account → `403 subscription_required`;
@@ -241,8 +228,7 @@ the short-lived cloud key.
 
 ## Cross-surface parity
 
-For the marked meeting, compare CLI, local REST, local MCP, hosted REST, and
-remote MCP:
+For the marked meeting, compare CLI, local MCP, hosted REST, and remote MCP:
 
 | Field      | Required parity                                                 |
 | ---------- | --------------------------------------------------------------- |
@@ -269,8 +255,7 @@ For full release-gate mode, produce one table with rows for:
 
 - automated baseline;
 - CLI;
-- local REST;
-- local webhooks;
+- webhooks;
 - local stdio MCP;
 - hosted REST;
 - remote MCP;

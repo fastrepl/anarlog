@@ -31,17 +31,25 @@ curl \
   https://api.anarlog.so/v1/meetings
 ```
 
-The hosted API mirrors the read endpoints in the [local API](/reference/api):
+The read endpoints are:
 
-- `GET /v1/meetings`
-- `GET /v1/meetings/{meeting_id}`
-- `GET /v1/meetings/{meeting_id}/transcript`
-- `GET /v1/meetings/{meeting_id}/history`
-- `GET /v1/meetings/{meeting_id}/export?format=json|markdown`
+| Endpoint | Returns |
+| --- | --- |
+| `GET /v1/meetings` | Meeting list. Accepts `query`, `series_id`, `limit` (default 20, clamped to `1..200`), and `offset`. |
+| `GET /v1/meetings/{meeting_id}` | Meeting metadata, the canonical note, summaries, participants, and action items. Note and summary bodies are markdown. |
+| `GET /v1/meetings/{meeting_id}/transcript` | Joined `text`, the raw `words`, and `pagination`. Accepts `offset` and `limit` (default 200, clamped to `1..500`). |
+| `GET /v1/meetings/{meeting_id}/history` | Meetings in the same recurring series, newest first. Accepts `limit` and `offset`. |
+| `GET /v1/meetings/{meeting_id}/export` | Full export including transcripts. `format=json` (default) or `format=markdown`. |
 
-Response fields, list limits, and history pagination match the local API. See the [OpenAPI document](https://api.anarlog.so/openapi.json) for the complete hosted schema.
+List responses carry a `pagination` object with `offset`, `limit`, `returned`, `total`, and `next_offset`; a missing `next_offset` means the page reached the end. See the [OpenAPI document](https://api.anarlog.so/openapi.json) for the complete hosted schema.
 
-Most hosted errors use the local API's JSON envelope. The hosted API can also return:
+Errors use this envelope:
+
+```json
+{ "error": { "code": "not_found", "message": "meeting 'x' not found" } }
+```
+
+Codes: `unauthorized`, `not_found`, `invalid_request`, `internal_error`. The hosted API can also return:
 
 - `403 subscription_required` when the account does not have an active Pro subscription.
 - `403 cloud_api_not_enabled` when the account has opted out.

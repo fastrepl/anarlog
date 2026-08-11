@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-webhook-active"
+description = "Enables the set_webhook_active command without any pre-configured scope."
+commands.allow = ["set_webhook_active"]
+
+[[permission]]
+identifier = "deny-set-webhook-active"
+description = "Denies the set_webhook_active command without any pre-configured scope."
+commands.deny = ["set_webhook_active"]

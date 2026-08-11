@@ -4,14 +4,10 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
-- `allow-get-status`
-- `allow-set-enabled`
-- `allow-list-api-keys`
-- `allow-create-api-key`
-- `allow-revoke-api-key`
 - `allow-list-webhooks`
 - `allow-create-webhook`
 - `allow-delete-webhook`
+- `allow-set-webhook-active`
 - `allow-test-webhook`
 - `allow-dispatch-event`
 - `allow-export-meeting-markdown`
@@ -26,32 +22,6 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
-
-<tr>
-<td>
-
-`local-api:allow-create-api-key`
-
-</td>
-<td>
-
-Enables the create_api_key command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-api:deny-create-api-key`
-
-</td>
-<td>
-
-Denies the create_api_key command without any pre-configured scope.
-
-</td>
-</tr>
 
 <tr>
 <td>
@@ -186,58 +156,6 @@ Denies the get_cloud_snapshot command without any pre-configured scope.
 <tr>
 <td>
 
-`local-api:allow-get-status`
-
-</td>
-<td>
-
-Enables the get_status command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-api:deny-get-status`
-
-</td>
-<td>
-
-Denies the get_status command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-api:allow-list-api-keys`
-
-</td>
-<td>
-
-Enables the list_api_keys command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-api:deny-list-api-keys`
-
-</td>
-<td>
-
-Denies the list_api_keys command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `local-api:allow-list-cloud-snapshot-ids`
 
 </td>
@@ -290,25 +208,12 @@ Denies the list_webhooks command without any pre-configured scope.
 <tr>
 <td>
 
-`local-api:allow-revoke-api-key`
+`local-api:allow-set-webhook-active`
 
 </td>
 <td>
 
-Enables the revoke_api_key command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-api:deny-revoke-api-key`
-
-</td>
-<td>
-
-Denies the revoke_api_key command without any pre-configured scope.
+Enables the set_webhook_active command without any pre-configured scope.
 
 </td>
 </tr>
@@ -316,25 +221,12 @@ Denies the revoke_api_key command without any pre-configured scope.
 <tr>
 <td>
 
-`local-api:allow-set-enabled`
+`local-api:deny-set-webhook-active`
 
 </td>
 <td>
 
-Enables the set_enabled command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`local-api:deny-set-enabled`
-
-</td>
-<td>
-
-Denies the set_enabled command without any pre-configured scope.
+Denies the set_webhook_active command without any pre-configured scope.
 
 </td>
 </tr>

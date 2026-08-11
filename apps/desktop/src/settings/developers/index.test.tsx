@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   getCloudApiSettings: vi.fn(),
   setCloudApiEnabled: vi.fn(),
   backfillCloudApiSnapshots: vi.fn(),
-  createApiKey: vi.fn(),
+  createCloudApiKey: vi.fn(),
 }));
 
 vi.mock("~/types/tauri.gen", () => ({
@@ -42,13 +42,7 @@ vi.mock("@anlg/plugin-opener2", () => ({
 
 vi.mock("@anlg/plugin-local-api", () => ({
   commands: {
-    getStatus: vi.fn().mockResolvedValue({
-      status: "ok",
-      data: { enabled: false, port: 33443, running: false },
-    }),
-    listApiKeys: vi.fn().mockResolvedValue({ status: "ok", data: [] }),
     listWebhooks: vi.fn().mockResolvedValue({ status: "ok", data: [] }),
-    createApiKey: mocks.createApiKey,
   },
 }));
 
@@ -58,7 +52,7 @@ vi.mock("~/cloud-api/client", () => ({
   backfillCloudApiSnapshots: mocks.backfillCloudApiSnapshots,
   scheduleCloudApiBackfillRetry: vi.fn(),
   listCloudApiKeys: vi.fn().mockResolvedValue([]),
-  createCloudApiKey: vi.fn(),
+  createCloudApiKey: mocks.createCloudApiKey,
   revokeCloudApiKey: vi.fn(),
 }));
 
@@ -131,7 +125,7 @@ describe("SettingsDevelopers", () => {
     mocks.devtoolsPanelShow.mockResolvedValue({ status: "ok" });
     mocks.toastError.mockReset();
     mocks.toastSuccess.mockReset();
-    mocks.createApiKey.mockReset();
+    mocks.createCloudApiKey.mockReset();
     mocks.getCloudApiSettings.mockResolvedValue({
       enabled: false,
       updated_at: null,
@@ -274,16 +268,17 @@ describe("SettingsDevelopers", () => {
         details: "Unavailable.",
       },
     });
-    mocks.createApiKey.mockResolvedValue({
-      status: "ok",
-      data: {
-        id: "key-1",
-        name: "Zapier",
-        key_prefix: "anl_test",
-        key: "anl_test_secret",
-        created_at: "2026-07-28T00:00:00Z",
-        last_used_at: null,
-      },
+    mocks.getCloudApiSettings.mockResolvedValue({
+      enabled: true,
+      updated_at: "2026-07-28T00:00:00Z",
+    });
+    mocks.createCloudApiKey.mockResolvedValue({
+      id: "key-1",
+      name: "Claude Code",
+      key_prefix: "anl_test",
+      key: "anl_test_secret",
+      created_at: "2026-07-28T00:00:00Z",
+      last_used_at: null,
     });
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -302,9 +297,9 @@ describe("SettingsDevelopers", () => {
     );
 
     fireEvent.change(
-      await screen.findByPlaceholderText("Key name (e.g. Zapier)"),
+      await screen.findByPlaceholderText("Key name (e.g. Claude Code)"),
       {
-        target: { value: "Zapier" },
+        target: { value: "Claude Code" },
       },
     );
     fireEvent.click(screen.getByRole("button", { name: "Create key" }));

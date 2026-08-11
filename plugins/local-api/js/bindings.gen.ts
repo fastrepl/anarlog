@@ -6,46 +6,6 @@
 
 
 export const commands = {
-async getStatus() : Promise<Result<LocalApiStatus, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|get_status") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setEnabled(enabled: boolean) : Promise<Result<LocalApiStatus, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|set_enabled", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async listApiKeys() : Promise<Result<ApiKeyInfo[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|list_api_keys") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async createApiKey(name: string) : Promise<Result<CreatedApiKey, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|create_api_key", { name }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async revokeApiKey(id: string) : Promise<Result<boolean, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|revoke_api_key", { id }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async listWebhooks() : Promise<Result<WebhookInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|list_webhooks") };
@@ -65,6 +25,14 @@ async createWebhook(url: string, events: string[]) : Promise<Result<CreatedWebho
 async deleteWebhook(id: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|delete_webhook", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setWebhookActive(id: string, active: boolean) : Promise<Result<WebhookInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-api|set_webhook_active", { id, active }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -122,11 +90,8 @@ async listCloudSnapshotIds() : Promise<Result<string[], string>> {
 
 /** user-defined types **/
 
-export type ApiKeyInfo = { id: string; name: string; key_prefix: string; created_at: string; last_used_at: string | null }
-export type CreatedApiKey = ({ id: string; name: string; key_prefix: string; created_at: string; last_used_at: string | null }) & { key: string }
 export type CreatedWebhook = ({ id: string; url: string; events: string[]; active: boolean; created_at: string; last_delivery_at: string | null; last_delivery_status: string }) & { secret: string }
 export type JsonValue = null | boolean | number | string | JsonValue[] | Partial<{ [key in string]: JsonValue }>
-export type LocalApiStatus = { enabled: boolean; port: number; running: boolean }
 export type WebhookDelivery = { delivered: boolean; status: string }
 export type WebhookInfo = { id: string; url: string; events: string[]; active: boolean; created_at: string; last_delivery_at: string | null; last_delivery_status: string }
 

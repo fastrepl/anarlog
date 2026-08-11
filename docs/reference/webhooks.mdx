@@ -1,0 +1,77 @@
+---
+title: "Webhooks reference"
+description: "Signed meeting events Anarlog delivers to an endpoint you configure."
+---
+
+Webhooks let Anarlog push meeting events to your own endpoint. They are built into the desktop app and available on every plan. Configure them under **Settings → Developers → Webhooks**.
+
+<Warning>
+  Meeting events include the note, summaries, participants, action items, and full transcript text. Only add an endpoint you trust.
+</Warning>
+
+To read meeting data instead of receiving it, use the [CLI](/reference/cli), the [local MCP server](/reference/mcp), or the [Cloud API](/reference/api-cloud).
+
+## Add an endpoint
+
+1. Open **Settings → Developers → Webhooks**.
+2. Enter an `https://` URL and click **Add webhook**.
+3. Copy the signing secret (`whsec_...`). It is shown once.
+4. Click **Test** to send one `webhook.test` delivery and confirm your endpoint responds.
+
+A new endpoint is subscribed to all events. One installation can configure at most 64 endpoints.
+
+## Events
+
+Anarlog delivers events as JSON `POST` requests while the desktop app is running.
+
+| Event | Fires when |
+| --- | --- |
+| `meeting.completed` | A recording session finishes. |
+| `note.enhanced` | An AI summary is generated for a meeting. |
+| `webhook.test` | You trigger a test delivery. |
+
+The payload envelope is:
+
+```json
+{
+  "id": "evt_...",
+  "event": "note.enhanced",
+  "created_at": "2026-07-28T09:00:00.000Z",
+  "data": {
+    "meeting": { "id": "...", "title": "...", "note": {...}, "summaries": [...], "participants": [...], "action_items": [...] },
+    "transcript_text": "..."
+  }
+}
+```
+
+Meeting event deliveries time out after 10 seconds. Failed attempts retry after 5 and 30 seconds. A `webhook.test` request makes one attempt. Each request includes:
+
+| Header | Content |
+| --- | --- |
+| `x-anarlog-event` | Event name. |
+| `x-anarlog-delivery` | Unique delivery ID. |
+| `x-anarlog-timestamp` | Unix timestamp (seconds). |
+| `x-anarlog-signature` | `sha256=<hex>` — HMAC-SHA256 of the raw request body using your endpoint's `whsec_...` secret. |
+
+## Verify signatures
+
+Compute the HMAC over the exact raw body:
+
+```js
+import crypto from "node:crypto";
+
+const expected = `sha256=${
+  crypto.createHmac("sha256", secret).update(rawBody).digest("hex")
+}`;
+const signature = request.headers["x-anarlog-signature"];
+const received = typeof signature === "string" ? signature : "";
+const valid =
+  Buffer.byteLength(received) === Buffer.byteLength(expected) &&
+  crypto.timingSafeEqual(Buffer.from(received), Buffer.from(expected));
+```
+
+Verify the raw body before parsing it. For replay protection, reject stale signed `created_at` values and store each payload `id` so retries are processed once.
+
+## Limits
+
+Deliveries only run while the desktop app is open; events that occur while it is closed are not queued for later. Anarlog delivers to at most 64 endpoints per event and runs at most 4 deliveries at a time.
