@@ -5,9 +5,10 @@ import { cn } from "@anlg/utils";
 
 import { streamdownComponents } from "../../streamdown";
 
-import { useAITaskTask } from "~/ai/hooks";
+import { useAITaskTask, useLLMConnection } from "~/ai/hooks";
 import { createTaskId } from "~/store/zustand/ai-task/task-configs";
 import { getPersistableGeneratedTitle } from "~/store/zustand/ai-task/task-configs/title-success";
+import { isLocalModelProviderId } from "~/store/zustand/ai-task/tasks";
 
 function SummaryTitleSpace({ title }: { title: string }) {
   return (
@@ -41,7 +42,13 @@ export function StreamingView({
   enhancedNoteId: string;
 }) {
   const taskId = createTaskId(enhancedNoteId, "enhance");
-  const { streamedText, isGenerating } = useAITaskTask(taskId, "enhance");
+  const { streamedText, isGenerating, currentStep } = useAITaskTask(
+    taskId,
+    "enhance",
+  );
+  const { conn } = useLLMConnection();
+  const isLocalModel = !!conn && isLocalModelProviderId(conn.providerId);
+  const isReasoning = currentStep?.type === "reasoning";
   const titleTaskId = createTaskId(sessionId, "title");
   const { streamedText: streamedTitle, isGenerating: isGeneratingTitle } =
     useAITaskTask(titleTaskId, "title");
@@ -58,8 +65,12 @@ export function StreamingView({
         aria-live="polite"
         className="text-muted-foreground flex flex-col gap-0.5 pb-2 text-sm"
       >
-        <p className="leading-5">
-          <Trans>Analyzing structure...</Trans>
+        <p className="animate-pulse leading-5">
+          {isReasoning ? (
+            <Trans>Model is thinking...</Trans>
+          ) : (
+            <Trans>Analyzing structure...</Trans>
+          )}
         </p>
         <p className="flex items-start gap-1.5 pl-4 text-xs leading-5">
           <span
@@ -67,7 +78,18 @@ export function StreamingView({
             className="border-muted-foreground/60 mt-[5px] h-2 w-2 shrink-0 rounded-bl-[2px] border-b border-l"
           />
           <span>
-            <Trans>Tip: The Anarlog team loves our users!</Trans>
+            {isReasoning ? (
+              <Trans>
+                Reasoning models think through the transcript before writing.
+              </Trans>
+            ) : isLocalModel ? (
+              <Trans>
+                On-device models can take a few minutes to warm up before text
+                appears.
+              </Trans>
+            ) : (
+              <Trans>Tip: The Anarlog team loves our users!</Trans>
+            )}
           </span>
         </p>
       </div>

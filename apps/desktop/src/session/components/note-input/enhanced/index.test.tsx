@@ -45,6 +45,7 @@ vi.mock("streamdown", () => ({
 }));
 
 vi.mock("~/ai/hooks", () => ({
+  useLLMConnection: () => ({ conn: null }),
   useAITaskTask: (_taskId: string, taskType: "enhance" | "title") => {
     const task = taskType === "title" ? hoisted.titleTask : hoisted.enhanceTask;
 

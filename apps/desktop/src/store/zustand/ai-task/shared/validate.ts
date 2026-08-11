@@ -55,6 +55,18 @@ export async function* withEarlyValidationRetry<
 
       for await (const chunk of stream) {
         if (!validationComplete) {
+          // Thinking models can emit minutes of reasoning before any text;
+          // holding those chunks back starves downstream stream-activity
+          // timeouts and hides progress, so they bypass the validation buffer.
+          if (
+            chunk.type === "reasoning-start" ||
+            chunk.type === "reasoning-delta" ||
+            chunk.type === "reasoning-end"
+          ) {
+            yield chunk;
+            continue;
+          }
+
           buffer.push(chunk);
 
           if (chunk.type === "text-delta") {

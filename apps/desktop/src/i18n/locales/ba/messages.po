@@ -1755,6 +1755,10 @@ msgstr ""
 msgid "Model being used"
 msgstr ""
 
+#: src/session/components/note-input/enhanced/streaming.tsx
+msgid "Model is thinking..."
+msgstr ""
+
 #: src/settings/general/week-start.tsx
 msgid "Monday"
 msgstr ""
@@ -1984,6 +1988,10 @@ msgstr ""
 msgid "Oldest"
 msgstr ""
 
+#: src/session/components/note-input/enhanced/streaming.tsx
+msgid "On-device models can take a few minutes to warm up before text appears."
+msgstr ""
+
 #: src/session-sharing/general-access.tsx
 msgid "Only people invited"
 msgstr ""
@@ -2209,6 +2217,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Ready to go"
+msgstr ""
+
+#: src/session/components/note-input/enhanced/streaming.tsx
+msgid "Reasoning models think through the transcript before writing."
 msgstr ""
 
 #. placeholder {0}: formatSyncBytes(entry.received_bytes)

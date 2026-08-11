@@ -1755,6 +1755,10 @@ msgstr "Migration status unavailable"
 msgid "Model being used"
 msgstr "Model being used"
 
+#: src/session/components/note-input/enhanced/streaming.tsx
+msgid "Model is thinking..."
+msgstr "Model is thinking..."
+
 #: src/settings/general/week-start.tsx
 msgid "Monday"
 msgstr "Monday"
@@ -1984,6 +1988,10 @@ msgstr "Older files that differ from your current data were kept as recovery cop
 msgid "Oldest"
 msgstr "Oldest"
 
+#: src/session/components/note-input/enhanced/streaming.tsx
+msgid "On-device models can take a few minutes to warm up before text appears."
+msgstr "On-device models can take a few minutes to warm up before text appears."
+
 #: src/session-sharing/general-access.tsx
 msgid "Only people invited"
 msgstr "Only people invited"
@@ -2210,6 +2218,10 @@ msgstr "Read meeting controls, visible chat, and participant status"
 #: src/onboarding/index.tsx
 msgid "Ready to go"
 msgstr "Ready to go"
+
+#: src/session/components/note-input/enhanced/streaming.tsx
+msgid "Reasoning models think through the transcript before writing."
+msgstr "Reasoning models think through the transcript before writing."
 
 #. placeholder {0}: formatSyncBytes(entry.received_bytes)
 #: src/settings/sync/index.tsx

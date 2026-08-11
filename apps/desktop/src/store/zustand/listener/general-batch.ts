@@ -1,4 +1,3 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { StoreApi } from "zustand";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
@@ -16,6 +15,7 @@ import {
 } from "./batch";
 
 import { trackAnalyticsEvent } from "~/analytics";
+import { isAppWindowInactive } from "~/shared/window-activity";
 import { createBatchCompletedNotificationKey } from "~/stt/batch-completed-notification";
 import { BatchResponseProcessingError } from "~/stt/batch-response-processing-error";
 
@@ -33,26 +33,11 @@ const OPENAI_PROGRESSIVE_BATCH_MODELS = new Set([
   "gpt-4o-mini-transcribe-2025-12-15",
 ]);
 
-async function shouldNotifyBatchCompleted() {
-  try {
-    const window = getCurrentWindow();
-    const [focused, visible] = await Promise.all([
-      window.isFocused(),
-      window.isVisible(),
-    ]);
-
-    return !focused || !visible;
-  } catch (error) {
-    console.error("[runBatch] failed to inspect window state", error);
-    return true;
-  }
-}
-
 export async function showBatchCompletedNotification(
   sessionId: string,
   options?: { force?: boolean },
 ) {
-  if (!options?.force && !(await shouldNotifyBatchCompleted())) {
+  if (!options?.force && !(await isAppWindowInactive())) {
     return;
   }
 

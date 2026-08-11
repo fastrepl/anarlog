@@ -36,14 +36,14 @@ export type TasksActions = {
   getState: <T extends TaskType>(taskId: TaskId<T>) => TaskState<T> | undefined;
 };
 
-export type TaskStepInfo<T extends TaskType = TaskType> = T extends "enhance"
-  ?
-      | { type: "analyzing" }
-      | { type: "generating" }
-      | { type: "retrying"; attempt: number; reason: string }
-  : T extends "title"
-    ? { type: "generating" }
-    : { type: "generating" };
+export type TaskStepInfo<T extends TaskType = TaskType> =
+  | { type: "generating" }
+  | { type: "reasoning" }
+  | (T extends "enhance"
+      ?
+          | { type: "analyzing" }
+          | { type: "retrying"; attempt: number; reason: string }
+      : never);
 
 export type TaskStatus = "idle" | "generating" | "success" | "error";
 
@@ -81,6 +81,32 @@ const initialState: TasksState = {
 
 export const TASK_STREAM_IDLE_TIMEOUT_MS = 15_000;
 export const TASK_STREAM_START_TIMEOUT_MS = 60_000;
+// On-device models can spend minutes loading weights and prefilling a long
+// transcript before the first token; the remote-grade start timeout would
+// kill them mid-warmup.
+export const TASK_STREAM_LOCAL_START_TIMEOUT_MS = 5 * 60_000;
+
+const LOCAL_MODEL_PROVIDERS = new Set([
+  "apple_foundation",
+  "lmstudio",
+  "ollama",
+]);
+
+export function isLocalModelProviderId(providerId: string) {
+  return LOCAL_MODEL_PROVIDERS.has(providerId);
+}
+
+export function getTaskStreamStartTimeoutMs(model: LanguageModel) {
+  const provider =
+    typeof model !== "string" && typeof model.provider === "string"
+      ? model.provider
+      : "";
+  const providerId = provider.split(".", 1)[0];
+
+  return isLocalModelProviderId(providerId)
+    ? TASK_STREAM_LOCAL_START_TIMEOUT_MS
+    : TASK_STREAM_START_TIMEOUT_MS;
+}
 export const MAX_RETAINED_AI_TASKS = 256;
 export const MAX_AI_TASK_STREAM_CHARACTERS = 256 * 1024;
 
@@ -293,6 +319,7 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
         abortController.signal,
       );
       let fullText = "";
+      let reasoningActive = false;
 
       const checkAbort = () => {
         throwIfAborted(abortController.signal);
@@ -335,7 +362,7 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
             iterator,
             fullText.trim()
               ? TASK_STREAM_IDLE_TIMEOUT_MS
-              : TASK_STREAM_START_TIMEOUT_MS,
+              : getTaskStreamStartTimeoutMs(config.model),
           );
           checkAbort();
 
@@ -356,7 +383,19 @@ export const createTasksSlice = <T extends TasksState & TasksActions>(
 
           if (chunk.type === "error") {
             throw chunk.error;
+          } else if (
+            (chunk.type === "reasoning-start" ||
+              chunk.type === "reasoning-delta") &&
+            !reasoningActive &&
+            !fullText
+          ) {
+            reasoningActive = true;
+            onProgress({ type: "reasoning" });
           } else if (chunk.type === "text-delta") {
+            if (reasoningActive) {
+              reasoningActive = false;
+              onProgress({ type: "generating" });
+            }
             if (
               fullText.length + chunk.text.length >
               MAX_AI_TASK_STREAM_CHARACTERS

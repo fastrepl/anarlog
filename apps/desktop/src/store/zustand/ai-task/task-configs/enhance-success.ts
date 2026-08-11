@@ -22,6 +22,7 @@ import {
   countNormalizedCharacters,
   getSummaryLengthPolicy,
 } from "~/services/enhancer/summary-length";
+import { showSummaryReadyNotification } from "~/services/enhancer/summary-notification";
 import {
   persistGeneratedEnhancedNote,
   type TranscriptSpeakerHintsUpdate,
@@ -197,6 +198,7 @@ export const runEnhanceSuccess = async ({
       void localApiCommands.dispatchEvent("note.enhanced", args.sessionId);
       void runNoteEnhancedAutomations(args.sessionId);
       syncCloudApiSnapshotBestEffort(args.sessionId);
+      void showSummaryReadyNotification(args.sessionId, trimmedTitle);
     }
   } finally {
     await releaseCloudsyncActivityEventually("enhance", cloudsyncLeaseKey);
