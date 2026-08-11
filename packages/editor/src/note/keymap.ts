@@ -198,7 +198,10 @@ function joinTaskItemBackward(
   const itemIndex = $from.index(itemDepth - 1);
   const currentItem = list.child(itemIndex);
   if (itemIndex === 0) {
-    return currentItem.firstChild?.content.size ? true : false;
+    // Lift instead of falling through to joinBackward, which would merge the
+    // item's text into the preceding block and silently destroy the task
+    if (!currentItem.firstChild?.content.size) return false;
+    return liftListItem(schema.nodes.taskItem)(state, dispatch);
   }
 
   const previousItem = list.child(itemIndex - 1);

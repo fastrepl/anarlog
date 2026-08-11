@@ -237,7 +237,7 @@ describe("buildKeymap", () => {
     });
   });
 
-  it("keeps the first task item separate from a previous bullet list", () => {
+  it("lifts the first task item to a paragraph instead of merging into a previous bullet list", () => {
     const doc = schema.node("doc", null, [
       schema.node("bulletList", null, [
         schema.node("listItem", null, [
@@ -259,7 +259,87 @@ describe("buildKeymap", () => {
     ]);
     const { state } = runBackspaceAtTextStart(doc, "two");
 
-    expect(state.doc.toJSON()).toEqual(doc.toJSON());
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "bulletList",
+          content: [
+            {
+              type: "listItem",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "one" }],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "two" }],
+        },
+      ],
+    });
+  });
+
+  it("lifts the first task item to a paragraph when the list starts the doc", () => {
+    const doc = schema.node("doc", null, [
+      schema.node("taskList", null, [
+        schema.node(
+          "taskItem",
+          {
+            status: "todo",
+            checked: false,
+            taskId: "task-1",
+            taskItemId: "task-item-1",
+          },
+          [schema.node("paragraph", null, [schema.text("two")])],
+        ),
+        schema.node(
+          "taskItem",
+          {
+            status: "todo",
+            checked: false,
+            taskId: "task-2",
+            taskItemId: "task-item-2",
+          },
+          [schema.node("paragraph", null, [schema.text("three")])],
+        ),
+      ]),
+    ]);
+    const { state } = runBackspaceAtTextStart(doc, "two");
+
+    expect(state.doc.toJSON()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "two" }],
+        },
+        {
+          type: "taskList",
+          content: [
+            {
+              type: "taskItem",
+              attrs: {
+                status: "todo",
+                checked: false,
+                taskId: "task-2",
+                taskItemId: "task-item-2",
+              },
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "three" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
   });
 
   it("joins later task item paragraphs within the same task item", () => {
