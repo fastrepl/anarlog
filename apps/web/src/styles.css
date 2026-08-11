@@ -6,6 +6,7 @@
 
 @source "../../../packages/changelog/src";
 @source "../../../packages/editor/src";
+@source "../../../packages/pricing/src";
 @source "../../../packages/ui/src";
 
 @theme {

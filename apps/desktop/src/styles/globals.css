@@ -23,6 +23,7 @@
 @source "../../node_modules/streamdown/dist/index.js";
 @source "../../../../packages/changelog/src";
 @source "../../../../packages/editor/src";
+@source "../../../../packages/pricing/src";
 
 @theme {
   --font-sans:
