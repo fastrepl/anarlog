@@ -265,3 +265,25 @@
   background-color: rgb(234 179 8) !important;
   border-radius: 2px;
 }
+
+/* Sonner switches to an edge-to-edge mobile layout when the viewport is under
+   600px; a narrow desktop window should keep the regular bottom-right toast
+   layout. Selectors are doubled to out-rank sonner's mobile rules regardless
+   of stylesheet order. */
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-sonner-toaster] {
+    width: var(--width);
+    left: auto;
+    right: var(--offset-right);
+  }
+
+  [data-sonner-toaster][data-sonner-toaster][data-y-position="bottom"] {
+    bottom: var(--offset-bottom);
+  }
+
+  [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] {
+    left: auto;
+    right: auto;
+    width: var(--width);
+  }
+}
