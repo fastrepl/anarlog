@@ -289,7 +289,7 @@ export function CredibilityLogoMarquee() {
                   src={logo.src}
                   alt=""
                   className={cn([
-                    "h-6 w-auto max-w-none object-contain opacity-65 grayscale",
+                    "h-6 w-auto max-w-none object-contain opacity-65 grayscale transition-[filter,opacity] duration-200 hover:opacity-100 hover:grayscale-0",
                     logo.className,
                   ])}
                   draggable={false}
