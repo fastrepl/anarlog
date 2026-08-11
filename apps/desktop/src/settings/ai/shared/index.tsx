@@ -2,8 +2,8 @@ import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowSquareOut } from "@phosphor-icons/react";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import { useMutation, useQueries } from "@tanstack/react-query";
+import { type ReactNode, useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -141,6 +141,66 @@ export function providerRowId(providerType: ProviderType, providerId: string) {
   return `${providerType}:${providerId}`;
 }
 
+export function useProviderAvailability(
+  providerType: ProviderType,
+  providers: readonly ProviderConfig[],
+): Record<string, boolean | undefined> {
+  const billing = useBillingAccess();
+  const configuredProviders = useAiProviders(providerType);
+
+  const inputs = providers
+    .filter((provider) => provider.checkAvailability)
+    .map((provider) => {
+      const config =
+        configuredProviders[providerRowId(providerType, provider.id)];
+      const baseUrl = String(config?.base_url || provider.baseUrl || "").trim();
+      const apiKey = String(config?.api_key || "").trim();
+      const isConfigured =
+        getProviderSelectionBlockers(provider.requirements, {
+          isAuthenticated: true,
+          isPaid: billing.isPaid,
+          config: { base_url: baseUrl, api_key: apiKey },
+        }).length === 0;
+
+      return { provider, baseUrl, apiKey, isConfigured };
+    });
+
+  const queries = useQueries({
+    queries: inputs.map(({ provider, baseUrl, apiKey, isConfigured }) => ({
+      queryKey: [
+        "ai-provider-availability",
+        providerType,
+        provider.id,
+        baseUrl,
+        apiKey,
+      ],
+      queryFn: () => provider.checkAvailability?.(baseUrl, apiKey) ?? false,
+      enabled: isConfigured,
+      retry: false,
+      refetchInterval: 5_000,
+    })),
+  });
+
+  const entries = inputs.map(
+    ({ provider, isConfigured }, index) =>
+      [
+        provider.id,
+        !isConfigured
+          ? false
+          : queries[index]?.isPending
+            ? undefined
+            : queries[index]?.data === true,
+      ] as const,
+  );
+
+  // Callers put this record in memo dependency lists, so its identity has to
+  // stay stable while the values do; a fresh object each render would recompute
+  // those memos and churn the derived listModels closures used as query keys.
+  const signature = entries.map(([id, value]) => `${id}=${value}`).join("|");
+
+  return useMemo(() => Object.fromEntries(entries), [signature]);
+}
+
 export function useIsProviderReady(
   providerId: string,
   providerType: ProviderType,
@@ -148,42 +208,25 @@ export function useIsProviderReady(
 ) {
   const billing = useBillingAccess();
   const configuredProviders = useAiProviders(providerType);
+  const availability = useProviderAvailability(providerType, providers);
   const providerDef = providers.find((p) => p.id === providerId);
-  const config = configuredProviders[providerRowId(providerType, providerId)];
 
+  if (providerDef?.checkAvailability) {
+    return availability[providerId];
+  }
+
+  const config = configuredProviders[providerRowId(providerType, providerId)];
   const baseUrl = String(config?.base_url || providerDef?.baseUrl || "").trim();
   const apiKey = String(config?.api_key || "").trim();
-  const isConfigured =
+
+  return (
     !!providerDef &&
     getProviderSelectionBlockers(providerDef.requirements, {
       isAuthenticated: true,
       isPaid: billing.isPaid,
       config: { base_url: baseUrl, api_key: apiKey },
-    }).length === 0;
-  const checkAvailability = providerDef?.checkAvailability;
-  const availabilityQuery = useQuery({
-    queryKey: [
-      "ai-provider-availability",
-      providerType,
-      providerId,
-      baseUrl,
-      apiKey,
-    ],
-    queryFn: () => checkAvailability?.(baseUrl, apiKey) ?? false,
-    enabled: isConfigured && !!checkAvailability,
-    retry: false,
-    refetchInterval: checkAvailability ? 5_000 : false,
-  });
-
-  if (!isConfigured || !checkAvailability) {
-    return isConfigured;
-  }
-
-  if (availabilityQuery.isPending) {
-    return undefined;
-  }
-
-  return availabilityQuery.data === true;
+    }).length === 0
+  );
 }
 
 export function NonAnarlogProviderCard({

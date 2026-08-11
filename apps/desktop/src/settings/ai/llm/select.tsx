@@ -26,7 +26,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import {
   providerRowId,
   ProviderIconSlot,
-  useIsProviderReady,
+  useProviderAvailability,
 } from "~/settings/ai/shared";
 import {
   getProviderSelectionBlockers,
@@ -475,7 +475,7 @@ export function getLlmProviderStatus({
     return { configured: false };
   }
 
-  if (provider.id === "apple_foundation") {
+  if (provider.checkAvailability) {
     if (isAvailable === undefined) {
       return { configured: false, availabilityPending: true };
     }
@@ -568,18 +568,23 @@ function useConfiguredMapping(): {
 } {
   const auth = useAuth();
   const billing = useBillingAccess();
-  const appleFoundationAvailable = useIsProviderReady(
-    "apple_foundation",
-    "llm",
-    PROVIDERS,
-  );
+  const availability = useProviderAvailability("llm", PROVIDERS);
+  const { current_llm_provider } = useConfigValues([
+    "current_llm_provider",
+  ] as const);
   const { providers: configuredProviders, isReady } =
     useAiProvidersState("llm");
 
   const mapping = useMemo(() => {
     return Object.fromEntries(
-      PROVIDERS.map((provider) => {
+      PROVIDERS.map((provider: Provider) => {
         const config = configuredProviders[providerRowId("llm", provider.id)];
+        // The selected provider bypasses the reachability gate: a temporarily
+        // stopped local server should surface as a connection error, not
+        // silently re-persist the selection to another provider.
+        const isAvailable = provider.checkAvailability
+          ? provider.id === current_llm_provider || availability[provider.id]
+          : undefined;
         return [
           provider.id,
           getLlmProviderStatus({
@@ -587,18 +592,19 @@ function useConfiguredMapping(): {
             config,
             isAuthenticated: !!auth?.session,
             isPaid: billing.isPaid,
-            isAvailable:
-              provider.id === "apple_foundation"
-                ? appleFoundationAvailable
-                : undefined,
+            isAvailable,
           }),
         ];
       }),
     ) as Record<string, ProviderStatus>;
-  }, [configuredProviders, auth, billing, appleFoundationAvailable]);
+  }, [configuredProviders, auth, billing, availability, current_llm_provider]);
 
   return {
     providers: mapping,
-    isReady: isReady && mapping.apple_foundation?.availabilityPending !== true,
+    isReady:
+      isReady &&
+      Object.values(mapping).every(
+        (status) => status.availabilityPending !== true,
+      ),
   };
 }

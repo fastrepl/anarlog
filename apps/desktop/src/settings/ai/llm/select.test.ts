@@ -142,43 +142,35 @@ describe("getLlmProviderStatus", () => {
     ]);
   });
 
-  test("keeps local providers active without API keys", () => {
-    const status = getLlmProviderStatus({
-      provider: provider("ollama"),
-      isAuthenticated: false,
-      isPaid: false,
-    });
+  test.each(["ollama", "lmstudio", "apple_foundation"])(
+    "only configures %s when its runtime is reachable, without an API key",
+    (id) => {
+      const pending = getLlmProviderStatus({
+        provider: provider(id),
+        isAuthenticated: false,
+        isPaid: false,
+      });
+      const unavailable = getLlmProviderStatus({
+        provider: provider(id),
+        isAuthenticated: false,
+        isPaid: false,
+        isAvailable: false,
+      });
+      const available = getLlmProviderStatus({
+        provider: provider(id),
+        isAuthenticated: false,
+        isPaid: false,
+        isAvailable: true,
+      });
 
-    expect(status.configured).toBe(true);
-    expect(status.listModels).toBeTypeOf("function");
-  });
-
-  test("only configures Apple Foundation Models when available", () => {
-    const pending = getLlmProviderStatus({
-      provider: provider("apple_foundation"),
-      isAuthenticated: false,
-      isPaid: false,
-    });
-    const unavailable = getLlmProviderStatus({
-      provider: provider("apple_foundation"),
-      isAuthenticated: false,
-      isPaid: false,
-      isAvailable: false,
-    });
-    const available = getLlmProviderStatus({
-      provider: provider("apple_foundation"),
-      isAuthenticated: false,
-      isPaid: false,
-      isAvailable: true,
-    });
-
-    expect(pending.configured).toBe(false);
-    expect(pending.availabilityPending).toBe(true);
-    expect(unavailable.configured).toBe(false);
-    expect(unavailable.availabilityPending).toBeUndefined();
-    expect(unavailable.listModels).toBeUndefined();
-    expect(available.configured).toBe(true);
-    expect(available.availabilityPending).toBeUndefined();
-    expect(available.listModels).toBeTypeOf("function");
-  });
+      expect(pending.configured).toBe(false);
+      expect(pending.availabilityPending).toBe(true);
+      expect(unavailable.configured).toBe(false);
+      expect(unavailable.availabilityPending).toBeUndefined();
+      expect(unavailable.listModels).toBeUndefined();
+      expect(available.configured).toBe(true);
+      expect(available.availabilityPending).toBeUndefined();
+      expect(available.listModels).toBeTypeOf("function");
+    },
+  );
 });
