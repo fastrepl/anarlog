@@ -5,6 +5,11 @@ use std::time::Duration;
 
 use super::*;
 
+/// Catches a deadlocked pool or worker, not slow I/O: a replacement pool connection
+/// reloads and revalidates the sqlite-sync extension, which costs far more than a
+/// query's worth of time on Windows CI.
+const LIVENESS_TIMEOUT: Duration = Duration::from_secs(5);
+
 async fn db_with_oversized_pending_payload() -> Db {
     let db = Db::connect_memory().await.unwrap();
     sqlx::query(
@@ -140,15 +145,12 @@ async fn assert_stalled_operation_drains_before_local_write(operation: StalledNe
         request.await.unwrap().is_err(),
         "interrupted manual request succeeded"
     );
-    tokio::time::timeout(
-        Duration::from_millis(250),
-        db.cloudsync_wait_for_sync_idle(),
-    )
-    .await
-    .expect("manual CloudSync worker did not become idle after interruption");
+    tokio::time::timeout(LIVENESS_TIMEOUT, db.cloudsync_wait_for_sync_idle())
+        .await
+        .expect("manual CloudSync worker did not become idle after interruption");
     db.cloudsync_connection.lock().await.take();
     tokio::time::timeout(
-        Duration::from_millis(250),
+        LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')").execute(db.pool()),
     )
     .await
@@ -230,18 +232,15 @@ async fn native_logout_cleanup_interrupt_drains_before_local_write() {
         request.await.unwrap().is_err(),
         "interrupted native CloudSync logout succeeded"
     );
-    tokio::time::timeout(
-        Duration::from_millis(250),
-        db.cloudsync_wait_for_sync_idle(),
-    )
-    .await
-    .expect("native CloudSync logout worker did not become idle after interruption");
+    tokio::time::timeout(LIVENESS_TIMEOUT, db.cloudsync_wait_for_sync_idle())
+        .await
+        .expect("native CloudSync logout worker did not become idle after interruption");
     db.cloudsync_version()
         .await
         .expect("native CloudSync logout interruption crashed the pinned SQLite worker");
     db.cloudsync_terminate_and_close().await.unwrap();
     tokio::time::timeout(
-        Duration::from_secs(2),
+        LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')").execute(db.pool()),
     )
     .await
@@ -306,12 +305,9 @@ async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
         request.await.unwrap().is_err(),
         "interrupted native CloudSync table cleanup succeeded"
     );
-    tokio::time::timeout(
-        Duration::from_millis(250),
-        db.cloudsync_wait_for_sync_idle(),
-    )
-    .await
-    .expect("native CloudSync table cleanup worker did not become idle after interruption");
+    tokio::time::timeout(LIVENESS_TIMEOUT, db.cloudsync_wait_for_sync_idle())
+        .await
+        .expect("native CloudSync table cleanup worker did not become idle after interruption");
     db.cloudsync_version()
         .await
         .expect("native CloudSync table cleanup interruption crashed the pinned SQLite worker");
@@ -330,7 +326,7 @@ async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
         "interrupted native CloudSync table cleanup left partial tracking schema"
     );
     tokio::time::timeout(
-        Duration::from_millis(250),
+        LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')").execute(db.pool()),
     )
     .await
@@ -416,17 +412,16 @@ async fn populated_table_init_interrupt_drains_before_local_write() {
         request.await.unwrap().is_err(),
         "interrupted native CloudSync table initialization succeeded"
     );
-    tokio::time::timeout(
-        Duration::from_millis(250),
-        db.cloudsync_wait_for_sync_idle(),
-    )
-    .await
-    .expect("native CloudSync table initialization worker did not become idle after interruption");
+    tokio::time::timeout(LIVENESS_TIMEOUT, db.cloudsync_wait_for_sync_idle())
+        .await
+        .expect(
+            "native CloudSync table initialization worker did not become idle after interruption",
+        );
     db.cloudsync_version().await.expect(
         "native CloudSync table initialization interruption crashed the pinned SQLite worker",
     );
     tokio::time::timeout(
-        Duration::from_millis(250),
+        LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')")
             .execute(db.pool()),
     )
@@ -495,15 +490,12 @@ async fn pending_payload_interrupt_drains_before_local_write() {
         request.await.unwrap().is_err(),
         "interrupted pending payload generation succeeded"
     );
-    tokio::time::timeout(
-        Duration::from_millis(250),
-        db.cloudsync_wait_for_sync_idle(),
-    )
-    .await
-    .expect("pending payload worker did not become idle after interruption");
+    tokio::time::timeout(LIVENESS_TIMEOUT, db.cloudsync_wait_for_sync_idle())
+        .await
+        .expect("pending payload worker did not become idle after interruption");
     db.cloudsync_connection.lock().await.take();
     tokio::time::timeout(
-        Duration::from_millis(250),
+        LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')").execute(db.pool()),
     )
     .await
@@ -771,7 +763,7 @@ async fn table_init_bounds_pool_drain_and_reuses_connections_after_retry() {
 
     let mut connections = Vec::new();
     for index in 0..2 {
-        let mut connection = tokio::time::timeout(Duration::from_millis(250), db.pool().acquire())
+        let mut connection = tokio::time::timeout(LIVENESS_TIMEOUT, db.pool().acquire())
             .await
             .expect("CloudSync table initialization leaked a pool connection")
             .unwrap();
@@ -853,7 +845,7 @@ async fn table_init_error_closes_partially_initialized_drained_connections() {
 
     let mut replacements = Vec::new();
     for _ in 0..2 {
-        let mut connection = tokio::time::timeout(Duration::from_millis(250), db.pool().acquire())
+        let mut connection = tokio::time::timeout(LIVENESS_TIMEOUT, db.pool().acquire())
             .await
             .expect("failed initialization leaked a drained pool connection")
             .unwrap();
@@ -1126,7 +1118,7 @@ async fn suspend_bounds_pool_drain_and_allows_later_teardown() {
 
     db.cloudsync_terminate_and_close().await.unwrap();
     tokio::time::timeout(
-        Duration::from_millis(250),
+        LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO sessions (id, title) VALUES ('after-retry', 'Note')")
             .execute(db.pool()),
     )
@@ -1177,7 +1169,7 @@ async fn suspend_bounds_initial_pinned_connection_acquisition() {
     held_connection.return_to_pool().await;
     db.cloudsync_suspend().await.unwrap();
     tokio::time::timeout(
-        Duration::from_millis(250),
+        LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO sessions (id, title) VALUES ('after-retry', 'Note')")
             .execute(db.pool()),
     )
