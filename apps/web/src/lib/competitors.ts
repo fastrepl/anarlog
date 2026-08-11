@@ -184,17 +184,4 @@ export const COMPARISON_ROWS: ComparisonRow[] = [
     ownKeys: false,
     openSource: false,
   },
-  {
-    name: "Meetily",
-    icon: "/icons/meetily.png",
-    url: "https://github.com/Zackriya-Solutions/meetily",
-    paidFrom: "$10/mo",
-    freeTier: "Unlimited local",
-    botFree: true,
-    localData: true,
-    offline: true,
-    localModels: true,
-    ownKeys: true,
-    openSource: true,
-  },
 ];
