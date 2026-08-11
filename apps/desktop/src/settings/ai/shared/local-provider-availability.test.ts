@@ -11,6 +11,7 @@ vi.mock("@tauri-apps/plugin-http", () => ({
 import {
   checkLMStudioAvailability,
   checkOllamaAvailability,
+  checkUnslothAvailability,
 } from "./local-provider-availability";
 
 describe("local provider availability", () => {
@@ -69,6 +70,29 @@ describe("local provider availability", () => {
       "http://127.0.0.1:1234/v1/models",
       { method: "GET", headers: {} },
     );
+  });
+
+  it("checks Unsloth with its bearer key", async () => {
+    mocks.fetch.mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    await expect(
+      checkUnslothAvailability("http://127.0.0.1:8888/v1", "sk-unsloth-test"),
+    ).resolves.toBe(true);
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      "http://127.0.0.1:8888/v1/models",
+      {
+        method: "GET",
+        headers: { Authorization: "Bearer sk-unsloth-test" },
+      },
+    );
+  });
+
+  it("reports Unsloth as unavailable when the key is rejected", async () => {
+    mocks.fetch.mockResolvedValueOnce(new Response(null, { status: 401 }));
+
+    await expect(
+      checkUnslothAvailability("http://127.0.0.1:8888/v1", "sk-unsloth-bad"),
+    ).resolves.toBe(false);
   });
 
   it("requires a successful local provider response", async () => {

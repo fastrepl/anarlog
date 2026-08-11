@@ -34,6 +34,7 @@ describe("LLM providers", () => {
       "cloudflare_workers_ai",
       "cerebras",
       "lmstudio",
+      "unsloth",
       "apple_foundation",
       "custom",
     ]);

@@ -492,7 +492,7 @@ describe("createTasksSlice", () => {
 });
 
 describe("getTaskStreamStartTimeoutMs", () => {
-  it.each(["ollama.chat", "lmstudio.chat", "apple_foundation"])(
+  it.each(["ollama.chat", "lmstudio.chat", "unsloth.chat", "apple_foundation"])(
     "allows local provider %s more time to start",
     (provider) => {
       expect(getTaskStreamStartTimeoutMs({ provider } as any)).toBe(

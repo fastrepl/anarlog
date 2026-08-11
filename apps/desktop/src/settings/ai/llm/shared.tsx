@@ -29,6 +29,7 @@ import { checkAppleFoundationModelAvailability } from "~/settings/ai/shared/list
 import {
   checkLMStudioAvailability,
   checkOllamaAvailability,
+  checkUnslothAvailability,
 } from "~/settings/ai/shared/local-provider-availability";
 import { sortProviders } from "~/settings/ai/shared/sort-providers";
 
@@ -107,6 +108,37 @@ const _PROVIDERS = [
       setup: {
         label: "Setup guide",
         url: "https://docs.anarlog.so/ai-setup#ollama",
+      },
+    },
+  },
+  {
+    id: "unsloth",
+    displayName: "Unsloth",
+    badge: null,
+    // Rendered unfiltered: the brand filter flattens this multi-color mark
+    // into a solid blob in dark mode.
+    icon: (
+      <img
+        src="/assets/unsloth-mark.png"
+        alt="Unsloth"
+        className="size-full object-contain object-center"
+      />
+    ),
+    baseUrl: "http://127.0.0.1:8888/v1",
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    checkAvailability: checkUnslothAvailability,
+    links: {
+      download: {
+        label: "Download Unsloth",
+        url: "https://unsloth.ai/docs/desktop",
+      },
+      models: {
+        label: "Available models",
+        url: "https://huggingface.co/unsloth",
+      },
+      setup: {
+        label: "Setup guide",
+        url: "https://docs.anarlog.so/ai-setup#unsloth",
       },
     },
   },
@@ -369,6 +401,7 @@ const PROVIDER_ORDER = [
   "cloudflare_workers_ai",
   "cerebras",
   "lmstudio",
+  "unsloth",
   "apple_foundation",
 ] as const;
 

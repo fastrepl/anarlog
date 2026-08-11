@@ -90,6 +90,7 @@ const LOCAL_MODEL_PROVIDERS = new Set([
   "apple_foundation",
   "lmstudio",
   "ollama",
+  "unsloth",
 ]);
 
 export function isLocalModelProviderId(providerId: string) {

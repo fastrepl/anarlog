@@ -3,6 +3,7 @@ import { Effect, pipe } from "effect";
 
 import { REQUEST_TIMEOUT } from "./list-common";
 import { getLMStudioNativeModelsUrl } from "./list-lmstudio";
+import { getUnslothHeaders, getUnslothModelsUrl } from "./list-unsloth";
 
 export async function checkOllamaAvailability(
   baseUrl: string,
@@ -36,6 +37,18 @@ export async function checkLMStudioAvailability(
       { url: `${baseUrl.replace(/\/+$/, "")}/models`, headers },
     ];
   });
+}
+
+export async function checkUnslothAvailability(
+  baseUrl: string,
+  apiKey: string,
+): Promise<boolean> {
+  return checkEndpoint(() => [
+    {
+      url: getUnslothModelsUrl(baseUrl),
+      headers: getUnslothHeaders(apiKey),
+    },
+  ]);
 }
 
 function checkEndpoint(
