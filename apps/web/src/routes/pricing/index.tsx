@@ -169,18 +169,35 @@ function Row({ row, highlight }: { row: ComparisonRow; highlight?: boolean }) {
       ])}
     >
       <td className="px-4 py-3 whitespace-nowrap">
-        {isInternal ? (
-          <span className="font-semibold text-[#181613]">{row.name}</span>
-        ) : (
-          <a
-            href={row.url}
-            target="_blank"
-            rel="noopener noreferrer nofollow"
-            className="text-[#4f4940] underline decoration-[#d9cdb8] underline-offset-4 hover:text-[#181613]"
-          >
-            {row.name}
-          </a>
-        )}
+        <div className="flex items-center gap-2.5">
+          {row.icon ? (
+            <img
+              src={row.icon}
+              alt=""
+              aria-hidden="true"
+              className="size-5 shrink-0 rounded-[5px] object-contain"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex size-5 shrink-0 items-center justify-center rounded-[5px] bg-[#f4efe6] text-[10px] font-semibold text-[#756b5d]"
+            >
+              {row.name.charAt(0)}
+            </span>
+          )}
+          {isInternal ? (
+            <span className="font-semibold text-[#181613]">{row.name}</span>
+          ) : (
+            <a
+              href={row.url}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="text-[#4f4940] underline decoration-[#d9cdb8] underline-offset-4 hover:text-[#181613]"
+            >
+              {row.name}
+            </a>
+          )}
+        </div>
       </td>
       <td
         className={cn([

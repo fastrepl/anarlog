@@ -4,6 +4,8 @@ export const PRICING_VERIFIED_ON = "2026-08-11";
 
 export type ComparisonRow = {
   name: string;
+  // Square logo under public/icons/. Rows without one fall back to name-only.
+  icon?: string;
   url: string;
   paidFrom: string;
   freeTier: string;
@@ -15,6 +17,7 @@ export type ComparisonRow = {
 
 export const ANARLOG_ROW: ComparisonRow = {
   name: "Anarlog",
+  icon: "/icon-192x192.png",
   url: "/",
   paidFrom: "$15/mo",
   freeTier: "Unlimited local transcription",
