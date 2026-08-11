@@ -1,6 +1,6 @@
 ---
 name: product-update-newsletter
-description: Write, update, or audit the Anarlog product-update newsletter campaign in Loops (app.loops.so) for a desktop release. Use after the changelog for the version is merged, when asked to draft, revise, or pre-send check the release announcement email.
+description: Draft, update, or audit a crisp, changelog-grounded Anarlog product-update newsletter in Loops (app.loops.so) for a desktop release. Use after the changelog is merged, when asked to draft, revise, or pre-send check the release announcement email.
 metadata:
   internal: true
 ---
@@ -26,6 +26,32 @@ Map items to the existing structure rather than appending a dump:
 - Reliability and privacy items append to the fixes paragraph after the bullets.
 
 Keep beta or partially shipped work honestly qualified. If execution is not connected yet, say so.
+
+## Copy Style Contract
+
+Write a product email, not an essay. Keep it crisp, concrete, and easy to scan.
+
+- Open with what shipped and when. Prefer `We shipped four releases since last week. Anarlog
+  1.4.8 is here.` over scene-setting such as `If you've been putting off updating, this is the one
+  to take` or `It folds in four releases`.
+- If encouraging an update, use explicit loss framing tied to named features: `If you aren't
+  updating, you're missing out on Automations that run after every meeting, editable transcripts,
+  meeting imports, and near-instant sync.` Do not use vague hype, guilt, or blame.
+- Lead with outcomes and specific numbers: `30 assistants`, `eight connect directly`, `about a
+  second`. Cut adjectives when a fact can do the work.
+- Use short, active H3 headings such as `Automations do the work now`, `Transcripts you can fix`,
+  and `Sync you stop thinking about`.
+- Keep most paragraphs to one to three sentences. Split long chains, remove repeated setup, and do
+  not restate the same framing in both the intro and fixes paragraph.
+- Use contractions and direct verbs. `Last week ... This week ...` is a useful cadence when it
+  connects one update to the next. Avoid cutesy transitions such as `Now they earn it` and vague
+  phrases such as `Accuracy got quieter improvements`.
+- Keep subjects compact and noun-led: `Anarlog 1.4.8: automations, meeting imports, instant sync`.
+  Preview text should front-load concrete outcomes and stay near 90 to 140 characters.
+- Self-critical language belongs only when Anarlog or the company was actually at fault. Never add
+  an apology merely to sound personal.
+- Read the final copy aloud and cut anything that can disappear without losing a fact, instruction,
+  or point of view. Changelog lists are allowed; do not force prose just to avoid a list.
 
 ## Campaign Setup
 
@@ -77,7 +103,9 @@ await page.evaluate(() => {
 
 The body is `div.ContentEditable__root`. The page has several `[contenteditable="true"]` elements
 (Sender, From, Reply, Subject, Preview, body). Match on distinctive existing text, never a cached
-index or ref. `###` creates an H3 and `-` creates a bullet.
+index or ref. Before any multi-block pass, rescan the full block map and resolve targets again. The
+user may edit concurrently, so a previously correct fixed index can shift and corrupt headings,
+bullets, or the greeting. `###` creates an H3 and `-` creates a bullet.
 
 Reliable mid-document replacement is Range-select then type:
 
