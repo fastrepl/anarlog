@@ -11,6 +11,7 @@ mod api;
 mod error;
 mod listener;
 mod listener2;
+mod voiceprint;
 
 pub use anlg_transcription_core::listener::{
     DegradedError, ListenerRuntime, LiveTranscriptDelta, LiveTranscriptEngine,
@@ -96,6 +97,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             listener2::commands::is_supported_languages_batch::<tauri::Wry>,
             listener2::commands::suggest_providers_for_languages_batch::<tauri::Wry>,
             listener2::commands::list_documented_language_codes_batch::<tauri::Wry>,
+            voiceprint::extract_voiceprint_candidates::<tauri::Wry>,
         ])
         .events(tauri_specta::collect_events![
             CaptureLifecycleEvent,

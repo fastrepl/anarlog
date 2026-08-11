@@ -233,6 +233,9 @@ pub async fn insert_voiceprint_candidate(
     validate_candidate(&candidate)?;
     let mut transaction = pool.begin().await?;
 
+    // The attachment is validated against the session rather than through
+    // transcripts.audio_attachment_id — transcript rows do not reliably carry
+    // that link today.
     let source_exists: bool = sqlx::query_scalar(
         "SELECT EXISTS(
            SELECT 1
@@ -241,10 +244,9 @@ pub async fn insert_voiceprint_candidate(
              ON transcript.id = ?
             AND transcript.session_id = session.id
             AND transcript.workspace_id = session.workspace_id
-            AND transcript.audio_attachment_id = ?
             AND transcript.deleted_at IS NULL
            JOIN session_attachments AS attachment
-             ON attachment.id = transcript.audio_attachment_id
+             ON attachment.id = ?
             AND attachment.session_id = session.id
             AND attachment.workspace_id = session.workspace_id
             AND attachment.deleted_at IS NULL

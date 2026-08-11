@@ -15,20 +15,32 @@ specta-typescript = { workspace = true }
 
 [dependencies]
 anlg-audio = { workspace = true }
+anlg-audio-utils = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-embedding = { workspace = true }
 anlg-language = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-transcribe-soniqo = { workspace = true }
 anlg-transcribe-speechanalyzer = { workspace = true }
 anlg-transcript = { workspace = true }
 anlg-transcription-core = { workspace = true, features = ["specta", "tauri-event"] }
+anlg-voiceprint = { workspace = true }
 
 owhisper-client = { workspace = true }
 owhisper-interface = { workspace = true }
 
+tauri-plugin-db = { workspace = true }
 tauri-plugin-hooks = { workspace = true }
 tauri-plugin-local-stt = { workspace = true }
 tauri-plugin-settings = { workspace = true }
+tauri-plugin-store2 = { workspace = true }
 tauri-plugin-tray = { workspace = true }
+
+base64 = { workspace = true }
+chrono = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
 
 tauri = { workspace = true, features = ["specta", "test"] }
 

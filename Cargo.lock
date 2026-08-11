@@ -19238,20 +19238,29 @@ name = "tauri-plugin-transcription"
 version = "0.1.0"
 dependencies = [
  "audio",
+ "audio-utils",
+ "base64 0.22.1",
+ "chrono",
+ "db-app",
+ "embedding",
  "language",
  "owhisper-client",
  "owhisper-interface",
  "ractor",
  "serde",
+ "serde_json",
  "specta",
  "specta-typescript",
+ "sqlx",
  "storage",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-anlg-tray",
+ "tauri-plugin-db",
  "tauri-plugin-hooks",
  "tauri-plugin-local-stt",
  "tauri-plugin-settings",
+ "tauri-plugin-store2",
  "tauri-specta",
  "thiserror 2.0.18",
  "tokio",
@@ -19261,6 +19270,8 @@ dependencies = [
  "transcribe-speechanalyzer",
  "transcript",
  "transcription-core",
+ "uuid",
+ "voiceprint",
 ]
 
 [[package]]
@@ -21959,6 +21970,10 @@ dependencies = [
  "quote",
  "syn 2.0.117",
 ]
+
+[[package]]
+name = "voiceprint"
+version = "0.1.0"
 
 [[package]]
 name = "vorbis_rs"

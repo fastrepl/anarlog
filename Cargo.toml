@@ -181,6 +181,7 @@ anlg-user-error = { path = "crates/user-error", package = "user-error" }
 anlg-vad = { path = "crates/vad", package = "vad" }
 anlg-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }
 anlg-version = { path = "crates/version", package = "version" }
+anlg-voiceprint = { path = "crates/voiceprint", package = "voiceprint" }
 anlg-whisper = { path = "crates/whisper", package = "whisper" }
 anlg-whisper-local = { path = "crates/whisper-local", package = "whisper-local" }
 anlg-whisper-local-model = { path = "crates/whisper-local-model", package = "whisper-local-model" }

@@ -173,6 +173,14 @@ async listDocumentedLanguageCodesBatch() : Promise<Result<string[], string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async extractVoiceprintCandidates(sessionId: string, transcriptId: string, audioPath: string) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:transcription|extract_voiceprint_candidates", { sessionId, transcriptId, audioPath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
