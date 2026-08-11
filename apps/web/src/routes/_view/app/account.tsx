@@ -1,15 +1,19 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { ArrowRight } from "@phosphor-icons/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { jwtDecode } from "jwt-decode";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { deriveBillingInfo, type SupabaseJwtPayload } from "@anlg/supabase";
 
+import { AnarlogLogo } from "@/components/anarlog-logo";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 import { useAnalytics } from "@/hooks/use-posthog";
 
 import { AccountAccessSection } from "./-account-access";
+import { DangerAreaSection } from "./-account-danger";
+import { PlanSection } from "./-account-plan";
 import { ProfileInfoSection } from "./-account-profile-info";
 
 const validateSearch = z
@@ -90,50 +94,104 @@ function Component() {
   ]);
 
   return (
-    <div>
-      <div className="mx-auto min-h-[calc(100vh-200px)] max-w-6xl">
-        <div className="border-color-brand flex items-center justify-start border-b py-20">
-          <h1 className="text-color text-left font-mono text-3xl font-medium">
-            Welcome back {user?.email?.split("@")[0] || "Guest"}
+    <main className="min-h-screen bg-white text-[#181613]">
+      <div className="mx-auto w-full max-w-[700px] px-5 pt-10 pb-16 md:px-8 md:pt-12 md:pb-24">
+        <Link to="/" aria-label="Anarlog home" className="inline-flex">
+          <AnarlogLogo className="h-8 w-auto" />
+        </Link>
+
+        <header className="mt-12 md:mt-16">
+          <p className="font-hand text-2xl leading-none font-semibold text-[#756b5d]">
+            Your account
+          </p>
+          <h1 className="font-hand mt-4 text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-6xl">
+            Welcome back,{" "}
+            <mark className="bg-[#fff0b3] px-1 text-[#181613]">
+              {user?.email?.split("@")[0] || "Guest"}
+            </mark>
           </h1>
-        </div>
+        </header>
 
-        <div className="mx-auto mt-8 flex flex-col gap-10 pb-20">
-          <section className="space-y-4">
-            <div className="space-y-2 px-1">
-              <div>
-                <h2 className="text-fg font-mono text-2xl font-medium">
-                  Profile and account access
-                </h2>
-                <p className="text-fg-muted text-sm">
-                  Update your email here. Billing and integrations are managed
-                  in the desktop app.
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-6">
+        <div className="mt-14 flex flex-col gap-14 md:mt-16">
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Profile
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              The email attached to your account, and how long you've been
+              around.
+            </p>
+            <div className="mt-6">
               <ProfileInfoSection email={user?.email} />
             </div>
           </section>
 
-          <section className="space-y-4">
-            <div className="space-y-2 px-1">
-              <div>
-                <h2 className="text-color font-mono text-2xl font-medium">
-                  Session controls
-                </h2>
-                <p className="text-color-muted text-sm">
-                  Sign out quickly, while keeping account deletion tucked behind
-                  an extra deliberate step.
-                </p>
-              </div>
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Your plan
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Billing runs through Stripe, and you can also manage it from the
+              desktop app.
+            </p>
+            <div className="mt-6">
+              <PlanSection />
             </div>
+          </section>
 
-            <AccountAccessSection />
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Session controls
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Sign out quickly whenever you need to.
+            </p>
+            <div className="mt-6">
+              <AccountAccessSection />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Danger area
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Account deletion lives here, tucked behind an extra deliberate
+              step.
+            </p>
+            <div className="mt-6">
+              <DangerAreaSection />
+            </div>
+          </section>
+
+          <section>
+            <article
+              className="overflow-hidden rounded-[3px] border border-[#eadfce] bg-[#fffaf0] px-7 py-9 shadow-[0_18px_50px_rgba(68,54,36,0.12)] sm:px-10 sm:py-12"
+              style={{
+                backgroundImage:
+                  "linear-gradient(115deg, rgba(255, 250, 240, 0.9), rgba(246, 236, 218, 0.82)), url('/textures/crumpled-paper.webp')",
+                backgroundPosition: "center",
+                backgroundSize: "cover",
+              }}
+            >
+              <h2 className="font-hand text-3xl leading-none font-semibold text-[#363029]">
+                Anarlog lives on your desktop
+              </h2>
+              <p className="mt-4 max-w-xl text-base leading-7 text-[#363029]">
+                Notes, transcripts, and integrations all live in the app, on
+                your device. Grab it if you haven't already.
+              </p>
+              <Link
+                to="/download/"
+                className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
+              >
+                <span>Download for free</span>
+                <ArrowRight size={16} weight="bold" aria-hidden="true" />
+              </Link>
+            </article>
           </section>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -1,12 +1,26 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { cn } from "@anlg/utils";
+
+import {
+  authInputClassName,
+  authNoticeClassName,
+} from "@/components/auth-shell";
 import { updateUserEmail } from "@/functions/auth";
+
+import { useAccountSession } from "./-account-session";
+import {
+  accountCardClassName,
+  accountPillPrimaryClassName,
+  accountPillSecondaryClassName,
+} from "./-account-ui";
 
 export function ProfileInfoSection({ email }: { email?: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { data: accountSession } = useAccountSession();
 
   const updateEmailMutation = useMutation({
     mutationFn: async (email: string) => {
@@ -39,41 +53,35 @@ export function ProfileInfoSection({ email }: { email?: string }) {
   };
 
   return (
-    <div className="border-color-brand surface rounded-lg border">
-      <div className="px-8 pt-8">
-        <h3 className="text-color mb-2 font-sans text-lg font-semibold">
-          Profile
-        </h3>
-        <p className="text-color-secondary text-sm">
-          Your personal information
-        </p>
-      </div>
-
-      <div className="flex w-full flex-col p-8">
-        <div className="flex flex-col gap-4 md:flex-row md:justify-between">
-          <div className="text-color-secondary text-base">Email</div>
+    <div className={cn([accountCardClassName, "p-6 sm:p-8"])}>
+      <div className="flex flex-col gap-4">
+        <div
+          className={cn([
+            "flex flex-col gap-3 md:flex-row md:justify-between",
+            isEditing ? "md:items-start" : "md:items-center",
+          ])}
+        >
+          <span className="text-sm font-medium text-[#756b5d]">Email</span>
           {isEditing ? (
             <form
               onSubmit={handleSubmit}
-              className="flex w-full flex-1 flex-col justify-start gap-3 md:justify-end"
+              className="flex w-full flex-col gap-3 md:max-w-[420px]"
             >
-              <div className="flex w-full justify-start gap-2 md:justify-end">
-                <input
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder={email || "Enter new email"}
-                  className="border-color-brand flex-1 rounded-md border px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-stone-900 focus:outline-none"
-                  autoFocus
-                />
-              </div>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder={email || "Enter new email"}
+                className={authInputClassName}
+                autoFocus
+              />
               {updateEmailMutation.isError && (
                 <p className="text-sm text-red-600">
                   {updateEmailMutation.error?.message ||
                     "Failed to update email"}
                 </p>
               )}
-              <div className="flex w-full justify-start gap-2 md:justify-end">
+              <div className="flex justify-start gap-2 md:justify-end">
                 <button
                   type="submit"
                   disabled={
@@ -81,7 +89,7 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                     !newEmail ||
                     newEmail === email
                   }
-                  className="flex h-8 items-center rounded-full bg-linear-to-t from-stone-600 to-stone-500 px-4 text-sm text-white shadow-md transition-all hover:scale-[102%] hover:shadow-lg active:scale-[98%] disabled:opacity-50 disabled:hover:scale-100"
+                  className={accountPillPrimaryClassName}
                 >
                   {updateEmailMutation.isPending ? "Saving..." : "Save"}
                 </button>
@@ -89,21 +97,23 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                   type="button"
                   onClick={handleCancel}
                   disabled={updateEmailMutation.isPending}
-                  className="border-color-brand text-color-secondary flex h-8 items-center rounded-full border bg-linear-to-b from-white to-stone-50 px-4 text-sm shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%] disabled:opacity-50"
+                  className={accountPillSecondaryClassName}
                 >
                   Cancel
                 </button>
               </div>
             </form>
           ) : (
-            <div className="flex items-center gap-3">
-              <div className="text-base">{email || "Not available"}</div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-base text-[#181613]">
+                {email || "Not available"}
+              </span>
               <button
                 onClick={() => {
                   setIsEditing(true);
                   setSuccessMessage(null);
                 }}
-                className="flex h-7 items-center rounded-full border border-neutral-300 bg-linear-to-b from-white to-stone-50 px-3 text-xs text-neutral-700 shadow-xs transition-all hover:scale-[102%] hover:shadow-md active:scale-[98%]"
+                className={accountPillSecondaryClassName}
               >
                 Change
               </button>
@@ -112,8 +122,24 @@ export function ProfileInfoSection({ email }: { email?: string }) {
         </div>
 
         {successMessage && (
-          <div className="rounded-md border border-green-200 bg-green-50 p-3">
-            <p className="text-sm text-green-800">{successMessage}</p>
+          <div className={authNoticeClassName}>
+            <p className="text-sm font-medium text-[#4f4940]">
+              {successMessage}
+            </p>
+          </div>
+        )}
+
+        {accountSession?.createdAt && (
+          <div className="flex flex-col gap-3 border-t border-[#ede7dc] pt-4 md:flex-row md:items-center md:justify-between">
+            <span className="text-sm font-medium text-[#756b5d]">
+              Member since
+            </span>
+            <span className="text-base text-[#181613]">
+              {new Date(accountSession.createdAt).toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </span>
           </div>
         )}
       </div>
