@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-close-permission-assistant"
+description = "Enables the close_permission_assistant command without any pre-configured scope."
+commands.allow = ["close_permission_assistant"]
+
+[[permission]]
+identifier = "deny-close-permission-assistant"
+description = "Denies the close_permission_assistant command without any pre-configured scope."
+commands.deny = ["close_permission_assistant"]

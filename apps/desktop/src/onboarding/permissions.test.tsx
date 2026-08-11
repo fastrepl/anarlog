@@ -20,7 +20,9 @@ const mocks = vi.hoisted(() => {
   return {
     currentPlatform: "macos",
     permissions,
+    guidance: null as { assisted: boolean; paneTitle: string | null } | null,
     usePermission: vi.fn((type: keyof typeof permissions) => permissions[type]),
+    closePermissionAssistant: vi.fn(),
   };
 });
 
@@ -43,6 +45,8 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 
 vi.mock("~/shared/hooks/usePermissions", () => ({
   usePermission: mocks.usePermission,
+  usePermissionGuidance: () => mocks.guidance,
+  closePermissionAssistant: mocks.closePermissionAssistant,
 }));
 
 import { PermissionsSection } from "./permissions";
@@ -52,6 +56,7 @@ afterEach(cleanup);
 describe("PermissionsSection", () => {
   beforeEach(() => {
     mocks.currentPlatform = "macos";
+    mocks.guidance = null;
     vi.clearAllMocks();
 
     Object.values(mocks.permissions).forEach((permission) => {
@@ -149,5 +154,34 @@ describe("PermissionsSection", () => {
 
     expect(mocks.permissions.accessibility.request).toHaveBeenCalledTimes(1);
     expect(mocks.permissions.accessibility.open).not.toHaveBeenCalled();
+  });
+
+  it("routes an assisted Accessibility pane to the guided flow", () => {
+    mocks.guidance = { assisted: true, paneTitle: "Accessibility" };
+
+    render(<PermissionsSection />);
+
+    const row = screen.getByRole("button", {
+      name: "Open accessibility settings",
+    });
+    expect(row.getAttribute("title")).toBe(
+      "Opens System Settings and guides you to add Anarlog to the Accessibility list",
+    );
+
+    fireEvent.click(row);
+
+    expect(mocks.permissions.accessibility.open).toHaveBeenCalledTimes(1);
+    expect(mocks.permissions.accessibility.request).not.toHaveBeenCalled();
+  });
+
+  it("dismisses a lingering assistant when onboarding unmounts", () => {
+    mocks.guidance = { assisted: true, paneTitle: "Accessibility" };
+    const view = render(<PermissionsSection />);
+
+    expect(mocks.closePermissionAssistant).not.toHaveBeenCalled();
+
+    view.unmount();
+
+    expect(mocks.closePermissionAssistant).toHaveBeenCalledTimes(1);
   });
 });

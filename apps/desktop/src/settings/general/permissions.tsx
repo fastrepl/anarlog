@@ -6,11 +6,16 @@ import type { PermissionStatus } from "@anlg/plugin-permissions";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import {
   trackPermissionRequested,
   usePermissionAnalytics,
 } from "~/shared/hooks/usePermissionAnalytics";
-import { usePermission } from "~/shared/hooks/usePermissions";
+import {
+  closePermissionAssistant,
+  usePermission,
+  usePermissionGuidance,
+} from "~/shared/hooks/usePermissions";
 
 function PermissionRow({
   title,
@@ -21,6 +26,7 @@ function PermissionRow({
   permission,
   onRequest,
   onOpen,
+  assisted = false,
   runtimeCapability = false,
 }: {
   title: string;
@@ -31,6 +37,7 @@ function PermissionRow({
   permission: string;
   onRequest: () => void;
   onOpen: () => void;
+  assisted?: boolean;
   runtimeCapability?: boolean;
 }) {
   const { t } = useLingui();
@@ -46,7 +53,7 @@ function PermissionRow({
       return;
     }
 
-    if (isAuthorized || isDenied) {
+    if (assisted || isAuthorized || isDenied) {
       trackPermissionRequested(permission, status, "settings", "open_settings");
       onOpen();
     } else {
@@ -89,7 +96,7 @@ function PermissionRow({
             ? isDenied
               ? `${t`Try again`}: ${title}`
               : title
-            : isAuthorized || isDenied
+            : assisted || isAuthorized || isDenied
               ? t`Open ${title.toLowerCase()} settings`
               : t`Request ${title.toLowerCase()} permission`
         }
@@ -180,12 +187,17 @@ function MacOSPermissions() {
   const { t } = useLingui();
   const calendar = usePermission("calendar");
   const accessibility = usePermission("accessibility");
+  const accessibilityGuidance = usePermissionGuidance("accessibility");
   usePermissionAnalytics("calendar", calendar.confirmedStatus, "settings");
   usePermissionAnalytics(
     "accessibility",
     accessibility.confirmedStatus,
     "settings",
   );
+
+  // Leaving settings while the assistant is up would strand its overlay on top
+  // of System Settings with nothing left to dismiss it.
+  useMountEffect(() => () => void closePermissionAssistant());
 
   return (
     <div className="flex flex-col gap-8">
@@ -194,11 +206,16 @@ function MacOSPermissions() {
       <PermissionRow
         permission="accessibility"
         title={t`Accessibility`}
-        description={t`Read meeting controls, chat, and participant status.`}
+        description={
+          accessibilityGuidance
+            ? t`Opens System Settings and guides you to add Anarlog to the ${accessibilityGuidance.paneTitle ?? "Privacy"} list.`
+            : t`Read meeting controls, chat, and participant status.`
+        }
         status={accessibility.status}
         isPending={accessibility.isPending}
         onRequest={accessibility.request}
         onOpen={accessibility.open}
+        assisted={Boolean(accessibilityGuidance)}
       />
 
       <PermissionGroup title={<Trans>Others</Trans>}>

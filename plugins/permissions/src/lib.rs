@@ -1,10 +1,13 @@
+mod assistant;
 mod commands;
 mod error;
 mod ext;
+mod guidance;
 mod models;
 
 pub use error::*;
 pub use ext::*;
+pub use guidance::{PermissionGuidance, SettingsGuidance};
 pub use models::*;
 
 const PLUGIN_NAME: &str = "permissions";
@@ -17,6 +20,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::check_permission::<tauri::Wry>,
             commands::request_permission::<tauri::Wry>,
             commands::reset_permission::<tauri::Wry>,
+            commands::permission_guidance::<tauri::Wry>,
+            commands::close_permission_assistant::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }

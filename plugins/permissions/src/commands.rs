@@ -1,4 +1,4 @@
-use crate::{Permission, PermissionsPluginExt};
+use crate::{Permission, PermissionGuidance, PermissionsPluginExt};
 
 #[tauri::command]
 #[specta::specta]
@@ -45,5 +45,24 @@ pub(crate) async fn reset_permission<R: tauri::Runtime>(
     app.permissions()
         .reset(permission)
         .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn permission_guidance<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    permission: Permission,
+) -> Result<PermissionGuidance, String> {
+    Ok(app.permissions().guidance(permission))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn close_permission_assistant<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<(), String> {
+    app.permissions()
+        .close_assistant()
         .map_err(|e| e.to_string())
 }

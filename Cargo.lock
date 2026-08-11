@@ -12331,9 +12331,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96c1358452b371bf9f104e21ec536d37a650eb10f7ee379fff67d2e08d537f1f"
 dependencies = [
  "bitflags 2.11.1",
+ "block2",
+ "libc",
  "objc2",
  "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-core-video",
  "objc2-foundation",
+ "objc2-metal",
 ]
 
 [[package]]
@@ -12789,6 +12794,20 @@ name = "outref"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1a80800c0488c3a21695ea981a54918fbb37abf04f4d0720c453632255e2ff0e"
+
+[[package]]
+name = "overlay-kit"
+version = "0.1.0"
+dependencies = [
+ "block2",
+ "dispatch2",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
+ "objc2-foundation",
+ "objc2-quartz-core",
+]
 
 [[package]]
 name = "owhisper-client"
@@ -18921,10 +18940,15 @@ dependencies = [
  "futures-util",
  "macos-accessibility-client",
  "objc2",
+ "objc2-app-kit",
  "objc2-av-foundation",
  "objc2-contacts",
+ "objc2-core-foundation",
+ "objc2-core-graphics",
  "objc2-event-kit",
  "objc2-foundation",
+ "objc2-quartz-core",
+ "overlay-kit",
  "serde",
  "specta",
  "specta-typescript",

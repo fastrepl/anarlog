@@ -31,11 +31,29 @@ tracing = { workspace = true }
 
 [target."cfg(target_os = \"macos\")".dependencies]
 anlg-bundle = { workspace = true }
+anlg-overlay-kit = { workspace = true }
 anlg-tcc = { workspace = true }
 block2 = { workspace = true }
 objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
 objc2-av-foundation = { workspace = true }
 objc2-contacts = { workspace = true, features = ["CNContactStore", "block2"] }
+objc2-core-foundation = { workspace = true }
+objc2-core-graphics = { workspace = true }
 objc2-event-kit = { workspace = true, features = ["EKEventStore", "EKTypes", "block2"] }
-objc2-foundation = { workspace = true }
+objc2-foundation = { workspace = true, features = [
+  "NSArray",
+  "NSBundle",
+  "NSData",
+  "NSDictionary",
+  "NSGeometry",
+  "NSObject",
+  "NSObjCRuntime",
+  "NSString",
+  "NSThread",
+  "NSTimer",
+  "NSURL",
+  "NSValue",
+] }
+objc2-quartz-core = { workspace = true }
 macos-accessibility-client = { workspace = true }

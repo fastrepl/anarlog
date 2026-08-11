@@ -145,6 +145,7 @@ anlg-opencode = { path = "crates/opencode", package = "opencode" }
 anlg-openrouter = { path = "crates/openrouter", package = "openrouter" }
 anlg-openstatus = { path = "crates/openstatus", package = "openstatus" }
 anlg-outlook-calendar = { path = "crates/outlook-calendar", package = "outlook-calendar" }
+anlg-overlay-kit = { path = "crates/overlay-kit", package = "overlay-kit" }
 anlg-porkbun = { path = "crates/porkbun", package = "porkbun" }
 anlg-power = { path = "crates/power", package = "power" }
 anlg-pyannote-cloud = { path = "crates/pyannote-cloud", package = "pyannote-cloud" }
@@ -411,6 +412,7 @@ libsql = "0.9.24"
 
 block2 = "0.6"
 core-foundation = "0.10"
+dispatch2 = "0.3"
 objc2 = "0.6"
 objc2-app-kit = "0.3.2"
 objc2-application-services = "0.3.2"
@@ -421,6 +423,7 @@ objc2-core-graphics = "0.3.2"
 objc2-core-location = "0.3.2"
 objc2-event-kit = "0.3.2"
 objc2-foundation = "0.3.2"
+objc2-quartz-core = "0.3.2"
 objc2-security = "0.3.2"
 objc2-user-notifications = "0.3.2"
 security-framework = "3.7"

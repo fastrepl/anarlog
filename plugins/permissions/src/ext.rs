@@ -34,6 +34,21 @@ pub enum Permission {
     InputMonitoring,
 }
 
+/// Blocking status probe for the permissions the assistant overlay watches.
+///
+/// The overlay polls from a main-thread timer, which cannot await the async
+/// `check` path or its sidecar hop. Returns `None` when a permission has no
+/// synchronous probe.
+#[cfg(target_os = "macos")]
+pub(crate) fn assisted_status(permission: Permission) -> Option<PermissionStatus> {
+    match permission {
+        Permission::Accessibility => {
+            Some(macos_accessibility_client::accessibility::application_is_trusted().into())
+        }
+        _ => None,
+    }
+}
+
 #[cfg(target_os = "macos")]
 fn should_check_via_sidecar(permission: Permission) -> bool {
     // Accessibility trust is process-scoped, so a helper cannot report the app's status.
@@ -67,7 +82,25 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
         self.audio_provider().ok_or(crate::Error::NoAudioProvider)
     }
 
+    pub fn guidance(&self, permission: Permission) -> crate::PermissionGuidance {
+        permission.settings_guidance().into()
+    }
+
+    /// Dismiss the assisted drag overlay, if one is showing.
+    pub fn close_assistant(&self) -> Result<(), crate::Error> {
+        crate::assistant::dismiss_current();
+        Ok(())
+    }
+
     pub async fn open(&self, permission: Permission) -> Result<(), crate::Error> {
+        // Assisted panes need the user to add the app to a list themselves, so a
+        // bare deep link drops them into Settings with no idea what to do next.
+        if permission.settings_guidance().is_assisted()
+            && crate::assistant::open_assisted(permission)?
+        {
+            return Ok(());
+        }
+
         match permission {
             Permission::Calendar => self.open_calendar().await,
             Permission::Reminders => self.open_reminders().await,

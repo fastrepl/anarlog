@@ -2084,6 +2084,16 @@ msgstr "Open web copy"
 msgid "Opening…"
 msgstr "Opening…"
 
+#. placeholder {0}: accessibilityGuidance.paneTitle ?? "Privacy"
+#: src/onboarding/permissions.tsx
+msgid "Opens System Settings and guides you to add Anarlog to the {0} list"
+msgstr "Opens System Settings and guides you to add Anarlog to the {0} list"
+
+#. placeholder {0}: accessibilityGuidance.paneTitle ?? "Privacy"
+#: src/settings/general/permissions.tsx
+msgid "Opens System Settings and guides you to add Anarlog to the {0} list."
+msgstr "Opens System Settings and guides you to add Anarlog to the {0} list."
+
 #: src/calendar/components/apple/permission.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"

@@ -1,0 +1,14 @@
+[package]
+name = "overlay-kit"
+version = "0.1.0"
+edition = "2024"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = { workspace = true }
+dispatch2 = { workspace = true }
+objc2 = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-core-foundation = { workspace = true }
+objc2-core-graphics = { workspace = true, features = ["CGEvent", "CGEventTypes", "CGRemoteOperation", "libc"] }
+objc2-foundation = { workspace = true, features = ["NSArray", "NSData", "NSString", "NSTimer"] }
+objc2-quartz-core = { workspace = true }

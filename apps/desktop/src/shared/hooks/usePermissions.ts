@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import {
   type Permission,
+  type PermissionGuidance,
   commands as permissionsCommands,
   type PermissionStatus,
   type Result,
@@ -14,6 +15,30 @@ function unwrap<T>(result: Result<T, string>): T {
   }
 
   return result.data;
+}
+
+/**
+ * Static "how to grant" guidance for a permission type. Returns `null` for
+ * permissions with a normal system prompt — only list-based Privacy panes,
+ * where the user has to enable the app themselves, get an assisted overlay.
+ *
+ * The native table never changes at runtime, so this is cached forever.
+ */
+export function usePermissionGuidance(type: Permission) {
+  const query = useQuery({
+    queryKey: ["permissionGuidance", type],
+    queryFn: async () =>
+      unwrap(await permissionsCommands.permissionGuidance(type)),
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
+
+  return query.data?.assisted ? (query.data as PermissionGuidance) : null;
+}
+
+/** Dismiss the assisted drag overlay, if one is showing. */
+export async function closePermissionAssistant() {
+  unwrap(await permissionsCommands.closePermissionAssistant());
 }
 
 // macOS keeps reporting the old value for a moment after a grant, so an optimistic

@@ -8,6 +8,8 @@ Default permissions for the plugin
 - `allow-check-permission`
 - `allow-request-permission`
 - `allow-reset-permission`
+- `allow-permission-guidance`
+- `allow-close-permission-assistant`
 
 ## Permission Table
 
@@ -47,6 +49,32 @@ Denies the check_permission command without any pre-configured scope.
 <tr>
 <td>
 
+`permissions:allow-close-permission-assistant`
+
+</td>
+<td>
+
+Enables the close_permission_assistant command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`permissions:deny-close-permission-assistant`
+
+</td>
+<td>
+
+Denies the close_permission_assistant command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `permissions:allow-open-permission`
 
 </td>
@@ -66,6 +94,32 @@ Enables the open_permission command without any pre-configured scope.
 <td>
 
 Denies the open_permission command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`permissions:allow-permission-guidance`
+
+</td>
+<td>
+
+Enables the permission_guidance command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`permissions:deny-permission-guidance`
+
+</td>
+<td>
+
+Denies the permission_guidance command without any pre-configured scope.
 
 </td>
 </tr>

@@ -307,6 +307,18 @@
           "markdownDescription": "Denies the check_permission command without any pre-configured scope."
         },
         {
+          "description": "Enables the close_permission_assistant command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-close-permission-assistant",
+          "markdownDescription": "Enables the close_permission_assistant command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the close_permission_assistant command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-close-permission-assistant",
+          "markdownDescription": "Denies the close_permission_assistant command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_permission command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-permission",
@@ -317,6 +329,18 @@
           "type": "string",
           "const": "deny-open-permission",
           "markdownDescription": "Denies the open_permission command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the permission_guidance command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-permission-guidance",
+          "markdownDescription": "Enables the permission_guidance command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the permission_guidance command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-permission-guidance",
+          "markdownDescription": "Denies the permission_guidance command without any pre-configured scope."
         },
         {
           "description": "Enables the request_permission command without any pre-configured scope.",
@@ -343,10 +367,10 @@
           "markdownDescription": "Denies the reset_permission command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-open-permission`\n- `allow-check-permission`\n- `allow-request-permission`\n- `allow-reset-permission`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-open-permission`\n- `allow-check-permission`\n- `allow-request-permission`\n- `allow-reset-permission`\n- `allow-permission-guidance`\n- `allow-close-permission-assistant`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-open-permission`\n- `allow-check-permission`\n- `allow-request-permission`\n- `allow-reset-permission`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-open-permission`\n- `allow-check-permission`\n- `allow-request-permission`\n- `allow-reset-permission`\n- `allow-permission-guidance`\n- `allow-close-permission-assistant`"
         }
       ]
     }

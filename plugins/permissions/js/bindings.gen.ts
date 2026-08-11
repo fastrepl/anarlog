@@ -37,6 +37,22 @@ async resetPermission(permission: Permission) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async permissionGuidance(permission: Permission) : Promise<Result<PermissionGuidance, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:permissions|permission_guidance", { permission }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async closePermissionAssistant() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:permissions|close_permission_assistant") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -51,6 +67,19 @@ async resetPermission(permission: Permission) : Promise<Result<null, string>> {
 /** user-defined types **/
 
 export type Permission = "calendar" | "reminders" | "contacts" | "microphone" | "systemAudio" | "screenRecording" | "accessibility" | "inputMonitoring"
+/**
+ * Serializable projection of [`SettingsGuidance`] so the renderer can explain
+ * how a permission is granted without duplicating this table in TypeScript.
+ */
+export type PermissionGuidance = { 
+/**
+ * `true` when `open()` shows the assisted drag overlay for a Privacy pane.
+ */
+assisted: boolean; 
+/**
+ * The Privacy pane title for assisted permissions; `None` for native ones.
+ */
+paneTitle: string | null }
 export type PermissionStatus = "neverRequested" | "denied" | "authorized"
 
 /** tauri-specta globals **/

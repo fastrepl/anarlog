@@ -18,6 +18,8 @@ const mocks = vi.hoisted(() => ({
     }
   >(),
   usePermission: vi.fn(),
+  guidance: null as { assisted: boolean; paneTitle: string | null } | null,
+  closePermissionAssistant: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -29,6 +31,8 @@ vi.mock("~/shared/hooks/usePermissions", () => ({
     mocks.usePermission(permission);
     return mocks.permissions.get(permission);
   },
+  usePermissionGuidance: () => mocks.guidance,
+  closePermissionAssistant: mocks.closePermissionAssistant,
 }));
 
 import { Permissions } from "./permissions";
@@ -62,8 +66,10 @@ describe("Permissions", () => {
   afterEach(() => {
     cleanup();
     mocks.currentPlatform = "macos";
+    mocks.guidance = null;
     mocks.permissions.clear();
     mocks.usePermission.mockClear();
+    mocks.closePermissionAssistant.mockClear();
   });
 
   it("explains what Accessibility enables and opens Settings when denied", () => {
@@ -92,6 +98,33 @@ describe("Permissions", () => {
 
     expect(accessibility.request).toHaveBeenCalledOnce();
     expect(accessibility.open).not.toHaveBeenCalled();
+  });
+
+  it("routes an assisted pane to the guided flow before any decision", () => {
+    mocks.guidance = { assisted: true, paneTitle: "Accessibility" };
+    const accessibility = renderPermissions("neverRequested");
+
+    expect(
+      screen.getByText(/guides you to add Anarlog to the Accessibility list/),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open accessibility settings" }),
+    );
+
+    expect(accessibility.open).toHaveBeenCalledOnce();
+    expect(accessibility.request).not.toHaveBeenCalled();
+  });
+
+  it("dismisses a lingering assistant when the section unmounts", () => {
+    mocks.guidance = { assisted: true, paneTitle: "Accessibility" };
+    renderPermissions("denied");
+
+    expect(mocks.closePermissionAssistant).not.toHaveBeenCalled();
+
+    cleanup();
+
+    expect(mocks.closePermissionAssistant).toHaveBeenCalledOnce();
   });
 
   it("shows retryable audio capability checks outside macOS", () => {

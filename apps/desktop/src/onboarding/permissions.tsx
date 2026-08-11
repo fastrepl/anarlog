@@ -18,7 +18,11 @@ import {
   trackPermissionRequested,
   usePermissionAnalytics,
 } from "~/shared/hooks/usePermissionAnalytics";
-import { usePermission } from "~/shared/hooks/usePermissions";
+import {
+  closePermissionAssistant,
+  usePermission,
+  usePermissionGuidance,
+} from "~/shared/hooks/usePermissions";
 
 function PermissionBlock({
   enabledLabel,
@@ -31,6 +35,7 @@ function PermissionBlock({
   isPending,
   onAction,
   actionLabel,
+  assisted = false,
   opensSettingsWhenDenied = true,
 }: {
   enabledLabel: string;
@@ -43,12 +48,15 @@ function PermissionBlock({
   isPending: boolean;
   onAction: () => void;
   actionLabel?: string;
+  assisted?: boolean;
   opensSettingsWhenDenied?: boolean;
 }) {
   const { t } = useLingui();
   const isAuthorized = status === "authorized";
   const opensSettings =
-    isAuthorized || (opensSettingsWhenDenied && status === "denied");
+    isAuthorized ||
+    assisted ||
+    (opensSettingsWhenDenied && status === "denied");
   const title = isAuthorized ? enabledLabel : enableLabel;
   const body = isAuthorized ? enabledBody : enableBody;
 
@@ -123,10 +131,12 @@ function ContinueWhenComplete({
 function PermissionsSectionContent({
   onContinue,
   accessibility,
+  accessibilityGuidance,
   runtimeCapabilities = false,
 }: {
   onContinue?: () => void;
   accessibility?: ReturnType<typeof usePermission>;
+  accessibilityGuidance?: ReturnType<typeof usePermissionGuidance>;
   runtimeCapabilities?: boolean;
 }) {
   const { t } = useLingui();
@@ -154,8 +164,11 @@ function PermissionsSectionContent({
     permission: string,
     perm: ReturnType<typeof usePermission>,
     opensSettingsWhenDenied: boolean,
+    assisted = false,
   ) => {
-    if (opensSettingsWhenDenied && perm.status === "denied") {
+    // Assisted panes are granted by hand in System Settings; their request API
+    // only prompts once, so every click after that would be a silent no-op.
+    if (assisted || (opensSettingsWhenDenied && perm.status === "denied")) {
       trackPermissionRequested(
         permission,
         perm.status,
@@ -229,12 +242,24 @@ function PermissionsSectionContent({
             enabledLabel={t`Anarlog can read meeting details`}
             enableLabel={t`Help Anarlog read meeting activity`}
             enabledBody={t`Meeting details access turned on`}
-            enableBody={t`Read meeting controls, visible chat, and participant status`}
+            enableBody={
+              accessibilityGuidance
+                ? t`Opens System Settings and guides you to add Anarlog to the ${accessibilityGuidance.paneTitle ?? "Privacy"} list`
+                : t`Read meeting controls, visible chat, and participant status`
+            }
             Icon={Cursor}
             permissionName={t`Accessibility`}
             status={accessibility.status}
             isPending={accessibility.isPending}
-            onAction={() => handleAction("accessibility", accessibility, false)}
+            onAction={() =>
+              handleAction(
+                "accessibility",
+                accessibility,
+                false,
+                Boolean(accessibilityGuidance),
+              )
+            }
+            assisted={Boolean(accessibilityGuidance)}
             opensSettingsWhenDenied={false}
           />
         )}
@@ -245,11 +270,17 @@ function PermissionsSectionContent({
 
 function MacOSPermissionsSection({ onContinue }: { onContinue?: () => void }) {
   const accessibility = usePermission("accessibility");
+  const accessibilityGuidance = usePermissionGuidance("accessibility");
+
+  // Leaving onboarding while the assistant is up would strand its overlay on
+  // top of System Settings with nothing left to dismiss it.
+  useMountEffect(() => () => void closePermissionAssistant());
 
   return (
     <PermissionsSectionContent
       onContinue={onContinue}
       accessibility={accessibility}
+      accessibilityGuidance={accessibilityGuidance}
     />
   );
 }

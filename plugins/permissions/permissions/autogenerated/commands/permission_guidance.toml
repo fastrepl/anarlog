@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-permission-guidance"
+description = "Enables the permission_guidance command without any pre-configured scope."
+commands.allow = ["permission_guidance"]
+
+[[permission]]
+identifier = "deny-permission-guidance"
+description = "Denies the permission_guidance command without any pre-configured scope."
+commands.deny = ["permission_guidance"]
