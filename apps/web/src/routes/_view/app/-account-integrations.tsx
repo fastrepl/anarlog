@@ -3,11 +3,8 @@ import { Link } from "@tanstack/react-router";
 
 import { listConnections } from "@anlg/api-client";
 
-import {
-  AccountRequestError,
-  getAuthorizedApiClient,
-  isPlanGated,
-} from "./-account-api";
+import { getAuthorizedApiClient } from "./-account-api";
+import { useAccountSession } from "./-account-session";
 import {
   accountCardClassName,
   accountPillDangerClassName,
@@ -26,6 +23,8 @@ const INTEGRATION_NAMES: Record<string, string> = {
 const connectionsQueryKey = ["account-integrations"];
 
 export function IntegrationsSection() {
+  const session = useAccountSession();
+
   const connectionsQuery = useQuery({
     queryKey: connectionsQueryKey,
     // Skip the SSR fetch: the browser-only access token throws on the
@@ -33,12 +32,9 @@ export function IntegrationsSection() {
     enabled: typeof window !== "undefined",
     queryFn: async () => {
       const client = await getAuthorizedApiClient();
-      const { data, error, response } = await listConnections({ client });
+      const { data, error } = await listConnections({ client });
       if (error || !data) {
-        throw new AccountRequestError(
-          "Failed to load connections",
-          response?.status,
-        );
+        throw new Error("Failed to load connections");
       }
       return data.connections;
     },
@@ -48,20 +44,21 @@ export function IntegrationsSection() {
 
   return (
     <div className={accountCardClassName}>
-      {connectionsQuery.isPending ? (
+      {connectionsQuery.isPending || session.isPending ? (
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
           Checking your connections...
         </p>
       ) : connectionsQuery.isError ? (
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          {isPlanGated(connectionsQuery.error)
-            ? "Integrations come with Pro and connect from the desktop app."
-            : "We could not load your connections. Refresh the page to try again."}
+          We could not load your connections. Refresh the page to try again.
         </p>
       ) : connections.length === 0 ? (
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          Nothing connected yet. Connect calendars and tools from the desktop
-          app.
+          {/* The API gates /integration on any paid entitlement, so Lite users
+              already have access and must not see the upsell. */}
+          {session.data?.billing.isPaid
+            ? "Nothing connected yet. Connect calendars and tools from the desktop app."
+            : "Integrations come with a paid plan and connect from the desktop app."}
         </p>
       ) : (
         <ul className="divide-y divide-[#ede7dc]">

@@ -2,11 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { listKeys, revokeKey } from "@anlg/api-client";
 
-import {
-  AccountRequestError,
-  getAuthorizedApiClient,
-  isPlanGated,
-} from "./-account-api";
+import { getAuthorizedApiClient } from "./-account-api";
+import { useAccountSession } from "./-account-session";
 import {
   accountCardClassName,
   accountPillDangerClassName,
@@ -16,6 +13,7 @@ const apiKeysQueryKey = ["account-api-keys"];
 
 export function ApiKeysSection() {
   const queryClient = useQueryClient();
+  const session = useAccountSession();
 
   const keysQuery = useQuery({
     queryKey: apiKeysQueryKey,
@@ -24,12 +22,9 @@ export function ApiKeysSection() {
     enabled: typeof window !== "undefined",
     queryFn: async () => {
       const client = await getAuthorizedApiClient();
-      const { data, error, response } = await listKeys({ client });
+      const { data, error } = await listKeys({ client });
       if (error || !data) {
-        throw new AccountRequestError(
-          "Failed to load API keys",
-          response?.status,
-        );
+        throw new Error("Failed to load API keys");
       }
       return data;
     },
@@ -52,19 +47,21 @@ export function ApiKeysSection() {
 
   return (
     <div className={accountCardClassName}>
-      {keysQuery.isPending ? (
+      {keysQuery.isPending || session.isPending ? (
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
           Checking your API keys...
         </p>
       ) : keysQuery.isError ? (
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          {isPlanGated(keysQuery.error)
-            ? "Cloud API keys come with Pro. Create and use them from the desktop app."
-            : "We could not load your API keys. Refresh the page to try again."}
+          We could not load your API keys. Refresh the page to try again.
         </p>
       ) : keys.length === 0 ? (
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          No API keys yet. Create one from the desktop app to use the Cloud API.
+          {/* Listing keys is not plan-gated, so an empty list is the only
+              signal a free user gets; creating one is Pro-only. */}
+          {session.data?.billing.isPro
+            ? "No API keys yet. Create one from the desktop app to use the Cloud API."
+            : "Cloud API keys come with Pro. Create and use them from the desktop app."}
         </p>
       ) : (
         <ul className="divide-y divide-[#ede7dc]">
