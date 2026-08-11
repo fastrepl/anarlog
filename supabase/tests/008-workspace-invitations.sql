@@ -813,8 +813,8 @@ select tests.clear_authentication();
 reset role;
 
 select ok(
-  to_regprocedure('public.create_shared_workspace(text)') is null,
-  'Client shared-workspace creation remains disabled pending ownership lifecycle rules'
+  to_regprocedure('public.create_workspace(text)') is not null,
+  'Client shared-workspace creation is served by the lifecycle RPCs (031)'
 );
 
 select * from finish();
