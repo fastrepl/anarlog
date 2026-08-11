@@ -30,9 +30,7 @@ export function PricingSection() {
 }
 
 function PricingCard({ plan }: { plan: MarketingPlanData }) {
-  const visibleFeatures = plan.features.filter(
-    (feature) => feature.included === true,
-  );
+  const visibleFeatures = plan.features.filter((feature) => feature.included);
 
   return (
     <article

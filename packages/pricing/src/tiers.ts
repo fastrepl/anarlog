@@ -1,7 +1,7 @@
 export type PlanTier = "free" | "pro";
 export type PlanFeature = {
   label: string;
-  included: boolean | "partial";
+  included: boolean;
   tooltip?: string;
 };
 
@@ -62,11 +62,11 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
         tooltip:
           "Local REST API with API keys, plus signed webhooks when meetings finish and summaries are generated.",
       },
-      { label: "Transcript Editor", included: "partial" },
-      { label: "Shortcuts", included: "partial" },
+      { label: "Transcript Editor", included: true },
+      { label: "Shortcuts", included: true },
+      { label: "Manual Speaker Labeling", included: true },
       { label: "Cloud Transcription", included: false },
       { label: "Cloud LLM", included: false },
-      { label: "Speaker Identification", included: false },
     ],
   },
   {
@@ -83,26 +83,30 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Everything in Free", included: true },
       { label: "Cloud Transcription", included: true },
       { label: "Cloud LLM", included: true },
-      { label: "Local-cloud Sync", included: true },
+      { label: "Better Speaker Identification", included: true },
       {
-        label: "Cloud API & Connectors",
+        label: "Integrations",
         included: true,
         tooltip:
-          "Hosted API and MCP connectors for Claude, ChatGPT, and other agents — no desktop app required.",
+          "Slack, Notion, Linear, GitHub, Google Calendar, and Outlook Calendar.",
       },
-      { label: "Speaker Identification", included: "partial" },
-      { label: "Connect to Google Calendar", included: true },
-      { label: "Connect to Outlook Calendar", included: true },
-      { label: "Advanced Templates", included: "partial" },
       {
-        label: "Connect to OpenClaw",
-        included: "partial",
-        tooltip: "Select which notes to sync",
+        label: "Automations",
+        included: true,
+        tooltip:
+          "Run follow-up work automatically when a meeting ends — post a recap, update a page, or create issues.",
       },
+      { label: "Cloud Sync", included: true },
       {
         label: "Shareable Links",
-        included: "partial",
+        included: true,
         tooltip: "DocSend-like: view tracking, expiration, revocation",
+      },
+      {
+        label: "Cloud API, MCP & Webhooks",
+        included: true,
+        tooltip:
+          "Hosted API, MCP connectors for Claude and ChatGPT, and signed webhooks — no desktop app required.",
       },
     ],
   },
@@ -114,7 +118,7 @@ export const PLAN_TIERS: PlanTierData[] = MARKETING_PLAN_TIERS.map((plan) => ({
   price: plan.price ? `$${plan.price.monthly}` : "$0",
   period: "/month",
   subtitle: plan.price?.yearly ? `or $${plan.price.yearly}/year` : null,
-  features: plan.features.filter((feature) => feature.included === true),
+  features: plan.features.filter((feature) => feature.included),
 }));
 
 export const TIER_ORDER: Record<PlanTier, number> = {

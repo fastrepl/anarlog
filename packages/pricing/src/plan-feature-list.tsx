@@ -1,4 +1,4 @@
-import { Barricade, CheckCircle, XCircle } from "@phosphor-icons/react";
+import { CheckCircle, XCircle } from "@phosphor-icons/react";
 
 import { cn } from "@anlg/utils";
 
@@ -11,23 +11,12 @@ export function PlanFeatureList({
   features: PlanFeature[];
   dense?: boolean;
 }) {
-  const getPartialFeatureTooltip = (feature: PlanFeature) =>
-    feature.tooltip
-      ? `Currently in development. ${feature.tooltip}`
-      : "Currently in development";
-
   return (
     <div
       className={cn([dense ? "flex flex-col gap-1.5" : "flex flex-col gap-3"])}
     >
       {features.map((feature) => {
-        const Icon =
-          feature.included === true
-            ? CheckCircle
-            : feature.included === "partial"
-              ? Barricade
-              : XCircle;
-        const isPartial = feature.included === "partial";
+        const Icon = feature.included ? CheckCircle : XCircle;
         const iconContainerClassName = cn([
           dense
             ? "flex h-4 shrink-0 items-center"
@@ -35,14 +24,18 @@ export function PlanFeatureList({
         ]);
         const iconClassName = cn([
           dense ? "size-3.5" : "size-4.5",
-          feature.included === true
+          feature.included
             ? "text-emerald-600 dark:text-emerald-400"
-            : isPartial
-              ? "text-foreground"
-              : "text-red-500 dark:text-red-400",
+            : "text-red-500 dark:text-red-400",
         ]);
-        const featureContent = (
-          <>
+
+        return (
+          <div
+            key={feature.label}
+            className={cn([
+              dense ? "flex items-start gap-1.5" : "flex items-start gap-3",
+            ])}
+          >
             <div className={iconContainerClassName}>
               <Icon className={iconClassName} />
             </div>
@@ -57,9 +50,9 @@ export function PlanFeatureList({
                 <span
                   className={cn([
                     dense ? "text-xs" : "text-sm",
-                    feature.included === false
-                      ? "text-muted-foreground"
-                      : "text-foreground",
+                    feature.included
+                      ? "text-foreground"
+                      : "text-muted-foreground",
                   ])}
                 >
                   {feature.label}
@@ -71,32 +64,6 @@ export function PlanFeatureList({
                 </div>
               )}
             </div>
-          </>
-        );
-
-        return (
-          <div
-            key={feature.label}
-            className={cn([
-              dense ? "flex items-start gap-1.5" : "flex items-start gap-3",
-            ])}
-          >
-            {isPartial ? (
-              <button
-                type="button"
-                title={getPartialFeatureTooltip(feature)}
-                className={cn([
-                  "flex w-full items-start border-0 bg-transparent p-0 text-left",
-                  dense ? "gap-1.5" : "gap-3",
-                  "focus-visible:ring-ring cursor-help rounded-sm focus-visible:ring-2 focus-visible:outline-none",
-                ])}
-                aria-label={`${feature.label}: ${getPartialFeatureTooltip(feature)}`}
-              >
-                {featureContent}
-              </button>
-            ) : (
-              featureContent
-            )}
           </div>
         );
       })}
