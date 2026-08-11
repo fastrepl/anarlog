@@ -1,0 +1,41 @@
+# Maintainer: Anarlog <support@anarlog.so>
+pkgname=anarlog-bin
+pkgver=1.4.8
+pkgrel=1
+pkgdesc="AI notepad for meetings — local-first, E2EE desktop note-taking app"
+arch=('x86_64' 'aarch64')
+url="https://anarlog.so"
+license=('MIT')
+depends=(
+  'webkit2gtk-4.1'
+  'gtk3'
+  'libpipewire'
+  'libpulse'
+  'alsa-lib'
+  'openssl'
+  'gcc-libs'
+  'ca-certificates'
+  'desktop-file-utils'
+  'xdg-utils'
+  'hicolor-icon-theme'
+)
+optdepends=(
+  'libayatana-appindicator: tray icon support'
+  'pipewire: audio capture at runtime'
+)
+provides=('anarlog')
+conflicts=('anarlog')
+options=('!strip')
+_release="desktop_v${pkgver}"
+source=("LICENSE-${pkgver}::https://raw.githubusercontent.com/fastrepl/anarlog/${_release}/LICENSE")
+source_x86_64=("anarlog-${pkgver}-x86_64.deb::https://github.com/fastrepl/anarlog/releases/download/${_release}/anarlog-linux-x86_64.deb")
+source_aarch64=("anarlog-${pkgver}-aarch64.deb::https://github.com/fastrepl/anarlog/releases/download/${_release}/anarlog-linux-aarch64.deb")
+sha256sums=('ba9cc3a7e074c5cfe3985d6956f24c9f7575592a0483e314c9fcb4f72ee1b615')
+sha256sums_x86_64=('10c0c170f19b8d46c2acccb9ff70a917c9a6c0ce55481b0815f21255048537ee')
+sha256sums_aarch64=('74e06ae01e838e8e972fbcdd1034fcb9e6c45869b04573fa3b7c3405d1b0f128')
+
+package() {
+  tar -xzf data.tar.gz -C "$pkgdir"
+  chmod -R u+rwX,go+rX,go-w "$pkgdir/usr"
+  install -Dm644 "LICENSE-${pkgver}" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
