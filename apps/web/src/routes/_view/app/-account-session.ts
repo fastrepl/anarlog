@@ -5,9 +5,11 @@ import { deriveBillingInfo, type SupabaseJwtPayload } from "@anlg/supabase";
 
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 
+export const accountSessionQueryKey = ["account-session"];
+
 export function useAccountSession() {
   return useQuery({
-    queryKey: ["account-session"],
+    queryKey: accountSessionQueryKey,
     queryFn: async () => {
       const supabase = getSupabaseBrowserClient();
       const { data } = await supabase.auth.getSession();

@@ -1,4 +1,5 @@
 import { ArrowRight } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { jwtDecode } from "jwt-decode";
 import { useEffect } from "react";
@@ -15,6 +16,7 @@ import { AccountAccessSection } from "./-account-access";
 import { DangerAreaSection } from "./-account-danger";
 import { PlanSection } from "./-account-plan";
 import { ProfileInfoSection } from "./-account-profile-info";
+import { accountSessionQueryKey } from "./-account-session";
 
 const validateSearch = z
   .object({
@@ -43,6 +45,7 @@ function Component() {
   const { user } = Route.useLoaderData();
   const search = Route.useSearch();
   const { identify: identifyPosthog, track } = useAnalytics();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!search.success && search.trial !== "started") {
@@ -63,6 +66,9 @@ function Component() {
     const syncBillingAnalytics = async () => {
       const supabase = getSupabaseBrowserClient();
       const { data } = await supabase.auth.refreshSession();
+      // The refreshed JWT carries the post-checkout billing claims; cached
+      // account-session data is stale until it re-reads the session.
+      void queryClient.invalidateQueries({ queryKey: accountSessionQueryKey });
       const accessToken = data.session?.access_token;
       const userId = data.session?.user.id;
 
@@ -84,6 +90,7 @@ function Component() {
     void syncBillingAnalytics();
   }, [
     identifyPosthog,
+    queryClient,
     search.checkout,
     search.checkout_type,
     search.scheme,
