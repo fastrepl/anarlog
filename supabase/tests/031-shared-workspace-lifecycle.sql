@@ -229,7 +229,7 @@ select throws_ok(
   $$,
   '42501',
   'workspace membership operation not permitted',
-  'Admins cannot change roles; only the owner can'
+  'Admins cannot demote an admin, including themselves'
 );
 
 select throws_ok(

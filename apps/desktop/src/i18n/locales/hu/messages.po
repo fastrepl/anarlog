@@ -21,6 +21,17 @@ msgstr ""
 msgid "(Unavailable — using current default)"
 msgstr ""
 
+#. placeholder {0}: seats.data.usedSeats
+#: src/settings/team/index.tsx
+msgid "{0} in this workspace"
+msgstr ""
+
+#. placeholder {0}: seats.data.usedSeats
+#. placeholder {1}: seats.data.seatLimit
+#: src/settings/team/index.tsx
+msgid "{0} of {1} seats used"
+msgstr ""
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -96,6 +107,10 @@ msgstr ""
 #: src/settings/general/account.tsx
 #: src/sidebar/settings.tsx
 msgid "Account"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Acme"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -186,6 +201,10 @@ msgstr "Beszélt nyelv hozzáadása"
 #: src/settings/general/spoken-languages.tsx
 msgid "Additional spoken languages"
 msgstr "További beszélt nyelvek"
+
+#: src/settings/team/index.tsx
+msgid "Admin"
+msgstr ""
 
 #: src/settings/ai/shared/index.tsx
 #: src/sidebar/settings.tsx
@@ -939,8 +958,16 @@ msgstr ""
 msgid "Could not update the export folder"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Create"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Create a shared workspace"
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -1015,6 +1042,10 @@ msgstr ""
 msgid "Delete {pendingDeleteCount} selected notes?"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Delete {workspaceName} for everyone?"
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "Delete 1 selected note?"
 msgstr ""
@@ -1049,6 +1080,14 @@ msgstr ""
 
 #: src/sidebar/timeline/item.tsx
 msgid "Delete This Event"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Delete workspace"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
 msgstr ""
 
 #: src/session/components/outer-header/overflow/delete.tsx
@@ -1509,13 +1548,22 @@ msgstr ""
 msgid "Intelligence"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Invitation pending"
+msgstr ""
+
 #: src/session-sharing/invite-recipients.tsx
+#: src/settings/team/index.tsx
 msgid "Invite"
 msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -1593,6 +1641,18 @@ msgstr ""
 msgid "Learn more"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Leave {workspaceName}?"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Leave workspace"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Leaving gives up your access to shared notes here."
+msgstr ""
+
 #: src/settings/appearance/theme.tsx
 msgid "Light"
 msgstr ""
@@ -1663,6 +1723,10 @@ msgstr ""
 msgid "Main language"
 msgstr "Fő nyelv"
 
+#: src/settings/team/index.tsx
+msgid "Make owner"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr ""
@@ -1714,6 +1778,10 @@ msgstr "Találkozók"
 
 #: src/contacts/organization-details.tsx
 msgid "member"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Member"
 msgstr ""
 
 #: src/contacts/organization-details.tsx
@@ -2816,6 +2884,10 @@ msgstr ""
 msgid "Sign in to connect {0}"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Sign in to create a shared workspace for your team."
+msgstr ""
+
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Sign in to generate this summary"
 msgstr ""
@@ -3091,6 +3163,15 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Take the enhanced note with decisions and follow-ups."
+msgstr ""
+
+#: src/settings/team/index.tsx
+#: src/sidebar/settings.tsx
+msgid "Team"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "teammate@company.com"
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
@@ -3417,6 +3498,10 @@ msgstr ""
 msgid "Workspace"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Workspace name"
+msgstr ""
+
 #: src/session/components/note-input/transcript/index.tsx
 msgid "Write"
 msgstr ""
@@ -3426,6 +3511,7 @@ msgid "Write to a folder"
 msgstr ""
 
 #: src/session-sharing/comments.tsx
+#: src/settings/team/index.tsx
 msgid "You"
 msgstr ""
 

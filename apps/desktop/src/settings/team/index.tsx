@@ -1,0 +1,553 @@
+import { Trans, useLingui } from "@lingui/react/macro";
+import {
+  CircleNotch,
+  Crown,
+  Plus,
+  Trash,
+  UserPlus,
+} from "@phosphor-icons/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+
+import { Button } from "@anlg/ui/components/ui/button";
+import { Input } from "@anlg/ui/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@anlg/ui/components/ui/select";
+import { cn } from "@anlg/utils";
+
+import {
+  createWorkspace,
+  deleteWorkspace,
+  getSeatUsage,
+  inviteMember,
+  leaveWorkspace,
+  listMyWorkspaces,
+  listWorkspaceInvitations,
+  listWorkspaceMembers,
+  removeMember,
+  renameWorkspace,
+  requireTeamContext,
+  revokeInvitation,
+  setMemberRole,
+  transferOwnership,
+  type WorkspaceMember,
+  type WorkspaceRole,
+} from "./client";
+import { mirrorSharedWorkspaces } from "./mirror";
+
+import { useAuth } from "~/auth";
+import { SettingsPageTitle } from "~/settings/page-title";
+
+export function SettingsTeam() {
+  const auth = useAuth();
+  const { t } = useLingui();
+  const queryClient = useQueryClient();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const signedIn = Boolean(auth.supabase && auth.session);
+
+  const workspaces = useQuery({
+    queryKey: ["team-workspaces", auth.session?.user.id],
+    enabled: signedIn,
+    queryFn: async () => {
+      const context = requireTeamContext(auth);
+      const list = await listMyWorkspaces(context);
+      // The share panel reads workspaces from local SQLite, so refresh the
+      // mirror whenever we have an authoritative list. A mirror failure must
+      // not blank the page.
+      try {
+        await mirrorSharedWorkspaces(context, list);
+      } catch {
+        // Ignored: the list still renders from the server response.
+      }
+      return list;
+    },
+  });
+
+  const activeId = selectedId ?? workspaces.data?.[0]?.workspaceId ?? null;
+  const activeWorkspace = workspaces.data?.find(
+    (workspace) => workspace.workspaceId === activeId,
+  );
+
+  const create = useMutation({
+    mutationFn: (name: string) =>
+      createWorkspace(requireTeamContext(auth), name),
+    onSuccess: (result) => {
+      setSelectedId(result.workspaceId);
+      void queryClient.invalidateQueries({ queryKey: ["team-workspaces"] });
+    },
+  });
+
+  if (!signedIn) {
+    return (
+      <div className="space-y-6">
+        <SettingsPageTitle title={<Trans>Team</Trans>} />
+        <p className="text-muted-foreground text-sm">
+          <Trans>Sign in to create a shared workspace for your team.</Trans>
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <SettingsPageTitle title={<Trans>Team</Trans>} />
+
+      {workspaces.isPending ? (
+        <TeamSkeleton />
+      ) : workspaces.data && workspaces.data.length > 0 ? (
+        <>
+          {workspaces.data.length > 1 && (
+            <Select
+              value={activeId ?? undefined}
+              onValueChange={(value) => setSelectedId(value)}
+            >
+              <SelectTrigger className="bg-card h-9 w-64 shadow-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces.data.map((workspace) => (
+                  <SelectItem
+                    key={workspace.workspaceId}
+                    value={workspace.workspaceId}
+                  >
+                    {workspace.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          {activeId && (
+            <WorkspacePanel
+              key={activeId}
+              workspaceId={activeId}
+              workspaceName={activeWorkspace?.name ?? ""}
+              onWorkspacesChanged={() => {
+                setSelectedId(null);
+                void queryClient.invalidateQueries({
+                  queryKey: ["team-workspaces"],
+                });
+              }}
+            />
+          )}
+        </>
+      ) : (
+        <CreateWorkspaceCard
+          onCreate={(name) => create.mutate(name)}
+          pending={create.isPending}
+          error={create.error?.message}
+          placeholder={t`Acme`}
+        />
+      )}
+    </div>
+  );
+}
+
+function CreateWorkspaceCard({
+  onCreate,
+  pending,
+  error,
+  placeholder,
+}: {
+  onCreate: (name: string) => void;
+  pending: boolean;
+  error?: string;
+  placeholder: string;
+}) {
+  const [name, setName] = useState("");
+  const trimmed = name.trim();
+
+  return (
+    <div className="border-border rounded-lg border p-4">
+      <h3 className="text-sm font-medium">
+        <Trans>Create a shared workspace</Trans>
+      </h3>
+      <p className="text-muted-foreground mt-1 text-xs">
+        <Trans>
+          Invite teammates, share notes across the workspace, and manage who has
+          access. Your personal notes stay private.
+        </Trans>
+      </p>
+      <form
+        className="mt-3 flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (trimmed) onCreate(trimmed);
+        }}
+      >
+        <Input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder={placeholder}
+          maxLength={120}
+          className="bg-card h-9 max-w-xs shadow-none"
+        />
+        <Button type="submit" size="sm" disabled={!trimmed || pending}>
+          {pending ? (
+            <CircleNotch className="size-4 animate-spin" />
+          ) : (
+            <Plus className="size-4" />
+          )}
+          <Trans>Create</Trans>
+        </Button>
+      </form>
+      {error && <p className="text-destructive mt-2 text-xs">{error}</p>}
+    </div>
+  );
+}
+
+function WorkspacePanel({
+  workspaceId,
+  workspaceName,
+  onWorkspacesChanged,
+}: {
+  workspaceId: string;
+  workspaceName: string;
+  onWorkspacesChanged: () => void;
+}) {
+  const auth = useAuth();
+  const { t } = useLingui();
+  const queryClient = useQueryClient();
+  const [email, setEmail] = useState("");
+
+  const members = useQuery({
+    queryKey: ["team-members", workspaceId],
+    queryFn: () => listWorkspaceMembers(requireTeamContext(auth), workspaceId),
+  });
+  const invitations = useQuery({
+    queryKey: ["team-invitations", workspaceId],
+    queryFn: () =>
+      listWorkspaceInvitations(requireTeamContext(auth), workspaceId),
+  });
+  const seats = useQuery({
+    queryKey: ["team-seats", workspaceId],
+    queryFn: () => getSeatUsage(requireTeamContext(auth), workspaceId),
+  });
+
+  const refresh = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["team-members", workspaceId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["team-invitations", workspaceId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["team-seats", workspaceId],
+    });
+  };
+
+  const invite = useMutation({
+    mutationFn: (value: string) =>
+      inviteMember(requireTeamContext(auth), workspaceId, value),
+    onSuccess: () => {
+      setEmail("");
+      refresh();
+    },
+  });
+  const changeRole = useMutation({
+    mutationFn: (input: { userId: string; role: "admin" | "member" }) =>
+      setMemberRole(
+        requireTeamContext(auth),
+        workspaceId,
+        input.userId,
+        input.role,
+      ),
+    onSuccess: refresh,
+  });
+  const remove = useMutation({
+    mutationFn: (userId: string) =>
+      removeMember(requireTeamContext(auth), workspaceId, userId),
+    onSuccess: refresh,
+  });
+  const cancelInvite = useMutation({
+    mutationFn: (invitationId: string) =>
+      revokeInvitation(requireTeamContext(auth), invitationId),
+    onSuccess: refresh,
+  });
+  const transfer = useMutation({
+    mutationFn: (userId: string) =>
+      transferOwnership(requireTeamContext(auth), workspaceId, userId),
+    onSuccess: refresh,
+  });
+  const rename = useMutation({
+    mutationFn: (value: string) =>
+      renameWorkspace(requireTeamContext(auth), workspaceId, value),
+    onSuccess: onWorkspacesChanged,
+  });
+  const leave = useMutation({
+    mutationFn: () => leaveWorkspace(requireTeamContext(auth), workspaceId),
+    onSuccess: onWorkspacesChanged,
+  });
+  const destroy = useMutation({
+    mutationFn: () => deleteWorkspace(requireTeamContext(auth), workspaceId),
+    onSuccess: onWorkspacesChanged,
+  });
+
+  const viewerId = auth.session?.user.id;
+  const viewerRole = members.data?.find(
+    (member) => member.userId === viewerId,
+  )?.role;
+  const canManage = viewerRole === "owner" || viewerRole === "admin";
+  const trimmedEmail = email.trim();
+  const actionError =
+    invite.error?.message ??
+    changeRole.error?.message ??
+    remove.error?.message ??
+    cancelInvite.error?.message ??
+    transfer.error?.message ??
+    rename.error?.message ??
+    leave.error?.message ??
+    destroy.error?.message;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <div className="min-w-0">
+          {canManage ? (
+            <Input
+              defaultValue={workspaceName}
+              maxLength={120}
+              aria-label={t`Workspace name`}
+              className="bg-card h-8 max-w-xs px-2 text-sm font-medium shadow-none"
+              onBlur={(event) => {
+                const next = event.target.value.trim();
+                if (next && next !== workspaceName) rename.mutate(next);
+              }}
+            />
+          ) : (
+            <h3 className="truncate text-sm font-medium">{workspaceName}</h3>
+          )}
+          {seats.data && (
+            <p className="text-muted-foreground mt-1 text-xs">
+              {seats.data.seatLimit === null ? (
+                <Trans>{seats.data.usedSeats} in this workspace</Trans>
+              ) : (
+                <Trans>
+                  {seats.data.usedSeats} of {seats.data.seatLimit} seats used
+                </Trans>
+              )}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {canManage && (
+        <form
+          className="flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (trimmedEmail) invite.mutate(trimmedEmail);
+          }}
+        >
+          <Input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder={t`teammate@company.com`}
+            className="bg-card h-9 max-w-xs shadow-none"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={!trimmedEmail || invite.isPending}
+          >
+            {invite.isPending ? (
+              <CircleNotch className="size-4 animate-spin" />
+            ) : (
+              <UserPlus className="size-4" />
+            )}
+            <Trans>Invite</Trans>
+          </Button>
+        </form>
+      )}
+
+      {actionError && <p className="text-destructive text-xs">{actionError}</p>}
+
+      {members.isPending ? (
+        <TeamSkeleton />
+      ) : (
+        <ul className="border-border divide-border divide-y rounded-lg border">
+          {members.data?.map((member) => (
+            <MemberRow
+              key={member.userId}
+              member={member}
+              isViewer={member.userId === viewerId}
+              viewerRole={viewerRole}
+              onRoleChange={(role) =>
+                changeRole.mutate({ userId: member.userId, role })
+              }
+              onRemove={() => remove.mutate(member.userId)}
+              onTransfer={() => transfer.mutate(member.userId)}
+            />
+          ))}
+          {invitations.data?.map((invitation) => (
+            <li
+              key={invitation.invitationId}
+              className="flex items-center justify-between gap-3 px-3 py-2.5"
+            >
+              <div className="min-w-0">
+                <p className="text-muted-foreground truncate text-sm">
+                  {invitation.email}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  <Trans>Invitation pending</Trans>
+                </p>
+              </div>
+              {canManage && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => cancelInvite.mutate(invitation.invitationId)}
+                  disabled={cancelInvite.isPending}
+                >
+                  <Trash className="size-4" />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="border-border flex items-center justify-between gap-4 border-t pt-4">
+        <p className="text-muted-foreground text-xs">
+          {viewerRole === "owner" ? (
+            <Trans>
+              Deleting removes the workspace for everyone. Transfer ownership
+              first if you only want to leave.
+            </Trans>
+          ) : (
+            <Trans>Leaving gives up your access to shared notes here.</Trans>
+          )}
+        </p>
+        {viewerRole === "owner" ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive shrink-0"
+            disabled={destroy.isPending}
+            onClick={() => {
+              if (confirm(t`Delete ${workspaceName} for everyone?`)) {
+                destroy.mutate();
+              }
+            }}
+          >
+            <Trans>Delete workspace</Trans>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive shrink-0"
+            disabled={leave.isPending}
+            onClick={() => {
+              if (confirm(t`Leave ${workspaceName}?`)) leave.mutate();
+            }}
+          >
+            <Trans>Leave workspace</Trans>
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MemberRow({
+  member,
+  isViewer,
+  viewerRole,
+  onRoleChange,
+  onRemove,
+  onTransfer,
+}: {
+  member: WorkspaceMember;
+  isViewer: boolean;
+  viewerRole?: WorkspaceRole;
+  onRoleChange: (role: "admin" | "member") => void;
+  onRemove: () => void;
+  onTransfer: () => void;
+}) {
+  const { t } = useLingui();
+  const isOwner = member.role === "owner";
+  // Mirrors the server: owners change any role, admins may only raise a member
+  // to admin, and nobody may remove a peer admin or the owner.
+  const canEditRole =
+    !isOwner &&
+    (viewerRole === "owner" ||
+      (viewerRole === "admin" && member.role === "member"));
+  const canRemove =
+    !isOwner &&
+    !isViewer &&
+    (viewerRole === "owner" ||
+      (viewerRole === "admin" && member.role === "member"));
+  const canTransfer = viewerRole === "owner" && !isOwner;
+
+  return (
+    <li className="flex items-center justify-between gap-3 px-3 py-2.5">
+      <div className="min-w-0">
+        <p className="truncate text-sm">{member.email}</p>
+        {isViewer && (
+          <p className="text-muted-foreground text-xs">
+            <Trans>You</Trans>
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        {!canEditRole ? (
+          <span className={cn(["text-muted-foreground text-xs capitalize"])}>
+            {member.role}
+          </span>
+        ) : (
+          <Select
+            value={member.role}
+            onValueChange={(value) =>
+              onRoleChange(value === "admin" ? "admin" : "member")
+            }
+          >
+            <SelectTrigger className="bg-card h-8 w-28 shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="admin">
+                <Trans>Admin</Trans>
+              </SelectItem>
+              <SelectItem value="member">
+                <Trans>Member</Trans>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+        {canTransfer && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onTransfer}
+            title={t`Make owner`}
+          >
+            <Crown className="size-4" />
+          </Button>
+        )}
+        {canRemove && (
+          <Button size="sm" variant="ghost" onClick={onRemove}>
+            <Trash className="size-4" />
+          </Button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function TeamSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden="true">
+      {[0, 1, 2].map((row) => (
+        <div key={row} className="bg-muted h-11 animate-pulse rounded-lg" />
+      ))}
+    </div>
+  );
+}

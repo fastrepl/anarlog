@@ -21,6 +21,17 @@ msgstr "(default)"
 msgid "(Unavailable — using current default)"
 msgstr "(Unavailable — using current default)"
 
+#. placeholder {0}: seats.data.usedSeats
+#: src/settings/team/index.tsx
+msgid "{0} in this workspace"
+msgstr "{0} in this workspace"
+
+#. placeholder {0}: seats.data.usedSeats
+#. placeholder {1}: seats.data.seatLimit
+#: src/settings/team/index.tsx
+msgid "{0} of {1} seats used"
+msgstr "{0} of {1} seats used"
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
@@ -97,6 +108,10 @@ msgstr "Accessibility"
 #: src/sidebar/settings.tsx
 msgid "Account"
 msgstr "Account"
+
+#: src/settings/team/index.tsx
+msgid "Acme"
+msgstr "Acme"
 
 #: src/settings/automations/index.tsx
 msgid "Action"
@@ -186,6 +201,10 @@ msgstr "Add spoken language"
 #: src/settings/general/spoken-languages.tsx
 msgid "Additional spoken languages"
 msgstr "Additional spoken languages"
+
+#: src/settings/team/index.tsx
+msgid "Admin"
+msgstr "Admin"
 
 #: src/settings/ai/shared/index.tsx
 #: src/sidebar/settings.tsx
@@ -939,9 +958,17 @@ msgstr "Could not update the automation"
 msgid "Could not update the export folder"
 msgstr "Could not update the export folder"
 
+#: src/settings/team/index.tsx
+msgid "Create"
+msgstr "Create"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
+
+#: src/settings/team/index.tsx
+msgid "Create a shared workspace"
+msgstr "Create a shared workspace"
 
 #: src/onboarding/index.tsx
 msgid "Create account"
@@ -1015,6 +1042,10 @@ msgstr "Delete"
 msgid "Delete {pendingDeleteCount} selected notes?"
 msgstr "Delete {pendingDeleteCount} selected notes?"
 
+#: src/settings/team/index.tsx
+msgid "Delete {workspaceName} for everyone?"
+msgstr "Delete {workspaceName} for everyone?"
+
 #: src/sidebar/timeline/index.tsx
 msgid "Delete 1 selected note?"
 msgstr "Delete 1 selected note?"
@@ -1050,6 +1081,14 @@ msgstr "Delete Selected ({sessionCount})"
 #: src/sidebar/timeline/item.tsx
 msgid "Delete This Event"
 msgstr "Delete This Event"
+
+#: src/settings/team/index.tsx
+msgid "Delete workspace"
+msgstr "Delete workspace"
+
+#: src/settings/team/index.tsx
+msgid "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
+msgstr "Deleting removes the workspace for everyone. Transfer ownership first if you only want to leave."
 
 #: src/session/components/outer-header/overflow/delete.tsx
 msgid "Deleting..."
@@ -1509,7 +1548,12 @@ msgstr "Install Anarlog and sign in with this account on the new device. Choose 
 msgid "Intelligence"
 msgstr "Intelligence"
 
+#: src/settings/team/index.tsx
+msgid "Invitation pending"
+msgstr "Invitation pending"
+
 #: src/session-sharing/invite-recipients.tsx
+#: src/settings/team/index.tsx
 msgid "Invite"
 msgstr "Invite"
 
@@ -1517,6 +1561,10 @@ msgstr "Invite"
 #: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
 msgstr "Invite people to this note."
+
+#: src/settings/team/index.tsx
+msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
+msgstr "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
 
 #: src/contacts/details.tsx
 msgid "Job Title"
@@ -1593,6 +1641,18 @@ msgstr "Learn how to fix this"
 msgid "Learn more"
 msgstr "Learn more"
 
+#: src/settings/team/index.tsx
+msgid "Leave {workspaceName}?"
+msgstr "Leave {workspaceName}?"
+
+#: src/settings/team/index.tsx
+msgid "Leave workspace"
+msgstr "Leave workspace"
+
+#: src/settings/team/index.tsx
+msgid "Leaving gives up your access to shared notes here."
+msgstr "Leaving gives up your access to shared notes here."
+
 #: src/settings/appearance/theme.tsx
 msgid "Light"
 msgstr "Light"
@@ -1663,6 +1723,10 @@ msgstr "macOS could not access your recovery key. Repair Keychain access, then r
 msgid "Main language"
 msgstr "Main language"
 
+#: src/settings/team/index.tsx
+msgid "Make owner"
+msgstr "Make owner"
+
 #: src/settings/general/account.tsx
 msgid "Manage billing"
 msgstr "Manage billing"
@@ -1715,6 +1779,10 @@ msgstr "Meetings"
 #: src/contacts/organization-details.tsx
 msgid "member"
 msgstr "member"
+
+#: src/settings/team/index.tsx
+msgid "Member"
+msgstr "Member"
 
 #: src/contacts/organization-details.tsx
 msgid "members"
@@ -2816,6 +2884,10 @@ msgstr "Sign in to connect"
 msgid "Sign in to connect {0}"
 msgstr "Sign in to connect {0}"
 
+#: src/settings/team/index.tsx
+msgid "Sign in to create a shared workspace for your team."
+msgstr "Sign in to create a shared workspace for your team."
+
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Sign in to generate this summary"
 msgstr "Sign in to generate this summary"
@@ -3092,6 +3164,15 @@ msgstr "Take the enhanced note with decisions and action items."
 #: src/automations/starters.tsx
 msgid "Take the enhanced note with decisions and follow-ups."
 msgstr "Take the enhanced note with decisions and follow-ups."
+
+#: src/settings/team/index.tsx
+#: src/sidebar/settings.tsx
+msgid "Team"
+msgstr "Team"
+
+#: src/settings/team/index.tsx
+msgid "teammate@company.com"
+msgstr "teammate@company.com"
 
 #: src/settings/general/meeting-settings.tsx
 msgid "Tell participants when listening starts; this does not confirm consent."
@@ -3417,6 +3498,10 @@ msgstr "Work on this task"
 msgid "Workspace"
 msgstr "Workspace"
 
+#: src/settings/team/index.tsx
+msgid "Workspace name"
+msgstr "Workspace name"
+
 #: src/session/components/note-input/transcript/index.tsx
 msgid "Write"
 msgstr "Write"
@@ -3426,6 +3511,7 @@ msgid "Write to a folder"
 msgstr "Write to a folder"
 
 #: src/session-sharing/comments.tsx
+#: src/settings/team/index.tsx
 msgid "You"
 msgstr "You"
 

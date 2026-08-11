@@ -17,6 +17,7 @@ import {
   Sun,
   User,
   Users,
+  UsersThree,
   VideoCamera,
   X,
 } from "@phosphor-icons/react";
@@ -69,6 +70,9 @@ export function SettingsNav() {
       items: [
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
+        ...(signedIn
+          ? [{ id: "team" as const, label: t`Team`, icon: UsersThree }]
+          : []),
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },
       ],
