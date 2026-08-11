@@ -64,37 +64,41 @@ vi.mock("./termination-pause", () => ({
 import { MEETING_IMPORT_PROVIDERS } from "./providers";
 import { MeetingImportScreen } from "./screen";
 
-function renderImports() {
+function renderImports(props: { compact?: boolean } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MeetingImportScreen />
+      <MeetingImportScreen {...props} />
     </QueryClientProvider>,
+  );
+}
+
+function mockDetected(ids: string[]) {
+  mocks.detectImportSources.mockResolvedValue(
+    MEETING_IMPORT_PROVIDERS.filter((provider) =>
+      ids.includes(provider.id),
+    ).map((provider) => ({
+      ...provider,
+      installedAppId: `app.${provider.id}`,
+      iconUrl: `data:image/png;base64,${provider.id}`,
+    })),
   );
 }
 
 describe("MeetingImportScreen", () => {
   afterEach(cleanup);
 
-  it("shows direct connections plus detected file sources with native icons", async () => {
-    mocks.detectImportSources.mockResolvedValue(
-      MEETING_IMPORT_PROVIDERS.filter((provider) =>
-        [
-          "chatgpt-record",
-          "circleback",
-          "granola",
-          "slack-huddles",
-          "zoom",
-        ].includes(provider.id),
-      ).map((provider) => ({
-        ...provider,
-        installedAppId: `app.${provider.id}`,
-        iconUrl: `data:image/png;base64,${provider.id}`,
-      })),
-    );
+  it("lists only detected apps with native icons", async () => {
+    mockDetected([
+      "chatgpt-record",
+      "circleback",
+      "granola",
+      "slack-huddles",
+      "zoom",
+    ]);
 
     const { container } = renderImports();
 
@@ -104,6 +108,8 @@ describe("MeetingImportScreen", () => {
     expect(screen.getByText("Slack Huddles")).toBeTruthy();
     expect(screen.getByText("Zoom")).toBeTruthy();
     expect(screen.queryByText("Avoma")).toBeNull();
+    expect(screen.queryByText("Fireflies.ai")).toBeNull();
+    expect(screen.queryByText("Krisp")).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByText("Detected")).toBeNull();
     expect(screen.queryByText("Export")).toBeNull();
@@ -111,19 +117,43 @@ describe("MeetingImportScreen", () => {
     expect(screen.queryByText("Export help")).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "Connect & import" }),
-    ).toHaveLength(8);
+    ).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: "Use files" })).toHaveLength(
-      8,
+      2,
     );
     expect(
       screen.getAllByRole("button", { name: "Choose files" }),
     ).toHaveLength(3);
     expect(
       screen.getAllByText(/keep new meetings coming in while you switch/i),
-    ).toHaveLength(8);
+    ).toHaveLength(2);
     expect(
       container.querySelectorAll('img[src^="data:image/png;base64,"]'),
     ).toHaveLength(5);
     expect(container.querySelector("iconify-icon")).toBeNull();
+  });
+
+  it("renders the same detected list in the compact onboarding layout", async () => {
+    mockDetected(["granola", "slack-huddles"]);
+
+    renderImports({ compact: true });
+
+    expect(await screen.findByText("Granola")).toBeTruthy();
+    expect(screen.getByText("Slack Huddles")).toBeTruthy();
+    expect(screen.queryByText("Circleback")).toBeNull();
+    expect(
+      screen.getAllByRole("button", { name: "Connect & import" }),
+    ).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: "Choose files" }),
+    ).toHaveLength(1);
+  });
+
+  it("shows the empty state when nothing is detected", async () => {
+    mockDetected([]);
+
+    renderImports();
+
+    expect(await screen.findByText("No apps found.")).toBeTruthy();
   });
 });

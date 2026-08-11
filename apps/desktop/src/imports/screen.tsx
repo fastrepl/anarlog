@@ -30,7 +30,6 @@ import type {
   DetectedMeetingImportProvider,
   MeetingImportProvider,
 } from "./providers";
-import { MEETING_IMPORT_PROVIDERS } from "./providers";
 import {
   EMPTY_MEETING_IMPORT_HISTORY,
   importMeetingFiles,
@@ -53,8 +52,7 @@ const IMPORT_EXTENSIONS = [
 function ProviderIcon({
   provider,
 }: {
-  provider: MeetingImportProvider &
-    Partial<Pick<DetectedMeetingImportProvider, "iconUrl">>;
+  provider: DetectedMeetingImportProvider;
 }) {
   if (provider.iconUrl) {
     return (
@@ -90,22 +88,14 @@ export function MeetingImportScreen({
   const historyQuery = useMeetingImportHistory();
   const history = historyQuery.data ?? EMPTY_MEETING_IMPORT_HISTORY;
   const detectedProviders = detectionQuery.data ?? [];
-  const detectedProvidersById = new Map(
-    detectedProviders.map((provider) => [provider.id, provider]),
-  );
-  const directProviders = MEETING_IMPORT_PROVIDERS.filter(
-    (provider) => provider.directImport === "mcp-oauth",
-  )
-    .map((provider) => detectedProvidersById.get(provider.id) ?? provider)
-    .sort(
-      (left, right) =>
-        Number(detectedProvidersById.has(right.id)) -
-        Number(detectedProvidersById.has(left.id)),
-    );
+  const directProviders = detectedProviders
+    .filter((provider) => provider.directImport === "mcp-oauth")
+    .sort((left, right) => left.name.localeCompare(right.name));
   const fileProviders = detectedProviders
     .filter((provider) => !provider.directImport)
     .sort((left, right) => left.name.localeCompare(right.name));
   const displayedProviders = [...directProviders, ...fileProviders];
+  const detectionSettled = !detectionQuery.isLoading && !detectionQuery.error;
   const connectedProviders = directProviders;
   const credentialQueries = useQueries({
     queries: connectedProviders.map((provider) =>
@@ -241,171 +231,175 @@ export function MeetingImportScreen({
           </p>
         ))}
 
-      <div
-        className={cn([
-          "border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border",
-          compact && "max-h-80 overflow-y-auto",
-        ])}
-      >
-        {displayedProviders.length === 0 ? (
-          <p className="text-muted-foreground px-4 py-6 text-center text-sm">
-            <Trans>No apps found.</Trans>
-          </p>
-        ) : (
-          displayedProviders.map((provider) => {
-            const importing =
-              fileImportMutation.isPending &&
-              fileImportMutation.variables.id === provider.id;
-            const connectedProvider = provider.directImport === "mcp-oauth";
-            const connectedIndex = connectedProviderIndexes.get(provider.id);
-            const credentialsQuery =
-              connectedIndex === undefined
-                ? undefined
-                : credentialQueries[connectedIndex];
-            const syncQuery =
-              connectedIndex === undefined
-                ? undefined
-                : syncQueries[connectedIndex];
-            const connected = Boolean(credentialsQuery?.data);
-            const connecting =
-              connectMutation.isPending &&
-              connectMutation.variables.id === provider.id;
-            const disconnecting =
-              disconnectMutation.isPending &&
-              disconnectMutation.variables === provider.id;
-            const lastRun = history.find(
-              (run) => run.providerId === provider.id,
-            );
+      {displayedProviders.length > 0 || detectionSettled ? (
+        <div
+          className={cn([
+            "border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border",
+            compact && "max-h-80 overflow-y-auto",
+          ])}
+        >
+          {displayedProviders.length === 0 ? (
+            <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+              <Trans>No apps found.</Trans>
+            </p>
+          ) : (
+            displayedProviders.map((provider) => {
+              const importing =
+                fileImportMutation.isPending &&
+                fileImportMutation.variables.id === provider.id;
+              const connectedProvider = provider.directImport === "mcp-oauth";
+              const connectedIndex = connectedProviderIndexes.get(provider.id);
+              const credentialsQuery =
+                connectedIndex === undefined
+                  ? undefined
+                  : credentialQueries[connectedIndex];
+              const syncQuery =
+                connectedIndex === undefined
+                  ? undefined
+                  : syncQueries[connectedIndex];
+              const connected = Boolean(credentialsQuery?.data);
+              const connecting =
+                connectMutation.isPending &&
+                connectMutation.variables.id === provider.id;
+              const disconnecting =
+                disconnectMutation.isPending &&
+                disconnectMutation.variables === provider.id;
+              const lastRun = history.find(
+                (run) => run.providerId === provider.id,
+              );
 
-            return (
-              <div
-                key={provider.id}
-                className="flex min-h-16 items-center gap-3 px-4 py-3"
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center">
-                  <ProviderIcon provider={provider} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">
-                    {provider.name}
+              return (
+                <div
+                  key={provider.id}
+                  className="flex min-h-16 items-center gap-3 px-4 py-3"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center">
+                    <ProviderIcon provider={provider} />
                   </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">
+                      {provider.name}
+                    </span>
+                    {connectedProvider ? (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {connected ? (
+                          <Trans>
+                            Connected · New meetings are imported automatically
+                            while Anarlog is running.
+                          </Trans>
+                        ) : (
+                          <Trans>
+                            Connect once to bring over your {provider.name}{" "}
+                            history and keep new meetings coming in while you
+                            switch.
+                          </Trans>
+                        )}
+                      </p>
+                    ) : lastRun ? (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        <Trans>
+                          Last import: {lastRun.imported} added,{" "}
+                          {lastRun.matched} unchanged
+                        </Trans>
+                      </p>
+                    ) : provider.access === "Export" ? (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        <Trans>Choose files exported from this app.</Trans>
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        <Trans>
+                          Direct connection is not available yet. You can still
+                          bring your history over with files.
+                        </Trans>
+                      </p>
+                    )}
+                  </div>
                   {connectedProvider ? (
-                    <p className="text-muted-foreground mt-1 text-xs">
+                    <div className="flex shrink-0 items-center gap-1">
                       {connected ? (
-                        <Trans>
-                          Connected · New meetings are imported automatically
-                          while Anarlog is running.
-                        </Trans>
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={syncQuery?.isFetching}
+                            onClick={() => void syncQuery?.refetch()}
+                          >
+                            {syncQuery?.isFetching ? (
+                              <CircleNotch className="size-3.5 animate-spin" />
+                            ) : (
+                              <ArrowsClockwise className="size-3.5" />
+                            )}
+                            <Trans>Sync now</Trans>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={syncQuery?.isFetching || disconnecting}
+                            onClick={() =>
+                              disconnectMutation.mutate(provider.id)
+                            }
+                          >
+                            <Trans>Disconnect</Trans>
+                          </Button>
+                        </>
                       ) : (
-                        <Trans>
-                          Connect once to bring over your {provider.name}{" "}
-                          history and keep new meetings coming in while you
-                          switch.
-                        </Trans>
-                      )}
-                    </p>
-                  ) : lastRun ? (
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      <Trans>
-                        Last import: {lastRun.imported} added, {lastRun.matched}{" "}
-                        unchanged
-                      </Trans>
-                    </p>
-                  ) : provider.access === "Export" ? (
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      <Trans>Choose files exported from this app.</Trans>
-                    </p>
-                  ) : (
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      <Trans>
-                        Direct connection is not available yet. You can still
-                        bring your history over with files.
-                      </Trans>
-                    </p>
-                  )}
-                </div>
-                {connectedProvider ? (
-                  <div className="flex shrink-0 items-center gap-1">
-                    {connected ? (
-                      <>
                         <Button
                           type="button"
                           size="sm"
-                          variant="outline"
-                          disabled={syncQuery?.isFetching}
-                          onClick={() => void syncQuery?.refetch()}
+                          disabled={
+                            credentialsQuery?.isPending ||
+                            connectMutation.isPending
+                          }
+                          onClick={() => connectMutation.mutate(provider)}
                         >
-                          {syncQuery?.isFetching ? (
+                          {credentialsQuery?.isPending || connecting ? (
                             <CircleNotch className="size-3.5 animate-spin" />
                           ) : (
-                            <ArrowsClockwise className="size-3.5" />
+                            <PlugsConnected className="size-3.5" />
                           )}
-                          <Trans>Sync now</Trans>
+                          {credentialsQuery?.isPending ? (
+                            <Trans>Checking connection</Trans>
+                          ) : (
+                            <Trans>Connect & import</Trans>
+                          )}
                         </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={syncQuery?.isFetching || disconnecting}
-                          onClick={() => disconnectMutation.mutate(provider.id)}
-                        >
-                          <Trans>Disconnect</Trans>
-                        </Button>
-                      </>
-                    ) : (
+                      )}
                       <Button
                         type="button"
                         size="sm"
-                        disabled={
-                          credentialsQuery?.isPending ||
-                          connectMutation.isPending
-                        }
-                        onClick={() => connectMutation.mutate(provider)}
+                        variant="ghost"
+                        disabled={fileImportMutation.isPending}
+                        onClick={() => fileImportMutation.mutate(provider)}
                       >
-                        {credentialsQuery?.isPending || connecting ? (
-                          <CircleNotch className="size-3.5 animate-spin" />
-                        ) : (
-                          <PlugsConnected className="size-3.5" />
-                        )}
-                        {credentialsQuery?.isPending ? (
-                          <Trans>Checking connection</Trans>
-                        ) : (
-                          <Trans>Connect & import</Trans>
-                        )}
+                        <DownloadSimple className="size-3.5" />
+                        <Trans>Use files</Trans>
                       </Button>
-                    )}
+                    </div>
+                  ) : (
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       disabled={fileImportMutation.isPending}
                       onClick={() => fileImportMutation.mutate(provider)}
                     >
-                      <DownloadSimple className="size-3.5" />
-                      <Trans>Use files</Trans>
+                      {importing ? (
+                        <CircleNotch className="size-3.5 animate-spin" />
+                      ) : (
+                        <DownloadSimple className="size-3.5" />
+                      )}
+                      <Trans>Choose files</Trans>
                     </Button>
-                  </div>
-                ) : (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={fileImportMutation.isPending}
-                    onClick={() => fileImportMutation.mutate(provider)}
-                  >
-                    {importing ? (
-                      <CircleNotch className="size-3.5 animate-spin" />
-                    ) : (
-                      <DownloadSimple className="size-3.5" />
-                    )}
-                    <Trans>Choose files</Trans>
-                  </Button>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      ) : null}
 
       {onContinue && latestResult ? (
         <Button
