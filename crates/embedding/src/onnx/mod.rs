@@ -36,7 +36,7 @@ impl EmbeddingExtractor {
     }
 
     pub fn from_model_bytes(model_bytes: &[u8]) -> Result<Self> {
-        let session = anlg_onnx::load_model_from_bytes(model_bytes)?;
+        let session = anlg_onnx::load_model_from_bytes_accelerated(model_bytes)?;
         Ok(Self {
             session,
             config: EmbeddingConfig::default(),
