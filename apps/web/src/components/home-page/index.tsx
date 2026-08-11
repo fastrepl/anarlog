@@ -38,7 +38,7 @@ export function HomePage({
 
           <OpenSourceSection formattedGithubStars={formattedGithubStars} />
 
-          <PricingSection />
+          <PricingSection compareLink />
 
           <section id="manifesto" className="pt-28 pb-14 md:pt-32 md:pb-16">
             <article
