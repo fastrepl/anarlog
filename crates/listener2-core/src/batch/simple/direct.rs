@@ -243,11 +243,40 @@ pub(super) fn merge_segment_responses(
     segment_duration: Duration,
 ) -> Response {
     let mut metadata = serde_json::Value::Null;
+    let mut speaker_labels = Vec::new();
+    let mut speaker_segments = Vec::new();
+    let mut speaker_offset = 0;
     let mut transcripts: Vec<String> = Vec::new();
     let mut words = Vec::new();
 
     for (index, response) in responses.into_iter().enumerate() {
         let offset = segment_duration.as_secs_f64() * index as f64;
+        let segment_speaker_labels = response
+            .metadata
+            .get("speaker_labels")
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        speaker_labels.extend(segment_speaker_labels.iter().cloned());
+        speaker_segments.extend(
+            response
+                .metadata
+                .get("speaker_segments")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+                .cloned()
+                .map(|mut segment| {
+                    for field in ["start", "end"] {
+                        if let Some(value) = segment.get_mut(field)
+                            && let Some(time) = value.as_f64()
+                        {
+                            *value = serde_json::json!(time + offset);
+                        }
+                    }
+                    segment
+                }),
+        );
         if metadata.is_null() {
             metadata = response.metadata;
         }
@@ -266,11 +295,35 @@ pub(super) fn merge_segment_responses(
         if !transcript.is_empty() {
             transcripts.push(transcript.to_string());
         }
+        let segment_speaker_count = alternative
+            .words
+            .iter()
+            .filter_map(|word| word.speaker)
+            .max()
+            .map_or(0, |speaker| speaker + 1)
+            .max(segment_speaker_labels.len());
         words.extend(alternative.words.into_iter().map(|mut word| {
             word.start += offset;
             word.end += offset;
+            word.speaker = word.speaker.map(|speaker| speaker + speaker_offset);
             word
         }));
+        speaker_offset += segment_speaker_count;
+    }
+
+    if let Some(object) = metadata.as_object_mut() {
+        if !speaker_labels.is_empty() {
+            object.insert(
+                "speaker_labels".to_string(),
+                serde_json::Value::Array(speaker_labels),
+            );
+        }
+        if !speaker_segments.is_empty() {
+            object.insert(
+                "speaker_segments".to_string(),
+                serde_json::Value::Array(speaker_segments),
+            );
+        }
     }
 
     Response {

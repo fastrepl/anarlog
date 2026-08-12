@@ -331,6 +331,7 @@ mod tests {
         axum::extract::State(requests): axum::extract::State<
             std::sync::Arc<std::sync::atomic::AtomicUsize>,
         >,
+        _body: axum::body::Bytes,
     ) -> impl axum::response::IntoResponse {
         let index = requests.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let body = format!(

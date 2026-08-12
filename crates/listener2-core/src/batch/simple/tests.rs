@@ -236,6 +236,52 @@ fn merges_segment_transcripts_onto_a_single_timeline() {
     assert_eq!(merged.metadata["provider"], "openrouter");
 }
 
+#[test]
+fn keeps_diarized_segment_speakers_distinct() {
+    let segment = |label: &str, speaker: usize, start: f64| Response {
+        metadata: serde_json::json!({
+            "speaker_labels": [label],
+            "speaker_segments": [{
+                "speaker": label,
+                "start": start,
+                "end": start + 0.5,
+            }],
+        }),
+        results: owhisper_interface::batch::Results {
+            channels: vec![owhisper_interface::batch::Channel {
+                alternatives: vec![owhisper_interface::batch::Alternatives {
+                    transcript: label.to_string(),
+                    confidence: 1.0,
+                    words: vec![owhisper_interface::batch::Word {
+                        word: label.to_string(),
+                        start,
+                        end: start + 0.5,
+                        confidence: 1.0,
+                        channel: 0,
+                        speaker: Some(speaker),
+                        punctuated_word: None,
+                    }],
+                }],
+            }],
+        },
+    };
+
+    let merged = merge_segment_responses(
+        vec![segment("speaker_a", 0, 1.0), segment("speaker_b", 0, 2.0)],
+        Duration::from_secs(600),
+    );
+
+    let alternative = &merged.results.channels[0].alternatives[0];
+    assert_eq!(alternative.words[0].speaker, Some(0));
+    assert_eq!(alternative.words[1].speaker, Some(1));
+    assert_eq!(
+        merged.metadata["speaker_labels"],
+        serde_json::json!(["speaker_a", "speaker_b"])
+    );
+    assert_eq!(merged.metadata["speaker_segments"][0]["start"], 1.0);
+    assert_eq!(merged.metadata["speaker_segments"][1]["start"], 602.0);
+}
+
 #[tokio::test]
 async fn oversized_audio_is_uploaded_one_segment_at_a_time() {
     SEGMENT_UPLOADS.lock().unwrap().clear();
