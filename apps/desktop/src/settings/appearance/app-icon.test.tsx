@@ -14,6 +14,11 @@ const mocks = vi.hoisted(() => ({
   appIcon: "default",
   theme: "system",
   appIdentifier: "com.hyprnote.stable" as string | undefined,
+  billing: {
+    isPro: true,
+    isUpgradingToPro: false,
+    upgradeToPro: vi.fn(),
+  },
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -30,6 +35,10 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 
 vi.mock("~/settings/queries", () => ({
   useSetSettingValue: () => mocks.setAppIcon,
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => mocks.billing,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -51,6 +60,8 @@ describe("AppIconSelector", () => {
     mocks.appIcon = "default";
     mocks.theme = "system";
     mocks.appIdentifier = "com.hyprnote.stable";
+    mocks.billing.isPro = true;
+    mocks.billing.isUpgradingToPro = false;
   });
 
   const iconOptions = () =>
@@ -81,6 +92,23 @@ describe("AppIconSelector", () => {
 
     expect(mocks.applyAppIconPreference).toHaveBeenCalledWith("dev", "system");
     expect(mocks.setAppIcon).toHaveBeenCalledWith("dev");
+  });
+
+  it("offers a Pro upgrade instead of changing icons on the free plan", () => {
+    mocks.billing.isPro = false;
+
+    render(<AppIconSelector />);
+
+    const defaultOption = screen.getByRole("radio", { name: "Default" });
+    const blueprintOption = screen.getByRole("radio", { name: "Blueprint" });
+    expect(defaultOption.getAttribute("aria-disabled")).toBe("false");
+    expect(blueprintOption.getAttribute("aria-disabled")).toBe("true");
+
+    fireEvent.click(blueprintOption);
+
+    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.applyAppIconPreference).not.toHaveBeenCalled();
+    expect(mocks.setAppIcon).not.toHaveBeenCalled();
   });
 
   it("previews both schemes for the system theme", () => {
