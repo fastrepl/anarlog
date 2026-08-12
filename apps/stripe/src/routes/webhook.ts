@@ -6,6 +6,7 @@ import { env } from "../env";
 import { captureOperationalError } from "../error-reporting";
 import type { AppBindings } from "../hono-bindings";
 import { stripeSync } from "../integration/stripe-sync";
+import { sendSubscriptionWelcomeEmail } from "../subscription-welcome-email";
 import { sendTrialEndingEmail } from "../trial-emails";
 
 export const webhook = new Hono<AppBindings>();
@@ -65,6 +66,17 @@ webhook.post("/stripe", async (c) => {
     captureOperationalError(error, {
       operation: "billing_analytics_capture",
       level: "warning",
+      tags: {
+        event_type: stripeEvent.type,
+      },
+    });
+  }
+
+  try {
+    await sendSubscriptionWelcomeEmail(stripeEvent);
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "subscription_welcome_email_send",
       tags: {
         event_type: stripeEvent.type,
       },
