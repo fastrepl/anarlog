@@ -2,6 +2,19 @@
 -- billing survives an ownership transfer and members inherit entitlement from
 -- the workspace subscription instead of buying their own.
 
+BEGIN;
+
+SET LOCAL lock_timeout = '30s';
+
+-- Token refreshes read auth.users before the workspace tables. Lock in that
+-- same order so concurrent refreshes cannot deadlock against this migration.
+LOCK TABLE
+  auth.users,
+  public.workspaces,
+  public.workspace_memberships,
+  public.workspace_invitations
+IN ACCESS EXCLUSIVE MODE;
+
 ALTER TABLE public.workspaces
   ADD COLUMN stripe_customer_id text,
   ADD COLUMN seat_limit integer,
@@ -304,3 +317,5 @@ BEGIN
   RETURN event;
 END;
 $$;
+
+COMMIT;
