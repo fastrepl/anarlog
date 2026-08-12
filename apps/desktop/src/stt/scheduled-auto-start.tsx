@@ -10,6 +10,7 @@ import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
+import { hasScheduledAutoStartInFlight } from "~/stt/scheduled-auto-start-state";
 
 // A meeting that started while the app was asleep or quit is still worth
 // recording, but only briefly — reopening hours later must not start capturing
@@ -160,7 +161,10 @@ export function ScheduledMeetingAutoStart() {
         });
       }
 
-      if (hasPendingAutoStart(useTabs.getState().tabs)) {
+      if (
+        hasScheduledAutoStartInFlight() ||
+        hasPendingAutoStart(useTabs.getState().tabs)
+      ) {
         return;
       }
 

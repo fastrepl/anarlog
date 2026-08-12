@@ -40,6 +40,10 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { consumePendingUpload } from "~/stt/pending-upload";
+import {
+  beginScheduledAutoStart,
+  finishScheduledAutoStart,
+} from "~/stt/scheduled-auto-start-state";
 import { useStartListening } from "~/stt/useStartListening";
 import { useSTTConnection } from "~/stt/useSTTConnection";
 import { useUploadFile } from "~/stt/useUploadFile";
@@ -136,17 +140,15 @@ function AutoStartListening({
     }
 
     hasAttemptedAutoStart.current = true;
-    const timeout = setTimeout(() => {
-      clearPendingAutoStart(tab.id);
-    }, 30_000);
+    beginScheduledAutoStart(tab.id);
+    clearPendingAutoStart(tab.id);
 
     void startListening()
       .catch((error) => {
         console.error("[listener] failed to auto-start session", error);
       })
       .finally(() => {
-        clearTimeout(timeout);
-        clearPendingAutoStart(tab.id);
+        finishScheduledAutoStart(tab.id);
       });
   }, [canStartLiveSession, conn, startListening, tab.id]);
 
