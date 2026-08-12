@@ -55,6 +55,7 @@ impl CatalogStore {
         catalog.resolve_query(pool, sql).await
     }
 
+    #[cfg(test)]
     pub(crate) async fn canonicalize_raw_tables(
         &self,
         pool: &SqlitePool,
@@ -72,6 +73,34 @@ impl CatalogStore {
         for raw_table in raw_tables {
             if let Some(mapped) = catalog.raw_to_targets.get(raw_table) {
                 targets.extend(mapped.iter().cloned());
+            }
+        }
+
+        Ok(targets)
+    }
+
+    pub(crate) async fn canonicalize_raw_table_sequences(
+        &self,
+        pool: &SqlitePool,
+        raw_tables: &HashMap<String, u64>,
+    ) -> Result<HashMap<DependencyTarget, u64>, sqlx::Error> {
+        let mut catalog = self.catalog(pool, false).await?;
+        if raw_tables
+            .keys()
+            .any(|name| !catalog.objects.contains_key(name))
+        {
+            catalog = self.catalog(pool, true).await?;
+        }
+
+        let mut targets = HashMap::<DependencyTarget, u64>::new();
+        for (raw_table, seq) in raw_tables {
+            if let Some(mapped) = catalog.raw_to_targets.get(raw_table) {
+                for target in mapped {
+                    targets
+                        .entry(target.clone())
+                        .and_modify(|target_seq| *target_seq = (*target_seq).max(*seq))
+                        .or_insert(*seq);
+                }
             }
         }
 

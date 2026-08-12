@@ -15,9 +15,9 @@ pub(super) use background::cloudsync_activity_paused;
 use background::{
     CLOUDSYNC_PROGRESS_INTERVAL, CloudsyncWake, MAX_ACTIVITY_LOG_ENTRIES, cloudsync_busy_delay,
     cloudsync_next_delay, cloudsync_request_pending, cloudsync_wake_deadline,
-    drain_pending_changes, merge_bounded_sync_results, next_synced_change, run_after_sync_hook,
-    run_before_sync_hook, run_or_shutdown, sync_result_needs_receive_progress,
-    wait_for_retry_request_or_shutdown,
+    drain_pending_changes, merge_bounded_sync_results, next_synced_change,
+    pending_cloudsync_payload_exists, run_after_sync_hook, run_before_sync_hook, run_or_shutdown,
+    sync_result_needs_receive_progress, wait_for_retry_request_or_shutdown,
 };
 use background::{
     CloudsyncLoopConfig, CloudsyncLoopContext, CloudsyncStepOutcome, cancel_active_sync_hook,

@@ -130,7 +130,7 @@ struct EncryptedRecord {
 #[derive(sqlx::FromRow)]
 struct EncryptedRecordMetadata {
     id: String,
-    workspace_id: String,
+    generation: i64,
     record_bytes: i64,
     witnessed: bool,
     changed: bool,

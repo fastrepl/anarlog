@@ -594,11 +594,29 @@ async fn bounded_received_preflight_skips_foreign_and_unwitnessed_prefixes() {
     .await
     .unwrap();
 
-    let stats = apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, false)
+    let mut rejected_unwitnessed = 0;
+    for _ in 0..6 {
+        let stats =
+            apply_received_e2ee_replica_changes_with_witness(db.pool(), &workspace_keys, false)
+                .await
+                .unwrap();
+        assert!(
+            stats.rejected_unwitnessed <= u64::try_from(E2EE_APPLY_PREFLIGHT_RECORD_LIMIT).unwrap()
+        );
+        rejected_unwitnessed += stats.rejected_unwitnessed;
+        if sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM sessions WHERE id = 'witnessed-session'",
+        )
+        .fetch_one(db.pool())
         .await
-        .unwrap();
+        .unwrap()
+            == 1
+        {
+            break;
+        }
+    }
 
-    assert!(stats.rejected_unwitnessed >= 256);
+    assert!(rejected_unwitnessed >= 256);
     assert_eq!(
         sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM sessions WHERE id = 'witnessed-session'",
@@ -763,7 +781,7 @@ async fn failed_remote_apply_rolls_back_the_guard() {
 }
 
 #[tokio::test]
-async fn replica_apply_scan_selects_only_records_that_need_work() {
+async fn replica_apply_scan_bounds_payload_comparisons_before_filtering() {
     let workspace_keys = keys("workspace-a");
     let target = test_db().await;
     sqlx::query(
@@ -809,7 +827,20 @@ async fn replica_apply_scan_selects_only_records_that_need_work() {
         .await
         .unwrap();
 
-    let changed = load_changed_e2ee_record_metadata(target.pool(), &workspace_keys, None)
+    let changed = load_changed_e2ee_record_metadata(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    assert_eq!(
+        changed.len(),
+        usize::try_from(E2EE_APPLY_PREFLIGHT_RECORD_LIMIT).unwrap()
+    );
+    assert!(changed.iter().all(|record| !record.changed));
+
+    sqlx::query("DELETE FROM e2ee_replica_pending WHERE record_id != 'record-255'")
+        .execute(target.pool())
+        .await
+        .unwrap();
+    let changed = load_changed_e2ee_record_metadata(target.pool(), &workspace_keys)
         .await
         .unwrap();
     assert_eq!(changed.len(), 1);

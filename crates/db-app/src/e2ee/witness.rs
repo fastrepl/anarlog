@@ -61,6 +61,18 @@ struct WitnessRecord {
     sequence: i64,
 }
 
+#[derive(sqlx::FromRow)]
+struct WitnessRepairRow {
+    workspace_id: String,
+    record_id: String,
+    revision: i64,
+    writer_id: String,
+    payload_hash: String,
+    payload: String,
+    sequence: i64,
+    generation: i64,
+}
+
 pub async fn e2ee_witness_cursor(pool: &SqlitePool, workspace_id: &str) -> E2eeReplicaResult<u64> {
     let sequence: Option<i64> =
         sqlx::query_scalar("SELECT last_sequence FROM e2ee_witness_state WHERE workspace_id = ?")
@@ -474,7 +486,7 @@ async fn repair_e2ee_replica_from_witness_bounded_inner(
         return Ok(outcome);
     }
 
-    let (records, selected_more) = load_bounded_e2ee_witness_repairs(
+    let records = load_bounded_e2ee_witness_repairs(
         pool,
         keys,
         include_missing,
@@ -488,7 +500,13 @@ async fn repair_e2ee_replica_from_witness_bounded_inner(
     check_e2ee_cancellation(is_cancelled)?;
     Ok(E2eeWitnessRepairOutcome {
         repaired_records,
-        remaining: selected_more,
+        remaining: has_pending_e2ee_witness_repairs_inner(
+            pool,
+            keys,
+            include_missing,
+            is_cancelled,
+        )
+        .await?,
     })
 }
 
@@ -515,10 +533,36 @@ async fn has_pending_e2ee_witness_repairs_inner(
     include_missing: bool,
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<bool> {
-    let (records, _) =
-        load_bounded_e2ee_witness_repairs(pool, keys, include_missing, 1, usize::MAX, is_cancelled)
-            .await?;
-    Ok(!records.is_empty())
+    check_e2ee_cancellation(is_cancelled)?;
+    if keys.is_empty() {
+        return Ok(false);
+    }
+    let mut workspace_ids = keys.keys().collect::<Vec<_>>();
+    workspace_ids.sort_unstable();
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "SELECT EXISTS(
+           SELECT 1
+           FROM e2ee_witness_repair_pending AS pending
+           INNER JOIN e2ee_witness_records AS witness
+             ON witness.workspace_id = pending.workspace_id
+            AND witness.record_id = pending.record_id",
+    );
+    if !include_missing {
+        query.push(
+            " INNER JOIN e2ee_records AS replica
+                ON replica.id = pending.record_id
+               AND replica.workspace_id = pending.workspace_id",
+        );
+    }
+    query.push(" WHERE pending.workspace_id IN (");
+    let mut separated = query.separated(", ");
+    for workspace_id in workspace_ids {
+        separated.push_bind(workspace_id);
+    }
+    separated.push_unseparated(") LIMIT 1)");
+    let pending = query.build_query_scalar().fetch_one(pool).await?;
+    check_e2ee_cancellation(is_cancelled)?;
+    Ok(pending)
 }
 
 async fn load_bounded_e2ee_witness_repairs(
@@ -528,10 +572,10 @@ async fn load_bounded_e2ee_witness_repairs(
     max_records: i64,
     max_bytes: usize,
     is_cancelled: &(impl Fn() -> bool + Sync),
-) -> E2eeReplicaResult<(Vec<WitnessRecord>, bool)> {
+) -> E2eeReplicaResult<Vec<(WitnessRecord, i64)>> {
     check_e2ee_cancellation(is_cancelled)?;
     if keys.is_empty() || max_records <= 0 {
-        return Ok((Vec::new(), false));
+        return Ok(Vec::new());
     }
     let max_records =
         usize::try_from(max_records).map_err(|_| E2eeReplicaError::WitnessRepairTooLarge)?;
@@ -544,146 +588,98 @@ async fn load_bounded_e2ee_witness_repairs(
         ),
     );
     let mut selected_bytes = 0_usize;
-    let mut after: Option<(String, String)> = None;
-    loop {
-        check_e2ee_cancellation(is_cancelled)?;
-        let mut metadata_query = QueryBuilder::<Sqlite>::new(
-            "WITH page AS MATERIALIZED (
-               SELECT
-                 witness.workspace_id,
-                 witness.record_id,
-                 LENGTH(CAST(witness.workspace_id AS BLOB))
-                   + LENGTH(CAST(witness.record_id AS BLOB))
-                   + LENGTH(CAST(witness.payload AS BLOB))
-                   + 256 AS record_bytes
-               FROM e2ee_witness_records AS witness
-               WHERE witness.workspace_id IN (",
-        );
-        {
-            let mut separated = metadata_query.separated(", ");
-            for workspace_id in &workspace_ids {
-                separated.push_bind(workspace_id);
-            }
+    let mut metadata_query = QueryBuilder::<Sqlite>::new(
+        "WITH page AS MATERIALIZED (
+           SELECT pending.workspace_id, pending.record_id, pending.generation
+           FROM e2ee_witness_repair_pending AS pending
+           INDEXED BY idx_e2ee_witness_repair_pending_workspace_record
+           WHERE pending.workspace_id IN (",
+    );
+    {
+        let mut separated = metadata_query.separated(", ");
+        for workspace_id in &workspace_ids {
+            separated.push_bind(workspace_id);
         }
-        metadata_query.push(")");
-        if let Some((after_workspace_id, after_record_id)) = &after {
-            metadata_query
-                .push(" AND (witness.workspace_id > ")
-                .push_bind(after_workspace_id)
-                .push(" OR (witness.workspace_id = ")
-                .push_bind(after_workspace_id)
-                .push(" AND witness.record_id > ")
-                .push_bind(after_record_id)
-                .push("))");
-        }
-        metadata_query
-            .push(" ORDER BY witness.workspace_id, witness.record_id LIMIT ")
-            .push_bind(E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT)
-            .push(
-                ")
-             SELECT
-               witness.workspace_id,
-               witness.record_id,
-               page.record_bytes,
-               (
-                 (replica.id IS NULL AND ",
-            )
-            .push_bind(include_missing)
-            .push(
-                ")
-                 OR (
-                   replica.id IS NOT NULL
-                   AND (
-                     replica.workspace_id != witness.workspace_id
-                     OR replica.payload != witness.payload
-                   )
-                 )
-               ) AS needs_repair
-             FROM page
-             INNER JOIN e2ee_witness_records AS witness
-               ON witness.workspace_id = page.workspace_id
-              AND witness.record_id = page.record_id
-             LEFT JOIN e2ee_records AS replica
-               ON replica.id = witness.record_id
-             ORDER BY witness.workspace_id, witness.record_id",
-            );
-        let metadata: Vec<(String, String, i64, bool)> =
-            metadata_query.build_query_as().fetch_all(pool).await?;
-        check_e2ee_cancellation(is_cancelled)?;
-        if metadata.is_empty() {
-            return finish_e2ee_witness_repair_selection(pool, &selected_keys, false, is_cancelled)
-                .await;
-        }
-        let page_is_full = metadata.len()
-            == usize::try_from(E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT)
-                .map_err(|_| E2eeReplicaError::InvalidRow)?;
-        let page_after = metadata
-            .last()
-            .map(|(workspace_id, record_id, _, _)| (workspace_id.clone(), record_id.clone()))
-            .ok_or(E2eeReplicaError::InvalidRow)?;
-
-        for (workspace_id, record_id, record_bytes, needs_repair) in metadata {
-            if !needs_repair {
-                continue;
-            }
-            if selected_keys.len() >= max_records {
-                return finish_e2ee_witness_repair_selection(
-                    pool,
-                    &selected_keys,
-                    true,
-                    is_cancelled,
-                )
-                .await;
-            }
-            let record_bytes =
-                usize::try_from(record_bytes).map_err(|_| E2eeReplicaError::InvalidRow)?;
-            if selected_bytes.saturating_add(record_bytes) > max_bytes {
-                if selected_keys.is_empty() {
-                    return Err(E2eeReplicaError::WitnessRepairTooLarge);
-                }
-                return finish_e2ee_witness_repair_selection(
-                    pool,
-                    &selected_keys,
-                    true,
-                    is_cancelled,
-                )
-                .await;
-            }
-            selected_bytes = selected_bytes.saturating_add(record_bytes);
-            selected_keys.push((workspace_id, record_id));
-            if selected_keys.len() >= max_records {
-                return finish_e2ee_witness_repair_selection(
-                    pool,
-                    &selected_keys,
-                    true,
-                    is_cancelled,
-                )
-                .await;
-            }
-        }
-
-        if !page_is_full {
-            return finish_e2ee_witness_repair_selection(pool, &selected_keys, false, is_cancelled)
-                .await;
-        }
-        after = Some(page_after);
-        yield_once().await;
     }
+    metadata_query
+        .push(") ORDER BY pending.workspace_id, pending.record_id LIMIT ")
+        .push_bind(E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT)
+        .push(
+            ")
+         SELECT
+           page.workspace_id,
+           page.record_id,
+           page.generation,
+           COALESCE(
+             LENGTH(CAST(witness.workspace_id AS BLOB))
+               + LENGTH(CAST(witness.record_id AS BLOB))
+               + LENGTH(CAST(witness.payload AS BLOB))
+               + 256,
+             0
+           ) AS record_bytes,
+           witness.record_id IS NOT NULL
+             AND (
+               (replica.id IS NULL AND ",
+        )
+        .push_bind(include_missing)
+        .push(
+            ")
+               OR (
+                 replica.id IS NOT NULL
+                 AND (
+                   replica.workspace_id != witness.workspace_id
+                   OR replica.payload != witness.payload
+                 )
+               )
+             ) AS needs_repair
+         FROM page
+         LEFT JOIN e2ee_witness_records AS witness
+           ON witness.workspace_id = page.workspace_id
+          AND witness.record_id = page.record_id
+         LEFT JOIN e2ee_records AS replica
+           ON replica.id = page.record_id
+         ORDER BY page.workspace_id, page.record_id",
+        );
+    let metadata: Vec<(String, String, i64, i64, bool)> =
+        metadata_query.build_query_as().fetch_all(pool).await?;
+    check_e2ee_cancellation(is_cancelled)?;
+    let mut reconciled = Vec::new();
+    for (workspace_id, record_id, generation, record_bytes, needs_repair) in metadata {
+        if !needs_repair {
+            reconciled.push((record_id, generation));
+            continue;
+        }
+        if selected_keys.len() >= max_records {
+            break;
+        }
+        let record_bytes =
+            usize::try_from(record_bytes).map_err(|_| E2eeReplicaError::InvalidRow)?;
+        if selected_bytes.saturating_add(record_bytes) > max_bytes {
+            if selected_keys.is_empty() {
+                return Err(E2eeReplicaError::WitnessRepairTooLarge);
+            }
+            break;
+        }
+        selected_bytes = selected_bytes.saturating_add(record_bytes);
+        selected_keys.push((workspace_id, record_id, generation));
+    }
+    delete_reconciled_witness_repairs(pool, &reconciled, is_cancelled).await?;
+    finish_e2ee_witness_repair_selection(pool, &selected_keys, is_cancelled).await
 }
 
 async fn finish_e2ee_witness_repair_selection(
     pool: &SqlitePool,
-    selected_keys: &[(String, String)],
-    remaining: bool,
+    selected_keys: &[(String, String, i64)],
     is_cancelled: &(impl Fn() -> bool + Sync),
-) -> E2eeReplicaResult<(Vec<WitnessRecord>, bool)> {
+) -> E2eeReplicaResult<Vec<(WitnessRecord, i64)>> {
     check_e2ee_cancellation(is_cancelled)?;
     if selected_keys.is_empty() {
-        return Ok((Vec::new(), remaining));
+        return Ok(Vec::new());
     }
-    let mut query = QueryBuilder::<Sqlite>::new("WITH wanted(workspace_id, record_id) AS (");
+    let mut query =
+        QueryBuilder::<Sqlite>::new("WITH wanted(workspace_id, record_id, generation) AS (");
     query.push_values(selected_keys, |mut row, key| {
-        row.push_bind(&key.0).push_bind(&key.1);
+        row.push_bind(&key.0).push_bind(&key.1).push_bind(key.2);
     });
     query.push(
         ")
@@ -694,36 +690,54 @@ async fn finish_e2ee_witness_repair_selection(
            witness.writer_id,
            witness.payload_hash,
            witness.payload,
-           witness.sequence
+           witness.sequence,
+           wanted.generation
          FROM wanted
          INNER JOIN e2ee_witness_records AS witness
            ON witness.workspace_id = wanted.workspace_id
           AND witness.record_id = wanted.record_id
          ORDER BY witness.workspace_id, witness.record_id",
     );
-    let records: Vec<WitnessRecord> = query.build_query_as().fetch_all(pool).await?;
+    let records: Vec<WitnessRepairRow> = query.build_query_as().fetch_all(pool).await?;
     check_e2ee_cancellation(is_cancelled)?;
     if records.len() != selected_keys.len()
-        || !records
-            .iter()
-            .zip(selected_keys)
-            .all(|(record, (workspace_id, record_id))| {
-                &record.workspace_id == workspace_id && &record.record_id == record_id
-            })
+        || !records.iter().zip(selected_keys).all(
+            |(record, (workspace_id, record_id, generation))| {
+                &record.workspace_id == workspace_id
+                    && &record.record_id == record_id
+                    && record.generation == *generation
+            },
+        )
     {
         return Err(E2eeReplicaError::InvalidRow);
     }
-    Ok((records, remaining))
+    Ok(records
+        .into_iter()
+        .map(|record| {
+            (
+                WitnessRecord {
+                    workspace_id: record.workspace_id,
+                    record_id: record.record_id,
+                    revision: record.revision,
+                    writer_id: record.writer_id,
+                    payload_hash: record.payload_hash,
+                    payload: record.payload,
+                    sequence: record.sequence,
+                },
+                record.generation,
+            )
+        })
+        .collect())
 }
 
 async fn persist_e2ee_witness_repairs(
     pool: &SqlitePool,
     keys: &HashMap<String, WorkspaceKey>,
-    records: &[WitnessRecord],
+    records: &[(WitnessRecord, i64)],
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<u64> {
     let mut repaired_records = 0_u64;
-    for record in records {
+    for (record, pending_generation) in records {
         check_e2ee_cancellation(is_cancelled)?;
         let key = keys
             .get(&record.workspace_id)
@@ -766,6 +780,11 @@ async fn persist_e2ee_witness_repairs(
             },
         );
         if !current_matches {
+            delete_reconciled_witness_repairs_in_transaction(
+                &mut transaction,
+                &[(record.record_id.clone(), *pending_generation)],
+            )
+            .await?;
             transaction.commit().await?;
             check_e2ee_cancellation(is_cancelled)?;
             continue;
@@ -809,10 +828,50 @@ async fn persist_e2ee_witness_repairs(
         } else {
             repaired_records += 1;
         }
+        sqlx::query("DELETE FROM e2ee_witness_repair_pending WHERE record_id = ?")
+            .bind(&record.record_id)
+            .execute(&mut *transaction)
+            .await?;
         transaction.commit().await?;
         check_e2ee_cancellation(is_cancelled)?;
     }
     Ok(repaired_records)
+}
+
+async fn delete_reconciled_witness_repairs(
+    pool: &SqlitePool,
+    entries: &[(String, i64)],
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<()> {
+    if entries.is_empty() {
+        return Ok(());
+    }
+    check_e2ee_cancellation(is_cancelled)?;
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+        transaction.rollback().await?;
+        return Err(error);
+    }
+    delete_reconciled_witness_repairs_in_transaction(&mut transaction, entries).await?;
+    transaction.commit().await?;
+    check_e2ee_cancellation(is_cancelled)
+}
+
+async fn delete_reconciled_witness_repairs_in_transaction(
+    transaction: &mut Transaction<'_, Sqlite>,
+    entries: &[(String, i64)],
+) -> E2eeReplicaResult<()> {
+    if entries.is_empty() {
+        return Ok(());
+    }
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "DELETE FROM e2ee_witness_repair_pending WHERE (record_id, generation) IN (",
+    );
+    query.push_values(entries, |mut row, (record_id, generation)| {
+        row.push_bind(record_id).push_bind(generation);
+    });
+    query.push(")").build().execute(&mut **transaction).await?;
+    Ok(())
 }
 
 async fn upsert_witness_record(

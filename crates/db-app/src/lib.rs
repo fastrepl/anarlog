@@ -317,6 +317,18 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260811100000_drop_api_keys.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260812100000_e2ee_reconciliation_queues",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260812100000_e2ee_reconciliation_queues.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260812100100_e2ee_replica_reconciliation_triggers",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "e2ee_records",
+        },
+        sql: include_str!("../migrations/20260812100100_e2ee_replica_reconciliation_triggers.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

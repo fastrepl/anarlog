@@ -158,6 +158,64 @@ fn e2ee_witness_pending_is_local_only_and_checksum_is_pinned() {
 }
 
 #[tokio::test]
+async fn e2ee_reconciliation_queues_are_local_and_track_replica_changes() {
+    let queue_migration = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260812100000_e2ee_reconciliation_queues")
+        .unwrap();
+    let trigger_migration = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260812100100_e2ee_replica_reconciliation_triggers")
+        .unwrap();
+    assert_eq!(
+        queue_migration.scope,
+        anlg_db_migrate::MigrationScope::Plain
+    );
+    assert_eq!(
+        trigger_migration.scope,
+        anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "e2ee_records"
+        }
+    );
+    for table_name in ["e2ee_replica_pending", "e2ee_witness_repair_pending"] {
+        assert!(
+            !cloudsync_table_registry()
+                .iter()
+                .any(|table| table.table_name == table_name)
+        );
+        assert!(!cloudsync_alter_guard_required(table_name));
+    }
+
+    let db = test_db().await;
+    sqlx::query(
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+         VALUES ('record-1', 'workspace-a', 'payload-1')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query("UPDATE e2ee_records SET payload = 'payload-2' WHERE id = 'record-1'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    let replica_generation: i64 = sqlx::query_scalar(
+        "SELECT generation FROM e2ee_replica_pending WHERE record_id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    let repair_generation: i64 = sqlx::query_scalar(
+        "SELECT generation FROM e2ee_witness_repair_pending WHERE record_id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(replica_generation, 2);
+    assert_eq!(repair_generation, 2);
+}
+
+#[tokio::test]
 async fn e2ee_witness_pending_migration_seeds_only_dominating_local_state() {
     let db = Db::connect_memory_plain().await.unwrap();
     anlg_db_migrate::migrate(

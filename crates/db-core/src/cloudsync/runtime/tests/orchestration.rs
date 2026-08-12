@@ -126,6 +126,33 @@ impl crate::CloudsyncSyncHook for RecordingSyncHook {
 }
 
 #[tokio::test]
+async fn pending_payload_preflight_skips_clean_databases() {
+    let db = Db::connect_memory().await.unwrap();
+    sqlx::query("CREATE TABLE items (id TEXT PRIMARY KEY NOT NULL)")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    db.cloudsync_init("items", None, None).await.unwrap();
+    let mut connection = db.pool().acquire().await.unwrap();
+
+    assert!(
+        !pending_cloudsync_payload_exists(&mut connection, &db.cloudsync_interrupt)
+            .await
+            .unwrap()
+    );
+
+    sqlx::query("INSERT INTO items (id) VALUES ('pending')")
+        .execute(&mut *connection)
+        .await
+        .unwrap();
+    assert!(
+        pending_cloudsync_payload_exists(&mut connection, &db.cloudsync_interrupt)
+            .await
+            .unwrap()
+    );
+}
+
+#[tokio::test]
 async fn before_sync_hook_can_select_receive_only_transport() {
     let db = Db::connect_memory_plain().await.unwrap();
     let recording_hook = Arc::new(RecordingSyncHook {

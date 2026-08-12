@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::broadcast::error::{RecvError, TryRecvError};
@@ -60,7 +60,6 @@ impl<S: QueryEventSink> LiveQueryRuntime<S> {
                         let Some(jobs) = jobs else {
                             break;
                         };
-                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
                         if jobs.is_empty() {
                             continue;
                         }
@@ -215,8 +214,7 @@ impl<S: QueryEventSink> LiveQueryRuntime<S> {
 
 enum ChangeBatch {
     ChangedTables {
-        changed_tables: HashSet<String>,
-        trigger_seq: u64,
+        changed_tables: HashMap<String, u64>,
     },
     RerunAll {
         trigger_seq: u64,
@@ -239,11 +237,14 @@ async fn receive_change_batch(
     change_notifier: &ChangeNotifier,
 ) -> Option<ChangeBatch> {
     match change_rx.recv().await {
-        Ok(first_change) => Some(drain_buffered_changes(
-            change_rx,
-            change_notifier,
-            first_change,
-        )),
+        Ok(first_change) => {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            Some(drain_buffered_changes(
+                change_rx,
+                change_notifier,
+                first_change,
+            ))
+        }
         Err(RecvError::Closed) => None,
         Err(RecvError::Lagged(_)) => Some(rerun_all_batch(change_rx, change_notifier)),
     }
@@ -254,20 +255,18 @@ fn drain_buffered_changes(
     change_notifier: &ChangeNotifier,
     first_change: TableChange,
 ) -> ChangeBatch {
-    let mut changed_tables = HashSet::from([first_change.table]);
-    let mut trigger_seq = first_change.seq;
+    let mut changed_tables = HashMap::from([(first_change.table, first_change.seq)]);
 
     loop {
         match change_rx.try_recv() {
             Ok(next_change) => {
-                trigger_seq = trigger_seq.max(next_change.seq);
-                changed_tables.insert(next_change.table);
+                changed_tables
+                    .entry(next_change.table)
+                    .and_modify(|seq| *seq = (*seq).max(next_change.seq))
+                    .or_insert(next_change.seq);
             }
             Err(TryRecvError::Empty) | Err(TryRecvError::Closed) => {
-                return ChangeBatch::ChangedTables {
-                    changed_tables,
-                    trigger_seq,
-                };
+                return ChangeBatch::ChangedTables { changed_tables };
             }
             Err(TryRecvError::Lagged(_)) => return rerun_all_batch(change_rx, change_notifier),
         }
@@ -300,20 +299,16 @@ async fn collect_refresh_jobs<S>(
     batch: ChangeBatch,
 ) -> Vec<RefreshJob> {
     match batch {
-        ChangeBatch::ChangedTables {
-            changed_tables,
-            trigger_seq,
-        } => match catalog
-            .canonicalize_raw_tables(db.pool(), &changed_tables)
-            .await
-        {
-            Ok(changed_targets) => {
-                subscriptions
-                    .collect_jobs(&changed_targets, trigger_seq)
-                    .await
+        ChangeBatch::ChangedTables { changed_tables } => {
+            let trigger_seq = changed_tables.values().copied().max().unwrap_or_default();
+            match catalog
+                .canonicalize_raw_table_sequences(db.pool(), &changed_tables)
+                .await
+            {
+                Ok(changed_targets) => subscriptions.collect_jobs(&changed_targets).await,
+                Err(_) => subscriptions.collect_all_jobs(trigger_seq).await,
             }
-            Err(_) => subscriptions.collect_all_jobs(trigger_seq).await,
-        },
+        }
         ChangeBatch::RerunAll { trigger_seq } => subscriptions.collect_all_jobs(trigger_seq).await,
     }
 }
@@ -445,6 +440,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    use anlg_db_change::TableChangeKind;
     use anlg_db_core::{DbOpenOptions, DbStorage};
     use serde_json::json;
 
@@ -454,6 +450,35 @@ mod tests {
     fn hook_test_lock() -> &'static tokio::sync::Mutex<()> {
         static LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
         LOCK.get_or_init(|| tokio::sync::Mutex::new(()))
+    }
+
+    #[tokio::test]
+    async fn change_batch_includes_changes_arriving_during_coalescing_window() {
+        let (tx, mut rx) = tokio::sync::broadcast::channel(8);
+        let (notifier, _) = ChangeNotifier::new();
+        tx.send(TableChange {
+            table: "sessions".to_string(),
+            kind: TableChangeKind::Update,
+            seq: 1,
+        })
+        .unwrap();
+
+        let batch = tokio::spawn(async move { receive_change_batch(&mut rx, &notifier).await });
+        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        tx.send(TableChange {
+            table: "transcripts".to_string(),
+            kind: TableChangeKind::Insert,
+            seq: 2,
+        })
+        .unwrap();
+
+        let Some(ChangeBatch::ChangedTables { changed_tables }) = batch.await.unwrap() else {
+            panic!("expected changed-table batch");
+        };
+        assert_eq!(
+            changed_tables,
+            HashMap::from([("sessions".to_string(), 1), ("transcripts".to_string(), 2),])
+        );
     }
 
     #[derive(Clone, Debug, PartialEq)]

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use anlg_db_execute::DbExecutor;
@@ -181,18 +181,18 @@ impl<S> Registry<S> {
 
     pub(crate) async fn collect_jobs(
         &self,
-        changed_targets: &HashSet<DependencyTarget>,
-        trigger_seq: u64,
+        changed_targets: &HashMap<DependencyTarget, u64>,
     ) -> Vec<RefreshJob> {
         let inner = self.inner.lock().await;
+        let targets = changed_targets.keys().cloned().collect::<HashSet<_>>();
         inner
             .deps
-            .affected(changed_targets)
+            .affected(&targets)
             .into_iter()
             .filter_map(|watch_id| {
                 let subscription_id = inner.watch_ids.get(&watch_id)?;
                 let subscription = inner.subscriptions.get(subscription_id)?;
-                try_build_job(subscription, trigger_seq)
+                try_build_targeted_job(subscription, changed_targets)
             })
             .collect()
     }
@@ -350,6 +350,33 @@ fn try_build_job<S>(subscription: &Subscription<S>, trigger_seq: u64) -> Option<
     }
 }
 
+fn try_build_targeted_job<S>(
+    subscription: &Subscription<S>,
+    changed_targets: &HashMap<DependencyTarget, u64>,
+) -> Option<RefreshJob> {
+    let SubscriptionState::Reactive(reactive) = &subscription.state else {
+        return None;
+    };
+    let ReactiveLifecycle::Active { ignore_through_seq } = reactive.lifecycle else {
+        return None;
+    };
+    let DependencyAnalysis::Reactive { targets } = &subscription.analysis else {
+        return None;
+    };
+    targets
+        .iter()
+        .any(|target| {
+            changed_targets
+                .get(target)
+                .is_some_and(|seq| *seq > ignore_through_seq)
+        })
+        .then(|| RefreshJob {
+            watch_id: reactive.watch_id,
+            sql: reactive.sql.clone(),
+            params: reactive.params.clone(),
+        })
+}
+
 fn remove_subscription<S>(inner: &mut Inner<S>, subscription_id: &str) -> bool {
     let Some(subscription) = inner.subscriptions.remove(subscription_id) else {
         return false;
@@ -438,10 +465,10 @@ mod tests {
         assert!(registry.activate(watch_id, 11).await);
 
         let jobs = registry
-            .collect_jobs(
-                &HashSet::from([DependencyTarget::Table("daily_notes".to_string())]),
+            .collect_jobs(&HashMap::from([(
+                DependencyTarget::Table("daily_notes".to_string()),
                 11,
-            )
+            )]))
             .await;
 
         assert!(jobs.is_empty());
@@ -465,10 +492,10 @@ mod tests {
         assert!(registry.activate(watch_id, 11).await);
 
         let jobs = registry
-            .collect_jobs(
-                &HashSet::from([DependencyTarget::Table("daily_notes".to_string())]),
+            .collect_jobs(&HashMap::from([(
+                DependencyTarget::Table("daily_notes".to_string()),
                 12,
-            )
+            )]))
             .await;
 
         assert_eq!(jobs.len(), 1);

@@ -118,6 +118,10 @@ async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes(
     .fetch_all(db.pool())
     .await
     .unwrap();
+    let records = records
+        .into_iter()
+        .map(|record| (record, 1))
+        .collect::<Vec<_>>();
     let checks = AtomicUsize::new(0);
 
     let error = tokio::time::timeout(
@@ -252,7 +256,7 @@ async fn cancelled_encryption_rolls_back_the_current_row_and_releases_local_writ
 }
 
 #[tokio::test]
-async fn cancelled_all_match_witness_scan_stays_bounded_and_releases_local_writes() {
+async fn pending_witness_check_does_not_scan_matching_payloads() {
     let db = test_db().await;
     let key = workspace_key();
     let workspace_keys = HashMap::from([("workspace-a".to_string(), key)]);
@@ -295,18 +299,18 @@ async fn cancelled_all_match_witness_scan_stays_bounded_and_releases_local_write
     transaction.commit().await.unwrap();
     let checks = AtomicUsize::new(0);
 
-    let error = tokio::time::timeout(
+    let pending = tokio::time::timeout(
         std::time::Duration::from_secs(1),
         has_pending_e2ee_witness_repairs_cancellable(db.pool(), &workspace_keys, true, || {
             checks.fetch_add(1, Ordering::SeqCst) >= 5
         }),
     )
     .await
-    .expect("all-match witness cancellation exceeded the activity deadline")
-    .unwrap_err();
+    .expect("pending witness check exceeded the activity deadline")
+    .unwrap();
 
-    assert!(matches!(error, E2eeReplicaError::Cancelled));
-    assert!(checks.load(Ordering::SeqCst) <= 7);
+    assert!(pending);
+    assert!(checks.load(Ordering::SeqCst) <= 2);
     tokio::time::timeout(
         std::time::Duration::from_millis(250),
         sqlx::query(
@@ -316,7 +320,7 @@ async fn cancelled_all_match_witness_scan_stays_bounded_and_releases_local_write
         .execute(db.pool()),
     )
     .await
-    .expect("cancelled witness scan kept the database busy")
+    .expect("pending witness check kept the database busy")
     .unwrap();
 }
 
@@ -356,7 +360,7 @@ async fn witness_scan_selects_only_records_that_need_repair() {
     .unwrap();
 
     let cancellation_checks = AtomicUsize::new(0);
-    let (repairs, remaining) =
+    let repairs =
         load_bounded_e2ee_witness_repairs(db.pool(), &workspace_keys, true, 2, usize::MAX, &|| {
             cancellation_checks.fetch_add(1, Ordering::SeqCst);
             false
@@ -364,7 +368,6 @@ async fn witness_scan_selects_only_records_that_need_repair() {
         .await
         .unwrap();
     assert!(repairs.is_empty());
-    assert!(!remaining);
     assert!(cancellation_checks.load(Ordering::SeqCst) <= 10);
 
     sqlx::query("UPDATE e2ee_records SET payload = 'changed' WHERE id = 'record-255'")
@@ -372,15 +375,24 @@ async fn witness_scan_selects_only_records_that_need_repair() {
         .await
         .unwrap();
 
-    let (repairs, remaining) =
-        load_bounded_e2ee_witness_repairs(db.pool(), &workspace_keys, true, 2, usize::MAX, &|| {
-            false
-        })
+    let mut repairs = Vec::new();
+    for _ in 0..3 {
+        repairs = load_bounded_e2ee_witness_repairs(
+            db.pool(),
+            &workspace_keys,
+            true,
+            2,
+            usize::MAX,
+            &|| false,
+        )
         .await
         .unwrap();
+        if !repairs.is_empty() {
+            break;
+        }
+    }
     assert_eq!(repairs.len(), 1);
-    assert_eq!(repairs[0].record_id, "record-255");
-    assert!(!remaining);
+    assert_eq!(repairs[0].0.record_id, "record-255");
 }
 
 #[tokio::test]
