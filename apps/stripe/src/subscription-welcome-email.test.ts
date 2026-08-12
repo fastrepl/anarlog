@@ -70,10 +70,31 @@ describe("sendSubscriptionWelcomeEmail", () => {
         apiKey: "loops-key",
         transactionalId: "cmsq3t8ns0ffi0jydc6uzj1rt",
         email: "subscriber@example.com",
-        dataVariables: {},
+        dataVariables: { firstName: "Ada" },
         idempotencyKey: "evt_first_subscription_payment",
       },
     ]);
+  });
+
+  it("falls back to a friendly greeting when the customer has no name", async () => {
+    const sends: Array<Record<string, unknown>> = [];
+
+    await sendSubscriptionWelcomeEmail(
+      invoiceEvent(),
+      dependencies({
+        getCustomer: async () =>
+          ({
+            id: "cus_subscriber",
+            email: "subscriber@example.com",
+            name: null,
+          }) as Stripe.Customer,
+        sendTransactional: async (payload) => {
+          sends.push(payload);
+        },
+      }),
+    );
+
+    expect(sends[0]?.dataVariables).toEqual({ firstName: "there" });
   });
 
   it("sends when a trial converts on its first positive invoice", async () => {

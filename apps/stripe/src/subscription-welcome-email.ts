@@ -62,7 +62,9 @@ export async function sendSubscriptionWelcomeEmail(
     apiKey: activeDependencies.apiKey,
     transactionalId: SUBSCRIPTION_WELCOME_TRANSACTIONAL_ID,
     email: customer.email,
-    dataVariables: {},
+    dataVariables: {
+      firstName: customer.name?.trim().split(/\s+/)[0] || "there",
+    },
     idempotencyKey: event.id,
   });
 
