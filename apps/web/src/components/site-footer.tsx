@@ -11,6 +11,7 @@ const footerGroups = [
       { label: "Enterprise", to: "/enterprise/" },
       { label: "Blog", to: "/blog/" },
       { label: "Changelog", to: "/changelog/" },
+      { label: "Docs", href: "https://docs.anarlog.so" },
       { label: "Status", href: "https://status.anarlog.so" },
     ],
   },
