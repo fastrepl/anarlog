@@ -72,7 +72,7 @@ describe("SQLite settings", () => {
     });
     mocks.getTemplateSource.mockResolvedValue({
       status: "ok",
-      data: "# General Instructions\n\nBuilt-in prompt.",
+      data: "- Use Markdown.",
     });
   });
 
@@ -356,7 +356,7 @@ describe("SQLite settings", () => {
     },
   );
 
-  it("migrates legacy summary instructions into the editable Auto prompt", async () => {
+  it("migrates legacy summary instructions into the editable Auto format", async () => {
     let rows = [
       {
         id: "custom_summary_instructions",
@@ -382,21 +382,15 @@ describe("SQLite settings", () => {
 
     await initializeApplicationSettings();
 
-    expect(mocks.getTemplateSource).toHaveBeenCalledWith("enhanceSystem");
+    expect(mocks.getTemplateSource).toHaveBeenCalledWith("enhanceFormat");
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
     expect(statement.params[0]).toBe("auto_summary_prompt");
-    expect(JSON.parse(String(statement.params[1]))).toBe(`# General Instructions
-
-Built-in prompt.
-
-# Custom Summary Instructions
-
-For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.
+    expect(JSON.parse(String(statement.params[1]))).toBe(`- Use Markdown.
 
 Start with decisions.`);
   });
 
-  it("does not overwrite an explicitly reset Auto prompt", async () => {
+  it("does not overwrite an explicitly reset Auto format", async () => {
     mocks.execute.mockResolvedValue([
       {
         id: "custom_summary_instructions",

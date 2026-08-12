@@ -81,7 +81,7 @@ function createSnapshot(title = "") {
 function createTransformedArgs(): EnhanceSuccessParams["transformedArgs"] {
   return {
     language: "en",
-    promptOverride: "",
+    formatOverride: "",
     session: {
       title: "Weekly Review",
       startedAt: null,

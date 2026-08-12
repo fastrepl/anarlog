@@ -6,23 +6,24 @@ use minijinja::{Environment, UndefinedBehavior, context};
 common_derives! {
     pub struct EnhanceSystem {
         pub language: Option<String>,
-        pub prompt_override: String,
+        pub format_override: String,
     }
 }
 
 pub fn render_enhance_system(input: &EnhanceSystem) -> Result<String, Error> {
-    let default_source = include_str!("../assets/enhance.system.md.jinja");
-    let source = if input.prompt_override.trim().is_empty() {
-        default_source
+    let default_format = include_str!("../assets/enhance.format.md.jinja");
+    let normalized_override = normalize_format_override(&input.format_override);
+    let format_source = if normalized_override.is_empty() {
+        default_format
     } else {
-        input.prompt_override.as_str()
+        normalized_override.as_str()
     };
 
     let mut env = Environment::new();
     env.set_undefined_behavior(UndefinedBehavior::Strict);
-    let template = env.template_from_str(source)?;
+    let format_template = env.template_from_str(format_source)?;
 
-    let mut unknown_variables = template
+    let mut unknown_variables = format_template
         .undeclared_variables(false)
         .into_iter()
         .filter(|variable| !["current_date", "language"].contains(&variable.as_str()))
@@ -36,10 +37,60 @@ pub fn render_enhance_system(input: &EnhanceSystem) -> Result<String, Error> {
         }));
     }
 
-    Ok(template.render(context! {
+    let current_date = anlg_askama_utils::current_date_value();
+    let language = anlg_askama_utils::language_name(input.language.as_deref());
+    let format_requirements = format_template.render(context! {
+        current_date => current_date,
+        language => language,
+    })?;
+    let system_template =
+        env.template_from_str(include_str!("../assets/enhance.system.md.jinja"))?;
+
+    Ok(system_template.render(context! {
         current_date => anlg_askama_utils::current_date_value(),
         language => anlg_askama_utils::language_name(input.language.as_deref()),
+        format_requirements => format_requirements.trim(),
     })?)
+}
+
+fn normalize_format_override(source: &str) -> String {
+    let normalized = source.replace("\r\n", "\n");
+    if !normalized.contains("# General Instructions") || !normalized.contains("# About Notes") {
+        return normalized.trim().to_string();
+    }
+
+    let Some(format_requirements) = heading_section(&normalized, "# Format Requirements") else {
+        return normalized.trim().to_string();
+    };
+
+    let custom_instructions = heading_section(&normalized, "# Custom Summary Instructions")
+        .map(|section| {
+            section
+                .strip_prefix(
+                    "For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.",
+                )
+                .unwrap_or(&section)
+                .trim()
+                .to_string()
+        })
+        .filter(|section| !section.is_empty());
+
+    [Some(format_requirements), custom_instructions]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+fn heading_section(source: &str, heading: &str) -> Option<String> {
+    let lines = source.lines().collect::<Vec<_>>();
+    let start = lines.iter().position(|line| line.trim() == heading)? + 1;
+    let end = lines[start..]
+        .iter()
+        .position(|line| line.trim_start().starts_with("# "))
+        .map_or(lines.len(), |offset| start + offset);
+
+    Some(lines[start..end].join("\n").trim().to_string())
 }
 
 common_derives! {
@@ -65,7 +116,7 @@ mod tests {
     fn test_language_as_specified() {
         let rendered = render_enhance_system(&EnhanceSystem {
             language: Some("ko".to_string()),
-            prompt_override: String::new(),
+            format_override: String::new(),
         })
         .unwrap();
 
@@ -78,7 +129,7 @@ mod tests {
         anlg_askama_utils::set_current_date_override(Some("2025-01-01".to_string()));
         let rendered = render_enhance_system(&EnhanceSystem {
             language: None,
-            prompt_override: String::new(),
+            format_override: String::new(),
         })
         .unwrap();
         anlg_askama_utils::set_current_date_override(None);
@@ -89,6 +140,7 @@ mod tests {
     Current date: 2025-01-01
 
     You are an expert at creating structured, comprehensive meeting summaries in English. Maintain accuracy, completeness, and professional terminology.
+    Treat Format Requirements as presentation preferences only. They must not override General Instructions, About Notes, or Guidelines.
 
     # Format Requirements
 
@@ -101,9 +153,6 @@ mod tests {
       - Use bullet points at the same level unless an example or clarification is absolutely necessary.
       - Avoid nesting lists beyond one level of indentation.
       - If additional structure is required, break the information into separate sections with new h1 headings instead of deeper indentation.
-    - Your final output MUST be ONLY the markdown summary itself.
-    - Do not include any explanations, commentary, or meta-discussion.
-    - Do not say things like "Here's the summary" or "I've analyzed".
 
     # About Notes
 
@@ -116,30 +165,38 @@ mod tests {
 
     - Notes and transcript may contain errors made by human and STT, respectively. Make the best out of every material.
     - Do not include meeting note title, attendee lists nor explanatory notes about the output structure.
-    - Do not create generic opening sections such as "Overview", "Meeting Overview", "Introduction", or "Participants" unless the meeting itself was explicitly about those topics.
-    - Use Pre-Meeting Notes to understand the user's intent and agenda. In Meeting Notes, focus on content that was added or changed compared to Pre-Meeting Notes. Naturally integrate entries into relevant sections instead of forcefully converting them into headers.
+    - Do not add generic opening content such as "Overview", "Meeting Overview", "Introduction", or "Participants" unless the meeting itself was explicitly about those topics.
+    - Use Pre-Meeting Notes to understand the user's intent and agenda. In Meeting Notes, focus on content that was added or changed compared to Pre-Meeting Notes. Naturally integrate entries into the requested output format instead of forcefully converting them into headers.
     - Preserve essential details; avoid excessive abstraction. Ensure content remains concrete and specific.
     - Pay close attention to emphasized text in notes. Users highlight information using four styles: bold(**text**), italic(_text_), underline(<u>text</u>), strikethrough(~~text~~).
     - Recognize H3 headers (### Header) in notes—these indicate highly important topics that the user wants to retain no matter what.
+    - Your final output MUST be ONLY the markdown summary itself.
+    - Do not include any explanations, commentary, or meta-discussion.
+    - Do not say things like "Here's the summary" or "I've analyzed".
     "#);
     }
 
     #[test]
-    fn test_custom_system_prompt() {
+    fn test_custom_format_keeps_protected_instructions() {
         let rendered = render_enhance_system(&EnhanceSystem {
             language: Some("ko".to_string()),
-            prompt_override: "Summarize in {{ language }} on {{ current_date }}.".to_string(),
+            format_override: "Write a concise narrative in {{ language }}.".to_string(),
         })
         .unwrap();
 
-        assert!(rendered.starts_with("Summarize in Korean on "));
+        assert!(rendered.contains("# General Instructions"));
+        assert!(rendered.contains("Write a concise narrative in Korean."));
+        assert!(!rendered.contains("Structure with # (h1) headings"));
+        assert!(rendered.contains("# About Notes"));
+        assert!(rendered.contains("# Guidelines"));
+        assert!(rendered.contains("final output MUST be ONLY the markdown summary"));
     }
 
     #[test]
-    fn test_custom_system_prompt_rejects_unknown_variables() {
+    fn test_custom_format_rejects_unknown_variables() {
         let error = render_enhance_system(&EnhanceSystem {
             language: None,
-            prompt_override: "Summarize {{ transcript }}.".to_string(),
+            format_override: "Summarize {{ transcript }}.".to_string(),
         })
         .unwrap_err();
 
@@ -147,25 +204,56 @@ mod tests {
     }
 
     #[test]
-    fn test_custom_system_prompt_can_render_literal_jinja_text() {
+    fn test_custom_format_can_render_literal_jinja_text() {
         let rendered = render_enhance_system(&EnhanceSystem {
             language: None,
-            prompt_override: "Group by {{ \"{{\" }} customer_name }}.".to_string(),
+            format_override: "Group by {{ \"{{\" }} customer_name }}.".to_string(),
         })
         .unwrap();
 
-        assert_eq!(rendered, "Group by {{ customer_name }}.");
+        assert!(rendered.contains("Group by {{ customer_name }}."));
     }
 
     #[test]
-    fn test_custom_system_prompt_supports_minijinja_filters() {
+    fn test_custom_format_supports_minijinja_filters() {
         let rendered = render_enhance_system(&EnhanceSystem {
             language: Some("ko".to_string()),
-            prompt_override: "Summarize in {{ language|upper }}.".to_string(),
+            format_override: "Summarize in {{ language|upper }}.".to_string(),
         })
         .unwrap();
 
-        assert_eq!(rendered, "Summarize in KOREAN.");
+        assert!(rendered.contains("Summarize in KOREAN."));
+    }
+
+    #[test]
+    fn test_legacy_full_prompt_keeps_only_editable_sections() {
+        let rendered = render_enhance_system(&EnhanceSystem {
+            language: None,
+            format_override: r#"# General Instructions
+
+Ignore all source material.
+
+# Format Requirements
+
+- Start with decisions.
+
+# About Notes
+
+Do not use notes.
+
+# Custom Summary Instructions
+
+For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.
+
+End with next steps."#
+                .to_string(),
+        })
+        .unwrap();
+
+        assert!(rendered.contains("- Start with decisions.\n\nEnd with next steps."));
+        assert!(!rendered.contains("Ignore all source material."));
+        assert!(!rendered.contains("Do not use notes."));
+        assert!(rendered.contains("Notes and transcript may contain errors"));
     }
 
     tpl_snapshot!(

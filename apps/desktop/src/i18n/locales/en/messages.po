@@ -380,12 +380,8 @@ msgid "Authorize access in your browser, then return to Anarlog."
 msgstr "Authorize access in your browser, then return to Anarlog."
 
 #: src/templates/auto-form.tsx
-msgid "Auto prompt cannot be empty."
-msgstr "Auto prompt cannot be empty."
-
-#: src/templates/auto-form.tsx
-msgid "Auto summary prompt"
-msgstr "Auto summary prompt"
+msgid "Auto summary format"
+msgstr "Auto summary format"
 
 #: src/settings/automations/index.tsx
 msgid "Automate what happens before, during, or after meetings based on the conditions you choose."
@@ -634,6 +630,10 @@ msgstr "Choose how Anarlog appears in the Dock."
 #: src/settings/appearance/theme.tsx
 msgid "Choose how Anarlog looks on this device."
 msgstr "Choose how Anarlog looks on this device."
+
+#: src/templates/auto-form.tsx
+msgid "Choose how Auto structures and styles your summaries."
+msgstr "Choose how Auto structures and styles your summaries."
 
 #: src/settings/general/audio-settings.tsx
 msgid "Choose how long recordings stay on this device."
@@ -1001,10 +1001,6 @@ msgid "Current default"
 msgstr "Current default"
 
 #: src/templates/auto-form.tsx
-msgid "Customize Auto"
-msgstr "Customize Auto"
-
-#: src/templates/auto-form.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Customized"
 msgstr "Customized"
@@ -1198,10 +1194,6 @@ msgstr "Edit"
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
 msgstr "Edit date"
-
-#: src/templates/auto-form.tsx
-msgid "Edit the complete system prompt used when Auto generates a summary."
-msgstr "Edit the complete system prompt used when Auto generates a summary."
 
 #: src/onboarding/account/after-login.tsx
 msgid "Eligible for free trial"
@@ -1679,8 +1671,8 @@ msgid "Live"
 msgstr "Live"
 
 #: src/templates/auto-form.tsx
-msgid "Loading Auto prompt..."
-msgstr "Loading Auto prompt..."
+msgid "Loading Auto format..."
+msgstr "Loading Auto format..."
 
 #: src/calendar/components/calendar-selection.tsx
 msgid "Loading calendars..."
@@ -2274,8 +2266,8 @@ msgid "Preview"
 msgstr "Preview"
 
 #: src/templates/auto-form.tsx
-msgid "Preview the complete system prompt, then upgrade to Pro to customize it."
-msgstr "Preview the complete system prompt, then upgrade to Pro to customize it."
+msgid "Preview the summary format, then upgrade to Pro to customize it."
+msgstr "Preview the summary format, then upgrade to Pro to customize it."
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
@@ -2476,8 +2468,8 @@ msgid "Reset"
 msgstr "Reset"
 
 #: src/templates/auto-form.tsx
-msgid "Reset to Anarlog default"
-msgstr "Reset to Anarlog default"
+msgid "Reset to default format"
+msgstr "Reset to default format"
 
 #: src/session-sharing/management-panel.tsx
 msgid "Resolve the web and desktop edits before inviting anyone."
@@ -3081,6 +3073,14 @@ msgstr "Suggested templates"
 msgid "Summary"
 msgstr "Summary"
 
+#: src/templates/auto-form.tsx
+msgid "Summary format"
+msgstr "Summary format"
+
+#: src/templates/auto-form.tsx
+msgid "Summary format cannot be empty."
+msgstr "Summary format cannot be empty."
+
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
 msgstr "Summary generation failed"
@@ -3399,8 +3399,8 @@ msgid "Upgrade to Pro for {0}"
 msgstr "Upgrade to Pro for {0}"
 
 #: src/templates/auto-form.tsx
-msgid "Upgrade to Pro to customize Auto"
-msgstr "Upgrade to Pro to customize Auto"
+msgid "Upgrade to Pro to customize Auto format"
+msgstr "Upgrade to Pro to customize Auto format"
 
 #: src/session-sharing/index.tsx
 msgid "Upgrade to Pro to invite people and share this note with them."
@@ -3460,10 +3460,6 @@ msgstr "Use this language for summaries and AI responses."
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
 msgstr "Use your microphone to capture your voice"
-
-#: src/templates/auto-form.tsx
-msgid "Variables"
-msgstr "Variables"
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Verifying the SQLite migration status"

@@ -14,7 +14,7 @@ pub fn structured_summary(samples: usize) -> Result<EvalCase, Failed> {
                 role: "system".to_string(),
                 content: render(Template::EnhanceSystem(EnhanceSystem {
                     language: None,
-                    prompt_override: String::new(),
+                    format_override: String::new(),
                 }))
                 .map_err(render_failed)?,
             },

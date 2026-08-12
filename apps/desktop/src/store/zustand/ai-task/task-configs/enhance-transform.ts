@@ -87,7 +87,7 @@ async function transformArgs(
     };
   }
   const language = getLanguage(settingsValues);
-  const promptOverride = getPromptOverride(settingsValues, templateId);
+  const formatOverride = getFormatOverride(settingsValues, templateId);
   const segments = await getTranscriptSegments(snapshot);
   const imageContext = modelSupportsImageInput(
     getOptionalSettingsValue(settingsValues, "current_llm_provider"),
@@ -101,7 +101,7 @@ async function transformArgs(
 
   return {
     language,
-    promptOverride,
+    formatOverride,
     session: sessionContext.session,
     participants: sessionContext.participants,
     template,
@@ -198,7 +198,7 @@ function getLanguage(settingsValues: SettingValues): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function getPromptOverride(
+function getFormatOverride(
   settingsValues: SettingValues,
   templateId: string | undefined,
 ): string {

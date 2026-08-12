@@ -31,7 +31,7 @@ macro_rules! common_derives {
 
 common_derives! {
     pub enum EditableTemplate {
-        EnhanceSystem,
+        EnhanceFormat,
         EnhanceUser,
         TitleUser,
     }
@@ -91,7 +91,7 @@ pub fn render(t: Template) -> Result<String, Error> {
 
 pub fn template_source(template: EditableTemplate) -> &'static str {
     match template {
-        EditableTemplate::EnhanceSystem => include_str!("../assets/enhance.system.md.jinja"),
+        EditableTemplate::EnhanceFormat => include_str!("../assets/enhance.format.md.jinja"),
         EditableTemplate::EnhanceUser => include_str!("../assets/enhance.user.md.jinja"),
         EditableTemplate::TitleUser => include_str!("../assets/title.user.md.jinja"),
     }
@@ -104,8 +104,8 @@ mod source_tests {
     #[test]
     fn editable_template_source_matches_assets() {
         assert_eq!(
-            template_source(EditableTemplate::EnhanceSystem),
-            include_str!("../assets/enhance.system.md.jinja")
+            template_source(EditableTemplate::EnhanceFormat),
+            include_str!("../assets/enhance.format.md.jinja")
         );
         assert_eq!(
             template_source(EditableTemplate::EnhanceUser),

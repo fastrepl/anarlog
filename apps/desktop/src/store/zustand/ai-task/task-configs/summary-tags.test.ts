@@ -10,7 +10,7 @@ function createEnhanceArgs(
 ): Parameters<typeof extractEnhanceTagNames>[1] {
   return {
     language: "en",
-    promptOverride: "",
+    formatOverride: "",
     session: {
       title: "Weekly Review",
       startedAt: null,

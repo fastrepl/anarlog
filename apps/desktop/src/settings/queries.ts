@@ -51,9 +51,6 @@ const JSON_ARRAY_KEYS = new Set<SettingKey>([
 const LEGACY_SUMMARY_TEMPLATE_TOKEN = /\{\{\s*template\s*\}\}/g;
 const LEGACY_DEFAULT_SUMMARY_INSTRUCTION =
   "Use the selected summary template for the summary structure and section headings.";
-const MIGRATED_SUMMARY_INSTRUCTIONS_HEADER = `# Custom Summary Instructions
-
-For structure, formatting, tone, and emphasis, these instructions take precedence over the Format Requirements. They do not override the requirements to stay accurate, use only the provided source material, and return only the summary.`;
 
 // Synced rows sort after device rows so parseSettingRows' last-write-wins map
 // prefers the synced value when a key exists in both tables.
@@ -175,12 +172,12 @@ async function migrateLegacyAutoSummaryPrompt(
 
   try {
     const sourceResult =
-      await templateCommands.getTemplateSource("enhanceSystem");
+      await templateCommands.getTemplateSource("enhanceFormat");
     if (sourceResult.status === "error" || !sourceResult.data.trim()) {
       return null;
     }
 
-    return `${sourceResult.data.trimEnd()}\n\n${MIGRATED_SUMMARY_INSTRUCTIONS_HEADER}\n\n${escapeJinjaOpeners(legacyInstructions)}`;
+    return `${sourceResult.data.trimEnd()}\n\n${escapeJinjaOpeners(legacyInstructions)}`;
   } catch {
     return null;
   }

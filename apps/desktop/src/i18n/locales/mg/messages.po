@@ -380,11 +380,7 @@ msgid "Authorize access in your browser, then return to Anarlog."
 msgstr ""
 
 #: src/templates/auto-form.tsx
-msgid "Auto prompt cannot be empty."
-msgstr ""
-
-#: src/templates/auto-form.tsx
-msgid "Auto summary prompt"
+msgid "Auto summary format"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -633,6 +629,10 @@ msgstr ""
 
 #: src/settings/appearance/theme.tsx
 msgid "Choose how Anarlog looks on this device."
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Choose how Auto structures and styles your summaries."
 msgstr ""
 
 #: src/settings/general/audio-settings.tsx
@@ -1001,10 +1001,6 @@ msgid "Current default"
 msgstr ""
 
 #: src/templates/auto-form.tsx
-msgid "Customize Auto"
-msgstr ""
-
-#: src/templates/auto-form.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Customized"
 msgstr ""
@@ -1197,10 +1193,6 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Edit date"
-msgstr ""
-
-#: src/templates/auto-form.tsx
-msgid "Edit the complete system prompt used when Auto generates a summary."
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -1679,7 +1671,7 @@ msgid "Live"
 msgstr ""
 
 #: src/templates/auto-form.tsx
-msgid "Loading Auto prompt..."
+msgid "Loading Auto format..."
 msgstr ""
 
 #: src/calendar/components/calendar-selection.tsx
@@ -2274,7 +2266,7 @@ msgid "Preview"
 msgstr ""
 
 #: src/templates/auto-form.tsx
-msgid "Preview the complete system prompt, then upgrade to Pro to customize it."
+msgid "Preview the summary format, then upgrade to Pro to customize it."
 msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
@@ -2476,7 +2468,7 @@ msgid "Reset"
 msgstr ""
 
 #: src/templates/auto-form.tsx
-msgid "Reset to Anarlog default"
+msgid "Reset to default format"
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -3081,6 +3073,14 @@ msgstr ""
 msgid "Summary"
 msgstr ""
 
+#: src/templates/auto-form.tsx
+msgid "Summary format"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Summary format cannot be empty."
+msgstr ""
+
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
 msgstr ""
@@ -3399,7 +3399,7 @@ msgid "Upgrade to Pro for {0}"
 msgstr ""
 
 #: src/templates/auto-form.tsx
-msgid "Upgrade to Pro to customize Auto"
+msgid "Upgrade to Pro to customize Auto format"
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -3459,10 +3459,6 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
-msgstr ""
-
-#: src/templates/auto-form.tsx
-msgid "Variables"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
