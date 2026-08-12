@@ -21,4 +21,7 @@ permissions = [
     "allow-is-supported-languages-batch",
     "allow-suggest-providers-for-languages-batch",
     "allow-list-documented-language-codes-batch",
+    "allow-extract-voiceprint-candidates",
+    "allow-promote-voiceprint-candidates",
+    "allow-cleanup-expired-voiceprint-candidates",
 ]

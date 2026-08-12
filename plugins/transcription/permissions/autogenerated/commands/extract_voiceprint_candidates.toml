@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-extract-voiceprint-candidates"
+description = "Enables the extract_voiceprint_candidates command without any pre-configured scope."
+commands.allow = ["extract_voiceprint_candidates"]
+
+[[permission]]
+identifier = "deny-extract-voiceprint-candidates"
+description = "Denies the extract_voiceprint_candidates command without any pre-configured scope."
+commands.deny = ["extract_voiceprint_candidates"]

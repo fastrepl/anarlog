@@ -24,6 +24,9 @@ Default permissions for the plugin
 - `allow-is-supported-languages-batch`
 - `allow-suggest-providers-for-languages-batch`
 - `allow-list-documented-language-codes-batch`
+- `allow-extract-voiceprint-candidates`
+- `allow-promote-voiceprint-candidates`
+- `allow-cleanup-expired-voiceprint-candidates`
 
 ## Permission Table
 
@@ -33,6 +36,32 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`transcription:allow-cleanup-expired-voiceprint-candidates`
+
+</td>
+<td>
+
+Enables the cleanup_expired_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-cleanup-expired-voiceprint-candidates`
+
+</td>
+<td>
+
+Denies the cleanup_expired_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -56,6 +85,32 @@ Enables the export_to_vtt command without any pre-configured scope.
 <td>
 
 Denies the export_to_vtt command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-extract-voiceprint-candidates`
+
+</td>
+<td>
+
+Enables the extract_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-extract-voiceprint-candidates`
+
+</td>
+<td>
+
+Denies the extract_voiceprint_candidates command without any pre-configured scope.
 
 </td>
 </tr>
@@ -316,6 +371,32 @@ Enables the parse_subtitle command without any pre-configured scope.
 <td>
 
 Denies the parse_subtitle command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:allow-promote-voiceprint-candidates`
+
+</td>
+<td>
+
+Enables the promote_voiceprint_candidates command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`transcription:deny-promote-voiceprint-candidates`
+
+</td>
+<td>
+
+Denies the promote_voiceprint_candidates command without any pre-configured scope.
 
 </td>
 </tr>
