@@ -4,8 +4,10 @@ use tracing::Instrument;
 
 use super::ProgressiveProvider;
 use super::actor::{
-    BatchArgs, BatchMsg, BatchStartNotifier, process_provider_stream, report_stream_start_failure,
+    BatchArgs, BatchMsg, BatchStartNotifier, process_provider_stream, report_start_failure,
+    report_stream_start_failure,
 };
+use super::segmented::{open_segmented_stream, plan_openai_segments};
 
 pub(super) async fn spawn_progressive_batch_task(
     args: BatchArgs,
@@ -168,14 +170,41 @@ async fn spawn_openai_batch_task(
 
     let rx_task = tokio::spawn(
         async move {
-            let stream = match OpenAIAdapter::transcribe_file_streaming(
-                &args.base_url,
-                &args.api_key,
-                &args.listen_params,
-                &args.file_path,
-            )
-            .await
-            {
+            let plan = match plan_openai_segments(&args.file_path, &args.provider_label).await {
+                Ok(plan) => plan,
+                Err(error) => {
+                    report_start_failure(
+                        &myself,
+                        &args.start_notifier,
+                        error,
+                        "openai progressive batch failed to prepare audio",
+                    );
+                    return;
+                }
+            };
+
+            let opened = match plan {
+                Some(plan) => {
+                    open_segmented_stream(
+                        plan,
+                        args.base_url.clone(),
+                        args.api_key.clone(),
+                        args.listen_params.clone(),
+                    )
+                    .await
+                }
+                None => {
+                    OpenAIAdapter::transcribe_file_streaming(
+                        &args.base_url,
+                        &args.api_key,
+                        &args.listen_params,
+                        &args.file_path,
+                    )
+                    .await
+                }
+            };
+
+            let stream = match opened {
                 Ok(stream) => {
                     notify_start_result(&args.start_notifier, Ok(()));
                     stream

@@ -1,5 +1,6 @@
 mod actor;
 mod bootstrap;
+mod segmented;
 
 use std::sync::Arc;
 

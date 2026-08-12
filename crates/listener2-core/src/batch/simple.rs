@@ -5,10 +5,12 @@ pub(super) use direct::run_direct_batch_for_adapter_kind;
 pub(super) use local::{run_apple_speech_batch, run_soniqo_batch};
 
 #[cfg(test)]
+use super::upload::segment_plan;
+#[cfg(test)]
 use direct::{
     DIRECT_BATCH_TIMEOUT_CEILING, DIRECT_BATCH_TIMEOUT_FLOOR, direct_batch_timeout_for_audio,
     merge_segment_responses, prepare_anarlog_batch_upload, run_direct_batch,
-    run_direct_batch_with_timeout, segment_plan,
+    run_direct_batch_with_timeout,
 };
 #[cfg(test)]
 use local::{

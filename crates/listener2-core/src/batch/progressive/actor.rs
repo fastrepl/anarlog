@@ -309,6 +309,27 @@ pub(super) fn report_stream_start_failure(
         anarlog.error.user_message = %message,
         "{context}"
     );
+    report_start_failure(myself, notifier, failure.into(), context);
+}
+
+/// For failures that already carry user-facing copy, unlike the provider errors
+/// that `report_stream_start_failure` has to translate first.
+pub(super) fn report_start_failure(
+    myself: &ActorRef<BatchMsg>,
+    notifier: &BatchStartNotifier,
+    error: crate::Error,
+    context: &str,
+) {
+    tracing::error!(error = %error, "{context}");
+
+    let failure = match error {
+        crate::Error::BatchFailed(failure) => failure,
+        error => crate::BatchFailure::ProgressiveStartFailed {
+            provider: "openai".to_string(),
+            message: error.to_string(),
+        },
+    };
+
     notify_start_result(notifier, Err(failure.clone().into()));
     let _ = myself.send_message(BatchMsg::StreamStartFailed(failure));
 }

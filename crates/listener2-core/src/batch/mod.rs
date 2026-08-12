@@ -1,6 +1,7 @@
 mod accumulator;
 mod progressive;
 mod simple;
+mod upload;
 
 use std::sync::Arc;
 

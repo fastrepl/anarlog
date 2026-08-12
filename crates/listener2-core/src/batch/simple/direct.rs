@@ -11,8 +11,7 @@ use owhisper_client::{
 use owhisper_interface::batch::{Alternatives, Channel, Response, Results};
 use tracing::Instrument;
 
-use anlg_audio_utils::Source;
-
+use super::super::upload::{audio_duration, segment_plan, split_batch_upload};
 use super::super::{
     BatchParams, BatchRunMode, BatchRunOutput, format_user_friendly_error, session_span,
 };
@@ -206,36 +205,18 @@ pub(super) async fn run_direct_batch<A: BatchSttAdapter>(
     }
 }
 
-/// Recordings past a provider's upload cap or per-request duration cap are
-/// re-encoded as mono MP3 segments and sent one request at a time.
-pub(super) fn segment_plan(
-    file_path: &str,
-    audio_duration: Option<Duration>,
-    limit: Option<BatchUploadLimit>,
-) -> Option<Duration> {
-    let limit = limit?;
-    let size = std::fs::metadata(file_path).ok()?.len();
-    let too_long = audio_duration.is_some_and(|duration| duration > limit.max_duration);
-
-    (size > limit.max_bytes || too_long).then_some(limit.max_duration)
-}
-
 async fn run_segmented_batch<A: BatchSttAdapter>(
     provider: &str,
     params: BatchParams,
-    listen_params: owhisper_interface::ListenParams,
+    mut listen_params: owhisper_interface::ListenParams,
     segment_duration: Duration,
     timeout: Duration,
 ) -> crate::Result<BatchRunOutput> {
     let segments = split_batch_upload(&params.file_path, segment_duration, provider).await?;
-    tracing::info!(
-        segments = segments.paths.len(),
-        segment_seconds = segment_duration.as_secs(),
-        "batch audio split for provider upload limits"
-    );
+    listen_params.channels = 1;
 
-    let mut responses = Vec::with_capacity(segments.paths.len());
-    for path in &segments.paths {
+    let mut responses = Vec::with_capacity(segments.paths().len());
+    for path in segments.paths() {
         let mut segment_params = params.clone();
         segment_params.file_path = path.to_string_lossy().into_owned();
 
@@ -253,51 +234,6 @@ async fn run_segmented_batch<A: BatchSttAdapter>(
         session_id: params.session_id,
         mode: BatchRunMode::Direct,
         response: merge_segment_responses(responses, segment_duration),
-    })
-}
-
-struct SegmentedUpload {
-    _temp_dir: tempfile::TempDir,
-    paths: Vec<PathBuf>,
-}
-
-async fn split_batch_upload(
-    file_path: &str,
-    segment_duration: Duration,
-    provider: &str,
-) -> crate::Result<SegmentedUpload> {
-    let failure = |message: &str| crate::BatchFailure::DirectRequestFailed {
-        provider: provider.to_string(),
-        message: message.to_string(),
-    };
-
-    let temp_dir = tempfile::tempdir().map_err(|error| {
-        tracing::error!(%error, "batch_audio_segment_temp_dir_failed");
-        failure("Anarlog couldn't prepare this recording for transcription.")
-    })?;
-
-    let source = PathBuf::from(file_path);
-    let output_dir = temp_dir.path().to_path_buf();
-    let paths = tokio::task::spawn_blocking(move || {
-        anlg_mp3::encode_mono_segments(&source, &output_dir, segment_duration)
-    })
-    .await
-    .map_err(|error| {
-        tracing::error!(%error, "batch_audio_segment_task_failed");
-        failure("Anarlog couldn't prepare this recording for transcription.")
-    })?
-    .map_err(|error| {
-        tracing::error!(%error, "batch_audio_segment_failed");
-        failure("Anarlog couldn't split this recording for transcription.")
-    })?;
-
-    if paths.is_empty() {
-        return Err(failure("This recording has no audio to transcribe.").into());
-    }
-
-    Ok(SegmentedUpload {
-        _temp_dir: temp_dir,
-        paths,
     })
 }
 
@@ -410,12 +346,6 @@ pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
     }
     .instrument(span)
     .await
-}
-
-fn audio_duration(file_path: &str) -> Option<Duration> {
-    anlg_audio_utils::source_from_path(file_path)
-        .ok()
-        .and_then(|source| source.total_duration())
 }
 
 pub(super) fn direct_batch_timeout_for_audio(audio_duration: Option<Duration>) -> Duration {

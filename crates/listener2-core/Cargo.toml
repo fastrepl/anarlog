@@ -35,8 +35,9 @@ thiserror = { workspace = true }
 
 ractor = { workspace = true, features = ["async-trait"] }
 
+async-stream = { workspace = true }
 futures-util = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
 

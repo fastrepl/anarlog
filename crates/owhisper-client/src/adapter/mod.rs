@@ -428,6 +428,10 @@ const OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES: u64 = 25 * 1024 * 1024;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BatchUploadLimit {
     pub max_bytes: u64,
+    /// Doubles as the length of each split segment, so it must stay short enough
+    /// that one segment of mono 64 kbps MP3 fits in `max_bytes` (~53 minutes at
+    /// 25 MB); otherwise splitting a long recording still produces oversized
+    /// uploads.
     pub max_duration: Duration,
 }
 
