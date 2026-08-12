@@ -43,7 +43,9 @@ export type ScheduledMeetingRow = {
   recurrence_series_id: string;
 };
 
-export function selectDueMeeting({
+// Back-to-back meetings overlap inside the grace window; the one that just
+// started is the one the user is walking into, so the newest start comes first.
+export function selectDueMeetings({
   rows,
   nowMs,
   firedEventIds,
@@ -51,9 +53,8 @@ export function selectDueMeeting({
   rows: ScheduledMeetingRow[];
   nowMs: number;
   firedEventIds: ReadonlySet<string>;
-}): ScheduledMeetingRow | null {
-  let due: ScheduledMeetingRow | null = null;
-  let dueStartMs = -Infinity;
+}): ScheduledMeetingRow[] {
+  const due: { row: ScheduledMeetingRow; startMs: number }[] = [];
 
   for (const row of rows) {
     if (firedEventIds.has(row.id)) {
@@ -71,32 +72,27 @@ export function selectDueMeeting({
       continue;
     }
 
-    // Back-to-back meetings overlap inside the grace window; the one that just
-    // started is the one the user is walking into.
-    if (startMs > dueStartMs) {
-      due = row;
-      dueStartMs = startMs;
-    }
+    due.push({ row, startMs });
   }
 
-  return due;
+  return due.sort((a, b) => b.startMs - a.startMs).map(({ row }) => row);
 }
 
 async function startScheduledMeeting(
   row: ScheduledMeetingRow,
   autoJoin: boolean,
-): Promise<void> {
+): Promise<"started" | "ignored" | "blocked"> {
   const { ignoredIds, ignoredSeriesIds } = await getIgnoredEventSets();
   if (
     ignoredIds.has(row.tracking_id_event) ||
     (row.recurrence_series_id && ignoredSeriesIds.has(row.recurrence_series_id))
   ) {
-    return;
+    return "ignored";
   }
 
   const sessionId = await getOrCreateSessionForEventId(row.id);
   if (!listenerStore.getState().canStartLiveSession(sessionId)) {
-    return;
+    return "blocked";
   }
 
   if (autoJoin) {
@@ -108,6 +104,8 @@ async function startScheduledMeeting(
     id: sessionId,
     state: { view: null, autoStart: true },
   });
+
+  return "started";
 }
 
 export function ScheduledMeetingAutoStart() {
@@ -129,9 +127,16 @@ export function ScheduledMeetingAutoStart() {
     let cancelled = false;
     let rows: ScheduledMeetingRow[] = [];
     let unsubscribe: (() => Promise<void>) | null = null;
+    let starting = false;
     const firedEventIds = new Set<string>();
 
     const tick = () => {
+      // Ticks come from both the interval and calendar updates; without this a
+      // second tick could open another meeting mid-start.
+      if (starting) {
+        return;
+      }
+
       if (!autoStartRef.current) {
         return;
       }
@@ -140,25 +145,45 @@ export function ScheduledMeetingAutoStart() {
         return;
       }
 
-      const due = selectDueMeeting({
+      const due = selectDueMeetings({
         rows,
         nowMs: Date.now(),
         firedEventIds,
       });
-      if (!due) {
+      const next = due[0];
+      if (!next) {
         return;
       }
 
-      // Claim before awaiting so a tick landing mid-start cannot double-fire.
-      firedEventIds.add(due.id);
-      void startScheduledMeeting(due, Boolean(autoJoinRef.current)).catch(
-        (error) => {
+      starting = true;
+      void startScheduledMeeting(next, Boolean(autoJoinRef.current))
+        .then((outcome) => {
+          // A blocked start is transient (another session finalizing, a start
+          // already in flight), so leave it eligible for the next tick.
+          if (outcome === "blocked") {
+            return;
+          }
+
+          if (outcome === "ignored") {
+            firedEventIds.add(next.id);
+            return;
+          }
+
+          // Anything overlapping the meeting we just started is one the user
+          // walked out of; claiming them keeps a later tick from falling back.
+          for (const row of due) {
+            firedEventIds.add(row.id);
+          }
+        })
+        .catch((error) => {
           console.error(
             "[listener] failed to auto-start scheduled meeting",
             error,
           );
-        },
-      );
+        })
+        .finally(() => {
+          starting = false;
+        });
     };
 
     const interval = setInterval(tick, TICK_MS);

@@ -3,7 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   SCHEDULED_AUTO_START_GRACE_MS,
   type ScheduledMeetingRow,
-  selectDueMeeting,
+  selectDueMeetings,
 } from "./scheduled-auto-start";
 
 const NOW = new Date("2026-05-15T12:00:00.000Z").getTime();
@@ -24,46 +24,52 @@ function meeting(
 }
 
 function select(rows: ScheduledMeetingRow[], firedEventIds: string[] = []) {
-  return selectDueMeeting({
+  return selectDueMeetings({
     rows,
     nowMs: NOW,
     firedEventIds: new Set(firedEventIds),
-  });
+  }).map((row) => row.id);
 }
 
-describe("selectDueMeeting", () => {
+describe("selectDueMeetings", () => {
   test("selects a meeting whose start time has just arrived", () => {
-    expect(select([meeting("a", 0)])?.id).toBe("a");
+    expect(select([meeting("a", 0)])).toEqual(["a"]);
   });
 
   test("ignores meetings that have not started yet", () => {
-    expect(select([meeting("a", 30_000)])).toBeNull();
+    expect(select([meeting("a", 30_000)])).toEqual([]);
   });
 
   test("selects a meeting that started within the grace window", () => {
-    expect(select([meeting("a", -SCHEDULED_AUTO_START_GRACE_MS + 1)])?.id).toBe(
+    expect(select([meeting("a", -SCHEDULED_AUTO_START_GRACE_MS + 1)])).toEqual([
       "a",
-    );
+    ]);
   });
 
   test("ignores meetings that started before the grace window", () => {
-    expect(
-      select([meeting("a", -SCHEDULED_AUTO_START_GRACE_MS - 1)]),
-    ).toBeNull();
+    expect(select([meeting("a", -SCHEDULED_AUTO_START_GRACE_MS - 1)])).toEqual(
+      [],
+    );
   });
 
   test("ignores meetings that already fired", () => {
-    expect(select([meeting("a", 0)], ["a"])).toBeNull();
+    expect(select([meeting("a", 0)], ["a"])).toEqual([]);
   });
 
-  test("prefers the most recently started meeting when several are due", () => {
+  test("orders overlapping meetings by most recent start", () => {
     const rows = [
       meeting("earlier", -4 * 60_000),
       meeting("latest", -30_000),
       meeting("middle", -2 * 60_000),
     ];
 
-    expect(select(rows)?.id).toBe("latest");
+    expect(select(rows)).toEqual(["latest", "middle", "earlier"]);
+  });
+
+  test("still returns an overlapping meeting when the newest already fired", () => {
+    const rows = [meeting("earlier", -60_000), meeting("latest", -30_000)];
+
+    expect(select(rows, ["latest"])).toEqual(["earlier"]);
   });
 
   test("skips rows with an unparseable start time", () => {
@@ -72,10 +78,10 @@ describe("selectDueMeeting", () => {
       meeting("good", -60_000),
     ];
 
-    expect(select(rows)?.id).toBe("good");
+    expect(select(rows)).toEqual(["good"]);
   });
 
-  test("returns null when nothing is due", () => {
-    expect(select([])).toBeNull();
+  test("returns nothing when no meeting is due", () => {
+    expect(select([])).toEqual([]);
   });
 });
