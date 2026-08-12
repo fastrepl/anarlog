@@ -690,6 +690,7 @@ msgstr ""
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/settings/ai/shared/provider-search.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
 #: src/templates/template-sidebar.tsx
@@ -2041,6 +2042,11 @@ msgstr ""
 msgid "No people in this organization"
 msgstr ""
 
+#: src/settings/ai/llm/configure.tsx
+#: src/settings/ai/stt/configure.tsx
+msgid "No providers found."
+msgstr ""
+
 #: src/chat/components/toolbar-controls.tsx
 msgid "No recent chats"
 msgstr ""
@@ -2648,6 +2654,14 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Search pages shared with Anarlog…"
+msgstr ""
+
+#: src/settings/ai/shared/provider-search.tsx
+msgid "Search providers"
+msgstr ""
+
+#: src/settings/ai/shared/provider-search.tsx
+msgid "Search providers..."
 msgstr ""
 
 #: src/sidebar/settings.tsx

@@ -1,4 +1,5 @@
 import {
+  AlibabaCloud,
   AssemblyAI,
   Apple,
   Aws,
@@ -12,8 +13,10 @@ import {
   Mistral,
   OpenAI,
   OpenRouter,
+  SiliconCloud,
   Together,
   XAI,
+  ZAI,
 } from "@lobehub/icons";
 import { Shuffle, Waveform } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
@@ -150,6 +153,22 @@ export const displayModelId = (model: string): string => {
 
   if (model === "voxtral-mini-transcribe-realtime-2602") {
     return "Voxtral Realtime";
+  }
+
+  if (model === "qwen3-asr-flash-realtime") {
+    return "Qwen3 ASR Flash Realtime";
+  }
+
+  if (model === "glm-asr-2512") {
+    return "GLM ASR";
+  }
+
+  if (model === "FunAudioLLM/SenseVoiceSmall") {
+    return "SenseVoice Small";
+  }
+
+  if (model === "TeleAI/TeleSpeechASR") {
+    return "TeleSpeech ASR";
   }
 
   if (model === "voxtral-mini-2602") {
@@ -369,6 +388,66 @@ const _PROVIDERS = [
       setup: {
         label: "API keys",
         url: "https://openrouter.ai/settings/keys",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "dashscope",
+    displayName: "Alibaba Cloud Model Studio",
+    badge: null,
+    icon: <AlibabaCloud />,
+    baseUrl: "https://dashscope-intl.aliyuncs.com",
+    models: ["qwen3-asr-flash-realtime"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Realtime transcription docs",
+        url: "https://www.alibabacloud.com/help/en/model-studio/real-time-speech-recognition-user-guide",
+      },
+      setup: {
+        label: "API keys",
+        url: "https://www.alibabacloud.com/help/en/model-studio/get-api-key",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "zai",
+    displayName: "Z.AI",
+    badge: "Batch only",
+    icon: <ZAI />,
+    baseUrl: "https://api.z.ai/api/paas/v4",
+    models: ["glm-asr-2512"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "GLM ASR docs",
+        url: "https://docs.z.ai/guides/audio/glm-asr-2512",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://docs.z.ai/api-reference/introduction",
+      },
+    },
+  },
+  {
+    disabled: false,
+    id: "siliconflow",
+    displayName: "SiliconFlow",
+    badge: "Batch only",
+    icon: <SiliconCloud />,
+    baseUrl: "https://api.siliconflow.com/v1",
+    models: ["FunAudioLLM/SenseVoiceSmall", "TeleAI/TeleSpeechASR"],
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Transcription models",
+        url: "https://docs.siliconflow.com/en/api-reference/audio/create-audio-transcriptions",
+      },
+      setup: {
+        label: "Quickstart",
+        url: "https://docs.siliconflow.com/en/userguide/quickstart",
       },
     },
   },
@@ -721,6 +800,9 @@ const PROVIDER_ORDER = [
   "assemblyai",
   "openai",
   "openrouter",
+  "dashscope",
+  "zai",
+  "siliconflow",
   "google_cloud",
   "aws_transcribe",
   "azure_speech",

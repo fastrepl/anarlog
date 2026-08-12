@@ -197,6 +197,8 @@ describe("getBatchProvider", () => {
     ["google_cloud", "latest_long"],
     ["groq", "whisper-large-v3-turbo"],
     ["openrouter", "openai/gpt-4o-mini-transcribe"],
+    ["siliconflow", "FunAudioLLM/SenseVoiceSmall"],
+    ["zai", "glm-asr-2512"],
     ["revai", "machine"],
     ["speechmatics", "enhanced"],
     ["together", "openai/whisper-large-v3"],

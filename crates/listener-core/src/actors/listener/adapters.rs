@@ -155,6 +155,8 @@ pub(super) async fn spawn_rx_task(
         GoogleCloud,
         Groq,
         OpenRouter,
+        SiliconFlow,
+        Zai,
         RevAi,
         Speechmatics,
         Together

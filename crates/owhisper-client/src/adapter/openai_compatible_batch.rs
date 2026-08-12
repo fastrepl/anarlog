@@ -16,6 +16,7 @@ pub(crate) struct OpenAICompatibleBatchConfig<'a> {
     pub transcription_path: &'a str,
     pub response_format: Option<&'a str>,
     pub timestamp_field: Option<&'a str>,
+    pub include_language: bool,
 }
 
 pub(crate) async fn transcribe(
@@ -39,7 +40,9 @@ pub(crate) async fn transcribe(
     if let Some(field) = config.timestamp_field {
         form = form.text(field.to_string(), "word");
     }
-    if let Some(language) = params.languages.first() {
+    if config.include_language
+        && let Some(language) = params.languages.first()
+    {
         form = form.text("language", language.iso639().code().to_string());
     }
     form = form.part("file", streaming_file_part(file_path).await?);

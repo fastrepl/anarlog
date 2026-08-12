@@ -690,6 +690,7 @@ msgstr "Cleaning up..."
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
+#: src/settings/ai/shared/provider-search.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
 #: src/templates/template-sidebar.tsx
@@ -2041,6 +2042,11 @@ msgstr "No people"
 msgid "No people in this organization"
 msgstr "No people in this organization"
 
+#: src/settings/ai/llm/configure.tsx
+#: src/settings/ai/stt/configure.tsx
+msgid "No providers found."
+msgstr "No providers found."
+
 #: src/chat/components/toolbar-controls.tsx
 msgid "No recent chats"
 msgstr "No recent chats"
@@ -2649,6 +2655,14 @@ msgstr "Search or type owner/repo"
 #: src/settings/automations/starter-config.tsx
 msgid "Search pages shared with Anarlog…"
 msgstr "Search pages shared with Anarlog…"
+
+#: src/settings/ai/shared/provider-search.tsx
+msgid "Search providers"
+msgstr "Search providers"
+
+#: src/settings/ai/shared/provider-search.tsx
+msgid "Search providers..."
+msgstr "Search providers..."
 
 #: src/sidebar/settings.tsx
 msgid "Search settings..."

@@ -13,6 +13,9 @@ describe("STT providers", () => {
       "assemblyai",
       "openai",
       "openrouter",
+      "dashscope",
+      "zai",
+      "siliconflow",
       "google_cloud",
       "aws_transcribe",
       "azure_speech",
@@ -74,6 +77,13 @@ describe("STT model display labels", () => {
     expect(displayModelLabel("mistralai/voxtral-mini-transcribe")).toBe(
       "Voxtral Mini Transcribe",
     );
+    expect(displayModelLabel("qwen3-asr-flash-realtime")).toBe(
+      "Qwen3 ASR Flash Realtime",
+    );
+    expect(displayModelLabel("glm-asr-2512")).toBe("GLM ASR");
+    expect(displayModelLabel("FunAudioLLM/SenseVoiceSmall")).toBe(
+      "SenseVoice Small",
+    );
   });
 
   test("exposes all new providers with honest capability badges", () => {
@@ -87,6 +97,8 @@ describe("STT model display labels", () => {
     for (const provider of [
       "groq",
       "openrouter",
+      "zai",
+      "siliconflow",
       "together",
       "speechmatics",
       "azure_speech",
@@ -96,6 +108,7 @@ describe("STT model display labels", () => {
     }
     expect(providers.google_cloud.badge).toBe("Short batch");
     expect(providers.aws_transcribe.badge).toBe("Gateway");
+    expect(providers.dashscope.badge).toBeNull();
     expect("builtIn" in providers.soniqo && providers.soniqo.builtIn).toBe(
       true,
     );

@@ -54,6 +54,7 @@ impl BatchSttAdapter for OpenRouterAdapter {
                     transcription_path: "audio/transcriptions",
                     response_format: None,
                     timestamp_field: None,
+                    include_language: true,
                 },
             )
             .await

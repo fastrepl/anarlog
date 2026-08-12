@@ -20,6 +20,11 @@ describe("LLM providers", () => {
       "anthropic",
       "google_generative_ai",
       "openrouter",
+      "moonshot",
+      "zai",
+      "deepseek",
+      "alibaba_cloud",
+      "siliconflow",
       "amazon_bedrock",
       "azure_openai",
       "google_vertex_ai",
@@ -76,6 +81,11 @@ describe("getLlmProviderStatus", () => {
   });
 
   test.each([
+    ["moonshot", "https://api.moonshot.ai/v1"],
+    ["zai", "https://api.z.ai/api/paas/v4"],
+    ["deepseek", "https://api.deepseek.com"],
+    ["alibaba_cloud", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"],
+    ["siliconflow", "https://api.siliconflow.com/v1"],
     ["cohere", "https://api.cohere.ai/compatibility/v1"],
     ["groq", "https://api.groq.com/openai/v1"],
     ["xai", "https://api.x.ai/v1"],

@@ -205,6 +205,18 @@ fn test_adapter_kind_from_url_and_languages() {
             Some("openai/gpt-4o-mini-transcribe"),
             AdapterKind::OpenRouter,
         ),
+        (
+            "https://api.siliconflow.cn/v1",
+            &[Zh],
+            Some("FunAudioLLM/SenseVoiceSmall"),
+            AdapterKind::SiliconFlow,
+        ),
+        (
+            "https://api.z.ai/api/paas/v4",
+            &[En],
+            Some("glm-asr-2512"),
+            AdapterKind::Zai,
+        ),
     ];
 
     for (url, langs, model, expected) in cases {
@@ -246,6 +258,8 @@ fn test_has_live_mode() {
         AdapterKind::GoogleCloud,
         AdapterKind::Groq,
         AdapterKind::OpenRouter,
+        AdapterKind::SiliconFlow,
+        AdapterKind::Zai,
         AdapterKind::RevAi,
         AdapterKind::Speechmatics,
         AdapterKind::Together,

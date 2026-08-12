@@ -62,6 +62,7 @@ impl BatchSttAdapter for AwsTranscribeAdapter {
                     transcription_path: "audio/transcriptions",
                     response_format: Some("verbose_json"),
                     timestamp_field: Some("timestamp_granularities[]"),
+                    include_language: true,
                 },
             )
             .await
