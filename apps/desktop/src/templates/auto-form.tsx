@@ -1,8 +1,13 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch, LockSimple, Sparkle } from "@phosphor-icons/react";
+import {
+  CircleNotch,
+  LockSimple,
+  MagicWand,
+  Sparkle,
+} from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import { PromptEditor, type PromptEditorHandle } from "@anlg/editor/prompt";
 import { commands as templateCommands } from "@anlg/plugin-template";
@@ -10,6 +15,8 @@ import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
+
+import { AutoFormatExamplesDialog } from "./auto-format-examples-dialog";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { setSettingValue } from "~/settings/queries";
@@ -62,6 +69,7 @@ export function AutoFormatForm({
   const { t } = useLingui();
   const billing = useBillingAccess();
   const editorRef = useRef<PromptEditorHandle>(null);
+  const [showExamplesDialog, setShowExamplesDialog] = useState(false);
   const selectedTemplateId = useConfigValue("selected_template_id");
   const isDefault = !selectedTemplateId;
   const normalizedOverride = normalizeFormatOverride(formatOverride);
@@ -160,23 +168,46 @@ export function AutoFormatForm({
       </div>
 
       <div className="scroll-fade-y min-h-0 flex-1 overflow-y-auto px-6 pt-3 pb-6">
-        <div className="mx-auto flex max-w-4xl flex-col gap-5">
-          <div>
-            <h1 className="text-lg font-semibold">
-              <Trans>Summary format</Trans>
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
+        <div className="flex max-w-4xl flex-col gap-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-lg font-semibold">
+                <Trans>Summary format</Trans>
+              </h1>
+              <p className="text-muted-foreground mt-1 text-sm">
+                {billing.isPro ? (
+                  <Trans>
+                    Choose how Auto structures and styles your summaries.
+                  </Trans>
+                ) : (
+                  <Trans>
+                    Preview the summary format, then upgrade to Pro to customize
+                    it.
+                  </Trans>
+                )}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="shrink-0"
+              onClick={() => {
+                if (!billing.isPro) {
+                  billing.upgradeToPro();
+                  return;
+                }
+                setShowExamplesDialog(true);
+              }}
+              disabled={billing.isUpgradingToPro}
+            >
               {billing.isPro ? (
-                <Trans>
-                  Choose how Auto structures and styles your summaries.
-                </Trans>
+                <MagicWand className="size-4" />
               ) : (
-                <Trans>
-                  Preview the summary format, then upgrade to Pro to customize
-                  it.
-                </Trans>
+                <LockSimple className="size-4" />
               )}
-            </p>
+              <Trans>Improve with examples</Trans>
+            </Button>
           </div>
 
           <form.Field name="format">
@@ -266,6 +297,16 @@ export function AutoFormatForm({
           </div>
         </div>
       </div>
+
+      {showExamplesDialog ? (
+        <AutoFormatExamplesDialog
+          onClose={() => setShowExamplesDialog(false)}
+          onGenerated={(format) => {
+            form.setFieldValue("format", format);
+            editorRef.current?.setValue(format);
+          }}
+        />
+      ) : null}
     </form>
   );
 }

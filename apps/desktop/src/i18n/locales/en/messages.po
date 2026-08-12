@@ -158,9 +158,17 @@ msgstr "Add another device"
 msgid "Add API key"
 msgstr "Add API key"
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Add at least one example summary."
+msgstr "Add at least one example summary."
+
 #: src/settings/sync/index.tsx
 msgid "Add device"
 msgstr "Add device"
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Add example"
+msgstr "Add example"
 
 #: src/settings/general/spoken-languages.tsx
 msgid "Add language"
@@ -366,6 +374,14 @@ msgstr "Ask anything"
 msgid "Assignees:"
 msgstr "Assignees:"
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Attach Markdown or text"
+msgstr "Attach Markdown or text"
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Attach up to three past summaries you like. Anarlog will learn how you prefer meeting notes to be structured and written."
+msgstr "Attach up to three past summaries you like. Anarlog will learn how you prefer meeting notes to be structured and written."
+
 #: src/settings/general/index.tsx
 #: src/settings/general/permissions.tsx
 msgid "Audio"
@@ -497,6 +513,7 @@ msgstr "Can transcribe while the meeting is happening."
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
+#: src/templates/auto-format-examples-dialog.tsx
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -598,6 +615,10 @@ msgstr "Choose a team"
 #: src/settings/ai/stt/select.tsx
 msgid "Choose a transcription model to start listening."
 msgstr "Choose a transcription model to start listening."
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Choose an AI model before generating a format."
+msgstr "Choose an AI model before generating a format."
 
 #: src/settings/automations/index.tsx
 msgid "Choose an export folder first."
@@ -1187,6 +1208,10 @@ msgstr "Duplicate"
 msgid "Duration"
 msgstr "Duration"
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Each example must be 12,000 characters or fewer."
+msgstr "Each example must be 12,000 characters or fewer."
+
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr "Edit"
@@ -1273,6 +1298,18 @@ msgstr "Everyone in {0}"
 #: src/imports/screen.tsx
 msgid "Everything is already here."
 msgstr "Everything is already here."
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Example summary"
+msgstr "Example summary"
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Examples are used only to improve this format. They are not saved or reused for future meetings."
+msgstr "Examples are used only to improve this format. They are not saved or reused for future meetings."
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Examples must be Markdown or plain text files."
+msgstr "Examples must be Markdown or plain text files."
 
 #: src/settings/general/notification.tsx
 msgid "Exclude apps from detection"
@@ -1515,6 +1552,18 @@ msgstr "Import notes and transcripts from the meeting apps you already use."
 #: src/sidebar/settings.tsx
 msgid "Imports"
 msgstr "Imports"
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Improve format"
+msgstr "Improve format"
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Improve summary format"
+msgstr "Improve summary format"
+
+#: src/templates/auto-form.tsx
+msgid "Improve with examples"
+msgstr "Improve with examples"
 
 #: src/sidebar/timeline/upcoming-meeting.ts
 msgid "In {minutes}m {seconds}s"
@@ -2177,6 +2226,10 @@ msgstr "Others"
 msgid "Participants"
 msgstr "Participants"
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Paste a past summary you like..."
+msgstr "Paste a past summary you like..."
+
 #: src/instruction/index.tsx
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
 msgstr "Paste the browser URL here if the browser button did not reopen Anarlog."
@@ -2399,6 +2452,11 @@ msgstr "Remove automation"
 #: src/settings/sync/index.tsx
 msgid "Remove device"
 msgstr "Remove device"
+
+#. placeholder {0}: index + 1
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Remove example {0}"
+msgstr "Remove example {0}"
 
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"
@@ -3533,6 +3591,10 @@ msgstr "You can"
 #: src/sidebar/timeline/index.tsx
 msgid "You can undo this action for a short time."
 msgstr "You can undo this action for a short time."
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "You can use up to three example summaries."
+msgstr "You can use up to three example summaries."
 
 #: src/onboarding/account/after-login.tsx
 msgid "You have an active plan"

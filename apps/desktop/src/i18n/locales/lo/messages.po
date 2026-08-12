@@ -158,8 +158,16 @@ msgstr ""
 msgid "Add API key"
 msgstr ""
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Add at least one example summary."
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Add device"
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Add example"
 msgstr ""
 
 #: src/settings/general/spoken-languages.tsx
@@ -366,6 +374,14 @@ msgstr ""
 msgid "Assignees:"
 msgstr ""
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Attach Markdown or text"
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Attach up to three past summaries you like. Anarlog will learn how you prefer meeting notes to be structured and written."
+msgstr ""
+
 #: src/settings/general/index.tsx
 #: src/settings/general/permissions.tsx
 msgid "Audio"
@@ -497,6 +513,7 @@ msgstr ""
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
+#: src/templates/auto-format-examples-dialog.tsx
 msgid "Cancel"
 msgstr ""
 
@@ -597,6 +614,10 @@ msgstr ""
 
 #: src/settings/ai/stt/select.tsx
 msgid "Choose a transcription model to start listening."
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Choose an AI model before generating a format."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -1187,6 +1208,10 @@ msgstr ""
 msgid "Duration"
 msgstr ""
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Each example must be 12,000 characters or fewer."
+msgstr ""
+
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr ""
@@ -1272,6 +1297,18 @@ msgstr ""
 
 #: src/imports/screen.tsx
 msgid "Everything is already here."
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Example summary"
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Examples are used only to improve this format. They are not saved or reused for future meetings."
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Examples must be Markdown or plain text files."
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -1514,6 +1551,18 @@ msgstr ""
 #: src/settings/imports/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Imports"
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Improve format"
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Improve summary format"
+msgstr ""
+
+#: src/templates/auto-form.tsx
+msgid "Improve with examples"
 msgstr ""
 
 #: src/sidebar/timeline/upcoming-meeting.ts
@@ -2177,6 +2226,10 @@ msgstr ""
 msgid "Participants"
 msgstr ""
 
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Paste a past summary you like..."
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
 msgstr ""
@@ -2398,6 +2451,11 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Remove device"
+msgstr ""
+
+#. placeholder {0}: index + 1
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "Remove example {0}"
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx
@@ -3532,6 +3590,10 @@ msgstr ""
 
 #: src/sidebar/timeline/index.tsx
 msgid "You can undo this action for a short time."
+msgstr ""
+
+#: src/templates/auto-format-examples-dialog.tsx
+msgid "You can use up to three example summaries."
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx

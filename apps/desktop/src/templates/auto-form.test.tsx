@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   renderTemplate: vi.fn(),
   setSettingValue: vi.fn(),
   toastError: vi.fn(),
+  inferSummaryFormat: vi.fn(),
+  model: { modelId: "test-model" },
   billing: {
     isPro: true,
     isUpgradingToPro: false,
@@ -103,6 +105,16 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   sonnerToast: { error: mocks.toastError },
 }));
 
+vi.mock("./auto-format-inference", () => ({
+  inferSummaryFormat: mocks.inferSummaryFormat,
+  MAX_FORMAT_EXAMPLE_LENGTH: 12_000,
+  MAX_FORMAT_EXAMPLES: 3,
+}));
+
+vi.mock("~/ai/hooks", () => ({
+  useLanguageModel: () => mocks.model,
+}));
+
 vi.mock("~/settings/queries", () => ({
   setSettingValue: mocks.setSettingValue,
 }));
@@ -142,6 +154,9 @@ describe("Auto format editor", () => {
     });
     mocks.renderTemplate.mockResolvedValue({ status: "ok", data: "rendered" });
     mocks.setSettingValue.mockResolvedValue(undefined);
+    mocks.inferSummaryFormat.mockResolvedValue(
+      "- Begin with decisions.\n- Use concise bullets.",
+    );
   });
 
   afterEach(cleanup);
@@ -182,6 +197,98 @@ describe("Auto format editor", () => {
 
     expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
+  });
+
+  it("routes example generation to the Pro upgrade for Free users", () => {
+    mocks.billing.isPro = false;
+
+    renderWithQueryClient(
+      <AutoFormatForm defaultFormat={defaultFormat} formatOverride="" />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Improve with examples" }),
+    );
+
+    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("dialog", { name: "Improve summary format" }),
+    ).toBeNull();
+  });
+
+  it("generates an editable format from up to three transient examples", async () => {
+    renderWithQueryClient(
+      <AutoFormatForm defaultFormat={defaultFormat} formatOverride="" />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Improve with examples" }),
+    );
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Example summary 1" }),
+      { target: { value: "# Decisions\n- Ship the change" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add example" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Example summary 2" }),
+      { target: { value: "# Decisions\n- Launch next week" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add example" }));
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Example summary 3" }),
+      { target: { value: "# Decisions\n- Keep concise" } },
+    );
+
+    expect(screen.getByRole("button", { name: "Add example" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Improve format" }));
+
+    await waitFor(() =>
+      expect(mocks.inferSummaryFormat).toHaveBeenCalledWith({
+        model: mocks.model,
+        examples: [
+          "# Decisions\n- Ship the change",
+          "# Decisions\n- Launch next week",
+          "# Decisions\n- Keep concise",
+        ],
+      }),
+    );
+    expect(
+      screen.getByRole("textbox", {
+        name: "Auto summary format",
+      }) as HTMLTextAreaElement,
+    ).toHaveProperty(
+      "value",
+      "- Begin with decisions.\n- Use concise bullets.",
+    );
+    expect(mocks.setSettingValue).not.toHaveBeenCalled();
+  });
+
+  it("accepts Markdown files as example summaries", async () => {
+    renderWithQueryClient(
+      <AutoFormatForm defaultFormat={defaultFormat} formatOverride="" />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Improve with examples" }),
+    );
+    const file = new File(["# Overview\n- Concise"], "summary.md", {
+      type: "text/markdown",
+    });
+    Object.defineProperty(file, "text", {
+      value: vi.fn().mockResolvedValue("# Overview\n- Concise"),
+    });
+
+    fireEvent.change(document.querySelector('input[type="file"]')!, {
+      target: { files: [file] },
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("textbox", { name: "Example summary 1" }),
+      ).toHaveProperty("value", "# Overview\n- Concise"),
+    );
   });
 
   it("validates and saves a customized format", async () => {
