@@ -25,6 +25,7 @@ import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as TLinkIdRouteImport } from './routes/t/$linkId'
 import { Route as ShareShareIdRouteImport } from './routes/share/$shareId'
+import { Route as InviteCodeRouteImport } from './routes/invite/$code'
 import { Route as ChangelogVersionRouteImport } from './routes/changelog/$version'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiTemplatesRouteImport } from './routes/api/templates'
@@ -157,6 +158,11 @@ const TLinkIdRoute = TLinkIdRouteImport.update({
 const ShareShareIdRoute = ShareShareIdRouteImport.update({
   id: '/share/$shareId',
   path: '/share/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteCodeRoute = InviteCodeRouteImport.update({
+  id: '/invite/$code',
+  path: '/invite/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChangelogVersionRoute = ChangelogVersionRouteImport.update({
@@ -453,6 +459,7 @@ export interface FileRoutesByFullPath {
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
+  '/invite/$code': typeof InviteCodeRoute
   '/share/$shareId': typeof ShareShareIdRoute
   '/t/$linkId': typeof TLinkIdRoute
   '/blog/': typeof BlogIndexRoute
@@ -523,6 +530,7 @@ export interface FileRoutesByTo {
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
+  '/invite/$code': typeof InviteCodeRoute
   '/share/$shareId': typeof ShareShareIdRoute
   '/t/$linkId': typeof TLinkIdRoute
   '/blog': typeof BlogIndexRoute
@@ -596,6 +604,7 @@ export interface FileRoutesById {
   '/api/templates': typeof ApiTemplatesRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
+  '/invite/$code': typeof InviteCodeRoute
   '/share/$shareId': typeof ShareShareIdRoute
   '/t/$linkId': typeof TLinkIdRoute
   '/blog/': typeof BlogIndexRoute
@@ -669,6 +678,7 @@ export interface FileRouteTypes {
     | '/api/templates'
     | '/blog/$slug'
     | '/changelog/$version'
+    | '/invite/$code'
     | '/share/$shareId'
     | '/t/$linkId'
     | '/blog/'
@@ -739,6 +749,7 @@ export interface FileRouteTypes {
     | '/api/templates'
     | '/blog/$slug'
     | '/changelog/$version'
+    | '/invite/$code'
     | '/share/$shareId'
     | '/t/$linkId'
     | '/blog'
@@ -811,6 +822,7 @@ export interface FileRouteTypes {
     | '/api/templates'
     | '/blog/$slug'
     | '/changelog/$version'
+    | '/invite/$code'
     | '/share/$shareId'
     | '/t/$linkId'
     | '/blog/'
@@ -883,6 +895,7 @@ export interface RootRouteChildren {
   ApiTemplatesRoute: typeof ApiTemplatesRoute
   BlogSlugRoute: typeof BlogSlugRoute
   ChangelogVersionRoute: typeof ChangelogVersionRoute
+  InviteCodeRoute: typeof InviteCodeRoute
   ShareShareIdRoute: typeof ShareShareIdRoute
   TLinkIdRoute: typeof TLinkIdRoute
   BlogIndexRoute: typeof BlogIndexRoute
@@ -1039,6 +1052,13 @@ declare module '@tanstack/react-router' {
       path: '/share/$shareId'
       fullPath: '/share/$shareId'
       preLoaderRoute: typeof ShareShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$code': {
+      id: '/invite/$code'
+      path: '/invite/$code'
+      fullPath: '/invite/$code'
+      preLoaderRoute: typeof InviteCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/changelog/$version': {
@@ -1485,6 +1505,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTemplatesRoute: ApiTemplatesRoute,
   BlogSlugRoute: BlogSlugRoute,
   ChangelogVersionRoute: ChangelogVersionRoute,
+  InviteCodeRoute: InviteCodeRoute,
   ShareShareIdRoute: ShareShareIdRoute,
   TLinkIdRoute: TLinkIdRoute,
   BlogIndexRoute: BlogIndexRoute,

@@ -11,6 +11,10 @@ import { createClient } from "@anlg/api-client/client";
 import { env, requireEnv } from "@/env";
 import { getRequestAppOrigin } from "@/functions/app-origin";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
+import {
+  claimPendingReferral,
+  getReferralTrialDays,
+} from "@/functions/referrals";
 import { getStripeClient } from "@/functions/stripe";
 import {
   getSupabaseAdminClient,
@@ -257,6 +261,7 @@ async function createCheckoutUrl({
   scheme,
   trial = false,
   reservationId,
+  trialDays,
   source = "unknown",
   returnTo,
 }: {
@@ -266,6 +271,7 @@ async function createCheckoutUrl({
   scheme?: z.infer<typeof desktopSchemeSchema>;
   trial?: boolean;
   reservationId?: string;
+  trialDays?: number;
   source?:
     | "onboarding"
     | "settings"
@@ -341,7 +347,12 @@ async function createCheckoutUrl({
             source,
             user_id: user.id,
           },
-          ...(trial ? WEB_TRIAL_CHECKOUT_FIELDS.subscription_data : {}),
+          ...(trial
+            ? {
+                ...WEB_TRIAL_CHECKOUT_FIELDS.subscription_data,
+                ...(trialDays ? { trial_period_days: trialDays } : {}),
+              }
+            : {}),
         },
       },
       trial ? { idempotencyKey: `trial-checkout-${reservationId}` } : undefined,
@@ -399,7 +410,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     const returnTo = sanitizeInternalReturnPath(data.returnTo);
 
     let reservationId: string | undefined;
+    let trialDays: number | undefined;
     if (data.trial) {
+      await claimPendingReferral(supabase);
       const { data: reservations, error } = await supabase.rpc(
         "reserve_pro_trial",
         { p_channel: "web" },
@@ -416,6 +429,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         throw new Error("Trial is not available for this account");
       }
       reservationId = parsedReservationId.data;
+      trialDays = (await getReferralTrialDays(supabase)) ?? undefined;
     }
 
     try {
@@ -458,6 +472,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         scheme: data.scheme,
         trial: data.trial,
         reservationId,
+        trialDays,
         source: data.source,
         returnTo,
       });

@@ -12,6 +12,7 @@ import {
   type NewAccountAuthMethod,
   shouldOfferNewAccountTrialCheckoutFallback,
 } from "@/functions/new-account-trial-policy";
+import { claimPendingReferral } from "@/functions/referrals";
 import {
   getSupabaseAdminClient,
   getSupabaseDesktopFlowClient,
@@ -48,6 +49,7 @@ async function prepareNewAccountTrial(
 
   let result: Awaited<ReturnType<typeof ensureNewAccountTrial>>;
   try {
+    await claimPendingReferral(supabase);
     result = await ensureNewAccountTrial(session.access_token);
   } catch (error) {
     captureOperationalError(error, {

@@ -19,6 +19,7 @@ import { DevicesSection } from "./-account-devices";
 import { IntegrationsSection } from "./-account-integrations";
 import { PlanSection } from "./-account-plan";
 import { ProfileInfoSection } from "./-account-profile-info";
+import { ReferralSection } from "./-account-referrals";
 import { accountSessionQueryKey } from "./-account-session";
 import { SharedNotesSection } from "./-account-shares";
 
@@ -36,6 +37,7 @@ const validateSearch = z
       "feature_gate",
       "unknown",
     ]),
+    referral: z.enum(["ineligible"]),
   })
   .partial();
 
@@ -134,6 +136,19 @@ function Component() {
             </p>
             <div className="mt-6">
               <ProfileInfoSection email={user?.email} />
+            </div>
+          </section>
+
+          <section id="referrals" className="scroll-mt-8">
+            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+              Refer friends
+            </h2>
+            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
+              Give a month of Anarlog Pro and get a month when your friend
+              becomes a subscriber.
+            </p>
+            <div className="mt-6">
+              <ReferralSection ineligible={search.referral === "ineligible"} />
             </div>
           </section>
 

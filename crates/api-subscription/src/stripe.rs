@@ -14,7 +14,6 @@ use stripe_core::customer::{
 
 use crate::error::{Result, SubscriptionError};
 use crate::supabase::SupabaseClient;
-use crate::trial::pro_trial_days;
 
 #[derive(Debug, Deserialize)]
 struct Profile {
@@ -252,9 +251,10 @@ pub(crate) async fn create_trial_subscription(
     stripe: &stripe::Client,
     customer_id: &str,
     price_id: &str,
+    trial_days: u32,
     idempotency_key: stripe::IdempotencyKey,
 ) -> Result<Option<i64>> {
-    let create_sub = build_trial_subscription(customer_id, price_id);
+    let create_sub = build_trial_subscription(customer_id, price_id, trial_days);
 
     let start = Instant::now();
     let subscription = create_sub
@@ -296,14 +296,18 @@ pub(crate) async fn customer_has_subscription_history(
     Ok(!subscriptions.data.is_empty())
 }
 
-fn build_trial_subscription(customer_id: &str, price_id: &str) -> CreateSubscription {
+fn build_trial_subscription(
+    customer_id: &str,
+    price_id: &str,
+    trial_days: u32,
+) -> CreateSubscription {
     let mut item = CreateSubscriptionItems::new();
     item.price = Some(price_id.to_string());
 
     CreateSubscription::new()
         .customer(customer_id)
         .items(vec![item])
-        .trial_period_days(pro_trial_days())
+        .trial_period_days(trial_days)
         .trial_settings(CreateSubscriptionTrialSettings::new(
             CreateSubscriptionTrialSettingsEndBehavior::new(
                 CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod::Cancel,
@@ -416,8 +420,12 @@ mod tests {
 
     #[test]
     fn native_trials_are_cardless_and_cancel_if_no_card_is_added() {
-        let request = serde_json::to_value(build_trial_subscription("cus_test", "price_test"))
-            .expect("trial subscription should serialize");
+        let request = serde_json::to_value(build_trial_subscription(
+            "cus_test",
+            "price_test",
+            pro_trial_days(),
+        ))
+        .expect("trial subscription should serialize");
         let request = &request["inner"];
 
         assert_eq!(request["customer"], json!("cus_test"));
@@ -427,6 +435,15 @@ mod tests {
             json!("cancel")
         );
         assert!(request.get("default_payment_method").is_none());
+    }
+
+    #[test]
+    fn referral_trial_uses_the_requested_duration() {
+        let request = serde_json::to_value(build_trial_subscription("cus_test", "price_test", 30))
+            .expect("trial subscription should serialize");
+        let request = &request["inner"];
+
+        assert_eq!(request["trial_period_days"], json!(30));
     }
 
     #[test]

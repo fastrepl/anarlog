@@ -13,7 +13,7 @@ use crate::stripe::{
     create_trial_subscription, customer_has_subscription_history, get_or_create_customer,
     trial_subscription_idempotency_key,
 };
-use crate::trial::{Interval, StartTrialQuery, StartTrialResponse, TrialOutcome};
+use crate::trial::{Interval, StartTrialQuery, StartTrialResponse, TrialOutcome, pro_trial_days};
 
 #[utoipa::path(
     post,
@@ -144,6 +144,25 @@ pub async fn start_trial(
         Ok(false) => {}
     }
 
+    let trial_days: u32 = match state
+        .supabase
+        .rpc::<Option<u32>>("get_referral_trial_days", &auth.token, None)
+        .await
+    {
+        Ok(days) => days.unwrap_or_else(pro_trial_days),
+        Err(e) => {
+            release_trial_reservation(&state, user_id, &reservation.reservation_id).await;
+            return emit_and_respond(
+                state.config.analytics.as_deref(),
+                distinct_id,
+                user_id,
+                source,
+                TrialOutcome::RpcError(e.to_string()),
+            )
+            .await;
+        }
+    };
+
     let price_id = match query.interval {
         Interval::Monthly => &state.config.stripe.stripe_monthly_price_id,
         Interval::Yearly => &state.config.stripe.stripe_yearly_price_id,
@@ -163,20 +182,25 @@ pub async fn start_trial(
         }
     };
 
-    let outcome =
-        match create_trial_subscription(&state.stripe, &customer_id, price_id, idempotency_key)
-            .await
-        {
-            Ok(trial_end) => TrialOutcome::Started(query.interval, trial_end),
-            Err(e) => {
-                tracing::warn!(
-                    error = %e,
-                    reservation_id = %reservation.reservation_id,
-                    "trial_subscription_create_failed_reservation_retained"
-                );
-                TrialOutcome::StripeError(e.to_string())
-            }
-        };
+    let outcome = match create_trial_subscription(
+        &state.stripe,
+        &customer_id,
+        price_id,
+        trial_days,
+        idempotency_key,
+    )
+    .await
+    {
+        Ok(trial_end) => TrialOutcome::Started(query.interval, trial_end),
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                reservation_id = %reservation.reservation_id,
+                "trial_subscription_create_failed_reservation_retained"
+            );
+            TrialOutcome::StripeError(e.to_string())
+        }
+    };
 
     emit_and_respond(
         state.config.analytics.as_deref(),
