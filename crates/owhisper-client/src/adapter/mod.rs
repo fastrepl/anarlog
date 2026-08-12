@@ -66,6 +66,7 @@ use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 use std::str::FromStr;
+use std::time::Duration;
 
 use anlg_ws_client::client::Message;
 use owhisper_interface::ListenParams;
@@ -422,6 +423,14 @@ pub fn append_provider_param(base_url: &str, provider: &str) -> String {
     }
 }
 
+const OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES: u64 = 25 * 1024 * 1024;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BatchUploadLimit {
+    pub max_bytes: u64,
+    pub max_duration: Duration,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
 pub enum AdapterKind {
     #[strum(serialize = "aquavoice")]
@@ -499,6 +508,24 @@ impl AdapterKind {
         Provider::from_url(base_url)
             .map(Self::from)
             .unwrap_or(Self::Deepgram)
+    }
+
+    /// Providers that reject oversized multipart uploads or time out on long
+    /// audio. Recordings past either bound are split into one request per segment
+    /// instead of failing at the provider.
+    pub fn batch_upload_limit(&self) -> Option<BatchUploadLimit> {
+        let max_duration = match self {
+            // OpenRouter's upstream providers time out after 60s per request, so
+            // its segments stay well below the size cap.
+            Self::OpenRouter => Duration::from_secs(10 * 60),
+            Self::OpenAI | Self::Groq | Self::Together | Self::Xai => Duration::from_secs(25 * 60),
+            _ => return None,
+        };
+
+        Some(BatchUploadLimit {
+            max_bytes: OPENAI_COMPATIBLE_MAX_UPLOAD_BYTES,
+            max_duration,
+        })
     }
 
     pub fn has_live_mode(&self) -> bool {

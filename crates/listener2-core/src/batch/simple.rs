@@ -7,7 +7,8 @@ pub(super) use local::{run_apple_speech_batch, run_soniqo_batch};
 #[cfg(test)]
 use direct::{
     DIRECT_BATCH_TIMEOUT_CEILING, DIRECT_BATCH_TIMEOUT_FLOOR, direct_batch_timeout_for_audio,
-    prepare_anarlog_batch_upload, run_direct_batch_with_timeout,
+    merge_segment_responses, prepare_anarlog_batch_upload, run_direct_batch,
+    run_direct_batch_with_timeout, segment_plan,
 };
 #[cfg(test)]
 use local::{

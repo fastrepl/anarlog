@@ -3,11 +3,12 @@ use std::time::Duration;
 
 use owhisper_client::{
     AdapterKind, AnarlogAdapter, AquaVoiceAdapter, ArgmaxAdapter, AssemblyAIAdapter,
-    AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter, CartesiaAdapter, CohereAdapter,
-    DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter, GoogleCloudAdapter,
-    GroqAdapter, MistralAdapter, OpenAIAdapter, OpenRouterAdapter, PyannoteAdapter, RevAiAdapter,
-    SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, XaiAdapter,
+    AwsTranscribeAdapter, AzureSpeechAdapter, BatchSttAdapter, BatchUploadLimit, CartesiaAdapter,
+    CohereAdapter, DeepgramAdapter, ElevenLabsAdapter, FireworksAdapter, GladiaAdapter,
+    GoogleCloudAdapter, GroqAdapter, MistralAdapter, OpenAIAdapter, OpenRouterAdapter,
+    PyannoteAdapter, RevAiAdapter, SonioxAdapter, SpeechmaticsAdapter, TogetherAdapter, XaiAdapter,
 };
+use owhisper_interface::batch::{Alternatives, Channel, Response, Results};
 use tracing::Instrument;
 
 use anlg_audio_utils::Source;
@@ -39,13 +40,14 @@ impl PreparedBatchUpload {
 }
 
 macro_rules! dispatch_batch {
-    ($ak:expr, $params:expr, $lp:expr,
+    ($ak:expr, $params:expr, $lp:expr, $limit:expr,
      { $($var:ident => $adapter:ty),+ $(,)? },
      unsupported: [$($unsup:ident),* $(,)?]
     ) => {
         match $ak {
             $(AdapterKind::$var => {
-                run_direct_batch::<$adapter>(&AdapterKind::$var.to_string(), $params, $lp).await
+                run_direct_batch::<$adapter>(&AdapterKind::$var.to_string(), $params, $lp, $limit)
+                    .await
             })+
             $(AdapterKind::$unsup => {
                 Err(crate::BatchFailure::DirectBatchUnsupported {
@@ -65,7 +67,9 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         return run_anarlog_batch(params, listen_params).await;
     }
 
-    dispatch_batch!(adapter_kind, params, listen_params, {
+    let limit = adapter_kind.batch_upload_limit();
+
+    dispatch_batch!(adapter_kind, params, listen_params, limit, {
         Argmax => ArgmaxAdapter,
         Cartesia => CartesiaAdapter,
         Deepgram => DeepgramAdapter,
@@ -99,8 +103,13 @@ async fn run_anarlog_batch(
     let upload =
         prepare_anarlog_batch_upload(&params.file_path, ANARLOG_PROXY_MAX_AUDIO_BYTES).await?;
     params.file_path = upload.path().to_string_lossy().into_owned();
-    run_direct_batch::<AnarlogAdapter>(&AdapterKind::Anarlog.to_string(), params, listen_params)
-        .await
+    run_direct_batch::<AnarlogAdapter>(
+        &AdapterKind::Anarlog.to_string(),
+        params,
+        listen_params,
+        None,
+    )
+    .await
 }
 
 pub(super) async fn prepare_anarlog_batch_upload(
@@ -179,13 +188,171 @@ pub(super) async fn prepare_anarlog_batch_upload(
     })
 }
 
-async fn run_direct_batch<A: BatchSttAdapter>(
+pub(super) async fn run_direct_batch<A: BatchSttAdapter>(
     provider: &str,
     params: BatchParams,
     listen_params: owhisper_interface::ListenParams,
+    limit: Option<BatchUploadLimit>,
 ) -> crate::Result<BatchRunOutput> {
-    let timeout = direct_batch_timeout(&params.file_path);
-    run_direct_batch_with_timeout::<A>(provider, params, listen_params, timeout).await
+    let audio_duration = audio_duration(&params.file_path);
+    let timeout = direct_batch_timeout_for_audio(audio_duration);
+
+    match segment_plan(&params.file_path, audio_duration, limit) {
+        Some(segment_duration) => {
+            run_segmented_batch::<A>(provider, params, listen_params, segment_duration, timeout)
+                .await
+        }
+        None => run_direct_batch_with_timeout::<A>(provider, params, listen_params, timeout).await,
+    }
+}
+
+/// Recordings past a provider's upload cap or per-request duration cap are
+/// re-encoded as mono MP3 segments and sent one request at a time.
+pub(super) fn segment_plan(
+    file_path: &str,
+    audio_duration: Option<Duration>,
+    limit: Option<BatchUploadLimit>,
+) -> Option<Duration> {
+    let limit = limit?;
+    let size = std::fs::metadata(file_path).ok()?.len();
+    let too_long = audio_duration.is_some_and(|duration| duration > limit.max_duration);
+
+    (size > limit.max_bytes || too_long).then_some(limit.max_duration)
+}
+
+async fn run_segmented_batch<A: BatchSttAdapter>(
+    provider: &str,
+    params: BatchParams,
+    listen_params: owhisper_interface::ListenParams,
+    segment_duration: Duration,
+    timeout: Duration,
+) -> crate::Result<BatchRunOutput> {
+    let segments = split_batch_upload(&params.file_path, segment_duration, provider).await?;
+    tracing::info!(
+        segments = segments.paths.len(),
+        segment_seconds = segment_duration.as_secs(),
+        "batch audio split for provider upload limits"
+    );
+
+    let mut responses = Vec::with_capacity(segments.paths.len());
+    for path in &segments.paths {
+        let mut segment_params = params.clone();
+        segment_params.file_path = path.to_string_lossy().into_owned();
+
+        let output = run_direct_batch_with_timeout::<A>(
+            provider,
+            segment_params,
+            listen_params.clone(),
+            timeout,
+        )
+        .await?;
+        responses.push(output.response);
+    }
+
+    Ok(BatchRunOutput {
+        session_id: params.session_id,
+        mode: BatchRunMode::Direct,
+        response: merge_segment_responses(responses, segment_duration),
+    })
+}
+
+struct SegmentedUpload {
+    _temp_dir: tempfile::TempDir,
+    paths: Vec<PathBuf>,
+}
+
+async fn split_batch_upload(
+    file_path: &str,
+    segment_duration: Duration,
+    provider: &str,
+) -> crate::Result<SegmentedUpload> {
+    let failure = |message: &str| crate::BatchFailure::DirectRequestFailed {
+        provider: provider.to_string(),
+        message: message.to_string(),
+    };
+
+    let temp_dir = tempfile::tempdir().map_err(|error| {
+        tracing::error!(%error, "batch_audio_segment_temp_dir_failed");
+        failure("Anarlog couldn't prepare this recording for transcription.")
+    })?;
+
+    let source = PathBuf::from(file_path);
+    let output_dir = temp_dir.path().to_path_buf();
+    let paths = tokio::task::spawn_blocking(move || {
+        anlg_mp3::encode_mono_segments(&source, &output_dir, segment_duration)
+    })
+    .await
+    .map_err(|error| {
+        tracing::error!(%error, "batch_audio_segment_task_failed");
+        failure("Anarlog couldn't prepare this recording for transcription.")
+    })?
+    .map_err(|error| {
+        tracing::error!(%error, "batch_audio_segment_failed");
+        failure("Anarlog couldn't split this recording for transcription.")
+    })?;
+
+    if paths.is_empty() {
+        return Err(failure("This recording has no audio to transcribe.").into());
+    }
+
+    Ok(SegmentedUpload {
+        _temp_dir: temp_dir,
+        paths,
+    })
+}
+
+/// Segments are transcribed independently, so their timestamps restart at zero.
+pub(super) fn merge_segment_responses(
+    responses: Vec<Response>,
+    segment_duration: Duration,
+) -> Response {
+    let mut metadata = serde_json::Value::Null;
+    let mut transcripts: Vec<String> = Vec::new();
+    let mut words = Vec::new();
+
+    for (index, response) in responses.into_iter().enumerate() {
+        let offset = segment_duration.as_secs_f64() * index as f64;
+        if metadata.is_null() {
+            metadata = response.metadata;
+        }
+
+        let Some(alternative) = response
+            .results
+            .channels
+            .into_iter()
+            .next()
+            .and_then(|channel| channel.alternatives.into_iter().next())
+        else {
+            continue;
+        };
+
+        let transcript = alternative.transcript.trim();
+        if !transcript.is_empty() {
+            transcripts.push(transcript.to_string());
+        }
+        words.extend(alternative.words.into_iter().map(|mut word| {
+            word.start += offset;
+            word.end += offset;
+            word
+        }));
+    }
+
+    Response {
+        metadata: if metadata.is_null() {
+            serde_json::json!({})
+        } else {
+            metadata
+        },
+        results: Results {
+            channels: vec![Channel {
+                alternatives: vec![Alternatives {
+                    transcript: transcripts.join(" "),
+                    confidence: 1.0,
+                    words,
+                }],
+            }],
+        },
+    }
 }
 
 pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
@@ -245,11 +412,10 @@ pub(super) async fn run_direct_batch_with_timeout<A: BatchSttAdapter>(
     .await
 }
 
-fn direct_batch_timeout(file_path: &str) -> Duration {
-    let audio_duration = anlg_audio_utils::source_from_path(file_path)
+fn audio_duration(file_path: &str) -> Option<Duration> {
+    anlg_audio_utils::source_from_path(file_path)
         .ok()
-        .and_then(|source| source.total_duration());
-    direct_batch_timeout_for_audio(audio_duration)
+        .and_then(|source| source.total_duration())
 }
 
 pub(super) fn direct_batch_timeout_for_audio(audio_duration: Option<Duration>) -> Duration {

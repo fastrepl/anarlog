@@ -47,6 +47,64 @@ impl BatchSttAdapter for HangingHttpAdapter {
     }
 }
 
+static SEGMENT_UPLOADS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+#[derive(Clone, Default)]
+struct RecordingAdapter;
+
+impl BatchSttAdapter for RecordingAdapter {
+    fn provider_name(&self) -> &'static str {
+        "recording"
+    }
+
+    fn is_supported_languages(
+        &self,
+        _languages: &[anlg_language::Language],
+        _model: Option<&str>,
+    ) -> bool {
+        true
+    }
+
+    fn transcribe_file<'a, P: AsRef<Path> + Send + 'a>(
+        &'a self,
+        _client: &'a reqwest_middleware::ClientWithMiddleware,
+        _api_base: &'a str,
+        _api_key: &'a str,
+        _params: &'a owhisper_interface::ListenParams,
+        file_path: P,
+    ) -> Pin<
+        Box<dyn Future<Output = std::result::Result<Response, owhisper_client::Error>> + Send + 'a>,
+    > {
+        let path = file_path.as_ref().to_path_buf();
+        Box::pin(async move {
+            let mut uploads = SEGMENT_UPLOADS.lock().unwrap();
+            let index = uploads.len();
+            uploads.push(path.to_string_lossy().into_owned());
+
+            Ok(Response {
+                metadata: serde_json::json!({ "provider": "recording" }),
+                results: owhisper_interface::batch::Results {
+                    channels: vec![owhisper_interface::batch::Channel {
+                        alternatives: vec![owhisper_interface::batch::Alternatives {
+                            transcript: format!("segment {index}"),
+                            confidence: 1.0,
+                            words: vec![owhisper_interface::batch::Word {
+                                word: format!("segment{index}"),
+                                start: 0.25,
+                                end: 0.75,
+                                confidence: 1.0,
+                                channel: 0,
+                                speaker: None,
+                                punctuated_word: None,
+                            }],
+                        }],
+                    }],
+                },
+            })
+        })
+    }
+}
+
 #[derive(Clone)]
 struct HangingProviderState {
     request_started: Arc<Notify>,
@@ -108,6 +166,121 @@ fn direct_timeout_scales_with_audio_duration_and_is_bounded() {
         direct_batch_timeout_for_audio(Some(Duration::from_secs(24 * 60 * 60))),
         DIRECT_BATCH_TIMEOUT_CEILING
     );
+}
+
+#[test]
+fn segments_only_when_a_provider_limit_is_exceeded() {
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_test_wav_samples(source.path(), TARGET_SAMPLE_RATE as usize);
+    let path = source.path().to_str().unwrap();
+    let size = std::fs::metadata(source.path()).unwrap().len();
+    let limit = |max_bytes, max_duration| {
+        Some(owhisper_client::BatchUploadLimit {
+            max_bytes,
+            max_duration,
+        })
+    };
+
+    assert_eq!(segment_plan(path, None, None), None);
+    assert_eq!(
+        segment_plan(path, None, limit(size, Duration::from_secs(60))),
+        None
+    );
+    assert_eq!(
+        segment_plan(path, None, limit(size - 1, Duration::from_secs(60))),
+        Some(Duration::from_secs(60))
+    );
+    assert_eq!(
+        segment_plan(
+            path,
+            Some(Duration::from_secs(61)),
+            limit(size, Duration::from_secs(60))
+        ),
+        Some(Duration::from_secs(60))
+    );
+}
+
+#[test]
+fn merges_segment_transcripts_onto_a_single_timeline() {
+    let segment = |transcript: &str, start: f64| Response {
+        metadata: serde_json::json!({ "provider": "openrouter" }),
+        results: owhisper_interface::batch::Results {
+            channels: vec![owhisper_interface::batch::Channel {
+                alternatives: vec![owhisper_interface::batch::Alternatives {
+                    transcript: transcript.to_string(),
+                    confidence: 1.0,
+                    words: vec![owhisper_interface::batch::Word {
+                        word: transcript.to_string(),
+                        start,
+                        end: start + 0.5,
+                        confidence: 1.0,
+                        channel: 0,
+                        speaker: None,
+                        punctuated_word: None,
+                    }],
+                }],
+            }],
+        },
+    };
+
+    let merged = merge_segment_responses(
+        vec![segment("first", 1.0), segment("second", 2.0)],
+        Duration::from_secs(600),
+    );
+
+    let alternative = &merged.results.channels[0].alternatives[0];
+    assert_eq!(alternative.transcript, "first second");
+    assert_eq!(alternative.words[0].start, 1.0);
+    assert_eq!(alternative.words[1].start, 602.0);
+    assert_eq!(alternative.words[1].end, 602.5);
+    assert_eq!(merged.metadata["provider"], "openrouter");
+}
+
+#[tokio::test]
+async fn oversized_audio_is_uploaded_one_segment_at_a_time() {
+    SEGMENT_UPLOADS.lock().unwrap().clear();
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_test_wav_samples(source.path(), TARGET_SAMPLE_RATE as usize * 3);
+    let size = std::fs::metadata(source.path()).unwrap().len();
+
+    let params = BatchParams {
+        session_id: "segment-test".to_string(),
+        provider: super::super::BatchProvider::OpenRouter,
+        file_path: source.path().to_string_lossy().into_owned(),
+        model: None,
+        base_url: "https://openrouter.ai/api/v1".to_string(),
+        api_key: "test".to_string(),
+        languages: vec![anlg_language::ISO639::En.into()],
+        keywords: vec![],
+        num_speakers: None,
+        min_speakers: None,
+        max_speakers: None,
+    };
+
+    let output = run_direct_batch::<RecordingAdapter>(
+        "recording",
+        params,
+        owhisper_interface::ListenParams::default(),
+        Some(owhisper_client::BatchUploadLimit {
+            max_bytes: size - 1,
+            max_duration: Duration::from_secs(1),
+        }),
+    )
+    .await
+    .unwrap();
+
+    let uploads = SEGMENT_UPLOADS.lock().unwrap().clone();
+    assert_eq!(uploads.len(), 3, "3s of audio in 1s segments");
+    for upload in &uploads {
+        assert!(upload.ends_with(".mp3"), "segment was not re-encoded");
+        assert!(!std::path::Path::new(upload).exists(), "segment leaked");
+    }
+
+    let alternative = &output.response.results.channels[0].alternatives[0];
+    assert_eq!(alternative.transcript, "segment 0 segment 1 segment 2");
+    assert_eq!(alternative.words[0].start, 0.25);
+    assert_eq!(alternative.words[2].start, 2.25);
+    assert!(source.path().exists());
 }
 
 #[tokio::test]

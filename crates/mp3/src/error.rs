@@ -11,6 +11,9 @@ pub enum Error {
     #[error("unsupported integer bit depth: {0}")]
     UnsupportedIntBitDepth(u16),
 
+    #[error("invalid segment duration: {0:?}")]
+    InvalidSegmentDuration(std::time::Duration),
+
     #[error("failed to create LAME encoder")]
     LameInit,
 
