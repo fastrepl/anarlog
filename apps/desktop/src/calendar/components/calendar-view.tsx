@@ -235,17 +235,17 @@ export function CalendarView() {
         <ButtonGroup
           data-tauri-drag-region="false"
           className={cn([
-            "border-border h-8 overflow-hidden rounded-full border",
+            "border-border h-7 overflow-hidden rounded-full border",
             "bg-card",
           ])}
         >
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-accent h-full w-10 rounded-none border-0 bg-transparent shadow-none"
+            className="hover:bg-accent h-full w-8 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToPrev}
           >
-            <CaretLeft className="h-4 w-4" />
+            <CaretLeft className="size-3.5" />
           </Button>
           <ButtonGroupSeparator className="bg-accent" />
           <Button
@@ -253,7 +253,7 @@ export function CalendarView() {
             size="sm"
             className={cn([
               "h-full rounded-none border-0",
-              "hover:bg-accent bg-transparent px-3 text-sm shadow-none",
+              "hover:bg-accent bg-transparent px-2 text-xs shadow-none",
             ])}
             onClick={goToToday}
           >
@@ -263,10 +263,10 @@ export function CalendarView() {
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-accent h-full w-10 rounded-none border-0 bg-transparent shadow-none"
+            className="hover:bg-accent h-full w-8 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToNext}
           >
-            <CaretRight className="h-4 w-4" />
+            <CaretRight className="size-3.5" />
           </Button>
         </ButtonGroup>
       </div>
