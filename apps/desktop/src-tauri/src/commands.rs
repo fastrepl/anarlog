@@ -104,6 +104,22 @@ pub async fn set_recently_opened_sessions<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub fn is_crash_reporting_enabled() -> Result<bool, String> {
+    Ok(crate::CRASH_REPORTING_ENABLED.load(std::sync::atomic::Ordering::SeqCst))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn set_crash_reporting_enabled(
+    state: tauri::State<'_, crate::CrashReportingState>,
+    enabled: bool,
+) -> Result<(), String> {
+    state.set_enabled(enabled);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn check_embedded_cli<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<EmbeddedCliStatus, String> {

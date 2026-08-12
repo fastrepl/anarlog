@@ -40,7 +40,6 @@ const SETTINGS_FORM_KEYS = [
   "show_app_in_dock",
   "show_tray_icon",
   "notification_detect",
-  "telemetry_consent",
   "consent_auto_send_chat",
   "capture_meeting_chat",
   "ai_language",
@@ -65,7 +64,6 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
       show_app_in_dock: settingsValue.show_app_in_dock,
       show_tray_icon: settingsValue.show_tray_icon,
       notification_detect: settingsValue.notification_detect,
-      telemetry_consent: settingsValue.telemetry_consent,
       consent_auto_send_chat: settingsValue.consent_auto_send_chat,
       capture_meeting_chat: settingsValue.capture_meeting_chat,
       ai_language: settingsValue.ai_language,
@@ -106,7 +104,6 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         show_app_in_dock: normalizedValue.show_app_in_dock,
         show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
-        telemetry_consent: normalizedValue.telemetry_consent,
         consent_auto_send_chat: normalizedValue.consent_auto_send_chat,
         capture_meeting_chat: normalizedValue.capture_meeting_chat,
         ai_language: normalizedValue.ai_language,
@@ -126,14 +123,8 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
         show_app_in_dock: normalizedValue.show_app_in_dock,
         show_tray_icon: normalizedValue.show_tray_icon,
         notification_detect: normalizedValue.notification_detect,
-        telemetry_consent: normalizedValue.telemetry_consent,
         consent_auto_send_chat: normalizedValue.consent_auto_send_chat,
         capture_meeting_chat: normalizedValue.capture_meeting_chat,
-      });
-      void analyticsCommands.setProperties({
-        set: {
-          telemetry_opt_out: normalizedValue.telemetry_consent === false,
-        },
       });
     },
   });
@@ -232,11 +223,6 @@ function SettingsSectionContent({
                   value: values.show_tray_icon,
                   onChange: (value) =>
                     form.setFieldValue("show_tray_icon", value),
-                }}
-                telemetryConsent={{
-                  value: values.telemetry_consent,
-                  onChange: (value) =>
-                    form.setFieldValue("telemetry_consent", value),
                 }}
               />
             )}

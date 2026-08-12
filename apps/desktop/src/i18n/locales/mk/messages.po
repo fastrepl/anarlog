@@ -2727,6 +2727,10 @@ msgstr ""
 msgid "Send message"
 msgstr ""
 
+#: src/settings/privacy/index.tsx
+msgid "Send sanitized crash and error reports to help improve Anarlog."
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "Send the recap to the selected Slack channel."
 msgstr ""
@@ -2746,6 +2750,10 @@ msgstr ""
 #. placeholder {0}: formatSyncBytes(entry.sent_bytes)
 #: src/settings/sync/index.tsx
 msgid "Sent {0}"
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Sentry"
 msgstr ""
 
 #: src/session/components/note-input/header.tsx

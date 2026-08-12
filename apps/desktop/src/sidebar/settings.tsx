@@ -14,6 +14,7 @@ import {
   type Icon,
   Lock,
   MagnifyingGlass,
+  ShieldCheck,
   Sparkle,
   Sun,
   User,
@@ -30,6 +31,7 @@ import { CustomSidebarHeader } from "./custom-sidebar-header";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import { privacyMessages } from "~/settings/general/app-settings";
 import { type SettingsTab, type TabInput, useTabs } from "~/store/zustand/tabs";
 
 type SettingsNavItem =
@@ -50,7 +52,7 @@ type SettingsNavItem =
 type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
 export function SettingsNav() {
-  const { t } = useLingui();
+  const { i18n, t } = useLingui();
   const signedIn = Boolean(useAuth().session);
   const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
   const [search, setSearch] = useState("");
@@ -145,6 +147,11 @@ export function SettingsNav() {
     {
       label: t`Advanced`,
       items: [
+        {
+          id: "privacy",
+          label: i18n._(privacyMessages.title),
+          icon: ShieldCheck,
+        },
         { id: "permissions", label: t`Permissions`, icon: Lock },
         { id: "developers", label: t`Developers`, icon: Code },
       ],

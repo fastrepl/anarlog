@@ -49,6 +49,7 @@ export type SettingsTab =
   | "notifications"
   | "imports"
   | "developers"
+  | "privacy"
   | "permissions"
   | "dictionary"
   | "transcription"
@@ -67,6 +68,7 @@ export const normalizeSettingsTab = (
     case "notifications":
     case "imports":
     case "developers":
+    case "privacy":
     case "permissions":
     case "dictionary":
     case "transcription":

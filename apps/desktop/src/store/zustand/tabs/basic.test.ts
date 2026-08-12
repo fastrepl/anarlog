@@ -387,6 +387,18 @@ describe("Basic Tab Actions", () => {
     });
   });
 
+  test("openNew preserves privacy settings tab requests", () => {
+    useTabs.getState().openNew({
+      type: "settings",
+      state: { tab: "privacy" },
+    });
+
+    expect(useTabs.getState()).toHaveCurrentTab({
+      type: "settings",
+      state: { tab: "privacy" },
+    });
+  });
+
   test("openNew preserves meeting settings tab requests", () => {
     useTabs
       .getState()

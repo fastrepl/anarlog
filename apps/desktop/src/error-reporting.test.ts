@@ -2,13 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   addIntegration: vi.fn(),
+  clearBreadcrumbs: vi.fn(),
   emit: vi.fn(),
   getClient: vi.fn(),
-  isDisabled: vi.fn(),
-  listener: undefined as undefined | (() => void),
+  isCrashReportingEnabled: vi.fn(),
+  listener: undefined as
+    | undefined
+    | ((event: { payload: { enabled: boolean } }) => void),
   listen: vi.fn(),
   publicStopReplay: vi.fn(),
   replayIntegration: vi.fn(),
+  setCrashReportingEnabled: vi.fn(),
+  startReplay: vi.fn(),
   stopReplay: vi.fn(),
   withScope: vi.fn(),
 }));
@@ -17,6 +22,8 @@ vi.mock("@sentry/react", () => ({
   addIntegration: mocks.addIntegration,
   captureException: vi.fn(),
   getClient: mocks.getClient,
+  getCurrentScope: () => ({ clearBreadcrumbs: mocks.clearBreadcrumbs }),
+  getReplay: () => ({ start: mocks.startReplay }),
   init: vi.fn(),
   replayIntegration: mocks.replayIntegration,
   setUser: vi.fn(),
@@ -28,8 +35,11 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: mocks.listen,
 }));
 
-vi.mock("@anlg/plugin-analytics", () => ({
-  commands: { isDisabled: mocks.isDisabled },
+vi.mock("./types/tauri.gen", () => ({
+  commands: {
+    isCrashReportingEnabled: mocks.isCrashReportingEnabled,
+    setCrashReportingEnabled: mocks.setCrashReportingEnabled,
+  },
 }));
 
 vi.mock("./env", () => ({
@@ -56,7 +66,14 @@ beforeEach(() => {
       stop: mocks.publicStopReplay,
     }),
   });
-  mocks.isDisabled.mockResolvedValue({ status: "ok", data: false });
+  mocks.isCrashReportingEnabled.mockResolvedValue({
+    status: "ok",
+    data: true,
+  });
+  mocks.setCrashReportingEnabled.mockResolvedValue({
+    status: "ok",
+    data: null,
+  });
   mocks.listen.mockImplementation(async (_event, listener) => {
     mocks.listener = listener;
     return vi.fn();
@@ -259,20 +276,24 @@ describe("user-caused failures", () => {
 describe("session replay consent", () => {
   it("broadcasts revocation and stops the local replay", async () => {
     vi.resetModules();
-    const { disableSessionReplay, initializeErrorReporting } =
+    const { initializeErrorReporting, setErrorReportingEnabled } =
       await import("./error-reporting");
 
     initializeErrorReporting();
     await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
 
-    disableSessionReplay();
+    await setErrorReportingEnabled(false);
 
     expect(mocks.stopReplay).toHaveBeenCalledWith({
       forceFlush: false,
       reason: "consent_revoked",
     });
     expect(mocks.publicStopReplay).not.toHaveBeenCalled();
-    expect(mocks.emit).toHaveBeenCalledWith("anlg:session-replay-disabled");
+    expect(mocks.setCrashReportingEnabled).toHaveBeenCalledWith(false);
+    expect(mocks.emit).toHaveBeenCalledWith(
+      "anlg:error-reporting-consent-changed",
+      { enabled: false },
+    );
   });
 
   it("stops replay when another webview revokes consent", async () => {
@@ -282,15 +303,29 @@ describe("session replay consent", () => {
     initializeErrorReporting();
     await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
 
-    mocks.listener?.();
+    mocks.listener?.({ payload: { enabled: false } });
 
     expect(mocks.stopReplay).toHaveBeenCalledOnce();
+  });
+
+  it("restarts replay when Sentry consent is restored", async () => {
+    vi.resetModules();
+    const { initializeErrorReporting, setErrorReportingEnabled } =
+      await import("./error-reporting");
+
+    initializeErrorReporting();
+    await vi.waitFor(() => expect(mocks.addIntegration).toHaveBeenCalledOnce());
+
+    await setErrorReportingEnabled(false);
+    await setErrorReportingEnabled(true);
+
+    expect(mocks.startReplay).toHaveBeenCalledOnce();
   });
 
   it("does not attach replay when revocation races with consent loading", async () => {
     vi.resetModules();
     let resolveConsent!: (value: { status: "ok"; data: boolean }) => void;
-    mocks.isDisabled.mockReturnValueOnce(
+    mocks.isCrashReportingEnabled.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveConsent = resolve;
       }),
@@ -298,9 +333,11 @@ describe("session replay consent", () => {
     const { initializeErrorReporting } = await import("./error-reporting");
 
     initializeErrorReporting();
-    await vi.waitFor(() => expect(mocks.isDisabled).toHaveBeenCalledOnce());
-    mocks.listener?.();
-    resolveConsent({ status: "ok", data: false });
+    await vi.waitFor(() =>
+      expect(mocks.isCrashReportingEnabled).toHaveBeenCalledOnce(),
+    );
+    mocks.listener?.({ payload: { enabled: false } });
+    resolveConsent({ status: "ok", data: true });
 
     await Promise.resolve();
     expect(mocks.addIntegration).not.toHaveBeenCalled();

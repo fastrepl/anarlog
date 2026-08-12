@@ -191,6 +191,12 @@ vi.mock("./types/tauri.gen", () => ({
     getOnboardingNeeded: vi
       .fn()
       .mockResolvedValue({ status: "ok", data: false }),
+    isCrashReportingEnabled: vi
+      .fn()
+      .mockResolvedValue({ status: "ok", data: true }),
+    setCrashReportingEnabled: vi
+      .fn()
+      .mockResolvedValue({ status: "ok", data: null }),
     showDevtool: vi.fn().mockResolvedValue(true),
     getPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),
     setPinnedTabs: vi.fn().mockResolvedValue({ status: "ok", data: null }),

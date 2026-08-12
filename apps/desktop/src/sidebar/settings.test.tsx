@@ -151,6 +151,7 @@ describe("SettingsNav", () => {
       "Sync",
       "Imports",
       "Advanced",
+      "Privacy",
       "Permissions",
       "Developers",
     ].forEach((label) => {
@@ -184,6 +185,17 @@ describe("SettingsNav", () => {
       {
         tab: "permissions",
       },
+    );
+  });
+
+  it("opens Privacy inside settings", () => {
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Privacy" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "privacy" },
     );
   });
 

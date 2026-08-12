@@ -13,7 +13,7 @@ use ext::*;
 use store::*;
 
 use std::sync::{
-    Arc,
+    Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 
@@ -27,8 +27,75 @@ const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
 const APP_EXIT_REQUESTED_EVENT: &str = "app-exit-requested";
 static EXIT_FLUSH_COMPLETE: AtomicBool = AtomicBool::new(false);
 static EXIT_FLUSH_REQUESTED: AtomicBool = AtomicBool::new(false);
+static CRASH_REPORTING_ENABLED: AtomicBool = AtomicBool::new(true);
 const EXIT_FLUSH_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const EXIT_HARD_FALLBACK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
+
+pub(crate) struct CrashReportingState {
+    client: Option<sentry::Client>,
+    minidump: Mutex<Option<tauri_plugin_sentry::minidump::Handle>>,
+}
+
+impl CrashReportingState {
+    fn new(client: Option<sentry::Client>, enabled: bool) -> Self {
+        CRASH_REPORTING_ENABLED.store(enabled, Ordering::SeqCst);
+        let minidump = enabled
+            .then(|| client.as_ref().and_then(start_minidump_reporting))
+            .flatten();
+        Self {
+            client,
+            minidump: Mutex::new(minidump),
+        }
+    }
+
+    fn set_enabled(&self, enabled: bool) {
+        CRASH_REPORTING_ENABLED.store(enabled, Ordering::SeqCst);
+        let mut minidump = self.minidump.lock().unwrap();
+        if enabled {
+            if minidump.is_none() {
+                *minidump = self.client.as_ref().and_then(start_minidump_reporting);
+            }
+        } else {
+            minidump.take();
+        }
+    }
+}
+
+fn start_minidump_reporting(
+    client: &sentry::Client,
+) -> Option<tauri_plugin_sentry::minidump::Handle> {
+    match tauri_plugin_sentry::minidump::init(client) {
+        Ok(handle) => Some(handle),
+        Err(error) => {
+            tracing::warn!(%error, "failed to initialize Sentry minidump reporting");
+            None
+        }
+    }
+}
+
+async fn load_crash_reporting_consent(db: &anlg_db_core::Db) -> bool {
+    let rows = sqlx::query_as::<_, (String, String)>(
+        "SELECT id, value_json FROM app_settings \
+         WHERE id IN ('crash_reporting_consent', 'telemetry_consent')",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap_or_default();
+
+    crash_reporting_consent_from_rows(&rows)
+}
+
+fn crash_reporting_consent_from_rows(rows: &[(String, String)]) -> bool {
+    let read = |id: &str| {
+        rows.iter()
+            .find(|(key, _)| key == id)
+            .and_then(|(_, value)| serde_json::from_str::<bool>(value).ok())
+    };
+
+    read("crash_reporting_consent")
+        .or_else(|| read("telemetry_consent"))
+        .unwrap_or(true)
+}
 
 fn mark_exit_flush_complete() {
     EXIT_FLUSH_COMPLETE.store(true, Ordering::SeqCst);
@@ -101,6 +168,12 @@ pub async fn main() {
             None => (None, None),
         };
 
+    let db = match open_desktop_db(&context.config().identifier).await {
+        Ok(db) => db,
+        Err(error) => exit_after_startup_failure(&error),
+    };
+    let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
+
     let sentry_client = {
         let dsn = if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
             None
@@ -118,9 +191,17 @@ pub async fn main() {
                     release,
                     traces_sample_rate: 1.0,
                     auto_session_tracking: false,
-                    before_send: Some(Arc::new(
-                        tauri_plugin_tracing::redaction::sanitize_sentry_event,
-                    )),
+                    before_send: Some(Arc::new(|event| {
+                        CRASH_REPORTING_ENABLED
+                            .load(Ordering::SeqCst)
+                            .then(|| tauri_plugin_tracing::redaction::sanitize_sentry_event(event))
+                            .flatten()
+                    })),
+                    before_breadcrumb: Some(Arc::new(|breadcrumb| {
+                        CRASH_REPORTING_ENABLED
+                            .load(Ordering::SeqCst)
+                            .then_some(breadcrumb)
+                    })),
                     ..Default::default()
                 },
             ));
@@ -140,18 +221,11 @@ pub async fn main() {
             None
         }
     };
-
-    let _guard = sentry_client
-        .as_ref()
-        .map(|client| tauri_plugin_sentry::minidump::init(client));
+    let crash_reporting_state =
+        CrashReportingState::new(sentry_client.as_deref().cloned(), crash_reporting_enabled);
 
     let audio: std::sync::Arc<dyn anlg_audio_actual::AudioProvider> =
         create_audio_provider(&context.config().identifier);
-
-    let db = match open_desktop_db(&context.config().identifier).await {
-        Ok(db) => db,
-        Err(error) => exit_after_startup_failure(&error),
-    };
     let cloudsync_config = match cloudsync_runtime_config_from_env() {
         Ok(config) => config,
         Err(error) => {
@@ -162,7 +236,8 @@ pub async fn main() {
 
     let mut builder = tauri_plugin_windows::extend_builder(tauri::Builder::default())
         .manage(audio)
-        .manage(db.clone());
+        .manage(db.clone())
+        .manage(crash_reporting_state);
 
     // https://docs.crabnebula.dev/plugins/tauri-e2e-tests/#macos-support
     #[cfg(all(target_os = "macos", feature = "automation"))]
@@ -531,6 +606,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_pinned_tabs::<tauri::Wry>,
             commands::get_recently_opened_sessions::<tauri::Wry>,
             commands::set_recently_opened_sessions::<tauri::Wry>,
+            commands::is_crash_reporting_enabled,
+            commands::set_crash_reporting_enabled,
             commands::check_embedded_cli::<tauri::Wry>,
             commands::install_embedded_cli::<tauri::Wry>,
         ])
@@ -558,6 +635,18 @@ mod test {
         assert!(!versions_indicate_update(None, Some("1.4.8")));
         assert!(!versions_indicate_update(Some(""), Some("1.4.8")));
         assert!(!versions_indicate_update(Some("1.4.7"), None));
+    }
+
+    #[test]
+    fn crash_reporting_uses_new_consent_before_legacy_telemetry_consent() {
+        let rows = vec![
+            ("telemetry_consent".to_string(), "false".to_string()),
+            ("crash_reporting_consent".to_string(), "true".to_string()),
+        ];
+
+        assert!(crash_reporting_consent_from_rows(&rows));
+        assert!(!crash_reporting_consent_from_rows(&rows[..1]));
+        assert!(crash_reporting_consent_from_rows(&[]));
     }
 
     #[test]

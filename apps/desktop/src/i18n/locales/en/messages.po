@@ -2727,6 +2727,10 @@ msgstr "Send email"
 msgid "Send message"
 msgstr "Send message"
 
+#: src/settings/privacy/index.tsx
+msgid "Send sanitized crash and error reports to help improve Anarlog."
+msgstr "Send sanitized crash and error reports to help improve Anarlog."
+
 #: src/automations/starters.tsx
 msgid "Send the recap to the selected Slack channel."
 msgstr "Send the recap to the selected Slack channel."
@@ -2747,6 +2751,10 @@ msgstr "Sending and receiving your latest changes."
 #: src/settings/sync/index.tsx
 msgid "Sent {0}"
 msgstr "Sent {0}"
+
+#: src/settings/privacy/index.tsx
+msgid "Sentry"
+msgstr "Sentry"
 
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"

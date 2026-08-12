@@ -2,13 +2,14 @@ import * as Sentry from "@sentry/react";
 import type { ErrorEvent, SeverityLevel } from "@sentry/react";
 import { emit, listen } from "@tauri-apps/api/event";
 
-import { commands as analyticsCommands } from "@anlg/plugin-analytics";
-
 import { env } from "./env";
+import { commands as desktopCommands } from "./types/tauri.gen";
 
 type ErrorContextValue = null | boolean | number | string;
 const SAFE_IDENTIFIER_RE = /^[a-zA-Z0-9_.:/-]{1,128}$/;
-const SESSION_REPLAY_DISABLED_EVENT = "anlg:session-replay-disabled";
+const ERROR_REPORTING_CONSENT_EVENT = "anlg:error-reporting-consent-changed";
+let errorReportingEnabled = false;
+let errorReportingConsentRevision = 0;
 
 // Failures caused by the user's own account state (exhausted credits, expired
 // plans, bad API keys) are not actionable for engineering, so they never reach
@@ -194,7 +195,8 @@ export function initializeErrorReporting() {
     environment: import.meta.env.MODE,
     sendDefaultPii: false,
     tracePropagationTargets: [],
-    beforeSend: sanitizeErrorEvent,
+    beforeSend: (event) =>
+      errorReportingEnabled ? sanitizeErrorEvent(event) : null,
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
     initialScope: {
@@ -206,35 +208,68 @@ export function initializeErrorReporting() {
     },
   });
 
-  void initializeSessionReplay();
+  void initializeErrorReportingConsent();
 }
 
-let sessionReplayAttached = false;
-let sessionReplayDisabled = false;
+let sessionReplayInstalled = false;
+let sessionReplayRunning = false;
 
-async function initializeSessionReplay() {
+async function initializeErrorReportingConsent() {
   try {
-    await listen(SESSION_REPLAY_DISABLED_EVENT, stopSessionReplay);
-    const disabled = await analyticsCommands.isDisabled();
-    if (disabled.status === "ok" && !disabled.data && !sessionReplayDisabled) {
-      Sentry.addIntegration(
-        Sentry.replayIntegration({
-          blockAllMedia: true,
-          maskAllText: true,
-        }),
-      );
-      sessionReplayAttached = true;
+    await listen<{ enabled: boolean }>(
+      ERROR_REPORTING_CONSENT_EVENT,
+      ({ payload }) => {
+        errorReportingConsentRevision += 1;
+        applyErrorReportingConsent(payload.enabled);
+      },
+    );
+    const consentRevision = errorReportingConsentRevision;
+    const enabled = await desktopCommands.isCrashReportingEnabled();
+    if (
+      enabled.status === "ok" &&
+      consentRevision === errorReportingConsentRevision
+    ) {
+      applyErrorReportingConsent(enabled.data);
     }
   } catch {
-    // Without a readable consent state, keep replay off.
+    // Without a readable consent state, keep error reporting off.
   }
 }
 
-function stopSessionReplay() {
-  sessionReplayDisabled = true;
-  if (!sessionReplayAttached) return;
+function applyErrorReportingConsent(enabled: boolean) {
+  errorReportingEnabled = enabled;
+  Sentry.getCurrentScope().clearBreadcrumbs();
 
-  sessionReplayAttached = false;
+  if (enabled) {
+    startSessionReplay();
+  } else {
+    stopSessionReplay();
+  }
+}
+
+function startSessionReplay() {
+  if (sessionReplayRunning) return;
+
+  if (sessionReplayInstalled) {
+    Sentry.getReplay()?.start();
+    sessionReplayRunning = true;
+    return;
+  }
+
+  Sentry.addIntegration(
+    Sentry.replayIntegration({
+      blockAllMedia: true,
+      maskAllText: true,
+    }),
+  );
+  sessionReplayInstalled = true;
+  sessionReplayRunning = true;
+}
+
+function stopSessionReplay() {
+  if (!sessionReplayRunning) return;
+
+  sessionReplayRunning = false;
   const replay = Sentry.getClient()?.getIntegrationByName?.("Replay") as
     | {
         _replay?: {
@@ -252,11 +287,15 @@ function stopSessionReplay() {
     .catch(() => {});
 }
 
-// Turning consent back on takes effect on the next launch, so the
-// session sampling decision is only ever made at startup.
-export function disableSessionReplay() {
-  stopSessionReplay();
-  void emit(SESSION_REPLAY_DISABLED_EVENT).catch(() => {});
+export async function setErrorReportingEnabled(enabled: boolean) {
+  const result = await desktopCommands.setCrashReportingEnabled(enabled);
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+
+  errorReportingConsentRevision += 1;
+  applyErrorReportingConsent(enabled);
+  await emit(ERROR_REPORTING_CONSENT_EVENT, { enabled });
 }
 
 export function captureOperationalError(

@@ -1,7 +1,14 @@
+import { msg } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { platform } from "@tauri-apps/plugin-os";
 
 import { SettingSwitchRow } from "~/settings/setting-row";
+
+export const privacyMessages = {
+  title: msg`Privacy`,
+  posthogTitle: msg`Share usage data`,
+  posthogDescription: msg`Help improve Anarlog with anonymous usage data.`,
+};
 
 interface SettingItem {
   value: boolean;
@@ -14,7 +21,6 @@ interface AppSettingsViewProps {
   automaticUpdates: SettingItem;
   showAppInDock: SettingItem;
   showTrayIcon: SettingItem;
-  telemetryConsent: SettingItem;
 }
 
 export function AppSettingsView({
@@ -22,7 +28,6 @@ export function AppSettingsView({
   automaticUpdates,
   showAppInDock,
   showTrayIcon,
-  telemetryConsent,
 }: AppSettingsViewProps) {
   const currentPlatform = platform();
   const isMacos = currentPlatform === "macos";
@@ -66,22 +71,6 @@ export function AppSettingsView({
             }
             checked={showTrayIcon.value}
             onChange={showTrayIcon.onChange}
-          />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="mb-4 font-sans text-lg font-semibold">
-          <Trans>Privacy</Trans>
-        </h2>
-        <div className="flex flex-col gap-4">
-          <SettingSwitchRow
-            title={<Trans>Share usage data</Trans>}
-            description={
-              <Trans>Help improve Anarlog with anonymous usage data.</Trans>
-            }
-            checked={telemetryConsent.value}
-            onChange={telemetryConsent.onChange}
           />
         </div>
       </section>
