@@ -2,7 +2,6 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { useMutation } from "@tanstack/react-query";
 import { downloadDir, join } from "@tauri-apps/api/path";
 import { useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 
 import { json2md } from "@anlg/editor/markdown";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -13,6 +12,12 @@ import {
 } from "@anlg/plugin-export";
 import { commands as fs2Commands } from "@anlg/plugin-fs2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
 
 import { formatDate, formatDuration } from "./export-utils";
@@ -392,14 +397,14 @@ export function ExportModal({
     return null;
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 bg-black/20 backdrop-blur-xs"
-      onClick={() => onOpenChange(false)}
-    >
-      <div
-        className="absolute top-1/2 left-1/2 w-full max-w-xs -translate-x-1/2 -translate-y-1/2 px-4"
-        onClick={(e) => e.stopPropagation()}
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        overlayClassName="bg-black/20 backdrop-blur-xs"
+        className={cn([
+          "w-full max-w-xs gap-0 border-0 bg-transparent p-4 shadow-none sm:rounded-none",
+          "[&>button:last-child]:hidden",
+        ])}
       >
         <div
           className={cn([
@@ -409,12 +414,12 @@ export function ExportModal({
           ])}
         >
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold">
+            <DialogTitle className="text-base leading-normal font-semibold">
               <Trans>Export</Trans>
-            </h2>
-            <p className="text-muted-foreground text-sm">
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-sm">
               <Trans>Choose a file format and what to include.</Trans>
-            </p>
+            </DialogDescription>
           </div>
 
           <div className="flex flex-col gap-4">
@@ -498,8 +503,7 @@ export function ExportModal({
                 : t`Export`}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -137,9 +137,7 @@ export function ChatMessageInput({
           <div
             className={cn([
               "flex shrink-0 items-center",
-              isFloating
-                ? "absolute right-0 bottom-0.5 z-10"
-                : "justify-between",
+              isFloating ? "absolute right-0 bottom-0.5" : "justify-between",
             ])}
           >
             <div />

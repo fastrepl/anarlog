@@ -47,7 +47,7 @@ export function ParticipantDropdown({
     <div
       ref={floatingRef}
       style={floatingStyles}
-      className="bg-popover z-50 overflow-hidden rounded-md border shadow-md"
+      className="bg-popover overflow-hidden rounded-md border shadow-md"
       onMouseDown={(event) => {
         event.preventDefault();
         event.stopPropagation();

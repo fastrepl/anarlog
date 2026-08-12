@@ -9,9 +9,13 @@ import {
   useMemo,
   useState,
 } from "react";
-import { createPortal } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
 
 import { trackAnalyticsEvent } from "~/analytics";
@@ -226,37 +230,46 @@ export function OpenNoteDialog({
 
   if (!open) return null;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 bg-black/20 backdrop-blur-xs"
-      onClick={() => handleOpenChange(false)}
-    >
-      <div
-        data-tauri-drag-region
-        className="absolute top-0 right-0 left-0 h-[15%]"
-        onClick={(e) => e.stopPropagation()}
-      />
-      <div
-        className="absolute top-[15%] left-1/2 w-full max-w-lg -translate-x-1/2 px-4"
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        aria-describedby={undefined}
+        overlayClassName="bg-black/20 backdrop-blur-xs"
+        overlayChildren={
+          <div
+            data-open-note-dialog-drag-region
+            data-tauri-drag-region
+            className="absolute top-0 right-0 left-0 h-[15%]"
+            onClick={(event) => event.stopPropagation()}
+          />
+        }
+        className={cn([
+          "top-[15%] w-full max-w-lg -translate-y-0 gap-0 border-0 bg-transparent px-4 py-0 shadow-none sm:rounded-none",
+          "data-[state=closed]:animate-none data-[state=open]:animate-none",
+          "[&>button:last-child]:hidden",
+        ])}
         style={{ marginLeft: mainContentCenterOffset }}
+        onPointerDownOutside={(event) => {
+          const target = event.detail.originalEvent.target;
+          if (
+            target instanceof Element &&
+            target.closest("[data-open-note-dialog-drag-region]")
+          ) {
+            event.preventDefault();
+          }
+        }}
       >
+        <DialogTitle className="sr-only">
+          <Trans>Find a note...</Trans>
+        </DialogTitle>
         <div
           className={cn([
             "border-border/80 bg-background rounded-2xl border",
             "shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]",
             "overflow-hidden",
           ])}
-          onClick={(e) => e.stopPropagation()}
         >
-          <CommandPrimitive
-            shouldFilter={false}
-            className="flex flex-col"
-            onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                handleOpenChange(false);
-              }
-            }}
-          >
+          <CommandPrimitive shouldFilter={false} className="flex flex-col">
             <div className="border-border/60 flex items-center gap-3 border-b px-4 py-3">
               <MagnifyingGlass className="text-muted-foreground h-4 w-4 shrink-0" />
               <CommandPrimitive.Input
@@ -362,8 +375,7 @@ export function OpenNoteDialog({
             </CommandPrimitive.List>
           </CommandPrimitive>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </DialogContent>
+    </Dialog>
   );
 }

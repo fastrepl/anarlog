@@ -117,9 +117,12 @@ describe("PersistentChatPanel", () => {
       "true",
     );
     const floatingFrame = document.querySelector("[data-chat-floating-frame]");
+    const floatingOverlay = floatingFrame?.parentElement;
     const panel = document.querySelector<HTMLElement>("[data-chat-panel]");
 
     await waitFor(() => {
+      expect(floatingOverlay?.parentElement).toBe(document.body);
+      expect(floatingOverlay?.className).not.toContain("z-");
       expect(floatingFrame?.className).toContain("items-end");
       expect(floatingFrame?.className).toContain("justify-center");
       expect(floatingFrame?.className).toContain("px-3");

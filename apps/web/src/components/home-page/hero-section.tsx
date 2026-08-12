@@ -381,7 +381,7 @@ function DownloadButton() {
       {open && (
         <div
           role="menu"
-          className="surface border-color-brand absolute top-[calc(100%+0.5rem)] left-0 z-10 w-72 max-w-[calc(100vw-2.5rem)] rounded-2xl border p-2 text-left shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
+          className="surface border-color-brand absolute top-[calc(100%+0.5rem)] left-0 w-72 max-w-[calc(100vw-2.5rem)] rounded-2xl border p-2 text-left shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
         >
           {orderedSections.map((section) =>
             section.downloads.map((download) => {

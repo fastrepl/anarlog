@@ -144,7 +144,7 @@ export function Timeline({
                   className={cn([
                     "absolute right-0 bottom-full mb-1",
                     "border-border bg-card rounded-lg border shadow-md",
-                    "z-50 py-1",
+                    "py-1",
                   ])}
                 >
                   {PLAYBACK_RATES.map((rate) => (

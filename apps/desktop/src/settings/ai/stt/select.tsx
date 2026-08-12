@@ -986,7 +986,7 @@ function LocalModelDropdownActions({ model }: { model: LocalModel }) {
     <div
       data-model-actions-pending={deleteModel.isPending || undefined}
       className={cn([
-        "absolute top-0 right-0 bottom-0 z-10 flex items-center justify-end gap-1 rounded-r-full pl-6",
+        "absolute top-0 right-0 bottom-0 flex items-center justify-end gap-1 rounded-r-full pl-6",
         "pointer-events-none opacity-0 transition-opacity duration-150",
         "group-hover/model-row:pointer-events-auto group-hover/model-row:opacity-100",
         "group-focus-within/model-row:pointer-events-auto group-focus-within/model-row:opacity-100",

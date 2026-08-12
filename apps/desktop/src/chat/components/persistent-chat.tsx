@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@anlg/utils";
@@ -117,11 +118,15 @@ export function PersistentChatPanel({
     willChange: "transform",
   };
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence initial={false}>
       {isVisible && (
         <motion.div
-          className="pointer-events-none fixed z-100"
+          className="pointer-events-none fixed"
           style={
             containerRect
               ? {
@@ -183,7 +188,8 @@ export function PersistentChatPanel({
           </div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 

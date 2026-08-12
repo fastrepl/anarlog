@@ -60,6 +60,14 @@ describe("OpenNoteDialog", () => {
 
   afterEach(cleanup);
 
+  it("closes through the shared dialog escape behavior", () => {
+    render(<OpenNoteDialog open onOpenChange={mocks.onOpenChange} />);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(mocks.onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("opens a durable shared note from All Notes", () => {
     mocks.notes = [
       {
@@ -94,6 +102,10 @@ describe("OpenNoteDialog", () => {
 
     render(<OpenNoteDialog open onOpenChange={mocks.onOpenChange} />);
 
+    expect(screen.getByRole("dialog", { name: "Find a note..." })).toBeTruthy();
+    expect(
+      document.querySelector("[data-open-note-dialog-drag-region]"),
+    ).toBeTruthy();
     expect(screen.getByText("All Notes")).toBeTruthy();
     const sharedNote = screen.getByRole("option", {
       name: "Shared roadmap",
