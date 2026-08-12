@@ -490,10 +490,6 @@ msgstr "Browser handoff not working? Paste the callback link instead"
 msgid "Build a custom dictionary with Anarlog Pro"
 msgstr "Build a custom dictionary with Anarlog Pro"
 
-#: src/settings/general/audio-settings.tsx
-msgid "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."
-msgstr "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."
-
 #: src/settings/general/permissions.tsx
 #: src/sidebar/settings.tsx
 msgid "Calendar"
@@ -2437,10 +2433,6 @@ msgstr "Regenerate message"
 #: src/contacts/related-notes.tsx
 msgid "Related Notes"
 msgstr "Related Notes"
-
-#: src/settings/general/audio-settings.tsx
-msgid "Remember speakers"
-msgstr "Remember speakers"
 
 #: src/settings/todo/provider-content.tsx
 msgid "Reminders"

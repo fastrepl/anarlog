@@ -8,16 +8,11 @@ import {
   SelectValue,
 } from "@anlg/ui/components/ui/select";
 
-import {
-  SETTING_CONTROL_CLASS,
-  SettingRow,
-  SettingSwitchRow,
-} from "~/settings/setting-row";
+import { SETTING_CONTROL_CLASS, SettingRow } from "~/settings/setting-row";
 
 export function AudioSettingsView({
   audioRetention,
   microphoneDevice,
-  rememberSpeakers,
 }: {
   audioRetention: {
     value: string;
@@ -27,10 +22,6 @@ export function AudioSettingsView({
     value: string;
     devices: string[];
     onChange: (value: string) => void;
-  };
-  rememberSpeakers: {
-    value: boolean;
-    onChange: (value: boolean) => void;
   };
 }) {
   return (
@@ -43,18 +34,6 @@ export function AudioSettingsView({
       <AudioRetentionRow
         value={audioRetention.value}
         onChange={audioRetention.onChange}
-      />
-      <SettingSwitchRow
-        title={<Trans>Remember speakers</Trans>}
-        description={
-          <Trans>
-            Build voiceprints from meeting audio so speakers you name in a
-            transcript are recognized in later meetings. Voiceprints never leave
-            this device, and unnamed ones are deleted after 45 days.
-          </Trans>
-        }
-        checked={rememberSpeakers.value}
-        onChange={rememberSpeakers.onChange}
       />
     </div>
   );
