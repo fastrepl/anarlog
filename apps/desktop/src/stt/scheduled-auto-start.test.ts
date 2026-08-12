@@ -114,4 +114,10 @@ describe("hasPendingAutoStart", () => {
   test("allows scheduling after every pending start clears", () => {
     expect(hasPendingAutoStart([sessionTab("ready", null)])).toBe(false);
   });
+
+  test("does not let an inactive pending tab block scheduling", () => {
+    expect(
+      hasPendingAutoStart([{ ...sessionTab("inactive", true), active: false }]),
+    ).toBe(false);
+  });
 });

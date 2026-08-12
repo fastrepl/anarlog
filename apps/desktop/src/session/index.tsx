@@ -115,33 +115,58 @@ function AutoStartListening({
     state.canStartLiveSession(tab.id),
   );
   const { conn } = useSTTConnection();
-
-  if (!canStartLiveSession || !conn) {
-    return null;
-  }
-
-  return <StartListeningWhenReady key={tab.id} tab={tab} />;
-}
-
-function StartListeningWhenReady({
-  tab,
-}: {
-  tab: Extract<Tab, { type: "sessions" }>;
-}) {
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const startListening = useStartListening(tab.id);
+  const hasAttemptedAutoStart = useRef(false);
 
   useMountEffect(() => {
+    // Readiness can be blocked by startup or an import lock; abandon the
+    // request instead of preventing every later scheduled meeting.
+    const timeout = setTimeout(() => {
+      if (!hasAttemptedAutoStart.current) {
+        clearPendingAutoStart(tab.id);
+      }
+    }, 30_000);
+
+    return () => clearTimeout(timeout);
+  });
+
+  useEffect(() => {
+    if (hasAttemptedAutoStart.current || !canStartLiveSession || !conn) {
+      return;
+    }
+
+    hasAttemptedAutoStart.current = true;
+    const timeout = setTimeout(() => {
+      clearPendingAutoStart(tab.id);
+    }, 30_000);
+
     void startListening()
       .catch((error) => {
         console.error("[listener] failed to auto-start session", error);
       })
       .finally(() => {
-        updateSessionTabState(tab, { ...tab.state, autoStart: null });
+        clearTimeout(timeout);
+        clearPendingAutoStart(tab.id);
       });
-  });
+  }, [canStartLiveSession, conn, startListening, tab.id]);
 
   return null;
+}
+
+function clearPendingAutoStart(sessionId: string) {
+  const tabsState = useTabs.getState();
+  const currentTab = tabsState.tabs.find(
+    (candidate): candidate is Extract<Tab, { type: "sessions" }> =>
+      candidate.type === "sessions" && candidate.id === sessionId,
+  );
+  if (!currentTab?.state.autoStart) {
+    return;
+  }
+
+  tabsState.updateSessionTabState(currentTab, {
+    ...currentTab.state,
+    autoStart: null,
+  });
 }
 
 function TabContentNoteInner({

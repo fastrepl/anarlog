@@ -80,7 +80,8 @@ export function selectDueMeetings({
 
 export function hasPendingAutoStart(tabs: readonly Tab[]): boolean {
   return tabs.some(
-    (tab) => tab.type === "sessions" && Boolean(tab.state.autoStart),
+    (tab) =>
+      tab.type === "sessions" && tab.active && Boolean(tab.state.autoStart),
   );
 }
 
@@ -145,6 +146,18 @@ export function ScheduledMeetingAutoStart() {
 
       if (!autoStartRef.current) {
         return;
+      }
+
+      const tabsState = useTabs.getState();
+      for (const tab of tabsState.tabs) {
+        if (tab.type !== "sessions" || tab.active || !tab.state.autoStart) {
+          continue;
+        }
+
+        tabsState.updateSessionTabState(tab, {
+          ...tab.state,
+          autoStart: null,
+        });
       }
 
       if (hasPendingAutoStart(useTabs.getState().tabs)) {
