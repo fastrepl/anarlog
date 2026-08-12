@@ -259,6 +259,18 @@ async fn local_transcript_edit_rebases_above_witnessed_field_and_tombstone() {
         .await
         .unwrap();
     assert!(skipped.skipped_local_changes > 0);
+    assert!(skipped.remaining_replica_changes);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM e2ee_replica_pending WHERE record_id IN (?, ?)",
+        )
+        .bind(&words_id)
+        .bind(&manifest_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap(),
+        2
+    );
     encrypt_e2ee_replica_changes(db.pool(), &workspace_keys)
         .await
         .unwrap();

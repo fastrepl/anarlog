@@ -216,7 +216,7 @@ async fn applies_remote_changes_and_preserves_concurrent_local_edits() {
             .unwrap();
     sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
         .bind(remote_payload)
-        .bind(title_record_id)
+        .bind(&title_record_id)
         .execute(target.pool())
         .await
         .unwrap();
@@ -235,4 +235,15 @@ async fn applies_remote_changes_and_preserves_concurrent_local_edits() {
 
     assert_eq!(title, "Local");
     assert_eq!(stats.skipped_local_changes, 1);
+    assert!(stats.remaining_replica_changes);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM e2ee_replica_pending WHERE record_id = ?",
+        )
+        .bind(title_record_id)
+        .fetch_one(target.pool())
+        .await
+        .unwrap(),
+        1
+    );
 }

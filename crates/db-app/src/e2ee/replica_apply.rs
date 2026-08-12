@@ -150,9 +150,6 @@ pub(super) async fn load_changed_e2ee_record_metadata(
            SELECT pending.record_id AS id, pending.workspace_id, pending.generation
            FROM e2ee_replica_pending AS pending
            INDEXED BY idx_e2ee_replica_pending_workspace_record
-           INNER JOIN e2ee_records AS input
-             ON input.id = pending.record_id
-            AND input.workspace_id = pending.workspace_id
            WHERE pending.workspace_id IN (",
     );
     {
@@ -173,31 +170,36 @@ pub(super) async fn load_changed_e2ee_record_metadata(
             "
          )
          SELECT
-           replica.id,
+           page.id,
            page.generation,
-           LENGTH(CAST(replica.id AS BLOB))
-             + LENGTH(CAST(replica.workspace_id AS BLOB))
-             + LENGTH(CAST(replica.payload AS BLOB))
-             + 256 AS record_bytes,
-           EXISTS(
-             SELECT 1
-             FROM e2ee_witness_records AS witness
-             WHERE witness.workspace_id = replica.workspace_id
-               AND witness.record_id = replica.id
-               AND witness.payload = replica.payload
-           ) AS witnessed,
-           (
+           COALESCE(
+             LENGTH(CAST(replica.id AS BLOB))
+               + LENGTH(CAST(replica.workspace_id AS BLOB))
+               + LENGTH(CAST(replica.payload AS BLOB))
+               + 256,
+             0
+           ) AS record_bytes,
+           replica.id IS NOT NULL
+             AND EXISTS(
+               SELECT 1
+               FROM e2ee_witness_records AS witness
+               WHERE witness.workspace_id = replica.workspace_id
+                 AND witness.record_id = replica.id
+                 AND witness.payload = replica.payload
+             ) AS witnessed,
+           replica.id IS NOT NULL
+           AND (
              local.record_id IS NULL
              OR local.workspace_id != replica.workspace_id
              OR local.payload != replica.payload
            ) AS changed
          FROM page
-         INNER JOIN e2ee_records AS replica
+         LEFT JOIN e2ee_records AS replica
            ON replica.id = page.id
           AND replica.workspace_id = page.workspace_id
          LEFT JOIN e2ee_local_state AS local
            ON local.record_id = replica.id
-         ORDER BY replica.workspace_id, replica.id",
+         ORDER BY page.workspace_id, page.id",
         );
     Ok(query.build_query_as().fetch_all(pool).await?)
 }
@@ -323,7 +325,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             break;
         }
         let (workspace_id, table, row_id) = group;
-        let pending = group_pending
+        let mut pending = group_pending
             .remove(&(workspace_id.clone(), table.clone(), row_id.clone()))
             .unwrap_or_default();
         check_e2ee_apply_cancellation(is_cancelled)?;
@@ -486,9 +488,6 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 stats.skipped_local_changes += records.len() as u64 + 1;
                 remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
                 rollback_if_cancelled!(transaction, is_cancelled);
-                delete_reconciled_replica_entries_in_transaction(&mut transaction, &pending)
-                    .await?;
-                rollback_if_cancelled!(transaction, is_cancelled);
                 commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
                 continue;
             }
@@ -578,6 +577,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             continue;
         }
 
+        let mut deferred_pending_ids = HashSet::new();
         for record in records {
             rollback_if_cancelled!(transaction, is_cancelled);
             let field_name = record.field.field.as_str();
@@ -603,12 +603,14 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 else {
                     rollback_if_cancelled!(transaction, is_cancelled);
                     stats.skipped_local_changes += 1;
+                    deferred_pending_ids.insert(record.record_id.clone());
                     continue;
                 };
                 rollback_if_cancelled!(transaction, is_cancelled);
                 let current_tag = key.value_tag(&table, &row_id, field_name, false, &current);
                 if current_tag != state.value_tag {
                     stats.skipped_local_changes += 1;
+                    deferred_pending_ids.insert(record.record_id.clone());
                     continue;
                 }
             }
@@ -644,6 +646,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
         }
         remove_apply_guard(&mut transaction, &workspace_id, &table, &row_id).await?;
         rollback_if_cancelled!(transaction, is_cancelled);
+        pending.retain(|(record_id, _)| !deferred_pending_ids.contains(record_id));
         delete_reconciled_replica_entries_in_transaction(&mut transaction, &pending).await?;
         rollback_if_cancelled!(transaction, is_cancelled);
         commit_e2ee_apply_transaction(transaction, is_cancelled).await?;

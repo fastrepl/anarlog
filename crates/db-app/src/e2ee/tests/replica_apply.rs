@@ -78,6 +78,36 @@ async fn field_chunk_before_manifest_waits_then_applies_without_echo() {
 }
 
 #[tokio::test]
+async fn deleted_replica_records_clear_their_pending_apply_entries() {
+    let workspace_keys = keys("workspace-a");
+    let target = test_db().await;
+    sqlx::query(
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES ('deleted-record', 'workspace-a', 'payload')",
+    )
+    .execute(target.pool())
+    .await
+    .unwrap();
+    sqlx::query("DELETE FROM e2ee_records WHERE id = 'deleted-record'")
+        .execute(target.pool())
+        .await
+        .unwrap();
+
+    let stats = apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let pending: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM e2ee_replica_pending WHERE record_id = 'deleted-record'",
+    )
+    .fetch_one(target.pool())
+    .await
+    .unwrap();
+
+    assert_eq!(pending, 0);
+    assert!(!stats.remaining_replica_changes);
+}
+
+#[tokio::test]
 async fn witness_repairs_missing_records_only_after_snapshot_completion() {
     let workspace_keys = keys("workspace-a");
     let source = test_db().await;
