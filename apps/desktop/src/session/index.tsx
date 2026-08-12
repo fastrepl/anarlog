@@ -36,6 +36,7 @@ import {
   subscribeCanonicalSessionImportLocks,
 } from "~/session-sharing/editor-activity";
 import { useSession } from "~/session/queries";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { useListener } from "~/stt/contexts";
 import { consumePendingUpload } from "~/stt/pending-upload";
@@ -113,35 +114,32 @@ function AutoStartListening({
   const canStartLiveSession = useListener((state) =>
     state.canStartLiveSession(tab.id),
   );
-  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const { conn } = useSTTConnection();
+
+  if (!canStartLiveSession || !conn) {
+    return null;
+  }
+
+  return <StartListeningWhenReady key={tab.id} tab={tab} />;
+}
+
+function StartListeningWhenReady({
+  tab,
+}: {
+  tab: Extract<Tab, { type: "sessions" }>;
+}) {
+  const updateSessionTabState = useTabs((state) => state.updateSessionTabState);
   const startListening = useStartListening(tab.id);
-  const hasAttemptedAutoStart = useRef(false);
 
-  useEffect(() => {
-    if (hasAttemptedAutoStart.current) {
-      return;
-    }
-
-    if (!canStartLiveSession) {
-      return;
-    }
-
-    if (!conn) {
-      return;
-    }
-
-    hasAttemptedAutoStart.current = true;
-    startListening();
-    updateSessionTabState(tab, { ...tab.state, autoStart: null });
-  }, [
-    tab,
-    tab.state,
-    canStartLiveSession,
-    conn,
-    startListening,
-    updateSessionTabState,
-  ]);
+  useMountEffect(() => {
+    void startListening()
+      .catch((error) => {
+        console.error("[listener] failed to auto-start session", error);
+      })
+      .finally(() => {
+        updateSessionTabState(tab, { ...tab.state, autoStart: null });
+      });
+  });
 
   return null;
 }

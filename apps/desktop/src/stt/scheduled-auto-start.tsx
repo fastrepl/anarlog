@@ -9,7 +9,7 @@ import { useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
-import { useTabs } from "~/store/zustand/tabs";
+import { type Tab, useTabs } from "~/store/zustand/tabs";
 
 // A meeting that started while the app was asleep or quit is still worth
 // recording, but only briefly — reopening hours later must not start capturing
@@ -78,6 +78,12 @@ export function selectDueMeetings({
   return due.sort((a, b) => b.startMs - a.startMs).map(({ row }) => row);
 }
 
+export function hasPendingAutoStart(tabs: readonly Tab[]): boolean {
+  return tabs.some(
+    (tab) => tab.type === "sessions" && Boolean(tab.state.autoStart),
+  );
+}
+
 async function startScheduledMeeting(
   row: ScheduledMeetingRow,
   autoJoin: boolean,
@@ -138,6 +144,10 @@ export function ScheduledMeetingAutoStart() {
       }
 
       if (!autoStartRef.current) {
+        return;
+      }
+
+      if (hasPendingAutoStart(useTabs.getState().tabs)) {
         return;
       }
 

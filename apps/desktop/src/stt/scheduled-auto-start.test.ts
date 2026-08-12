@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  hasPendingAutoStart,
   SCHEDULED_AUTO_START_GRACE_MS,
   type ScheduledMeetingRow,
   selectDueMeetings,
 } from "./scheduled-auto-start";
+
+import type { Tab } from "~/store/zustand/tabs";
 
 const NOW = new Date("2026-05-15T12:00:00.000Z").getTime();
 
@@ -83,5 +86,32 @@ describe("selectDueMeetings", () => {
 
   test("returns nothing when no meeting is due", () => {
     expect(select([])).toEqual([]);
+  });
+});
+
+describe("hasPendingAutoStart", () => {
+  const sessionTab = (
+    id: string,
+    autoStart: boolean | null,
+  ): Extract<Tab, { type: "sessions" }> => ({
+    type: "sessions",
+    id,
+    active: true,
+    slotId: id,
+    pinned: false,
+    state: { view: null, autoStart },
+  });
+
+  test("blocks another scheduled start while a tab is still arming", () => {
+    expect(
+      hasPendingAutoStart([
+        sessionTab("ready", null),
+        sessionTab("arming", true),
+      ]),
+    ).toBe(true);
+  });
+
+  test("allows scheduling after every pending start clears", () => {
+    expect(hasPendingAutoStart([sessionTab("ready", null)])).toBe(false);
   });
 });
