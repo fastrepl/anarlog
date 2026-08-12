@@ -298,7 +298,7 @@ function HeroWorkflowDemo() {
       </div>
       <div
         className={cn([
-          "pointer-events-none absolute right-1 bottom-9 z-10 w-[74%] transition-all duration-500 sm:-right-2 sm:bottom-12 sm:w-[76%]",
+          "pointer-events-none absolute right-1 bottom-9 z-10 w-[66%] transition-all duration-500 sm:-right-2 sm:bottom-12 sm:w-[68%]",
           isSummaryPhase
             ? "translate-y-2 opacity-0"
             : "translate-y-0 opacity-100",
@@ -309,7 +309,7 @@ function HeroWorkflowDemo() {
           alt="Four participants in a video meeting"
           width={1200}
           height={215}
-          className="h-auto w-full rounded-xl shadow-xl ring-1 ring-neutral-900/10"
+          className="h-auto w-full rounded-xl shadow-xl"
           decoding="async"
         />
       </div>
