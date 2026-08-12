@@ -15,9 +15,7 @@ export function persistContactAvatar(
   });
 }
 
-// 2x the largest on-screen avatar (64px) so retina displays stay sharp
-// while uploads compress to a few KB before hitting SQLite.
-const AVATAR_RASTER_SIZE = 128;
+const AVATAR_RASTER_SIZE = 70;
 
 export function ContactImage({
   src,

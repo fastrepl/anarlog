@@ -1,6 +1,7 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import { Buildings, Envelope } from "@phosphor-icons/react";
+import { useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -32,6 +33,7 @@ export function OrganizationDetailsColumn({
   onDelete: (id: string) => void;
 }) {
   const { t } = useLingui();
+  const [showCompactIdentity, setShowCompactIdentity] = useState(false);
   const peopleInOrg = organization
     ? humans.filter((human) => human.organizationId === organization.id)
     : [];
@@ -41,6 +43,17 @@ export function OrganizationDetailsColumn({
       {organization ? (
         <>
           <ContactPageHeader
+            title={organization.name || t`Unnamed`}
+            compactIdentity={
+              organization.avatarDataUrl ? (
+                <ContactImage src={organization.avatarDataUrl} size={24} />
+              ) : (
+                <div className="bg-muted flex size-6 shrink-0 items-center justify-center rounded-full">
+                  <Buildings className="text-muted-foreground size-3" />
+                </div>
+              )
+            }
+            showCompactIdentity={showCompactIdentity}
             pinned={Boolean(organization.pinned)}
             onTogglePin={() => {
               void toggleContactPin("organization", organization.id).catch(
@@ -61,7 +74,12 @@ export function OrganizationDetailsColumn({
             }
           />
 
-          <div className="flex-1 overflow-y-auto">
+          <div
+            className="flex-1 overflow-y-auto"
+            onScroll={(event) => {
+              setShowCompactIdentity(event.currentTarget.scrollTop > 0);
+            }}
+          >
             <div className="border-border flex items-center justify-center border-b py-6">
               <AvatarUploadButton
                 label={t`Change photo`}

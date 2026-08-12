@@ -85,6 +85,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
     <div className="h-full">
       {effectiveSelection?.type === "organization" ? (
         <OrganizationDetailsColumn
+          key={effectiveSelection.id}
           organization={
             organizations.find(
               (organization) => organization.id === effectiveSelection.id,
@@ -98,6 +99,7 @@ function ContactView({ tab }: { tab: Extract<Tab, { type: "contacts" }> }) {
         />
       ) : (
         <DetailsColumn
+          key={effectiveSelection?.id ?? "empty"}
           human={
             effectiveSelection?.type === "person"
               ? (humans.find((human) => human.id === effectiveSelection.id) ??

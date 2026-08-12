@@ -3347,6 +3347,7 @@ msgstr "Unlock sync"
 msgid "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
 msgstr "Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically."
 
+#: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 msgid "Unnamed"
 msgstr "Unnamed"

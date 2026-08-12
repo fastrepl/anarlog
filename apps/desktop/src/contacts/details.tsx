@@ -49,6 +49,7 @@ export function DetailsColumn({
   onDelete: (id: string) => void;
 }) {
   const { t } = useLingui();
+  const [showCompactIdentity, setShowCompactIdentity] = useState(false);
   const personSessions = useHumanSessions(human?.id ?? "");
   const duplicatesWithData = React.useMemo(
     () =>
@@ -78,6 +79,15 @@ export function DetailsColumn({
       {human ? (
         <>
           <ContactPageHeader
+            title={human.name || human.email || t`Unnamed`}
+            compactIdentity={
+              human.avatarDataUrl ? (
+                <ContactImage src={human.avatarDataUrl} size={24} />
+              ) : (
+                <ContactFacehash name={facehashName} size={24} />
+              )
+            }
+            showCompactIdentity={showCompactIdentity}
             pinned={Boolean(human.pinned)}
             onTogglePin={() => {
               void toggleContactPin("human", human.id).catch((error) => {
@@ -92,7 +102,12 @@ export function DetailsColumn({
             }
           />
 
-          <div className="flex-1 overflow-y-auto">
+          <div
+            className="flex-1 overflow-y-auto"
+            onScroll={(event) => {
+              setShowCompactIdentity(event.currentTarget.scrollTop > 0);
+            }}
+          >
             <div className="border-border flex items-center justify-center border-b py-6">
               <AvatarUploadButton
                 label={t`Change photo`}
