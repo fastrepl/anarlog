@@ -12,6 +12,7 @@ NODE_VERSION = "22"
 
 [functions]
 included_files = [
+  "public/fonts/fonts.conf",
   "public/fonts/Redaction70-Regular.otf",
   "public/fonts/SF-Pro-Text-Bold.otf",
   "public/fonts/SF-Pro-Text-Regular.otf",

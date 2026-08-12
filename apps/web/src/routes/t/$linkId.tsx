@@ -1,7 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 
 import {
   SharedNoteLoading,
+  SharedNoteTransientError,
   SharedNoteUnavailable,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
@@ -15,6 +17,7 @@ import {
 import {
   shareLinkIdSchema,
   sharedNoteDesktopSchemeSchema,
+  type SharedNoteDesktopScheme,
 } from "@/lib/shared-notes";
 import { LinkSharedNoteClient } from "@/routes/share/link/$shareId";
 
@@ -28,32 +31,84 @@ export const Route = createFileRoute("/t/$linkId")({
   },
   loader: async ({ params }) => {
     const linkId = shareLinkIdSchema.safeParse(params.linkId);
-    if (!linkId.success) return null;
-    const result = await fetchShortLinkSharedNotePreviewResult(linkId.data);
-    return result.status === "ready" ? result.preview : null;
+    if (!linkId.success) return { status: "unavailable" } as const;
+    return fetchShortLinkSharedNotePreviewResult(linkId.data);
   },
   head: ({ loaderData, params }) =>
-    loaderData
-      ? getShortLinkShareHead(params.linkId, loaderData)
+    loaderData?.status === "ready"
+      ? getShortLinkShareHead(params.linkId, loaderData.preview)
       : getPrivateShareHead(),
   headers: () => privateShareHeaders,
   component: Component,
 });
 
 function Component() {
-  const preview = Route.useLoaderData();
+  const previewResult = Route.useLoaderData();
+  const { linkId } = Route.useParams();
   const { scheme } = Route.useSearch();
   const { user } = Route.useRouteContext();
-  if (!preview) return <SharedNoteUnavailable />;
+  if (previewResult.status === "unavailable") {
+    return <SharedNoteUnavailable />;
+  }
 
   return (
     <ClientOnly fallback={<SharedNoteLoading />}>
-      <LinkSharedNoteClient
-        currentUserId={user?.id ?? null}
-        meetingMetadata={preview}
-        scheme={scheme}
-        shareId={preview.shareId}
-      />
+      {previewResult.status === "ready" ? (
+        <LinkSharedNoteClient
+          currentUserId={user?.id ?? null}
+          meetingMetadata={previewResult.preview}
+          scheme={scheme}
+          shareId={previewResult.preview.shareId}
+        />
+      ) : (
+        <ShortLinkSharedNoteClient
+          currentUserId={user?.id ?? null}
+          linkId={linkId}
+          scheme={scheme}
+        />
+      )}
     </ClientOnly>
+  );
+}
+
+function ShortLinkSharedNoteClient({
+  currentUserId,
+  linkId,
+  scheme,
+}: {
+  currentUserId: string | null;
+  linkId: string;
+  scheme: SharedNoteDesktopScheme;
+}) {
+  const previewQuery = useQuery({
+    queryKey: ["shared-note-short-link-preview", linkId],
+    queryFn: ({ signal }) =>
+      fetchShortLinkSharedNotePreviewResult(linkId, signal),
+    gcTime: 0,
+    retry: false,
+    staleTime: 0,
+  });
+
+  if (previewQuery.isPending) return <SharedNoteLoading />;
+  if (previewQuery.isError || previewQuery.data.status === "error") {
+    return (
+      <SharedNoteTransientError
+        retry={() => {
+          void previewQuery.refetch();
+        }}
+      />
+    );
+  }
+  if (previewQuery.data.status === "unavailable") {
+    return <SharedNoteUnavailable />;
+  }
+
+  return (
+    <LinkSharedNoteClient
+      currentUserId={currentUserId}
+      meetingMetadata={previewQuery.data.preview}
+      scheme={scheme}
+      shareId={previewQuery.data.preview.shareId}
+    />
   );
 }

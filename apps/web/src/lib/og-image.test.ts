@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import test from "node:test";
 import sharp from "sharp";
 
@@ -27,6 +28,11 @@ test("renders blog metadata into a post-specific image", async () => {
   assert.doesNotMatch(svg, /<rect x=/);
 
   const response = await renderBlogOgImage({ title: "Dynamic blog post" });
+  assert.ok(
+    process.env.FONTCONFIG_FILE?.endsWith(
+      join("public", "fonts", "fonts.conf"),
+    ),
+  );
   const metadata = await sharp(
     Buffer.from(await response.arrayBuffer()),
   ).metadata();

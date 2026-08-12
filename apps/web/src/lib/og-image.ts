@@ -20,8 +20,9 @@ const CACHE_CONTROL =
 const SHARED_NOTE_CACHE_CONTROL = "public, max-age=0, s-maxage=60";
 const SERIF_FONT_FAMILY = "Redaction 70, Georgia, serif";
 const SANS_FONT_FAMILY = "SF Pro Text, Arial, sans-serif";
+const FONT_CONFIG_FILENAME = "fonts.conf";
 
-let ogFontsReady: Promise<void> | undefined;
+let ogFontsConfigured = false;
 
 type BlogOgImageInput = {
   title: string;
@@ -281,7 +282,7 @@ export function createSharedNoteOgSvg(
 }
 
 async function renderOgImage(svg: string, cacheControl: string) {
-  await ensureOgFonts();
+  configureOgFonts();
   const png = await sharp(Buffer.from(svg)).png().toBuffer();
 
   return new Response(new Uint8Array(png), {
@@ -292,42 +293,16 @@ async function renderOgImage(svg: string, cacheControl: string) {
   });
 }
 
-function ensureOgFonts() {
-  if (!ogFontsReady) {
-    ogFontsReady = registerOgFonts();
-  }
-  return ogFontsReady;
-}
+function configureOgFonts() {
+  if (ogFontsConfigured) return;
+  ogFontsConfigured = true;
 
-async function registerOgFonts() {
-  for (const [filename, font] of [
-    ["Redaction70-Regular.otf", "Redaction 70 12"],
-    ["SF-Pro-Text-Regular.otf", "SF Pro Text 12"],
-    ["SF-Pro-Text-Bold.otf", "SF Pro Text Bold 12"],
-  ] as const) {
-    await sharp({
-      text: {
-        text: "Anarlog",
-        font,
-        fontfile: resolveOgFont(filename),
-        rgba: true,
-      },
-    })
-      .png()
-      .toBuffer();
-  }
-}
-
-function resolveOgFont(filename: string) {
   const candidates = [
-    join(process.cwd(), "public", "fonts", filename),
-    join(process.cwd(), "apps", "web", "public", "fonts", filename),
+    join(process.cwd(), "public", "fonts", FONT_CONFIG_FILENAME),
+    join(process.cwd(), "apps", "web", "public", "fonts", FONT_CONFIG_FILENAME),
   ];
-  const path = candidates.find(existsSync);
-  if (!path) {
-    throw new Error(`Open Graph font is unavailable: ${filename}`);
-  }
-  return path;
+  const fontConfigPath = candidates.find(existsSync);
+  if (fontConfigPath) process.env.FONTCONFIG_FILE = fontConfigPath;
 }
 
 export async function renderBlogOgImage(input: BlogOgImageInput) {
@@ -335,6 +310,7 @@ export async function renderBlogOgImage(input: BlogOgImageInput) {
 }
 
 export async function renderSharedNoteOgImage(input: SharedNoteOgImageInput) {
+  configureOgFonts();
   const participantPresentation = createSharedNoteParticipantPresentation(
     input.participants ?? [],
   );
