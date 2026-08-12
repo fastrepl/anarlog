@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   getTemplateSource: vi.fn(),
   renderTemplate: vi.fn(),
   setSettingValue: vi.fn(),
+  toastError: vi.fn(),
   billing: {
     isPro: true,
     isUpgradingToPro: false,
@@ -98,6 +99,10 @@ vi.mock("@anlg/plugin-template", () => ({
   },
 }));
 
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  sonnerToast: { error: mocks.toastError },
+}));
+
 vi.mock("~/settings/queries", () => ({
   setSettingValue: mocks.setSettingValue,
 }));
@@ -142,7 +147,7 @@ describe("Auto prompt editor", () => {
 
   afterEach(cleanup);
 
-  it("loads the built-in source and shows supported variables and context", async () => {
+  it("loads the built-in source and shows supported variables", async () => {
     renderWithQueryClient(<AutoTemplateDetails />);
 
     expect(
@@ -152,8 +157,7 @@ describe("Auto prompt editor", () => {
     ).toHaveProperty("value", defaultPrompt);
     expect(screen.getByRole("button", { name: /Current date/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Language/ })).toBeTruthy();
-    expect(screen.getByText("Meeting notes")).toBeTruthy();
-    expect(screen.getByText("Transcript")).toBeTruthy();
+    expect(screen.queryByText("Context always provided")).toBeNull();
   });
 
   it("inserts supported variables as canonical prompt tokens", () => {
@@ -240,7 +244,7 @@ describe("Auto prompt editor", () => {
     );
   });
 
-  it("shows Jinja validation errors without saving", async () => {
+  it("toasts Jinja validation errors without saving", async () => {
     mocks.renderTemplate.mockResolvedValue({
       status: "error",
       error: "unknown variables: customer",
@@ -255,9 +259,12 @@ describe("Auto prompt editor", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "unknown variables: customer",
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "unknown variables: customer",
+      ),
     );
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });
 

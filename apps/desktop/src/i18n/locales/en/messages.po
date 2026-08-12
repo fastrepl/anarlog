@@ -287,10 +287,6 @@ msgstr "Anarlog Pro is required to use cloud sync."
 msgid "Anarlog Pro required"
 msgstr "Anarlog Pro required"
 
-#: src/templates/auto-form.tsx
-msgid "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
-msgstr "Anarlog sends these separately, so editing the prompt cannot remove the meeting source material."
-
 #: src/main/sync-status.tsx
 msgid "Anarlog will keep retrying"
 msgstr "Anarlog will keep retrying"
@@ -896,10 +892,6 @@ msgstr "Contact options"
 #: src/sidebar/settings.tsx
 msgid "Contacts"
 msgstr "Contacts"
-
-#: src/templates/auto-form.tsx
-msgid "Context always provided"
-msgstr "Context always provided"
 
 #: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
@@ -1780,10 +1772,6 @@ msgstr "Meeting exports"
 msgid "Meeting history imported"
 msgstr "Meeting history imported"
 
-#: src/templates/auto-form.tsx
-msgid "Meeting notes"
-msgstr "Meeting notes"
-
 #: src/settings/general/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Meetings"
@@ -2194,7 +2182,6 @@ msgstr "Others"
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
-#: src/templates/auto-form.tsx
 msgid "Participants"
 msgstr "Participants"
 
@@ -2710,10 +2697,6 @@ msgstr "Sending and receiving your latest changes."
 #: src/settings/sync/index.tsx
 msgid "Sent {0}"
 msgstr "Sent {0}"
-
-#: src/templates/auto-form.tsx
-msgid "Session details"
-msgstr "Session details"
 
 #: src/session/components/note-input/header.tsx
 msgid "Session note views"
@@ -3288,7 +3271,6 @@ msgstr "Transcribe meetings that use more than one language."
 
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
-#: src/templates/auto-form.tsx
 msgid "Transcript"
 msgstr "Transcript"
 

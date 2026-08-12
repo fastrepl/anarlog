@@ -17,6 +17,7 @@ import {
 import { commands as templateCommands } from "@anlg/plugin-template";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
 import { useBillingAccess } from "~/auth/billing-context";
@@ -96,6 +97,7 @@ export function AutoPromptForm({
       await setSettingValue("auto_summary_prompt", stored);
       return stored;
     },
+    onError: (error) => sonnerToast.error(error.message),
   });
 
   const form = useForm({
@@ -252,38 +254,6 @@ export function AutoPromptForm({
               </div>
             )}
           </form.Field>
-
-          <div className="rounded-2xl border px-4 py-3">
-            <p className="text-sm font-medium">
-              <Trans>Context always provided</Trans>
-            </p>
-            <p className="text-muted-foreground mt-1 text-sm">
-              <Trans>
-                Anarlog sends these separately, so editing the prompt cannot
-                remove the meeting source material.
-              </Trans>
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge variant="secondary" className="rounded-full">
-                <Trans>Meeting notes</Trans>
-              </Badge>
-              <Badge variant="secondary" className="rounded-full">
-                <Trans>Transcript</Trans>
-              </Badge>
-              <Badge variant="secondary" className="rounded-full">
-                <Trans>Session details</Trans>
-              </Badge>
-              <Badge variant="secondary" className="rounded-full">
-                <Trans>Participants</Trans>
-              </Badge>
-            </div>
-          </div>
-
-          {saveMutation.error ? (
-            <p role="alert" className="text-destructive text-sm">
-              {saveMutation.error.message}
-            </p>
-          ) : null}
 
           <div className="flex items-center justify-end gap-2">
             <form.Subscribe selector={(state) => state.values.prompt}>
