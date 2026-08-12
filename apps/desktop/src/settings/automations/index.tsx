@@ -62,9 +62,7 @@ export function TabContentAutomations() {
     <StandardContentWrapper>
       <SettingsHydrationBoundary>
         <div className="bg-card dark:bg-accent flex w-full flex-1 flex-col overflow-hidden">
-          <div className="scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto p-6">
-            <AutomationsContent />
-          </div>
+          <AutomationsContent />
         </div>
       </SettingsHydrationBoundary>
     </StandardContentWrapper>
@@ -96,30 +94,33 @@ export function AutomationsContent() {
 
 function AutomationsOverview() {
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
-      <div className="flex flex-col gap-2">
-        <SettingsPageTitle title={<Trans>Automations</Trans>} />
-        <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
-          <Trans>
-            Automate what happens before, during, or after meetings based on the
-            conditions you choose.
-          </Trans>
-        </p>
-      </div>
+    <div className="scroll-fade-y scrollbar-hide h-full w-full flex-1 overflow-y-auto px-6 pt-3 pb-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <SettingsPageTitle title={<Trans>Automations</Trans>} />
+          <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
+            <Trans>
+              Automate what happens before, during, or after meetings based on
+              the conditions you choose.
+            </Trans>
+          </p>
+        </div>
 
-      <section className="border-border bg-muted/20 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center">
-        <span className="bg-background border-border flex size-11 items-center justify-center rounded-2xl border">
-          <Lightning className="text-muted-foreground" size={20} />
-        </span>
-        <h3 className="mt-4 text-sm font-semibold">
-          <Trans>No automation draft yet</Trans>
-        </h3>
-        <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
-          <Trans>
-            Choose a starter from the sidebar or describe an automation in Chat.
-          </Trans>
-        </p>
-      </section>
+        <section className="border-border bg-muted/20 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center">
+          <span className="bg-background border-border flex size-11 items-center justify-center rounded-2xl border">
+            <Lightning className="text-muted-foreground" size={20} />
+          </span>
+          <h3 className="mt-4 text-sm font-semibold">
+            <Trans>No automation draft yet</Trans>
+          </h3>
+          <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
+            <Trans>
+              Choose a starter from the sidebar or describe an automation in
+              Chat.
+            </Trans>
+          </p>
+        </section>
+      </div>
     </div>
   );
 }
@@ -128,24 +129,22 @@ function DraftAutomationDetails({ draftId }: { draftId: string }) {
   const removeDraft = useAutomationSelection((state) => state.removeDraft);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
-      <AutomationDetailHeader
-        icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
-        title={<Trans>Untitled automation</Trans>}
-        description={
-          <Trans>
-            Automate what happens before, during, or after meetings based on the
-            conditions you choose.
-          </Trans>
-        }
-        actions={
-          <AutomationActionsMenu
-            actionLabel={<Trans>Delete automation</Trans>}
-            onAction={() => removeDraft(draftId)}
-          />
-        }
-      />
-
+    <AutomationDetailsLayout
+      icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
+      title={<Trans>Untitled automation</Trans>}
+      description={
+        <Trans>
+          Automate what happens before, during, or after meetings based on the
+          conditions you choose.
+        </Trans>
+      }
+      actions={
+        <AutomationActionsMenu
+          actionLabel={<Trans>Delete automation</Trans>}
+          onAction={() => removeDraft(draftId)}
+        />
+      }
+    >
       <section className="border-border bg-muted/20 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center">
         <span className="bg-background border-border flex size-11 items-center justify-center rounded-2xl border">
           <Lightning className="text-muted-foreground" size={20} />
@@ -160,38 +159,59 @@ function DraftAutomationDetails({ draftId }: { draftId: string }) {
           </Trans>
         </p>
       </section>
-    </div>
+    </AutomationDetailsLayout>
   );
 }
 
 function AutomationDetailHeader({
   icon,
   title,
+  actions,
+}: {
+  icon: React.ReactNode;
+  title: React.ReactNode;
+  actions: React.ReactNode;
+}) {
+  return (
+    <header className="flex h-12 shrink-0 items-center justify-between gap-3 pr-1 pl-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="flex size-7 shrink-0 items-center justify-center">
+          {icon}
+        </span>
+        <h2 className="min-w-0 truncate text-sm font-semibold">{title}</h2>
+      </div>
+      {actions}
+    </header>
+  );
+}
+
+function AutomationDetailsLayout({
+  icon,
+  title,
   description,
   actions,
+  children,
 }: {
   icon: React.ReactNode;
   title: React.ReactNode;
   description: React.ReactNode;
   actions: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
-    <header className="flex flex-col gap-2">
-      <div className="flex h-8 items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="flex size-4 shrink-0 items-center justify-center">
-            {icon}
-          </span>
-          <h2 className="min-w-0 truncate text-sm font-semibold">{title}</h2>
+    <div className="flex h-full min-h-0 flex-1 flex-col">
+      <AutomationDetailHeader icon={icon} title={title} actions={actions} />
+      <div className="scroll-fade-y scrollbar-hide min-h-0 w-full flex-1 overflow-y-auto px-6 pt-3 pb-8">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+          {description && (
+            <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
+              {description}
+            </p>
+          )}
+          {children}
         </div>
-        {actions}
       </div>
-      {description && (
-        <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
-          {description}
-        </p>
-      )}
-    </header>
+    </div>
   );
 }
 
@@ -237,19 +257,17 @@ function ChatAutomationDetails({ groupId }: { groupId: string }) {
     : "";
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
-      <AutomationDetailHeader
-        icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
-        title={group?.title.trim() || t`Untitled automation`}
-        description={createdAt ? <Trans>Created {createdAt}</Trans> : null}
-        actions={
-          <AutomationActionsMenu
-            actionLabel={<Trans>Delete automation</Trans>}
-            onAction={() => deleteChatAutomation.mutate(groupId)}
-          />
-        }
-      />
-
+    <AutomationDetailsLayout
+      icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
+      title={group?.title.trim() || t`Untitled automation`}
+      description={createdAt ? <Trans>Created {createdAt}</Trans> : null}
+      actions={
+        <AutomationActionsMenu
+          actionLabel={<Trans>Delete automation</Trans>}
+          onAction={() => deleteChatAutomation.mutate(groupId)}
+        />
+      }
+    >
       <section className="border-border bg-background overflow-hidden rounded-2xl border">
         <div className="border-border flex items-center gap-2 border-b px-5 py-4">
           <Lightning className="text-primary" size={17} weight="fill" />
@@ -267,7 +285,7 @@ function ChatAutomationDetails({ groupId }: { groupId: string }) {
           </Trans>
         </p>
       </section>
-    </div>
+    </AutomationDetailsLayout>
   );
 }
 
@@ -343,19 +361,17 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-8">
-      <AutomationDetailHeader
-        icon={starter.renderIcon(16)}
-        title={starter.title}
-        description={starter.description}
-        actions={
-          <AutomationActionsMenu
-            actionLabel={<Trans>Remove automation</Trans>}
-            onAction={() => removeStarterDraft.mutate(starterId)}
-          />
-        }
-      />
-
+    <AutomationDetailsLayout
+      icon={starter.renderIcon(16)}
+      title={starter.title}
+      description={starter.description}
+      actions={
+        <AutomationActionsMenu
+          actionLabel={<Trans>Remove automation</Trans>}
+          onAction={() => removeStarterDraft.mutate(starterId)}
+        />
+      }
+    >
       <section
         className="border-border bg-background overflow-hidden rounded-2xl border"
         aria-labelledby="automation-draft-title"
@@ -528,6 +544,6 @@ function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {
           </div>
         ) : null}
       </section>
-    </div>
+    </AutomationDetailsLayout>
   );
 }
