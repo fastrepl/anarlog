@@ -184,11 +184,24 @@ describe("AutomationsContent", () => {
 
     const { container } = renderAutomations();
 
+    const header = screen
+      .getByRole("heading", {
+        level: 2,
+        name: "Share a meeting recap in Slack",
+      })
+      .closest("header");
     const slackIcon = container.querySelector(
       'iconify-icon[icon="logos:slack-icon"]',
     );
 
+    expect(header).toBeTruthy();
     expect(slackIcon).toBeTruthy();
+    expect(slackIcon?.closest("header")).toBe(header);
+    expect(
+      screen
+        .getByRole("button", { name: "Automation actions" })
+        .closest("header"),
+    ).toBe(header);
     expect(slackIcon?.parentElement?.className).not.toContain("bg-muted");
     expect(slackIcon?.parentElement?.className).not.toContain("rounded");
   });
