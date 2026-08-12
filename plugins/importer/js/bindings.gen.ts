@@ -14,6 +14,14 @@ async beginConnectedImport(providerId: string) : Promise<Result<ConnectedImportA
     else return { status: "error", error: e  as any };
 }
 },
+async cancelConnectedImport(providerId: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:importer|cancel_connected_import", { providerId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async completeConnectedImport(providerId: string) : Promise<Result<ConnectedImportCredentials, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:importer|complete_connected_import", { providerId }) };

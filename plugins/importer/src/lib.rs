@@ -19,6 +19,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .plugin_name(PLUGIN_NAME)
         .commands(tauri_specta::collect_commands![
             commands::begin_connected_import,
+            commands::cancel_connected_import,
             commands::complete_connected_import,
             commands::sync_connected_import,
             commands::list_available_sources::<Wry>,

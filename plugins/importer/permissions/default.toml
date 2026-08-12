@@ -2,6 +2,7 @@
 description = "Default permissions for the plugin"
 permissions = [
     "allow-begin-connected-import",
+    "allow-cancel-connected-import",
     "allow-complete-connected-import",
     "allow-sync-connected-import",
     "allow-list-available-sources",

@@ -12,13 +12,14 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { open as selectFiles } from "@tauri-apps/plugin-dialog";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 
 import {
+  cancelConnectedImport,
   connectConnectedImport,
   connectedImportCredentialsQueryKey,
   connectedImportCredentialsQueryOptions,
@@ -82,6 +83,7 @@ export function MeetingImportScreen({
 }) {
   const { t } = useLingui();
   const queryClient = useQueryClient();
+  const connectAbortController = useRef<AbortController | null>(null);
   const detectionQuery = useQuery({
     queryKey: ["meeting-import-sources"],
     queryFn: detectImportSources,
@@ -144,13 +146,31 @@ export function MeetingImportScreen({
   });
 
   const connectMutation = useMutation({
-    mutationFn: connectConnectedImport,
+    mutationFn: async (provider: MeetingImportProvider) => {
+      const controller = new AbortController();
+      connectAbortController.current = controller;
+      try {
+        return await connectConnectedImport(provider, controller.signal);
+      } catch (error) {
+        if (controller.signal.aborted) return null;
+        throw error;
+      } finally {
+        if (connectAbortController.current === controller) {
+          connectAbortController.current = null;
+        }
+      }
+    },
     onSuccess: (credentials) => {
+      if (!credentials) return;
       queryClient.setQueryData(
         connectedImportCredentialsQueryKey(credentials.providerId),
         credentials,
       );
     },
+  });
+
+  const cancelConnectMutation = useMutation({
+    mutationFn: cancelConnectedImport,
   });
 
   const disconnectMutation = useMutation({
@@ -172,6 +192,7 @@ export function MeetingImportScreen({
   const connectedError =
     credentialQueries.find((query) => query.error)?.error ??
     connectMutation.error ??
+    cancelConnectMutation.error ??
     disconnectMutation.error ??
     syncQueries.find((query) => query.error)?.error;
   const latestResult =
@@ -255,6 +276,12 @@ export function MeetingImportScreen({
               const connecting =
                 connectMutation.isPending &&
                 connectMutation.variables.id === provider.id;
+              const connectionCancellationRequested =
+                connecting &&
+                Boolean(connectAbortController.current?.signal.aborted);
+              const cancellingConnection =
+                cancelConnectMutation.isPending &&
+                cancelConnectMutation.variables === provider.id;
               const disconnecting =
                 disconnectMutation.isPending &&
                 disconnectMutation.variables === provider.id;
@@ -345,16 +372,29 @@ export function MeetingImportScreen({
                           size="sm"
                           disabled={
                             credentialsQuery?.isPending ||
-                            connectMutation.isPending
+                            cancelConnectMutation.isPending ||
+                            connectionCancellationRequested ||
+                            (connectMutation.isPending && !connecting)
                           }
-                          onClick={() => connectMutation.mutate(provider)}
+                          onClick={() => {
+                            if (connecting) {
+                              connectAbortController.current?.abort();
+                              cancelConnectMutation.mutate(provider.id);
+                              return;
+                            }
+                            connectMutation.mutate(provider);
+                          }}
                         >
-                          {credentialsQuery?.isPending || connecting ? (
+                          {credentialsQuery?.isPending ||
+                          connecting ||
+                          cancellingConnection ? (
                             <CircleNotch className="size-3.5 animate-spin" />
                           ) : (
                             <PlugsConnected className="size-3.5" />
                           )}
-                          {credentialsQuery?.isPending ? (
+                          {connecting || cancellingConnection ? (
+                            <Trans>Cancel</Trans>
+                          ) : credentialsQuery?.isPending ? (
                             <Trans>Checking connection</Trans>
                           ) : (
                             <Trans>Connect & import</Trans>

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   beginConnectedImport: vi.fn(),
+  cancelConnectedImport: vi.fn(),
   completeConnectedImport: vi.fn(),
   syncConnectedImport: vi.fn(),
   openUrl: vi.fn(),
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@anlg/plugin-importer", () => ({
   commands: {
     beginConnectedImport: mocks.beginConnectedImport,
+    cancelConnectedImport: mocks.cancelConnectedImport,
     completeConnectedImport: mocks.completeConnectedImport,
     syncConnectedImport: mocks.syncConnectedImport,
   },
@@ -39,6 +41,7 @@ vi.mock("./queries", () => ({
 }));
 
 import {
+  cancelConnectedImport,
   connectConnectedImport,
   connectedImportSyncQueryOptions,
 } from "./connected-import";
@@ -85,6 +88,56 @@ describe("connected meeting imports", () => {
       "circleback-mcp",
       JSON.stringify(credentials),
     );
+  });
+
+  it("cancels an abandoned provider authorization", async () => {
+    mocks.cancelConnectedImport.mockResolvedValue({
+      status: "ok",
+      data: true,
+    });
+
+    await expect(cancelConnectedImport("circleback")).resolves.toBe(true);
+    expect(mocks.cancelConnectedImport).toHaveBeenCalledWith("circleback");
+  });
+
+  it("does not save credentials when provider authorization is cancelled", async () => {
+    mocks.beginConnectedImport.mockResolvedValue({
+      status: "ok",
+      data: {
+        providerId: "circleback",
+        authorizationUrl: "https://circleback.ai/authorize",
+      },
+    });
+    mocks.completeConnectedImport.mockResolvedValue({
+      status: "error",
+      error: "Circleback sign-in cancelled.",
+    });
+
+    await expect(connectConnectedImport(provider)).rejects.toThrow(
+      "Circleback sign-in cancelled.",
+    );
+    expect(mocks.setSecret).not.toHaveBeenCalled();
+  });
+
+  it("stops waiting for a provider callback when cancelled", async () => {
+    mocks.beginConnectedImport.mockResolvedValue({
+      status: "ok",
+      data: {
+        providerId: "circleback",
+        authorizationUrl: "https://circleback.ai/authorize",
+      },
+    });
+    mocks.completeConnectedImport.mockReturnValue(new Promise(() => {}));
+    const controller = new AbortController();
+    const connection = connectConnectedImport(provider, controller.signal);
+
+    await vi.waitFor(() => {
+      expect(mocks.completeConnectedImport).toHaveBeenCalledWith("circleback");
+    });
+    controller.abort();
+
+    await expect(connection).rejects.toThrow();
+    expect(mocks.setSecret).not.toHaveBeenCalled();
   });
 
   it("requests only meetings that are not already imported", async () => {

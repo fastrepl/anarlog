@@ -14,10 +14,12 @@ use rmcp::{
 };
 use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, oneshot};
+use tokio_util::sync::CancellationToken;
 use url::Url;
 
 const AUTHORIZATION_TIMEOUT: Duration = Duration::from_secs(5 * 60);
@@ -118,11 +120,18 @@ fn provider(provider_id: &str) -> Result<McpProvider, String> {
 #[derive(Default)]
 pub struct ConnectedImportOAuthState {
     pending: Mutex<Option<PendingAuthorization>>,
+    next_authorization_id: AtomicU64,
 }
 
 struct PendingAuthorization {
+    id: u64,
     provider_id: &'static str,
     provider_name: &'static str,
+    flow: Option<PendingAuthorizationFlow>,
+    cancellation: CancellationToken,
+}
+
+struct PendingAuthorizationFlow {
     manager: AuthorizationManager,
     client_secret: Option<String>,
     callback: oneshot::Receiver<Result<AuthorizationCallback, String>>,
@@ -167,19 +176,33 @@ pub async fn begin_connection(
         .await
         .map_err(|error| auth_error(provider, error))?;
 
+    let cancellation = CancellationToken::new();
+    let callback_cancellation = cancellation.clone();
     let (callback_tx, callback_rx) = oneshot::channel();
     tokio::spawn(async move {
-        let result = receive_authorization_callback(listener, provider.name).await;
+        let result = tokio::select! {
+            result = receive_authorization_callback(listener, provider.name) => result,
+            _ = callback_cancellation.cancelled() => {
+                Err(format!("{} sign-in cancelled.", provider.name))
+            }
+        };
         let _ = callback_tx.send(result);
     });
 
-    *state.pending.lock().await = Some(PendingAuthorization {
+    let pending = PendingAuthorization {
+        id: state.next_authorization_id.fetch_add(1, Ordering::Relaxed),
         provider_id: provider.id,
         provider_name: provider.name,
-        manager,
-        client_secret: client.client_secret,
-        callback: callback_rx,
-    });
+        flow: Some(PendingAuthorizationFlow {
+            manager,
+            client_secret: client.client_secret,
+            callback: callback_rx,
+        }),
+        cancellation,
+    };
+    if let Some(previous) = state.pending.lock().await.replace(pending) {
+        previous.cancellation.cancel();
+    }
 
     Ok(ConnectedImportAuthorization {
         provider_id: provider.id.to_string(),
@@ -187,35 +210,95 @@ pub async fn begin_connection(
     })
 }
 
+pub async fn cancel_connection(
+    provider_id: &str,
+    state: &ConnectedImportOAuthState,
+) -> Result<bool, String> {
+    let provider = provider(provider_id)?;
+    let mut pending = state.pending.lock().await;
+    if pending
+        .as_ref()
+        .is_none_or(|pending| pending.provider_id != provider.id)
+    {
+        return Ok(false);
+    }
+
+    if let Some(pending) = pending.take() {
+        pending.cancellation.cancel();
+    }
+    Ok(true)
+}
+
 pub async fn complete_connection(
     provider_id: &str,
     state: &ConnectedImportOAuthState,
 ) -> Result<ConnectedImportCredentials, String> {
     let provider = provider(provider_id)?;
-    let Some(PendingAuthorization {
-        provider_id: pending_provider_id,
-        provider_name,
-        manager,
-        client_secret,
-        callback,
-    }) = state.pending.lock().await.take()
-    else {
-        return Err(format!("Start {} sign-in again", provider.name));
+    let (authorization_id, provider_name, flow, cancellation) = {
+        let mut pending = state.pending.lock().await;
+        let Some(pending) = pending.as_mut() else {
+            return Err(format!("Start {} sign-in again", provider.name));
+        };
+        if pending.provider_id != provider.id {
+            return Err(format!("Start {} sign-in again", provider.name));
+        }
+        let Some(flow) = pending.flow.take() else {
+            return Err(format!("Start {} sign-in again", provider.name));
+        };
+        (
+            pending.id,
+            pending.provider_name,
+            flow,
+            pending.cancellation.clone(),
+        )
     };
-    if pending_provider_id != provider.id {
-        return Err(format!("Start {} sign-in again", provider.name));
+
+    let result = complete_pending_authorization(provider, provider_name, flow, cancellation).await;
+    let mut pending = state.pending.lock().await;
+    if pending
+        .as_ref()
+        .is_some_and(|pending| pending.id == authorization_id)
+    {
+        pending.take();
     }
+    result
+}
 
-    let callback = tokio::time::timeout(AUTHORIZATION_TIMEOUT, callback)
-        .await
-        .map_err(|_| format!("{provider_name} sign-in timed out. Try again."))?
-        .map_err(|_| format!("{provider_name} sign-in was interrupted. Try again."))??;
+async fn complete_pending_authorization(
+    provider: McpProvider,
+    provider_name: &str,
+    flow: PendingAuthorizationFlow,
+    cancellation: CancellationToken,
+) -> Result<ConnectedImportCredentials, String> {
+    let callback = tokio::select! {
+        result = tokio::time::timeout(AUTHORIZATION_TIMEOUT, flow.callback) => {
+            result
+                .map_err(|_| format!("{provider_name} sign-in timed out. Try again."))?
+                .map_err(|_| format!("{provider_name} sign-in was interrupted. Try again."))??
+        }
+        _ = cancellation.cancelled() => {
+            return Err(format!("{provider_name} sign-in cancelled."));
+        }
+    };
 
-    manager
-        .exchange_code_for_token(&callback.code, &callback.state)
-        .await
-        .map_err(|error| auth_error(provider, error))?;
-    credentials_from_manager(provider, &manager, client_secret, Some(now_epoch_secs())).await
+    tokio::select! {
+        result = flow.manager.exchange_code_for_token(&callback.code, &callback.state) => {
+            result.map_err(|error| auth_error(provider, error))?;
+        }
+        _ = cancellation.cancelled() => {
+            return Err(format!("{provider_name} sign-in cancelled."));
+        }
+    }
+    if cancellation.is_cancelled() {
+        return Err(format!("{provider_name} sign-in cancelled."));
+    }
+    credentials_from_manager(
+        provider,
+        &flow.manager,
+        flow.client_secret,
+        Some(now_epoch_secs()),
+    )
+    .await
 }
 
 pub async fn sync(

@@ -20,6 +20,15 @@ pub async fn begin_connected_import(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn cancel_connected_import(
+    provider_id: String,
+    state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+) -> Result<bool, String> {
+    crate::connected_mcp::cancel_connection(&provider_id, &state).await
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn complete_connected_import(
     provider_id: String,
     state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,

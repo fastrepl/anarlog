@@ -499,6 +499,7 @@ msgstr "Calendar connected"
 msgid "Can transcribe while the meeting is happening."
 msgstr "Can transcribe while the meeting is happening."
 
+#: src/imports/screen.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx

@@ -57,25 +57,75 @@ export function connectedImportSyncQueryOptions(
 
 export async function connectConnectedImport(
   provider: Pick<MeetingImportProvider, "id" | "name">,
+  signal?: AbortSignal,
 ) {
+  throwIfConnectionCancelled(signal);
   const authorization = await importerCommands.beginConnectedImport(
     provider.id,
   );
   if (authorization.status === "error") throw new Error(authorization.error);
+  await cancelConnectionIfRequested(provider.id, signal);
 
   const opened = await openerCommands.openUrl(
     authorization.data.authorizationUrl,
     null,
   );
   if (opened.status === "error") throw new Error(opened.error);
+  await cancelConnectionIfRequested(provider.id, signal);
 
-  const credentials = await importerCommands.completeConnectedImport(
-    provider.id,
-  );
+  const credentials = await waitForConnectionCompletion(provider.id, signal);
   if (credentials.status === "error") throw new Error(credentials.error);
+  throwIfConnectionCancelled(signal);
 
   await writeConnectedImportCredentials(provider.id, credentials.data);
   return credentials.data;
+}
+
+export async function cancelConnectedImport(providerId: string) {
+  const result = await importerCommands.cancelConnectedImport(providerId);
+  if (result.status === "error") throw new Error(result.error);
+  return result.data;
+}
+
+async function cancelConnectionIfRequested(
+  providerId: string,
+  signal?: AbortSignal,
+) {
+  if (!signal?.aborted) return;
+  await cancelConnectedImport(providerId);
+  throwIfConnectionCancelled(signal);
+}
+
+async function waitForConnectionCompletion(
+  providerId: string,
+  signal?: AbortSignal,
+) {
+  const completion = importerCommands.completeConnectedImport(providerId);
+  if (!signal) return completion;
+  throwIfConnectionCancelled(signal);
+
+  let cancel!: () => void;
+  const cancelled = new Promise<never>((_, reject) => {
+    cancel = () => reject(connectionCancellationError(signal));
+    signal.addEventListener("abort", cancel, { once: true });
+    if (signal.aborted) cancel();
+  });
+
+  try {
+    return await Promise.race([completion, cancelled]);
+  } finally {
+    signal.removeEventListener("abort", cancel);
+  }
+}
+
+function throwIfConnectionCancelled(signal?: AbortSignal) {
+  if (signal?.aborted) throw connectionCancellationError(signal);
+}
+
+function connectionCancellationError(signal: AbortSignal) {
+  return signal.reason instanceof Error
+    ? signal.reason
+    : new Error("Meeting import connection cancelled");
 }
 
 export async function disconnectConnectedImport(providerId: string) {

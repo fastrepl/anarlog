@@ -36,4 +36,5 @@ dirs = { workspace = true }
 rmcp = { workspace = true, features = ["auth", "client", "transport-streamable-http-client-reqwest"] }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "rt-multi-thread", "macros", "sync", "time"] }
+tokio-util = { workspace = true }
 uuid = { workspace = true, features = ["v4", "v5"] }
