@@ -24,10 +24,23 @@ jobs:
     runs-on: depot-ubuntu-24.04-8
     timeout-minutes: 60
     concurrency: stripe-fly-deploy
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - uses: ./.github/actions/infisical_install
+      - name: Infisical OIDC login
+        run: |
+          set -euo pipefail
+          oidc_jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}" | jq -r '.value')
+          infisical_token=$(infisical login --method=oidc-auth \
+            --machine-identity-id=7dde9440-cec4-4cf0-a13f-1588ba67feb2 \
+            --jwt="$oidc_jwt" --silent --plain)
+          echo "::add-mask::$infisical_token"
+          echo "INFISICAL_TOKEN=$infisical_token" >> "$GITHUB_ENV"
       - run: |
           set -euo pipefail
 
@@ -102,7 +115,6 @@ jobs:
           fi
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          INFISICAL_TOKEN: ${{ secrets.INFISICAL_TOKEN }}
 
   tag:
     needs: [compute-version, deploy]
