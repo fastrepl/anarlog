@@ -688,6 +688,7 @@ msgstr ""
 msgid "Cleaning up..."
 msgstr ""
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
@@ -1927,6 +1928,7 @@ msgstr ""
 msgid "New template"
 msgstr ""
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Newest"
 msgstr ""
@@ -2045,10 +2047,11 @@ msgstr ""
 msgid "No recent chats"
 msgstr ""
 
-#: src/contacts/details.tsx
+#: src/contacts/related-notes.tsx
 msgid "No related notes found"
 msgstr ""
 
+#: src/contacts/related-notes.tsx
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/general/searchable-select.tsx
 #: src/sidebar/settings.tsx
@@ -2107,6 +2110,7 @@ msgstr ""
 msgid "Older files that differ from your current data were kept as recovery copies. No action is required."
 msgstr ""
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Oldest"
 msgstr ""
@@ -2426,7 +2430,7 @@ msgstr ""
 msgid "Regenerate message"
 msgstr ""
 
-#: src/contacts/details.tsx
+#: src/contacts/related-notes.tsx
 msgid "Related Notes"
 msgstr ""
 
@@ -2661,6 +2665,7 @@ msgstr ""
 msgid "Search timezone..."
 msgstr ""
 
+#: src/contacts/related-notes.tsx
 #: src/session/components/note-input/search/bar.tsx
 #: src/settings/general/searchable-select.tsx
 msgid "Search..."
@@ -3021,6 +3026,7 @@ msgstr ""
 msgid "Something went wrong while generating the summary."
 msgstr ""
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Sort options"
 msgstr ""
@@ -3422,7 +3428,7 @@ msgstr ""
 msgid "Untitled automation"
 msgstr ""
 
-#: src/contacts/details.tsx
+#: src/contacts/related-notes.tsx
 msgid "Untitled Note"
 msgstr ""
 

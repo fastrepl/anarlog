@@ -2,7 +2,6 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Buildings,
   CircleNotch,
-  FileText,
   MagnifyingGlass,
   MinusCircle,
   Plus,
@@ -35,6 +34,7 @@ import {
   updateHuman,
   useHumanSessions,
 } from "./queries";
+import { RelatedNotesSection } from "./related-notes";
 import { ContactFacehash } from "./shared";
 
 export function DetailsColumn({
@@ -248,38 +248,10 @@ export function DetailsColumn({
               <ContactSummarySection summary={contactSummary} />
             )}
 
-            <div className="p-6">
-              <h3 className="text-muted-foreground mb-4 text-sm font-medium">
-                <Trans>Related Notes</Trans>
-              </h3>
-              <div className="flex flex-col gap-2">
-                {personSessions.length > 0 ? (
-                  personSessions.map((session) => (
-                    <button
-                      key={session.id}
-                      onClick={() => handleSessionClick(session.id)}
-                      className="border-border hover:bg-accent w-full rounded-md border p-3 text-left transition-colors"
-                    >
-                      <div className="mb-1 flex items-center gap-2">
-                        <FileText className="text-muted-foreground h-4 w-4" />
-                        <span className="text-sm font-medium">
-                          {session.title || t`Untitled Note`}
-                        </span>
-                      </div>
-                      {session.createdAt && (
-                        <div className="text-muted-foreground mt-1 text-xs">
-                          {new Date(session.createdAt).toLocaleDateString()}
-                        </div>
-                      )}
-                    </button>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-sm">
-                    <Trans>No related notes found</Trans>
-                  </p>
-                )}
-              </div>
-            </div>
+            <RelatedNotesSection
+              sessions={personSessions}
+              onSessionClick={handleSessionClick}
+            />
 
             <div className="pb-96" />
           </div>

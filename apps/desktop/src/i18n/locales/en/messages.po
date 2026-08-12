@@ -688,6 +688,7 @@ msgstr "Clean up legacy files?"
 msgid "Cleaning up..."
 msgstr "Cleaning up..."
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
@@ -1927,6 +1928,7 @@ msgstr "New Note"
 msgid "New template"
 msgstr "New template"
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Newest"
 msgstr "Newest"
@@ -2045,10 +2047,11 @@ msgstr "No people in this organization"
 msgid "No recent chats"
 msgstr "No recent chats"
 
-#: src/contacts/details.tsx
+#: src/contacts/related-notes.tsx
 msgid "No related notes found"
 msgstr "No related notes found"
 
+#: src/contacts/related-notes.tsx
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/general/searchable-select.tsx
 #: src/sidebar/settings.tsx
@@ -2107,6 +2110,7 @@ msgstr "Objects"
 msgid "Older files that differ from your current data were kept as recovery copies. No action is required."
 msgstr "Older files that differ from your current data were kept as recovery copies. No action is required."
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Oldest"
 msgstr "Oldest"
@@ -2426,7 +2430,7 @@ msgstr "Refresh calendars"
 msgid "Regenerate message"
 msgstr "Regenerate message"
 
-#: src/contacts/details.tsx
+#: src/contacts/related-notes.tsx
 msgid "Related Notes"
 msgstr "Related Notes"
 
@@ -2661,6 +2665,7 @@ msgstr "Search templates..."
 msgid "Search timezone..."
 msgstr "Search timezone..."
 
+#: src/contacts/related-notes.tsx
 #: src/session/components/note-input/search/bar.tsx
 #: src/settings/general/searchable-select.tsx
 msgid "Search..."
@@ -3021,6 +3026,7 @@ msgstr "Software Engineer"
 msgid "Something went wrong while generating the summary."
 msgstr "Something went wrong while generating the summary."
 
+#: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
 msgid "Sort options"
 msgstr "Sort options"
@@ -3422,7 +3428,7 @@ msgstr "Untitled"
 msgid "Untitled automation"
 msgstr "Untitled automation"
 
-#: src/contacts/details.tsx
+#: src/contacts/related-notes.tsx
 msgid "Untitled Note"
 msgstr "Untitled Note"
 
