@@ -157,7 +157,7 @@ export function AutoFormatForm({
             className={cn([
               "text-muted-foreground shrink-0 hover:text-black",
               isDefault
-                ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white disabled:opacity-100"
+                ? "text-emerald-600 hover:bg-transparent hover:text-emerald-700 disabled:opacity-100 dark:text-emerald-400 dark:hover:text-emerald-300"
                 : null,
             ])}
             onClick={() => {
