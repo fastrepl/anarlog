@@ -6,6 +6,7 @@ const MAX_BODY_NODES = 50_000;
 const MAX_TITLE_BYTES = 4096;
 
 export const shareIdSchema = z.string().uuid();
+export const shareLinkIdSchema = z.string().uuid();
 export const invitationIdSchema = z.string().uuid();
 export const publicShareSlugSchema = z.string().regex(/^s_[0-9a-f]{32}$/);
 export const linkSharePreviewTokenSchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -89,6 +90,10 @@ export type SharedNotePreview = {
   summary: string;
   participants: string[];
   meetingAt: string;
+};
+
+export type SharedNoteLinkPreview = SharedNotePreview & {
+  shareId: string;
 };
 
 export type SharedNoteWebEditSnapshot = {
@@ -272,6 +277,10 @@ const sharedNotePreviewSchema = z
   })
   .strict();
 
+const sharedNoteLinkPreviewSchema = sharedNotePreviewSchema
+  .extend({ shareId: shareIdSchema })
+  .strict();
+
 const webEditSnapshotSchema = gatewaySnapshotSchema
   .extend({
     accessVersion: z.number().int().positive().safe(),
@@ -439,6 +448,17 @@ export function parseGatewaySharedNote(value: unknown): SharedNoteSnapshot {
 
 export function parseSharedNotePreview(value: unknown): SharedNotePreview {
   const parsed = sharedNotePreviewSchema.parse(value);
+  return {
+    ...parsed,
+    title: parseTitle(parsed.title),
+    meetingAt: parseTimestamp(parsed.meetingAt),
+  };
+}
+
+export function parseSharedNoteLinkPreview(
+  value: unknown,
+): SharedNoteLinkPreview {
+  const parsed = sharedNoteLinkPreviewSchema.parse(value);
   return {
     ...parsed,
     title: parseTitle(parsed.title),

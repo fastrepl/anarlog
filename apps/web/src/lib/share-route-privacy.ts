@@ -4,13 +4,19 @@ const SHARE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 let inMemoryToken: { pathname: string; token: string } | null = null;
 
 export function isShareRoutePathname(pathname: string) {
-  return pathname === "/share" || pathname.startsWith("/share/");
+  return (
+    pathname === "/share" ||
+    pathname.startsWith("/share/") ||
+    pathname === "/t" ||
+    pathname.startsWith("/t/")
+  );
 }
 
 export function isCapabilityShareRoutePathname(pathname: string) {
   return (
     /^\/share\/invite\/[^/]+\/?$/.test(pathname) ||
-    /^\/share\/link\/[^/]+\/?$/.test(pathname)
+    /^\/share\/link\/[^/]+\/?$/.test(pathname) ||
+    /^\/t\/[^/]+\/?$/.test(pathname)
   );
 }
 

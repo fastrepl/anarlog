@@ -37,6 +37,10 @@ export function getLinkSharedNoteOgImageUrl(
   return url.toString();
 }
 
+export function getShortLinkSharedNoteOgImageUrl(linkId: string) {
+  return `${ANARLOG_SITE_URL}/api/og/share/t/${encodeURIComponent(linkId)}`;
+}
+
 type StructuredDataNode = Record<string, unknown>;
 
 export function getStructuredDataGraph(nodes: StructuredDataNode[]) {

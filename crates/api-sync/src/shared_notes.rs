@@ -211,6 +211,16 @@ pub struct SharedNotePreview {
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct SharedNoteLinkPreview {
+    share_id: String,
+    title: String,
+    summary: String,
+    participants: Vec<String>,
+    meeting_at: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SharedAttachmentDownload {
     id: String,
     filename: String,
@@ -243,6 +253,11 @@ struct LinkRpcRequest<'a> {
 struct LinkPreviewRpcRequest<'a> {
     p_share_id: &'a str,
     p_preview_token: &'a str,
+}
+
+#[derive(Serialize)]
+struct LinkIdRpcRequest<'a> {
+    p_link_id: &'a str,
 }
 
 #[derive(Serialize)]
@@ -315,6 +330,16 @@ struct GatewayPreviewRow {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GatewayLinkPreviewRow {
+    share_id: String,
+    title: String,
+    body_json: Value,
+    participants: Vec<String>,
+    meeting_at: String,
+}
+
+#[derive(Deserialize)]
 struct GatewayClaimSnapshotRow {
     share_id: String,
     schema_version: i16,
@@ -353,6 +378,7 @@ struct GatewayHandoffRow {
         read_public_shared_note_preview,
         read_link_shared_note,
         read_link_shared_note_preview,
+        read_short_link_shared_note_preview,
         create_public_shared_note_handoff,
         create_link_shared_note_handoff,
         claim_shared_note_handoff,
@@ -370,6 +396,7 @@ struct GatewayHandoffRow {
         SharedNoteInvitationEmailRequest,
         SharedNoteSnapshot,
         SharedNotePreview,
+        SharedNoteLinkPreview,
         SharedNoteHandoff,
         SharedAttachmentDownload
     ))
@@ -395,6 +422,10 @@ pub fn router(state: SharedNotesState) -> Router {
             "/shared-notes/link/{share_id}/preview",
             post(read_link_shared_note_preview)
                 .layer(DefaultBodyLimit::max(MAX_LINK_REQUEST_BYTES)),
+        )
+        .route(
+            "/shared-notes/links/{link_id}/preview",
+            get(read_short_link_shared_note_preview),
         )
         .route(
             "/shared-notes/public/{slug}/handoff",
@@ -588,6 +619,34 @@ async fn read_link_shared_note_preview(
     )
     .await?;
     Ok(Json(validate_preview(row)?))
+}
+
+#[utoipa::path(
+    get,
+    path = "/shared-notes/links/{link_id}/preview",
+    tag = "shared-notes",
+    params(("link_id" = String, Path, description = "Session share link ID")),
+    responses(
+        (status = 200, description = "Short-link shared note preview", body = SharedNoteLinkPreview),
+        (status = 404, description = "Shared note unavailable"),
+        (status = 502, description = "Shared note service unavailable")
+    )
+)]
+async fn read_short_link_shared_note_preview(
+    State(state): State<SharedNotesState>,
+    Path(link_id): Path<String>,
+) -> Result<Json<SharedNoteLinkPreview>> {
+    let link_id = canonical_uuid_v4(&link_id).ok_or(SyncError::SharedNoteNotFound)?;
+    let row = rpc_single(
+        &state,
+        "gateway_read_session_share_link_preview_by_id",
+        &LinkIdRpcRequest {
+            p_link_id: &link_id,
+        },
+        MAX_SNAPSHOT_RESPONSE_BYTES,
+    )
+    .await?;
+    Ok(Json(validate_link_preview(row)?))
 }
 
 #[utoipa::path(
@@ -923,6 +982,23 @@ fn validate_preview(row: GatewayPreviewRow) -> Result<SharedNotePreview> {
         summary,
         participants,
         meeting_at: row.meeting_at,
+    })
+}
+
+fn validate_link_preview(row: GatewayLinkPreviewRow) -> Result<SharedNoteLinkPreview> {
+    let share_id = canonical_uuid_v4(&row.share_id).ok_or(SyncError::SnapshotServiceUnavailable)?;
+    let preview = validate_preview(GatewayPreviewRow {
+        title: row.title,
+        body_json: row.body_json,
+        participants: row.participants,
+        meeting_at: row.meeting_at,
+    })?;
+    Ok(SharedNoteLinkPreview {
+        share_id,
+        title: preview.title,
+        summary: preview.summary,
+        participants: preview.participants,
+        meeting_at: preview.meeting_at,
     })
 }
 

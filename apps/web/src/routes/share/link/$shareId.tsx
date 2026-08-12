@@ -41,6 +41,7 @@ import {
   linkSharePreviewTokenSchema,
   sharedNoteDesktopSchemeSchema,
   shareIdSchema,
+  type SharedNoteDesktopScheme,
   type SharedNotePreview,
 } from "@/lib/shared-notes";
 
@@ -86,28 +87,31 @@ export const Route = createFileRoute("/share/link/$shareId")({
 function Component() {
   const { preview } = Route.useLoaderData();
   const { shareId } = Route.useParams();
+  const { scheme } = Route.useSearch();
   const { user } = Route.useRouteContext();
   return (
     <ClientOnly fallback={<SharedNoteLoading />}>
       <LinkSharedNoteClient
         currentUserId={user?.id ?? null}
         meetingMetadata={preview}
+        scheme={scheme}
         shareId={shareId}
       />
     </ClientOnly>
   );
 }
 
-function LinkSharedNoteClient({
+export function LinkSharedNoteClient({
   currentUserId,
   meetingMetadata,
+  scheme,
   shareId,
 }: {
   currentUserId: string | null;
   meetingMetadata: SharedNotePreview | null;
+  scheme: SharedNoteDesktopScheme;
   shareId: string;
 }) {
-  const { scheme } = Route.useSearch();
   const pathname = window.location.pathname;
   const continuation = useShareRouteContinuation(pathname);
   const hasToken = continuation.token !== null;

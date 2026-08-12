@@ -2,6 +2,7 @@ import {
   ANARLOG_SITE_URL,
   getLinkSharedNoteOgImageUrl,
   getPublicSharedNoteOgImageUrl,
+  getShortLinkSharedNoteOgImageUrl,
 } from "./seo.ts";
 import {
   getSharedNoteDescription,
@@ -38,6 +39,39 @@ export function getLinkShareHead(
   const title = preview.title || "Shared note";
   const description = getPreviewDescription(preview);
   const imageUrl = getLinkSharedNoteOgImageUrl(shareId, previewToken);
+
+  return {
+    meta: [
+      ...getPrivateShareMeta(`${title} · Anarlog`),
+      { name: "description", content: description },
+      { property: "og:type", content: "article" },
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
+      { property: "og:image", content: imageUrl },
+      { property: "og:image:type", content: "image/png" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: `Preview of ${title}` },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
+      { name: "twitter:image", content: imageUrl },
+      { name: "twitter:image:alt", content: `Preview of ${title}` },
+    ],
+  };
+}
+
+export function getShortLinkShareHead(
+  linkId: string,
+  preview: SharedNotePreview | null | undefined,
+) {
+  if (!preview) {
+    return getPrivateShareHead();
+  }
+
+  const title = preview.title || "Shared note";
+  const description = getPreviewDescription(preview);
+  const imageUrl = getShortLinkSharedNoteOgImageUrl(linkId);
 
   return {
     meta: [

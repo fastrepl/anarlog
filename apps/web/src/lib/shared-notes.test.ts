@@ -18,6 +18,7 @@ import {
   parseSharedNoteAttachmentDownload,
   parseSharedNoteComment,
   parseSharedNoteCommentPage,
+  parseSharedNoteLinkPreview,
   parseSharedNotePreview,
   parseSharedNoteWebEditConflict,
   parseSharedNoteWebEditSnapshot,
@@ -118,6 +119,22 @@ test("bounds preview summaries by Unicode scalar count", () => {
   assert.equal(parseSharedNotePreview(preview).summary, summary);
   assert.throws(() =>
     parseSharedNotePreview({ ...preview, summary: "😀".repeat(181) }),
+  );
+});
+
+test("parses a short-link preview with its resolved share ID", () => {
+  const shareId = "00000000-0000-4000-8000-000000000001";
+  const preview = parseSharedNoteLinkPreview({
+    shareId,
+    title: "Weekly sync",
+    summary: "Decisions and next steps.",
+    participants: ["John Jeong"],
+    meetingAt: "2026-07-17T12:00:00Z",
+  });
+
+  assert.equal(preview.shareId, shareId);
+  assert.throws(() =>
+    parseSharedNoteLinkPreview({ ...preview, shareId: "not-a-uuid" }),
   );
 });
 

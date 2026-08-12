@@ -15,6 +15,7 @@ test("keeps auth, callback, recovery, and share routes telemetry private", () =>
     "/reset-password/",
     "/update-password/",
     "/share/link/example/",
+    "/t/example/",
   ]) {
     assert.equal(isTelemetryPrivateLocation(pathname), true);
   }

@@ -1495,6 +1495,43 @@
         }
       }
     },
+    "/shared-notes/links/{link_id}/preview": {
+      "get": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "read_short_link_shared_note_preview",
+        "parameters": [
+          {
+            "name": "link_id",
+            "in": "path",
+            "description": "Session share link ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short-link shared note preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNoteLinkPreview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
     "/shared-notes/public/{slug}": {
       "get": {
         "tags": [
@@ -9669,6 +9706,36 @@
           }
         },
         "additionalProperties": false
+      },
+      "SharedNoteLinkPreview": {
+        "type": "object",
+        "required": [
+          "shareId",
+          "title",
+          "summary",
+          "participants",
+          "meetingAt"
+        ],
+        "properties": {
+          "meetingAt": {
+            "type": "string"
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shareId": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
       },
       "SharedNoteLinkPreviewRequest": {
         "type": "object",

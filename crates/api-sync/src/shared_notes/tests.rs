@@ -13,6 +13,7 @@ const SHARE_ID: &str = "11111111-1111-4111-8111-111111111111";
 const PUBLIC_SLUG: &str = "s_0123456789abcdef0123456789abcdef";
 const LINK_TOKEN: &str = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const LINK_PREVIEW_TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+const LINK_ID: &str = "77777777-7777-4777-8777-777777777777";
 const HANDOFF_ID: &str = "22222222-2222-4222-8222-222222222222";
 const LEASE_ID: &str = "55555555-5555-4555-8555-555555555555";
 const ATTACHMENT_ID: &str = "33333333-3333-4333-8333-333333333333";
@@ -444,6 +445,51 @@ async fn returns_only_link_preview_metadata() {
             "summary": "The team aligned on launch scope and remaining blockers.",
             "participants": ["John Jeong", "Sungbin Jo"],
             "meetingAt": "2026-08-06T01:30:00Z"
+        })
+    );
+}
+
+#[tokio::test]
+async fn resolves_short_link_preview_metadata() {
+    let server = MockServer::start().await;
+    mount_rpc(
+        &server,
+        "gateway_read_session_share_link_preview_by_id",
+        json!({ "p_link_id": LINK_ID }),
+        json!([{
+            "share_id": SHARE_ID,
+            "title": "Planning & decisions",
+            "body_json": {
+                "type": "doc",
+                "content": [{
+                    "type": "paragraph",
+                    "content": [{ "type": "text", "text": "The team aligned." }]
+                }]
+            },
+            "participants": ["John Jeong", "Sungbin Jo"],
+            "meeting_at": "2026-08-12T01:30:00Z"
+        }]),
+    )
+    .await;
+
+    let response = test_router(&server)
+        .oneshot(
+            Request::get(format!("/shared-notes/links/{LINK_ID}/preview"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(response).await,
+        json!({
+            "shareId": SHARE_ID,
+            "title": "Planning & decisions",
+            "summary": "The team aligned.",
+            "participants": ["John Jeong", "Sungbin Jo"],
+            "meetingAt": "2026-08-12T01:30:00Z"
         })
     );
 }

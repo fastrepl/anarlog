@@ -10,6 +10,13 @@ VITE_APP_URL = "https://anarlog.so"
 NODE_OPTIONS = "--max-old-space-size=4096"
 NODE_VERSION = "22"
 
+[functions]
+included_files = [
+  "public/fonts/Redaction70-Regular.otf",
+  "public/fonts/SF-Pro-Text-Bold.otf",
+  "public/fonts/SF-Pro-Text-Regular.otf",
+]
+
 [images]
 # https://docs.netlify.com/build/image-cdn/overview/#remote-path
 remote_images = [

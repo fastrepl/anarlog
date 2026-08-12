@@ -275,6 +275,7 @@ mod tests {
         for (path, method) in [
             ("/shared-notes/public/{slug}", "get"),
             ("/shared-notes/link/{share_id}", "post"),
+            ("/shared-notes/links/{link_id}/preview", "get"),
             ("/shared-notes/public/{slug}/handoff", "post"),
             ("/shared-notes/link/{share_id}/handoff", "post"),
             ("/shared-notes/handoffs/claim", "post"),

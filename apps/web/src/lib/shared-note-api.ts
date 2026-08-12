@@ -2,12 +2,15 @@ import { env } from "@/env";
 import { isShareRouteToken } from "@/lib/share-route-privacy";
 import {
   parseGatewaySharedNote,
+  parseSharedNoteLinkPreview,
   parseSharedNotePreview,
   parseSharedNoteAttachmentDownload,
   parseShareHandoff,
   linkSharePreviewTokenSchema,
   publicShareSlugSchema,
+  shareLinkIdSchema,
   shareIdSchema,
+  type SharedNoteLinkPreview,
   type SharedNoteSnapshot,
   type SharedNotePreview,
   type SharedNoteAttachmentDownload,
@@ -24,6 +27,11 @@ export type SharedNoteReadResult =
 
 export type SharedNotePreviewReadResult =
   | { status: "ready"; preview: SharedNotePreview }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+export type SharedNoteLinkPreviewReadResult =
+  | { status: "ready"; preview: SharedNoteLinkPreview }
   | { status: "unavailable" }
   | { status: "error" };
 
@@ -115,6 +123,31 @@ export async function fetchLinkSharedNotePreviewResult(
 
   try {
     return { status: "ready", preview: parseSharedNotePreview(result.value) };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+export async function fetchShortLinkSharedNotePreviewResult(
+  linkId: string,
+  signal?: AbortSignal,
+): Promise<SharedNoteLinkPreviewReadResult> {
+  const parsedLinkId = shareLinkIdSchema.safeParse(linkId);
+  if (!parsedLinkId.success) {
+    return { status: "unavailable" };
+  }
+
+  const result = await requestJsonResult(
+    `/shared-notes/links/${encodeURIComponent(parsedLinkId.data)}/preview`,
+    { method: "GET", signal },
+  );
+  if (result.status !== "ready") return result;
+
+  try {
+    return {
+      status: "ready",
+      preview: parseSharedNoteLinkPreview(result.value),
+    };
   } catch {
     return { status: "error" };
   }

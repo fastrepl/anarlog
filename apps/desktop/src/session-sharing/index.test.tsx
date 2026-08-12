@@ -1464,10 +1464,8 @@ describe("SessionShareButton", () => {
       "enable-link",
     ]);
     const copied = new URL(mocks.clipboardWriteText.mock.calls[0]![0]);
-    expect(copied.pathname).toBe(`/share/link/${SHARE_ID}/`);
-    expect(copied.searchParams.get("preview")).toBe(
-      "80383f974f22964fd6b7ae851b6ccc9180ed4e6fcb2e415bafcab6d822139238",
-    );
+    expect(copied.pathname).toBe(`/t/${LINK_ID}/`);
+    expect(copied.search).toBe("");
     expect(copied.hash).toBe(`#token=${TOKEN}`);
     expect(mocks.markSessionShareActivated).toHaveBeenCalledWith(
       USER_ID,
