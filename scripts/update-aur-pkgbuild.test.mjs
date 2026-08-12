@@ -144,4 +144,34 @@ test("reports no change when the version already matches", async (t) => {
 
   const result = await updatePackage(directory, "1.4.8", CHECKSUMS);
   assert.equal(result.changed, false);
+
+  const pkgbuild = await readFile(path.join(directory, "PKGBUILD"), "utf8");
+  const srcinfo = await readFile(path.join(directory, ".SRCINFO"), "utf8");
+  assert.match(pkgbuild, /^pkgrel=3$/m);
+  assert.match(srcinfo, /^\tpkgrel = 3$/m);
+});
+
+test("keeps pkgrel when a same-version refresh changes nothing", () => {
+  const pkgbuild = bumpPkgbuild(PKGBUILD, {
+    version: "1.4.8",
+    checksums: CHECKSUMS,
+  });
+  const srcinfo = bumpSrcinfo(SRCINFO, {
+    version: "1.4.8",
+    previousVersion: "1.4.8",
+    checksums: CHECKSUMS,
+  });
+
+  assert.match(
+    bumpPkgbuild(pkgbuild, { version: "1.4.8", checksums: CHECKSUMS }),
+    /^pkgrel=3$/m,
+  );
+  assert.match(
+    bumpSrcinfo(srcinfo, {
+      version: "1.4.8",
+      previousVersion: "1.4.8",
+      checksums: CHECKSUMS,
+    }),
+    /^\tpkgrel = 3$/m,
+  );
 });

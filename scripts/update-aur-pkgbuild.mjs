@@ -34,16 +34,39 @@ export function readPkgver(pkgbuild) {
   return match[1];
 }
 
+function readPkgrel(contents, pattern, label) {
+  const match = contents.match(pattern);
+  if (!match) throw new Error(`${label} has no pkgrel`);
+
+  const pkgrel = Number.parseInt(match[1], 10);
+  if (!Number.isSafeInteger(pkgrel) || pkgrel < 1) {
+    throw new Error(`${label} has invalid pkgrel: ${match[1]}`);
+  }
+  return pkgrel;
+}
+
+function nextPkgbuildPkgrel(pkgbuild, version, checksums) {
+  if (readPkgver(pkgbuild) !== version) return 1;
+
+  const checksumsChanged = Object.entries(checksums).some(([key, checksum]) => {
+    const field = key === "license" ? "sha256sums" : `sha256sums_${key}`;
+    return !pkgbuild.includes(`${field}=('${checksum}')`);
+  });
+  const current = readPkgrel(pkgbuild, /^pkgrel=(.+)$/m, "PKGBUILD");
+  return checksumsChanged ? current + 1 : current;
+}
+
 // PKGBUILD interpolates ${pkgver} into every source URL, so only the version
 // and the checksums change between releases.
 export function bumpPkgbuild(pkgbuild, { version, checksums }) {
+  const pkgrel = nextPkgbuildPkgrel(pkgbuild, version, checksums);
   let next = replaceOnce(
     pkgbuild,
     /^pkgver=.+$/m,
     `pkgver=${version}`,
     "pkgver",
   );
-  next = replaceOnce(next, /^pkgrel=.+$/m, "pkgrel=1", "pkgrel");
+  next = replaceOnce(next, /^pkgrel=.+$/m, `pkgrel=${pkgrel}`, "pkgrel");
   next = replaceOnce(
     next,
     /^sha256sums=\(.+\)$/m,
@@ -68,11 +91,22 @@ export function bumpPkgbuild(pkgbuild, { version, checksums }) {
 // .SRCINFO stores the expanded values, so its source URLs carry the literal
 // version and have to be rewritten alongside the checksums.
 export function bumpSrcinfo(srcinfo, { version, previousVersion, checksums }) {
+  const checksumsChanged = Object.entries(checksums).some(([key, checksum]) => {
+    const field = key === "license" ? "sha256sums" : `sha256sums_${key}`;
+    return !srcinfo.includes(`\t${field} = ${checksum}`);
+  });
+  const currentPkgrel = readPkgrel(srcinfo, /^\tpkgrel = (.+)$/m, ".SRCINFO");
+  const pkgrel =
+    previousVersion === version
+      ? checksumsChanged
+        ? currentPkgrel + 1
+        : currentPkgrel
+      : 1;
   const rewritten = srcinfo
     .split("\n")
     .map((line) => {
       if (/^\tpkgver = /.test(line)) return `\tpkgver = ${version}`;
-      if (/^\tpkgrel = /.test(line)) return "\tpkgrel = 1";
+      if (/^\tpkgrel = /.test(line)) return `\tpkgrel = ${pkgrel}`;
       if (/^\tsha256sums = /.test(line)) {
         return `\tsha256sums = ${checksums.license}`;
       }
