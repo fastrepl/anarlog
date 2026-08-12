@@ -84,9 +84,9 @@ export function AppIconSelector() {
               aria-label={labels[option]}
               title={labels[option]}
               className={cn([
-                "group text-foreground focus-visible:ring-ring focus-visible:ring-offset-background flex cursor-pointer items-center justify-center rounded-[22px] border bg-transparent p-1 transition-[border-color,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]",
+                "group text-foreground focus-visible:ring-ring focus-visible:ring-offset-background flex cursor-pointer items-center justify-center rounded-[22px] border bg-transparent p-0.5 transition-[border-color,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98]",
                 selected
-                  ? "border-foreground/50"
+                  ? "border-blue-500"
                   : "border-border hover:border-foreground/30",
               ])}
               onClick={() => {
