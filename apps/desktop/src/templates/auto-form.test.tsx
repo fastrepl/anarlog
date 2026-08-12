@@ -367,8 +367,15 @@ describe("Auto format editor", () => {
       />,
     );
 
+    expect(
+      screen.queryByRole("menuitem", { name: "Reset to default format" }),
+    ).toBeNull();
+    fireEvent.pointerDown(
+      screen.getByRole("button", { name: "Template actions" }),
+      { button: 0, ctrlKey: false },
+    );
     fireEvent.click(
-      screen.getByRole("button", { name: "Reset to default format" }),
+      await screen.findByRole("menuitem", { name: "Reset to default format" }),
     );
 
     await waitFor(() =>

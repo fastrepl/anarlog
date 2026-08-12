@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Check,
   CircleNotch,
+  DotsThree,
   LockSimple,
   MagicWand,
   Sparkle,
@@ -13,6 +14,13 @@ import { useRef, useState } from "react";
 import { PromptEditor, type PromptEditorHandle } from "@anlg/editor/prompt";
 import { commands as templateCommands } from "@anlg/plugin-template";
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  AppFloatingPanel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
@@ -141,32 +149,74 @@ export function AutoFormatForm({
           <Sparkle className="size-4 shrink-0 text-violet-500" />
           <span className="truncate text-sm font-semibold">Auto</span>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className={cn([
-            "text-muted-foreground shrink-0 hover:text-black",
-            isDefault
-              ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white disabled:opacity-100"
-              : null,
-          ])}
-          onClick={() => {
-            void setSettingValue("selected_template_id", "").catch((error) => {
-              console.error("[templates] failed to set Auto as default", error);
-            });
-          }}
-          disabled={isDefault}
-        >
-          {isDefault ? (
-            <>
-              <Check className="size-3.5" weight="bold" />
-              <Trans>Current default</Trans>
-            </>
-          ) : (
-            <Trans>Set as default</Trans>
-          )}
-        </Button>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className={cn([
+              "text-muted-foreground shrink-0 hover:text-black",
+              isDefault
+                ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white disabled:opacity-100"
+                : null,
+            ])}
+            onClick={() => {
+              void setSettingValue("selected_template_id", "").catch(
+                (error) => {
+                  console.error(
+                    "[templates] failed to set Auto as default",
+                    error,
+                  );
+                },
+              );
+            }}
+            disabled={isDefault}
+          >
+            {isDefault ? (
+              <>
+                <Check className="size-3.5" weight="bold" />
+                <Trans>Current default</Trans>
+              </>
+            ) : (
+              <Trans>Set as default</Trans>
+            )}
+          </Button>
+          <form.Subscribe selector={(state) => state.values.format}>
+            {(currentFormat) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label={t`Template actions`}
+                    className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
+                  >
+                    <DotsThree size={16} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent variant="app" align="end" className="w-56">
+                  <AppFloatingPanel className="overflow-hidden p-1">
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      disabled={
+                        !billing.isPro ||
+                        (!isCustomized &&
+                          formatsMatch(currentFormat, defaultFormat)) ||
+                        saveMutation.isPending
+                      }
+                      onClick={() => {
+                        void resetToDefault().catch(() => {});
+                      }}
+                    >
+                      <Trans>Reset to default format</Trans>
+                    </DropdownMenuItem>
+                  </AppFloatingPanel>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </form.Subscribe>
+        </div>
       </div>
 
       <div className="scroll-fade-y min-h-0 flex-1 overflow-y-auto px-6 pt-3 pb-6">
@@ -254,25 +304,6 @@ export function AutoFormatForm({
           </form.Field>
 
           <div className="flex items-center justify-end gap-2">
-            <form.Subscribe selector={(state) => state.values.format}>
-              {(currentFormat) => (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled={
-                    !billing.isPro ||
-                    (!isCustomized &&
-                      formatsMatch(currentFormat, defaultFormat)) ||
-                    saveMutation.isPending
-                  }
-                  onClick={() => {
-                    void resetToDefault().catch(() => {});
-                  }}
-                >
-                  <Trans>Reset to default format</Trans>
-                </Button>
-              )}
-            </form.Subscribe>
             {billing.isPro ? (
               <form.Subscribe
                 selector={(state) => [state.canSubmit, state.isDirty] as const}

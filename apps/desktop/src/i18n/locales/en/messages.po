@@ -3238,6 +3238,7 @@ msgstr "teammate@company.com"
 msgid "Tell participants when listening starts; this does not confirm consent."
 msgstr "Tell participants when listening starts; this does not confirm consent."
 
+#: src/templates/auto-form.tsx
 #: src/templates/details.tsx
 #: src/templates/template-form.tsx
 msgid "Template actions"
