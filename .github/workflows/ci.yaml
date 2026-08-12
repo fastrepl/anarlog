@@ -11,3 +11,4 @@ jobs:
           scripts/repack-linux-appimage.test.mjs
           scripts/verify-linux-audio-qa-run.test.mjs
           scripts/verify-linux-audio-qa-evidence.test.mjs
+          scripts/update-aur-pkgbuild.test.mjs

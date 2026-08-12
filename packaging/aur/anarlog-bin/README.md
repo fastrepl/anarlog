@@ -22,8 +22,20 @@ verifies its checksum, and installs it through pacman.
 
 ## Updating
 
-Bump `pkgver` and replace both `sha256sums_*` entries with the checksums published
-on the matching `desktop_v<version>` release, then regenerate metadata:
+Each stable publish opens a `chore(packaging): bump anarlog-bin to <version>` pull
+request automatically, so this normally needs no manual work.
+
+To bump by hand, or to refresh the files before an AUR push:
+
+```bash
+node scripts/update-aur-pkgbuild.mjs --version 1.4.9
+```
+
+It reads the checksums from that release's published `.sha256` assets and rewrites
+`pkgver`, `pkgrel`, and every checksum in both `PKGBUILD` and `.SRCINFO`.
+
+After changing package metadata by hand (dependencies, description, options),
+regenerate `.SRCINFO` on an Arch machine so it stays in sync:
 
 ```bash
 makepkg --printsrcinfo > .SRCINFO

@@ -673,3 +673,48 @@ jobs:
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
+
+  aur-bump:
+    needs: [parse, gh-release]
+    if: ${{ !cancelled() && needs.parse.outputs.include_linux == 'true' && needs.gh-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Point anarlog-bin at the published release
+        env:
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: node scripts/update-aur-pkgbuild.mjs --version "$VERSION"
+      - name: Open the version bump pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          if git diff --quiet -- packaging/aur/anarlog-bin; then
+            echo "anarlog-bin already tracks $VERSION"
+            exit 0
+          fi
+
+          BRANCH="chore/aur-bump-$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add packaging/aur/anarlog-bin
+          git commit -m "chore(packaging): bump anarlog-bin to $VERSION" \
+            -m "Point the Arch PKGBUILD at the desktop_v$VERSION release assets and refresh the deb checksums."
+          git push --force origin "$BRANCH"
+
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            echo "Pull request for $BRANCH already open"
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore(packaging): bump anarlog-bin to $VERSION" \
+            --body "Automated bump from the desktop_v$VERSION publish run. Updates \`pkgver\` and the deb checksums in \`packaging/aur/anarlog-bin\` so Arch users build the current release."
