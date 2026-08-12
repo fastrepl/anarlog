@@ -1,4 +1,4 @@
-import { ArrowSquareOut, Copy, Globe, Key } from "@phosphor-icons/react";
+import { ArrowSquareOut, Copy, Key } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -71,33 +71,28 @@ export function CloudApiSection() {
   const enabled = settingsQuery.data?.enabled === true;
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-sm font-medium">
+    <section className="flex flex-col gap-4">
+      <h2 className="font-sans text-lg font-semibold">
         Cloud API & Connectors
       </h2>
-      <div className="border-border bg-card overflow-hidden rounded-2xl border">
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 gap-3">
-            <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <Globe className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-medium">Hosted access for agents</h3>
-              <p className="text-muted-foreground mt-1 text-sm leading-5">
-                Give remote agents meeting context while Anarlog is closed.
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium">Hosted access for agents</h3>
+            <p className="text-muted-foreground mt-1 text-sm leading-5">
+              Give remote agents meeting context while Anarlog is closed.
+            </p>
+            <p className="text-muted-foreground mt-2 text-xs leading-5">
+              Enabling this uploads a separate server-readable copy of meeting
+              titles, notes, summaries, participants, action items, and
+              transcripts. Encrypted sync stays end-to-end encrypted. Turning
+              this off deletes every readable copy from the server.
+            </p>
+            {settingsQuery.error && (
+              <p className="text-destructive mt-2 text-xs">
+                {settingsQuery.error.message}
               </p>
-              <p className="text-muted-foreground mt-2 text-xs leading-5">
-                Enabling this uploads a separate server-readable copy of meeting
-                titles, notes, summaries, participants, action items, and
-                transcripts. Encrypted sync stays end-to-end encrypted. Turning
-                this off deletes every readable copy from the server.
-              </p>
-              {settingsQuery.error && (
-                <p className="text-destructive mt-2 text-xs">
-                  {settingsQuery.error.message}
-                </p>
-              )}
-            </div>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button
@@ -126,7 +121,7 @@ export function CloudApiSection() {
 
         {enabled && (
           <>
-            <div className="border-border grid gap-3 border-t p-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <CloudEndpoint
                 label="REST API"
                 value={CLOUD_API_BASE_URL}
@@ -138,7 +133,7 @@ export function CloudApiSection() {
                 copyMessage="Remote MCP URL copied"
               />
             </div>
-            <CloudApiKeysCard />
+            <CloudApiKeys />
           </>
         )}
       </div>
@@ -177,7 +172,7 @@ function CloudEndpoint({
   );
 }
 
-function CloudApiKeysCard() {
+function CloudApiKeys() {
   const queryClient = useQueryClient();
   const keysQuery = useQuery({
     queryKey: CLOUD_API_KEYS_QUERY_KEY,
@@ -205,7 +200,7 @@ function CloudApiKeysCard() {
   const createdKey = createMutation.data;
 
   return (
-    <div className="border-border border-t p-4">
+    <div>
       <div className="mb-3 flex items-center gap-2">
         <Key className="text-muted-foreground size-4" />
         <h4 className="text-sm font-medium">Cloud API keys</h4>

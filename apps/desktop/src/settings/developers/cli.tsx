@@ -2,9 +2,7 @@ import {
   ArrowSquareOut,
   CheckCircle,
   CircleNotch,
-  Code,
   Copy,
-  Terminal,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -131,21 +129,14 @@ function CliSection({
   const isInstalled = status?.state === "installed";
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-sm font-medium">CLI & MCP</h2>
-      <div className="border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border">
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 gap-3">
-            <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <Terminal className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-medium">Anarlog CLI</h3>
-              <CopyableCommand
-                command={`${commandName} --json meetings list`}
-              />
-              <CliStatus status={status} isLoading={isLoading} error={error} />
-            </div>
+    <section className="flex flex-col gap-4">
+      <h2 className="font-sans text-lg font-semibold">CLI & MCP</h2>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium">Anarlog CLI</h3>
+            <CopyableCommand command={`${commandName} --json meetings list`} />
+            <CliStatus status={status} isLoading={isLoading} error={error} />
           </div>
           <div className="flex shrink-0 gap-2">
             <Button
@@ -269,15 +260,10 @@ function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex min-w-0 gap-3">
-        <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <Code className="size-5" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="font-medium">MCP server</h3>
-          <CopyableCommand command={`${commandName} mcp`} />
-        </div>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <h3 className="text-sm font-medium">MCP server</h3>
+        <CopyableCommand command={`${commandName} mcp`} />
       </div>
       <div className="flex shrink-0 gap-2">
         <Button

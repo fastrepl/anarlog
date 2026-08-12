@@ -1,9 +1,4 @@
-import {
-  ArrowSquareOut,
-  Copy,
-  Trash,
-  WebhooksLogo,
-} from "@phosphor-icons/react";
+import { ArrowSquareOut, Copy, Trash } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -87,22 +82,17 @@ export function WebhooksSection() {
   const createdWebhook = createMutation.data;
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-muted-foreground text-sm font-medium">Webhooks</h2>
-      <div className="border-border bg-card overflow-hidden rounded-2xl border">
-        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 gap-3">
-            <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <WebhooksLogo className="size-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-medium">Meeting events</h3>
-              <p className="text-muted-foreground mt-1 text-sm leading-5">
-                Receive signed events when meetings end or summaries are ready.
-                Deliveries include meeting content, so only add an endpoint you
-                trust.
-              </p>
-            </div>
+    <section className="flex flex-col gap-4">
+      <h2 className="font-sans text-lg font-semibold">Webhooks</h2>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium">Meeting events</h3>
+            <p className="text-muted-foreground mt-1 text-sm leading-5">
+              Receive signed events when meetings end or summaries are ready.
+              Deliveries include meeting content, so only add an endpoint you
+              trust.
+            </p>
           </div>
           <Button
             type="button"
@@ -118,7 +108,7 @@ export function WebhooksSection() {
           </Button>
         </div>
 
-        <div className="border-border border-t p-4">
+        <div>
           <form
             className="flex gap-2"
             onSubmit={(event) => {
