@@ -17,6 +17,13 @@ type HumanSqlRow = {
   pinned: boolean | number;
   pin_order: number | null;
   avatar_data_url: string | null;
+  contact_summary_json: string | null;
+};
+
+export type ContactSummaryRecord = {
+  facts: string[];
+  sourceHash: string;
+  generatedAt: string;
 };
 
 export type HumanRecord = {
@@ -33,6 +40,7 @@ export type HumanRecord = {
   pinned: boolean;
   pinOrder: number | null;
   avatarDataUrl: string | null;
+  summary: ContactSummaryRecord | null;
 };
 
 type OrganizationSqlRow = {
@@ -62,16 +70,23 @@ const AVATAR_SQL = `CASE
   THEN json_extract(metadata_json, '$.avatarDataUrl')
 END AS avatar_data_url`;
 
+const CONTACT_SUMMARY_SQL = `CASE
+  WHEN json_valid(metadata_json)
+  THEN json_extract(metadata_json, '$.contactSummary')
+END AS contact_summary_json`;
+
 type HumanSessionSqlRow = {
   id: string;
   title: string;
   created_at: string;
+  source_updated_at: string;
 };
 
 export type HumanSessionRecord = {
   id: string;
   title: string;
   createdAt: string;
+  sourceUpdatedAt: string;
 };
 
 type ContactSearchSqlRow = {
@@ -114,7 +129,8 @@ export function useHumans(): HumanRecord[] {
         memo,
         pinned,
         pin_order,
-        ${AVATAR_SQL}
+        ${AVATAR_SQL},
+        ${CONTACT_SUMMARY_SQL}
       FROM humans
       WHERE deleted_at IS NULL
       ORDER BY name, email, id
@@ -168,7 +184,8 @@ export async function loadHumansByIds(
         memo,
         pinned,
         pin_order,
-        ${AVATAR_SQL}
+        ${AVATAR_SQL},
+        ${CONTACT_SUMMARY_SQL}
       FROM humans
       WHERE id IN (${uniqueIds.map(() => "?").join(", ")})
         AND deleted_at IS NULL
@@ -202,21 +219,53 @@ export function useHumanSessions(humanId: string): HumanSessionRecord[] {
     HumanSessionRecord[]
   >({
     sql: `
-      SELECT DISTINCT sessions.id, sessions.title, sessions.created_at
-      FROM session_participants
-      INNER JOIN sessions ON sessions.id = session_participants.session_id
-      WHERE session_participants.human_id = ?
-        AND session_participants.source <> 'excluded'
-        AND session_participants.deleted_at IS NULL
-        AND sessions.deleted_at IS NULL
+      SELECT
+        sessions.id,
+        sessions.title,
+        sessions.created_at,
+        MAX(
+          sessions.updated_at,
+          COALESCE((
+            SELECT MAX(mapping.updated_at)
+            FROM session_participants AS mapping
+            WHERE mapping.session_id = sessions.id
+              AND mapping.human_id = ?
+              AND mapping.source <> 'excluded'
+              AND mapping.deleted_at IS NULL
+          ), ''),
+          COALESCE((
+            SELECT MAX(document.updated_at)
+            FROM session_documents AS document
+            WHERE document.session_id = sessions.id
+              AND document.kind IN ('note', 'summary', 'template_output')
+              AND document.deleted_at IS NULL
+          ), ''),
+          COALESCE((
+            SELECT MAX(transcript.updated_at)
+            FROM transcripts AS transcript
+            WHERE transcript.session_id = sessions.id
+              AND transcript.deleted_at IS NULL
+          ), '')
+        ) AS source_updated_at
+      FROM sessions
+      WHERE sessions.deleted_at IS NULL
+        AND EXISTS (
+          SELECT 1
+          FROM session_participants AS mapping
+          WHERE mapping.session_id = sessions.id
+            AND mapping.human_id = ?
+            AND mapping.source <> 'excluded'
+            AND mapping.deleted_at IS NULL
+        )
       ORDER BY sessions.created_at DESC, sessions.id
     `,
-    params: [humanId],
+    params: [humanId, humanId],
     mapRows: (rows) =>
       rows.map((row) => ({
         id: row.id,
         title: row.title,
         createdAt: row.created_at,
+        sourceUpdatedAt: row.source_updated_at,
       })),
   });
   return data;
@@ -475,6 +524,32 @@ export function updateContactAvatar(
   });
 }
 
+export function updateHumanContactSummary(
+  humanId: string,
+  summary: ContactSummaryRecord,
+): Promise<void> {
+  const validMetadata =
+    "CASE WHEN json_valid(metadata_json) THEN metadata_json ELSE '{}' END";
+  return enqueueDatabaseWrite(`human:${humanId}`, async () => {
+    await executeTransaction([
+      {
+        sql: `
+          UPDATE humans
+          SET
+            metadata_json = json_set(
+              ${validMetadata},
+              '$.contactSummary',
+              json(?)
+            ),
+            updated_at = ?
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [JSON.stringify(summary), new Date().toISOString(), humanId],
+      },
+    ]);
+  });
+}
+
 export function toggleContactPin(
   type: "human" | "organization",
   contactId: string,
@@ -717,7 +792,36 @@ function mapHumanRow(row: HumanSqlRow): HumanRecord {
     pinned: Boolean(row.pinned),
     pinOrder: row.pin_order,
     avatarDataUrl: row.avatar_data_url ?? null,
+    summary: parseContactSummary(row.contact_summary_json),
   };
+}
+
+function parseContactSummary(value: string | null | undefined) {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as Partial<ContactSummaryRecord>;
+    const facts = Array.isArray(parsed.facts)
+      ? parsed.facts.filter(
+          (fact): fact is string => typeof fact === "string" && !!fact.trim(),
+        )
+      : [];
+    if (
+      facts.length < 3 ||
+      typeof parsed.sourceHash !== "string" ||
+      typeof parsed.generatedAt !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      facts,
+      sourceHash: parsed.sourceHash,
+      generatedAt: parsed.generatedAt,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function mapOrganizationRow(row: OrganizationSqlRow): OrganizationRecord {

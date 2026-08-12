@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   Buildings,
+  CircleNotch,
   FileText,
   MagnifyingGlass,
   MinusCircle,
@@ -24,6 +25,7 @@ import {
   persistContactAvatar,
 } from "./contact-avatar";
 import { ContactPageHeader } from "./contact-page-header";
+import { useContactSummary } from "./contact-summary";
 import {
   createOrganization,
   type HumanRecord,
@@ -51,6 +53,15 @@ export function DetailsColumn({
   const { t } = useLingui();
   const [showCompactIdentity, setShowCompactIdentity] = useState(false);
   const personSessions = useHumanSessions(human?.id ?? "");
+  const organizationName =
+    organizations.find(
+      (organization) => organization.id === human?.organizationId,
+    )?.name ?? null;
+  const contactSummary = useContactSummary({
+    human,
+    organizationName,
+    sessions: personSessions,
+  });
   const duplicatesWithData = React.useMemo(
     () =>
       human?.email
@@ -234,21 +245,7 @@ export function DetailsColumn({
             </div>
 
             {personSessions.length > 0 && (
-              <div className="border-border border-b p-6">
-                <h3 className="text-muted-foreground mb-3 text-sm font-medium">
-                  <Trans>Summary</Trans>
-                </h3>
-                <div className="border-border bg-muted rounded-lg border p-4">
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    <Trans>
-                      AI-generated summary of all interactions and notes with
-                      this contact will appear here. This will synthesize key
-                      discussion points, action items, and relationship context
-                      across all meetings and notes.
-                    </Trans>
-                  </p>
-                </div>
-              </div>
+              <ContactSummarySection summary={contactSummary} />
             )}
 
             <div className="p-6">
@@ -294,6 +291,88 @@ export function DetailsColumn({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function ContactSummarySection({
+  summary,
+}: {
+  summary: ReturnType<typeof useContactSummary>;
+}) {
+  const hasFacts = summary.facts.length > 0;
+
+  return (
+    <div className="border-border border-b p-6">
+      <div className="mb-3 flex items-center gap-2">
+        <h3 className="text-muted-foreground text-sm font-medium">
+          <Trans>Summary</Trans>
+        </h3>
+        {summary.isGenerating && (
+          <>
+            <CircleNotch
+              aria-hidden="true"
+              className="text-muted-foreground h-3.5 w-3.5 animate-spin"
+            />
+            <span className="sr-only">
+              <Trans>Loading...</Trans>
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="border-border bg-muted rounded-lg border p-4">
+        {hasFacts ? (
+          <ul className="text-foreground list-disc space-y-2 pl-5 text-sm leading-relaxed">
+            {summary.facts.map((fact) => (
+              <li key={fact}>{fact}</li>
+            ))}
+          </ul>
+        ) : summary.isGenerating ? (
+          <div aria-hidden="true" className="space-y-3 py-1">
+            <div className="bg-muted-foreground/15 h-3 w-11/12 animate-pulse rounded" />
+            <div className="bg-muted-foreground/15 h-3 w-4/5 animate-pulse rounded" />
+            <div className="bg-muted-foreground/15 h-3 w-10/12 animate-pulse rounded" />
+          </div>
+        ) : summary.error ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground text-sm">
+              <Trans>Summary generation failed</Trans>
+            </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void summary.retry()}
+            >
+              <Trans>Try again</Trans>
+            </Button>
+          </div>
+        ) : (
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            <Trans>
+              AI-generated summary of all interactions and notes with this
+              contact will appear here. This will synthesize key discussion
+              points, action items, and relationship context across all meetings
+              and notes.
+            </Trans>
+          </p>
+        )}
+
+        {hasFacts && summary.error && (
+          <div className="border-border mt-3 flex items-center justify-between gap-3 border-t pt-3">
+            <p className="text-muted-foreground text-xs">
+              <Trans>Summary generation failed</Trans>
+            </p>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void summary.retry()}
+            >
+              <Trans>Try again</Trans>
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

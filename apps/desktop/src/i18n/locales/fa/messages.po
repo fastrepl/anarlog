@@ -1745,6 +1745,7 @@ msgid "Loading teams…"
 msgstr ""
 
 #: src/changelog/index.tsx
+#: src/contacts/details.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
 msgstr ""
@@ -3139,6 +3140,7 @@ msgstr ""
 msgid "Summary format cannot be empty."
 msgstr ""
 
+#: src/contacts/details.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
 msgstr ""
@@ -3353,6 +3355,7 @@ msgstr ""
 msgid "Trigger"
 msgstr ""
 
+#: src/contacts/details.tsx
 #: src/onboarding/permissions.tsx
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx

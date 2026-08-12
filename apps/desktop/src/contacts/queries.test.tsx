@@ -41,9 +41,11 @@ import {
   searchContacts,
   toggleContactPin,
   updateContactAvatar,
+  updateHumanContactSummary,
   updateHuman,
   updateOrganization,
   useHumans,
+  useHumanSessions,
   useOrganizations,
 } from "./queries";
 
@@ -70,6 +72,11 @@ describe("contact SQLite queries", () => {
         pinned: 1,
         pin_order: 2,
         avatar_data_url: "data:image/jpeg;base64,abc",
+        contact_summary_json: JSON.stringify({
+          facts: ["Fact one", "Fact two", "Fact three"],
+          sourceHash: "source-1",
+          generatedAt: "2026-08-12T12:00:00.000Z",
+        }),
       },
     ];
 
@@ -90,6 +97,33 @@ describe("contact SQLite queries", () => {
         pinned: true,
         pinOrder: 2,
         avatarDataUrl: "data:image/jpeg;base64,abc",
+        summary: {
+          facts: ["Fact one", "Fact two", "Fact three"],
+          sourceHash: "source-1",
+          generatedAt: "2026-08-12T12:00:00.000Z",
+        },
+      },
+    ]);
+  });
+
+  it("maps related session freshness for contact summaries", () => {
+    mocks.rows = [
+      {
+        id: "session-1",
+        title: "Planning",
+        created_at: "2026-08-10T12:00:00.000Z",
+        source_updated_at: "2026-08-11T12:00:00.000Z",
+      },
+    ];
+
+    const { result } = renderHook(() => useHumanSessions("human-1"));
+
+    expect(result.current).toEqual([
+      {
+        id: "session-1",
+        title: "Planning",
+        createdAt: "2026-08-10T12:00:00.000Z",
+        sourceUpdatedAt: "2026-08-11T12:00:00.000Z",
       },
     ]);
   });
@@ -274,6 +308,25 @@ describe("contact SQLite queries", () => {
     expect(statement.params[statement.params.length - 1]).toBe(
       "organization-1",
     );
+  });
+
+  it("stores generated contact summaries inside metadata_json", async () => {
+    await updateHumanContactSummary("human-1", {
+      facts: ["Fact one", "Fact two", "Fact three"],
+      sourceHash: "source-1",
+      generatedAt: "2026-08-12T12:00:00.000Z",
+    });
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.sql).toContain("UPDATE humans");
+    expect(statement.sql).toContain("json_set");
+    expect(statement.sql).toContain("$.contactSummary");
+    expect(JSON.parse(String(statement.params[0]))).toEqual({
+      facts: ["Fact one", "Fact two", "Fact three"],
+      sourceHash: "source-1",
+      generatedAt: "2026-08-12T12:00:00.000Z",
+    });
+    expect(statement.params[statement.params.length - 1]).toBe("human-1");
   });
 
   it("soft-deletes contacts without removing their rows", async () => {
