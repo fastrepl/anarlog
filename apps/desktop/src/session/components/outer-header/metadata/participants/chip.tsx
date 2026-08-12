@@ -77,7 +77,7 @@ export function ParticipantChip({
           className="animate-shimmer pointer-events-none absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/60 to-transparent"
         />
       )}
-      <span className="relative z-10">{displayName}</span>
+      <span className="relative">{displayName}</span>
       {canEnhance && (
         <EnhanceContactButton
           isEnhancing={isEnhancing}
@@ -94,7 +94,7 @@ export function ParticipantChip({
         type="button"
         variant="ghost"
         size="sm"
-        className="relative z-10 ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
+        className="relative ml-0.5 h-3 w-3 p-0 hover:bg-transparent"
         onClick={(e) => {
           e.stopPropagation();
           handleRemove();
@@ -126,7 +126,7 @@ function EnhanceContactButton({
           variant="ghost"
           size="sm"
           aria-label={t`Enhance contact ${label}`}
-          className="text-muted-foreground hover:text-foreground relative z-10 ml-0.5 h-3.5 w-3.5 p-0 hover:bg-transparent"
+          className="text-muted-foreground hover:text-foreground relative ml-0.5 h-3.5 w-3.5 p-0 hover:bg-transparent"
           disabled={isDisabled}
           onClick={(e) => {
             e.stopPropagation();

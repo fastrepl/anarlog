@@ -53,7 +53,7 @@ export function AnlgCloudCTAButton({
           ])}
         />
       )}
-      <span className="relative z-10">{buttonLabel}</span>
+      <span className="relative">{buttonLabel}</span>
     </button>
   );
 }

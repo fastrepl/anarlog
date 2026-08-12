@@ -144,10 +144,10 @@ export function FormatToolbar({
       role="toolbar"
       aria-label="Format selection"
       className={cn([
-        "bg-popover ring-border fixed flex items-center gap-0.5 rounded-xl p-1 ring-1",
+        "bg-popover ring-border fixed z-50 flex items-center gap-0.5 rounded-xl p-1 ring-1",
         "shadow-lg",
       ])}
-      style={{ top: 0, left: 0, zIndex: 40 }}
+      style={{ top: 0, left: 0 }}
       onMouseDown={(e) => e.preventDefault()}
     >
       {canFormatSelection &&

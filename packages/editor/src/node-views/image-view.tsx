@@ -280,17 +280,17 @@ export const ResizableImageView = forwardRef<
           <>
             <div
               aria-hidden="true"
-              className="absolute top-0 right-0 z-10 h-full w-6"
+              className="absolute top-0 right-0 h-full w-6"
             />
             <div
               aria-hidden="true"
-              className="absolute top-0 left-0 z-10 h-full w-6"
+              className="absolute top-0 left-0 h-full w-6"
             />
             <button
               type="button"
               aria-label="Resize image from left"
               onPointerDown={(event) => handleResizeStart("left", event)}
-              className="border-border bg-card/95 absolute top-1/2 left-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
+              className="border-border bg-card/95 absolute top-1/2 left-1 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
             >
               <span className="bg-muted-foreground h-8 w-1 rounded-full" />
             </button>
@@ -298,7 +298,7 @@ export const ResizableImageView = forwardRef<
               type="button"
               aria-label="Resize image from right"
               onPointerDown={(event) => handleResizeStart("right", event)}
-              className="border-border bg-card/95 absolute top-1/2 right-1 z-20 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
+              className="border-border bg-card/95 absolute top-1/2 right-1 flex h-14 w-4 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-full border shadow-sm backdrop-blur-sm"
             >
               <span className="bg-muted-foreground h-8 w-1 rounded-full" />
             </button>

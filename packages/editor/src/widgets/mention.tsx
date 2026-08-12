@@ -209,8 +209,8 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     <div
       ref={popupRef}
       data-editor-escape-consumer
-      className="mention-container"
-      style={{ position: "absolute", top: 0, left: 0, zIndex: 9999 }}
+      className="mention-container z-50"
+      style={{ position: "absolute", top: 0, left: 0 }}
     >
       {items.map((item, index) => (
         <button

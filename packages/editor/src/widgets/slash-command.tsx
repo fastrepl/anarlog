@@ -357,7 +357,7 @@ export function SlashCommandMenu() {
       ref={popupRef}
       data-editor-escape-consumer
       className={cn([
-        "absolute z-[9999] max-h-64 w-[224px]",
+        "absolute z-50 max-h-64 w-[224px]",
         "bg-popover text-popover-foreground ring-border overflow-y-auto rounded-[1rem] p-1 ring-1",
         "text-sm shadow-lg",
       ])}

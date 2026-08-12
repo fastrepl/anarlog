@@ -260,15 +260,6 @@ export function CredibilityLogoMarquee() {
 
       <div className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden bg-white motion-reduce:overflow-visible">
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-linear-to-l from-white to-transparent motion-reduce:hidden md:w-32"
-          aria-hidden="true"
-        />
-
-        <div
           className="animate-scroll-left flex w-max items-center motion-reduce:mx-auto motion-reduce:w-full motion-reduce:max-w-6xl motion-reduce:animate-none motion-reduce:justify-center motion-reduce:px-6"
           style={{ animationDuration: "36s" }}
           aria-hidden="true"
@@ -298,6 +289,14 @@ export function CredibilityLogoMarquee() {
             </div>
           ))}
         </div>
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-linear-to-r from-white to-transparent motion-reduce:hidden md:w-32"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-linear-to-l from-white to-transparent motion-reduce:hidden md:w-32"
+          aria-hidden="true"
+        />
       </div>
       <h2
         id="credibility-heading"

@@ -118,15 +118,15 @@ function HeroWorkflowDemo() {
   return (
     <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 sm:px-10">
       <div
-        className="pointer-events-none absolute top-10 bottom-24 left-8 z-0 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
+        className="pointer-events-none absolute top-10 bottom-24 left-8 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
         aria-hidden="true"
       />
       <div
-        className="pointer-events-none absolute top-10 right-8 bottom-24 z-0 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:right-10"
+        className="pointer-events-none absolute top-10 right-8 bottom-24 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:right-10"
         aria-hidden="true"
       />
       <div
-        className="relative z-10 mx-auto max-w-[420px] overflow-hidden rounded-3xl border-x border-t border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)] [corner-shape:squircle]"
+        className="relative mx-auto max-w-[420px] overflow-hidden rounded-3xl border-x border-t border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)] [corner-shape:squircle]"
         style={{
           WebkitMaskImage:
             "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
@@ -297,7 +297,7 @@ function HeroWorkflowDemo() {
         </div>
       </div>
       <div
-        className="pointer-events-none absolute right-0 bottom-0 left-0 z-10 h-28 bg-linear-to-t from-white to-transparent"
+        className="pointer-events-none absolute right-0 bottom-0 left-0 h-28 bg-linear-to-t from-white to-transparent"
         aria-hidden="true"
       />
     </div>
