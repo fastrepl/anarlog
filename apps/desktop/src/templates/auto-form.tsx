@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
+  Check,
   CircleNotch,
   LockSimple,
   MagicWand,
@@ -11,7 +12,6 @@ import { useRef, useState } from "react";
 
 import { PromptEditor, type PromptEditorHandle } from "@anlg/editor/prompt";
 import { commands as templateCommands } from "@anlg/plugin-template";
-import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
@@ -140,9 +140,6 @@ export function AutoFormatForm({
         <div className="flex min-w-0 items-center gap-2">
           <Sparkle className="size-4 shrink-0 text-violet-500" />
           <span className="truncate text-sm font-semibold">Auto</span>
-          <Badge variant="secondary" className="h-5 rounded-full text-[10px]">
-            {isCustomized ? <Trans>Customized</Trans> : <Trans>Default</Trans>}
-          </Badge>
         </div>
         <Button
           type="button"
@@ -150,7 +147,9 @@ export function AutoFormatForm({
           variant="ghost"
           className={cn([
             "text-muted-foreground shrink-0 hover:text-black",
-            isDefault ? "bg-muted hover:bg-accent text-black" : null,
+            isDefault
+              ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white disabled:opacity-100"
+              : null,
           ])}
           onClick={() => {
             void setSettingValue("selected_template_id", "").catch((error) => {
@@ -160,7 +159,10 @@ export function AutoFormatForm({
           disabled={isDefault}
         >
           {isDefault ? (
-            <Trans>Current default</Trans>
+            <>
+              <Check className="size-3.5" weight="bold" />
+              <Trans>Current default</Trans>
+            </>
           ) : (
             <Trans>Set as default</Trans>
           )}

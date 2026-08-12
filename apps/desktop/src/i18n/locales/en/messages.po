@@ -1021,7 +1021,6 @@ msgstr "Created {createdAt}"
 msgid "Current default"
 msgstr "Current default"
 
-#: src/templates/auto-form.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Customized"
 msgstr "Customized"
@@ -1039,7 +1038,6 @@ msgid "Date and time are required"
 msgstr "Date and time are required"
 
 #: src/settings/appearance/app-icon.tsx
-#: src/templates/auto-form.tsx
 msgid "Default"
 msgstr "Default"
 

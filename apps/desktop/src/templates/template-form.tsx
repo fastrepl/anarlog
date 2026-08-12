@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { DotsThree, Heart, Plus, X } from "@phosphor-icons/react";
+import { Check, DotsThree, Heart, Plus, X } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useRef, useState } from "react";
 
@@ -230,13 +230,23 @@ export function TemplateForm({
             size="sm"
             variant="ghost"
             onClick={setSelectedTemplateId}
+            aria-pressed={isDefault}
             title={isDefault ? "Remove as default" : "Set as default"}
             className={cn([
               "text-muted-foreground shrink-0 hover:text-black",
-              isDefault ? "bg-muted hover:bg-accent text-black" : null,
+              isDefault
+                ? "bg-emerald-600 text-white hover:bg-emerald-700 hover:text-white"
+                : null,
             ])}
           >
-            {isDefault ? "Current default" : "Set as default"}
+            {isDefault ? (
+              <>
+                <Check className="size-3.5" weight="bold" />
+                Current default
+              </>
+            ) : (
+              "Set as default"
+            )}
           </Button>
           <Button
             type="button"
