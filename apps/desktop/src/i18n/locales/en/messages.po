@@ -2085,6 +2085,10 @@ msgstr "Only public repositories are supported."
 msgid "Only sync items from this {0}."
 msgstr "Only sync items from this {0}."
 
+#: src/settings/team/index.tsx
+msgid "Only workspace admins can see who has access. You are a member of this workspace."
+msgstr "Only workspace admins can see who has access. You are a member of this workspace."
+
 #: src/calendar/components/apple/permission.tsx
 #: src/task/resource-view.tsx
 msgid "Open"

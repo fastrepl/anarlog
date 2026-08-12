@@ -26,7 +26,6 @@ import {
   getSeatUsage,
   inviteMember,
   leaveWorkspace,
-  listMyWorkspaces,
   listWorkspaceInvitations,
   listWorkspaceMembers,
   removeMember,
@@ -38,7 +37,7 @@ import {
   type WorkspaceMember,
   type WorkspaceRole,
 } from "./client";
-import { mirrorSharedWorkspaces } from "./mirror";
+import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -51,23 +50,9 @@ export function SettingsTeam() {
 
   const signedIn = Boolean(auth.supabase && auth.session);
 
-  const workspaces = useQuery({
-    queryKey: ["team-workspaces", auth.session?.user.id],
-    enabled: signedIn,
-    queryFn: async () => {
-      const context = requireTeamContext(auth);
-      const list = await listMyWorkspaces(context);
-      // The share panel reads workspaces from local SQLite, so refresh the
-      // mirror whenever we have an authoritative list. A mirror failure must
-      // not blank the page.
-      try {
-        await mirrorSharedWorkspaces(context, list);
-      } catch {
-        // Ignored: the list still renders from the server response.
-      }
-      return list;
-    },
-  });
+  // Shares the query (and therefore the mirror refresh) with the app-level
+  // mount, so opening this page is never what makes sharing scopes appear.
+  const workspaces = useMyWorkspacesWithMirror();
 
   const activeId = selectedId ?? workspaces.data?.[0]?.workspaceId ?? null;
   const activeWorkspace = workspaces.data?.find(
@@ -79,7 +64,9 @@ export function SettingsTeam() {
       createWorkspace(requireTeamContext(auth), name),
     onSuccess: (result) => {
       setSelectedId(result.workspaceId);
-      void queryClient.invalidateQueries({ queryKey: ["team-workspaces"] });
+      void queryClient.invalidateQueries({
+        queryKey: [MY_WORKSPACES_QUERY_KEY],
+      });
     },
   });
 
@@ -127,10 +114,15 @@ export function SettingsTeam() {
               key={activeId}
               workspaceId={activeId}
               workspaceName={activeWorkspace?.name ?? ""}
-              onWorkspacesChanged={() => {
+              onWorkspaceRenamed={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: [MY_WORKSPACES_QUERY_KEY],
+                });
+              }}
+              onWorkspaceLeft={() => {
                 setSelectedId(null);
                 void queryClient.invalidateQueries({
-                  queryKey: ["team-workspaces"],
+                  queryKey: [MY_WORKSPACES_QUERY_KEY],
                 });
               }}
             />
@@ -204,29 +196,38 @@ function CreateWorkspaceCard({
 function WorkspacePanel({
   workspaceId,
   workspaceName,
-  onWorkspacesChanged,
+  onWorkspaceRenamed,
+  onWorkspaceLeft,
 }: {
   workspaceId: string;
   workspaceName: string;
-  onWorkspacesChanged: () => void;
+  // Renaming keeps the panel where it is; leaving or deleting must drop the
+  // selection because the workspace is gone.
+  onWorkspaceRenamed: () => void;
+  onWorkspaceLeft: () => void;
 }) {
   const auth = useAuth();
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
 
+  // The roster, invitation, and seat RPCs are manager-only, so a plain member
+  // gets a permission error rather than data. Retrying cannot fix that.
   const members = useQuery({
     queryKey: ["team-members", workspaceId],
     queryFn: () => listWorkspaceMembers(requireTeamContext(auth), workspaceId),
+    retry: false,
   });
   const invitations = useQuery({
     queryKey: ["team-invitations", workspaceId],
     queryFn: () =>
       listWorkspaceInvitations(requireTeamContext(auth), workspaceId),
+    retry: false,
   });
   const seats = useQuery({
     queryKey: ["team-seats", workspaceId],
     queryFn: () => getSeatUsage(requireTeamContext(auth), workspaceId),
+    retry: false,
   });
 
   const refresh = () => {
@@ -277,15 +278,15 @@ function WorkspacePanel({
   const rename = useMutation({
     mutationFn: (value: string) =>
       renameWorkspace(requireTeamContext(auth), workspaceId, value),
-    onSuccess: onWorkspacesChanged,
+    onSuccess: onWorkspaceRenamed,
   });
   const leave = useMutation({
     mutationFn: () => leaveWorkspace(requireTeamContext(auth), workspaceId),
-    onSuccess: onWorkspacesChanged,
+    onSuccess: onWorkspaceLeft,
   });
   const destroy = useMutation({
     mutationFn: () => deleteWorkspace(requireTeamContext(auth), workspaceId),
-    onSuccess: onWorkspacesChanged,
+    onSuccess: onWorkspaceLeft,
   });
 
   const viewerId = auth.session?.user.id;
@@ -371,6 +372,13 @@ function WorkspacePanel({
 
       {members.isPending ? (
         <TeamSkeleton />
+      ) : members.isError ? (
+        <p className="text-muted-foreground border-border rounded-lg border p-4 text-sm">
+          <Trans>
+            Only workspace admins can see who has access. You are a member of
+            this workspace.
+          </Trans>
+        </p>
       ) : (
         <ul className="border-border divide-border divide-y rounded-lg border">
           {members.data?.map((member) => (

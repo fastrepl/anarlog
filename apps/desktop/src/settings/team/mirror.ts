@@ -1,6 +1,44 @@
-import { TeamError, type TeamContext, type WorkspaceRole } from "./client";
+import { useQuery } from "@tanstack/react-query";
 
+import {
+  listMyWorkspaces,
+  requireTeamContext,
+  TeamError,
+  type TeamContext,
+  type WorkspaceRole,
+} from "./client";
+
+import { useAuth } from "~/auth";
 import { executeTransaction } from "~/db";
+
+export const MY_WORKSPACES_QUERY_KEY = "team-workspaces";
+
+/**
+ * Keeps the local workspace mirror fresh for the whole app.
+ *
+ * Sharing scopes come from the mirror, so this cannot wait until someone opens
+ * Team settings — a member who never visits that page would otherwise never see
+ * their workspace in the share panel.
+ */
+export function useMyWorkspacesWithMirror() {
+  const auth = useAuth();
+  const signedIn = Boolean(auth.supabase && auth.session);
+
+  return useQuery({
+    queryKey: [MY_WORKSPACES_QUERY_KEY, auth.session?.user.id],
+    enabled: signedIn,
+    queryFn: async () => {
+      const context = requireTeamContext(auth);
+      const list = await listMyWorkspaces(context);
+      try {
+        await mirrorSharedWorkspaces(context, list);
+      } catch {
+        // A mirror failure must not blank the workspace list.
+      }
+      return list;
+    },
+  });
+}
 
 export type MirroredWorkspace = {
   workspaceId: string;
