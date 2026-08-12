@@ -242,7 +242,7 @@ export function CalendarView() {
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-accent h-full w-8 rounded-none border-0 bg-transparent shadow-none"
+            className="hover:bg-accent h-full w-7 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToPrev}
           >
             <CaretLeft className="size-3.5" />
@@ -263,7 +263,7 @@ export function CalendarView() {
           <Button
             variant="ghost"
             size="icon"
-            className="hover:bg-accent h-full w-8 rounded-none border-0 bg-transparent shadow-none"
+            className="hover:bg-accent h-full w-7 rounded-none border-0 bg-transparent shadow-none"
             onClick={goToNext}
           >
             <CaretRight className="size-3.5" />
