@@ -57,7 +57,7 @@ export function Header({
             className={cn([
               "pointer-events-auto relative z-10 w-fit max-w-full overflow-visible",
               shouldUseViewSwitcher
-                ? "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px]"
+                ? "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] [corner-shape:round]"
                 : null,
             ])}
           >

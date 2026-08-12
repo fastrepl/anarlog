@@ -102,7 +102,7 @@ function HeaderViewTranscriptButton({
         live
           ? [
               "group/transcript-live",
-              isActive ? "w-[98px] min-w-[98px] gap-1.5 pr-1.5 pl-2" : null,
+              isActive ? "w-[98px] min-w-[98px] gap-1.5 px-2" : null,
               isActive
                 ? live.degraded
                   ? [

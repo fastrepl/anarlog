@@ -242,7 +242,7 @@ function HeaderViewEnhancedActive({
         true,
         "tray",
         cn([
-          "max-w-56 min-w-[62px] gap-1.5 pr-1.5 pl-2",
+          "max-w-56 min-w-[62px] gap-1.5 px-2",
           isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
           isError
             ? [
