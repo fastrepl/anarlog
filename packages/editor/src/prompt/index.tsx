@@ -176,6 +176,7 @@ export function PromptEditor({
   onBlur,
   onChange,
   placeholder,
+  readOnly = false,
   tokens = DEFAULT_PROMPT_TOKENS,
 }: {
   ref?: Ref<PromptEditorHandle>;
@@ -186,6 +187,7 @@ export function PromptEditor({
   onBlur?: () => void;
   onChange: (value: string) => void;
   placeholder?: string;
+  readOnly?: boolean;
   tokens?: readonly PromptTokenDefinition[];
 }) {
   const viewRef = useRef<EditorView | null>(null);
@@ -287,8 +289,10 @@ export function PromptEditor({
       <ProseMirror
         key={editorKey}
         defaultState={defaultState}
+        editable={() => !readOnly}
         attributes={{
           "aria-label": ariaLabel,
+          "aria-readonly": readOnly ? "true" : "false",
           autoCapitalize: "sentences",
           autoComplete: "off",
           autoCorrect: "on",

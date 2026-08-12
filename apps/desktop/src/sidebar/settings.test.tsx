@@ -21,8 +21,11 @@ const mocks = vi.hoisted(() => ({
     };
   }>,
   openNew: vi.fn(),
+  isPro: true,
+  isUpgradingToPro: false,
   select: vi.fn(),
   transitionChatMode: vi.fn(),
+  upgradeToPro: vi.fn(),
   updateSettingsTabState: vi.fn(),
   updateTemplatesTabState: vi.fn(),
 }));
@@ -78,6 +81,14 @@ vi.mock("~/auth", () => ({
   useAuth: () => ({ session: mocks.session }),
 }));
 
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => ({
+    isPro: mocks.isPro,
+    isUpgradingToPro: mocks.isUpgradingToPro,
+    upgradeToPro: mocks.upgradeToPro,
+  }),
+}));
+
 vi.mock("~/store/zustand/tabs", () => {
   const getState = () => ({
     currentTab: mocks.currentTab,
@@ -107,9 +118,12 @@ describe("SettingsNav", () => {
     mocks.session = { user: { id: "user-1" } };
     mocks.currentTab = { type: "settings", state: { tab: "app" } };
     mocks.tabs = [];
+    mocks.isPro = true;
+    mocks.isUpgradingToPro = false;
     mocks.openNew.mockClear();
     mocks.select.mockClear();
     mocks.transitionChatMode.mockClear();
+    mocks.upgradeToPro.mockClear();
     mocks.updateSettingsTabState.mockClear();
     mocks.updateTemplatesTabState.mockClear();
   });
@@ -240,14 +254,36 @@ describe("SettingsNav", () => {
     );
   });
 
-  it("hides Sync when the user is not signed in", () => {
+  it("shows locked Pro features and opens the upgrade flow", () => {
+    mocks.isPro = false;
     mocks.session = null;
 
     render(<SettingsNav />);
 
-    expect(screen.queryByText("Sync")).toBeNull();
+    expect(screen.getByText("Sync")).toBeTruthy();
     expect(screen.getByText("Imports")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Upgrade to Pro for Sync" }),
+    );
+
+    expect(mocks.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
   });
+
+  it.each(["Automations", "Dictionary", "Sync"])(
+    "does not open locked %s navigation",
+    (label) => {
+      mocks.isPro = false;
+
+      render(<SettingsNav />);
+
+      fireEvent.click(screen.getByRole("button", { name: label }));
+
+      expect(mocks.openNew).not.toHaveBeenCalled();
+      expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
+    },
+  );
 
   it("opens Imports inside settings", () => {
     render(<SettingsNav />);

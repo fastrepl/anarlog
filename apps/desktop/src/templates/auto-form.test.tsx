@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
   getTemplateSource: vi.fn(),
   renderTemplate: vi.fn(),
   setSettingValue: vi.fn(),
+  billing: {
+    isPro: true,
+    isUpgradingToPro: false,
+    upgradeToPro: vi.fn(),
+  },
   values: {
     auto_summary_prompt: "",
     selected_template_id: "",
@@ -49,11 +54,13 @@ vi.mock("@anlg/editor/prompt", async () => {
         initialValue,
         onBlur,
         onChange,
+        readOnly,
       }: {
         ariaLabel: string;
         initialValue: string;
         onBlur?: () => void;
         onChange: (value: string) => void;
+        readOnly?: boolean;
       },
       ref: React.ForwardedRef<{
         insertToken: (name: string) => void;
@@ -74,6 +81,7 @@ vi.mock("@anlg/editor/prompt", async () => {
       return (
         <textarea
           aria-label={ariaLabel}
+          readOnly={readOnly}
           value={value}
           onBlur={onBlur}
           onChange={(event) => update(event.target.value)}
@@ -92,6 +100,10 @@ vi.mock("@anlg/plugin-template", () => ({
 
 vi.mock("~/settings/queries", () => ({
   setSettingValue: mocks.setSettingValue,
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => mocks.billing,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -117,6 +129,9 @@ describe("Auto prompt editor", () => {
     vi.clearAllMocks();
     mocks.values.auto_summary_prompt = "";
     mocks.values.selected_template_id = "";
+    mocks.billing.isPro = true;
+    mocks.billing.isUpgradingToPro = false;
+    mocks.billing.upgradeToPro.mockClear();
     mocks.getTemplateSource.mockResolvedValue({
       status: "ok",
       data: defaultPrompt,
@@ -153,6 +168,32 @@ describe("Auto prompt editor", () => {
         name: "Auto summary prompt",
       }) as HTMLTextAreaElement,
     ).toHaveProperty("value", `${defaultPrompt}\n{{ language }}`);
+  });
+
+  it("keeps the prompt visible and read-only for Free users", () => {
+    mocks.billing.isPro = false;
+
+    renderWithQueryClient(
+      <AutoPromptForm defaultPrompt={defaultPrompt} promptOverride="" />,
+    );
+
+    expect(
+      screen.getByRole("textbox", {
+        name: "Auto summary prompt",
+      }) as HTMLTextAreaElement,
+    ).toHaveProperty("readOnly", true);
+    expect(
+      screen.getByText(
+        "Preview the complete system prompt, then upgrade to Pro to customize it.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Get Pro to customize" }),
+    );
+
+    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+    expect(mocks.setSettingValue).not.toHaveBeenCalled();
   });
 
   it("validates and saves a customized prompt", async () => {

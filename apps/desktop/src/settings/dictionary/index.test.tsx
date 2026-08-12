@@ -6,7 +6,15 @@ import {
   waitFor,
 } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  billing: {
+    isPro: true,
+    isUpgradingToPro: false,
+    upgradeToPro: vi.fn(),
+  },
+}));
 
 vi.mock("@lingui/react/macro", () => ({
   Trans: ({ children }: { children?: ReactNode }) => <>{children}</>,
@@ -32,14 +40,35 @@ vi.mock("~/settings/queries", () => ({
   useSetSettingValue: () => vi.fn(),
 }));
 
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => mocks.billing,
+}));
+
 vi.mock("~/shared/config", () => ({
   useConfigValue: () => [],
 }));
 
-import { DictionarySettings } from "./index";
+import { DictionarySettings, SettingsDictionary } from "./index";
 
 describe("DictionarySettings", () => {
+  beforeEach(() => {
+    mocks.billing.isPro = true;
+    mocks.billing.isUpgradingToPro = false;
+    mocks.billing.upgradeToPro.mockClear();
+  });
+
   afterEach(cleanup);
+
+  it("offers an upgrade instead of editing on the free plan", () => {
+    mocks.billing.isPro = false;
+
+    render(<SettingsDictionary />);
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+
+    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+  });
 
   it("shows an empty state and disabled add control", () => {
     render(<DictionarySettings terms={[]} onSave={vi.fn()} />);

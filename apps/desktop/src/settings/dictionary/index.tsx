@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { BookOpen, MinusCircle, Plus } from "@phosphor-icons/react";
+import { BookOpen, LockSimple, MinusCircle, Plus } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -11,6 +11,7 @@ import {
 } from "@anlg/ui/components/ui/input-group";
 
 import { trackAnalyticsEvent } from "~/analytics";
+import { useBillingAccess } from "~/auth/billing-context";
 import { SettingsPageTitle } from "~/settings/page-title";
 import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
@@ -19,11 +20,40 @@ import { normalizeKeywordList, parseDictionaryTermsText } from "~/stt/keywords";
 export function SettingsDictionary() {
   const terms = useConfigValue("personalization_dictionary_terms");
   const setTerms = useSetSettingValue("personalization_dictionary_terms");
+  const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
 
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Dictionary</Trans>} />
-      <DictionarySettings terms={terms} onSave={setTerms} />
+      {isPro ? (
+        <DictionarySettings terms={terms} onSave={setTerms} />
+      ) : (
+        <div className="border-border bg-card flex items-start justify-between gap-4 rounded-2xl border p-5">
+          <div className="flex gap-3">
+            <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
+              <LockSimple className="text-muted-foreground size-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium">
+                <Trans>Build a custom dictionary with Anarlog Pro</Trans>
+              </h3>
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
+                <Trans>
+                  Help transcription recognize names, jargon, and product terms.
+                </Trans>
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={upgradeToPro}
+            disabled={isUpgradingToPro}
+          >
+            <Trans>Upgrade to Pro</Trans>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

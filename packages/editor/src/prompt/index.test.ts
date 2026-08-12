@@ -81,4 +81,22 @@ describe("prompt editor serialization", () => {
       container.querySelector('[data-prompt-token="language"]')?.textContent,
     ).toBe("Language");
   });
+
+  it("exposes a non-editable prompt without hiding its content", () => {
+    render(
+      createElement(PromptEditor, {
+        ariaLabel: "Auto prompt preview",
+        initialValue: "Read this prompt",
+        onChange: vi.fn(),
+        readOnly: true,
+      }),
+    );
+
+    const editor = screen.getByRole("textbox", {
+      name: "Auto prompt preview",
+    });
+    expect(editor.getAttribute("aria-readonly")).toBe("true");
+    expect(editor.getAttribute("contenteditable")).toBe("false");
+    expect(editor.textContent).toContain("Read this prompt");
+  });
 });

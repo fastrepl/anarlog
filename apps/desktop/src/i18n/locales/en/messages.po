@@ -478,6 +478,10 @@ msgstr "Brought in {0} new meetings. {1} were already here."
 msgid "Browser handoff not working? Paste the callback link instead"
 msgstr "Browser handoff not working? Paste the callback link instead"
 
+#: src/settings/dictionary/index.tsx
+msgid "Build a custom dictionary with Anarlog Pro"
+msgstr "Build a custom dictionary with Anarlog Pro"
+
 #: src/settings/general/audio-settings.tsx
 msgid "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."
 msgstr "Build voiceprints from meeting audio so speakers you name in a transcript are recognized in later meetings. Voiceprints never leave this device, and unnamed ones are deleted after 45 days."
@@ -1422,6 +1426,10 @@ msgstr "Get dock attention when your summary finishes while Anarlog is in the ba
 msgid "Get Pro"
 msgstr "Get Pro"
 
+#: src/templates/auto-form.tsx
+msgid "Get Pro to customize"
+msgstr "Get Pro to customize"
+
 #: src/onboarding/account/before-login.tsx
 #: src/settings/general/account.tsx
 #: src/sidebar/automations.tsx
@@ -1475,6 +1483,10 @@ msgstr "Help Anarlog read meeting activity"
 #: src/settings/general/app-settings.tsx
 msgid "Help improve Anarlog with anonymous usage data."
 msgstr "Help improve Anarlog with anonymous usage data."
+
+#: src/settings/dictionary/index.tsx
+msgid "Help transcription recognize names, jargon, and product terms."
+msgstr "Help transcription recognize names, jargon, and product terms."
 
 #: src/sidebar/timeline/index.tsx
 msgid "Hide Deleted Events"
@@ -2272,6 +2284,10 @@ msgstr "Prevent selected apps from triggering meeting detection."
 #: src/settings/automations/index.tsx
 msgid "Preview"
 msgstr "Preview"
+
+#: src/templates/auto-form.tsx
+msgid "Preview the complete system prompt, then upgrade to Pro to customize it."
+msgstr "Preview the complete system prompt, then upgrade to Pro to customize it."
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Previous match"
@@ -3377,19 +3393,31 @@ msgstr "Upgrade for private repos."
 msgid "Upgrade to connect"
 msgstr "Upgrade to connect"
 
+#: src/templates/auto-form.tsx
+msgid "Upgrade to customize"
+msgstr "Upgrade to customize"
+
 #: src/settings/automations/index.tsx
 msgid "Upgrade to enable"
 msgstr "Upgrade to enable"
 
 #: src/calendar/components/sidebar.tsx
 #: src/session-sharing/index.tsx
+#: src/settings/dictionary/index.tsx
+#: src/sidebar/settings.tsx
 msgid "Upgrade to Pro"
 msgstr "Upgrade to Pro"
 
+#. placeholder {0}: item.label
 #. placeholder {0}: provider.displayName
 #: src/calendar/components/sidebar.tsx
+#: src/sidebar/settings.tsx
 msgid "Upgrade to Pro for {0}"
 msgstr "Upgrade to Pro for {0}"
+
+#: src/templates/auto-form.tsx
+msgid "Upgrade to Pro to customize Auto"
+msgstr "Upgrade to Pro to customize Auto"
 
 #: src/session-sharing/index.tsx
 msgid "Upgrade to Pro to invite people and share this note with them."
