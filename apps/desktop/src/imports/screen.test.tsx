@@ -137,6 +137,7 @@ describe("MeetingImportScreen", () => {
     expect(screen.getAllByRole("button", { name: "Use files" })).toHaveLength(
       2,
     );
+    expect(screen.queryByRole("menuitem", { name: "Use files" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "Choose files" }),
     ).toHaveLength(3);
@@ -147,6 +148,21 @@ describe("MeetingImportScreen", () => {
       container.querySelectorAll('img[src^="data:image/png;base64,"]'),
     ).toHaveLength(5);
     expect(container.querySelector("iconify-icon")).toBeNull();
+  });
+
+  it("offers file import from the connected provider menu", async () => {
+    mockDetected(["granola"]);
+
+    renderImports();
+
+    const trigger = await screen.findByRole("button", {
+      name: "Use files",
+    });
+    fireEvent.pointerDown(trigger);
+
+    expect(
+      await screen.findByRole("menuitem", { name: "Use files" }),
+    ).toBeTruthy();
   });
 
   it("renders the same detected list in the compact onboarding layout", async () => {

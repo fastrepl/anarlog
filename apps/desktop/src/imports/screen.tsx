@@ -1,6 +1,7 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
   ArrowsClockwise,
+  CaretDown,
   CircleNotch,
   DownloadSimple,
   PlugsConnected,
@@ -16,6 +17,14 @@ import { type ReactNode, useRef } from "react";
 
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import { Button } from "@anlg/ui/components/ui/button";
+import { ButtonGroup } from "@anlg/ui/components/ui/button-group";
+import {
+  AppFloatingPanel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
 import { cn } from "@anlg/utils";
 
 import {
@@ -367,50 +376,83 @@ export function MeetingImportScreen({
                           </Button>
                         </>
                       ) : (
+                        <ButtonGroup>
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={
+                              credentialsQuery?.isPending ||
+                              cancelConnectMutation.isPending ||
+                              connectionCancellationRequested ||
+                              (connectMutation.isPending && !connecting)
+                            }
+                            onClick={() => {
+                              if (connecting) {
+                                connectAbortController.current?.abort();
+                                cancelConnectMutation.mutate(provider.id);
+                                return;
+                              }
+                              connectMutation.mutate(provider);
+                            }}
+                          >
+                            {credentialsQuery?.isPending ||
+                            connecting ||
+                            cancellingConnection ? (
+                              <CircleNotch className="size-3.5 animate-spin" />
+                            ) : (
+                              <PlugsConnected className="size-3.5" />
+                            )}
+                            {connecting || cancellingConnection ? (
+                              <Trans>Cancel</Trans>
+                            ) : credentialsQuery?.isPending ? (
+                              <Trans>Checking connection</Trans>
+                            ) : (
+                              <Trans>Connect & import</Trans>
+                            )}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                size="sm"
+                                aria-label={t`Use files`}
+                                disabled={fileImportMutation.isPending}
+                                className="before:bg-primary-foreground/20 relative w-6 px-0 before:absolute before:inset-y-1.5 before:left-0 before:w-px"
+                              >
+                                <CaretDown className="size-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              variant="app"
+                              align="end"
+                              className="w-40"
+                            >
+                              <AppFloatingPanel className="p-1">
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    fileImportMutation.mutate(provider)
+                                  }
+                                >
+                                  <DownloadSimple />
+                                  <Trans>Use files</Trans>
+                                </DropdownMenuItem>
+                              </AppFloatingPanel>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </ButtonGroup>
+                      )}
+                      {connected ? (
                         <Button
                           type="button"
                           size="sm"
-                          disabled={
-                            credentialsQuery?.isPending ||
-                            cancelConnectMutation.isPending ||
-                            connectionCancellationRequested ||
-                            (connectMutation.isPending && !connecting)
-                          }
-                          onClick={() => {
-                            if (connecting) {
-                              connectAbortController.current?.abort();
-                              cancelConnectMutation.mutate(provider.id);
-                              return;
-                            }
-                            connectMutation.mutate(provider);
-                          }}
+                          variant="ghost"
+                          disabled={fileImportMutation.isPending}
+                          onClick={() => fileImportMutation.mutate(provider)}
                         >
-                          {credentialsQuery?.isPending ||
-                          connecting ||
-                          cancellingConnection ? (
-                            <CircleNotch className="size-3.5 animate-spin" />
-                          ) : (
-                            <PlugsConnected className="size-3.5" />
-                          )}
-                          {connecting || cancellingConnection ? (
-                            <Trans>Cancel</Trans>
-                          ) : credentialsQuery?.isPending ? (
-                            <Trans>Checking connection</Trans>
-                          ) : (
-                            <Trans>Connect & import</Trans>
-                          )}
+                          <DownloadSimple className="size-3.5" />
+                          <Trans>Use files</Trans>
                         </Button>
-                      )}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={fileImportMutation.isPending}
-                        onClick={() => fileImportMutation.mutate(provider)}
-                      >
-                        <DownloadSimple className="size-3.5" />
-                        <Trans>Use files</Trans>
-                      </Button>
+                      ) : null}
                     </div>
                   ) : (
                     <Button
