@@ -64,7 +64,7 @@ test("attempts the external protocol through an anchor navigation", () => {
   assert.deepEqual(events, ["create:a", "append", "click", "remove"]);
 });
 
-test("attempts automatic opening once under StrictMode", async () => {
+test("attempts automatic opening once under StrictMode and remounts", async () => {
   const dom = new JSDOM('<div id="root"></div>', {
     url: "https://anarlog.so",
   });
@@ -114,9 +114,21 @@ test("attempts automatic opening once under StrictMode", async () => {
 
   const rootElement = document.getElementById("root");
   assert.ok(rootElement);
-  const root = createRoot(rootElement);
+  let root = createRoot(rootElement);
 
   try {
+    await act(async () => {
+      root.render(
+        createElement(StrictMode, null, createElement(AutoOpenProbe)),
+      );
+    });
+
+    assert.deepEqual(attempts, [deeplink]);
+
+    await act(async () => {
+      root.unmount();
+    });
+    root = createRoot(rootElement);
     await act(async () => {
       root.render(
         createElement(StrictMode, null, createElement(AutoOpenProbe)),

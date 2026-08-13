@@ -1,8 +1,8 @@
-import { useRef } from "react";
-
 import type { DesktopScheme } from "@/functions/desktop-flow";
 
 import { useMountEffect } from "../hooks/useMountEffect.ts";
+
+const autoOpenAttempts = new WeakMap<Document, Set<string>>();
 
 export function buildDesktopAuthDeeplink(
   scheme: DesktopScheme,
@@ -35,14 +35,15 @@ export function attemptDesktopAppOpen(
 }
 
 export function useDesktopAppAutoOpen(deeplink: string) {
-  const attemptedRef = useRef(false);
-
   useMountEffect(() => {
-    if (attemptedRef.current) {
+    const attempts = autoOpenAttempts.get(document) ?? new Set<string>();
+    autoOpenAttempts.set(document, attempts);
+
+    if (attempts.has(deeplink)) {
       return;
     }
 
-    attemptedRef.current = true;
+    attempts.add(deeplink);
     attemptDesktopAppOpen(deeplink);
   });
 }
