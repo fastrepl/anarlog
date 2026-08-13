@@ -433,6 +433,7 @@ export function useCaptureLifecycle(sessionId: string) {
                 : 0;
             await runBatchRef.current(details.audioPath!, {
               deferAudioFinalization: true,
+              notifyOnCompletion: !details.liveTranscriptionActive,
               ...(useLocalBatchForSpeakerDiarization
                 ? {
                     provider: "soniqo",

@@ -40,6 +40,7 @@ import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 type RunOptions = {
   deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
+  notifyOnCompletion?: boolean;
   provider?: string;
   model?: string;
   baseUrl?: string;
@@ -903,7 +904,10 @@ export const useRunBatch = (sessionId: string) => {
           };
 
           try {
-            await startTranscription(params, { handlePersist: persist });
+            await startTranscription(params, {
+              handlePersist: persist,
+              notifyOnCompletion: options?.notifyOnCompletion,
+            });
           } catch (error) {
             if (
               target.provider !== "anarlog" ||
@@ -923,7 +927,10 @@ export const useRunBatch = (sessionId: string) => {
             }
             await startTranscription(
               { ...params, api_key: refreshedSession.access_token },
-              { handlePersist: persist },
+              {
+                handlePersist: persist,
+                notifyOnCompletion: options?.notifyOnCompletion,
+              },
             );
           }
 

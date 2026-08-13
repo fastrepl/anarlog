@@ -77,6 +77,7 @@ export const runBatchSession = async <T extends BatchStore>(
   get: StoreApi<T>["getState"],
   sessionId: string,
   params: TranscriptionParams,
+  options?: { notifyOnCompletion?: boolean },
 ) => {
   get().handleBatchStarted(sessionId);
 
@@ -271,8 +272,10 @@ export const runBatchSession = async <T extends BatchStore>(
       });
   });
 
-  await showBatchCompletedNotification(sessionId);
-  void requestAppAttention("transcript_ready");
+  if (options?.notifyOnCompletion !== false) {
+    await showBatchCompletedNotification(sessionId);
+    void requestAppAttention("transcript_ready");
+  }
 };
 
 export function shouldUseSyntheticBatchProgress(params: TranscriptionParams) {

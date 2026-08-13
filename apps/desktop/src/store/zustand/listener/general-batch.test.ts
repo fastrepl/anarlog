@@ -500,99 +500,111 @@ describe("runBatchSession", () => {
     consoleError.mockRestore();
   });
 
-  test("shows a completion notification when the window is not focused", async () => {
-    isFocusedMock.mockResolvedValue(false);
+  test.each([
+    { notifyOnCompletion: undefined, expectedNotifications: 1 },
+    { notifyOnCompletion: false, expectedNotifications: 0 },
+  ])(
+    "shows $expectedNotifications completion notifications when notifyOnCompletion is $notifyOnCompletion",
+    async ({ notifyOnCompletion, expectedNotifications }) => {
+      isFocusedMock.mockResolvedValue(false);
 
-    const handleBatchStarted = vi.fn();
-    const handleBatchResponse = vi.fn();
-    const handleBatchCompleted = vi.fn();
-    const clearBatchPersist = vi.fn();
-    const clearBatchSession = vi.fn();
-    const handleBatchResponseStreamed = vi.fn();
-    const handleBatchFailed = vi.fn();
-    const handleBatchStopped = vi.fn();
-    const updateBatchProgress = vi.fn();
-    const setBatchPersist = vi.fn();
+      const handleBatchStarted = vi.fn();
+      const handleBatchResponse = vi.fn();
+      const handleBatchCompleted = vi.fn();
+      const clearBatchPersist = vi.fn();
+      const clearBatchSession = vi.fn();
+      const handleBatchResponseStreamed = vi.fn();
+      const handleBatchFailed = vi.fn();
+      const handleBatchStopped = vi.fn();
+      const updateBatchProgress = vi.fn();
+      const setBatchPersist = vi.fn();
 
-    let handler:
-      | ((event: {
-          payload: {
-            type: string;
-            session_id: string;
-            response?: unknown;
-            mode?: "direct" | "streamed";
-          };
-        }) => void)
-      | undefined;
+      let handler:
+        | ((event: {
+            payload: {
+              type: string;
+              session_id: string;
+              response?: unknown;
+              mode?: "direct" | "streamed";
+            };
+          }) => void)
+        | undefined;
 
-    listenMock.mockImplementation(async (cb) => {
-      handler = cb;
-      return vi.fn();
-    });
+      listenMock.mockImplementation(async (cb) => {
+        handler = cb;
+        return vi.fn();
+      });
 
-    startTranscriptionMock.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          queueMicrotask(() => {
-            handler?.({
-              payload: {
-                type: "completed",
-                session_id: "session-1",
-                mode: "streamed",
-                response: {
-                  metadata: null,
-                  results: { channels: [] },
+      startTranscriptionMock.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            queueMicrotask(() => {
+              handler?.({
+                payload: {
+                  type: "completed",
+                  session_id: "session-1",
+                  mode: "streamed",
+                  response: {
+                    metadata: null,
+                    results: { channels: [] },
+                  },
                 },
-              },
+              });
+              resolve({
+                status: "ok",
+                data: null,
+              });
             });
-            resolve({
-              status: "ok",
-              data: null,
-            });
-          });
+          }),
+      );
+
+      await runBatchSession(
+        () => ({
+          batch: {},
+          batchPreview: {},
+          batchPersist: {},
+          handleBatchStarted,
+          handleBatchResponse,
+          handleBatchCompleted,
+          clearBatchPersist,
+          clearBatchSession,
+          handleBatchResponseStreamed,
+          handleBatchFailed,
+          handleBatchStopped,
+          updateBatchProgress,
+          setBatchPersist,
         }),
-    );
+        "session-1",
+        {
+          session_id: "session-1",
+          provider: "anarlog",
+          file_path: "/tmp/session.wav",
+          base_url: "",
+          api_key: "",
+        },
+        { notifyOnCompletion },
+      );
 
-    await runBatchSession(
-      () => ({
-        batch: {},
-        batchPreview: {},
-        batchPersist: {},
-        handleBatchStarted,
-        handleBatchResponse,
-        handleBatchCompleted,
-        clearBatchPersist,
-        clearBatchSession,
-        handleBatchResponseStreamed,
-        handleBatchFailed,
-        handleBatchStopped,
-        updateBatchProgress,
-        setBatchPersist,
-      }),
-      "session-1",
-      {
-        session_id: "session-1",
-        provider: "anarlog",
-        file_path: "/tmp/session.wav",
-        base_url: "",
-        api_key: "",
-      },
-    );
+      expect(showNotificationMock).toHaveBeenCalledTimes(expectedNotifications);
+      if (expectedNotifications === 0) {
+        return;
+      }
 
-    const notification = showNotificationMock.mock.calls[0]?.[0];
-    expect(notification).toEqual(
-      expect.objectContaining({
-        title: "Transcription complete",
-        message: "Your transcript is ready.",
-        timeout: { secs: 15, nanos: 0 },
-        action_label: "Open Anarlog",
-        source: { type: "session", session_id: "session-1" },
-      }),
-    );
-    expect(parseBatchCompletedNotificationKey(notification.key)).toBe(
-      "session-1",
-    );
-  });
+      const notification = showNotificationMock.mock.calls[0]?.[0];
+      expect(notification).toEqual(
+        expect.objectContaining({
+          title: "Transcription complete",
+          message: "Your transcript is ready.",
+          timeout: { secs: 15, nanos: 0 },
+          action_label: "Open Anarlog",
+          source: { type: "session", session_id: "session-1" },
+        }),
+      );
+      expect(parseBatchCompletedNotificationKey(notification.key)).toBe(
+        "session-1",
+      );
+    },
+  );
 
   test("uses a fresh notification key for each batch completion", async () => {
     await showBatchCompletedNotification("session-1", { force: true });

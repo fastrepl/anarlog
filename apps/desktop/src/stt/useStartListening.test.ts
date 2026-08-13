@@ -845,6 +845,7 @@ describe("useStartListening", () => {
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
+      notifyOnCompletion: true,
       promotion: { scope: "whole_session" },
     });
     expect(setBatchTranscriptionPendingMock.mock.calls).toEqual([
@@ -929,6 +930,7 @@ describe("useStartListening", () => {
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
+      notifyOnCompletion: false,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 0,
@@ -993,6 +995,7 @@ describe("useStartListening", () => {
 
       expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
         deferAudioFinalization: true,
+        notifyOnCompletion: false,
         provider: "soniqo",
         model: "soniqo-parakeet-batch",
         baseUrl: "soniqo://local",
@@ -1455,6 +1458,7 @@ describe("useStartListening", () => {
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
+      notifyOnCompletion: true,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 10_000,
@@ -1526,6 +1530,7 @@ describe("useStartListening", () => {
     );
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
+      notifyOnCompletion: false,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 10_000,
@@ -1785,6 +1790,7 @@ describe("useStartListening", () => {
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/existing-session.mp3", {
       deferAudioFinalization: true,
+      notifyOnCompletion: true,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 10_000,
@@ -2462,6 +2468,7 @@ describe("useStartListening", () => {
     expect(catalogLocalSessionAudioMock).toHaveBeenCalledWith("session-1");
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
+      notifyOnCompletion: false,
       promotion: { scope: "whole_session" },
     });
     expect(sonnerToastErrorMock).not.toHaveBeenCalled();
@@ -3020,6 +3027,7 @@ describe("useStartListening", () => {
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
+      notifyOnCompletion: true,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 60_000,
@@ -3071,6 +3079,7 @@ describe("useStartListening", () => {
 
     expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
       deferAudioFinalization: true,
+      notifyOnCompletion: false,
       promotion: {
         scope: "current_capture",
         audioOffsetMs: 60_000,

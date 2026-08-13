@@ -64,7 +64,10 @@ export type GeneralActions = {
   ) => Promise<void>;
   startTranscription: (
     params: TranscriptionParams,
-    options?: { handlePersist?: BatchPersistCallback },
+    options?: {
+      handlePersist?: BatchPersistCallback;
+      notifyOnCompletion?: boolean;
+    },
   ) => Promise<void>;
   stopTranscription: (sessionId: string) => Promise<void>;
   canStartLiveSession: (sessionId: string) => boolean;
@@ -221,7 +224,9 @@ export const createGeneralSlice = <
       get().setBatchPersist(sessionId, options.handlePersist);
     }
 
-    await runBatchSession(get, sessionId, params);
+    await runBatchSession(get, sessionId, params, {
+      notifyOnCompletion: options?.notifyOnCompletion,
+    });
   },
   stopTranscription: async (sessionId) => {
     if (!sessionId) {

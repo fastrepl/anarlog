@@ -1217,6 +1217,7 @@ describe("useRunBatch", () => {
         model: "soniqo-parakeet-batch",
         baseUrl: "soniqo://local",
         apiKey: "",
+        notifyOnCompletion: false,
       });
     });
 
@@ -1227,7 +1228,7 @@ describe("useRunBatch", () => {
         base_url: "soniqo://local",
         api_key: "",
       }),
-      expect.any(Object),
+      expect.objectContaining({ notifyOnCompletion: false }),
     );
     expect(sonnerToastWarningMock).not.toHaveBeenCalled();
   });
