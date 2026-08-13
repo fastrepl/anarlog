@@ -816,6 +816,9 @@ describe("OuterHeader", () => {
 
     expect(recordButton.parentElement?.className).toContain("bg-card");
     expect(recordButton.parentElement?.className).not.toContain("bg-primary");
+    expect(recordButton.querySelector("span")?.className).toContain(
+      "@max-[480px]:sr-only",
+    );
     fireEvent.click(recordButton);
 
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
@@ -983,7 +986,12 @@ describe("OuterHeader", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Write" }));
+    const writeButton = screen.getByRole("button", { name: "Write" });
+    expect(writeButton.className).toContain("@max-[480px]:w-7");
+    expect(writeButton.querySelector("span")?.className).toContain(
+      "@max-[480px]:sr-only",
+    );
+    fireEvent.click(writeButton);
     expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(

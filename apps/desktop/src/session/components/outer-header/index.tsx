@@ -377,7 +377,7 @@ function HeaderMeetingActionPill({
           ])}
         >
           {action.icon}
-          <span className="truncate">{action.label}</span>
+          <span className="truncate @max-[480px]:sr-only">{action.label}</span>
         </button>
         <MetadataButton
           sessionId={sessionId}

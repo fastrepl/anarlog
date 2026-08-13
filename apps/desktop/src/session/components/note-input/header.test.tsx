@@ -389,6 +389,10 @@ describe("Header", () => {
     expect(memoTab.className).toContain("dark:text-foreground");
     expect(memoTab.className).toContain("dark:bg-accent");
     expect(memoTab.className).toContain("dark:shadow-none");
+    expect(memoTab.className).toContain("@max-[480px]:max-w-10");
+    expect(memoTab.querySelector("span")?.className).toContain(
+      "@max-[480px]:sr-only",
+    );
     expect(summaryTab.className).toContain("h-[26px]");
     expect(summaryTab.className).toContain("px-2");
     expect(summaryTab.className).not.toContain("min-w-10");
@@ -427,6 +431,10 @@ describe("Header", () => {
     expect(activeSummaryTab.className).toContain("text-foreground");
     expect(activeSummaryTab.className).toContain("dark:text-foreground");
     expect(activeSummaryTab.className).toContain("dark:bg-accent");
+    expect(activeSummaryTab.className).toContain("@max-[480px]:max-w-10");
+    expect(activeSummaryTab.querySelector("span")?.className).toContain(
+      "@max-[480px]:sr-only",
+    );
     expect(activeSummaryTab.querySelectorAll("svg")).toHaveLength(2);
 
     fireEvent.click(activeSummaryTab);
@@ -1014,6 +1022,7 @@ describe("Header", () => {
 
     expect(screen.getByTestId("dancing-sticks")).not.toBeNull();
     expect(transcriptTab.className).toContain("bg-red-50");
+    expect(transcriptTab.className).toContain("@max-[480px]:w-10");
     expect(transcriptTab.getAttribute("title")).toBeNull();
     expect(transcriptTab.getAttribute("data-hover-label")).toBeNull();
 

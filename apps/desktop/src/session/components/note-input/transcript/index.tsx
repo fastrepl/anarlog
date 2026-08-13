@@ -30,7 +30,7 @@ export function TranscriptEditButton({
         aria-pressed={editMode}
         onClick={() => onEditModeChange(!editMode)}
         className={cn([
-          "border-border bg-card text-foreground flex h-7 items-center gap-1.5 rounded-full border px-2 text-sm font-medium",
+          "border-border bg-card text-foreground flex h-7 items-center gap-1.5 rounded-full border px-2 text-sm font-medium @max-[480px]:w-7 @max-[480px]:justify-center @max-[480px]:gap-0 @max-[480px]:px-0",
           "hover:bg-accent focus-visible:ring-ring transition-colors focus-visible:ring-2 focus-visible:outline-hidden",
           editMode ? "border-primary/30 bg-primary/10 text-primary" : null,
         ])}
@@ -40,7 +40,9 @@ export function TranscriptEditButton({
         ) : (
           <PencilSimple aria-hidden className="size-3.5" />
         )}
-        {editMode ? <Trans>Done writing</Trans> : <Trans>Write</Trans>}
+        <span className="@max-[480px]:sr-only">
+          {editMode ? <Trans>Done writing</Trans> : <Trans>Write</Trans>}
+        </span>
       </button>
     </div>
   );

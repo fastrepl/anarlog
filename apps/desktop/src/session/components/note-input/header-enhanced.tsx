@@ -242,7 +242,7 @@ function HeaderViewEnhancedActive({
         true,
         "tray",
         cn([
-          "max-w-56 min-w-[62px] gap-1.5 px-2",
+          "max-w-56 min-w-[62px] gap-1.5 px-2 @max-[480px]:max-w-10 @max-[480px]:min-w-10 @max-[480px]:gap-0",
           isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
           isError
             ? [
@@ -261,8 +261,10 @@ function HeaderViewEnhancedActive({
       ) : (
         <Sparkle className="size-4" />
       )}
-      <span className="min-w-0 truncate text-xs font-medium">{viewTitle}</span>
-      <CaretDown className="size-3.5" />
+      <span className="min-w-0 truncate text-xs font-medium @max-[480px]:sr-only">
+        {viewTitle}
+      </span>
+      <CaretDown className="size-3.5 @max-[480px]:hidden" />
     </button>
   );
 
