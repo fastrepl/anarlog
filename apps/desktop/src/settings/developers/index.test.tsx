@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   devtoolsPanelShow: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
+  openUrl: vi.fn(),
   getCloudApiSettings: vi.fn(),
   setCloudApiEnabled: vi.fn(),
   backfillCloudApiSnapshots: vi.fn(),
@@ -37,7 +38,7 @@ vi.mock("@anlg/plugin-windows", () => ({
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
-  commands: { openUrl: vi.fn() },
+  commands: { openUrl: mocks.openUrl },
 }));
 
 vi.mock("@anlg/plugin-local-api", () => ({
@@ -125,6 +126,7 @@ describe("SettingsDevelopers", () => {
     mocks.devtoolsPanelShow.mockResolvedValue({ status: "ok" });
     mocks.toastError.mockReset();
     mocks.toastSuccess.mockReset();
+    mocks.openUrl.mockReset();
     mocks.createCloudApiKey.mockReset();
     mocks.getCloudApiSettings.mockResolvedValue({
       enabled: false,
@@ -136,6 +138,42 @@ describe("SettingsDevelopers", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("shows one guide button in the page header", () => {
+    mocks.checkEmbeddedCli.mockResolvedValue({
+      status: "ok",
+      data: {
+        supported: true,
+        commandName: "anarlog",
+        installPath: "/Users/test/.local/bin/anarlog",
+        state: "installed",
+        details: "Installed.",
+      },
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDevelopers />
+      </QueryClientProvider>,
+    );
+
+    const heading = screen.getByRole("heading", { name: "Developers" });
+    const guideButton = within(heading.parentElement as HTMLElement).getByRole(
+      "button",
+      { name: "Guide" },
+    );
+    expect(screen.getAllByRole("button", { name: "Guide" })).toHaveLength(1);
+
+    fireEvent.click(guideButton);
+
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://docs.anarlog.so/agents/overview",
+      null,
+    );
   });
 
   it("uses the installed CLI path when copying the MCP configuration", async () => {
@@ -166,9 +204,13 @@ describe("SettingsDevelopers", () => {
     );
 
     expect(await screen.findByText("Reinstall")).toBeTruthy();
+    expect(screen.getByLabelText("Installed")).toBeTruthy();
+    expect(screen.queryByText("Installed")).toBeNull();
     expect(
       screen.queryByText(/\/Users\/test\/\.local\/bin\/anarlog/),
     ).toBeNull();
+    expect(screen.queryByText("anarlog --json meetings list")).toBeNull();
+    expect(screen.queryByText("anarlog mcp")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Copy config" }));
 
@@ -181,50 +223,6 @@ describe("SettingsDevelopers", () => {
         },
       },
     });
-  });
-
-  it("copies each CLI command", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, "clipboard", {
-      configurable: true,
-      value: { writeText },
-    });
-    mocks.checkEmbeddedCli.mockResolvedValue({
-      status: "ok",
-      data: {
-        supported: true,
-        commandName: "anarlog",
-        installPath: "/Users/test/.local/bin/anarlog",
-        state: "installed",
-        details: "Installed.",
-      },
-    });
-
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={queryClient}>
-        <SettingsDevelopers />
-      </QueryClientProvider>,
-    );
-
-    fireEvent.click(
-      await screen.findByRole("button", {
-        name: "Copy anarlog --json meetings list",
-      }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Copy anarlog mcp" }));
-
-    await waitFor(() => {
-      expect(writeText).toHaveBeenNthCalledWith(
-        1,
-        "anarlog --json meetings list",
-      );
-      expect(writeText).toHaveBeenNthCalledWith(2, "anarlog mcp");
-    });
-    expect(mocks.toastSuccess).toHaveBeenCalledTimes(2);
-    expect(mocks.toastSuccess).toHaveBeenCalledWith("Command copied");
   });
 
   it("does not expose a nonexistent MCP path when the CLI is unsupported", async () => {
@@ -343,9 +341,7 @@ describe("SettingsDevelopers", () => {
       </QueryClientProvider>,
     );
 
-    expect(
-      await screen.findByText(/separate server-readable copy/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/Uploads meeting content/)).toBeTruthy();
     const toggle = await screen.findByRole("switch", {
       name: "Enable Cloud API & Connectors",
     });

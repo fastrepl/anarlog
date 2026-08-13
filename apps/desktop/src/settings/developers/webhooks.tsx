@@ -1,4 +1,4 @@
-import { ArrowSquareOut, Copy, Trash } from "@phosphor-icons/react";
+import { Copy, Trash } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -6,7 +6,6 @@ import {
   commands as webhookCommands,
   type WebhookInfo,
 } from "@anlg/plugin-local-api";
-import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
@@ -14,7 +13,6 @@ import { cn } from "@anlg/utils";
 
 import { copyText } from "./clipboard";
 
-const WEBHOOKS_GUIDE_URL = "https://docs.anarlog.so/reference/webhooks";
 const WEBHOOKS_QUERY_KEY = ["webhooks"] as const;
 
 async function unwrap<T>(
@@ -80,98 +78,75 @@ export function WebhooksSection() {
   });
 
   const createdWebhook = createMutation.data;
+  const webhooks = webhooksQuery.data ?? [];
 
   return (
     <section className="flex flex-col gap-4">
       <h2 className="font-sans text-lg font-semibold">Webhooks</h2>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h3 className="text-sm font-medium">Meeting events</h3>
-            <p className="text-muted-foreground mt-1 text-sm leading-5">
-              Receive signed events when meetings end or summaries are ready.
-              Deliveries include meeting content, so only add an endpoint you
-              trust.
-            </p>
-          </div>
+      <div>
+        <form
+          className="flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void form.handleSubmit();
+          }}
+        >
+          <form.Field name="url">
+            {(field) => (
+              <Input
+                className="h-8 max-w-md text-sm"
+                placeholder="https://example.com/webhooks/anarlog"
+                value={field.state.value}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            )}
+          </form.Field>
           <Button
-            type="button"
-            variant="outline"
+            type="submit"
             size="sm"
-            className="shrink-0"
-            onClick={() =>
-              void openerCommands.openUrl(WEBHOOKS_GUIDE_URL, null)
-            }
+            variant="outline"
+            disabled={createMutation.isPending}
           >
-            Guide
-            <ArrowSquareOut className="size-3.5" />
+            Add webhook
           </Button>
-        </div>
+        </form>
 
-        <div>
-          <form
-            className="flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              void form.handleSubmit();
-            }}
-          >
-            <form.Field name="url">
-              {(field) => (
-                <Input
-                  className="h-8 max-w-md text-sm"
-                  placeholder="https://example.com/webhooks/anarlog"
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                />
-              )}
-            </form.Field>
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              disabled={createMutation.isPending}
-            >
-              Add webhook
-            </Button>
-          </form>
-
-          {createdWebhook && (
-            <div className="border-border bg-muted/30 mt-3 rounded-xl border p-3">
-              <p className="text-muted-foreground text-xs">
-                Signing secret — copy it now, it is only shown once. Use it to
-                verify the <code>x-anarlog-signature</code> header.
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="bg-muted scrollbar-hide overflow-x-auto rounded-md px-1.5 py-0.5 text-xs">
-                  {createdWebhook.secret}
-                </code>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 shrink-0"
-                  onClick={async () => {
-                    if (
-                      await copyText(
-                        createdWebhook.secret,
-                        "Signing secret copied",
-                      )
-                    ) {
-                      createMutation.reset();
-                    }
-                  }}
-                >
-                  <Copy className="size-3.5" />
-                  Copy
-                </Button>
-              </div>
+        {createdWebhook && (
+          <div className="border-border bg-muted/30 mt-3 rounded-xl border p-3">
+            <p className="text-muted-foreground text-xs">
+              Copy this signing secret now — it is only shown once.
+            </p>
+            <div className="mt-2 flex items-center gap-2">
+              <code className="bg-muted scrollbar-hide overflow-x-auto rounded-md px-1.5 py-0.5 text-xs">
+                {createdWebhook.secret}
+              </code>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0"
+                onClick={async () => {
+                  if (
+                    await copyText(
+                      createdWebhook.secret,
+                      "Signing secret copied",
+                    )
+                  ) {
+                    createMutation.reset();
+                  }
+                }}
+              >
+                <Copy className="size-3.5" />
+                Copy
+              </Button>
             </div>
-          )}
+          </div>
+        )}
 
+        {webhooks.length > 0 && (
           <ul className="mt-3 flex flex-col gap-1.5">
-            {(webhooksQuery.data ?? []).map((webhook) => (
+            {webhooks.map((webhook) => (
               <WebhookRow
                 key={webhook.id}
                 webhook={webhook}
@@ -186,13 +161,8 @@ export function WebhooksSection() {
                 isTesting={testMutation.isPending}
               />
             ))}
-            {webhooksQuery.data?.length === 0 && !createdWebhook && (
-              <li className="text-muted-foreground text-xs">
-                No webhooks yet. Add an endpoint to receive events.
-              </li>
-            )}
           </ul>
-        </div>
+        )}
       </div>
     </section>
   );

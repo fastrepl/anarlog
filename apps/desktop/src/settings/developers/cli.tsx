@@ -1,12 +1,6 @@
-import {
-  ArrowSquareOut,
-  CheckCircle,
-  CircleNotch,
-  Copy,
-} from "@phosphor-icons/react";
+import { CheckCircle, CircleNotch, Copy } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
@@ -14,8 +8,6 @@ import { cn } from "@anlg/utils";
 import { commands, type EmbeddedCliStatus } from "~/types/tauri.gen";
 
 const CLI_STATUS_QUERY_KEY = ["embedded-cli-status"] as const;
-const CLI_GUIDE_URL = "https://docs.anarlog.so/agents/cli";
-const MCP_GUIDE_URL = "https://docs.anarlog.so/agents/mcp";
 
 async function loadStatus() {
   const result = await commands.checkEmbeddedCli();
@@ -121,7 +113,6 @@ function CliSection({
   isInstalling: boolean;
   onInstall: () => void;
 }) {
-  const commandName = status?.commandName ?? "anarlog";
   const canInstall =
     status?.supported === true &&
     status.state !== "resource_missing" &&
@@ -134,20 +125,18 @@ function CliSection({
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h3 className="text-sm font-medium">Anarlog CLI</h3>
-            <CopyableCommand command={`${commandName} --json meetings list`} />
+            <h3 className="flex items-center gap-1.5 text-sm font-medium">
+              Anarlog CLI
+              {isInstalled && (
+                <CheckCircle
+                  aria-label="Installed"
+                  className="size-3.5 text-emerald-600"
+                />
+              )}
+            </h3>
             <CliStatus status={status} isLoading={isLoading} error={error} />
           </div>
           <div className="flex shrink-0 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void openerCommands.openUrl(CLI_GUIDE_URL, null)}
-            >
-              Guide
-              <ArrowSquareOut className="size-3.5" />
-            </Button>
             <Button
               type="button"
               size="sm"
@@ -200,54 +189,27 @@ function CliStatus({
     return null;
   }
 
-  const isInstalled = status.state === "installed";
+  if (status.state === "installed") {
+    return null;
+  }
+
   const showDetails = ["conflict", "unsupported", "resource_missing"].includes(
     status.state,
   );
 
   return (
     <div className="mt-1 flex items-start gap-1.5 text-xs">
-      {isInstalled ? (
-        <CheckCircle className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
-      ) : (
-        <span
-          className={cn([
-            "mt-1 size-2 shrink-0 rounded-full",
-            status.state === "conflict"
-              ? "bg-amber-500"
-              : "bg-muted-foreground/50",
-          ])}
-        />
-      )}
+      <span
+        className={cn([
+          "mt-1 size-2 shrink-0 rounded-full",
+          status.state === "conflict"
+            ? "bg-amber-500"
+            : "bg-muted-foreground/50",
+        ])}
+      />
       <span className="text-muted-foreground break-all">
-        {isInstalled
-          ? "Installed"
-          : showDetails
-            ? (status.details ?? "Unavailable")
-            : "Not installed"}
+        {showDetails ? (status.details ?? "Unavailable") : "Not installed"}
       </span>
-    </div>
-  );
-}
-
-function CopyableCommand({ command }: { command: string }) {
-  return (
-    <div className="mt-1 flex min-w-0 items-center gap-1">
-      <code className="bg-muted scrollbar-hide min-w-0 overflow-x-auto rounded-md px-1.5 py-0.5 text-xs font-medium">
-        {command}
-      </code>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="size-6 shrink-0"
-        aria-label={`Copy ${command}`}
-        onClick={() =>
-          void copyText(command, "Command copied", "Could not copy the command")
-        }
-      >
-        <Copy className="size-3.5" />
-      </Button>
     </div>
   );
 }
@@ -263,18 +225,8 @@ function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <h3 className="text-sm font-medium">MCP server</h3>
-        <CopyableCommand command={`${commandName} mcp`} />
       </div>
       <div className="flex shrink-0 gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void openerCommands.openUrl(MCP_GUIDE_URL, null)}
-        >
-          Guide
-          <ArrowSquareOut className="size-3.5" />
-        </Button>
         <Button
           type="button"
           variant="outline"

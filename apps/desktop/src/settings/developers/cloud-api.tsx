@@ -1,8 +1,7 @@
-import { ArrowSquareOut, Copy, Key } from "@phosphor-icons/react";
+import { Copy, Key } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
@@ -23,7 +22,6 @@ import {
 } from "~/cloud-api/client";
 import { env } from "~/env";
 
-const CLOUD_API_GUIDE_URL = "https://docs.anarlog.so/reference/api-cloud";
 const CLOUD_API_BASE_URL = new URL("/v1", env.VITE_API_URL).toString();
 const CLOUD_MCP_URL = new URL("/mcp", env.VITE_API_URL).toString();
 const CLOUD_API_SETTINGS_QUERY_KEY = ["cloud-api", "settings"] as const;
@@ -72,71 +70,49 @@ export function CloudApiSection() {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-sans text-lg font-semibold">
-        Cloud API & Connectors
-      </h2>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h3 className="text-sm font-medium">Hosted access for agents</h3>
-            <p className="text-muted-foreground mt-1 text-sm leading-5">
-              Give remote agents meeting context while Anarlog is closed.
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="font-sans text-lg font-semibold">
+            Cloud API & Connectors
+          </h2>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Uploads meeting content for remote access while Anarlog is closed.
+          </p>
+          {settingsQuery.error && (
+            <p className="text-destructive mt-2 text-xs">
+              {settingsQuery.error.message}
             </p>
-            <p className="text-muted-foreground mt-2 text-xs leading-5">
-              Enabling this uploads a separate server-readable copy of meeting
-              titles, notes, summaries, participants, action items, and
-              transcripts. Encrypted sync stays end-to-end encrypted. Turning
-              this off deletes every readable copy from the server.
-            </p>
-            {settingsQuery.error && (
-              <p className="text-destructive mt-2 text-xs">
-                {settingsQuery.error.message}
-              </p>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                void openerCommands.openUrl(CLOUD_API_GUIDE_URL, null)
-              }
-            >
-              Guide
-              <ArrowSquareOut className="size-3.5" />
-            </Button>
-            <Switch
-              checked={enabled}
-              aria-label="Enable Cloud API & Connectors"
-              disabled={
-                settingsQuery.isPending ||
-                settingsQuery.isError ||
-                toggleMutation.isPending
-              }
-              onCheckedChange={(checked) => toggleMutation.mutate(checked)}
+          )}
+        </div>
+        <Switch
+          checked={enabled}
+          aria-label="Enable Cloud API & Connectors"
+          disabled={
+            settingsQuery.isPending ||
+            settingsQuery.isError ||
+            toggleMutation.isPending
+          }
+          onCheckedChange={(checked) => toggleMutation.mutate(checked)}
+        />
+      </div>
+
+      {enabled && (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <CloudEndpoint
+              label="REST API"
+              value={CLOUD_API_BASE_URL}
+              copyMessage="Cloud API URL copied"
+            />
+            <CloudEndpoint
+              label="Remote MCP"
+              value={CLOUD_MCP_URL}
+              copyMessage="Remote MCP URL copied"
             />
           </div>
-        </div>
-
-        {enabled && (
-          <>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <CloudEndpoint
-                label="REST API"
-                value={CLOUD_API_BASE_URL}
-                copyMessage="Cloud API URL copied"
-              />
-              <CloudEndpoint
-                label="Remote MCP"
-                value={CLOUD_MCP_URL}
-                copyMessage="Remote MCP URL copied"
-              />
-            </div>
-            <CloudApiKeys />
-          </>
-        )}
-      </div>
+          <CloudApiKeys />
+        </>
+      )}
     </section>
   );
 }
@@ -198,6 +174,7 @@ function CloudApiKeys() {
     },
   });
   const createdKey = createMutation.data;
+  const keys = keysQuery.data ?? [];
 
   return (
     <div>
@@ -260,20 +237,17 @@ function CloudApiKeys() {
         </div>
       )}
 
-      <ul className="mt-3 flex flex-col gap-1.5">
-        {(keysQuery.data ?? []).map((key) => (
-          <CloudApiKeyRow
-            key={key.id}
-            apiKey={key}
-            onRevoke={() => revokeMutation.mutate(key.id)}
-          />
-        ))}
-        {keysQuery.data?.length === 0 && !createdKey && (
-          <li className="text-muted-foreground text-xs">
-            No cloud keys yet. Create one for a connector or remote agent.
-          </li>
-        )}
-      </ul>
+      {keys.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {keys.map((key) => (
+            <CloudApiKeyRow
+              key={key.id}
+              apiKey={key}
+              onRevoke={() => revokeMutation.mutate(key.id)}
+            />
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
