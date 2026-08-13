@@ -369,7 +369,7 @@ describe("inferAutomaticSpeakerAssignments", () => {
 
     const updates = await inferAutomaticSpeakerAssignments({
       generatedSummary:
-        "Speaker 1 asked about Llama. Speaker 2 supported open source AI.",
+        "One speaker asked about Llama. Another speaker supported open source AI.",
       model: {} as LanguageModel,
       snapshot: createSnapshot(),
       signal: new AbortController().signal,

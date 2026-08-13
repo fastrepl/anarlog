@@ -115,7 +115,7 @@ export async function inferAutomaticSpeakerAssignments({
             (candidate) => candidate.summaryMentions.length === 0,
           ) &&
           (isAppleFoundationModel(model) ||
-            hasTwoGenericSpeakerLabels(generatedSummary));
+            hasGenericSpeakerReferences(generatedSummary));
 
         for (const candidate of candidates) {
           if (
@@ -219,11 +219,14 @@ function formatSpeakerAttributionPrompt(
     : json;
 }
 
-function hasTwoGenericSpeakerLabels(summary: string): boolean {
+function hasGenericSpeakerReferences(summary: string): boolean {
+  const numberedSpeakerCount = new Set(
+    [...summary.matchAll(/\bspeaker\s+(\d+)\b/giu)].map((match) => match[1]),
+  ).size;
+
   return (
-    new Set(
-      [...summary.matchAll(/\bspeaker\s+(\d+)\b/giu)].map((match) => match[1]),
-    ).size === 2
+    numberedSpeakerCount === 2 ||
+    [...summary.matchAll(/\bspeaker\b/giu)].length >= 2
   );
 }
 
