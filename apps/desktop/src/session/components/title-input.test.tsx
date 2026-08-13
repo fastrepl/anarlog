@@ -283,6 +283,7 @@ describe("TitleInput", () => {
     expect(input.className).toContain("appearance-none");
     expect(input.className).toContain("p-0");
     expect(input.className).toContain("truncate");
+    expect(input.className).toContain("dark:text-white");
     expect(input.className).not.toContain("font-mono");
   });
 
