@@ -9,6 +9,30 @@ Default to the smallest faithful QA scope for the change. The complete
 checklist remains the release gate, but it is not the default for ordinary
 branch or regression validation.
 
+## Temporary non-blocking audio policy
+
+Before release-gate or full-app QA, check the current Linear status of
+`ANLG-98` and `ANLG-222`.
+
+- While `ANLG-98` is not completed, AEC quality is not a release gate. Do not
+  run dedicated speaker-playback, residual-echo metric, double-talk, or AEC
+  provider-matrix work solely for a release. If an AEC failure is encountered
+  incidentally, record it as informational against `ANLG-98`; do not patch the
+  release candidate or block publication. Basic microphone/system capture,
+  recording start/stop, audio persistence, and freedom from crashes or hangs
+  remain gates.
+- While `ANLG-222` is not completed, automatic speaker identification is not a
+  release gate. Do not require automatic Lex Fridman / George Hotz naming or
+  run a provider identity matrix solely for a release. Generic speaker labels
+  are acceptable. Transcript integrity, provider diarization output, manual
+  speaker correction, persistence, and freedom from silent data loss remain
+  gates.
+- If a candidate explicitly implements either ticket, use targeted regression
+  mode for that ticket. Otherwise do not investigate, mitigate, or expand QA
+  around the deferred area.
+- Restore each gate only after its corresponding Linear issue is completed.
+  A release-specific observation does not override this policy.
+
 ## Choose the scope first
 
 Before building or launching anything:
@@ -161,8 +185,9 @@ release. A targeted run is evidence for its stated scope, not release approval.
    built-in speakers and microphone with no external audio device attached.
    The Dev helper fails before launch unless both macOS default devices use
    the built-in transport; do not bypass that preflight.
-6. Create an untitled note, open its metadata through the UI, and add exactly
-   these two fixture participants before recording:
+6. Only when the `ANLG-222` gate is active, create an untitled note, open its
+   metadata through the UI, and add exactly these two fixture participants
+   before recording:
 
    - **Lex Fridman**
    - **George Hotz**
@@ -172,8 +197,9 @@ release. A targeted run is evidence for its stated scope, not release approval.
    persist after the app restarts. In the fixture reference
    `crates/data/src/english_10/pyannote.json`, `SPEAKER_01` is Lex Fridman and
    `SPEAKER_00` is George Hotz.
-7. Play at most three minutes of the Lex Fridman/George Hotz fixture from a
-   long-lived terminal command after recording starts:
+7. Only when either the `ANLG-98` or `ANLG-222` gate is active, play at most
+   three minutes of the Lex Fridman/George Hotz fixture from a long-lived
+   terminal command after recording starts:
 
    ```bash
    /usr/bin/afplay -v 0.7 -t 180 \
@@ -236,8 +262,9 @@ the app.
 
    Do not use a “latest staging” download for release evidence. Record the
    DMG SHA-256, install it, and repeat the core gates: sign-in, note creation,
-   full-fixture recording/AEC, transcript preservation, automated summary,
-   and recording/chat CloudSync deferral.
+   recording start/stop, transcript preservation, automated summary, and
+   recording/chat CloudSync deferral. Run full-fixture AEC or speaker identity
+   checks only when their temporary policy gate is active.
 4. Stable is allowed only when Dev and that exact staging artifact pass for
    the final `main` SHA, including its changelog. Verify `main` still points to
    that SHA before triggering stable. Any rebuild or source change invalidates
@@ -245,10 +272,11 @@ the app.
 5. After stable publishes, download the matching architecture DMG from the
    `desktop_v<version>` GitHub release, record its SHA-256, install it, and
    verify the app reports that version. Use Computer Use to repeat the core
-   sign-in, note, three-minute recording/AEC, transcript, summary, chat, and
-   CloudSync gates against the installed stable app. Keep fixture playback in
-   the terminal. Do not mark the release complete until this stable pass
-   succeeds.
+   sign-in, note, recording start/stop, transcript, summary, chat, and
+   CloudSync gates against the installed stable app. Run three-minute fixture,
+   AEC, and automatic speaker identity checks only when their temporary policy
+   gate is active. Keep any fixture playback in the terminal. Do not mark the
+   release complete until this stable pass succeeds.
 
 ## CloudSync platform scope
 
@@ -303,28 +331,34 @@ tests alone is not cross-platform evidence.
 
 ### 4. Start a recording
 
-- In the note, start listening/recording, then play the repo audio fixture
-  from the terminal so the system-audio path receives the source directly
-  while the built-in microphone also hears it through the MacBook speakers.
+- In the note, start listening/recording. Use a short recording to exercise
+  the basic capture path. Play the repo audio fixture from the terminal only
+  when the `ANLG-98` or `ANLG-222` gate is active.
 - PASS when: the recording starts without error, live transcript words
   appear (when live transcription is enabled for the provider), and the
   recording indicator/timer runs. Mute/unmute must not wedge the session.
-- Also verify both microphone and system-audio inputs carry nonzero signal,
-  AEC initializes without an error or fallback, and the transcript follows
-  the podcast once rather than duplicating phrases from speaker leakage.
-- Speaker diarization and identity are separate release gates for this known
-  fixture. After the full recording settles, require exactly two RemoteParty
-  speaker clusters and compare their turns with the **Known fixture ground
-  truth** above. Every listed checkpoint must have the expected participant.
-- PASS speaker identification only when the live or settled transcript labels
+- Also verify both microphone and system-audio inputs carry nonzero signal.
+  While `ANLG-98` is open, AEC initialization, speaker leakage, and duplicate
+  playback phrases are informational only. When the issue is completed,
+  require AEC to initialize without an error or fallback and the transcript to
+  follow the podcast once rather than duplicating speaker leakage.
+- Provider diarization and automatic identity are separate concerns. When the
+  full fixture is applicable, verify the provider emits exactly two
+  RemoteParty speaker clusters and compare their turns with the **Known
+  fixture ground truth** above. While `ANLG-222` is open, incorrect or generic
+  participant names are informational only and do not fail the diarization
+  check.
+- When the `ANLG-222` gate is active, PASS speaker identification only when the
+  live or settled transcript labels
   those clusters **Lex Fridman** and **George Hotz** automatically. Generic
   labels such as **Speaker 1**, swapped names, a third RemoteParty cluster, or
   names that appear only after a tester manually assigns them are failures. A
   transcript that names only the opening turns and later reverts to generic or
   inconsistent labels also fails. Verify both named assignments and the
   participant mappings survive app restart unchanged.
-- `audio_mic.wav` is the post-AEC, post-VAD microphone track, not the raw
-  microphone. For a playback-only run, require all of:
+- When the `ANLG-98` gate is active, treat `audio_mic.wav` as the post-AEC,
+  post-VAD microphone track, not the raw microphone. For a playback-only run,
+  require all of:
   - `audio_mic.wav` and `audio_spk.wav` are readable mono 16 kHz WAVs whose
     durations differ by less than 0.1 seconds.
   - RemoteParty has at least 400 transcript words.
@@ -333,18 +367,22 @@ tests alone is not cross-platform evidence.
     second.
   - Residual mic/speaker absolute correlation is at most 0.10 in every
     active 30-second sample, with median attenuation of at least 20 dB.
-- Any duplicated-bigram failure blocks release even when the processed
+- When the `ANLG-98` gate is active, any duplicated-bigram failure blocks
+  release even when the processed
   microphone is quieter than the system-audio track. If the result is
   ambiguous, repeat a 90-second baseline with `NO_AEC=1`; enabling AEC must
   reduce duplicate bigrams by at least 80% and processed-mic RMS by at least
   10 dB.
-- When a person is available, speak a unique phrase once over the podcast.
+- When the `ANLG-98` gate is active and a person is available, speak a unique
+  phrase once over the podcast.
   PASS when it appears on DirectMic and the surrounding podcast remains only
   on RemoteParty. This protects real double-talk instead of solving echo by
   suppressing all microphone speech.
 - With `AUDIO_SYNC_PROBE=1`, require an `audio_sync_probe` event and no
-  `aec_init_failed`, `aec_failed`, `audio_sync_probe_panicked`, dropped
-  samples, or mic/speaker queue-overflow events in the app log.
+  `audio_sync_probe_panicked`, dropped samples, or mic/speaker queue-overflow
+  events in the app log. While `ANLG-98` is open, record `aec_init_failed` or
+  `aec_failed` as informational; when it is completed, either event fails the
+  gate.
 - With CloudSync enabled, require `deferred_for_capture: true` for the whole
   active recording. The status control must show a static **Saved locally**
   state, while transcript rows continue growing in the local database.
@@ -427,7 +465,7 @@ tests alone is not cross-platform evidence.
 - Useful signals: `sessions`, `transcripts`, and `session_documents`
   (kind = summary) tables via the app DB; console/log output from the
   dev server for stall-watchdog and enhance-task errors.
-- For the known two-speaker fixture, inspect `session_participants` and the
+- When the `ANLG-222` gate is active, inspect `session_participants` and the
   transcript's `speaker_hints_json` alongside the rendered UI. Count distinct
   `provider_speaker_index` values per channel, but use the visible names to
   gate identity attribution. Do not create `user_speaker_assignment` hints

@@ -24,12 +24,23 @@ for both:
 - the run-scoped staging artifact whose Actions head SHA exactly matches the
   Dev manifest's `git_head_sha`
 
+Before QA, check Linear. While `ANLG-98` is not completed, AEC quality is
+explicitly non-blocking. While `ANLG-222` is not completed, automatic speaker
+identification is explicitly non-blocking. Do not delay a release, patch the
+candidate, or run dedicated fixture/provider matrices for those deferred
+areas. Core recording, audio capture, transcript and note persistence, manual
+speaker correction, crash/hang safety, and the remaining critical checklist
+still require PASS. Each deferred gate resumes only when its issue is
+completed.
+
 The manifest's `git_head_sha` is the exact final `main` commit, including the
 changelog, not a synthetic GitButler workspace HEAD. The report must include
 that Dev SHA, staging run URL and head SHA, staging artifact SHA-256, and the
-critical checklist results. Any failure, missing evidence, SHA mismatch,
-rebuild, or later source change blocks stable unless the user explicitly
-waives that specific gate.
+applicable critical checklist results. Any applicable failure, missing
+evidence, SHA mismatch, rebuild, or later source change blocks stable unless
+the user explicitly waives that specific gate. The temporary `ANLG-98` and
+`ANLG-222` exclusions above are already authorized policy, not missing
+evidence.
 
 This release path approves macOS, Windows, and Linux. Mobile remains closed.
 The patched CloudSync vendor bundle is rebuilt from source and
@@ -178,7 +189,8 @@ Watch the run and verify its head SHA is still the candidate SHA. It must
 produce passing `linux-audio-qa-<version>-x64` and
 `linux-audio-qa-<version>-arm64` evidence artifacts. This gate proves virtual
 microphone/system routing, capture, separation, and persistence with
-`NO_AEC=1`; it does not waive physical-device or AEC validation.
+`NO_AEC=1`. Physical-device AEC validation remains non-blocking while
+`ANLG-98` is open and returns to the release gate when that issue is completed.
 
 After the exact dry-run artifacts and Linux audio QA run pass the required
 platform gates and `main` still points to the candidate SHA, publish only
