@@ -29,6 +29,7 @@ import {
 import { useMainAreaTopWindowDrag } from "./main-area-window-drag";
 import { ClassicMainSidebar } from "./shell-sidebar";
 import { SidebarTimelineChromeWithUpcomingMeeting } from "./sidebar-timeline-chrome";
+import { SyncStatusIndicator } from "./sync-status";
 import { ClassicMainTabContent } from "./tab-content";
 import { useClassicMainShortcuts } from "./useShortcuts";
 
@@ -52,7 +53,11 @@ type LeftSidebarSizeStyle = CSSProperties & {
   "--left-sidebar-panel-width": string;
 };
 
-export function ClassicMainBody() {
+export function ClassicMainBody({
+  showSyncStatus = false,
+}: {
+  showSyncStatus?: boolean;
+}) {
   const { leftsidebar } = useShell();
   const currentTab = useTabs((state) => state.currentTab);
   useClassicMainShortcuts();
@@ -542,7 +547,7 @@ export function ClassicMainBody() {
         >
           <div
             data-main-content-panel
-            className="h-full min-h-0 min-w-0 flex-1 overflow-auto"
+            className="relative h-full min-h-0 min-w-0 flex-1 overflow-auto"
             onClickCapture={mainAreaTopDrag.onClickCapture}
             onDoubleClickCapture={mainAreaTopDrag.onDoubleClickCapture}
             onPointerCancel={mainAreaTopDrag.onPointerEnd}
@@ -556,6 +561,7 @@ export function ClassicMainBody() {
                 tab={currentTab as Tab}
               />
             ) : null}
+            {showSyncStatus ? <SyncStatusIndicator /> : null}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

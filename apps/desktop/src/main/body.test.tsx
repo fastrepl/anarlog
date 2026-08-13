@@ -194,6 +194,10 @@ vi.mock("./tab-content", () => ({
   },
 }));
 
+vi.mock("./sync-status", () => ({
+  SyncStatusIndicator: () => <div data-testid="sync-status-indicator" />,
+}));
+
 vi.mock("~/sidebar/note-filter-menu", () => ({
   SidebarNoteFilterMenu: () => <button type="button">Filter notes</button>,
 }));
@@ -335,6 +339,19 @@ describe("ClassicMainBody", () => {
     );
     expect(bodyRoot?.style.getPropertyValue("--left-sidebar-panel-width")).toBe(
       "24%",
+    );
+  });
+
+  it("anchors sync status inside the main note area", () => {
+    render(<ClassicMainBody showSyncStatus />);
+
+    const mainContentPanel = document.querySelector(
+      "[data-main-content-panel]",
+    );
+
+    expect(mainContentPanel?.className).toContain("relative");
+    expect(screen.getByTestId("sync-status-indicator").parentElement).toBe(
+      mainContentPanel,
     );
   });
 

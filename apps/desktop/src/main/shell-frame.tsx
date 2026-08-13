@@ -2,7 +2,6 @@ import { memo } from "react";
 
 import { ClassicMainBody } from "./body";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
-import { SyncStatusIndicator } from "./sync-status";
 
 import { useShell } from "~/contexts/shell";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
@@ -39,17 +38,20 @@ export function ClassicMainShellFrame() {
       edgeToEdge={isOnboarding}
       mainSurfaceChrome={isOnboarding ? undefined : mainSurfaceChrome}
     >
-      <ClassicMainBodyHost />
-      {showSyncStatus && <SyncStatusIndicator />}
+      <ClassicMainBodyHost showSyncStatus={showSyncStatus} />
       <ToastNotifications />
     </MainShellScaffold>
   );
 }
 
-const ClassicMainBodyHost = memo(function ClassicMainBodyHost() {
+const ClassicMainBodyHost = memo(function ClassicMainBodyHost({
+  showSyncStatus,
+}: {
+  showSyncStatus: boolean;
+}) {
   return (
     <MainShellBodyFrame>
-      <ClassicMainBody />
+      <ClassicMainBody showSyncStatus={showSyncStatus} />
     </MainShellBodyFrame>
   );
 });

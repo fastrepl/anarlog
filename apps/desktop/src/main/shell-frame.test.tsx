@@ -9,7 +9,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./body", () => ({
-  ClassicMainBody: () => <div data-testid="classic-main-body" />,
+  ClassicMainBody: ({ showSyncStatus }: { showSyncStatus?: boolean }) => (
+    <div data-testid="classic-main-body">
+      {showSyncStatus ? <div data-testid="sync-status-indicator" /> : null}
+    </div>
+  ),
 }));
 
 vi.mock("~/shared/main", () => ({
@@ -43,10 +47,6 @@ vi.mock("~/contexts/shell", () => ({
 
 vi.mock("~/sidebar/toast", () => ({
   ToastNotifications: () => <div data-testid="toast-notifications" />,
-}));
-
-vi.mock("./sync-status", () => ({
-  SyncStatusIndicator: () => <div data-testid="sync-status-indicator" />,
 }));
 
 vi.mock("~/store/zustand/tabs", () => ({
