@@ -1,4 +1,4 @@
-import { generateText, type LanguageModel } from "ai";
+import { generateText, type LanguageModel, Output } from "ai";
 import { z } from "zod";
 
 import type { TranscriptSpeakerHintsUpdate } from "~/session/content-mutations";
@@ -157,16 +157,23 @@ Do not use elimination, participant or cluster order, generic conversational rol
 Return a mapping only with at least 0.9 confidence and the supplied evidence ID. Otherwise return null.
 Return only JSON with this shape: {"mapping":{"cluster_id":"...","confidence":0.9,"evidence_id":"..."}} or {"mapping":null}.`,
               prompt: formatSpeakerAttributionPrompt(model, payload),
+              output: Output.object({
+                schema: candidateSpeakerAttributionOutputSchema,
+              }),
+              temperature: 0,
               maxRetries: 2,
-              maxOutputTokens: 600,
+              maxOutputTokens: 200,
               abortSignal: signal,
               timeout: { totalMs: 45_000 },
             });
 
-            const mapping = parseCandidateSpeakerAttributionJson(result.text, {
-              finishReason: result.finishReason,
-              outputTokens: result.usage?.outputTokens,
-            }).mapping;
+            const attribution =
+              result.output ??
+              parseCandidateSpeakerAttributionJson(result.text, {
+                finishReason: result.finishReason,
+                outputTokens: result.usage?.outputTokens,
+              });
+            const mapping = attribution.mapping;
 
             if (mapping) {
               directMappings.push({

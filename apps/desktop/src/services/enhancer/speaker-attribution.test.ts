@@ -330,6 +330,11 @@ describe("inferAutomaticSpeakerAssignments", () => {
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(mocks.generateText.mock.calls[0]![0]).toMatchObject({
+      temperature: 0,
+      maxOutputTokens: 200,
+      output: expect.anything(),
+    });
     expect(automaticHumanIds(updates[0]!)).toEqual([
       "human-lex",
       "human-george",
