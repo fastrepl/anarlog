@@ -29,7 +29,10 @@ export function CloudsyncKeychainRepairToast() {
     mutationFn: async () => {
       await repairKeychainAccess();
       setCredentialBlock(null);
-      await applyCloudsyncPreference(auth.session, auth.signOut);
+      const result = await applyCloudsyncPreference(auth.session, auth.signOut);
+      if (result === "account_mismatch") {
+        await auth.signOut();
+      }
     },
     onSettled: async () => {
       await Promise.all([

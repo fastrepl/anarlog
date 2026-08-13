@@ -845,16 +845,17 @@ async function activateCloudsync(
       scheduleReactivation();
       return "ok";
     }
+    const keychainAccessError = isKeychainAccessError(error);
     if (activeGeneration === generation) {
       setCredentialBlock(
-        isKeychainAccessError(error) ? "keychain_access" : "unavailable",
+        keychainAccessError ? "keychain_access" : "unavailable",
       );
     }
     await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     console.warn(
       "[cloudsync] E2EE recovery key is unavailable; sync remains disabled",
     );
-    if (activeGeneration === generation) {
+    if (activeGeneration === generation && !keychainAccessError) {
       scheduleExchange(
         session,
         activeGeneration,

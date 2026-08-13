@@ -107,6 +107,17 @@ describe("CloudsyncKeychainRepairToast", () => {
     expect(mocks.setCredentialBlock).toHaveBeenCalledWith(null);
   });
 
+  it("signs out when repair finds an account mismatch", async () => {
+    mocks.applyCloudsyncPreference.mockResolvedValue("account_mismatch");
+    renderToast();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Repair Keychain Access" }),
+    );
+
+    await vi.waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce());
+  });
+
   it("stays hidden for unrelated sync failures", () => {
     mocks.credentialBlock = "unavailable";
 

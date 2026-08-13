@@ -276,10 +276,12 @@ describe("CloudSync auth lifecycle", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await handleCloudsyncAuthChange("SIGNED_IN", session());
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
+    expect(getE2eeIdentityStatus).toHaveBeenCalledTimes(1);
     expect(getCloudsyncCredentialBlock()).toBe("keychain_access");
   });
 
