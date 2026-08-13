@@ -557,7 +557,7 @@ export function SpeakerParticipantPicker({
           )}
         </div>
       </AppFloatingPanel>
-      <div className="flex items-center justify-end gap-3 pt-1 pb-3 pl-2">
+      <div className="flex items-center justify-end gap-3 py-1 pl-2">
         {showAssignmentScope && (
           <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
             <Checkbox
