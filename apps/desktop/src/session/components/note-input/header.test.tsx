@@ -431,11 +431,15 @@ describe("Header", () => {
     expect(activeSummaryTab.className).toContain("text-foreground");
     expect(activeSummaryTab.className).toContain("dark:text-foreground");
     expect(activeSummaryTab.className).toContain("dark:bg-accent");
-    expect(activeSummaryTab.className).toContain("@max-[480px]:max-w-10");
+    expect(activeSummaryTab.className).toContain("@max-[480px]:max-w-12");
     expect(activeSummaryTab.querySelector("span")?.className).toContain(
       "@max-[480px]:sr-only",
     );
-    expect(activeSummaryTab.querySelectorAll("svg")).toHaveLength(2);
+    const activeSummaryIcons = activeSummaryTab.querySelectorAll("svg");
+    expect(activeSummaryIcons).toHaveLength(2);
+    expect(activeSummaryIcons[1]?.getAttribute("class")).not.toContain(
+      "@max-[480px]:hidden",
+    );
 
     fireEvent.click(activeSummaryTab);
 
