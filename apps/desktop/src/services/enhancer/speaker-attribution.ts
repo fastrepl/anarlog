@@ -108,8 +108,7 @@ export async function inferAutomaticSpeakerAssignments({
     [...clustersByTranscript.entries()].map(
       async ([transcriptId, clusters]) => {
         const directMappings: SpeakerAttributionMapping[] = [];
-        const useApplePublicEvidenceFallback =
-          isAppleFoundationModel(model) &&
+        const usePublicEvidenceFallback =
           context.candidates.length === 2 &&
           clusters.length === 2 &&
           candidates.every(
@@ -119,7 +118,7 @@ export async function inferAutomaticSpeakerAssignments({
         for (const candidate of candidates) {
           if (
             candidate.summaryMentions.length === 0 &&
-            !useApplePublicEvidenceFallback
+            !usePublicEvidenceFallback
           ) {
             continue;
           }

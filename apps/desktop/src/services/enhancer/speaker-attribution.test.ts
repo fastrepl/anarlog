@@ -336,6 +336,51 @@ describe("inferAutomaticSpeakerAssignments", () => {
     ]);
   });
 
+  it("uses public evidence with cloud models when the summary omits participant names", async () => {
+    mocks.generateText.mockImplementation(({ prompt }: { prompt: string }) => {
+      const payload = JSON.parse(prompt) as {
+        candidate: { human_id: string; summary_mentions: unknown[] };
+        clusters: Array<{
+          cluster_id: string;
+          evidence: { id: string };
+        }>;
+      };
+      expect(payload.candidate.summary_mentions).toEqual([]);
+
+      if (payload.candidate.human_id === "human-george") {
+        const cluster = payload.clusters.find((candidate) =>
+          candidate.cluster_id.endsWith(":1"),
+        )!;
+        return Promise.resolve({
+          text: JSON.stringify({
+            mapping: {
+              cluster_id: cluster.cluster_id,
+              confidence: 0.98,
+              evidence_id: cluster.evidence.id,
+            },
+          }),
+        });
+      }
+
+      return Promise.resolve({
+        text: JSON.stringify({ mapping: null }),
+      });
+    });
+
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary: "The conversation explored open source AI.",
+      model: {} as LanguageModel,
+      snapshot: createSnapshot(),
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(automaticHumanIds(updates[0]!)).toEqual([
+      "human-lex",
+      "human-george",
+    ]);
+  });
+
   it("matches unique given names in generated summaries", async () => {
     mockDirectCandidateMatches();
 
