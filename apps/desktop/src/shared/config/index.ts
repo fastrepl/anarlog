@@ -65,6 +65,19 @@ export function resolveConfigValue<K extends SettingKey>(
     return "none" as ConfigValueType<K>;
   }
 
+  if (key === "notification_bounce" && !hasValues.has(key)) {
+    const legacyKeys = [
+      "notification_bounce_summary",
+      "notification_bounce_transcript",
+    ] as const;
+    const legacyValues = legacyKeys
+      .filter((legacyKey) => hasValues.has(legacyKey))
+      .map((legacyKey) => values[legacyKey]);
+    if (legacyValues.length > 0) {
+      return legacyValues.every(Boolean) as ConfigValueType<K>;
+    }
+  }
+
   const value = hasValues.has(key) ? values[key] : defaultValue;
   if (JSON_PARSED_KEYS.has(key)) {
     return parseStringArray(

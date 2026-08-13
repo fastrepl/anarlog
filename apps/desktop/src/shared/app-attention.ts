@@ -5,17 +5,13 @@ import { isAppWindowInactive } from "./window-activity";
 
 import { getStoredSettingValues } from "~/settings/queries";
 
-export type AppAttentionEvent = "summary_ready" | "transcript_ready";
-
-const ATTENTION_SETTING_KEY = {
-  summary_ready: "notification_bounce_summary",
-  transcript_ready: "notification_bounce_transcript",
-} as const;
-
-export async function requestAppAttention(event: AppAttentionEvent) {
+export async function requestAppAttention() {
   try {
     const stored = await getStoredSettingValues();
-    if (!resolveConfigValue(ATTENTION_SETTING_KEY[event], stored)) {
+    if (!resolveConfigValue("notification_bounce", stored)) {
+      return;
+    }
+    if (!resolveConfigValue("show_app_in_dock", stored)) {
       return;
     }
 

@@ -116,6 +116,12 @@ export const SETTING_DEFINITIONS = {
     path: ["notification", "respect_dnd"],
     default: false as boolean,
   },
+  notification_bounce: {
+    type: "boolean",
+    path: ["notification", "bounce"],
+    default: true as boolean,
+  },
+  // Retained so the general setting can honor existing per-event preferences.
   notification_bounce_summary: {
     type: "boolean",
     path: ["notification", "bounce_summary"],

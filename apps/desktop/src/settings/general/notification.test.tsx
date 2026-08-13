@@ -52,6 +52,8 @@ import { NotificationSettingsView } from "./notification";
 const baseConfig = {
   notification_event: false,
   notification_detect: true,
+  notification_bounce: true,
+  show_app_in_dock: true,
   respect_dnd: false,
   ignored_platforms: [],
   included_platforms: [],
@@ -103,5 +105,33 @@ describe("NotificationSettingsView", () => {
     expect(screen.getByText("Event notifications")).toBeTruthy();
     expect(screen.queryByText("Microphone detection")).toBeNull();
     expect(screen.queryByText("Respect Do-Not-Disturb mode")).toBeNull();
+  });
+
+  it("shows one general app icon bounce control", () => {
+    render(<NotificationSettingsView />);
+
+    expect(screen.getByText("Bounce app icon")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Get your attention when Anarlog finishes work in the background.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText("Bounce app icon when a transcript is ready"),
+    ).toBeNull();
+    expect(
+      screen.queryByText("Bounce app icon when a summary is ready"),
+    ).toBeNull();
+  });
+
+  it("hides app icon bouncing when the app is hidden from the Dock", () => {
+    mocks.useConfigValues.mockReturnValue({
+      ...baseConfig,
+      show_app_in_dock: false,
+    });
+
+    render(<NotificationSettingsView />);
+
+    expect(screen.queryByText("Bounce app icon")).toBeNull();
   });
 });

@@ -47,4 +47,34 @@ describe("resolveConfigValue", () => {
       }),
     ).toBe(true);
   });
+
+  test("uses disabled legacy bounce preferences for the general setting", () => {
+    expect(
+      resolveConfigValue("notification_bounce", {
+        values: {
+          notification_bounce_summary: true,
+          notification_bounce_transcript: false,
+        },
+        hasValues: new Set([
+          "notification_bounce_summary",
+          "notification_bounce_transcript",
+        ]),
+      }),
+    ).toBe(false);
+  });
+
+  test("prefers the explicit general bounce preference", () => {
+    expect(
+      resolveConfigValue("notification_bounce", {
+        values: {
+          notification_bounce: true,
+          notification_bounce_summary: false,
+        },
+        hasValues: new Set([
+          "notification_bounce",
+          "notification_bounce_summary",
+        ]),
+      }),
+    ).toBe(true);
+  });
 });

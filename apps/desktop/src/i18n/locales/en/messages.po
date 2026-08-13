@@ -464,12 +464,8 @@ msgid "Blueprint"
 msgstr "Blueprint"
 
 #: src/settings/general/notification.tsx
-msgid "Bounce app icon when a summary is ready"
-msgstr "Bounce app icon when a summary is ready"
-
-#: src/settings/general/notification.tsx
-msgid "Bounce app icon when a transcript is ready"
-msgstr "Bounce app icon when a transcript is ready"
+msgid "Bounce app icon"
+msgstr "Bounce app icon"
 
 #: src/settings/appearance/theme.tsx
 msgid "Bright canvas"
@@ -1436,14 +1432,6 @@ msgstr "General access"
 msgid "Generating title..."
 msgstr "Generating title..."
 
-#: src/settings/general/notification.tsx
-msgid "Get dock attention when transcription finishes while Anarlog is in the background."
-msgstr "Get dock attention when transcription finishes while Anarlog is in the background."
-
-#: src/settings/general/notification.tsx
-msgid "Get dock attention when your summary finishes while Anarlog is in the background."
-msgstr "Get dock attention when your summary finishes while Anarlog is in the background."
-
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Get Pro"
 msgstr "Get Pro"
@@ -1457,6 +1445,10 @@ msgstr "Get Pro to customize"
 #: src/sidebar/automations.tsx
 msgid "Get started"
 msgstr "Get started"
+
+#: src/settings/general/notification.tsx
+msgid "Get your attention when Anarlog finishes work in the background."
+msgstr "Get your attention when Anarlog finishes work in the background."
 
 #: src/sidebar/timeline/index.tsx
 msgid "Go back to now"

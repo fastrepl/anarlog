@@ -274,7 +274,7 @@ export const runBatchSession = async <T extends BatchStore>(
 
   if (options?.notifyOnCompletion !== false) {
     await showBatchCompletedNotification(sessionId);
-    void requestAppAttention("transcript_ready");
+    void requestAppAttention();
   }
 };
 

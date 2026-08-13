@@ -200,7 +200,7 @@ export const runEnhanceSuccess = async ({
       void runNoteEnhancedAutomations(args.sessionId);
       syncCloudApiSnapshotBestEffort(args.sessionId);
       void showSummaryReadyNotification(args.sessionId, trimmedTitle);
-      void requestAppAttention("summary_ready");
+      void requestAppAttention();
     }
   } finally {
     await releaseCloudsyncActivityEventually("enhance", cloudsyncLeaseKey);

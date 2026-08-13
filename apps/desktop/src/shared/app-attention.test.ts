@@ -37,40 +37,40 @@ describe("requestAppAttention", () => {
   });
 
   it("requests attention by default when the window is inactive", async () => {
-    await requestAppAttention("summary_ready");
+    await requestAppAttention();
     expect(mocks.requestUserAttention).toHaveBeenCalledWith(2);
   });
 
-  it("skips when the event's bounce setting is disabled", async () => {
+  it("skips when app icon bouncing is disabled", async () => {
     mocks.getStoredSettingValues.mockResolvedValue({
-      values: { notification_bounce_transcript: false },
-      hasValues: new Set(["notification_bounce_transcript"]),
+      values: { notification_bounce: false },
+      hasValues: new Set(["notification_bounce"]),
     });
 
-    await requestAppAttention("transcript_ready");
+    await requestAppAttention();
     expect(mocks.requestUserAttention).not.toHaveBeenCalled();
   });
 
-  it("only consults the setting for the given event", async () => {
+  it("skips when the app is hidden from the Dock", async () => {
     mocks.getStoredSettingValues.mockResolvedValue({
-      values: { notification_bounce_transcript: false },
-      hasValues: new Set(["notification_bounce_transcript"]),
+      values: { show_app_in_dock: false },
+      hasValues: new Set(["show_app_in_dock"]),
     });
 
-    await requestAppAttention("summary_ready");
-    expect(mocks.requestUserAttention).toHaveBeenCalledWith(2);
+    await requestAppAttention();
+    expect(mocks.requestUserAttention).not.toHaveBeenCalled();
   });
 
   it("skips when the window is focused and visible", async () => {
     mocks.isAppWindowInactive.mockResolvedValue(false);
 
-    await requestAppAttention("summary_ready");
+    await requestAppAttention();
     expect(mocks.requestUserAttention).not.toHaveBeenCalled();
   });
 
   it("swallows attention request failures", async () => {
     mocks.requestUserAttention.mockRejectedValue(new Error("boom"));
 
-    await expect(requestAppAttention("summary_ready")).resolves.toBeUndefined();
+    await expect(requestAppAttention()).resolves.toBeUndefined();
   });
 });

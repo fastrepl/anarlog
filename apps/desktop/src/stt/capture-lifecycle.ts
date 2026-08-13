@@ -546,7 +546,7 @@ export function useCaptureLifecycle(sessionId: string) {
           !pendingSummaryMode &&
           (transcriptTouched || preserveExistingTranscript)
         ) {
-          void requestAppAttention("transcript_ready");
+          void requestAppAttention();
         }
 
         try {
