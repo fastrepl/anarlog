@@ -970,6 +970,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(metadataButton.parentElement?.className).not.toContain("mr-1");
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 

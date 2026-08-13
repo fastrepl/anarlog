@@ -154,7 +154,7 @@ function HeaderMeetingControl({
           editMode={transcriptEditMode}
           onEditModeChange={onTranscriptEditModeChange}
         />
-        <div className="mr-1 shrink-0">
+        <div className="shrink-0">
           <MetadataButton sessionId={sessionId} />
         </div>
       </>
@@ -167,7 +167,7 @@ function HeaderMeetingControl({
   if (!sessionEvent && !isRecording) {
     if (hasTranscript || audioExists) {
       return (
-        <div className="mr-1 shrink-0">
+        <div className="shrink-0">
           <MetadataButton sessionId={sessionId} />
         </div>
       );
@@ -190,7 +190,7 @@ function HeaderMeetingControl({
 
   if (ended && !isRecording) {
     return (
-      <div className="mr-1 shrink-0">
+      <div className="shrink-0">
         <MetadataButton sessionId={sessionId} />
       </div>
     );

@@ -593,7 +593,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           title="Share note"
           onClick={handleShare}
           className={cn([
-            "text-muted-foreground hover:text-foreground mr-1 rounded-full",
+            "text-muted-foreground hover:text-foreground rounded-full",
             sharePopoverOpen && "bg-accent text-foreground",
           ])}
         >
