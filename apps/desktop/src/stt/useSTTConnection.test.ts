@@ -40,6 +40,7 @@ vi.mock("~/shared/config", () => ({
 vi.mock("~/stt/capabilities", () => ({
   isAnarlogCloudSttModel: () => true,
   isOnDeviceSttModel: () => false,
+  isRealtimeLocalModel: () => false,
 }));
 
 import { useSTTConnection } from "./useSTTConnection";

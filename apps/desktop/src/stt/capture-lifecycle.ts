@@ -39,6 +39,7 @@ import type {
   LiveTranscriptPersistCallback,
   OnStoppedCallback,
 } from "~/store/zustand/listener/transcript";
+import { isRealtimeLocalModel } from "~/stt/capabilities";
 import {
   type CaptureLifecycleMarker,
   clearCaptureLifecycleMarker,
@@ -157,7 +158,7 @@ export function useCaptureLifecycle(sessionId: string) {
     useConfigValue("audio_retention"),
   );
   const rememberSpeakers = useConfigValue("remember_speakers") === true;
-  const { conn } = useSTTConnection();
+  const { conn, localBatchDiarizationAvailable } = useSTTConnection();
   const runBatch = useRunBatch(sessionId);
   const setBatchTranscriptionPending = useListener(
     (state) => state.setBatchTranscriptionPending,
@@ -165,9 +166,13 @@ export function useCaptureLifecycle(sessionId: string) {
 
   const runBatchRef = useRef(runBatch);
   const canRunBatchRef = useRef(canRunBatchTranscription(conn));
+  const localBatchDiarizationAvailableRef = useRef(
+    localBatchDiarizationAvailable,
+  );
   const stopMeetingChatCaptureRef = useRef<(() => Promise<void>) | null>(null);
   runBatchRef.current = runBatch;
   canRunBatchRef.current = canRunBatchTranscription(conn);
+  localBatchDiarizationAvailableRef.current = localBatchDiarizationAvailable;
 
   const stopMeetingChatTasks = useCallback(async () => {
     const stop = stopMeetingChatCaptureRef.current;
@@ -201,14 +206,20 @@ export function useCaptureLifecycle(sessionId: string) {
         recoveredMarker?.ownerUserId ?? session?.user_id ?? "";
       const provider = recoveredMarker?.provider ?? conn?.provider;
       const model = recoveredMarker?.model ?? conn?.model;
-      const refineSpeakerDiarization =
-        provider === "anarlog" &&
-        model === "cloud" &&
+      const hasMultipleRemoteParticipants =
         new Set(
           participantHumanIds.filter(
             (humanId) => humanId && humanId !== ownerUserId,
           ),
         ).size > 1;
+      const shouldUseLocalBatchForSpeakerDiarization = () =>
+        hasMultipleRemoteParticipants &&
+        localBatchDiarizationAvailableRef.current &&
+        isRealtimeLocalModel(model);
+      const shouldRefineSpeakerDiarization = () =>
+        hasMultipleRemoteParticipants &&
+        ((provider === "anarlog" && model === "cloud") ||
+          shouldUseLocalBatchForSpeakerDiarization());
       const cloudsyncLeaseKey = `${sessionId}:${transcriptId}`;
       let pendingSummaryMode = recoveredMarker?.summaryMode;
       let completionTracked = false;
@@ -380,6 +391,9 @@ export function useCaptureLifecycle(sessionId: string) {
         }
         await transcriptPersistence.flush();
         transcriptCreated ??= await transcriptExists(transcriptId);
+        const useLocalBatchForSpeakerDiarization =
+          shouldUseLocalBatchForSpeakerDiarization();
+        const refineSpeakerDiarization = shouldRefineSpeakerDiarization();
 
         const postCaptureAction = pendingSummaryMode
           ? ("enhance_only" as const)
@@ -419,6 +433,14 @@ export function useCaptureLifecycle(sessionId: string) {
                 : 0;
             await runBatchRef.current(details.audioPath!, {
               deferAudioFinalization: true,
+              ...(useLocalBatchForSpeakerDiarization
+                ? {
+                    provider: "soniqo",
+                    model: "soniqo-parakeet-batch",
+                    baseUrl: "soniqo://local",
+                    apiKey: "",
+                  }
+                : {}),
               promotion:
                 preserveExistingTranscript || transcriptCreated
                   ? {
@@ -696,7 +718,7 @@ export function useCaptureLifecycle(sessionId: string) {
           canRunBatchRef.current &&
           (!details.liveTranscriptionActive ||
             details.needsBatchRepair ||
-            refineSpeakerDiarization)
+            shouldRefineSpeakerDiarization())
         ) {
           updateBatchTranscriptionPending(true);
         }

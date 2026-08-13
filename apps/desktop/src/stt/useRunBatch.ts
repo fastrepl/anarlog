@@ -40,6 +40,7 @@ import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 type RunOptions = {
   deferAudioFinalization?: boolean;
   handlePersist?: BatchPersistCallback;
+  provider?: string;
   model?: string;
   baseUrl?: string;
   apiKey?: string;
@@ -715,10 +716,11 @@ export const useRunBatch = (sessionId: string) => {
         getTranscriptionLanguages(aiLanguage, spokenLanguages);
       const currentPlatform = platform();
       const currentArch = arch();
+      const selectedProviderId = options?.provider ?? conn?.provider;
       const selectedModel = options?.model ?? conn?.model;
       const selectedProvider =
-        conn && selectedModel
-          ? getBatchProvider(conn.provider, selectedModel)
+        selectedProviderId && selectedModel
+          ? getBatchProvider(selectedProviderId, selectedModel)
           : null;
       const selectedTarget =
         conn && selectedModel && selectedProvider
@@ -732,7 +734,7 @@ export const useRunBatch = (sessionId: string) => {
           : null;
       const selectedTargetSupported =
         selectedTarget &&
-        (!isOnDeviceSttModel(conn?.provider, selectedModel) ||
+        (!isOnDeviceSttModel(selectedProviderId, selectedModel) ||
           isDesktopLocalSttAvailable(currentPlatform, currentArch))
           ? await canUseBatchTarget(
               selectedTarget.provider,

@@ -10,7 +10,12 @@ import { env } from "~/env";
 import { type ProviderId } from "~/settings/ai/stt/shared";
 import { useAiProvider } from "~/settings/providers";
 import { useConfigValues } from "~/shared/config";
-import { isAnarlogCloudSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
+import {
+  isAnarlogCloudSttModel,
+  isOnDeviceSttModel,
+  isRealtimeLocalModel,
+} from "~/stt/capabilities";
+import { localSttQueries } from "~/stt/useLocalSttModel";
 
 export const useSTTConnection = () => {
   const auth = useAuth();
@@ -36,6 +41,10 @@ export const useSTTConnection = () => {
     current_stt_provider,
     current_stt_model,
   );
+  const localBatchModel = useQuery({
+    ...localSttQueries.isDownloaded("soniqo-parakeet-batch"),
+    enabled: isRealtimeLocalModel(current_stt_model),
+  });
 
   const local = useQuery({
     enabled: isLocalModel,
@@ -129,6 +138,7 @@ export const useSTTConnection = () => {
   return {
     conn: connection,
     local,
+    localBatchDiarizationAvailable: localBatchModel.data === true,
     isLocalModel,
     isCloudModel,
   };

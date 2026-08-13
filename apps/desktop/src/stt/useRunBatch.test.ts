@@ -1206,6 +1206,32 @@ describe("useRunBatch", () => {
     );
   });
 
+  test("uses an explicit local batch target for speaker refinement", async () => {
+    startTranscriptionMock.mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useRunBatch("session-1"));
+
+    await act(async () => {
+      await result.current("/tmp/session.wav", {
+        provider: "soniqo",
+        model: "soniqo-parakeet-batch",
+        baseUrl: "soniqo://local",
+        apiKey: "",
+      });
+    });
+
+    expect(startTranscriptionMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "soniqo",
+        model: "soniqo-parakeet-batch",
+        base_url: "soniqo://local",
+        api_key: "",
+      }),
+      expect.any(Object),
+    );
+    expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+  });
+
   test("falls back to local Soniqo when the selected provider is not batch-capable", async () => {
     useSTTConnectionMock.mockReturnValue({
       conn: {

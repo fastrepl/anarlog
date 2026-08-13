@@ -941,6 +941,75 @@ describe("useStartListening", () => {
     );
   });
 
+  test.each([
+    { provider: "soniqo", model: "soniqo-parakeet-streaming" },
+    { provider: "apple_speech", model: "apple-speech" },
+  ])(
+    "refines complete multi-speaker $model transcripts with the installed local batch model",
+    async ({ provider, model }) => {
+      useSTTConnectionMock.mockReturnValue({
+        conn: {
+          provider,
+          model,
+          baseUrl: "soniqo://local",
+          apiKey: "",
+        },
+        localBatchDiarizationAvailable: true,
+      });
+      useSessionParticipantHumanIdsMock.mockReturnValue([
+        "user-1",
+        "lex",
+        "george",
+      ]);
+      const { result } = renderHook(() => useStartListening("session-1"));
+
+      await act(async () => {
+        await result.current();
+      });
+
+      const callbacks = startMock.mock.calls[0]?.[1];
+      callbacks?.handlePersist?.({
+        new_words: [
+          {
+            id: "live-word",
+            text: "hello",
+            start_ms: 0,
+            end_ms: 500,
+            channel: 1,
+          },
+        ],
+        replaced_ids: [],
+        partials: [],
+      });
+      await act(async () => {
+        await callbacks?.onStopped?.("session-1", {
+          durationSeconds: 42,
+          audioPath: "/tmp/session.wav",
+          requestedLiveTranscription: true,
+          liveTranscriptionActive: true,
+          needsBatchRepair: false,
+        });
+      });
+
+      expect(runBatchMock).toHaveBeenCalledWith("/tmp/session.wav", {
+        deferAudioFinalization: true,
+        provider: "soniqo",
+        model: "soniqo-parakeet-batch",
+        baseUrl: "soniqo://local",
+        apiKey: "",
+        promotion: {
+          scope: "current_capture",
+          audioOffsetMs: 0,
+          replaceTranscriptId: "generated-id",
+          startedAt: expect.any(Number),
+        },
+      });
+      expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledWith(
+        "session-1",
+      );
+    },
+  );
+
   test("waits for the native capture lease to release before stop settles", async () => {
     let finishLeaseRelease: (() => void) | undefined;
     endCloudsyncActivityMock.mockImplementationOnce(
