@@ -19,6 +19,13 @@ const setDockIcon = vi.hoisted(() =>
 const getIdentifier = vi.hoisted(() =>
   vi.fn(async () => "com.hyprnote.stable"),
 );
+const nativeTheme = vi.hoisted(() => vi.fn(async () => "light"));
+const setNativeTheme = vi.hoisted(() => vi.fn(async () => undefined));
+const onThemeChanged = vi.hoisted(() =>
+  vi.fn(async (_listener: (event: { payload: "light" | "dark" }) => void) =>
+    vi.fn(),
+  ),
+);
 const matchMedia = vi.hoisted(() => vi.fn());
 const systemTheme = vi.hoisted(() => ({
   matches: false,
@@ -27,6 +34,14 @@ const systemTheme = vi.hoisted(() => ({
 }));
 
 vi.mock("@tauri-apps/api/app", () => ({ getIdentifier }));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({
+    theme: nativeTheme,
+    setTheme: setNativeTheme,
+    onThemeChanged,
+  }),
+}));
 
 vi.mock("@anlg/plugin-icon", () => ({
   commands: { setDockIcon },
@@ -67,6 +82,12 @@ describe("AppThemeProvider", () => {
     setDockIcon.mockClear();
     getIdentifier.mockReset();
     getIdentifier.mockResolvedValue("com.hyprnote.stable");
+    nativeTheme.mockReset();
+    nativeTheme.mockResolvedValue("light");
+    setNativeTheme.mockReset();
+    setNativeTheme.mockResolvedValue(undefined);
+    onThemeChanged.mockReset();
+    onThemeChanged.mockResolvedValue(vi.fn());
     systemTheme.matches = false;
     systemTheme.addEventListener.mockReset();
     systemTheme.removeEventListener.mockReset();
@@ -90,6 +111,7 @@ describe("AppThemeProvider", () => {
     expect(applyDocumentTheme).not.toHaveBeenCalled();
     expect(writeStoredThemePreference).not.toHaveBeenCalled();
     expect(setDockIcon).not.toHaveBeenCalled();
+    expect(setNativeTheme).not.toHaveBeenCalled();
   });
 
   it("applies the hydrated settings theme once SQLite is ready", async () => {
@@ -107,12 +129,13 @@ describe("AppThemeProvider", () => {
     );
     expect(writeStoredThemePreference).toHaveBeenCalledWith("light");
     await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
+    expect(setNativeTheme).toHaveBeenCalledWith("light");
   });
 
-  it("uses the webview appearance for the system theme", async () => {
+  it("uses the native appearance for the system theme", async () => {
     themeState.settingsReady = true;
     themeState.theme = "system";
-    systemTheme.matches = true;
+    nativeTheme.mockResolvedValue("dark");
 
     render(
       <AppThemeProvider>
@@ -123,6 +146,7 @@ describe("AppThemeProvider", () => {
     await waitFor(() =>
       expect(applyDocumentTheme).toHaveBeenCalledWith("system", true),
     );
+    expect(setNativeTheme).toHaveBeenCalledWith(null);
     expect(writeStoredThemePreference).toHaveBeenCalledWith("system");
     await waitFor(() =>
       expect(setDockIcon).toHaveBeenCalledWith("stable-dark"),
@@ -183,8 +207,8 @@ describe("AppThemeProvider", () => {
 
     await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
 
-    const handleThemeChanged = systemTheme.addEventListener.mock.calls[0]?.[1];
-    handleThemeChanged({ matches: true });
+    const handleThemeChanged = onThemeChanged.mock.calls[0]?.[0];
+    handleThemeChanged({ payload: "dark" });
 
     await waitFor(() =>
       expect(setDockIcon).toHaveBeenLastCalledWith("stable-dark"),
@@ -192,7 +216,34 @@ describe("AppThemeProvider", () => {
     expect(applyDocumentTheme).toHaveBeenLastCalledWith("system", true);
   });
 
-  it("keeps an explicit theme's icon when the system appearance changes", async () => {
+  it("rechecks native appearance when the webview reports a change", async () => {
+    themeState.settingsReady = true;
+    themeState.theme = "system";
+
+    render(
+      <AppThemeProvider>
+        <div>child</div>
+      </AppThemeProvider>,
+    );
+
+    await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
+    const handleWebviewThemeChanged =
+      systemTheme.addEventListener.mock.calls[0]?.[1];
+    applyDocumentTheme.mockClear();
+    setDockIcon.mockClear();
+    nativeTheme.mockClear();
+    nativeTheme.mockResolvedValue("dark");
+
+    handleWebviewThemeChanged({ matches: false });
+
+    await waitFor(() =>
+      expect(applyDocumentTheme).toHaveBeenCalledWith("system", true),
+    );
+    expect(nativeTheme).toHaveBeenCalledOnce();
+    expect(setDockIcon).toHaveBeenCalledWith("stable-dark");
+  });
+
+  it("pins the native appearance for an explicit theme", async () => {
     themeState.settingsReady = true;
     themeState.theme = "light";
 
@@ -203,14 +254,9 @@ describe("AppThemeProvider", () => {
     );
 
     await waitFor(() => expect(setDockIcon).toHaveBeenCalledWith("stable"));
-
-    const handleThemeChanged = systemTheme.addEventListener.mock.calls[0]?.[1];
-    handleThemeChanged({ matches: true });
-
-    await waitFor(() =>
-      expect(applyDocumentTheme).toHaveBeenLastCalledWith("light", true),
-    );
-    expect(setDockIcon).toHaveBeenLastCalledWith("stable");
+    expect(setNativeTheme).toHaveBeenCalledWith("light");
+    expect(onThemeChanged).not.toHaveBeenCalled();
+    expect(systemTheme.addEventListener).not.toHaveBeenCalled();
   });
 
   it("ignores stale system events after leaving system appearance", async () => {
@@ -223,8 +269,9 @@ describe("AppThemeProvider", () => {
       </AppThemeProvider>,
     );
 
+    await waitFor(() => expect(onThemeChanged).toHaveBeenCalledOnce());
     await waitFor(() => expect(applyDocumentTheme).toHaveBeenCalledOnce());
-    const handleThemeChanged = systemTheme.addEventListener.mock.calls[0]?.[1];
+    const handleThemeChanged = onThemeChanged.mock.calls[0]?.[0];
 
     themeState.theme = "light";
     rerender(
@@ -232,19 +279,20 @@ describe("AppThemeProvider", () => {
         <div>child</div>
       </AppThemeProvider>,
     );
-    handleThemeChanged({ matches: true });
+    handleThemeChanged({ payload: "dark" });
 
     expect(applyDocumentTheme).toHaveBeenCalledTimes(2);
     expect(applyDocumentTheme).toHaveBeenLastCalledWith("light", false);
     expect(setDockIcon).toHaveBeenCalledWith("stable");
   });
 
-  it("applies a selected system theme and Dock icon from the webview", async () => {
-    systemTheme.matches = true;
+  it("applies a selected system theme and Dock icon from the native appearance", async () => {
+    nativeTheme.mockResolvedValue("dark");
 
     await applyThemePreference("system");
 
-    expect(matchMedia).toHaveBeenCalledOnce();
+    expect(setNativeTheme).toHaveBeenCalledWith(null);
+    expect(nativeTheme).toHaveBeenCalledOnce();
     expect(applyDocumentTheme).toHaveBeenCalledWith("system", true);
     expect(writeStoredThemePreference).toHaveBeenCalledWith("system");
     expect(setDockIcon).toHaveBeenCalledWith("stable-dark");
@@ -253,7 +301,8 @@ describe("AppThemeProvider", () => {
   it("applies an explicit selection and matching Dock icon immediately", async () => {
     await applyThemePreference("light");
 
-    expect(matchMedia).toHaveBeenCalledOnce();
+    expect(setNativeTheme).toHaveBeenCalledWith("light");
+    expect(nativeTheme).not.toHaveBeenCalled();
     expect(applyDocumentTheme).toHaveBeenCalledWith("light", false);
     expect(writeStoredThemePreference).toHaveBeenCalledWith("light");
     expect(setDockIcon).toHaveBeenCalledWith("stable");
@@ -262,15 +311,16 @@ describe("AppThemeProvider", () => {
   it("pins the Dock icon when selecting the dark theme on a light system", async () => {
     await applyThemePreference("dark");
 
-    expect(applyDocumentTheme).toHaveBeenCalledWith("dark", false);
+    expect(applyDocumentTheme).toHaveBeenCalledWith("dark", true);
     expect(setDockIcon).toHaveBeenCalledWith("stable-dark");
   });
 
   it("applies an icon selection using the system appearance", async () => {
-    systemTheme.matches = true;
+    nativeTheme.mockResolvedValue("dark");
 
     await applyAppIconPreference("anagram");
 
+    expect(nativeTheme).toHaveBeenCalledOnce();
     expect(setDockIcon).toHaveBeenCalledWith("anagram-dark");
   });
 

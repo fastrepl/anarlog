@@ -20,6 +20,7 @@
     "core:window:allow-set-position",
     "core:window:allow-is-maximized",
     "core:window:allow-toggle-maximize",
+    "core:window:allow-set-theme",
     "calendar:default",
     "audio-priority:default",
     "auth:default",
