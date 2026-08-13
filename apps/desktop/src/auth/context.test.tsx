@@ -38,6 +38,8 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn(),
   startAutoRefresh: vi.fn(),
   stopAutoRefresh: vi.fn(),
+  toastDismiss: vi.fn(),
+  toastError: vi.fn(),
 }));
 
 vi.mock("./client", () => ({
@@ -110,6 +112,13 @@ vi.mock("@anlg/plugin-opener2", () => ({
 
 vi.mock("@anlg/plugin-windows", () => ({
   openUrlWithInstruction: vi.fn(),
+}));
+
+vi.mock("@anlg/ui/components/ui/toast", () => ({
+  sonnerToast: {
+    dismiss: mocks.toastDismiss,
+    error: mocks.toastError,
+  },
 }));
 
 vi.mock("@anlg/supabase", () => ({
@@ -246,6 +255,8 @@ describe("AuthProvider", () => {
     mocks.signOut.mockReset();
     mocks.startAutoRefresh.mockReset();
     mocks.stopAutoRefresh.mockReset();
+    mocks.toastDismiss.mockReset();
+    mocks.toastError.mockReset();
     mocks.bindCloudsyncAccountForAuth.mockResolvedValue(true);
     mocks.clearAuthStorage.mockResolvedValue(undefined);
     mocks.emitTo.mockResolvedValue(undefined);
@@ -1472,6 +1483,10 @@ describe("AuthProvider", () => {
       "SIGNED_IN",
       foreignSession,
       expect.any(Function),
+    );
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here.",
+      { id: "auth-account-mismatch", duration: Infinity },
     );
   });
 

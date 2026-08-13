@@ -3303,6 +3303,10 @@ msgstr ""
 msgid "The note may have been unshared or moved out of a workspace you can access."
 msgstr ""
 
+#: src/auth/context.tsx
+msgid "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here."
+msgstr ""
+
 #: src/settings/appearance/theme.tsx
 msgid "Theme"
 msgstr ""

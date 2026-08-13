@@ -3303,6 +3303,10 @@ msgstr "The link may have expired or its access may have changed."
 msgid "The note may have been unshared or moved out of a workspace you can access."
 msgstr "The note may have been unshared or moved out of a workspace you can access."
 
+#: src/auth/context.tsx
+msgid "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here."
+msgstr "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here."
+
 #: src/settings/appearance/theme.tsx
 msgid "Theme"
 msgstr "Theme"

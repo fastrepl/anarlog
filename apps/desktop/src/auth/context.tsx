@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   type AuthChangeEvent,
   AuthRetryableFetchError,
@@ -13,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { commands as miscCommands } from "@anlg/plugin-misc";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { openUrlWithInstruction } from "@anlg/plugin-windows";
+import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   clearAuthAnalyticsGroups,
@@ -48,6 +50,8 @@ import {
   REQUEST_ID_HEADER,
   id,
 } from "~/shared/utils";
+
+const ACCOUNT_MISMATCH_TOAST_ID = "auth-account-mismatch";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -206,6 +210,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [coordinateMainSignOut, enqueueAuthAnalytics, managesCloudsync],
   );
 
+  const rejectAccountMismatch = useCallback(
+    async (transition: number) => {
+      if (transition !== authTransitionRef.current) {
+        return;
+      }
+
+      sonnerToast.error(
+        t`The notes on this device are linked to another Anarlog account. Sign in with the account previously used here.`,
+        { id: ACCOUNT_MISMATCH_TOAST_ID, duration: Infinity },
+      );
+      await rejectAuthChange(transition, true);
+    },
+    [rejectAuthChange],
+  );
+
   const applyAuthChange = useCallback(
     async (
       event: AuthChangeEvent,
@@ -261,9 +280,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           if (!claimed) {
             console.warn("[auth] local database belongs to another account");
-            await rejectAuthChange(transition, true);
+            await rejectAccountMismatch(transition);
             return;
           }
+          sonnerToast.dismiss(ACCOUNT_MISMATCH_TOAST_ID);
         } catch {
           if (transition !== authTransitionRef.current) {
             return;
@@ -305,11 +325,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const rejectAccountMismatch = () => rejectAuthChange(transition, true);
+      const rejectCurrentAccountMismatch = () =>
+        rejectAccountMismatch(transition);
       const result = await handleCloudsyncAuthChange(
         event,
         nextSession,
-        rejectAccountMismatch,
+        rejectCurrentAccountMismatch,
       );
       if (
         result !== "account_mismatch" ||
@@ -318,12 +339,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      await rejectAccountMismatch();
+      await rejectCurrentAccountMismatch();
     },
     [
       coordinateMainSignOut,
       enqueueAuthAnalytics,
       managesCloudsync,
+      rejectAccountMismatch,
       rejectAuthChange,
     ],
   );
@@ -462,16 +484,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   return;
                 }
 
-                const rejectAccountMismatch = async () => {
+                const rejectCurrentAccountMismatch = async () => {
                   if (cancelled || transition !== authTransitionRef.current) {
                     return;
                   }
 
-                  await rejectAuthChange(transition, true);
+                  await rejectAccountMismatch(transition);
                 };
                 const result = await refreshCloudsyncForSession(
                   currentSession,
-                  rejectAccountMismatch,
+                  rejectCurrentAccountMismatch,
                 );
                 if (
                   cancelled ||
@@ -481,7 +503,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   return;
                 }
 
-                await rejectAccountMismatch();
+                await rejectCurrentAccountMismatch();
               } catch {
                 console.warn("[cloudsync] session recovery failed");
               }
@@ -503,7 +525,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unlisten?.();
       void client.auth.stopAutoRefresh();
     };
-  }, [managesCloudsync, rejectAuthChange]);
+  }, [managesCloudsync, rejectAccountMismatch]);
 
   const signIn = useCallback(async () => {
     trackAnalyticsEvent("auth_started", {
@@ -532,8 +554,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const transition = authTransitionRef.current;
     const currentSession = session;
-    const rejectAccountMismatch = () => rejectAuthChange(transition, true);
-    await prepareCloudsyncSignOut(currentSession, rejectAccountMismatch);
+    const rejectCurrentAccountMismatch = () =>
+      rejectAccountMismatch(transition);
+    await prepareCloudsyncSignOut(currentSession, rejectCurrentAccountMismatch);
 
     if (transition !== authTransitionRef.current) {
       return authTransitionEventRef.current === "SIGNED_OUT";
@@ -580,10 +603,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const result = await handleCloudsyncAuthChange(
           "TOKEN_REFRESHED",
           currentSession,
-          rejectAccountMismatch,
+          rejectCurrentAccountMismatch,
         );
         if (result === "account_mismatch") {
-          await rejectAccountMismatch();
+          await rejectCurrentAccountMismatch();
           return true;
         }
       }
@@ -596,7 +619,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     await enqueueAuthChange("SIGNED_OUT", null);
     return true;
-  }, [enqueueAuthChange, rejectAuthChange, session]);
+  }, [enqueueAuthChange, rejectAccountMismatch, session]);
   const signOutFromMainRef = useLatestRef(signOutFromMain);
 
   useMountEffect(() => {
