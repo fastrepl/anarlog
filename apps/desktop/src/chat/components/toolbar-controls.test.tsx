@@ -250,13 +250,19 @@ describe("ChatToolbarControls", () => {
     );
 
     const historyButton = screen.getByRole("button", { name: "Chat history" });
+    const toolbar = container.firstElementChild;
 
-    expect(container.firstElementChild?.className).toContain("pl-3");
-    expect(container.firstElementChild?.className).toContain("pr-1");
-    expect(container.firstElementChild?.className).not.toContain("px-5");
-    expect(container.firstElementChild?.className).not.toContain("px-3");
-    expect(container.firstElementChild?.className).not.toContain("pr-0");
+    expect(toolbar?.className).toContain("pl-3");
+    expect(toolbar?.className).toContain("pr-1");
+    expect(toolbar?.className).not.toContain("px-5");
+    expect(toolbar?.className).not.toContain("px-3");
+    expect(toolbar?.className).not.toContain("pr-0");
+    expect(toolbar?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(
+      toolbar?.firstElementChild?.hasAttribute("data-tauri-drag-region"),
+    ).toBe(true);
     const actions = container.querySelector("[data-chat-toolbar-actions]");
+    expect(actions?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(actions?.className).toContain("gap-0");
     expect(actions?.className).not.toContain("gap-1");
     expect(historyButton.className).toContain("-ml-2");
@@ -265,6 +271,9 @@ describe("ChatToolbarControls", () => {
     expect(screen.queryByText("Ask Anarlog AI anything")).toBeNull();
     const floatButton = screen.getByRole("button", { name: "Float chat" });
     const closeButton = screen.getByRole("button", { name: "Close chat" });
+    expect(historyButton.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(floatButton.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(closeButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(floatButton.className).toContain("hover:!bg-muted/80");
     expect(floatButton.className).toContain("hover:!text-foreground");
     expect(floatButton.className).not.toContain("mr-1");

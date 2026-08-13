@@ -134,6 +134,7 @@ export function ChatPanelFrame({
     >
       {chat.scope === "automations" ? null : (
         <div
+          data-tauri-drag-region={!isFloating || undefined}
           className={cn([
             "flex shrink-0 pr-0 pl-0",
             isFloating ? "h-11 items-center" : "h-9 items-start pt-[9px]",

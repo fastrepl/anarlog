@@ -56,12 +56,16 @@ export function ChatToolbarControls({
 
   return (
     <div
+      data-tauri-drag-region={isRightPanel || undefined}
       className={cn([
         "flex h-full w-full min-w-0 items-center gap-2",
         isRightPanel ? "pr-1 pl-3" : "px-3",
       ])}
     >
-      <div className="flex min-w-0 flex-1 items-center gap-1">
+      <div
+        data-tauri-drag-region={isRightPanel || undefined}
+        className="flex min-w-0 flex-1 items-center gap-1"
+      >
         <ChatGroups
           chatScope={chatScope}
           currentChatGroupId={currentChatGroupId}
@@ -71,6 +75,7 @@ export function ChatToolbarControls({
         />
       </div>
       <div
+        data-tauri-drag-region={isRightPanel || undefined}
         data-chat-toolbar-actions
         className="flex shrink-0 items-center gap-0"
       >
@@ -130,6 +135,7 @@ function ChatActionButton({
   return (
     <Button
       aria-label={label}
+      data-tauri-drag-region="false"
       onClick={onClick}
       size="icon"
       variant="ghost"
@@ -164,6 +170,7 @@ function ChatGroups({
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={t`Chat history`}
+          data-tauri-drag-region="false"
           variant="ghost"
           size="sm"
           className={cn([

@@ -166,6 +166,9 @@ describe("ChatView", () => {
     expect(root?.className).not.toContain("bg-primary");
     expect(root?.firstElementChild?.className).toContain("h-9");
     expect(root?.firstElementChild?.className).not.toContain("border-b");
+    expect(
+      root?.firstElementChild?.hasAttribute("data-tauri-drag-region"),
+    ).toBe(true);
     expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
     expect(mocks.toolbarControls).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -187,6 +190,9 @@ describe("ChatView", () => {
     expect(root?.className.split(" ")).not.toContain("h-full");
     expect(root?.firstElementChild?.className).toContain("h-11");
     expect(root?.firstElementChild?.className).not.toContain("border-b");
+    expect(
+      root?.firstElementChild?.hasAttribute("data-tauri-drag-region"),
+    ).toBe(false);
     expect(screen.getByTestId("chat-toolbar").dataset.surface).toBe("light");
   });
 });
