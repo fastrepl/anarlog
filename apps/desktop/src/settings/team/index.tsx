@@ -2,6 +2,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CircleNotch,
   Crown,
+  LockSimple,
   Plus,
   Trash,
   UserPlus,
@@ -40,10 +41,12 @@ import {
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
+import { useBillingAccess } from "~/auth/billing-context";
 import { SettingsPageTitle } from "~/settings/page-title";
 
 export function SettingsTeam() {
   const auth = useAuth();
+  const billing = useBillingAccess();
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -77,6 +80,50 @@ export function SettingsTeam() {
         <p className="text-muted-foreground text-sm">
           <Trans>Sign in to create a shared workspace for your team.</Trans>
         </p>
+      </div>
+    );
+  }
+
+  if (!billing.isReady) {
+    return (
+      <div className="flex flex-col gap-8">
+        <SettingsPageTitle title={<Trans>Team</Trans>} />
+        <TeamSkeleton />
+      </div>
+    );
+  }
+
+  if (!billing.isPro) {
+    return (
+      <div className="flex flex-col gap-8">
+        <SettingsPageTitle title={<Trans>Team</Trans>} />
+        <div className="flex max-w-2xl items-start justify-between gap-6">
+          <div className="flex gap-3">
+            <LockSimple className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+            <div>
+              <h3 className="text-sm font-medium">
+                <Trans>Anarlog Pro required</Trans>
+              </h3>
+              <p className="text-muted-foreground mt-1 text-xs leading-5">
+                <Trans>
+                  Invite teammates, share notes across the workspace, and manage
+                  who has access. Your personal notes stay private.
+                </Trans>
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            onClick={billing.upgradeToPro}
+            disabled={billing.isUpgradingToPro}
+          >
+            {billing.isUpgradingToPro ? (
+              <CircleNotch className="size-4 animate-spin" />
+            ) : null}
+            <Trans>Upgrade to Pro</Trans>
+          </Button>
+        </div>
       </div>
     );
   }

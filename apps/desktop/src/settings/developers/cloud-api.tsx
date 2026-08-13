@@ -1,4 +1,4 @@
-import { Copy, Key } from "@phosphor-icons/react";
+import { CircleNotch, Copy, Key, LockSimple } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -10,6 +10,7 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { ApiKeyRow } from "./api-key-row";
 import { copyText } from "./clipboard";
 
+import { useBillingAccess } from "~/auth/billing-context";
 import {
   backfillCloudApiSnapshots,
   createCloudApiKey,
@@ -28,10 +29,12 @@ const CLOUD_API_SETTINGS_QUERY_KEY = ["cloud-api", "settings"] as const;
 const CLOUD_API_KEYS_QUERY_KEY = ["cloud-api", "keys"] as const;
 
 export function CloudApiSection() {
+  const billing = useBillingAccess();
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: CLOUD_API_SETTINGS_QUERY_KEY,
     queryFn: getCloudApiSettings,
+    enabled: billing.isReady && billing.isPro,
     retry: false,
   });
   const toggleMutation = useMutation({
@@ -68,22 +71,52 @@ export function CloudApiSection() {
   });
   const enabled = settingsQuery.data?.enabled === true;
 
+  if (!billing.isReady) {
+    return (
+      <section className="flex items-start justify-between gap-4">
+        <CloudApiHeading />
+        <CircleNotch
+          aria-label="Loading Cloud API access"
+          className="text-muted-foreground mt-1 size-4 animate-spin"
+        />
+      </section>
+    );
+  }
+
+  if (!billing.isPro) {
+    return (
+      <section className="flex items-start justify-between gap-6">
+        <div className="flex gap-3">
+          <LockSimple className="text-muted-foreground mt-1 size-4 shrink-0" />
+          <div>
+            <h2 className="font-sans text-lg font-semibold">
+              Cloud API & Connectors
+            </h2>
+            <p className="text-muted-foreground mt-1 text-xs leading-5">
+              Access meetings remotely through the REST API and MCP connectors
+              with Anarlog Pro.
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          onClick={billing.upgradeToPro}
+          disabled={billing.isUpgradingToPro}
+        >
+          {billing.isUpgradingToPro ? (
+            <CircleNotch className="size-4 animate-spin" />
+          ) : null}
+          Upgrade to Pro
+        </Button>
+      </section>
+    );
+  }
+
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h2 className="font-sans text-lg font-semibold">
-            Cloud API & Connectors
-          </h2>
-          <p className="text-muted-foreground mt-1 text-xs">
-            Uploads meeting content for remote access while Anarlog is closed.
-          </p>
-          {settingsQuery.error && (
-            <p className="text-destructive mt-2 text-xs">
-              {settingsQuery.error.message}
-            </p>
-          )}
-        </div>
+        <CloudApiHeading error={settingsQuery.error?.message} />
         <Switch
           checked={enabled}
           aria-label="Enable Cloud API & Connectors"
@@ -114,6 +147,20 @@ export function CloudApiSection() {
         </>
       )}
     </section>
+  );
+}
+
+function CloudApiHeading({ error }: { error?: string }) {
+  return (
+    <div className="min-w-0">
+      <h2 className="font-sans text-lg font-semibold">
+        Cloud API & Connectors
+      </h2>
+      <p className="text-muted-foreground mt-1 text-xs">
+        Uploads meeting content for remote access while Anarlog is closed.
+      </p>
+      {error ? <p className="text-destructive mt-2 text-xs">{error}</p> : null}
+    </div>
   );
 }
 

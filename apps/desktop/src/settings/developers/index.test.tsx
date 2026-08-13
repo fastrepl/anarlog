@@ -21,6 +21,16 @@ const mocks = vi.hoisted(() => ({
   setCloudApiEnabled: vi.fn(),
   backfillCloudApiSnapshots: vi.fn(),
   createCloudApiKey: vi.fn(),
+  billing: {
+    isPro: true,
+    isReady: true,
+    isUpgradingToPro: false,
+    upgradeToPro: vi.fn(),
+  },
+}));
+
+vi.mock("~/auth/billing-context", () => ({
+  useBillingAccess: () => mocks.billing,
 }));
 
 vi.mock("~/types/tauri.gen", () => ({
@@ -128,12 +138,17 @@ describe("SettingsDevelopers", () => {
     mocks.toastSuccess.mockReset();
     mocks.openUrl.mockReset();
     mocks.createCloudApiKey.mockReset();
+    mocks.getCloudApiSettings.mockReset();
     mocks.getCloudApiSettings.mockResolvedValue({
       enabled: false,
       updated_at: null,
     });
     mocks.setCloudApiEnabled.mockReset();
     mocks.backfillCloudApiSnapshots.mockReset();
+    mocks.billing.isPro = true;
+    mocks.billing.isReady = true;
+    mocks.billing.isUpgradingToPro = false;
+    mocks.billing.upgradeToPro.mockReset();
   });
 
   afterEach(() => {
@@ -360,6 +375,40 @@ describe("SettingsDevelopers", () => {
     });
     expect(screen.getByText("REST API")).toBeTruthy();
     expect(screen.getByText("Remote MCP")).toBeTruthy();
+  });
+
+  it("offers an upgrade instead of Cloud API controls on the free plan", () => {
+    mocks.billing.isPro = false;
+    mocks.checkEmbeddedCli.mockResolvedValue({
+      status: "ok",
+      data: {
+        supported: false,
+        commandName: "anarlog",
+        installPath: "/Users/test/.local/bin/anarlog",
+        state: "unsupported",
+        details: "Unavailable.",
+      },
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDevelopers />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      screen.queryByRole("switch", {
+        name: "Enable Cloud API & Connectors",
+      }),
+    ).toBeNull();
+    expect(mocks.getCloudApiSettings).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
+
+    expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
   });
 
   it("hides the devtools section when devtools are disabled", async () => {

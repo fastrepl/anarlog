@@ -87,7 +87,7 @@ select ok(
   'Privileged lifecycle implementations are private and every RPC uses an empty search path'
 );
 
-select tests.authenticate_as('lifecycle_unconfirmed');
+select tests.authenticate_as_hyprnote_pro('lifecycle_unconfirmed');
 
 select throws_ok(
   $$select * from public.create_workspace('Shadow Org')$$,
@@ -97,7 +97,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('lifecycle_owner');
+select tests.authenticate_as_hyprnote_pro('lifecycle_owner');
 
 select lives_ok(
   $$
@@ -148,7 +148,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('lifecycle_member');
+select tests.authenticate_as_hyprnote_pro('lifecycle_member');
 
 select lives_ok(
   $$
@@ -163,7 +163,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('lifecycle_owner');
+select tests.authenticate_as_hyprnote_pro('lifecycle_owner');
 
 select results_eq(
   $$
@@ -205,7 +205,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('lifecycle_member');
+select tests.authenticate_as_hyprnote_pro('lifecycle_member');
 
 select results_eq(
   $$
@@ -245,7 +245,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('lifecycle_owner');
+select tests.authenticate_as_hyprnote_pro('lifecycle_owner');
 
 select throws_ok(
   $$
@@ -304,7 +304,7 @@ select ok(
   'Transfer swaps the owner column and both membership roles atomically'
 );
 
-select tests.authenticate_as('lifecycle_owner');
+select tests.authenticate_as_hyprnote_pro('lifecycle_owner');
 
 select throws_ok(
   $$
@@ -342,7 +342,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('lifecycle_member');
+select tests.authenticate_as_hyprnote_pro('lifecycle_member');
 
 select throws_ok(
   $$
@@ -400,7 +400,7 @@ select ok(
   'Deletion soft deletes the workspace and revokes its pending invitations'
 );
 
-select tests.authenticate_as('lifecycle_outsider');
+select tests.authenticate_as_hyprnote_pro('lifecycle_outsider');
 
 select throws_ok(
   $$
@@ -415,7 +415,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('lifecycle_owner');
+select tests.authenticate_as_hyprnote_pro('lifecycle_owner');
 
 select lives_ok(
   $$

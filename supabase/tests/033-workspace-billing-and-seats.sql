@@ -24,7 +24,7 @@ where id in (
   tests.get_supabase_uid('seat_extra')
 );
 
-select tests.authenticate_as('seat_owner');
+select tests.authenticate_as_hyprnote_pro('seat_owner');
 
 select lives_ok(
   $$
@@ -80,7 +80,7 @@ values ('ent_seat_team', 'cus_seat_team', 'hyprnote_pro')
 on conflict (id) do nothing;
 
 select tests.clear_authentication();
-select tests.authenticate_as('seat_owner');
+select tests.authenticate_as_hyprnote_pro('seat_owner');
 
 select results_eq(
   $$
@@ -194,7 +194,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('seat_owner');
+select tests.authenticate_as_hyprnote_pro('seat_owner');
 
 select lives_ok(
   $$

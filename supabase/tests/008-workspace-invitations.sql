@@ -252,7 +252,7 @@ select ok(
   'Privileged implementations are private and every RPC uses an empty search path'
 );
 
-select tests.authenticate_as('invite_owner');
+select tests.authenticate_as_hyprnote_pro('invite_owner');
 
 select lives_ok(
   $$
@@ -372,7 +372,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('invite_other');
+select tests.authenticate_as_hyprnote_pro('invite_other');
 
 select throws_ok(
   $$
@@ -529,7 +529,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('invite_owner');
+select tests.authenticate_as_hyprnote_pro('invite_owner');
 
 select results_eq(
   $$
@@ -633,7 +633,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('invite_owner');
+select tests.authenticate_as_hyprnote_pro('invite_owner');
 
 select lives_ok(
   $$
@@ -699,7 +699,7 @@ select ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('invite_owner');
+select tests.authenticate_as_hyprnote_pro('invite_owner');
 
 select lives_ok(
   $$
@@ -767,7 +767,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('invite_owner');
+select tests.authenticate_as_hyprnote_pro('invite_owner');
 
 select throws_ok(
   $$

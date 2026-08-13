@@ -82,7 +82,14 @@ export function SettingsNav() {
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
         ...(signedIn
-          ? [{ id: "team" as const, label: t`Team`, icon: UsersThree }]
+          ? [
+              {
+                id: "team" as const,
+                label: t`Team`,
+                icon: UsersThree,
+                requiresPro: true,
+              },
+            ]
           : []),
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },

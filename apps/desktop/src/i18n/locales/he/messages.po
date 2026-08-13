@@ -292,6 +292,7 @@ msgid "Anarlog Pro is required to use cloud sync."
 msgstr ""
 
 #: src/main/sync-status.tsx
+#: src/settings/team/index.tsx
 msgid "Anarlog Pro required"
 msgstr ""
 
@@ -3494,6 +3495,7 @@ msgstr ""
 #: src/calendar/components/sidebar.tsx
 #: src/session-sharing/index.tsx
 #: src/settings/dictionary/index.tsx
+#: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Upgrade to Pro"
 msgstr ""

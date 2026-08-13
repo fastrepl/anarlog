@@ -136,6 +136,7 @@ describe("SettingsNav", () => {
       "General",
       "Appearance",
       "Account",
+      "Team",
       "Notifications",
       "Workspace",
       "Meetings",
@@ -283,7 +284,7 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
   });
 
-  it.each(["Automations", "Dictionary", "Sync"])(
+  it.each(["Team", "Automations", "Dictionary", "Sync"])(
     "does not open locked %s navigation",
     (label) => {
       mocks.isPro = false;

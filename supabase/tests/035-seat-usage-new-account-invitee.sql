@@ -18,7 +18,7 @@ update auth.users
 set email_confirmed_at = now()
 where id = tests.get_supabase_uid('cap_owner');
 
-select tests.authenticate_as('cap_owner');
+select tests.authenticate_as_hyprnote_pro('cap_owner');
 
 insert into cap_test_state (name, workspace_id)
 select 'hq', workspace_id from public.create_workspace('Cap HQ');
@@ -31,7 +31,7 @@ update public.workspaces
 set seat_limit = 2
 where id = (select workspace_id from cap_test_state where name = 'hq');
 
-select tests.authenticate_as('cap_owner');
+select tests.authenticate_as_hyprnote_pro('cap_owner');
 
 select lives_ok(
   $$
@@ -80,7 +80,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('cap_owner');
+select tests.authenticate_as_hyprnote_pro('cap_owner');
 
 select results_eq(
   $$

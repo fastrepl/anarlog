@@ -70,7 +70,7 @@ select ok(
   'Privileged E2EE grant implementations are private and use an empty search path'
 );
 
-select tests.authenticate_as('grant_owner');
+select tests.authenticate_as_hyprnote_pro('grant_owner');
 
 select results_eq(
   $$select public_key from public.publish_e2ee_member_identity(rpad('owner', 43, 'A'))$$,
@@ -141,7 +141,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('grant_owner');
+select tests.authenticate_as_hyprnote_pro('grant_owner');
 
 select results_eq(
   $$
@@ -259,7 +259,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('grant_owner');
+select tests.authenticate_as_hyprnote_pro('grant_owner');
 
 -- Rotation: mint a second generation covering only the remaining member.
 select lives_ok(

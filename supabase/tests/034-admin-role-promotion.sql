@@ -24,7 +24,7 @@ where id in (
   tests.get_supabase_uid('promo_member')
 );
 
-select tests.authenticate_as('promo_owner');
+select tests.authenticate_as_hyprnote_pro('promo_owner');
 
 insert into promo_test_state (name, workspace_id)
 select 'hq', workspace_id from public.create_workspace('Promotion HQ');
@@ -45,7 +45,7 @@ from public.create_workspace_invitation(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('promo_admin');
+select tests.authenticate_as_hyprnote_pro('promo_admin');
 
 select lives_ok(
   $$
@@ -84,7 +84,7 @@ select lives_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('promo_owner');
+select tests.authenticate_as_hyprnote_pro('promo_owner');
 
 select results_eq(
   $$
@@ -100,7 +100,7 @@ select results_eq(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('promo_admin');
+select tests.authenticate_as_hyprnote_pro('promo_admin');
 
 select results_eq(
   $$
@@ -155,7 +155,7 @@ select throws_ok(
 );
 
 select tests.clear_authentication();
-select tests.authenticate_as('promo_owner');
+select tests.authenticate_as_hyprnote_pro('promo_owner');
 
 select results_eq(
   $$
