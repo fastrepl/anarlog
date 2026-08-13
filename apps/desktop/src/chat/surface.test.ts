@@ -51,6 +51,9 @@ describe("chat surface tokens", () => {
     expect(chatFloatingPanelShellClassNames()).toContain("border");
     expect(chatFloatingPanelShellClassNames()).toContain("border-border/70");
     expect(chatFloatingPanelShellClassNames()).toContain(
+      "border-t-app-floating-border",
+    );
+    expect(chatFloatingPanelShellClassNames()).toContain(
       "dark:border-white/10",
     );
     expect(chatFloatingPanelShellClassNames()).toContain("dark:bg-[#202020]");
