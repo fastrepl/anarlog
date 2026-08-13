@@ -253,7 +253,7 @@ export class CustomChatTransport implements ChatTransport<AnlgUIMessage> {
       abortSignal: options.abortSignal,
       experimental_transform: smoothStream({
         chunking: "line",
-        delayInMs: null,
+        delayInMs: 250,
       }),
     });
 
