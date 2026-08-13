@@ -1,7 +1,10 @@
 import { Outlet, useNavigate } from "@tanstack/react-router";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-import { events as windowsEvents } from "@anlg/plugin-windows";
+import {
+  events as windowsEvents,
+  getCurrentWebviewWindowLabel,
+} from "@anlg/plugin-windows";
 
 import {
   openNewNoteAndListen,
@@ -12,6 +15,7 @@ import {
 import { AuthProvider } from "~/auth";
 import { BillingProvider } from "~/auth/billing";
 import { DevtoolsFloatingPanelHost } from "~/devtools-panel/host";
+import { MeetingImportSync } from "~/services/meeting-import-sync";
 import { getOrCreateSessionForEventId } from "~/session/queries";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -32,9 +36,12 @@ export default function MainAppLayout() {
 }
 
 function MainAppContent() {
+  const isMainWindow = getCurrentWebviewWindowLabel() === "main";
+
   return (
     <>
       <Outlet />
+      {isMainWindow ? <MeetingImportSync /> : null}
       <UndoDeleteToast />
       <DevtoolsFloatingPanelHost />
     </>

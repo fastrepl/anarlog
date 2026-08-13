@@ -30,7 +30,6 @@ import { AppI18nProvider } from "./i18n/provider";
 import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
-import { MeetingImportSync } from "./services/meeting-import-sync";
 import { TaskManager } from "./services/task-manager";
 import { TrayRecordingSync } from "./services/tray-recording";
 import { TrayScheduleSync } from "./services/tray-schedule";
@@ -101,7 +100,6 @@ function AppRoot() {
         {isMainWindow ? <TaskManager /> : null}
         {isMainWindow ? <FloatingMeetingWindowHost /> : null}
         {isMainWindow ? <EventListeners /> : null}
-        {isMainWindow ? <MeetingImportSync /> : null}
         {isMainWindow ? <TrayScheduleSync /> : null}
         {isMainWindow ? <TrayRecordingSync /> : null}
         {isMainWindow ? <UpdaterMeetingSync /> : null}
