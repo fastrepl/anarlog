@@ -1,7 +1,7 @@
 import { useLingui } from "@lingui/react/macro";
 import { CaretRight, CircleNotch, Plus } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
-import { useCallback, useMemo, type MouseEvent } from "react";
+import { useCallback, useMemo, useState, type MouseEvent } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
 import {
@@ -14,7 +14,10 @@ import {
 import { cn } from "@anlg/utils";
 
 import { AppleCalendarSelection } from "./apple/calendar-selection";
-import { TroubleShootingLink } from "./apple/permission";
+import {
+  AppleCalendarPermissionDialog,
+  TroubleShootingLink,
+} from "./apple/permission";
 import { OAuthProviderContent } from "./oauth/provider-content";
 import { type CalendarProvider, PROVIDERS } from "./shared";
 
@@ -165,6 +168,8 @@ function ProviderAccordionItem({
   const { isPaid, isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
   const { openIntegration, openingAction } = useOpenIntegrationUrl();
   const { data: connections, isPending, isError } = useConnections(isPaid);
+  const [isApplePermissionDialogOpen, setIsApplePermissionDialogOpen] =
+    useState(false);
   const providerConnections =
     connections?.filter(
       (connection) => connection.integration_id === provider.nangoIntegrationId,
@@ -186,7 +191,7 @@ function ProviderAccordionItem({
   const handleAppleConnect = useCallback(() => {
     if (calendar.isPending) return;
     if (calendar.status === "denied") {
-      void calendar.open();
+      setIsApplePermissionDialogOpen(true);
     } else {
       calendar.request();
     }
@@ -384,6 +389,13 @@ function ProviderAccordionItem({
             <OAuthProviderContent config={provider} returnTo={returnTo} />
           )}
         </AccordionContent>
+      )}
+      {provider.id === "apple" && (
+        <AppleCalendarPermissionDialog
+          open={isApplePermissionDialogOpen}
+          onOpenChange={setIsApplePermissionDialogOpen}
+          onOpenSettings={() => void calendar.open()}
+        />
       )}
     </AccordionItem>
   );

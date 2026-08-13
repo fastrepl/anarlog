@@ -353,6 +353,10 @@ msgstr ""
 msgid "Append the meeting update"
 msgstr ""
 
+#: src/calendar/components/apple/permission.tsx
+msgid "Apple Calendar access is off"
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
 msgstr ""
@@ -503,6 +507,7 @@ msgstr ""
 msgid "Can transcribe while the meeting is happening."
 msgstr ""
 
+#: src/calendar/components/apple/permission.tsx
 #: src/imports/screen.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/general/e2ee-setup.tsx
@@ -2186,6 +2191,10 @@ msgstr ""
 msgid "Open repository on GitHub"
 msgstr ""
 
+#: src/calendar/components/apple/permission.tsx
+msgid "Open Settings"
+msgstr ""
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Open the meeting link when listening starts."
 msgstr ""
@@ -3387,6 +3396,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Turn assigned follow-ups into Linear issue drafts."
+msgstr ""
+
+#: src/calendar/components/apple/permission.tsx
+msgid "Turn on Anarlog in System Settings → Privacy & Security → Calendars, then return here."
 msgstr ""
 
 #: src/settings/sync/index.tsx

@@ -353,6 +353,10 @@ msgstr "Appearance"
 msgid "Append the meeting update"
 msgstr "Append the meeting update"
 
+#: src/calendar/components/apple/permission.tsx
+msgid "Apple Calendar access is off"
+msgstr "Apple Calendar access is off"
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
 msgstr "Apply to all"
@@ -503,6 +507,7 @@ msgstr "Calendar connected"
 msgid "Can transcribe while the meeting is happening."
 msgstr "Can transcribe while the meeting is happening."
 
+#: src/calendar/components/apple/permission.tsx
 #: src/imports/screen.tsx
 #: src/session-sharing/comments.tsx
 #: src/settings/general/e2ee-setup.tsx
@@ -2186,6 +2191,10 @@ msgstr "Open on GitHub"
 msgid "Open repository on GitHub"
 msgstr "Open repository on GitHub"
 
+#: src/calendar/components/apple/permission.tsx
+msgid "Open Settings"
+msgstr "Open Settings"
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Open the meeting link when listening starts."
 msgstr "Open the meeting link when listening starts."
@@ -3388,6 +3397,10 @@ msgstr "Turn action items into Linear issues"
 #: src/automations/starters.tsx
 msgid "Turn assigned follow-ups into Linear issue drafts."
 msgstr "Turn assigned follow-ups into Linear issue drafts."
+
+#: src/calendar/components/apple/permission.tsx
+msgid "Turn on Anarlog in System Settings → Privacy & Security → Calendars, then return here."
+msgstr "Turn on Anarlog in System Settings → Privacy & Security → Calendars, then return here."
 
 #: src/settings/sync/index.tsx
 msgid "Turn on sync to create or enter your recovery key."

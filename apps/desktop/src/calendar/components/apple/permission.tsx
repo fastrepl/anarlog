@@ -9,7 +9,61 @@ import { useState } from "react";
 
 import { type PermissionStatus } from "@anlg/plugin-permissions";
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
+
+import {
+  GlassDialogCancelButton,
+  GlassDialogContent,
+} from "~/shared/ui/glass-dialog";
+
+export function AppleCalendarPermissionDialog({
+  open,
+  onOpenChange,
+  onOpenSettings,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <GlassDialogContent>
+        <DialogHeader className="items-center gap-2 text-center sm:text-center">
+          <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
+            <Trans>Apple Calendar access is off</Trans>
+          </DialogTitle>
+          <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
+            <Trans>
+              Turn on Anarlog in System Settings → Privacy &amp; Security →
+              Calendars, then return here.
+            </Trans>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
+          <GlassDialogCancelButton onClick={() => onOpenChange(false)}>
+            <Trans>Cancel</Trans>
+          </GlassDialogCancelButton>
+          <Button
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
+            onClick={() => {
+              onOpenSettings();
+              onOpenChange(false);
+            }}
+          >
+            <Trans>Open Settings</Trans>
+          </Button>
+        </DialogFooter>
+      </GlassDialogContent>
+    </Dialog>
+  );
+}
 
 function ActionLink({
   onClick,
