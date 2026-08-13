@@ -72,7 +72,7 @@ export function SettingsTeam() {
 
   if (!signedIn) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Team</Trans>} />
         <p className="text-muted-foreground text-sm">
           <Trans>Sign in to create a shared workspace for your team.</Trans>
@@ -82,7 +82,7 @@ export function SettingsTeam() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-8">
       <SettingsPageTitle title={<Trans>Team</Trans>} />
 
       {workspaces.isPending ? (
@@ -129,7 +129,7 @@ export function SettingsTeam() {
           )}
         </>
       ) : (
-        <CreateWorkspaceCard
+        <CreateWorkspaceForm
           onCreate={(name) => create.mutate(name)}
           pending={create.isPending}
           error={create.error?.message}
@@ -140,7 +140,7 @@ export function SettingsTeam() {
   );
 }
 
-function CreateWorkspaceCard({
+function CreateWorkspaceForm({
   onCreate,
   pending,
   error,
@@ -155,7 +155,7 @@ function CreateWorkspaceCard({
   const trimmed = name.trim();
 
   return (
-    <div className="border-border rounded-lg border p-4">
+    <div>
       <h3 className="text-sm font-medium">
         <Trans>Create a shared workspace</Trans>
       </h3>
