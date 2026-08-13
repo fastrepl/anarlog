@@ -12,9 +12,13 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { cn } from "@anlg/utils";
 
+import { preserveScrollPosition } from "./viewport-hooks";
+
 import { trackAnalyticsEvent } from "~/analytics";
 import { useSessionEventParticipants } from "~/calendar/queries";
+import { ContactImage } from "~/contacts/contact-avatar";
 import { createHuman, useHumans } from "~/contacts/queries";
+import { ContactFacehash } from "~/contacts/shared";
 import {
   addSessionParticipant,
   useSession,
@@ -43,6 +47,7 @@ export function SpeakerAssignPopover({
   onAssigned?: (humanId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const handleOpenChange = useCallback((nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -53,14 +58,20 @@ export function SpeakerAssignPopover({
       if (segment.words.length === 0) return;
       const anchorWordId = getAssignmentAnchorWordId(segment);
       if (!anchorWordId) return;
-      void assignTranscriptSpeaker({
-        transcriptId,
-        segmentKey: segment.key,
-        humanId,
-        anchorWordId,
-        mode: assignmentMode,
-        wordIds: getAssignmentWordIds(segment),
-      })
+      const scrollContainer =
+        triggerRef.current?.closest<HTMLElement>(
+          "[data-transcript-container]",
+        ) ?? null;
+      void preserveScrollPosition(scrollContainer, () =>
+        assignTranscriptSpeaker({
+          transcriptId,
+          segmentKey: segment.key,
+          humanId,
+          anchorWordId,
+          mode: assignmentMode,
+          wordIds: getAssignmentWordIds(segment),
+        }),
+      )
         .then(() => {
           trackAnalyticsEvent("participant_assigned", {
             assignment_scope: assignmentMode,
@@ -80,6 +91,7 @@ export function SpeakerAssignPopover({
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           className={cn([
             "-my-0.5 cursor-pointer rounded-full py-0.5 pr-2",
@@ -131,6 +143,7 @@ export type SpeakerParticipantOption = {
   id: string;
   name: string;
   email?: string;
+  avatarDataUrl?: string;
   isSessionParticipant: boolean;
   isNew?: boolean;
   isCreateOption?: boolean;
@@ -305,6 +318,13 @@ export function SpeakerParticipantPicker({
   const [assigning, setAssigning] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const avatarByHumanId = useMemo(
+    () =>
+      new Map(
+        humanRecords.map((human) => [human.id, human.avatarDataUrl] as const),
+      ),
+    [humanRecords],
+  );
   const participants = useMemo(
     () =>
       participantRecords
@@ -316,13 +336,15 @@ export function SpeakerParticipantPicker({
             id: participant.humanId,
             name: name || email || t`Unknown`,
             email: email || undefined,
+            avatarDataUrl:
+              avatarByHumanId.get(participant.humanId) ?? undefined,
             isSessionParticipant: true,
           };
         })
         .filter((participant): participant is SpeakerParticipantOption =>
           Boolean(participant),
         ),
-    [participantRecords, t],
+    [avatarByHumanId, participantRecords, t],
   );
 
   const contacts = useMemo(
@@ -337,6 +359,7 @@ export function SpeakerParticipantPicker({
             id: human.id,
             name: name || email,
             email: email || undefined,
+            avatarDataUrl: human.avatarDataUrl ?? undefined,
             isSessionParticipant: false,
           };
         })
@@ -454,10 +477,10 @@ export function SpeakerParticipantPicker({
   ]);
 
   return (
-    <div className="flex max-h-[min(var(--radix-popover-content-available-height),28rem)] flex-col gap-1 overflow-hidden">
+    <div className="flex max-h-[min(var(--radix-popover-content-available-height,calc(100vh-1rem)),28rem)] flex-col gap-1 overflow-hidden">
       <AppFloatingPanel className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="border-border border-b py-2">
-          <div className="flex h-9 items-center gap-2 px-3">
+        <div className="border-border border-b py-1">
+          <div className="flex h-8 items-center gap-2 px-3">
             <MagnifyingGlass
               size={16}
               className="text-muted-foreground shrink-0"
@@ -587,19 +610,33 @@ function ParticipantOptionButton({
       type="button"
       aria-pressed={selected}
       className={cn([
-        "w-full px-3 py-1.5 text-left text-sm",
+        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm",
         selected ? "bg-accent text-accent-foreground" : "hover:bg-accent",
       ])}
       onClick={() => onSelect(option)}
     >
-      <span className="block truncate">
-        {option.isCreateOption ? t`Add "${option.name}"` : option.name}
-      </span>
-      {option.email && (
-        <span className="text-muted-foreground block truncate text-xs">
-          {option.email}
+      {option.isCreateOption ? (
+        <span className="bg-muted text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-full border">
+          <Plus className="size-3.5" aria-hidden="true" />
         </span>
+      ) : option.avatarDataUrl ? (
+        <ContactImage src={option.avatarDataUrl} size={28} />
+      ) : (
+        <ContactFacehash
+          name={option.name || option.email || option.id}
+          size={28}
+        />
       )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">
+          {option.isCreateOption ? t`Add "${option.name}"` : option.name}
+        </span>
+        {option.email && (
+          <span className="text-muted-foreground block truncate text-xs">
+            {option.email}
+          </span>
+        )}
+      </span>
     </button>
   );
 }

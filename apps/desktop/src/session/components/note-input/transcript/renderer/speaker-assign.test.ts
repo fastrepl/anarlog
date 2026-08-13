@@ -142,7 +142,14 @@ beforeEach(() => {
   assignTranscriptSpeakerMock.mockResolvedValue(undefined);
   addSessionParticipantMock.mockResolvedValue(undefined);
   createHumanMock.mockResolvedValue("human-new");
-  useHumansMock.mockReturnValue([{ id: "human-1", name: "Alice", email: "" }]);
+  useHumansMock.mockReturnValue([
+    {
+      id: "human-1",
+      name: "Alice",
+      email: "",
+      avatarDataUrl: "data:image/jpeg;base64,alice",
+    },
+  ]);
   useSessionParticipantsMock.mockReturnValue([]);
 });
 
@@ -205,10 +212,18 @@ describe("SpeakerAssignPopover", () => {
     expect(
       screen.getByRole("button", { name: "Create new speaker" }),
     ).toBeTruthy();
-    expect(
-      screen.getByPlaceholderText("Select or type to add speaker"),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+    const searchInput = screen.getByPlaceholderText(
+      "Select or type to add speaker",
+    );
+    expect(searchInput.parentElement?.className).toContain("h-8");
+    expect(searchInput.parentElement?.parentElement?.className).toContain(
+      "py-1",
+    );
+    const aliceOption = screen.getByRole("button", { name: "Alice" });
+    expect(aliceOption.querySelector("img")?.getAttribute("src")).toBe(
+      "data:image/jpeg;base64,alice",
+    );
+    fireEvent.click(aliceOption);
     expect(assignTranscriptSpeakerMock).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));

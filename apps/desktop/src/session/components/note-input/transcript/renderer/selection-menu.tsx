@@ -1,4 +1,5 @@
 import {
+  autoUpdate,
   flip,
   FloatingPortal,
   offset,
@@ -6,7 +7,7 @@ import {
   useFloating,
 } from "@floating-ui/react";
 import { Trans } from "@lingui/react/macro";
-import { ArrowLeft, Play, UserSwitch, X } from "@phosphor-icons/react";
+import { Play, UserSwitch, X } from "@phosphor-icons/react";
 import { type MouseEvent, useCallback, useMemo, useRef, useState } from "react";
 
 import {
@@ -44,12 +45,14 @@ export type TranscriptContextMenuRequest = {
 export function SelectionMenu({
   containerRef,
   contextRequest,
+  audioExists,
   onContextClose,
   onAction,
   onAssignSpeaker,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
   contextRequest: TranscriptContextMenuRequest | null;
+  audioExists: boolean;
   onContextClose: () => void;
   onAction?: (
     action: "copy" | "play",
@@ -65,6 +68,7 @@ export function SelectionMenu({
       <TextSelectionMenu
         containerRef={containerRef}
         suspended={contextRequest !== null}
+        audioExists={audioExists}
         onAction={onAction}
         onAssignSpeaker={onAssignSpeaker}
       />
@@ -73,6 +77,7 @@ export function SelectionMenu({
           key={contextRequest.id}
           request={contextRequest}
           containerRef={containerRef}
+          audioExists={audioExists}
           onClose={onContextClose}
           onAction={onAction}
           onAssignSpeaker={onAssignSpeaker}
@@ -155,11 +160,13 @@ export function MultiSelectionBar({
 function TextSelectionMenu({
   containerRef,
   suspended,
+  audioExists,
   onAction,
   onAssignSpeaker,
 }: {
   containerRef: React.RefObject<HTMLElement | null>;
   suspended: boolean;
+  audioExists: boolean;
   onAction?: (
     action: "copy" | "play",
     selection: TranscriptWordSelection,
@@ -198,6 +205,7 @@ function TextSelectionMenu({
       containerRef={containerRef}
       floatingRef={floatingRef}
       floatingStyles={floatingStyles}
+      audioExists={audioExists}
       onClose={handleClose}
       onAction={onAction}
       onAssignSpeaker={onAssignSpeaker}
@@ -208,12 +216,14 @@ function TextSelectionMenu({
 function ContextSelectionMenu({
   request,
   containerRef,
+  audioExists,
   onClose,
   onAction,
   onAssignSpeaker,
 }: {
   request: TranscriptContextMenuRequest;
   containerRef: React.RefObject<HTMLElement | null>;
+  audioExists: boolean;
   onClose: () => void;
   onAction?: (
     action: "copy" | "play",
@@ -234,6 +244,7 @@ function ContextSelectionMenu({
     strategy: "fixed",
     transform: false,
     middleware: [offset(4), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
   });
   const handleClose = useCallback(() => {
     onClose();
@@ -264,6 +275,7 @@ function ContextSelectionMenu({
       containerRef={containerRef}
       floatingRef={floatingRef}
       floatingStyles={floatingStyles}
+      audioExists={audioExists}
       onClose={handleClose}
       onAction={onAction}
       onAssignSpeaker={onAssignSpeaker}
@@ -277,6 +289,7 @@ function SelectionFloatingMenu({
   containerRef,
   floatingRef,
   floatingStyles,
+  audioExists,
   onClose,
   onAction,
   onAssignSpeaker,
@@ -286,6 +299,7 @@ function SelectionFloatingMenu({
   containerRef: React.RefObject<HTMLElement | null>;
   floatingRef: (node: HTMLDivElement | null) => void;
   floatingStyles: React.CSSProperties;
+  audioExists: boolean;
   onClose: () => void;
   onAction?: (
     action: "copy" | "play",
@@ -328,7 +342,9 @@ function SelectionFloatingMenu({
           style={{ ...floatingStyles, zIndex: 50 }}
           className={cn([
             MENU_CONTAINER_CLASSES,
-            view === "speaker" ? "w-80" : "min-w-40",
+            view === "speaker"
+              ? "max-h-[min(28rem,calc(100vh-1rem))] w-80"
+              : "min-w-40",
           ])}
           onMouseDown={view === "actions" ? handleMouseDown : undefined}
         >
@@ -344,14 +360,16 @@ function SelectionFloatingMenu({
                   <Trans>Change speaker</Trans>
                 </button>
               )}
-              <button
-                type="button"
-                className={cn(MENU_BUTTON_CLASSES)}
-                onClick={() => handleAction("play")}
-              >
-                <Play className="size-3.5" />
-                <Trans>Play from here</Trans>
-              </button>
+              {audioExists && (
+                <button
+                  type="button"
+                  className={cn(MENU_BUTTON_CLASSES)}
+                  onClick={() => handleAction("play")}
+                >
+                  <Play className="size-3.5" />
+                  <Trans>Play from here</Trans>
+                </button>
+              )}
               <button
                 type="button"
                 className={cn(MENU_BUTTON_CLASSES)}
@@ -362,21 +380,11 @@ function SelectionFloatingMenu({
               </button>
             </div>
           ) : (
-            <div>
-              <button
-                type="button"
-                className={cn(MENU_BUTTON_CLASSES)}
-                onClick={() => setView("actions")}
-              >
-                <ArrowLeft className="size-3.5" />
-                <Trans>Back</Trans>
-              </button>
-              <SpeakerParticipantPicker
-                sessionId={selection.sessionId}
-                showAssignmentScope={false}
-                onSelect={handleAssign}
-              />
-            </div>
+            <SpeakerParticipantPicker
+              sessionId={selection.sessionId}
+              showAssignmentScope={false}
+              onSelect={handleAssign}
+            />
           )}
         </div>
       </FloatingPortal>
@@ -459,6 +467,7 @@ function useSelectionMenuState({
     strategy: "fixed",
     transform: false,
     middleware: [offset(6), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
   });
   const show = useCallback(
     (nextSelection: TranscriptWordSelection, range: Range) => {

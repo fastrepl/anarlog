@@ -7,6 +7,71 @@ import {
   useState,
 } from "react";
 
+export async function preserveScrollPosition<T>(
+  element: HTMLElement | null,
+  action: () => Promise<T>,
+): Promise<T> {
+  if (!element) {
+    return action();
+  }
+
+  const scrollTop = element.scrollTop;
+  let actionSettled = false;
+  let contentChanged = false;
+  let observer: MutationObserver | null = null;
+  let cleanupTimer: number | null = null;
+
+  const restore = () => {
+    element.scrollTop = scrollTop;
+  };
+
+  const stopObserving = () => {
+    observer?.disconnect();
+    observer = null;
+    if (cleanupTimer !== null) {
+      window.clearTimeout(cleanupTimer);
+      cleanupTimer = null;
+    }
+  };
+
+  if (typeof MutationObserver !== "undefined") {
+    observer = new MutationObserver(() => {
+      contentChanged = true;
+      restore();
+      requestAnimationFrame(() => {
+        restore();
+        if (actionSettled) {
+          stopObserving();
+        }
+      });
+    });
+    observer.observe(element, {
+      childList: true,
+      characterData: true,
+      subtree: true,
+    });
+  }
+
+  try {
+    return await action();
+  } finally {
+    actionSettled = true;
+    restore();
+    requestAnimationFrame(() => {
+      restore();
+      requestAnimationFrame(() => {
+        restore();
+        if (contentChanged) {
+          stopObserving();
+        }
+      });
+    });
+    if (observer && !contentChanged) {
+      cleanupTimer = window.setTimeout(stopObserving, 5_000);
+    }
+  }
+}
+
 export function useScrollDetection(
   containerRef: RefObject<HTMLDivElement | null>,
   active = true,

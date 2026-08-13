@@ -23,6 +23,7 @@ import type { TranscriptContextMenuRequest } from "./selection-menu";
 import { TranscriptSeparator } from "./separator";
 import { RenderTranscript } from "./transcript";
 import {
+  preserveScrollPosition,
   useAutoScroll,
   usePlaybackAutoScroll,
   useScrollDetection,
@@ -142,16 +143,18 @@ export function TranscriptViewer({
   );
   const handleAssignSpeaker = useCallback(
     async (selection: TranscriptWordSelection, humanId: string) => {
-      await Promise.all(
-        selection.groups.map((group) =>
-          assignTranscriptSpeaker({
-            transcriptId: group.transcriptId,
-            segmentKey: group.segmentKey,
-            humanId,
-            anchorWordId: group.wordIds[0]!,
-            mode: "segment",
-            wordIds: group.wordIds,
-          }),
+      await preserveScrollPosition(containerRef.current, () =>
+        Promise.all(
+          selection.groups.map((group) =>
+            assignTranscriptSpeaker({
+              transcriptId: group.transcriptId,
+              segmentKey: group.segmentKey,
+              humanId,
+              anchorWordId: group.wordIds[0]!,
+              mode: "segment",
+              wordIds: group.wordIds,
+            }),
+          ),
         ),
       );
       trackAnalyticsEvent("participant_assigned", {
@@ -321,6 +324,7 @@ export function TranscriptViewer({
         <SelectionMenu
           containerRef={containerRef}
           contextRequest={contextRequest}
+          audioExists={audioExists}
           onContextClose={handleContextClose}
           onAction={handleSelectionAction}
           onAssignSpeaker={handleAssignSpeaker}
@@ -340,8 +344,11 @@ export function TranscriptViewer({
         <div
           data-transcript-scroll-controls
           className={cn([
-            "absolute top-1/2 right-1 z-40 flex -translate-y-1/2 flex-col overflow-hidden",
-            "border-border/60 bg-muted/70 text-foreground rounded-full border",
+            "group/scroll-controls absolute top-1/2 right-1 z-40 flex -translate-y-1/2 flex-col overflow-hidden",
+            "text-muted-foreground/45 rounded-full border border-transparent bg-transparent",
+            "transition-[background-color,border-color,color,box-shadow,backdrop-filter] duration-150",
+            "hover:border-border/50 hover:bg-background/65 hover:text-foreground hover:shadow-sm hover:backdrop-blur-md",
+            "focus-within:border-border/50 focus-within:bg-background/65 focus-within:text-foreground focus-within:shadow-sm focus-within:backdrop-blur-md",
           ])}
         >
           <button
@@ -351,13 +358,13 @@ export function TranscriptViewer({
             disabled={isAtTop}
             className={cn([
               "flex size-8 items-center justify-center",
-              "hover:bg-muted/85 active:bg-muted/85",
+              "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
               "disabled:pointer-events-none disabled:opacity-30",
             ])}
           >
             <ArrowUp aria-hidden="true" className="size-3.5" />
           </button>
-          <div className="bg-border/70 h-px w-full" />
+          <div className="bg-border/20 group-hover/scroll-controls:bg-border/60 group-focus-within/scroll-controls:bg-border/60 h-px w-full transition-colors" />
           <button
             type="button"
             aria-label="Scroll to bottom"
@@ -365,7 +372,7 @@ export function TranscriptViewer({
             disabled={isAtBottom}
             className={cn([
               "flex size-8 items-center justify-center",
-              "hover:bg-muted/85 active:bg-muted/85",
+              "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
               "disabled:pointer-events-none disabled:opacity-30",
             ])}
           >

@@ -6,12 +6,14 @@ import { useRenderedTranscriptData } from "./data-hooks";
 
 const mocks = vi.hoisted(() => ({
   getRenderTranscriptRequestKey: vi.fn((_request: unknown) => "request-key"),
+  keepPreviousData: vi.fn((previous: unknown) => previous),
   renderTranscriptSegments: vi.fn(),
   useQuery: vi.fn(),
   useTranscriptRenderData: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
+  keepPreviousData: mocks.keepPreviousData,
   useQuery: mocks.useQuery,
 }));
 
@@ -55,6 +57,7 @@ describe("useRenderedTranscriptData", () => {
           "request-key",
         ],
         enabled: true,
+        placeholderData: mocks.keepPreviousData,
         staleTime: Number.POSITIVE_INFINITY,
         gcTime: TRANSCRIPT_RENDER_CACHE_TIME_MS,
       }),

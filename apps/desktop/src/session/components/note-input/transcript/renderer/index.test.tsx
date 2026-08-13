@@ -285,8 +285,11 @@ describe("TranscriptViewer", () => {
 
     expect(controls?.className).toContain("right-1");
     expect(controls?.className).toContain("top-1/2");
-    expect(controls?.className).toContain("bg-muted/70");
-    expect(controls?.className).toContain("border-border/60");
+    expect(controls?.className).toContain("bg-transparent");
+    expect(controls?.className).toContain("border-transparent");
+    expect(controls?.className).toContain("hover:bg-background/65");
+    expect(controls?.className).toContain("hover:backdrop-blur-md");
+    expect(controls?.className).toContain("focus-within:backdrop-blur-md");
     expect((topButton as HTMLButtonElement).disabled).toBe(false);
     expect((bottomButton as HTMLButtonElement).disabled).toBe(false);
     expect(topButton.firstElementChild?.tagName.toLowerCase()).toBe("svg");

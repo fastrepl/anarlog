@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { createRef } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { useScrollDetection } from "./viewport-hooks";
+import { preserveScrollPosition, useScrollDetection } from "./viewport-hooks";
 
 function setScrollMetrics(
   element: HTMLDivElement,
@@ -101,5 +101,40 @@ describe("useScrollDetection", () => {
 
     expect(result.current.autoScrollEnabled).toBe(false);
     expect(result.current.scrollTarget).toBe("bottom");
+  });
+});
+
+describe("preserveScrollPosition", () => {
+  it("restores the viewport after the mutation and follow-up layout frames", async () => {
+    const frames: FrameRequestCallback[] = [];
+    const requestAnimationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        frames.push(callback);
+        return frames.length;
+      });
+    const element = document.createElement("div");
+    element.scrollTop = 420;
+
+    await preserveScrollPosition(element, async () => {
+      element.scrollTop = 0;
+    });
+
+    expect(element.scrollTop).toBe(420);
+
+    element.scrollTop = 0;
+    frames.shift()?.(0);
+    expect(element.scrollTop).toBe(420);
+
+    element.scrollTop = 0;
+    frames.shift()?.(0);
+    expect(element.scrollTop).toBe(420);
+
+    element.scrollTop = 0;
+    element.append("updated transcript");
+    await Promise.resolve();
+    expect(element.scrollTop).toBe(420);
+
+    requestAnimationFrame.mockRestore();
   });
 });

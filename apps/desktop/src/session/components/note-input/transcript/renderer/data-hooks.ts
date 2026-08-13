@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo, useRef } from "react";
 
 import type { RenderTranscriptRequest } from "@anlg/plugin-transcription";
@@ -77,6 +77,7 @@ export function useRenderedTranscriptData(
       return renderTranscriptSegments(activeBaselineRequest);
     },
     enabled: !!activeBaselineRequest,
+    placeholderData: keepPreviousData,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: TRANSCRIPT_RENDER_CACHE_TIME_MS,
   });
