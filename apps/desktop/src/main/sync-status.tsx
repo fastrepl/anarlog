@@ -130,6 +130,12 @@ export function SyncStatusIndicator() {
           label: t`Cloud sync identity mismatch`,
           description: t`This device's sync identity does not match your account. Sign in again or check Sync settings.`,
         };
+      case "keychain_access":
+        return {
+          kind: "error" as const,
+          label: t`Sync needs attention`,
+          description: t`macOS could not access your recovery key. Repair Keychain access, then resume sync.`,
+        };
       case "not_entitled":
         return {
           kind: "error" as const,

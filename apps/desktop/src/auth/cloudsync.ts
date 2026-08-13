@@ -32,6 +32,7 @@ import { flushCloudsyncSessionEvictions } from "./cloudsync-session-evictions";
 import { requestCloudsyncCredentials } from "./cloudsync-token-exchange";
 
 import { resolveConfigValue } from "~/shared/config";
+import { isKeychainAccessError } from "~/shared/keychain";
 
 export {
   getCloudsyncCredentialBlock,
@@ -838,14 +839,16 @@ async function activateCloudsync(
       return "ok";
     }
     encryptionKeyId = identity.keyId;
-  } catch {
+  } catch (error) {
     if (isCleanupSuspendRequired()) {
       await suspendCloudsyncPreemptivelyForGeneration(activeGeneration);
       scheduleReactivation();
       return "ok";
     }
     if (activeGeneration === generation) {
-      setCredentialBlock("unavailable");
+      setCredentialBlock(
+        isKeychainAccessError(error) ? "keychain_access" : "unavailable",
+      );
     }
     await suspendCloudsyncAfterCredentialRejection(activeGeneration);
     console.warn(

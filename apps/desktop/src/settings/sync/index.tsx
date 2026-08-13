@@ -24,7 +24,6 @@ import {
 import type { CloudsyncActivityEntry } from "@anlg/plugin-db";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
-import { commands as store2Commands } from "@anlg/plugin-store2";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
@@ -57,6 +56,7 @@ import {
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
+import { isKeychainAccessError, repairKeychainAccess } from "~/shared/keychain";
 import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
@@ -82,13 +82,6 @@ async function readE2eeIdentityStatus(accountUserId: string) {
     return await getE2eeIdentityStatus(accountUserId);
   } catch (error) {
     throw error instanceof Error ? error : new Error(String(error));
-  }
-}
-
-async function repairKeychainAccess() {
-  const result = await store2Commands.repairKeychainAccess();
-  if (result.status === "error") {
-    throw new Error(result.error);
   }
 }
 
@@ -551,7 +544,8 @@ export function SettingsSync() {
     syncNowMutation.error;
   const canRepairKeychainAccess =
     platform() === "macos" &&
-    (credentialBlock === "unavailable" || e2eeIdentityQuery.isError);
+    (credentialBlock === "keychain_access" ||
+      isKeychainAccessError(e2eeIdentityQuery.error));
 
   return (
     <div className="flex flex-col gap-8">

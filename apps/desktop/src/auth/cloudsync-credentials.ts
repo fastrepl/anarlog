@@ -37,6 +37,7 @@ export const DEVICE_LIMIT_TOAST_ID = "cloudsync-device-limit";
 export type CloudsyncCredentialBlock =
   | "device_limit"
   | "identity_mismatch"
+  | "keychain_access"
   | "not_entitled"
   | "reauth_required"
   | "setup_required"

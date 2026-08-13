@@ -1755,6 +1755,8 @@ msgstr ""
 msgid "macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key."
 msgstr ""
 
+#: src/auth/cloudsync-keychain-repair.tsx
+#: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "macOS could not access your recovery key. Repair Keychain access, then resume sync."
 msgstr ""
@@ -2485,6 +2487,7 @@ msgstr ""
 msgid "Reopen sign-in page"
 msgstr ""
 
+#: src/auth/cloudsync-keychain-repair.tsx
 #: src/settings/ai/shared/index.tsx
 #: src/settings/sync/index.tsx
 msgid "Repair Keychain Access"
@@ -3191,6 +3194,7 @@ msgstr ""
 msgid "Sync log"
 msgstr ""
 
+#: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Sync needs attention"
 msgstr ""

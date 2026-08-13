@@ -247,9 +247,11 @@ describe("SettingsSync", () => {
   });
 
   it("repairs macOS Keychain access and retries cloud sync", async () => {
-    mocks.credentialBlock = "unavailable";
+    mocks.credentialBlock = "keychain_access";
     mocks.getE2eeIdentityStatus
-      .mockRejectedValueOnce("E2EE recovery key read timed out")
+      .mockRejectedValueOnce(
+        "macOS couldn't access your login Keychain. Use “Repair Keychain Access” below, then try again.",
+      )
       .mockResolvedValue({ configured: true });
     renderSettings();
 
@@ -271,6 +273,20 @@ describe("SettingsSync", () => {
         true,
       ),
     );
+  });
+
+  it("does not offer Keychain repair for generic sync failures", async () => {
+    mocks.credentialBlock = "unavailable";
+    mocks.getE2eeIdentityStatus.mockRejectedValue(
+      "E2EE recovery key read timed out",
+    );
+
+    renderSettings();
+
+    expect(await screen.findByText("Sync needs attention")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Repair Keychain Access" }),
+    ).toBeNull();
   });
 
   it("shows native cloud sync preflight errors", async () => {

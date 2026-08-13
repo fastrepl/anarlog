@@ -308,6 +308,11 @@ describe("SQLite AI providers", () => {
       ),
     ).toBe(true);
     expect(
+      isKeychainAccessError(
+        "macOS couldn't access your login Keychain. Use repair below.",
+      ),
+    ).toBe(true);
+    expect(
       isKeychainAccessError(new Error("Platform failure: missing entitlement")),
     ).toBe(false);
   });

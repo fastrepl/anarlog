@@ -5,6 +5,8 @@ import { commands as store2Commands } from "@anlg/plugin-store2";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
+export { isKeychainAccessError, repairKeychainAccess } from "~/shared/keychain";
+
 export type AiProviderType = "llm" | "stt";
 
 export type AiProviderConfig = {
@@ -17,8 +19,6 @@ type AppSettingRow = { id: string; value_json: string };
 
 const LEGACY_SETTINGS_ID = "legacy_settings_document";
 const PROVIDER_SECRET_SCOPE = "ai-provider-api-keys";
-const MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX =
-  "macOS couldn't access your login Keychain.";
 const EMPTY_PROVIDER_API_KEYS: Record<string, string> = {};
 const EMPTY_ROWS: AppSettingRow[] = [];
 
@@ -205,20 +205,6 @@ export function useSetAiProvider(type: AiProviderType, providerId: string) {
       ]);
     },
   });
-}
-
-export function isKeychainAccessError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    error.message.startsWith(MACOS_KEYCHAIN_ACCESS_ERROR_PREFIX)
-  );
-}
-
-export async function repairKeychainAccess(): Promise<void> {
-  const result = await store2Commands.repairKeychainAccess();
-  if (result.status === "error") {
-    throw new Error(result.error);
-  }
 }
 
 export async function loadSecureAiProviderApiKeys(

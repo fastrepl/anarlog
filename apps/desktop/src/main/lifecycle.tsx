@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { useLanguageModel, useLLMConnection } from "~/ai/hooks";
 import { AttachmentTransferLifecycle } from "~/attachment-sync/lifecycle";
 import { useAuth } from "~/auth";
+import { CloudsyncKeychainRepairToast } from "~/auth/cloudsync-keychain-repair";
 import { searchCalendarEvents } from "~/calendar/queries";
 import { useSessionTab } from "~/chat/components/use-session-tab";
 import { buildChatTools } from "~/chat/tools";
@@ -49,6 +50,7 @@ export function ClassicMainServices() {
   return (
     <>
       <AttachmentTransferLifecycle />
+      <CloudsyncKeychainRepairToast />
       <CloudApiBackfillLifecycle />
       <DurableSharedNoteCacheSync />
       <SharedAttachmentCacheLifecycle />

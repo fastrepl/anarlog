@@ -232,6 +232,11 @@ describe("SyncStatusIndicator", () => {
       "Cloud sync could not start on this device. Open Sync settings to try again.",
     ],
     [
+      "keychain_access",
+      "Sync needs attention",
+      "macOS could not access your recovery key. Repair Keychain access, then resume sync.",
+    ],
+    [
       "reauth_required",
       "Sign in again",
       "Sign out and sign in again to resume cloud sync.",
