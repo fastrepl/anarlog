@@ -1,5 +1,6 @@
 import { useQueries } from "@tanstack/react-query";
 
+import { useAuth } from "~/auth";
 import {
   connectedImportCredentialsQueryOptions,
   connectedImportSyncQueryOptions,
@@ -11,6 +12,8 @@ const CONNECTED_PROVIDERS = MEETING_IMPORT_PROVIDERS.filter(
 );
 
 export function MeetingImportSync() {
+  const auth = useAuth();
+  const signedIn = Boolean(auth.session);
   const credentialQueries = useQueries({
     queries: CONNECTED_PROVIDERS.map((provider) =>
       connectedImportCredentialsQueryOptions(provider.id),
@@ -20,7 +23,7 @@ export function MeetingImportSync() {
     queries: CONNECTED_PROVIDERS.map((provider, index) =>
       connectedImportSyncQueryOptions(
         provider,
-        Boolean(credentialQueries[index]?.data),
+        signedIn && Boolean(credentialQueries[index]?.data),
       ),
     ),
   });

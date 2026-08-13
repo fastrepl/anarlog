@@ -2203,6 +2203,7 @@ msgstr "Open the meeting link when listening starts."
 msgid "Open web copy"
 msgstr "Open web copy"
 
+#: src/imports/screen.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/shared-notes/index.tsx
 msgid "Opening…"
@@ -2956,6 +2957,7 @@ msgstr "Sign in for Pro"
 msgid "Sign in to Anarlog"
 msgstr "Sign in to Anarlog"
 
+#: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Sign in to connect"
 msgstr "Sign in to connect"

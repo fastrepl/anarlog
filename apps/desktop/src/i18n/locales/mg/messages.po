@@ -2203,6 +2203,7 @@ msgstr ""
 msgid "Open web copy"
 msgstr ""
 
+#: src/imports/screen.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/shared-notes/index.tsx
 msgid "Opening…"
@@ -2956,6 +2957,7 @@ msgstr ""
 msgid "Sign in to Anarlog"
 msgstr ""
 
+#: src/imports/screen.tsx
 #: src/onboarding/calendar.tsx
 msgid "Sign in to connect"
 msgstr ""

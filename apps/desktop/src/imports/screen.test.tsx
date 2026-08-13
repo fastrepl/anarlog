@@ -14,6 +14,15 @@ const mocks = vi.hoisted(() => ({
   cancelConnectedImport: vi.fn(),
   connectConnectedImport: vi.fn(),
   disconnectConnectedImport: vi.fn(),
+  signIn: vi.fn(),
+  signedIn: true,
+}));
+
+vi.mock("~/auth", () => ({
+  useAuth: () => ({
+    session: mocks.signedIn ? {} : null,
+    signIn: mocks.signIn,
+  }),
 }));
 
 vi.mock("./detection", () => ({
@@ -102,7 +111,9 @@ function mockDetected(ids: string[]) {
 describe("MeetingImportScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.signedIn = true;
     mocks.cancelConnectedImport.mockResolvedValue(true);
+    mocks.signIn.mockResolvedValue(undefined);
   });
 
   afterEach(cleanup);
@@ -163,6 +174,27 @@ describe("MeetingImportScreen", () => {
     expect(
       await screen.findByRole("menuitem", { name: "Use files" }),
     ).toBeTruthy();
+  });
+
+  it("prompts signed-out users to sign in before connecting", async () => {
+    mocks.signedIn = false;
+    mockDetected(["granola"]);
+
+    renderImports();
+
+    const signInButton = await screen.findByRole("button", {
+      name: "Sign in to connect",
+    });
+    expect(screen.getByText("Connect & import")).toBeTruthy();
+    expect(screen.getAllByText("Sign in to connect")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Use files" })).toBeTruthy();
+
+    fireEvent.click(signInButton);
+
+    await waitFor(() => {
+      expect(mocks.signIn).toHaveBeenCalledOnce();
+    });
+    expect(mocks.connectConnectedImport).not.toHaveBeenCalled();
   });
 
   it("renders the same detected list in the compact onboarding layout", async () => {

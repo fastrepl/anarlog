@@ -48,6 +48,7 @@ import {
 } from "./queries";
 import { pauseCompetingApplicationTermination } from "./termination-pause";
 
+import { useAuth } from "~/auth";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const IMPORT_EXTENSIONS = [
@@ -91,8 +92,10 @@ export function MeetingImportScreen({
   secondaryAction?: ReactNode;
 }) {
   const { t } = useLingui();
+  const auth = useAuth();
   const queryClient = useQueryClient();
   const connectAbortController = useRef<AbortController | null>(null);
+  const signedIn = Boolean(auth.session);
   const detectionQuery = useQuery({
     queryKey: ["meeting-import-sources"],
     queryFn: detectImportSources,
@@ -120,7 +123,7 @@ export function MeetingImportScreen({
     queries: connectedProviders.map((provider, index) =>
       connectedImportSyncQueryOptions(
         provider,
-        Boolean(credentialQueries[index]?.data),
+        signedIn && Boolean(credentialQueries[index]?.data),
       ),
     ),
   });
@@ -178,6 +181,10 @@ export function MeetingImportScreen({
     },
   });
 
+  const signInMutation = useMutation({
+    mutationFn: () => auth.signIn(),
+  });
+
   const cancelConnectMutation = useMutation({
     mutationFn: cancelConnectedImport,
   });
@@ -200,6 +207,7 @@ export function MeetingImportScreen({
 
   const connectedError =
     credentialQueries.find((query) => query.error)?.error ??
+    signInMutation.error ??
     connectMutation.error ??
     cancelConnectMutation.error ??
     disconnectMutation.error ??
@@ -281,7 +289,7 @@ export function MeetingImportScreen({
                 connectedIndex === undefined
                   ? undefined
                   : syncQueries[connectedIndex];
-              const connected = Boolean(credentialsQuery?.data);
+              const connected = signedIn && Boolean(credentialsQuery?.data);
               const connecting =
                 connectMutation.isPending &&
                 connectMutation.variables.id === provider.id;
@@ -380,13 +388,27 @@ export function MeetingImportScreen({
                           <Button
                             type="button"
                             size="sm"
-                            disabled={
-                              credentialsQuery?.isPending ||
-                              cancelConnectMutation.isPending ||
-                              connectionCancellationRequested ||
-                              (connectMutation.isPending && !connecting)
+                            variant={signedIn ? "default" : "outline"}
+                            aria-label={
+                              signedIn ? undefined : t`Sign in to connect`
                             }
+                            disabled={
+                              signedIn
+                                ? credentialsQuery?.isPending ||
+                                  cancelConnectMutation.isPending ||
+                                  connectionCancellationRequested ||
+                                  (connectMutation.isPending && !connecting)
+                                : signInMutation.isPending
+                            }
+                            className={cn([
+                              !signedIn &&
+                                "group/sign-in bg-muted hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground",
+                            ])}
                             onClick={() => {
+                              if (!signedIn) {
+                                signInMutation.mutate();
+                                return;
+                              }
                               if (connecting) {
                                 connectAbortController.current?.abort();
                                 cancelConnectMutation.mutate(provider.id);
@@ -395,14 +417,35 @@ export function MeetingImportScreen({
                               connectMutation.mutate(provider);
                             }}
                           >
-                            {credentialsQuery?.isPending ||
-                            connecting ||
-                            cancellingConnection ? (
+                            {!signedIn ? (
+                              signInMutation.isPending ? (
+                                <>
+                                  <CircleNotch className="size-3.5 animate-spin" />
+                                  <Trans>Opening…</Trans>
+                                </>
+                              ) : (
+                                <span className="grid items-center overflow-hidden">
+                                  <span className="invisible col-start-1 row-start-1">
+                                    <Trans>Sign in to connect</Trans>
+                                  </span>
+                                  <span className="col-start-1 row-start-1 flex items-center justify-center gap-2 transition-transform duration-200 group-hover/sign-in:translate-y-full group-focus-visible/sign-in:translate-y-full">
+                                    <PlugsConnected className="size-3.5" />
+                                    <Trans>Connect & import</Trans>
+                                  </span>
+                                  <span className="col-start-1 row-start-1 flex -translate-y-full items-center justify-center transition-transform duration-200 group-hover/sign-in:translate-y-0 group-focus-visible/sign-in:translate-y-0">
+                                    <Trans>Sign in to connect</Trans>
+                                  </span>
+                                </span>
+                              )
+                            ) : credentialsQuery?.isPending ||
+                              connecting ||
+                              cancellingConnection ? (
                               <CircleNotch className="size-3.5 animate-spin" />
                             ) : (
                               <PlugsConnected className="size-3.5" />
                             )}
-                            {connecting || cancellingConnection ? (
+                            {!signedIn ? null : connecting ||
+                              cancellingConnection ? (
                               <Trans>Cancel</Trans>
                             ) : credentialsQuery?.isPending ? (
                               <Trans>Checking connection</Trans>
@@ -415,9 +458,15 @@ export function MeetingImportScreen({
                               <Button
                                 type="button"
                                 size="sm"
+                                variant={signedIn ? "default" : "outline"}
                                 aria-label={t`Use files`}
                                 disabled={fileImportMutation.isPending}
-                                className="before:bg-primary-foreground/20 relative w-6 px-0 before:absolute before:inset-y-1.5 before:left-0 before:w-px"
+                                className={cn([
+                                  "relative w-6 px-0 before:absolute before:inset-y-1.5 before:left-0 before:w-px",
+                                  signedIn
+                                    ? "before:bg-primary-foreground/20"
+                                    : "before:bg-border",
+                                ])}
                               >
                                 <CaretDown className="size-3.5" />
                               </Button>
