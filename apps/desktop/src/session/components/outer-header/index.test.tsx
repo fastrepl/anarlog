@@ -493,13 +493,22 @@ describe("OuterHeader", () => {
     const metadataButton = screen.getByRole("button", {
       name: "Open event metadata",
     });
+    const actionPill = joinButton.parentElement;
 
-    fireEvent.click(joinButton);
-
+    expect(actionPill?.className).toContain("bg-primary");
+    expect(actionPill?.className).toContain("dark:bg-white");
+    expect(actionPill?.className).toContain("dark:text-black");
+    expect(joinButton.className).toContain("hover:bg-primary/90");
+    expect(joinButton.className).toContain("dark:hover:bg-white/90");
+    expect(metadataButton.className).toContain("text-primary-foreground/70");
+    expect(metadataButton.className).toContain("dark:text-black/70");
     expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
     expect(joinButton.textContent).toContain("Join & record");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
+
+    fireEvent.click(joinButton);
+
     expect(mocks.openUrl).toHaveBeenCalledWith(
       "https://meet.google.com/abc-defg-hij",
       null,
@@ -542,6 +551,56 @@ describe("OuterHeader", () => {
     expect(openedUrl.searchParams.get("completion_url")).toBe(
       "http://127.0.0.1:43210/onboarding-demo/complete",
     );
+  });
+
+  it("prompts new users to try the prerecorded welcome demo", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        tracking_id: "anarlog-onboarding-demo-v1",
+        meeting_link: "https://anarlog.so/onboarding-demo/",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    const prompt = screen
+      .getByText("Try the demo")
+      .closest("[data-welcome-demo-prompt]");
+
+    expect(prompt).not.toBeNull();
+    expect(prompt?.textContent).toContain(
+      "This is a prerecorded demo, so your camera stays off.",
+    );
+    expect(prompt?.textContent).toContain(
+      "Click Join & record to see Anarlog in action.",
+    );
+    expect(
+      prompt?.querySelector("[data-welcome-demo-prompt-tail]"),
+    ).not.toBeNull();
+  });
+
+  it("does not prompt users who have already recorded the welcome demo", () => {
+    mocks.audioExists = true;
+    mocks.sessionEvents = {
+      "session-1": {
+        tracking_id: "anarlog-onboarding-demo-v1",
+        meeting_link: "https://anarlog.so/onboarding-demo/",
+      },
+    };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    expect(screen.queryByText("Try the demo")).toBeNull();
   });
 
   it("ignores repeated welcome demo joins while startup is in progress", async () => {
@@ -753,7 +812,11 @@ describe("OuterHeader", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Record" }));
+    const recordButton = screen.getByRole("button", { name: "Record" });
+
+    expect(recordButton.parentElement?.className).toContain("bg-card");
+    expect(recordButton.parentElement?.className).not.toContain("bg-primary");
+    fireEvent.click(recordButton);
 
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
     expect(

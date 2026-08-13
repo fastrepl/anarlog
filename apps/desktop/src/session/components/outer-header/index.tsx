@@ -230,9 +230,9 @@ function HeaderMeetingActionPill({
   }));
   const remote = getRemoteMeeting(event?.meeting_link);
   const meetingLink = event?.meeting_link || null;
+  const isWelcomeDemo = event?.tracking_id === WELCOME_NOTE_TRACKING_ID;
   const canJoinFromHeader = Boolean(
-    meetingLink &&
-    (remote !== null || event?.tracking_id === WELCOME_NOTE_TRACKING_ID),
+    meetingLink && (remote !== null || isWelcomeDemo),
   );
   const canResume = audioExists || hasTranscript;
   const { t } = useLingui();
@@ -252,7 +252,7 @@ function HeaderMeetingActionPill({
     }
 
     let url = meetingLink;
-    if (event?.tracking_id === WELCOME_NOTE_TRACKING_ID) {
+    if (isWelcomeDemo) {
       try {
         const scheme = await getScheme();
         const result = await deeplinkCommands.startCallbackServer(scheme);
@@ -268,7 +268,7 @@ function HeaderMeetingActionPill({
     }
 
     void openerCommands.openUrl(url, null);
-  }, [event?.tracking_id, meetingLink]);
+  }, [isWelcomeDemo, meetingLink]);
   const joinMeeting = useCallback(async () => {
     if (joiningMeetingRef.current) {
       return;
@@ -317,12 +317,11 @@ function HeaderMeetingActionPill({
       return {
         label: t`Join & record`,
         title: t`Join meeting and record`,
-        icon:
-          event?.tracking_id === WELCOME_NOTE_TRACKING_ID ? (
-            <img src="/assets/anarlog-icon.png" alt="" className="size-4" />
-          ) : remote ? (
-            getMeetingDisplay(remote.type).icon
-          ) : undefined,
+        icon: isWelcomeDemo ? (
+          <img src="/assets/anarlog-icon.png" alt="" className="size-4" />
+        ) : remote ? (
+          getMeetingDisplay(remote.type).icon
+        ) : undefined,
         onClick: () => {
           void joinMeeting();
         },
@@ -337,15 +336,28 @@ function HeaderMeetingActionPill({
     };
   })();
   const disabled = sessionMode === "finalizing" || joiningMeeting;
+  const isJoinAction = canJoinFromHeader && sessionMode === "inactive";
   const showCountdown =
     Boolean(countdown.label) &&
     sessionMode !== "active" &&
     sessionMode !== "running_batch" &&
     sessionMode !== "finalizing";
+  const showWelcomeDemoPrompt =
+    isWelcomeDemo &&
+    sessionMode === "inactive" &&
+    !hasTranscript &&
+    !audioExists;
 
   return (
     <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
-      <div className="border-border bg-card text-foreground flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border">
+      <div
+        className={cn([
+          "flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border",
+          isJoinAction
+            ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
+            : "border-border bg-card text-foreground",
+        ])}
+      >
         <button
           type="button"
           data-tauri-drag-region="false"
@@ -356,8 +368,12 @@ function HeaderMeetingActionPill({
           className={cn([
             "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-1.5",
             "text-sm font-medium",
-            "hover:bg-accent transition-colors",
-            disabled && "cursor-default opacity-60 hover:bg-transparent",
+            "transition-colors",
+            !disabled &&
+              (isJoinAction
+                ? "hover:bg-primary/90 dark:hover:bg-white/90"
+                : "hover:bg-accent"),
+            disabled && "cursor-default opacity-60",
           ])}
         >
           {action.icon}
@@ -372,9 +388,14 @@ function HeaderMeetingActionPill({
               aria-label={metadataLabel}
               title={metadataLabel}
               className={cn([
-                "text-muted-foreground flex h-full w-5 shrink-0 items-center justify-center",
-                "hover:bg-accent hover:text-foreground transition-colors",
-                open && "bg-accent text-foreground",
+                "flex h-full w-5 shrink-0 items-center justify-center transition-colors",
+                isJoinAction
+                  ? "text-primary-foreground/70 hover:bg-primary-foreground/14 hover:text-primary-foreground dark:text-black/70 dark:hover:bg-black/8 dark:hover:text-black"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                open &&
+                  (isJoinAction
+                    ? "bg-primary-foreground/14 text-primary-foreground dark:bg-black/8 dark:text-black"
+                    : "bg-accent text-foreground"),
               ])}
             >
               <CaretDown size={14} />
@@ -382,7 +403,22 @@ function HeaderMeetingActionPill({
           )}
         />
       </div>
-      {showCountdown ? (
+      {showWelcomeDemoPrompt ? (
+        <div
+          data-welcome-demo-prompt
+          className="border-border bg-popover text-popover-foreground pointer-events-none absolute top-full left-1/2 z-20 mt-2 w-72 -translate-x-1/2 rounded-md border px-3 py-2.5 text-sm shadow-sm"
+        >
+          <span
+            data-welcome-demo-prompt-tail
+            aria-hidden="true"
+            className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
+          />
+          <span className="relative block font-medium">{t`Try the demo`}</span>
+          <span className="text-muted-foreground relative mt-0.5 block leading-snug">
+            {t`This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action.`}
+          </span>
+        </div>
+      ) : showCountdown ? (
         <div
           data-header-meeting-countdown
           className="border-border bg-popover text-popover-foreground pointer-events-none absolute top-full left-1/2 z-20 mt-2 -translate-x-1/2 rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm"

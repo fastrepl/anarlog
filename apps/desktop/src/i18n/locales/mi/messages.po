@@ -3331,6 +3331,10 @@ msgstr ""
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr ""
 
+#: src/session/components/outer-header/index.tsx
+msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
+msgstr ""
+
 #: src/chat/components/session-provider.tsx
 msgid "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."
 msgstr ""
@@ -3392,6 +3396,10 @@ msgstr ""
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 msgid "Try again"
+msgstr ""
+
+#: src/session/components/outer-header/index.tsx
+msgid "Try the demo"
 msgstr ""
 
 #: src/automations/starters.tsx
