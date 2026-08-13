@@ -84,6 +84,9 @@ export const MARKETING_PLAN_TIERS: MarketingPlanData[] = [
       { label: "Cloud Transcription", included: true },
       { label: "Cloud LLM", included: true },
       { label: "Better Speaker Identification", included: true },
+      { label: "Custom Transcription Dictionary", included: true },
+      { label: "Custom Auto Summary Format", included: true },
+      { label: "Custom App Icons (macOS)", included: true },
       {
         label: "Integrations",
         included: true,
