@@ -67,7 +67,7 @@ describe("ContextBar", () => {
     expect(screen.queryByText(/artem@example.com/)).toBeNull();
   });
 
-  it("centers the squircle chip strip above the input surface", () => {
+  it("keeps the squircle chip strip above the input surface", () => {
     const { container } = render(
       <ContextBar
         entities={[
@@ -160,9 +160,11 @@ describe("ContextBar", () => {
     );
 
     const chipList = container.querySelector("[data-chat-context-chip-list]");
+    const chipStrip = container.querySelector("[data-chat-context-chip-strip]");
 
-    expect(chipList?.className).toContain("overflow-hidden");
-    expect(chipList?.className).not.toContain("flex-wrap");
+    expect(chipList?.className).toContain("overflow-x-auto");
+    expect(chipList?.className).not.toContain("overflow-hidden");
+    expect(chipList?.className).not.toContain("flex-1");
     expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
       4,
     );
@@ -180,7 +182,8 @@ describe("ContextBar", () => {
     expect(container.querySelectorAll("[data-chat-context-chip]")).toHaveLength(
       6,
     );
-    expect(chipList?.className).toContain("flex-wrap");
+    expect(chipStrip?.className).toContain("flex-wrap");
+    expect(chipList?.className).not.toContain("overflow-x-auto");
     expect(screen.queryByText("+2 more")).toBeNull();
 
     fireEvent.click(
@@ -193,10 +196,10 @@ describe("ContextBar", () => {
       4,
     );
     expect(screen.getByText("+2 more")).not.toBeNull();
-    expect(chipList?.className).toContain("overflow-hidden");
+    expect(chipList?.className).toContain("overflow-x-auto");
   });
 
-  it("wraps four-or-fewer chips instead of clipping them", () => {
+  it("scrolls four-or-fewer chips horizontally instead of clipping them", () => {
     const { container } = render(
       <ContextBar
         entities={[
@@ -241,10 +244,13 @@ describe("ContextBar", () => {
     );
 
     const chipList = container.querySelector("[data-chat-context-chip-list]");
+    const chipStrip = container.querySelector("[data-chat-context-chip-strip]");
     const chip = container.querySelector("[data-chat-context-chip]");
 
-    expect(chipList?.className).toContain("flex-wrap");
+    expect(chipList?.className).toContain("overflow-x-auto");
     expect(chipList?.className).not.toContain("overflow-hidden");
+    expect(chipStrip?.className).toContain("w-max");
+    expect(chipStrip?.className).toContain("min-w-full");
     expect(chip?.className).toContain("shrink-0");
     expect(screen.queryByRole("button", { name: /more/ })).toBeNull();
   });

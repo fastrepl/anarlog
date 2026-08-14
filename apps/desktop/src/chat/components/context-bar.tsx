@@ -99,18 +99,28 @@ function ChipList({
       <div
         data-chat-context-chip-list
         className={cn([
-          "flex max-w-full min-w-0 items-center justify-center gap-1.5",
-          canExpand && !isExpanded ? "overflow-hidden" : "flex-wrap",
+          "min-w-0",
+          !isExpanded && "overflow-x-auto overscroll-x-contain",
         ])}
       >
-        {visibleChips.map(({ chip, pending }) => (
-          <ContextChip
-            key={chip.key}
-            chip={chip}
-            onRemove={onRemove}
-            pending={pending}
-          />
-        ))}
+        <div
+          data-chat-context-chip-strip
+          className={cn([
+            "flex items-center gap-1.5",
+            isExpanded
+              ? "w-full flex-wrap justify-center"
+              : "w-max min-w-full justify-center",
+          ])}
+        >
+          {visibleChips.map(({ chip, pending }) => (
+            <ContextChip
+              key={chip.key}
+              chip={chip}
+              onRemove={onRemove}
+              pending={pending}
+            />
+          ))}
+        </div>
       </div>
 
       {canExpand && (
