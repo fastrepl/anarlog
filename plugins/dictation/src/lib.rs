@@ -3,12 +3,14 @@ mod error;
 mod events;
 mod ext;
 mod handler;
+mod recorder;
 
 pub use error::*;
 pub use events::*;
 pub use ext::*;
 
 use handler::Handler;
+use recorder::Recorder;
 use tauri::Manager;
 
 const PLUGIN_NAME: &str = "dictation";
@@ -21,6 +23,10 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::hide::<tauri::Wry>,
             commands::set_phase::<tauri::Wry>,
             commands::update_amplitude::<tauri::Wry>,
+            commands::start_recording::<tauri::Wry>,
+            commands::stop_recording::<tauri::Wry>,
+            commands::cancel_recording::<tauri::Wry>,
+            commands::discard_recording::<tauri::Wry>,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
@@ -32,6 +38,7 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _api| {
             app.manage(Handler::new());
+            app.manage(Recorder::new());
             setup_shortcut_bridge(app);
             Ok(())
         })

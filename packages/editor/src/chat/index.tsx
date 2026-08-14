@@ -70,6 +70,7 @@ export interface ChatEditorHandle {
   focus(): boolean;
   getJSON(): JSONContent | undefined;
   clearContent(): void;
+  insertText(text: string): void;
   replaceContent(content: JSONContent, selection?: "start" | "end"): void;
 }
 
@@ -274,6 +275,28 @@ export const ChatEditor = forwardRef<ChatEditorHandle, ChatEditorProps>(
             doc.content,
           );
           view.dispatch(tr);
+        },
+        insertText(text) {
+          const view = viewRef.current;
+          const value = text.trim();
+          if (!view || !value) return;
+
+          const { from, to } = view.state.selection;
+          const before = view.state.doc.textBetween(
+            Math.max(0, from - 1),
+            from,
+            "",
+            "\ufffc",
+          );
+          const after = view.state.doc.textBetween(
+            to,
+            Math.min(view.state.doc.content.size, to + 1),
+            "",
+            "\ufffc",
+          );
+          const insertion = `${before && !/\s$/u.test(before) ? " " : ""}${value}${after && !/^\s/u.test(after) ? " " : ""}`;
+          view.dispatch(view.state.tr.insertText(insertion, from, to));
+          view.focus();
         },
         replaceContent(content, selection = "end") {
           const view = viewRef.current;

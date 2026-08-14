@@ -108,6 +108,9 @@ importers:
       '@anlg/plugin-detect':
         specifier: workspace:*
         version: link:../../plugins/detect
+      '@anlg/plugin-dictation':
+        specifier: workspace:*
+        version: link:../../plugins/dictation
       '@anlg/plugin-export':
         specifier: workspace:*
         version: link:../../plugins/export

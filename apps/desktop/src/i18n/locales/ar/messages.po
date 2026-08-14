@@ -547,6 +547,10 @@ msgstr ""
 msgid "Chat history"
 msgstr ""
 
+#: src/chat/components/input/use-dictation.ts
+msgid "Check microphone permission and the selected input device, then try again."
+msgstr ""
+
 #: src/imports/screen.tsx
 msgid "Checking connection"
 msgstr ""
@@ -965,6 +969,14 @@ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "Could not start trial"
+msgstr ""
+
+#: src/chat/components/input/use-dictation.ts
+msgid "Could not start voice input"
+msgstr ""
+
+#: src/chat/components/input/use-dictation.ts
+msgid "Could not transcribe voice input"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -2065,6 +2077,10 @@ msgstr ""
 msgid "No shared notes"
 msgstr ""
 
+#: src/chat/components/input/use-dictation.ts
+msgid "No speech detected"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "No sync activity yet."
 msgstr ""
@@ -3081,6 +3097,10 @@ msgstr ""
 msgid "Start Recording"
 msgstr ""
 
+#: src/chat/components/input/index.tsx
+msgid "Start voice input"
+msgstr ""
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Start when meeting begins"
 msgstr "ابدأ عندما يبدأ الاجتماع"
@@ -3101,8 +3121,16 @@ msgstr ""
 msgid "Starting"
 msgstr ""
 
+#: src/chat/components/input/index.tsx
+msgid "Starting voice input"
+msgstr ""
+
 #: src/onboarding/account/after-login.tsx
 msgid "Starting your trial..."
+msgstr ""
+
+#: src/chat/components/input/index.tsx
+msgid "Starting…"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -3136,6 +3164,10 @@ msgstr ""
 
 #: src/session/components/outer-header/index.tsx
 msgid "Stop transcription"
+msgstr ""
+
+#: src/chat/components/input/index.tsx
+msgid "Stop voice input"
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
@@ -3375,6 +3407,14 @@ msgstr ""
 msgid "Transcribe meetings that use more than one language."
 msgstr ""
 
+#: src/chat/components/input/index.tsx
+msgid "Transcribing voice input"
+msgstr ""
+
+#: src/chat/components/input/index.tsx
+msgid "Transcribing…"
+msgstr ""
+
 #: src/session/components/note-input/header-transcript.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Transcript"
@@ -3406,6 +3446,10 @@ msgstr ""
 #: src/session-sharing/management-panel.tsx
 #: src/settings/general/permissions.tsx
 msgid "Try again"
+msgstr ""
+
+#: src/chat/components/input/use-dictation.ts
+msgid "Try speaking a little closer to the microphone."
 msgstr ""
 
 #: src/session/components/outer-header/index.tsx
@@ -3596,6 +3640,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "View sync log"
+msgstr ""
+
+#: src/chat/components/input/use-dictation.ts
+msgid "Voice input is unavailable while Anarlog is recording a meeting."
 msgstr ""
 
 #: src/settings/general/notification.tsx

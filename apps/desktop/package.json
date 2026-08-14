@@ -40,6 +40,7 @@
     "@anlg/plugin-db": "workspace:*",
     "@anlg/plugin-deeplink2": "workspace:*",
     "@anlg/plugin-detect": "workspace:*",
+    "@anlg/plugin-dictation": "workspace:*",
     "@anlg/plugin-export": "workspace:*",
     "@anlg/plugin-fs-sync": "workspace:*",
     "@anlg/plugin-fs2": "workspace:*",

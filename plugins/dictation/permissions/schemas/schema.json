@@ -295,6 +295,30 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the cancel_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-cancel-recording",
+          "markdownDescription": "Enables the cancel_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-cancel-recording",
+          "markdownDescription": "Denies the cancel_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the discard_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-discard-recording",
+          "markdownDescription": "Enables the discard_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the discard_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-discard-recording",
+          "markdownDescription": "Denies the discard_recording command without any pre-configured scope."
+        },
+        {
           "description": "Enables the hide command without any pre-configured scope.",
           "type": "string",
           "const": "allow-hide",
@@ -331,6 +355,30 @@
           "markdownDescription": "Denies the show command without any pre-configured scope."
         },
         {
+          "description": "Enables the start_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-recording",
+          "markdownDescription": "Enables the start_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-recording",
+          "markdownDescription": "Denies the start_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the stop_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-stop-recording",
+          "markdownDescription": "Enables the stop_recording command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the stop_recording command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-stop-recording",
+          "markdownDescription": "Denies the stop_recording command without any pre-configured scope."
+        },
+        {
           "description": "Enables the update_amplitude command without any pre-configured scope.",
           "type": "string",
           "const": "allow-update-amplitude",
@@ -343,10 +391,10 @@
           "markdownDescription": "Denies the update_amplitude command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-show`\n- `allow-hide`\n- `allow-set-phase`\n- `allow-update-amplitude`\n- `allow-start-recording`\n- `allow-stop-recording`\n- `allow-cancel-recording`\n- `allow-discard-recording`"
         }
       ]
     }

@@ -19,6 +19,31 @@
 }
 
 [data-chat-input-surface="floating"]
+  .chat-input-editor.chat-input-editor-two-actions.prosemirror-editor {
+  padding-right: 74px !important;
+}
+
+[data-chat-input-surface="floating"]
+  .chat-input-editor.chat-input-editor-voice-active.prosemirror-editor {
+  padding-right: 0 !important;
+}
+
+@keyframes chat-input-waveform {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.chat-input-waveform-bar {
+  animation: chat-input-waveform 700ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+[data-chat-input-surface="floating"]
   .chat-input-editor.prosemirror-editor::-webkit-scrollbar {
   width: 6px;
 }

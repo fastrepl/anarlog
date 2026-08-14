@@ -7,30 +7,44 @@ import {
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { clearContentMock, editorState, focusMock, shellState, toastError } =
-  vi.hoisted(() => ({
-    clearContentMock: vi.fn(),
-    editorState: {
-      json: undefined as unknown,
-      onUpdate: undefined as undefined | ((json: unknown) => void),
-      onSubmit: undefined as undefined | (() => void),
-      onHistoryNavigate: undefined as
-        | undefined
-        | ((direction: "prev" | "next") => boolean),
-      onAttachmentError: undefined as undefined | ((message: string) => void),
-      initialContent: undefined as unknown,
-      replacementSelections: [] as Array<"start" | "end">,
-      submitShortcut: undefined as undefined | "mod-enter" | "enter",
-    },
-    focusMock: vi.fn(() => true),
-    shellState: {
-      mode: "FloatingOpen" as
-        | "FloatingClosed"
-        | "FloatingOpen"
-        | "RightPanelOpen",
-    },
-    toastError: vi.fn(),
-  }));
+const {
+  clearContentMock,
+  dictationState,
+  editorState,
+  focusMock,
+  insertTextMock,
+  shellState,
+  toastError,
+} = vi.hoisted(() => ({
+  clearContentMock: vi.fn(),
+  dictationState: {
+    elapsedSeconds: 0,
+    phase: "idle" as "idle" | "starting" | "recording" | "transcribing",
+    start: vi.fn(),
+    stop: vi.fn(),
+  },
+  editorState: {
+    json: undefined as unknown,
+    onUpdate: undefined as undefined | ((json: unknown) => void),
+    onSubmit: undefined as undefined | (() => void),
+    onHistoryNavigate: undefined as
+      | undefined
+      | ((direction: "prev" | "next") => boolean),
+    onAttachmentError: undefined as undefined | ((message: string) => void),
+    initialContent: undefined as unknown,
+    replacementSelections: [] as Array<"start" | "end">,
+    submitShortcut: undefined as undefined | "mod-enter" | "enter",
+  },
+  focusMock: vi.fn(() => true),
+  insertTextMock: vi.fn(),
+  shellState: {
+    mode: "FloatingOpen" as
+      | "FloatingClosed"
+      | "FloatingOpen"
+      | "RightPanelOpen",
+  },
+  toastError: vi.fn(),
+}));
 
 vi.mock("@anlg/editor/chat", async () => {
   const React = await vi.importActual<typeof import("react")>("react");
@@ -41,6 +55,7 @@ vi.mock("@anlg/editor/chat", async () => {
         clearContent: () => void;
         focus: () => boolean;
         getJSON: () => unknown;
+        insertText: (text: string) => void;
         replaceContent: (content: unknown, selection?: "start" | "end") => void;
       },
       {
@@ -80,6 +95,7 @@ vi.mock("@anlg/editor/chat", async () => {
         clearContent: clearContentMock,
         focus: focusMock,
         getJSON: () => editorState.json,
+        insertText: insertTextMock,
         replaceContent: (
           content: unknown,
           selection: "start" | "end" = "end",
@@ -137,6 +153,10 @@ vi.mock("~/editor-bridge/mention-config", () => ({
   useMentionConfig: () => undefined,
 }));
 
+vi.mock("./use-dictation", () => ({
+  useDictation: () => dictationState,
+}));
+
 import { clearSentMessages } from "./history";
 import { ChatMessageInput } from "./index";
 
@@ -151,8 +171,13 @@ describe("ChatMessageInput", () => {
   beforeEach(() => {
     cleanup();
     clearContentMock.mockClear();
+    dictationState.elapsedSeconds = 0;
+    dictationState.phase = "idle";
+    dictationState.start.mockClear();
+    dictationState.stop.mockClear();
     focusMock.mockReset();
     focusMock.mockReturnValue(true);
+    insertTextMock.mockClear();
     clearSentMessages();
     editorState.json = { type: "doc", content: [] };
     editorState.onSubmit = undefined;
@@ -312,6 +337,58 @@ describe("ChatMessageInput", () => {
     expect(editorState.submitShortcut).toBe("enter");
   });
 
+  it("starts voice input from the empty floating composer", () => {
+    render(
+      <ChatMessageInput draftKey="chat-input-voice" onSendMessage={vi.fn()} />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Start voice input",
+      }),
+    );
+
+    expect(dictationState.start).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
+  });
+
+  it("shows recording duration and stops voice input", () => {
+    dictationState.phase = "recording";
+    dictationState.elapsedSeconds = 3;
+    render(
+      <ChatMessageInput draftKey="chat-input-voice" onSendMessage={vi.fn()} />,
+    );
+
+    expect(screen.getByText("0:03")).not.toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Stop voice input",
+      }),
+    );
+
+    expect(dictationState.stop).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the response stop control while voice input is active", () => {
+    dictationState.phase = "recording";
+    const onStop = vi.fn();
+    render(
+      <ChatMessageInput
+        draftKey="chat-input-voice"
+        isStreaming
+        onSendMessage={vi.fn()}
+        onStop={onStop}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Stop voice input" }),
+    ).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Stop response" }));
+
+    expect(onStop).toHaveBeenCalledOnce();
+  });
+
   it("retries focus until the editor view is ready", () => {
     const animationFrames: FrameRequestCallback[] = [];
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
@@ -380,6 +457,9 @@ describe("ChatMessageInput", () => {
     expect(messageInput?.className).not.toContain("items-end");
     expect(messageInput?.className).not.toContain("min-h-10");
     expect(screen.queryByRole("button", { name: /send/i })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Start voice input" }),
+    ).not.toBeNull();
     expect(surface?.getAttribute("data-chat-input-surface")).toBe("floating");
     expect(surface?.className).toContain("min-h-[38px]");
     expect(surface?.className).toContain("max-h-40");

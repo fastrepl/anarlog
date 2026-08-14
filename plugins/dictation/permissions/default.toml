@@ -5,4 +5,8 @@ permissions = [
   "allow-hide",
   "allow-set-phase",
   "allow-update-amplitude",
+  "allow-start-recording",
+  "allow-stop-recording",
+  "allow-cancel-recording",
+  "allow-discard-recording",
 ]

@@ -8,6 +8,10 @@ Default permissions for the plugin
 - `allow-hide`
 - `allow-set-phase`
 - `allow-update-amplitude`
+- `allow-start-recording`
+- `allow-stop-recording`
+- `allow-cancel-recording`
+- `allow-discard-recording`
 
 ## Permission Table
 
@@ -17,6 +21,58 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
+
+<tr>
+<td>
+
+`dictation:allow-cancel-recording`
+
+</td>
+<td>
+
+Enables the cancel_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-cancel-recording`
+
+</td>
+<td>
+
+Denies the cancel_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-discard-recording`
+
+</td>
+<td>
+
+Enables the discard_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-discard-recording`
+
+</td>
+<td>
+
+Denies the discard_recording command without any pre-configured scope.
+
+</td>
+</tr>
 
 <tr>
 <td>
@@ -92,6 +148,58 @@ Enables the show command without any pre-configured scope.
 <td>
 
 Denies the show command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-start-recording`
+
+</td>
+<td>
+
+Enables the start_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-start-recording`
+
+</td>
+<td>
+
+Denies the start_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:allow-stop-recording`
+
+</td>
+<td>
+
+Enables the stop_recording command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`dictation:deny-stop-recording`
+
+</td>
+<td>
+
+Denies the stop_recording command without any pre-configured scope.
 
 </td>
 </tr>

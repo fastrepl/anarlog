@@ -37,6 +37,38 @@ async updateAmplitude(amplitude: number) : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async startRecording(microphoneDevice: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|start_recording", { microphoneDevice }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopRecording() : Promise<Result<RecordedAudio, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|stop_recording") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelRecording() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|cancel_recording") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async discardRecording(filePath: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:dictation|discard_recording", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -51,6 +83,7 @@ async updateAmplitude(amplitude: number) : Promise<Result<null, string>> {
 /** user-defined types **/
 
 export type Phase = "recording" | "processing"
+export type RecordedAudio = { filePath: string; durationMs: number }
 
 /** tauri-specta globals **/
 
