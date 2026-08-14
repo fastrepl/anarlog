@@ -18,4 +18,6 @@ pub enum Error {
     VaultBaseIsSubdirectory,
     #[error("cannot move vault to a parent directory of the current location")]
     VaultBaseIsParent,
+    #[error("{0}")]
+    SecureStorage(String),
 }

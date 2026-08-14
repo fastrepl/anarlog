@@ -123,7 +123,7 @@ fn emit_status(command: &'static str, status: AuthStatus, json: bool) -> Result<
 fn login_url(scheme: &str) -> Result<Url> {
     let mut url = Url::parse(WEB_APP_URL)
         .map_err(|error| Error::operation("build login URL", error.to_string()))?;
-    url.set_path("/auth/");
+    url.set_path("/auth");
     url.query_pairs_mut()
         .append_pair("flow", "desktop")
         .append_pair("scheme", scheme);
@@ -448,7 +448,7 @@ mod tests {
     fn builds_headless_browser_login_url() {
         assert_eq!(
             login_url("anarlog").unwrap().as_str(),
-            "https://anarlog.so/auth/?flow=desktop&scheme=anarlog"
+            "https://anarlog.so/auth?flow=desktop&scheme=anarlog"
         );
     }
 

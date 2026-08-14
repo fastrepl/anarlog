@@ -16,6 +16,8 @@ const CLI_FALLBACK_FILENAME: &str = "auth.cli.json";
 pub(super) enum Backend {
     #[cfg(target_os = "linux")]
     SecretService,
+    #[cfg(target_os = "windows")]
+    WindowsDataProtection,
     File,
 }
 
@@ -24,6 +26,8 @@ impl Backend {
         match self {
             #[cfg(target_os = "linux")]
             Self::SecretService => "secret_service",
+            #[cfg(target_os = "windows")]
+            Self::WindowsDataProtection => "windows_data_protection",
             Self::File => "file",
         }
     }
@@ -38,6 +42,8 @@ pub(super) struct AuthStore {
     path: PathBuf,
     #[cfg(target_os = "linux")]
     use_secret_service: bool,
+    #[cfg(target_os = "windows")]
+    use_windows_data_protection: bool,
 }
 
 impl AuthStore {
@@ -72,10 +78,20 @@ impl AuthStore {
         } else {
             path
         };
+        #[cfg(target_os = "windows")]
+        let use_windows_data_protection = override_path.is_none();
+        #[cfg(target_os = "windows")]
+        let path = if use_windows_data_protection {
+            anlg_storage::windows_auth::secure_path(&path)
+        } else {
+            path
+        };
         Ok(Self {
             path,
             #[cfg(target_os = "linux")]
             use_secret_service,
+            #[cfg(target_os = "windows")]
+            use_windows_data_protection,
         })
     }
 
@@ -85,6 +101,8 @@ impl AuthStore {
             path,
             #[cfg(target_os = "linux")]
             use_secret_service: false,
+            #[cfg(target_os = "windows")]
+            use_windows_data_protection: false,
         }
     }
 
@@ -93,6 +111,25 @@ impl AuthStore {
     }
 
     pub(super) fn load(&self) -> Result<LoadedAuth> {
+        #[cfg(target_os = "windows")]
+        if self.use_windows_data_protection {
+            let data = match anlg_storage::windows_auth::load(&self.path) {
+                Ok(data) => data,
+                Err(anlg_storage::Error::Io(error))
+                    if error.kind() == std::io::ErrorKind::NotFound =>
+                {
+                    HashMap::new()
+                }
+                Err(error) => {
+                    return Err(Error::operation("read auth storage", error.to_string()));
+                }
+            };
+            return Ok(LoadedAuth {
+                data,
+                backend: Backend::WindowsDataProtection,
+            });
+        }
+
         #[cfg(target_os = "linux")]
         if self.use_secret_service {
             if let Some(data) = self.read_file()? {
@@ -130,6 +167,13 @@ impl AuthStore {
     }
 
     pub(super) fn save(&self, data: &HashMap<String, String>) -> Result<Backend> {
+        #[cfg(target_os = "windows")]
+        if self.use_windows_data_protection {
+            anlg_storage::windows_auth::persist(&self.path, data)
+                .map_err(|error| Error::operation("write auth storage", error.to_string()))?;
+            return Ok(Backend::WindowsDataProtection);
+        }
+
         #[cfg(target_os = "linux")]
         if self.use_secret_service && save_secret_service(data).is_ok() {
             self.remove_file()?;
@@ -141,6 +185,20 @@ impl AuthStore {
     }
 
     pub(super) fn remove_sessions(&self) -> Result<()> {
+        #[cfg(target_os = "windows")]
+        if self.use_windows_data_protection {
+            let mut loaded = self.load()?;
+            loaded.data.retain(|key, _| !key.ends_with("-auth-token"));
+            if loaded.data.is_empty() {
+                anlg_storage::windows_auth::clear(&self.path)
+                    .map_err(|error| Error::operation("clear auth storage", error.to_string()))?;
+            } else {
+                anlg_storage::windows_auth::persist(&self.path, &loaded.data)
+                    .map_err(|error| Error::operation("clear auth storage", error.to_string()))?;
+            }
+            return Ok(());
+        }
+
         #[cfg(target_os = "linux")]
         if self.use_secret_service {
             let mut loaded = self.load()?;
@@ -342,5 +400,30 @@ mod tests {
         let session = find_session(&data).unwrap().unwrap();
 
         assert_eq!(session.user.unwrap().id, "new");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_store_round_trips_desktop_dpapi_format() {
+        let dir = tempdir().unwrap();
+        let store = AuthStore {
+            path: dir.path().join("auth.dpapi"),
+            use_windows_data_protection: true,
+        };
+        let data = HashMap::from([(
+            "sb-project-auth-token".to_string(),
+            session_json("user-1", 100),
+        )]);
+
+        assert!(matches!(
+            store.save(&data).unwrap(),
+            Backend::WindowsDataProtection
+        ));
+        assert_eq!(store.load().unwrap().data, data);
+        assert!(
+            !std::fs::read_to_string(store.path())
+                .unwrap()
+                .contains("access_token")
+        );
     }
 }

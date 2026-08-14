@@ -2,7 +2,7 @@ mod commands;
 mod error;
 mod ext;
 mod migrate;
-#[cfg(any(target_os = "windows", test))]
+#[cfg(target_os = "windows")]
 mod windows;
 
 // Tauri unit tests bypass the application manifest while still importing

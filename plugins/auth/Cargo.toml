@@ -17,7 +17,6 @@ tempfile = { workspace = true }
 [dependencies]
 anlg-storage = { workspace = true }
 anlg-supabase-auth = { workspace = true, features = ["client"] }
-base64 = { workspace = true }
 tauri-plugin-settings = { workspace = true }
 tauri-plugin-store2 = { workspace = true }
 
@@ -31,6 +30,3 @@ strum = { workspace = true, features = ["derive"] }
 
 thiserror = { workspace = true }
 tracing = { workspace = true }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_Foundation", "Win32_Security_Cryptography"] }

@@ -159,7 +159,7 @@ fn cli_fallback_auth_path(auth_path: &Path) -> PathBuf {
 
 // A leftover auth.json is less harmful than refusing a session the secure store
 // already holds, so cleanup failures are reported rather than propagated.
-#[cfg(any(all(target_os = "linux", not(test)), target_os = "windows", test))]
+#[cfg(any(all(target_os = "linux", not(test)), target_os = "windows"))]
 pub(crate) fn discard_plaintext_auth(path: &Path) {
     if let Err(error) = remove_plaintext_auth(path) {
         tracing::warn!(
@@ -196,7 +196,9 @@ fn new_auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::io::Resul
 pub(crate) fn windows_secure_auth_path<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> std::io::Result<PathBuf> {
-    Ok(new_auth_path(app)?.with_file_name("auth.dpapi"))
+    Ok(anlg_storage::windows_auth::secure_path(&new_auth_path(
+        app,
+    )?))
 }
 
 fn legacy_auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> std::io::Result<PathBuf> {
