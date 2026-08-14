@@ -1,6 +1,6 @@
 use axum::{
     body::{Body, to_bytes},
-    http::{Request, StatusCode, header},
+    http::{Method, Request, StatusCode, header},
 };
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use serde_json::{Value, json};
@@ -78,6 +78,164 @@ async fn response_bytes(response: axum::response::Response) -> Vec<u8> {
         .await
         .unwrap()
         .to_vec()
+}
+
+fn deserialize_api_env(
+    additional_values: impl IntoIterator<Item = (&'static str, &'static str)>,
+) -> Env {
+    let mut values = vec![
+        ("SUPABASE_URL", "http://127.0.0.1:54321"),
+        ("SUPABASE_ANON_KEY", "anon-key"),
+        ("SUPABASE_SERVICE_ROLE_KEY", "service-role-key"),
+        ("OPENROUTER_API_KEY", "openrouter-key"),
+        ("API_BASE_URL", "http://127.0.0.1:3001"),
+        ("RESEND_API_KEY", "resend-key"),
+        ("RESEND_FROM_EMAIL", "test@example.com"),
+    ];
+    values.extend(additional_values);
+
+    envy::from_iter(
+        values
+            .into_iter()
+            .map(|(key, value)| (key.to_string(), value.to_string())),
+    )
+    .unwrap()
+}
+
+fn api_env(with_hosted_integrations: bool) -> &'static Env {
+    let mut integration_values = Vec::new();
+    if with_hosted_integrations {
+        integration_values.extend([
+            ("NANGO_API_KEY", "nango-key"),
+            ("NANGO_WEBHOOK_SIGNING_KEY", "nango-signing-key"),
+            ("STRIPE_SECRET_KEY", "sk_test_hosted"),
+            ("STRIPE_MONTHLY_PRICE_ID", "price_monthly"),
+            ("STRIPE_YEARLY_PRICE_ID", "price_yearly"),
+            ("LOOPS_KEY", "loops-key"),
+            ("PYANNOTE_API_KEY", "pyannote-key"),
+            ("EXA_API_KEY", "exa-key"),
+            ("JINA_API_KEY", "jina-key"),
+        ]);
+    }
+
+    let env = deserialize_api_env(integration_values);
+    crate::env::validate_env(&env).unwrap();
+    Box::leak(Box::new(env))
+}
+
+async fn request_status(app: &Router, method: Method, path: &str) -> StatusCode {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(path)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+        .status()
+}
+
+#[tokio::test]
+async fn boots_with_minimal_self_hosted_configuration() {
+    let app = app_with_env(api_env(false)).await;
+
+    assert_eq!(
+        request_status(&app, Method::GET, "/health").await,
+        StatusCode::OK
+    );
+    for (method, path) in [
+        (Method::POST, "/research/search"),
+        (Method::POST, "/pyannote/v1/diarize"),
+        (Method::POST, "/nango/session"),
+        (Method::POST, "/nango/webhook"),
+        (Method::POST, "/calendar/google/list-calendars"),
+        (Method::GET, "/subscription/can-start-trial"),
+    ] {
+        assert_eq!(
+            request_status(&app, method, path).await,
+            StatusCode::NOT_FOUND,
+            "optional route should not be mounted: {path}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn hosted_configuration_keeps_optional_routes_mounted() {
+    let app = app_with_env(api_env(true)).await;
+
+    for (method, path) in [
+        (Method::POST, "/research/search"),
+        (Method::POST, "/pyannote/v1/diarize"),
+        (Method::POST, "/nango/session"),
+        (Method::POST, "/calendar/google/list-calendars"),
+        (Method::GET, "/subscription/can-start-trial"),
+    ] {
+        assert_eq!(
+            request_status(&app, method, path).await,
+            StatusCode::UNAUTHORIZED,
+            "hosted route should remain mounted: {path}"
+        );
+    }
+    assert_ne!(
+        request_status(&app, Method::POST, "/nango/webhook").await,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[test]
+fn partial_optional_integration_configuration_fails_closed() {
+    for (values, expected) in [
+        (
+            vec![("NANGO_API_KEY", "nango-key")],
+            "NANGO_WEBHOOK_SIGNING_KEY is required when Nango is configured",
+        ),
+        (
+            vec![("NANGO_WEBHOOK_SIGNING_KEY", "nango-signing-key")],
+            "NANGO_API_KEY is required when Nango is configured",
+        ),
+        (
+            vec![("NANGO_API_BASE", "https://nango.example.com")],
+            "NANGO_API_KEY is required when Nango is configured",
+        ),
+        (
+            vec![("STRIPE_SECRET_KEY", "sk_test_partial")],
+            "STRIPE_MONTHLY_PRICE_ID is required when subscriptions are configured",
+        ),
+        (
+            vec![("STRIPE_MONTHLY_PRICE_ID", "price_monthly")],
+            "STRIPE_SECRET_KEY is required when subscriptions are configured",
+        ),
+        (
+            vec![("LOOPS_KEY", "loops-key")],
+            "Stripe configuration is required when subscriptions are configured",
+        ),
+        (
+            vec![
+                ("STRIPE_SECRET_KEY", "sk_test_partial"),
+                ("STRIPE_MONTHLY_PRICE_ID", "price_monthly"),
+                ("STRIPE_YEARLY_PRICE_ID", "price_yearly"),
+            ],
+            "LOOPS_KEY is required when subscriptions are configured",
+        ),
+        (
+            vec![("PYANNOTE_API_BASE", "https://pyannote.example.com")],
+            "PYANNOTE_API_KEY is required when pyannote is configured",
+        ),
+        (
+            vec![("EXA_API_KEY", "exa-key")],
+            "JINA_API_KEY is required when research is configured",
+        ),
+        (
+            vec![("JINA_API_KEY", "jina-key")],
+            "EXA_API_KEY is required when research is configured",
+        ),
+    ] {
+        let env = deserialize_api_env(values);
+
+        assert_eq!(crate::env::validate_env(&env), Err(expected.to_string()));
+    }
 }
 
 #[tokio::test]

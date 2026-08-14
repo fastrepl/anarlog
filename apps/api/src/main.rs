@@ -133,7 +133,10 @@ fn build_sync_routes(
 
 async fn app() -> Router {
     let env = env();
+    app_with_env(env).await
+}
 
+async fn app_with_env(env: &'static Env) -> Router {
     let analytics = build_analytics_client(env);
 
     let llm_config =
@@ -218,21 +221,32 @@ async fn app() -> Router {
     );
     let auth_state_basic = auth_state.clone();
 
-    let nango_config = anlg_api_nango::NangoConfig::new(
-        &env.nango,
-        &env.supabase,
-        Some(env.supabase.supabase_service_role_key.clone()),
-    );
-    let nango_connection_state = anlg_api_nango::NangoConnectionState::from_config(&nango_config);
-    let subscription_config =
-        anlg_api_subscription::SubscriptionConfig::new(&env.supabase, &env.stripe, &env.loops)
-            .with_analytics(analytics.clone())
-            .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled);
-    let research_config = anlg_api_research::ResearchConfig {
-        exa_api_key: env.exa_api_key.clone(),
-        jina_api_key: env.jina_api_key.clone(),
-    };
-    let pyannote_config = anlg_api_pyannote::PyannoteConfig::new(&env.pyannote);
+    let nango_config = env
+        .nango()
+        .expect("environment integrations were validated")
+        .map(|nango| {
+            anlg_api_nango::NangoConfig::new(
+                &nango,
+                &env.supabase,
+                Some(env.supabase.supabase_service_role_key.clone()),
+            )
+        });
+    let subscription_config = env
+        .subscription()
+        .expect("environment integrations were validated")
+        .map(|(stripe, loops)| {
+            anlg_api_subscription::SubscriptionConfig::new(&env.supabase, &stripe, &loops)
+                .with_analytics(analytics.clone())
+                .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled)
+        });
+    let research_config = env
+        .research()
+        .expect("environment integrations were validated");
+    let pyannote_config = env
+        .pyannote()
+        .expect("environment integrations were validated")
+        .as_ref()
+        .map(anlg_api_pyannote::PyannoteConfig::new);
     let sync_config = anlg_api_sync::SyncConfig::from_env(
         &env.sync,
         &env.supabase.supabase_url,
@@ -266,32 +280,43 @@ async fn app() -> Router {
 
     use anlg_api_nango::NangoIntegrationId;
 
-    let mut forward_handlers = anlg_api_nango::ForwardHandlerRegistry::new();
-    forward_handlers.insert(
-        anlg_api_nango::Linear::ID.to_string(),
-        anlg_api_nango::forward_handler(anlg_linear::webhook::handle),
+    let nango_webhook_routes = match nango_config.clone() {
+        Some(config) => {
+            let mut forward_handlers = anlg_api_nango::ForwardHandlerRegistry::new();
+            forward_handlers.insert(
+                anlg_api_nango::Linear::ID.to_string(),
+                anlg_api_nango::forward_handler(anlg_linear::webhook::handle),
+            );
+            Router::new().nest(
+                "/nango",
+                anlg_api_nango::webhook_router(config, forward_handlers),
+            )
+        }
+        None => Router::new(),
+    };
+
+    let webhook_routes = Router::new().merge(nango_webhook_routes).nest(
+        "/stt",
+        anlg_transcribe_proxy::callback_router(stt_config.clone()),
     );
 
-    let webhook_routes = Router::new()
-        .nest(
-            "/nango",
-            anlg_api_nango::webhook_router(nango_config.clone(), forward_handlers),
-        )
-        .nest(
-            "/stt",
-            anlg_transcribe_proxy::callback_router(stt_config.clone()),
-        );
-
-    let auth_state_integration = auth_state_paid.clone();
-
-    let paid_routes = Router::new()
-        .merge(anlg_api_research::router(research_config))
-        .nest("/pyannote", anlg_api_pyannote::router(pyannote_config))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state_paid,
-            auth::require_auth,
-        ));
+    let paid_routes = if research_config.is_none() && pyannote_config.is_none() {
+        Router::new()
+    } else {
+        let mut routes = Router::new();
+        if let Some(config) = research_config {
+            routes = routes.merge(anlg_api_research::router(config));
+        }
+        if let Some(config) = pyannote_config {
+            routes = routes.nest("/pyannote", anlg_api_pyannote::router(config));
+        }
+        routes
+            .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+            .route_layer(middleware::from_fn_with_state(
+                auth_state_paid.clone(),
+                auth::require_auth,
+            ))
+    };
 
     let sync_routes = match sync_config {
         Some(config) => build_sync_routes(
@@ -337,33 +362,36 @@ async fn app() -> Router {
             anlg_api_cloud::require_cloud_api_key,
         ));
 
-    let integration_routes = Router::new()
-        .nest("/calendar", anlg_api_calendar::router())
-        .nest("/mail", anlg_api_mail::router())
-        .nest("/messenger", anlg_api_messenger::router())
-        .nest("/notion", anlg_api_notion::router())
-        .nest("/ticket", anlg_api_ticket::router())
-        .nest(
-            "/nango",
-            anlg_api_nango::session_router(nango_config.clone()),
-        )
-        .layer(axum::Extension(nango_connection_state))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state_integration,
-            auth::require_auth,
-        ));
+    let integration_routes = match nango_config.clone() {
+        Some(config) => {
+            let nango_connection_state = anlg_api_nango::NangoConnectionState::from_config(&config);
+            Router::new()
+                .nest("/calendar", anlg_api_calendar::router())
+                .nest("/mail", anlg_api_mail::router())
+                .nest("/messenger", anlg_api_messenger::router())
+                .nest("/notion", anlg_api_notion::router())
+                .nest("/ticket", anlg_api_ticket::router())
+                .nest("/nango", anlg_api_nango::session_router(config))
+                .layer(axum::Extension(nango_connection_state))
+                .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+                .route_layer(middleware::from_fn_with_state(
+                    auth_state_paid,
+                    auth::require_auth,
+                ))
+        }
+        None => Router::new(),
+    };
 
-    let integration_management_routes = Router::new()
-        .nest(
-            "/nango",
-            anlg_api_nango::management_router(nango_config.clone()),
-        )
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state_basic.clone(),
-            auth::require_auth,
-        ));
+    let integration_management_routes = match nango_config {
+        Some(config) => Router::new()
+            .nest("/nango", anlg_api_nango::management_router(config))
+            .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+            .route_layer(middleware::from_fn_with_state(
+                auth_state_basic.clone(),
+                auth::require_auth,
+            )),
+        None => Router::new(),
+    };
 
     let stt_routes = Router::new()
         .merge(anlg_transcribe_proxy::listen_router(stt_config.clone()))
@@ -381,13 +409,20 @@ async fn app() -> Router {
             rate_limit::rate_limit,
         ));
 
-    let subscription_router = anlg_api_subscription::router(subscription_config);
+    let subscription_routes = match subscription_config {
+        Some(config) => {
+            let router = anlg_api_subscription::router(config);
+            Router::new()
+                .nest("/subscription", router.clone())
+                .nest("/rpc", router.clone())
+                .nest("/billing", router)
+        }
+        None => Router::new(),
+    };
     let auth_routes = Router::new()
         .merge(stt_routes)
         .merge(llm_routes)
-        .nest("/subscription", subscription_router.clone())
-        .nest("/rpc", subscription_router.clone())
-        .nest("/billing", subscription_router)
+        .merge(subscription_routes)
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
             auth_state_basic,
@@ -631,6 +666,10 @@ fn main() -> std::io::Result<()> {
             let app = app().await;
             let cancellation = CancellationToken::new();
             let worker_task = env.anarlog_attachment_backup_gc_enabled.then(|| {
+                let (stripe, loops) = env
+                    .subscription()
+                    .expect("environment integrations were validated")
+                    .expect("cleanup requires Stripe and Loops configuration");
                 let cloudsync_cleanup = anlg_api_subscription::CloudsyncCleanupConfig::new(
                     env.sync
                         .sqlitecloud_project_url
@@ -649,12 +688,9 @@ fn main() -> std::io::Result<()> {
                         .unwrap_or_default(),
                 )
                 .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
-                let config = anlg_api_subscription::SubscriptionConfig::new(
-                    &env.supabase,
-                    &env.stripe,
-                    &env.loops,
-                )
-                .with_cloudsync_cleanup(cloudsync_cleanup);
+                let config =
+                    anlg_api_subscription::SubscriptionConfig::new(&env.supabase, &stripe, &loops)
+                        .with_cloudsync_cleanup(cloudsync_cleanup);
                 let worker = anlg_api_subscription::CleanupWorker::new(&config);
                 let worker_cancellation = cancellation.clone();
                 tokio::spawn(worker.run(worker_cancellation))
