@@ -9,6 +9,7 @@ import {
 } from "./shared";
 
 type ToolPart = {
+  toolCallId: string;
   state: string;
   output?: unknown;
   // deno-lint-ignore no-explicit-any
@@ -36,6 +37,7 @@ type ToolConfig<TParsed> = {
     errorText: unknown;
     rawText: string | null;
     parsed: TParsed | null;
+    toolCallId: string;
   }) => ReactNode;
 };
 
@@ -66,6 +68,7 @@ export function defineTool<TParsed>(config: ToolConfig<TParsed>) {
             errorText: part.errorText,
             rawText,
             parsed,
+            toolCallId: part.toolCallId,
           })
         ) : (
           <ToolCardFooters

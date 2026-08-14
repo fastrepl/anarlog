@@ -8,7 +8,6 @@ import type { ToolDependencies } from "./types";
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { updateEnhancedNoteContent } from "~/session/queries";
-import { id } from "~/shared/utils";
 
 type SummaryCandidate = {
   enhancedNoteId: string;
@@ -54,11 +53,14 @@ export const buildEditSummaryTool = (
         .string()
         .describe("The complete replacement summary in markdown format"),
     }),
-    execute: async (params: {
-      sessionId?: string;
-      enhancedNoteId?: string;
-      content: string;
-    }) => {
+    execute: async (
+      params: {
+        sessionId?: string;
+        enhancedNoteId?: string;
+        content: string;
+      },
+      { toolCallId },
+    ) => {
       const activeSessionId = deps.getSessionId();
       const sessionId = params.sessionId ?? activeSessionId;
 
@@ -120,17 +122,16 @@ export const buildEditSummaryTool = (
       const currentContent =
         notes.find((note) => note.id === enhancedNoteId)?.markdown ?? "";
 
-      const requestId = id();
       const approved = await new Promise<boolean>((resolve) => {
         usePendingEditStore.getState().addEdit({
-          requestId,
+          requestId: toolCallId,
           sessionId,
           enhancedNoteId,
           currentContent,
           proposedContent: params.content,
           resolve,
         });
-        deps.openEditTab(requestId);
+        deps.openEditTab(toolCallId);
       });
 
       if (!approved) {

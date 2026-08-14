@@ -13,10 +13,6 @@ vi.mock("~/session/queries", () => ({
   updateEnhancedNoteContent: mocks.updateEnhancedNoteContent,
 }));
 
-vi.mock("~/shared/utils", () => ({
-  id: () => "request-1",
-}));
-
 import { buildEditSummaryTool } from "./edit-summary";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
@@ -57,7 +53,10 @@ describe("edit summary chat tool", () => {
     });
 
     await expect(
-      (editTool as any).execute({ content: "Updated summary" }),
+      (editTool as any).execute(
+        { content: "Updated summary" },
+        { toolCallId: "request-1", messages: [] },
+      ),
     ).resolves.toEqual({ status: "applied" });
 
     expect(openEditTab).toHaveBeenCalledWith("request-1");
@@ -76,10 +75,13 @@ describe("edit summary chat tool", () => {
     });
 
     await expect(
-      (editTool as any).execute({
-        enhancedNoteId: "summary-other",
-        content: "Updated summary",
-      }),
+      (editTool as any).execute(
+        {
+          enhancedNoteId: "summary-other",
+          content: "Updated summary",
+        },
+        { toolCallId: "request-1", messages: [] },
+      ),
     ).resolves.toEqual({
       status: "error",
       message: "That summary does not belong to the target session.",

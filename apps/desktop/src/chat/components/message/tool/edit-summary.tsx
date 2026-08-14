@@ -1,5 +1,7 @@
 import { Pencil } from "@phosphor-icons/react";
 
+import { Button } from "@anlg/ui/components/ui/button";
+
 import { defineTool } from "./define-tool";
 import {
   MarkdownPreview,
@@ -9,6 +11,8 @@ import {
 } from "./shared";
 
 import { parseMcpObjectOutput } from "~/chat/mcp/mcp-output-parser";
+import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
+import { useTabs } from "~/store/zustand/tabs";
 
 type EditSummaryOutput = {
   status?: string;
@@ -23,6 +27,45 @@ type EditSummaryOutput = {
 
 function parseEditSummaryOutput(output: unknown): EditSummaryOutput | null {
   return parseMcpObjectOutput<EditSummaryOutput>(output);
+}
+
+function EditSummaryActions({ toolCallId }: { toolCallId: string }) {
+  const editPending = usePendingEditStore((state) =>
+    state.edits.has(toolCallId),
+  );
+  const resolveEdit = usePendingEditStore((state) => state.resolveEdit);
+
+  if (!editPending) {
+    return null;
+  }
+
+  const resolve = (approved: boolean) => {
+    resolveEdit(toolCallId, approved);
+
+    const tabs = useTabs.getState();
+    const reviewTab = tabs.tabs.find(
+      (tab) => tab.type === "edit" && tab.requestId === toolCallId,
+    );
+    if (reviewTab) {
+      tabs.close(reviewTab);
+    }
+  };
+
+  return (
+    <div className="border-border/80 flex justify-end gap-2 border-t px-3.5 py-2.5">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => resolve(false)}
+      >
+        Decline
+      </Button>
+      <Button type="button" size="sm" onClick={() => resolve(true)}>
+        Apply to summary
+      </Button>
+    </div>
+  );
 }
 
 export const ToolEditSummary = defineTool({
@@ -42,22 +85,25 @@ export const ToolEditSummary = defineTool({
         <MarkdownPreview>{input.content}</MarkdownPreview>
       </ToolCardBody>
     ) : null,
-  renderFooter: ({ failed, errorText, parsed }) => (
-    <ToolCardFooters failed={failed} errorText={errorText} rawText={null}>
-      {parsed?.status === "error" ? (
-        <div className="space-y-2">
-          <ToolCardFooterError text={parsed.message ?? "Unknown error"} />
-          {parsed.candidates && parsed.candidates.length > 0 ? (
-            <div className="border-border bg-muted text-muted-foreground space-y-1 rounded-md border p-2 text-[12px]">
-              {parsed.candidates.map((candidate) => (
-                <div key={candidate.enhancedNoteId}>
-                  {candidate.title} ({candidate.enhancedNoteId})
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </ToolCardFooters>
+  renderFooter: ({ failed, errorText, parsed, toolCallId }) => (
+    <>
+      <ToolCardFooters failed={failed} errorText={errorText} rawText={null}>
+        {parsed?.status === "error" ? (
+          <div className="space-y-2">
+            <ToolCardFooterError text={parsed.message ?? "Unknown error"} />
+            {parsed.candidates && parsed.candidates.length > 0 ? (
+              <div className="border-border bg-muted text-muted-foreground space-y-1 rounded-md border p-2 text-[12px]">
+                {parsed.candidates.map((candidate) => (
+                  <div key={candidate.enhancedNoteId}>
+                    {candidate.title} ({candidate.enhancedNoteId})
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </ToolCardFooters>
+      <EditSummaryActions toolCallId={toolCallId} />
+    </>
   ),
 });
