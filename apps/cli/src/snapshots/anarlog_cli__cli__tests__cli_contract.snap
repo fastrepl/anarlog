@@ -1,9 +1,9 @@
 ---
 source: apps/cli/src/cli.rs
-expression: contract
+expression: canonicalize_json(contract)
 ---
 {
-  "about": "Query local Anarlog meeting data",
+  "about": "Access Anarlog from the command line",
   "global_options": [
     {
       "flags": "--base",
@@ -39,6 +39,60 @@ expression: contract
     }
   ],
   "subcommands": [
+    {
+      "about": "Sign in to an Anarlog account from a browser",
+      "name": "anarlog auth",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "is_flag": false,
+          "required": false
+        }
+      ],
+      "subcommands": [
+        {
+          "about": "Sign in through a browser on this or another device",
+          "name": "anarlog auth login",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog auth login [-h]"
+        },
+        {
+          "about": "Show the locally stored account session",
+          "name": "anarlog auth status",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog auth status [-h]"
+        },
+        {
+          "about": "Remove the locally stored account session",
+          "name": "anarlog auth logout",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog auth logout [-h]"
+        }
+      ],
+      "synopsis": "anarlog auth [-h] <command>"
+    },
     {
       "about": "Check the local CLI and database connection without changing data",
       "name": "anarlog doctor",

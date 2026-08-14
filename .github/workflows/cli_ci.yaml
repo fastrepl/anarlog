@@ -95,6 +95,7 @@ jobs:
       - run: |
           target/release/anarlog --help
           target/release/anarlog --version
+          target/release/anarlog auth --help
           target/release/anarlog meetings --help
           target/release/anarlog mcp --help
           if doctor_output="$(target/release/anarlog --json --db-path "$RUNNER_TEMP/missing.db" doctor)"; then
@@ -149,6 +150,7 @@ jobs:
       - run: |
           target/release/anarlog.exe --help
           target/release/anarlog.exe --version
+          target/release/anarlog.exe auth --help
           target/release/anarlog.exe meetings --help
           target/release/anarlog.exe mcp --help
           if doctor_output="$(target/release/anarlog.exe --json --db-path "$RUNNER_TEMP/missing.db" doctor)"; then

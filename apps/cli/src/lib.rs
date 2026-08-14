@@ -12,6 +12,11 @@ pub use error::{Error, Result};
 pub use output::JSON_SCHEMA_VERSION;
 
 pub async fn run(args: Args) -> Result<u8> {
+    if let cli::Command::Auth { command } = &args.command {
+        commands::auth::run(command, args.json).await?;
+        return Ok(0);
+    }
+
     if matches!(&args.command, cli::Command::Doctor) {
         let ready = commands::doctor::run(&args, args.json).await?;
         return Ok(if ready { 0 } else { 1 });
@@ -20,6 +25,7 @@ pub async fn run(args: Args) -> Result<u8> {
     let db = std::sync::Arc::new(db::open(&args).await?);
 
     match args.command {
+        cli::Command::Auth { .. } => unreachable!("auth returns before opening the database"),
         cli::Command::Doctor => unreachable!("doctor returns before opening the database"),
         cli::Command::Meetings { command } => {
             commands::meetings::run(db.as_ref(), command, args.json).await?

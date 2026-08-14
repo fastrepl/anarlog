@@ -319,6 +319,7 @@ libloading = "0.8"
 moka = { version = "0.12", features = ["future"] }
 open = "5"
 regex = "1.12"
+rpassword = "7.5.4"
 schemars = "1"
 self-replace = "1.5"
 serde = "1"
