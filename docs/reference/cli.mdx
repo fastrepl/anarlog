@@ -29,7 +29,7 @@ anarlog auth logout
 
 `auth login` prints a URL that can be opened in any browser, including one on another device. Sign in, choose **Copy URL** on the completion page, then paste the `anarlog://auth/callback` link into the hidden CLI prompt. The CLI verifies the session with Anarlog before saving it in the same local auth store as the desktop app.
 
-On Linux, the CLI uses Secret Service when it is available. Headless systems without Secret Service fall back to `auth.json` in Anarlog's local application-data directory with permissions limited to the current user. `auth logout` removes the local session; it does not delete the Anarlog account.
+On Linux, the CLI uses Secret Service when it is available. Headless systems without Secret Service fall back to `auth.cli.json` in Anarlog's local application-data directory with permissions limited to the current user. The desktop app reconciles that file into Secret Service when it becomes available. `auth logout` removes the local session; it does not delete the Anarlog account.
 
 `auth status` reports the signed-in account and whether the current access token has expired. The stored refresh token lets the desktop app refresh an expired access token when it starts.
 

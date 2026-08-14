@@ -6,6 +6,8 @@ use tauri::Manager;
 use crate::PLUGIN_NAME;
 
 const FILENAME: &str = "auth.json";
+#[cfg(any(target_os = "linux", test))]
+const CLI_FALLBACK_FILENAME: &str = "auth.cli.json";
 
 pub(crate) fn auth_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> crate::Result<PathBuf> {
     let new_auth_path = new_auth_path(app)?;
@@ -29,6 +31,7 @@ pub(crate) fn load_linux_auth<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> crate::Result<HashMap<String, String>> {
     let auth_path = auth_path(app)?;
+    let cli_fallback_path = cli_fallback_auth_path(&auth_path);
 
     // A locked or unavailable keyring must not abort plugin setup, otherwise the app
     // cannot start and the plaintext session can never be migrated. `Ok(None)` means
@@ -43,6 +46,23 @@ pub(crate) fn load_linux_auth<R: tauri::Runtime>(
             None
         }
     };
+
+    if cli_fallback_path.is_file() {
+        match read_auth_file(&cli_fallback_path) {
+            Ok(auth) => {
+                if keyring_readable {
+                    if let Err(error) = persist_linux_auth(app, &auth) {
+                        tracing::warn!(%error, "failed_to_reconcile_cli_auth_with_secret_service");
+                    }
+                }
+                return Ok(auth);
+            }
+            Err(error) => {
+                tracing::warn!(%error, "ignoring_unreadable_cli_auth_fallback");
+                discard_plaintext_auth(&cli_fallback_path);
+            }
+        }
+    }
 
     if let Some(data) = secure_data {
         match serde_json::from_str::<HashMap<String, String>>(&data) {
@@ -61,10 +81,7 @@ pub(crate) fn load_linux_auth<R: tauri::Runtime>(
         return Ok(HashMap::new());
     }
 
-    let auth = match std::fs::read_to_string(&auth_path)
-        .map_err(crate::Error::Io)
-        .and_then(|data| Ok(serde_json::from_str::<HashMap<String, String>>(&data)?))
-    {
+    let auth = match read_auth_file(&auth_path) {
         Ok(auth) => auth,
         Err(error) => {
             // Matches the keyring path: a corrupt or truncated auth.json costs the
@@ -109,9 +126,10 @@ pub(crate) fn persist_linux_auth<R: tauri::Runtime>(
 
 #[cfg(all(target_os = "linux", not(test)))]
 pub(crate) fn clear_linux_auth<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> crate::Result<()> {
-    drop_plaintext_auth_for(app);
     tauri_plugin_store2::delete_secret_blocking(app, AUTH_SCOPE, AUTH_KEY)
-        .map_err(crate::Error::Storage)
+        .map_err(crate::Error::Storage)?;
+    drop_plaintext_auth_for(app);
+    Ok(())
 }
 
 // The keyring is authoritative once it has been written or cleared, so a plaintext
@@ -120,9 +138,23 @@ pub(crate) fn clear_linux_auth<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> 
 #[cfg(all(target_os = "linux", not(test)))]
 fn drop_plaintext_auth_for<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     match auth_path(app) {
-        Ok(path) => discard_plaintext_auth(&path),
+        Ok(path) => {
+            discard_plaintext_auth(&path);
+            discard_plaintext_auth(&cli_fallback_auth_path(&path));
+        }
         Err(error) => tracing::warn!(%error, "failed_to_resolve_auth_path"),
     }
+}
+
+#[cfg(all(target_os = "linux", not(test)))]
+fn read_auth_file(path: &Path) -> crate::Result<HashMap<String, String>> {
+    let data = std::fs::read_to_string(path).map_err(crate::Error::Io)?;
+    Ok(serde_json::from_str(&data)?)
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn cli_fallback_auth_path(auth_path: &Path) -> PathBuf {
+    auth_path.with_file_name(CLI_FALLBACK_FILENAME)
 }
 
 // A leftover auth.json is less harmful than refusing a session the secure store
@@ -517,6 +549,16 @@ mod test {
 
         assert!(!auth_path.exists());
         assert_eq!(std::fs::read(&surviving_link).unwrap(), b"");
+    }
+
+    #[test]
+    fn cli_fallback_is_distinct_from_legacy_plaintext_auth() {
+        let auth_path = Path::new("/data/com.hyprnote.stable/auth.json");
+
+        assert_eq!(
+            cli_fallback_auth_path(auth_path),
+            Path::new("/data/com.hyprnote.stable/auth.cli.json")
+        );
     }
 
     #[test]

@@ -9,6 +9,8 @@ use crate::{Error, Result};
 const SECRET_SERVICE: &str = "com.anarlog.stable.secure-store";
 #[cfg(target_os = "linux")]
 const SECRET_ACCOUNT: &str = "auth:supabase-storage";
+#[cfg(target_os = "linux")]
+const CLI_FALLBACK_FILENAME: &str = "auth.cli.json";
 
 #[derive(Clone, Copy)]
 pub(super) enum Backend {
@@ -62,10 +64,18 @@ impl AuthStore {
                 .join(bundle_id)
                 .join("auth.json"),
         };
+        #[cfg(target_os = "linux")]
+        let use_secret_service = override_path.is_none() && bundle_id == "com.hyprnote.stable";
+        #[cfg(target_os = "linux")]
+        let path = if use_secret_service {
+            path.with_file_name(CLI_FALLBACK_FILENAME)
+        } else {
+            path
+        };
         Ok(Self {
             path,
             #[cfg(target_os = "linux")]
-            use_secret_service: override_path.is_none() && bundle_id == "com.hyprnote.stable",
+            use_secret_service,
         })
     }
 
@@ -85,6 +95,20 @@ impl AuthStore {
     pub(super) fn load(&self) -> Result<LoadedAuth> {
         #[cfg(target_os = "linux")]
         if self.use_secret_service {
+            if let Some(data) = self.read_file()? {
+                if save_secret_service(&data).is_ok() {
+                    self.remove_file()?;
+                    return Ok(LoadedAuth {
+                        data,
+                        backend: Backend::SecretService,
+                    });
+                }
+                return Ok(LoadedAuth {
+                    data,
+                    backend: Backend::File,
+                });
+            }
+
             match load_secret_service() {
                 Ok(Some(data)) => {
                     return Ok(LoadedAuth {
@@ -119,17 +143,22 @@ impl AuthStore {
     pub(super) fn remove_sessions(&self) -> Result<()> {
         #[cfg(target_os = "linux")]
         if self.use_secret_service {
-            match load_secret_service() {
-                Ok(Some(mut data)) => {
-                    data.retain(|key, _| !key.ends_with("-auth-token"));
-                    save_secret_service(&data)
+            let mut loaded = self.load()?;
+            loaded.data.retain(|key, _| !key.ends_with("-auth-token"));
+            match loaded.backend {
+                Backend::SecretService => {
+                    save_secret_service(&loaded.data)
                         .map_err(|reason| Error::operation("clear auth storage", reason))?;
+                    self.remove_file()?;
                 }
-                Ok(None) | Err(SecretReadError::Unavailable) => {}
-                Err(SecretReadError::Invalid(reason)) => {
-                    return Err(Error::operation("read auth storage", reason));
+                Backend::File => {
+                    // An empty file is an intentional tombstone. It prevents a session
+                    // hidden by an unavailable keyring from returning when the desktop
+                    // app can read Secret Service again.
+                    self.write_file(&loaded.data)?;
                 }
             }
+            return Ok(());
         }
 
         if let Some(mut data) = self.read_file()? {
