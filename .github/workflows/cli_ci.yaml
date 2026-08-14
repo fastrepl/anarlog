@@ -108,6 +108,25 @@ jobs:
             exit 1
           fi
           grep -q '"code": "invalid_arguments"' <<<"$invalid_output"
+          auth_path="$RUNNER_TEMP/anarlog-auth-smoke.json"
+          auth_status="$(ANARLOG_AUTH_PATH="$auth_path" target/release/anarlog --json auth status)"
+          grep -q '"command": "auth.status"' <<<"$auth_status"
+          grep -q '"signed_in": false' <<<"$auth_status"
+          auth_logout="$(ANARLOG_AUTH_PATH="$auth_path" target/release/anarlog --json auth logout)"
+          grep -q '"command": "auth.logout"' <<<"$auth_logout"
+          grep -q '"signed_in": false' <<<"$auth_logout"
+          if auth_error="$(printf '%s\n' 'anarlog://auth/callback?access_token=cli-auth-secret-sentinel' | ANARLOG_AUTH_PATH="$auth_path" target/release/anarlog --json auth login 2>&1)"; then
+            echo "incomplete auth callback unexpectedly succeeded"
+            exit 1
+          fi
+          grep -q '"code": "operation_failed"' <<<"$auth_error"
+          ! grep -q 'cli-auth-secret-sentinel' <<<"$auth_error"
+          headless_auth_root="$RUNNER_TEMP/anarlog-auth-headless"
+          headless_logout="$(env -u DBUS_SESSION_BUS_ADDRESS XDG_DATA_HOME="$headless_auth_root" target/release/anarlog --json auth logout)"
+          grep -q '"command": "auth.logout"' <<<"$headless_logout"
+          headless_fallback="$headless_auth_root/com.hyprnote.stable/auth.cli.json"
+          test "$(cat "$headless_fallback")" = '{}'
+          test "$(stat -c '%a' "$headless_fallback")" = '600'
       - run: |
           test -s skills/anarlog/SKILL.md
           test "$(sed -n '1p' skills/anarlog/SKILL.md)" = "---"
@@ -163,4 +182,17 @@ jobs:
             exit 1
           fi
           grep -q '"code": "invalid_arguments"' <<<"$invalid_output"
+          auth_path="$RUNNER_TEMP/anarlog-auth-smoke.json"
+          auth_status="$(ANARLOG_AUTH_PATH="$auth_path" target/release/anarlog.exe --json auth status)"
+          grep -q '"command": "auth.status"' <<<"$auth_status"
+          grep -q '"signed_in": false' <<<"$auth_status"
+          auth_logout="$(ANARLOG_AUTH_PATH="$auth_path" target/release/anarlog.exe --json auth logout)"
+          grep -q '"command": "auth.logout"' <<<"$auth_logout"
+          grep -q '"signed_in": false' <<<"$auth_logout"
+          if auth_error="$(printf '%s\n' 'anarlog://auth/callback?access_token=cli-auth-secret-sentinel' | ANARLOG_AUTH_PATH="$auth_path" target/release/anarlog.exe --json auth login 2>&1)"; then
+            echo "incomplete auth callback unexpectedly succeeded"
+            exit 1
+          fi
+          grep -q '"code": "operation_failed"' <<<"$auth_error"
+          ! grep -q 'cli-auth-secret-sentinel' <<<"$auth_error"
         shell: bash
