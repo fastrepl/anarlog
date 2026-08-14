@@ -81,7 +81,6 @@ jobs:
           netlify deploy \
             --prod \
             --no-build \
-            --context production \
             --site "$NETLIFY_SITE_ID" \
             --filter @anlg/web \
             --message "web v${{ needs.compute-version.outputs.version }} ($GITHUB_SHA)"
