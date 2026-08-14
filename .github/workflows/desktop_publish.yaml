@@ -749,7 +749,7 @@ jobs:
           gpg --batch --verify "$release_dir/Release.gpg" "$release_dir/Release"
       - name: Open the Linux package bump pull request
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.YUJONGLEE_GITHUB_TOKEN_REPO }}
           VERSION: ${{ needs.parse.outputs.version }}
         run: |
           if git diff --quiet -- packaging/aur/anarlog-bin apps/web/public/apt; then
