@@ -36,6 +36,8 @@ impl Backend {
 pub(super) struct LoadedAuth {
     pub(super) data: HashMap<String, String>,
     pub(super) backend: Backend,
+    #[cfg(any(target_os = "linux", test))]
+    source_is_authoritative: bool,
 }
 
 pub(super) struct AuthStore {
@@ -127,6 +129,8 @@ impl AuthStore {
             return Ok(LoadedAuth {
                 data,
                 backend: Backend::WindowsDataProtection,
+                #[cfg(any(target_os = "linux", test))]
+                source_is_authoritative: true,
             });
         }
 
@@ -138,36 +142,47 @@ impl AuthStore {
                     return Ok(LoadedAuth {
                         data,
                         backend: Backend::SecretService,
+                        #[cfg(any(target_os = "linux", test))]
+                        source_is_authoritative: true,
                     });
                 }
                 return Ok(LoadedAuth {
                     data,
                     backend: Backend::File,
+                    #[cfg(any(target_os = "linux", test))]
+                    source_is_authoritative: true,
                 });
             }
 
-            match load_secret_service() {
+            let source_is_authoritative = match load_secret_service() {
                 Ok(Some(data)) => {
                     return Ok(LoadedAuth {
                         data,
                         backend: Backend::SecretService,
+                        #[cfg(any(target_os = "linux", test))]
+                        source_is_authoritative: true,
                     });
                 }
-                Ok(None) | Err(SecretReadError::Unavailable) => {}
+                Ok(None) => true,
+                Err(SecretReadError::Unavailable) => false,
                 Err(SecretReadError::Invalid(reason)) => {
                     return Err(Error::operation("read auth storage", reason));
                 }
-            }
+            };
 
             return Ok(LoadedAuth {
                 data: HashMap::new(),
                 backend: Backend::File,
+                #[cfg(any(target_os = "linux", test))]
+                source_is_authoritative,
             });
         }
 
         Ok(LoadedAuth {
             data: self.read_file()?.unwrap_or_default(),
             backend: Backend::File,
+            #[cfg(any(target_os = "linux", test))]
+            source_is_authoritative: true,
         })
     }
 
@@ -215,10 +230,7 @@ impl AuthStore {
 
         #[cfg(target_os = "linux")]
         if self.use_secret_service {
-            let mut loaded = self.load()?;
-            loaded.data.retain(|key, _| !key.ends_with("-auth-token"));
-            self.save(&loaded.data)?;
-            return Ok(());
+            return self.remove_loaded_sessions(self.load()?);
         }
 
         if let Some(mut data) = self.read_file()? {
@@ -229,6 +241,16 @@ impl AuthStore {
                 self.write_file(&data)?;
             }
         }
+        Ok(())
+    }
+
+    #[cfg(any(target_os = "linux", test))]
+    fn remove_loaded_sessions(&self, mut loaded: LoadedAuth) -> Result<()> {
+        if !loaded.source_is_authoritative {
+            return Ok(());
+        }
+        loaded.data.retain(|key, _| !key.ends_with("-auth-token"));
+        self.save(&loaded.data)?;
         Ok(())
     }
 
@@ -429,6 +451,21 @@ mod tests {
 
         assert!(store.stage_fallback(&new_data).unwrap());
         assert_eq!(store.read_file().unwrap(), Some(new_data));
+    }
+
+    #[test]
+    fn logout_without_authoritative_state_does_not_create_fallback() {
+        let dir = tempdir().unwrap();
+        let store = AuthStore::at(dir.path().join("auth.cli.json"));
+        let loaded = LoadedAuth {
+            data: HashMap::new(),
+            backend: Backend::File,
+            source_is_authoritative: false,
+        };
+
+        store.remove_loaded_sessions(loaded).unwrap();
+
+        assert!(!store.path().exists());
     }
 
     #[test]

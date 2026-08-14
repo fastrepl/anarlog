@@ -125,8 +125,7 @@ jobs:
           headless_logout="$(env -u DBUS_SESSION_BUS_ADDRESS XDG_DATA_HOME="$headless_auth_root" target/release/anarlog --json auth logout)"
           grep -q '"command": "auth.logout"' <<<"$headless_logout"
           headless_fallback="$headless_auth_root/com.hyprnote.stable/auth.cli.json"
-          test "$(cat "$headless_fallback")" = '{}'
-          test "$(stat -c '%a' "$headless_fallback")" = '600'
+          test ! -e "$headless_fallback"
       - run: |
           test -s skills/anarlog/SKILL.md
           test "$(sed -n '1p' skills/anarlog/SKILL.md)" = "---"
