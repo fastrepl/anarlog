@@ -101,9 +101,9 @@ describe("CloudsyncKeychainRepairToast", () => {
     await vi.waitFor(() =>
       expect(mocks.applyCloudsyncPreference).toHaveBeenCalledWith(
         mocks.session,
-        mocks.signOut,
       ),
     );
+    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(mocks.setCredentialBlock).toHaveBeenCalledWith(null);
   });
 
