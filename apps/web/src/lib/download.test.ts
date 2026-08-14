@@ -33,6 +33,7 @@ test("offers macOS, Windows, and Linux downloads", () => {
       new URL(download.url).pathname.split("/").at(-1),
     ),
     [
+      "desktop-installation",
       "appimage-x86_64",
       "debian-x86_64",
       "appimage-aarch64",

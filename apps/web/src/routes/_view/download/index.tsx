@@ -78,8 +78,6 @@ function Component() {
                         <span className="font-medium">{download.name}</span>
                         <a
                           href={download.url}
-                          // Entries with an actionLabel link out to a package
-                          // registry rather than starting a download.
                           {...("actionLabel" in download
                             ? {
                                 target: "_blank",

@@ -57,8 +57,15 @@ export const desktopDownloadSections = [
     name: "Linux",
     status: "Beta",
     description:
-      "AppImage and Debian packages for x64 and ARM64, plus a PKGBUILD for Arch.",
+      "APT, AppImage, and Debian packages for x64 and ARM64, plus a PKGBUILD for Arch.",
     downloads: [
+      {
+        name: "APT repository",
+        detail: "Debian or Ubuntu · Automatic updates",
+        url: "https://docs.anarlog.so/desktop-installation#apt-repository",
+        actionLabel: "Install with APT",
+        showInMenu: false,
+      },
       {
         name: "AppImage x64",
         detail: "Intel or AMD 64-bit · AppImage",

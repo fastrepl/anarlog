@@ -674,7 +674,7 @@ jobs:
           makeLatest: true
           replacesArtifacts: true
 
-  aur-bump:
+  linux-package-bump:
     needs: [parse, gh-release]
     if: ${{ !cancelled() && needs.parse.outputs.include_linux == 'true' && needs.gh-release.result == 'success' }}
     runs-on: ubuntu-latest
@@ -689,23 +689,81 @@ jobs:
         env:
           VERSION: ${{ needs.parse.outputs.version }}
         run: node scripts/update-aur-pkgbuild.mjs --version "$VERSION"
-      - name: Open the version bump pull request
+      - id: linux-release
+        name: Download published Debian packages
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.parse.outputs.version }}
         run: |
-          if git diff --quiet -- packaging/aur/anarlog-bin; then
-            echo "anarlog-bin already tracks $VERSION"
+          mkdir -p "$RUNNER_TEMP/apt-packages"
+          gh release download "desktop_v$VERSION" \
+            --pattern "anarlog-linux-*.deb" \
+            --dir "$RUNNER_TEMP/apt-packages"
+          published_at=$(gh release view "desktop_v$VERSION" \
+            --json publishedAt \
+            --jq .publishedAt)
+          echo "published_at=$published_at" >> "$GITHUB_OUTPUT"
+      - name: Build and sign the APT repository
+        env:
+          APT_REPOSITORY_GPG_FINGERPRINT: ${{ vars.APT_REPOSITORY_GPG_FINGERPRINT }}
+          APT_REPOSITORY_GPG_PRIVATE_KEY: ${{ secrets.APT_REPOSITORY_GPG_PRIVATE_KEY }}
+          PUBLISHED_AT: ${{ steps.linux-release.outputs.published_at }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          if [[ -z "$APT_REPOSITORY_GPG_PRIVATE_KEY" || -z "$APT_REPOSITORY_GPG_FINGERPRINT" ]]; then
+            echo "::error::APT repository signing configuration is missing"
+            exit 1
+          fi
+
+          export GNUPGHOME="$RUNNER_TEMP/apt-gnupg"
+          mkdir -m 700 "$GNUPGHOME"
+          printf '%s' "$APT_REPOSITORY_GPG_PRIVATE_KEY" | gpg --batch --import
+          if ! gpg --batch --list-secret-keys "$APT_REPOSITORY_GPG_FINGERPRINT" > /dev/null; then
+            echo "::error::Imported APT signing key does not match $APT_REPOSITORY_GPG_FINGERPRINT"
+            exit 1
+          fi
+          public_fingerprint=$(gpg --batch --with-colons --show-keys \
+            apps/web/public/apt/anarlog-archive-keyring.asc \
+            | awk -F: '$1 == "fpr" { print $10; exit }')
+          if [[ "$public_fingerprint" != "$APT_REPOSITORY_GPG_FINGERPRINT" ]]; then
+            echo "::error::Published APT key $public_fingerprint does not match $APT_REPOSITORY_GPG_FINGERPRINT"
+            exit 1
+          fi
+
+          node scripts/update-apt-repository.mjs \
+            --version "$VERSION" \
+            --amd64 "$RUNNER_TEMP/apt-packages/anarlog-linux-x86_64.deb" \
+            --arm64 "$RUNNER_TEMP/apt-packages/anarlog-linux-aarch64.deb" \
+            --date "$PUBLISHED_AT"
+
+          release_dir="apps/web/public/apt/dists/stable"
+          gpg --batch --yes --armor \
+            --local-user "$APT_REPOSITORY_GPG_FINGERPRINT" \
+            --output "$release_dir/InRelease" \
+            --clearsign "$release_dir/Release"
+          gpg --batch --yes --armor --detach-sign \
+            --local-user "$APT_REPOSITORY_GPG_FINGERPRINT" \
+            --output "$release_dir/Release.gpg" \
+            "$release_dir/Release"
+          gpg --batch --verify "$release_dir/InRelease"
+          gpg --batch --verify "$release_dir/Release.gpg" "$release_dir/Release"
+      - name: Open the Linux package bump pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          if git diff --quiet -- packaging/aur/anarlog-bin apps/web/public/apt; then
+            echo "Linux package metadata already tracks $VERSION"
             exit 0
           fi
 
-          BRANCH="chore/aur-bump-$VERSION"
+          BRANCH="chore/linux-packages-$VERSION"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add packaging/aur/anarlog-bin
-          git commit -m "chore(packaging): bump anarlog-bin to $VERSION" \
-            -m "Point the Arch PKGBUILD at the desktop_v$VERSION release assets and refresh the deb checksums."
+          git add packaging/aur/anarlog-bin apps/web/public/apt
+          git commit -m "chore(packaging): publish Linux packages for $VERSION" \
+            -m "Refresh the AUR package and signed APT repository metadata for the desktop_v$VERSION release."
           git push --force origin "$BRANCH"
 
           if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
@@ -716,5 +774,5 @@ jobs:
           gh pr create \
             --base main \
             --head "$BRANCH" \
-            --title "chore(packaging): bump anarlog-bin to $VERSION" \
-            --body "Automated bump from the desktop_v$VERSION publish run. Updates \`pkgver\` and the deb checksums in \`packaging/aur/anarlog-bin\` so Arch users build the current release."
+            --title "chore(packaging): publish Linux packages for $VERSION" \
+            --body "Automated follow-up from the desktop_v$VERSION publish run. Refreshes the AUR package and signed APT repository metadata for the current Linux release."

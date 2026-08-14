@@ -26,6 +26,32 @@ remote_images = [
   "https://ijoptyyjrfqwaqhyxkxj\\.supabase\\.co/.*",
 ]
 
+# Keep APT metadata on anarlog.so while immutable package binaries stay on the
+# matching GitHub release. The release segment is preserved end-to-end.
+[[redirects]]
+from = "/apt/pool/:release/amd64/anarlog.deb"
+to = "https://github.com/fastrepl/anarlog/releases/download/:release/anarlog-linux-x86_64.deb"
+status = 302
+force = true
+
+[[redirects]]
+from = "/apt/pool/:release/arm64/anarlog.deb"
+to = "https://github.com/fastrepl/anarlog/releases/download/:release/anarlog-linux-aarch64.deb"
+status = 302
+force = true
+
+[[headers]]
+for = "/apt/dists/*"
+[headers.values]
+Cache-Control = "public, max-age=300, must-revalidate"
+X-Content-Type-Options = "nosniff"
+
+[[headers]]
+for = "/apt/anarlog-archive-keyring.asc"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+X-Content-Type-Options = "nosniff"
+
 # Anarlog documentation and agent discovery
 [[redirects]]
 from = "/skill"

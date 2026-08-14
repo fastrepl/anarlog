@@ -33,11 +33,39 @@ On a Mac, open **Apple menu → About This Mac** if you do not know whether it u
 
 ## Linux
 
-For Debian or Ubuntu, install the downloaded package:
+### APT repository
+
+On Debian, Ubuntu, or a compatible distribution, add Anarlog's signed repository to get updates through APT:
+
+```bash
+sudo install -d -m 0755 /etc/apt/keyrings
+curl -fsSL https://anarlog.so/apt/anarlog-archive-keyring.asc \
+  | sudo tee /etc/apt/keyrings/anarlog.asc > /dev/null
+sudo chmod a+r /etc/apt/keyrings/anarlog.asc
+
+sudo tee /etc/apt/sources.list.d/anarlog.sources > /dev/null <<'EOF'
+Types: deb
+URIs: https://anarlog.so/apt
+Suites: stable
+Components: main
+Signed-By: /etc/apt/keyrings/anarlog.asc
+EOF
+
+sudo apt update
+sudo apt install anarlog
+```
+
+APT verifies the repository metadata with the dedicated Anarlog archive key. New stable releases become available through the normal `apt upgrade` flow.
+
+### Downloaded DEB
+
+To install a downloaded package directly:
 
 ```bash
 sudo apt install ./anarlog-*.deb
 ```
+
+### AppImage
 
 For an AppImage, make it executable and open it:
 
