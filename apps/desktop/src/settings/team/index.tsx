@@ -93,7 +93,11 @@ export function SettingsTeam() {
     );
   }
 
-  if (!billing.isPro) {
+  if (
+    !billing.isPro &&
+    !workspaces.isPending &&
+    (!workspaces.data || workspaces.data.length === 0)
+  ) {
     return (
       <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Team</Trans>} />
@@ -161,6 +165,8 @@ export function SettingsTeam() {
               key={activeId}
               workspaceId={activeId}
               workspaceName={activeWorkspace?.name ?? ""}
+              workspaceRole={activeWorkspace?.role ?? "member"}
+              hasProAccess={billing.isPro}
               onWorkspaceRenamed={() => {
                 void queryClient.invalidateQueries({
                   queryKey: [MY_WORKSPACES_QUERY_KEY],
@@ -243,11 +249,15 @@ function CreateWorkspaceCard({
 function WorkspacePanel({
   workspaceId,
   workspaceName,
+  workspaceRole,
+  hasProAccess,
   onWorkspaceRenamed,
   onWorkspaceLeft,
 }: {
   workspaceId: string;
   workspaceName: string;
+  workspaceRole: WorkspaceRole;
+  hasProAccess: boolean;
   // Renaming keeps the panel where it is; leaving or deleting must drop the
   // selection because the workspace is gone.
   onWorkspaceRenamed: () => void;
@@ -337,10 +347,9 @@ function WorkspacePanel({
   });
 
   const viewerId = auth.session?.user.id;
-  const viewerRole = members.data?.find(
-    (member) => member.userId === viewerId,
-  )?.role;
-  const canManage = viewerRole === "owner" || viewerRole === "admin";
+  const viewerRole = workspaceRole;
+  const canManage =
+    hasProAccess && (viewerRole === "owner" || viewerRole === "admin");
   const trimmedEmail = email.trim();
   const actionError =
     invite.error?.message ??
@@ -433,7 +442,7 @@ function WorkspacePanel({
               key={member.userId}
               member={member}
               isViewer={member.userId === viewerId}
-              viewerRole={viewerRole}
+              viewerRole={canManage ? viewerRole : undefined}
               onRoleChange={(role) =>
                 changeRole.mutate({ userId: member.userId, role })
               }

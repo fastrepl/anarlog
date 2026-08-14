@@ -284,7 +284,7 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
   });
 
-  it.each(["Team", "Automations", "Dictionary", "Sync"])(
+  it.each(["Automations", "Dictionary", "Sync"])(
     "does not open locked %s navigation",
     (label) => {
       mocks.isPro = false;
@@ -297,6 +297,19 @@ describe("SettingsNav", () => {
       expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
     },
   );
+
+  it("opens Team navigation for non-Pro members", () => {
+    mocks.isPro = false;
+
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Team" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "team" },
+    );
+  });
 
   it("opens Imports inside settings", () => {
     render(<SettingsNav />);

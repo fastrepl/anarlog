@@ -94,4 +94,24 @@ describe("SettingsTeam", () => {
     expect(screen.getByRole("textbox")).toBeTruthy();
     expect(screen.queryByText("Anarlog Pro required")).toBeNull();
   });
+
+  it("keeps existing workspaces accessible without Pro", () => {
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Existing workspace",
+        ownerUserId: "user-1",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    expect(screen.getByText("Existing workspace")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Delete workspace" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Anarlog Pro required")).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
 });

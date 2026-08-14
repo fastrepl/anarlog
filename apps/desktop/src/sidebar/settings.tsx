@@ -87,7 +87,6 @@ export function SettingsNav() {
                 id: "team" as const,
                 label: t`Team`,
                 icon: UsersThree,
-                requiresPro: true,
               },
             ]
           : []),
