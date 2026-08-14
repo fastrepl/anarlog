@@ -42,4 +42,4 @@ Either way, it's yours.
 
 ---
 
-**License:** MIT · **Maintainers:** [fastrepl](https://github.com/fastrepl)
+**License:** [MIT](LICENSE) · [Product boundary](LICENSING.md) · **Maintainers:** [fastrepl](https://github.com/fastrepl)
