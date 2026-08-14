@@ -1,5 +1,5 @@
 ---
-date: "2026-08-01"
+date: "2026-08-14"
 title: "Privacy Policy"
 summary: "What we collect, what stays on your device, and the choices you have."
 ---
@@ -44,7 +44,9 @@ If you connect Google Calendar or Microsoft Outlook Calendar, we use the Google 
 - **Event information:** Event IDs, titles, descriptions, locations, meeting links, start and end times, time zones, recurrence metadata, organizer details, and attendee details such as names, email addresses, and RSVP status
 - **Connection information:** Provider connection IDs, connection status, and the Google or Microsoft account identity associated with the connection
 
-We use connected calendar data to display calendars and upcoming events and to support the personal notes and memos you create for those events. Calendar API responses pass through Nango's encrypted API proxy before reaching Anarlog. We do not use connected calendar data for advertising, marketing personalization, sale to data brokers, or training generalized AI models. The use of information received from Google Workspace APIs adheres to the [Google Workspace API User Data and Developer Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy), including the Limited Use requirements.
+We use connected calendar data to display calendars and upcoming events and to support the personal notes and memos you create for those events. Contact enhancement from event details is performed locally on your device. If you deliberately use AI on an event-linked note, the note context needed for that request — such as the event title and participant names — may be processed by the language model you selected. Local models keep that processing on your device. For a cloud model, the context goes through our AI gateway or directly to the provider when you use your own API key, as described in Sections 4 and 8.2.
+
+Calendar API responses pass through Nango's encrypted API proxy before reaching Anarlog. We do not use connected calendar data for advertising, marketing personalization, sale to data brokers, or training generalized AI models. The use of information received from Google Workspace APIs adheres to the [Google Workspace API User Data and Developer Policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy), including the Limited Use requirements.
 
 ### 3.4 Other connected accounts
 
@@ -55,7 +57,7 @@ If you connect an issue tracker like Linear or GitHub, we access the issues, pul
 - **Recording happens on your device.** Anarlog captures microphone and system audio locally, without adding a bot to your call. Recordings can include other people's voices — you're responsible for giving any notice and getting any consent the law requires for your meetings.
 - **Local options.** Use on-device transcription and a local language model, and meeting content never leaves your device.
 - **Cloud transcription.** If you use it, the audio needed for the transcript travels through our servers to our speech-to-text providers, and a request may fail over between the providers listed in Section 8.2. We delete uploaded audio from our storage once the job completes. The transcript result is stored so your devices can fetch it, and deleted with your account.
-- **Cloud AI.** If you use cloud summaries or chat, the text and instructions needed for the request go through our AI gateway to the model providers listed in Section 8.2. If you use AI chat with web search, your search queries go to our search providers. We never use your notes, transcripts, or audio to train AI models.
+- **Cloud AI.** If you use cloud summaries or chat, the text and instructions needed for the request go through our AI gateway to the model providers listed in Section 8.2. This can include event context associated with a note when you deliberately invoke AI on that note. If you use AI chat with web search, your search queries go to our search providers. We never use your notes, transcripts, audio, or connected calendar data to train AI models.
 - **Your own providers.** If you bring your own API key or a local endpoint, content goes directly to the provider you chose, under your agreement with them.
 
 ## 5. Cloud Sync, sharing, and the Cloud API
@@ -120,6 +122,7 @@ We share information with providers who do work on our behalf:
 When you connect Google Calendar or Microsoft Outlook Calendar, we may share connected calendar data only:
 
 - With service providers directly involved in authenticating the connection, syncing calendars and events, and delivering the calendar features you enable
+- With the language-model provider you select, only when you deliberately invoke AI on a note that includes event context; local models process that context on your device
 - Through encrypted Cloud Sync or content you choose to share when event context has been associated with a note and you enable that user-facing feature
 - For security purposes, such as investigating abuse, preventing fraud, or fixing integration failures
 - To comply with applicable law, regulation, legal process, or enforceable governmental request

@@ -1,10 +1,3 @@
-import { generateText, type LanguageModel } from "ai";
-import { z } from "zod";
-
-import {
-  commands as templateCommands,
-  type EventContactCandidate as TemplateEventContactCandidate,
-} from "@anlg/plugin-template";
 import type { EventParticipant, SessionEvent } from "@anlg/store";
 
 const MAX_EVENT_TEXT_CHARS = 6000;
@@ -32,7 +25,7 @@ export type ExtractedEventContact = {
 
 export type ExtractEventContactsResult = {
   contacts: ExtractedEventContact[];
-  source: "model";
+  source: "local";
 };
 
 export type ApplyExtractedContactsResult = {
@@ -52,18 +45,6 @@ export type ContactEnhancementChanges = {
   email?: string;
   companyName?: string;
 };
-
-const aiExtractionSchema = z.object({
-  contacts: z
-    .array(
-      z.object({
-        name: z.string(),
-        email: z.union([z.string(), z.null()]).optional(),
-        companyName: z.union([z.string(), z.null()]).optional(),
-      }),
-    )
-    .max(MAX_CONTACTS_TO_EXTRACT),
-});
 
 export function buildEventContactExtractionContextFromRecords({
   sessionEvent,
@@ -173,39 +154,24 @@ export function planExtractedContactToHuman({
   return { result, changes };
 }
 
-export async function extractEventContacts({
-  model,
+export function extractEventContacts({
   context,
 }: {
-  model: LanguageModel | null;
   context: EventContactExtractionContext;
-}): Promise<ExtractEventContactsResult> {
-  if (!model) {
-    throw new Error("Language model needed");
-  }
-
-  const [system, prompt] = await Promise.all([
-    getSystemPrompt(),
-    getUserPrompt(context),
-  ]);
-
-  const result = await generateText({
-    model,
-    maxRetries: 2,
-    maxOutputTokens: 384,
-    system,
-    prompt,
-  });
-
+}): ExtractEventContactsResult {
   const contacts = normalizeExtractedContacts(
     [
       ...inferContactsFromEventText(context),
-      ...parseExtractionJson(result.text).contacts,
+      ...context.candidates.flatMap((candidate) =>
+        candidate.isCurrentUser || candidate.isOrganizer
+          ? []
+          : [{ name: candidate.name, email: candidate.email }],
+      ),
     ],
     context.candidates,
   );
 
-  return { contacts, source: "model" };
+  return { contacts, source: "local" };
 }
 
 function dedupeCandidates(
@@ -241,57 +207,6 @@ function dedupeCandidates(
   }
 
   return Array.from(byKey.values());
-}
-
-async function getSystemPrompt(): Promise<string> {
-  const result = await templateCommands.render({ eventContactSystem: {} });
-  if (result.status === "error") {
-    throw new Error(result.error);
-  }
-
-  return result.data;
-}
-
-function parseExtractionJson(text: string): z.infer<typeof aiExtractionSchema> {
-  try {
-    return aiExtractionSchema.parse(JSON.parse(stripJsonFence(text)));
-  } catch {
-    throw new Error("Invalid contact extraction JSON");
-  }
-}
-
-function stripJsonFence(text: string): string {
-  const trimmed = text.trim();
-  const match = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return match ? match[1].trim() : trimmed;
-}
-
-async function getUserPrompt(
-  context: EventContactExtractionContext,
-): Promise<string> {
-  const result = await templateCommands.render({
-    eventContactUser: {
-      title: context.title?.trim() || null,
-      description: trimEventText(context.description) || null,
-      candidates: context.candidates.map(toTemplateCandidate),
-    },
-  });
-  if (result.status === "error") {
-    throw new Error(result.error);
-  }
-
-  return result.data;
-}
-
-function toTemplateCandidate(
-  candidate: EventContactCandidate,
-): TemplateEventContactCandidate {
-  return {
-    name: candidate.name?.trim() || null,
-    email: candidate.email?.trim() || null,
-    isCurrentUser: !!candidate.isCurrentUser,
-    isOrganizer: !!candidate.isOrganizer,
-  };
 }
 
 function trimEventText(value: string | undefined): string {

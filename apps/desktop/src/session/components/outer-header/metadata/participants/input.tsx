@@ -22,7 +22,6 @@ import {
   planExtractedContactToHuman,
 } from "./event-contact-extraction";
 
-import { useLanguageModel } from "~/ai/hooks";
 import { useSessionEventParticipants } from "~/calendar/queries";
 import {
   applyContactEnhancement,
@@ -410,8 +409,6 @@ function useEventContactEnhancement(sessionId: string) {
   const participants = useSessionParticipants(sessionId);
   const humans = useHumans();
   const eventParticipants = useSessionEventParticipants(sessionId);
-  const model = useLanguageModel("title");
-
   const showEnhancementButtons = Boolean(
     sessionEvent?.title?.trim() || sessionEvent?.description?.trim(),
   );
@@ -429,7 +426,7 @@ function useEventContactEnhancement(sessionId: string) {
         participants,
         eventParticipants,
       });
-      const extraction = await extractEventContacts({ model, context });
+      const extraction = extractEventContacts({ context });
       const participant = participants.find(
         (candidate) => candidate.humanId === humanId,
       );

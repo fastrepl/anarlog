@@ -257,6 +257,13 @@ export function ConnectFlow() {
             may be included.
           </p>
           <p>
+            Contact enhancement from event details is processed locally on your
+            device. If you choose to use AI on an event-linked note, relevant
+            note context such as the event title and participants may go to the
+            language model you selected. Local models keep that processing on
+            your device.
+          </p>
+          <p>
             Read our{" "}
             <a className="underline" href="/privacy">
               Privacy Policy

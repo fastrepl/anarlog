@@ -1,23 +1,10 @@
-import { generateText, type LanguageModel } from "ai";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 
 import {
   buildEventContactExtractionContextFromRecords,
   extractEventContacts,
   planExtractedContactToHuman,
 } from "./event-contact-extraction";
-
-const mocks = vi.hoisted(() => ({
-  renderTemplate: vi.fn(),
-}));
-
-vi.mock("ai", () => ({
-  generateText: vi.fn(),
-}));
-
-vi.mock("@anlg/plugin-template", () => ({
-  commands: { render: mocks.renderTemplate },
-}));
 
 const sessionEvent = {
   tracking_id: "event-1",
@@ -31,20 +18,6 @@ const sessionEvent = {
 };
 
 describe("event contact extraction", () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    mocks.renderTemplate.mockImplementation(async (template: unknown) => {
-      if (
-        template &&
-        typeof template === "object" &&
-        ("eventContactSystem" in template || "eventContactUser" in template)
-      ) {
-        return { status: "success", data: "Prompt" };
-      }
-      return { status: "error", error: "Unexpected template" };
-    });
-  });
-
   test("builds context from canonical participants and event attendees", () => {
     const context = buildEventContactExtractionContextFromRecords({
       sessionEvent,
@@ -154,19 +127,7 @@ describe("event contact extraction", () => {
     expect(changes).toEqual({});
   });
 
-  test("normalizes model output against canonical candidates", async () => {
-    vi.mocked(generateText).mockResolvedValue({
-      text: JSON.stringify({
-        contacts: [
-          {
-            name: "Alice Kim",
-            email: "ALICE@example.com",
-            companyName: "Example",
-          },
-        ],
-      }),
-    } as never);
-
+  test("extracts contacts locally from event text and canonical candidates", () => {
     const context = buildEventContactExtractionContextFromRecords({
       sessionEvent,
       currentUserId: "user-1",
@@ -186,18 +147,14 @@ describe("event contact extraction", () => {
       ],
       eventParticipants: [],
     });
-    const result = await extractEventContacts({
-      model: {} as LanguageModel,
-      context,
-    });
+    const result = extractEventContacts({ context });
 
     expect(result).toEqual({
-      source: "model",
+      source: "local",
       contacts: [
         {
           name: "Alice Kim",
           email: "alice@example.com",
-          companyName: "Example",
         },
       ],
     });
