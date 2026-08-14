@@ -132,9 +132,9 @@ impl AuthStore {
 
         #[cfg(target_os = "linux")]
         if self.use_secret_service {
-            if let Some(data) = self.read_file()? {
+            if let Some(data) = self.read_fallback() {
                 if save_secret_service(&data).is_ok() {
-                    self.remove_file()?;
+                    let _ = self.remove_file();
                     return Ok(LoadedAuth {
                         data,
                         backend: Backend::SecretService,
@@ -158,6 +158,11 @@ impl AuthStore {
                     return Err(Error::operation("read auth storage", reason));
                 }
             }
+
+            return Ok(LoadedAuth {
+                data: HashMap::new(),
+                backend: Backend::File,
+            });
         }
 
         Ok(LoadedAuth {
@@ -175,9 +180,18 @@ impl AuthStore {
         }
 
         #[cfg(target_os = "linux")]
-        if self.use_secret_service && save_secret_service(data).is_ok() {
-            self.remove_file()?;
-            return Ok(Backend::SecretService);
+        if self.use_secret_service {
+            // Keep an existing fallback current before updating Secret Service so a
+            // cleanup failure cannot restore the previous session later.
+            let fallback_staged = self.stage_fallback(data)?;
+            if save_secret_service(data).is_ok() {
+                let _ = self.remove_file();
+                return Ok(Backend::SecretService);
+            }
+            if !fallback_staged {
+                self.write_file(data)?;
+            }
+            return Ok(Backend::File);
         }
 
         self.write_file(data)?;
@@ -203,19 +217,7 @@ impl AuthStore {
         if self.use_secret_service {
             let mut loaded = self.load()?;
             loaded.data.retain(|key, _| !key.ends_with("-auth-token"));
-            match loaded.backend {
-                Backend::SecretService => {
-                    save_secret_service(&loaded.data)
-                        .map_err(|reason| Error::operation("clear auth storage", reason))?;
-                    self.remove_file()?;
-                }
-                Backend::File => {
-                    // An empty file is an intentional tombstone. It prevents a session
-                    // hidden by an unavailable keyring from returning when the desktop
-                    // app can read Secret Service again.
-                    self.write_file(&loaded.data)?;
-                }
-            }
+            self.save(&loaded.data)?;
             return Ok(());
         }
 
@@ -241,6 +243,28 @@ impl AuthStore {
             .map_err(|error| Error::operation("read auth storage", error.to_string()))
     }
 
+    #[cfg(any(target_os = "linux", test))]
+    fn read_fallback(&self) -> Option<HashMap<String, String>> {
+        match self.read_file() {
+            Ok(data) => data,
+            Err(_) => {
+                // A malformed fallback has no recoverable state and must not hide a
+                // usable Secret Service session.
+                let _ = self.remove_file();
+                None
+            }
+        }
+    }
+
+    #[cfg(any(target_os = "linux", test))]
+    fn stage_fallback(&self, data: &HashMap<String, String>) -> Result<bool> {
+        if !self.path.is_file() {
+            return Ok(false);
+        }
+        self.write_file(data)?;
+        Ok(true)
+    }
+
     fn write_file(&self, data: &HashMap<String, String>) -> Result<()> {
         let content = serde_json::to_string(data)
             .map_err(|error| Error::operation("serialize auth storage", error.to_string()))?;
@@ -257,22 +281,11 @@ impl AuthStore {
     }
 
     fn remove_file(&self) -> Result<()> {
-        let mut file = match std::fs::OpenOptions::new()
-            .write(true)
-            .truncate(true)
-            .open(&self.path)
-        {
-            Ok(file) => file,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-            Err(error) => return Err(Error::operation("clear auth storage", error.to_string())),
-        };
-        use std::io::Write;
-        file.flush()
-            .map_err(|error| Error::operation("clear auth storage", error.to_string()))?;
-        file.sync_all()
-            .map_err(|error| Error::operation("clear auth storage", error.to_string()))?;
-        std::fs::remove_file(&self.path)
-            .map_err(|error| Error::operation("clear auth storage", error.to_string()))
+        match std::fs::remove_file(&self.path) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(Error::operation("clear auth storage", error.to_string())),
+        }
     }
 }
 
@@ -388,6 +401,34 @@ mod tests {
             store.load().unwrap().data,
             HashMap::from([("unrelated".to_string(), "value".to_string())])
         );
+    }
+
+    #[test]
+    fn corrupt_fallback_is_discarded() {
+        let dir = tempdir().unwrap();
+        let store = AuthStore::at(dir.path().join("auth.cli.json"));
+        std::fs::write(store.path(), "{").unwrap();
+
+        assert!(store.read_fallback().is_none());
+        assert!(!store.path().exists());
+    }
+
+    #[test]
+    fn existing_fallback_is_updated_before_secure_storage() {
+        let dir = tempdir().unwrap();
+        let store = AuthStore::at(dir.path().join("auth.cli.json"));
+        let old_data = HashMap::from([(
+            "sb-project-auth-token".to_string(),
+            session_json("old", 100),
+        )]);
+        let new_data = HashMap::from([(
+            "sb-project-auth-token".to_string(),
+            session_json("new", 200),
+        )]);
+        store.write_file(&old_data).unwrap();
+
+        assert!(store.stage_fallback(&new_data).unwrap());
+        assert_eq!(store.read_file().unwrap(), Some(new_data));
     }
 
     #[test]
