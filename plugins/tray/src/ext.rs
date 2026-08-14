@@ -19,8 +19,8 @@ use crate::{
 };
 
 use crate::menu_items::{
-    AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, MenuItemHandler, TrayCheckUpdate, TrayOpen,
-    TrayQuit, TrayQuitCompletely, TraySettings, TrayShowEvents, TrayStart, TrayVersion,
+    AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, MenuItemHandler, TrayCheckUpdate, TrayHide,
+    TrayOpen, TrayQuit, TrayQuitCompletely, TraySettings, TrayShowEvents, TrayStart, TrayVersion,
     build_agenda_item,
 };
 use tauri_plugin_store2::Store2PluginExt;
@@ -356,7 +356,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         menu.append(&TrayVersion::build(app)?)?;
         menu.append(&TrayCheckUpdate::build(app)?)?;
         menu.append(&PredefinedMenuItem::separator(app)?)?;
-        menu.append(&TrayQuit::build(app)?)?;
+        menu.append(&TrayHide::build(app)?)?;
         menu.append(&TrayQuitCompletely::build(app)?)?;
 
         Ok(menu)
