@@ -2,7 +2,7 @@ import { Icon } from "@iconify-icon/react";
 import { ArrowLeft, Envelope } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { z } from "zod";
 
 import { cn } from "@anlg/utils";
@@ -27,6 +27,7 @@ import {
   type DesktopScheme,
   flowSearchSchema,
 } from "@/functions/desktop-flow";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
 import {
   buildPostAuthDestination,
@@ -39,7 +40,7 @@ import {
 
 const commonSearch = {
   redirect: z.string().optional(),
-  provider: z.enum(["github", "google"]).optional(),
+  provider: z.enum(["azure", "github", "google"]).optional(),
   rra: z.boolean().optional(),
 };
 
@@ -86,6 +87,13 @@ export const Route = createFileRoute("/auth")({
 });
 
 type AuthView = "main" | "email";
+type OAuthProvider = "azure" | "github" | "google";
+
+function getOAuthProviderName(provider: OAuthProvider) {
+  return provider === "azure"
+    ? "Microsoft"
+    : provider.charAt(0).toUpperCase() + provider.slice(1);
+}
 
 function Component() {
   const { flow, scheme, redirect, provider, rra } = Route.useSearch();
@@ -107,10 +115,12 @@ function Component() {
   }
 
   if (existingUser && flow === "web" && provider) {
+    const providerName = getOAuthProviderName(provider);
+
     return (
       <AuthShell
-        title={`Reconnect ${provider.charAt(0).toUpperCase() + provider.slice(1)}`}
-        description={`Refresh your ${provider} access to continue with admin actions.`}
+        title={`Reconnect ${providerName}`}
+        description={`Refresh your ${providerName} access to continue with admin actions.`}
       >
         <div className="flex flex-col gap-4">
           <OAuthButton
@@ -127,6 +137,7 @@ function Component() {
   }
 
   const showGoogle = !provider || provider === "google";
+  const showMicrosoft = !provider || provider === "azure";
   const showGithub = !provider || provider === "github";
   const showEmail = !provider;
 
@@ -141,6 +152,14 @@ function Component() {
                 scheme={scheme}
                 redirect={redirect}
                 provider="google"
+              />
+            )}
+            {showMicrosoft && (
+              <OAuthButton
+                flow={flow}
+                scheme={scheme}
+                redirect={redirect}
+                provider="azure"
               />
             )}
             {showGithub && (
@@ -211,9 +230,9 @@ function DesktopReauthView({
     },
   });
 
-  useEffect(() => {
+  useMountEffect(() => {
     retryMutation.mutate();
-  }, []);
+  });
 
   const hasRetryFailed =
     retryMutation.isError || (retryMutation.isSuccess && !retryMutation.data);
@@ -239,6 +258,7 @@ function DesktopReauthView({
           </div>
           <div className="flex flex-col gap-3">
             <OAuthButton flow="desktop" scheme={scheme} provider="google" />
+            <OAuthButton flow="desktop" scheme={scheme} provider="azure" />
             <OAuthButton flow="desktop" scheme={scheme} provider="github" />
           </div>
         </>
@@ -714,12 +734,12 @@ function OAuthButton({
   flow: "desktop" | "web";
   scheme?: DesktopScheme;
   redirect?: string;
-  provider: "google" | "github";
+  provider: OAuthProvider;
   rra?: boolean;
   autoStart?: boolean;
 }) {
   const oauthMutation = useMutation({
-    mutationFn: (provider: "google" | "github") => {
+    mutationFn: (provider: OAuthProvider) => {
       capturePrivateRouteEvent("auth_started", {
         method: "oauth",
         provider,
@@ -759,12 +779,12 @@ function OAuthButton({
   const { mutate, isPending } = oauthMutation;
   const hasAutoStartedRef = useRef(false);
 
-  useEffect(() => {
+  useMountEffect(() => {
     if (autoStart && !hasAutoStartedRef.current) {
       hasAutoStartedRef.current = true;
       mutate(provider);
     }
-  }, [autoStart, mutate, provider]);
+  });
 
   return (
     <button
@@ -778,7 +798,10 @@ function OAuthButton({
       {provider === "github" && (
         <Icon icon="logos:github-icon" width="18" height="18" />
       )}
-      Sign in with {provider.charAt(0).toUpperCase() + provider.slice(1)}
+      {provider === "azure" && (
+        <Icon icon="logos:microsoft-icon" width="18" height="18" />
+      )}
+      Sign in with {getOAuthProviderName(provider)}
     </button>
   );
 }

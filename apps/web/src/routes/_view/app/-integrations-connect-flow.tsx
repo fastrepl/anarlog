@@ -1,4 +1,4 @@
-import Nango, { type ConnectUI } from "@nangohq/frontend";
+import Nango, { type AuthErrorType, type ConnectUI } from "@nangohq/frontend";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
@@ -13,6 +13,22 @@ import { captureOperationalError } from "@/lib/error-reporting";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
+
+function getConnectionErrorMessage(
+  errorType: AuthErrorType,
+  providerName: string,
+) {
+  if (errorType === "blocked_by_browser") {
+    return `Your browser blocked the ${providerName} sign-in window. Allow pop-ups for Anarlog and try again.`;
+  }
+  if (errorType === "window_closed") {
+    return `The ${providerName} sign-in window closed before the connection finished. Please try again.`;
+  }
+  if (errorType === "resource_capped") {
+    return "This integration has reached its connection limit. Contact support to connect another account.";
+  }
+  return `${providerName} rejected the connection. Please try again or contact support if it keeps happening.`;
+}
 
 export function ConnectFlow() {
   const search = Route.useSearch();
@@ -31,6 +47,7 @@ export function ConnectFlow() {
   const inFlightRef = useRef(false);
   const connectUIRef = useRef<ConnectUI | null>(null);
   const disposedRef = useRef(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const display = getIntegrationDisplay(search.integration_id);
 
@@ -44,6 +61,7 @@ export function ConnectFlow() {
   const handleConnect = async () => {
     if (inFlightRef.current) return;
     inFlightRef.current = true;
+    setConnectionError(null);
     updateStatus("loading");
     track("integration_connection_started", {
       integration: search.integration_id,
@@ -114,6 +132,7 @@ export function ConnectFlow() {
     updateStatus("connecting");
 
     const connect = nango.openConnectUI({
+      detectClosedAuthWindow: true,
       onEvent: (event) => {
         if (event.type === "close") {
           if (
@@ -129,6 +148,35 @@ export function ConnectFlow() {
               failure_stage: "cancelled",
             });
           }
+        } else if (event.type === "error") {
+          const { errorType } = event.payload;
+          captureOperationalError(
+            new Error("Integration authorization failed"),
+            {
+              operation: "integration_connection_authorization",
+              tags: {
+                integration: search.integration_id,
+                mode: search.action,
+                error_type: errorType,
+              },
+            },
+          );
+          inFlightRef.current = false;
+          setConnectionError(
+            getConnectionErrorMessage(
+              errorType,
+              isGoogleCalendar ? "Google" : "Microsoft",
+            ),
+          );
+          updateStatus("error");
+          connectUIRef.current?.close();
+          track("integration_connection_failed", {
+            integration: search.integration_id,
+            mode: search.action,
+            flow: search.flow,
+            failure_stage: "authorization",
+            error_type: errorType,
+          });
         } else if (event.type === "connect") {
           inFlightRef.current = false;
           updateStatus("success");
@@ -263,7 +311,7 @@ export function ConnectFlow() {
       {status === "error" && (
         <div className="flex flex-col gap-4">
           <p className="text-red-600">
-            Something went wrong. Please try again.
+            {connectionError ?? "Something went wrong. Please try again."}
           </p>
           <IntegrationButton onClick={handleConnect}>
             Try again

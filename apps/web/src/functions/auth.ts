@@ -244,7 +244,7 @@ async function mintDesktopSessionFromEmail(email: string) {
 export const doAuth = createServerFn({ method: "POST" })
   .inputValidator(
     shared.extend({
-      provider: z.enum(["google", "github"]),
+      provider: z.enum(["azure", "google", "github"]),
       rra: z.boolean().optional(),
     }),
   )
@@ -252,12 +252,19 @@ export const doAuth = createServerFn({ method: "POST" })
     const supabase = getSupabaseServerClient();
     const params = buildAuthCallbackParams(data);
 
-    const scopes = data.provider === "github" && data.rra ? "repo" : undefined;
+    const scopes =
+      data.provider === "github" && data.rra
+        ? "repo"
+        : data.provider === "azure"
+          ? "email"
+          : undefined;
 
     const { data: authData, error } = await supabase.auth.signInWithOAuth({
       provider: data.provider,
       options: {
         redirectTo: buildAuthCallbackUrl(params),
+        queryParams:
+          data.provider === "azure" ? { prompt: "select_account" } : undefined,
         scopes,
       },
     });
