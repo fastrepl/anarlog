@@ -158,6 +158,15 @@ describe("SyncStatusIndicator", () => {
     ).toBeTruthy();
   });
 
+  it("renders below the chat FAB layers", async () => {
+    renderIndicator();
+
+    const indicator = await screen.findByTestId("sync-status-indicator");
+
+    expect(indicator.className).toContain("z-10");
+    expect(indicator.className).not.toContain("z-40");
+  });
+
   it("does not render for free users", () => {
     mocks.billing.isPro = false;
 
@@ -356,9 +365,9 @@ describe("SyncStatusIndicator", () => {
       pollStatus?.();
       await Promise.resolve();
     });
-    expect(
-      await screen.findByLabelText("Cloud sync status: Saved locally"),
-    ).toBeTruthy();
+    await vi.waitFor(() => {
+      expect(screen.queryByTestId("sync-status-indicator")).toBeNull();
+    });
 
     await act(async () => {
       pollStatus?.();
@@ -388,7 +397,7 @@ describe("SyncStatusIndicator", () => {
     expect(screen.getByText("token rejected")).toBeTruthy();
   });
 
-  it("shows capture deferral instead of a transient sync issue during recording", async () => {
+  it("hides capture deferral instead of showing a transient sync issue during recording", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
         activity_paused: true,
@@ -401,18 +410,9 @@ describe("SyncStatusIndicator", () => {
     );
 
     renderIndicator();
-    await openMenu();
-
-    expect(await screen.findByText("Saved locally")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Cloud sync resumes after this meeting finishes processing",
-      ),
-    ).toBeTruthy();
-    expect(screen.queryByText("Sync issue")).toBeNull();
-
-    const syncNowItem = screen.getByRole("menuitem", { name: "Sync now" });
-    expect(syncNowItem.getAttribute("data-disabled")).not.toBeNull();
+    await vi.waitFor(() => {
+      expect(screen.queryByTestId("sync-status-indicator")).toBeNull();
+    });
   });
 
   it("uses the last successful sync while native local status is busy", async () => {
@@ -459,7 +459,7 @@ describe("SyncStatusIndicator", () => {
     ).toBeTruthy();
   });
 
-  it("shows capture-deferred work as saved locally without offering a manual sync", async () => {
+  it("hides capture-deferred work", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
         activity_paused: true,
@@ -469,24 +469,9 @@ describe("SyncStatusIndicator", () => {
     );
 
     renderIndicator();
-    await openMenu();
-
-    expect(await screen.findByText("Saved locally")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Cloud sync resumes after this meeting finishes processing",
-      ),
-    ).toBeTruthy();
-    expect(
-      screen
-        .getByLabelText("Cloud sync status: Saved locally")
-        .querySelector(".animate-spin"),
-    ).toBeNull();
-
-    const syncNowItem = screen.getByRole("menuitem", { name: "Sync now" });
-    expect(syncNowItem.getAttribute("data-disabled")).not.toBeNull();
-    fireEvent.click(syncNowItem);
-    expect(mocks.syncCloudsyncNow).not.toHaveBeenCalled();
+    await vi.waitFor(() => {
+      expect(screen.queryByTestId("sync-status-indicator")).toBeNull();
+    });
   });
 
   it("shows other paused activity as saved locally without capture-specific copy", async () => {
@@ -521,7 +506,7 @@ describe("SyncStatusIndicator", () => {
     expect(mocks.syncCloudsyncNow).not.toHaveBeenCalled();
   });
 
-  it("shows capture deferral while recovery is paused during recording", async () => {
+  it("hides capture deferral while recovery is paused during recording", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
         running: false,
@@ -536,21 +521,9 @@ describe("SyncStatusIndicator", () => {
     );
 
     renderIndicator();
-    await openMenu();
-
-    expect(await screen.findByText("Saved locally")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Cloud sync resumes after this meeting finishes processing",
-      ),
-    ).toBeTruthy();
-    expect(screen.queryByText("Restoring cloud sync...")).toBeNull();
-    expect(screen.queryByText("Cloud sync delayed")).toBeNull();
-    expect(
-      screen
-        .getByLabelText("Cloud sync status: Saved locally")
-        .querySelector(".animate-spin"),
-    ).toBeNull();
+    await vi.waitFor(() => {
+      expect(screen.queryByTestId("sync-status-indicator")).toBeNull();
+    });
   });
 
   it("explains background recovery without implying local notes are blocked", async () => {

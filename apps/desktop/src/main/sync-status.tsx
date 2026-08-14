@@ -251,6 +251,11 @@ export function SyncStatusIndicator() {
       )}`,
     };
   })();
+
+  if (deferredForCapture && view.kind === "deferred") {
+    return null;
+  }
+
   const canRetrySync =
     view.kind === "error" && status?.last_error_kind === "transient";
   const canRetryStatus = statusUnavailable;
@@ -264,7 +269,7 @@ export function SyncStatusIndicator() {
           aria-label={t`Cloud sync status: ${view.label}`}
           data-testid="sync-status-indicator"
           className={cn([
-            "absolute right-2 bottom-2 z-40",
+            "absolute right-2 bottom-2 z-10",
             "border-border/60 bg-background/90 flex size-7 items-center justify-center rounded-lg border shadow-sm backdrop-blur",
             "text-muted-foreground hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground outline-hidden transition-colors",
           ])}
