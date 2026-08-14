@@ -130,6 +130,7 @@ anlg-local-stt-server = { path = "crates/local-stt-server", package = "local-stt
 anlg-loops = { path = "crates/loops", package = "loops" }
 anlg-mac = { path = "crates/mac", package = "mac" }
 anlg-mcp = { path = "crates/mcp", package = "mcp" }
+anlg-meeting-capture = { path = "crates/meeting-capture", package = "meeting-capture" }
 anlg-mobile-bridge = { path = "crates/mobile-bridge", package = "mobile-bridge" }
 anlg-model-downloader = { path = "crates/model-downloader", package = "model-downloader" }
 anlg-model-manager = { path = "crates/model-manager", package = "model-manager" }
