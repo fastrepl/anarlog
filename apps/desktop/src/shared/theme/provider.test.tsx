@@ -286,6 +286,32 @@ describe("AppThemeProvider", () => {
     expect(setDockIcon).toHaveBeenCalledWith("stable");
   });
 
+  it("ignores a system event emitted while applying an explicit theme", async () => {
+    themeState.settingsReady = true;
+    themeState.theme = "system";
+
+    render(
+      <AppThemeProvider>
+        <div>child</div>
+      </AppThemeProvider>,
+    );
+
+    await waitFor(() => expect(onThemeChanged).toHaveBeenCalledOnce());
+    const handleThemeChanged = onThemeChanged.mock.calls[0]?.[0];
+    setNativeTheme.mockImplementationOnce(async () => {
+      handleThemeChanged({ payload: "light" });
+    });
+    applyDocumentTheme.mockClear();
+    writeStoredThemePreference.mockClear();
+
+    await applyThemePreference("light");
+
+    expect(applyDocumentTheme).toHaveBeenCalledOnce();
+    expect(applyDocumentTheme).toHaveBeenCalledWith("light", false);
+    expect(writeStoredThemePreference).toHaveBeenCalledOnce();
+    expect(writeStoredThemePreference).toHaveBeenCalledWith("light");
+  });
+
   it("applies a selected system theme and Dock icon from the native appearance", async () => {
     nativeTheme.mockResolvedValue("dark");
 

@@ -20,6 +20,8 @@ import { useSettingsThemeReady } from "./use-settings-theme-ready";
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
+let activeThemePreference: ThemePreference = "system";
+
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const theme = useConfigValue("theme") as ThemePreference;
   const appIcon = normalizeAppIconPreference(useConfigValue("app_icon"));
@@ -47,13 +49,14 @@ function ThemeSync({
   appIcon: AppIconPreference;
 }) {
   useMountEffect(() => {
+    activeThemePreference = theme;
     const appWindow = getCurrentWindow();
     const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
     let cancelled = false;
     let unlisten: (() => void) | undefined;
 
     const applySystemTheme = (systemIsDark: boolean) => {
-      if (cancelled) {
+      if (cancelled || activeThemePreference !== theme) {
         return;
       }
 
@@ -114,6 +117,7 @@ export async function applyThemePreference(
   theme: ThemePreference,
   appIcon: AppIconPreference = "default",
 ) {
+  activeThemePreference = theme;
   const appWindow = getCurrentWindow();
 
   if (theme !== "system") {
