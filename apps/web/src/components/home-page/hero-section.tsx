@@ -309,7 +309,7 @@ function HeroWorkflowDemo() {
           alt="Four participants in a video meeting"
           width={1200}
           height={215}
-          className="h-auto w-full rounded-xl shadow-xl"
+          className="h-auto w-full rounded-xl"
           decoding="async"
         />
       </div>
