@@ -16,6 +16,10 @@ import { getSupabaseBrowserClient } from "@/functions/supabase";
 
 const DEFAULT_BILLING = deriveBillingInfo(null);
 
+function deriveBillingFromAccessToken(accessToken: string) {
+  return deriveBillingInfo(jwtDecode<SupabaseJwtPayload>(accessToken));
+}
+
 export function useBilling() {
   const queryClient = useQueryClient();
   const [accessToken, setAccessToken] = useState<string | null | undefined>(
@@ -47,7 +51,7 @@ export function useBilling() {
         return DEFAULT_BILLING;
       }
 
-      return deriveBillingInfo(jwtDecode<SupabaseJwtPayload>(accessToken));
+      return deriveBillingFromAccessToken(accessToken);
     },
     enabled: accessToken !== undefined,
     // Keep isReady stable across token refreshes so consumers gating on it
@@ -62,9 +66,23 @@ export function useBilling() {
 
   const refreshBilling = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
-    const { data } = await supabase.auth.refreshSession();
-    setAccessToken(data.session?.access_token ?? null);
-    await queryClient.invalidateQueries({ queryKey: ["billing"] });
+    const { data, error } = await supabase.auth.refreshSession();
+
+    if (error) {
+      throw error;
+    }
+
+    const refreshedAccessToken = data.session?.access_token;
+
+    if (!refreshedAccessToken) {
+      throw new Error("Billing refresh returned no authenticated session");
+    }
+
+    const refreshedBilling = deriveBillingFromAccessToken(refreshedAccessToken);
+    setAccessToken(refreshedAccessToken);
+    await queryClient.invalidateQueries({ queryKey: ["billing", "jwt"] });
+
+    return refreshedBilling;
   }, [queryClient]);
 
   return {

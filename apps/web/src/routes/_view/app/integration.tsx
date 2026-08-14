@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
@@ -6,8 +7,9 @@ import {
   flowSearchSchema,
 } from "@/functions/desktop-flow";
 import { useBilling } from "@/hooks/use-billing";
+import { getIntegrationBillingGate } from "@/lib/integration-billing-gate";
 
-import { IntegrationPageLayout } from "./-integration-ui";
+import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { ConnectFlow } from "./-integrations-connect-flow";
 import { DisconnectFlow } from "./-integrations-disconnect-flow";
 import { UpgradePrompt } from "./-integrations-upgrade-prompt";
@@ -81,12 +83,35 @@ export const Route = createFileRoute("/_view/app/integration")({
 function Component() {
   const search = Route.useSearch();
   const billing = useBilling();
+  const billingVerification = useQuery({
+    queryKey: [
+      "billing",
+      "integration-verification",
+      search.flow,
+      search.integration_id,
+      search.action,
+      search.connection_id ?? "",
+    ],
+    queryFn: billing.refreshBilling,
+    enabled: search.action !== "disconnect" && billing.isReady,
+    refetchOnMount: "always",
+    staleTime: Infinity,
+    retry: 1,
+  });
+  const gate = getIntegrationBillingGate({
+    action: search.action,
+    isBillingReady: billing.isReady,
+    isVerifying:
+      billingVerification.isPending || billingVerification.isFetching,
+    verificationFailed: billingVerification.isError,
+    verifiedIsPaid: billingVerification.data?.isPaid,
+  });
 
-  if (search.action === "disconnect") {
+  if (gate === "disconnect") {
     return <DisconnectFlow />;
   }
 
-  if (!billing.isReady) {
+  if (gate === "loading") {
     return (
       <IntegrationPageLayout>
         <p className="text-neutral-500">Loading...</p>
@@ -94,7 +119,22 @@ function Component() {
     );
   }
 
-  if (!billing.isPaid) {
+  if (gate === "retry") {
+    return (
+      <IntegrationPageLayout>
+        <div className="flex flex-col gap-4">
+          <p className="text-neutral-600">
+            We couldn’t verify your plan. Please try again.
+          </p>
+          <IntegrationButton onClick={() => void billingVerification.refetch()}>
+            Try again
+          </IntegrationButton>
+        </div>
+      </IntegrationPageLayout>
+    );
+  }
+
+  if (gate === "upgrade") {
     return (
       <UpgradePrompt
         integrationId={search.integration_id}
