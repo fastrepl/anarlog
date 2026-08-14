@@ -11,9 +11,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   analyticsEvent: vi.fn(() => Promise.resolve()),
   analyticsSetProperties: vi.fn(() => Promise.resolve()),
+  openUrl: vi.fn(() => Promise.resolve()),
   signIn: vi.fn(() => Promise.resolve()),
   signOut: vi.fn(() => Promise.resolve()),
-  buildWebAppUrl: vi.fn(() => Promise.resolve("https://anarlog.so/app/portal")),
+  buildWebAppUrl: vi.fn((path: string) =>
+    Promise.resolve(`https://anarlog.so${path}`),
+  ),
   billing: {
     canStartTrial: { data: false, isPending: false },
     hasPaymentMethod: false,
@@ -32,7 +35,7 @@ vi.mock("@anlg/plugin-analytics", () => ({
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
-  commands: { openUrl: vi.fn() },
+  commands: { openUrl: mocks.openUrl },
 }));
 
 vi.mock("@anlg/plugin-windows", () => ({
@@ -118,6 +121,20 @@ describe("SettingsAccount", () => {
     expect(mocks.analyticsEvent).toHaveBeenCalledWith({
       event: "user_signed_out",
     });
+  });
+
+  it("opens the account page to change the signed-in email", async () => {
+    renderAccount();
+
+    fireEvent.click(screen.getByRole("button", { name: "john@example.com" }));
+
+    await waitFor(() =>
+      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/account"),
+    );
+    expect(mocks.openUrl).toHaveBeenCalledWith(
+      "https://anarlog.so/app/account",
+      null,
+    );
   });
 
   it("offers to add a payment method during a cardless trial", async () => {

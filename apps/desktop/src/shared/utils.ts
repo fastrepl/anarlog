@@ -27,6 +27,7 @@ export const getScheme = async (): Promise<DesktopScheme> => {
 
 type DesktopFlowPath =
   | "/auth"
+  | "/app/account"
   | "/app/integration"
   | "/app/checkout"
   | "/app/switch-plan"

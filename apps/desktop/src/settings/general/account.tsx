@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowsClockwise } from "@phosphor-icons/react";
+import { ArrowsClockwise, PencilSimple } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import {
   type ReactNode,
@@ -75,6 +75,12 @@ export function SettingsAccount() {
       sonnerToast.error(message);
     },
   });
+  const openAccountMutation = useMutation({
+    mutationFn: async () => {
+      const url = await buildWebAppUrl("/app/account");
+      await openerCommands.openUrl(url, null);
+    },
+  });
 
   if (!isAuthenticated) {
     if (isPending) {
@@ -141,7 +147,21 @@ export function SettingsAccount() {
       <SettingsPageTitle title={<Trans>Account</Trans>} />
       <Container
         title={<Trans>Your Account</Trans>}
-        description={auth.session?.user.email ?? t`Signed in`}
+        description={
+          auth.session?.user.email ? (
+            <button
+              type="button"
+              onClick={() => openAccountMutation.mutate()}
+              disabled={openAccountMutation.isPending}
+              className="hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-sm transition-colors focus-visible:ring-1 focus-visible:outline-hidden disabled:opacity-50"
+            >
+              <span>{auth.session.user.email}</span>
+              <PencilSimple className="size-3" aria-hidden="true" />
+            </button>
+          ) : (
+            t`Signed in`
+          )
+        }
         action={
           <Button
             variant="destructive"
