@@ -1357,6 +1357,10 @@ msgstr "Failed to load pull request"
 msgid "Favorite template"
 msgstr "Favorite template"
 
+#: src/settings/appearance/app-icon.tsx
+msgid "Field Journal"
+msgstr "Field Journal"
+
 #: src/automations/starters.tsx
 msgid "File each action item as an issue in the selected team."
 msgstr "File each action item as an issue in the selected team."
@@ -2076,6 +2080,10 @@ msgstr "No templates yet"
 #: src/session/components/title-breadcrumb.tsx
 msgid "Note breadcrumb"
 msgstr "Note breadcrumb"
+
+#: src/settings/appearance/app-icon.tsx
+msgid "Notepad"
+msgstr "Notepad"
 
 #: src/contacts/details.tsx
 msgid "Notes"
@@ -3105,6 +3113,10 @@ msgstr "Stay current with updates installed the next time Anarlog opens."
 msgid "Steps run from top to bottom."
 msgstr "Steps run from top to bottom."
 
+#: src/settings/appearance/app-icon.tsx
+msgid "Stone"
+msgstr "Stone"
+
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr "Stop"
@@ -3416,6 +3428,10 @@ msgstr "Turn on Anarlog in System Settings → Privacy & Security → Calendars,
 msgid "Turn on sync to create or enter your recovery key."
 msgstr "Turn on sync to create or enter your recovery key."
 
+#: src/settings/appearance/app-icon.tsx
+msgid "Typewriter Key"
+msgstr "Typewriter Key"
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"
 msgstr "Unknown"
@@ -3589,6 +3605,10 @@ msgstr "Wait before treating microphone activity as a meeting."
 #: src/automations/starters.tsx
 msgid "Wait until the transcript and note are complete."
 msgstr "Wait until the transcript and note are complete."
+
+#: src/settings/appearance/app-icon.tsx
+msgid "Walnut"
+msgstr "Walnut"
 
 #: src/settings/general/week-start.tsx
 msgid "Week starts on"

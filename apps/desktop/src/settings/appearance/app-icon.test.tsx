@@ -82,10 +82,15 @@ describe("AppIconSelector", () => {
     expect(defaultOption.querySelector("img")?.getAttribute("src")).toBe(
       "/assets/app-icons/stable-light.png",
     );
-    expect(iconOptions()).toHaveLength(4);
+    expect(iconOptions()).toHaveLength(9);
     expect(screen.queryByRole("radio", { name: "Production" })).toBeNull();
     expect(screen.getByRole("radio", { name: "Blueprint" })).toBeDefined();
     expect(screen.getByRole("radio", { name: "Sketch" })).toBeDefined();
+    expect(screen.getByRole("radio", { name: "Field Journal" })).toBeDefined();
+    expect(screen.getByRole("radio", { name: "Notepad" })).toBeDefined();
+    expect(screen.getByRole("radio", { name: "Stone" })).toBeDefined();
+    expect(screen.getByRole("radio", { name: "Typewriter Key" })).toBeDefined();
+    expect(screen.getByRole("radio", { name: "Walnut" })).toBeDefined();
     expect(screen.queryByText("Blueprint")).toBeNull();
 
     fireEvent.click(screen.getByRole("radio", { name: "Blueprint" }));
@@ -119,6 +124,14 @@ describe("AppIconSelector", () => {
         .getByRole("radio", { name: "Default" })
         .querySelector('source[media="(prefers-color-scheme: dark)"]'),
     ).not.toBeNull();
+
+    const journalOption = screen.getByRole("radio", {
+      name: "Field Journal",
+    });
+    expect(journalOption.querySelector("source")).toBeNull();
+    expect(journalOption.querySelector("img")?.getAttribute("src")).toBe(
+      "/assets/app-icons/journal.png",
+    );
   });
 
   it("uses the stable icon while the app identifier is loading", () => {

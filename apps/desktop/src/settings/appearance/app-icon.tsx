@@ -11,6 +11,7 @@ import { useSetSettingValue } from "~/settings/queries";
 import { useConfigValue } from "~/shared/config";
 import {
   type AppIconPreference,
+  hasDarkAppIconVariant,
   normalizeAppIconPreference,
   resolveAppIconName,
 } from "~/shared/theme/icon";
@@ -23,6 +24,11 @@ const APP_ICON_OPTIONS = [
   "anagram",
   "dev",
   "staging",
+  "journal",
+  "notepad",
+  "stone",
+  "typewriter-key",
+  "walnut",
 ] as const satisfies readonly AppIconPreference[];
 
 const PREVIEW_CLASS =
@@ -47,6 +53,11 @@ export function AppIconSelector() {
     anagram: t`Anagram`,
     dev: t`Blueprint`,
     staging: t`Sketch`,
+    journal: t`Field Journal`,
+    notepad: t`Notepad`,
+    stone: t`Stone`,
+    "typewriter-key": t`Typewriter Key`,
+    walnut: t`Walnut`,
   };
   const defaultIconName = resolveAppIconName("default", appIdentifier);
   const selectedIconName = resolveAppIconName(value, appIdentifier);
@@ -77,6 +88,7 @@ export function AppIconSelector() {
           const selected =
             resolveAppIconName(option, appIdentifier) === selectedIconName;
           const previewName = resolveAppIconName(option, appIdentifier);
+          const hasDarkVariant = hasDarkAppIconVariant(previewName);
           const locked = !billing.isPro && !selected;
 
           return (
@@ -106,7 +118,7 @@ export function AppIconSelector() {
               }}
             >
               <span className="flex size-16 overflow-hidden rounded-[18px]">
-                {theme === "system" ? (
+                {theme === "system" && hasDarkVariant ? (
                   <picture>
                     <source
                       media="(prefers-color-scheme: dark)"
@@ -121,7 +133,9 @@ export function AppIconSelector() {
                   </picture>
                 ) : (
                   <img
-                    src={`/assets/app-icons/${previewName}-${theme}.png`}
+                    src={`/assets/app-icons/${previewName}${
+                      hasDarkVariant ? `-${theme}` : ""
+                    }.png`}
                     alt=""
                     draggable={false}
                     className={PREVIEW_CLASS}

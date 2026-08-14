@@ -1357,6 +1357,10 @@ msgstr ""
 msgid "Favorite template"
 msgstr ""
 
+#: src/settings/appearance/app-icon.tsx
+msgid "Field Journal"
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "File each action item as an issue in the selected team."
 msgstr ""
@@ -2075,6 +2079,10 @@ msgstr ""
 
 #: src/session/components/title-breadcrumb.tsx
 msgid "Note breadcrumb"
+msgstr ""
+
+#: src/settings/appearance/app-icon.tsx
+msgid "Notepad"
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -3105,6 +3113,10 @@ msgstr ""
 msgid "Steps run from top to bottom."
 msgstr ""
 
+#: src/settings/appearance/app-icon.tsx
+msgid "Stone"
+msgstr ""
+
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr ""
@@ -3416,6 +3428,10 @@ msgstr ""
 msgid "Turn on sync to create or enter your recovery key."
 msgstr ""
 
+#: src/settings/appearance/app-icon.tsx
+msgid "Typewriter Key"
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"
 msgstr ""
@@ -3588,6 +3604,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Wait until the transcript and note are complete."
+msgstr ""
+
+#: src/settings/appearance/app-icon.tsx
+msgid "Walnut"
 msgstr ""
 
 #: src/settings/general/week-start.tsx

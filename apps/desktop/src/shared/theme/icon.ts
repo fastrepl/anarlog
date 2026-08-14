@@ -5,7 +5,12 @@ export type AppIconPreference =
   | "stable"
   | "anagram"
   | "dev"
-  | "staging";
+  | "staging"
+  | "journal"
+  | "notepad"
+  | "stone"
+  | "typewriter-key"
+  | "walnut";
 
 export function normalizeAppIconPreference(
   value: string | null | undefined,
@@ -15,6 +20,11 @@ export function normalizeAppIconPreference(
     case "anagram":
     case "dev":
     case "staging":
+    case "journal":
+    case "notepad":
+    case "stone":
+    case "typewriter-key":
+    case "walnut":
       return value;
     default:
       return "default";
@@ -45,5 +55,18 @@ export function resolveDockIconName(
   appIdentifier: string,
 ): string {
   const name = resolveAppIconName(icon, appIdentifier);
-  return resolveIsDarkMode(theme, systemIsDark) ? `${name}-dark` : name;
+  return hasDarkAppIconVariant(name) && resolveIsDarkMode(theme, systemIsDark)
+    ? `${name}-dark`
+    : name;
+}
+
+export function hasDarkAppIconVariant(
+  name: Exclude<AppIconPreference, "default">,
+): boolean {
+  return (
+    name === "stable" ||
+    name === "anagram" ||
+    name === "dev" ||
+    name === "staging"
+  );
 }
