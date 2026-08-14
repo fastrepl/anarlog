@@ -163,10 +163,7 @@ export function ConnectFlow() {
           );
           inFlightRef.current = false;
           setConnectionError(
-            getConnectionErrorMessage(
-              errorType,
-              isGoogleCalendar ? "Google" : "Microsoft",
-            ),
+            getConnectionErrorMessage(errorType, display.name),
           );
           updateStatus("error");
           connectUIRef.current?.close();
