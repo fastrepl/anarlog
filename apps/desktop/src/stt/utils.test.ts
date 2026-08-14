@@ -567,6 +567,49 @@ describe("TranscriptAccumulator", () => {
     ]);
   });
 
+  it("preserves a live speaker assignment while its anchor word is persisted", () => {
+    const assignment = {
+      id: "word-1:user_speaker_assignment",
+      word_id: "word-1",
+      type: "user_speaker_assignment" as const,
+      value: JSON.stringify({
+        human_id: "human-1",
+        scope: "speaker",
+        channel: 1,
+        speaker_index: 2,
+      }),
+    };
+    const store = createStore({
+      speaker_hints: JSON.stringify([assignment]),
+    });
+    const accumulator = createTranscriptAccumulator(store, "transcript-1");
+
+    accumulator.applyLiveDelta(
+      liveDelta([
+        {
+          id: "word-1",
+          text: "hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+          state: "final",
+          speaker_index: 2,
+        },
+      ]),
+    );
+    accumulator.dispose();
+
+    expect(JSON.parse(store.readCell("speaker_hints"))).toEqual([
+      assignment,
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 2 }),
+      },
+    ]);
+  });
+
   it("does not restore externally removed speaker assignments from the accumulator cache", () => {
     const store = createStore({});
     const accumulator = createTranscriptAccumulator(store, "transcript-1", {

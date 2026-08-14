@@ -238,6 +238,45 @@ describe("buildRenderTranscriptRequestFromRows", () => {
     ]);
   });
 
+  it("applies a live speaker assignment before its anchor word is persisted", () => {
+    const request = buildRenderTranscriptRequestFromRows([
+      {
+        words: [
+          {
+            id: "persisted-word",
+            text: " hello",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 1,
+          },
+        ],
+        speaker_hints: [
+          {
+            word_id: "live-word",
+            type: "user_speaker_assignment",
+            value: {
+              human_id: "remote",
+              scope: "speaker",
+              channel: 1,
+              speaker_index: 2,
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(request?.transcripts[0]?.assignments).toEqual([
+      {
+        human_id: "remote",
+        scope: {
+          kind: "channel_speaker",
+          channel: "RemoteParty",
+          speaker_index: 2,
+        },
+      },
+    ]);
+  });
+
   it("turns segment speaker assignments into word-scoped render assignments", () => {
     const request = createRequest(["segmentOnly"]);
 

@@ -156,7 +156,10 @@ export class TranscriptAccumulator {
       });
 
       for (const reconciledHint of reconciledHints) {
-        if (isSegmentSpeakerAssignmentHint(reconciledHint)) {
+        if (
+          isSegmentSpeakerAssignmentHint(reconciledHint) ||
+          isSpeakerScopedAssignmentHint(reconciledHint)
+        ) {
           nextHints.push(reconciledHint);
           continue;
         }
@@ -715,6 +718,31 @@ function isWithinSegmentRange(
 
 function isSegmentSpeakerAssignmentHint(hint: SpeakerHintWithId): boolean {
   return getSegmentSpeakerAssignment(hint) !== null;
+}
+
+function isSpeakerScopedAssignmentHint(hint: SpeakerHintWithId): boolean {
+  if (
+    hint.type !== "automatic_speaker_assignment" &&
+    hint.type !== "user_speaker_assignment"
+  ) {
+    return false;
+  }
+
+  const value = parseHintValue(hint.value);
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const scope = value as {
+    scope?: unknown;
+    channel?: unknown;
+    speaker_index?: unknown;
+  };
+  return (
+    scope.scope === "speaker" &&
+    (scope.channel === 0 || scope.channel === 1 || scope.channel === 2) &&
+    (scope.speaker_index === null || typeof scope.speaker_index === "number")
+  );
 }
 
 function getSegmentSpeakerAssignment(

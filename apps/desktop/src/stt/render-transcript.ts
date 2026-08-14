@@ -286,6 +286,39 @@ function normalizeSpeakerHint(
     return null;
   }
 
+  const isSpeakerAssignment =
+    hint.type === "automatic_speaker_assignment" ||
+    hint.type === "user_speaker_assignment";
+  const humanId = (value as { human_id?: unknown }).human_id;
+  if (isSpeakerAssignment && typeof humanId === "string") {
+    const explicitSpeakerScope = getExplicitSpeakerScope(value);
+    if (explicitSpeakerScope) {
+      return {
+        human_id: humanId,
+        scope: explicitSpeakerScope,
+      };
+    }
+
+    if (
+      (value as { scope?: unknown }).scope === "segment" &&
+      Array.isArray((value as { word_ids?: unknown }).word_ids)
+    ) {
+      const wordIds = (value as { word_ids: unknown[] }).word_ids.filter(
+        (wordId): wordId is string =>
+          typeof wordId === "string" && wordId.length > 0,
+      );
+      if (wordIds.length > 0) {
+        return {
+          human_id: humanId,
+          scope: {
+            kind: "words",
+            word_ids: wordIds,
+          },
+        };
+      }
+    }
+  }
+
   const wordIndex = wordIndexById.get(hint.word_id);
   if (typeof wordIndex !== "number") {
     return null;
@@ -307,38 +340,7 @@ function normalizeSpeakerHint(
     return null;
   }
 
-  if (
-    (hint.type === "automatic_speaker_assignment" ||
-      hint.type === "user_speaker_assignment") &&
-    typeof (value as { human_id?: unknown }).human_id === "string"
-  ) {
-    const humanId = (value as { human_id: string }).human_id;
-    const explicitSpeakerScope = getExplicitSpeakerScope(value);
-    if (explicitSpeakerScope) {
-      return {
-        human_id: humanId,
-        scope: explicitSpeakerScope,
-      };
-    }
-    if (
-      (value as { scope?: unknown }).scope === "segment" &&
-      Array.isArray((value as { word_ids?: unknown }).word_ids)
-    ) {
-      const wordIds = (value as { word_ids: unknown[] }).word_ids.filter(
-        (wordId): wordId is string =>
-          typeof wordId === "string" && wordId.length > 0,
-      );
-      if (wordIds.length > 0) {
-        return {
-          human_id: humanId,
-          scope: {
-            kind: "words",
-            word_ids: wordIds,
-          },
-        };
-      }
-    }
-
+  if (isSpeakerAssignment && typeof humanId === "string") {
     return word.speaker_index == null
       ? {
           human_id: humanId,
