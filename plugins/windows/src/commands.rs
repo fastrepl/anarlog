@@ -1,4 +1,4 @@
-use crate::{AppWindow, SavedFrames, WindowImpl, WindowsPluginExt, events};
+use crate::{AppWindow, SavedFrames, WebviewHealthState, WindowImpl, WindowsPluginExt, events};
 
 use tauri::Manager;
 
@@ -22,6 +22,27 @@ pub async fn window_hide(
     window: AppWindow,
 ) -> Result<(), String> {
     app.windows().hide(window).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn webview_health_ack(
+    window: tauri::Window<tauri::Wry>,
+    request_id: String,
+) -> Result<(), String> {
+    if let Some(state) = window.try_state::<WebviewHealthState>() {
+        state.acknowledge(window.label(), &request_id);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn webview_health_ready(window: tauri::Window<tauri::Wry>) -> Result<(), String> {
+    if let Some(state) = window.try_state::<WebviewHealthState>() {
+        state.ready(window.label());
+    }
     Ok(())
 }
 

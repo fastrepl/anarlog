@@ -8,6 +8,8 @@ permissions = [
     "allow-window-emit-navigate",
     "allow-window-is-exists",
     "allow-window-is-occluded",
+    "allow-webview-health-ack",
+    "allow-webview-health-ready",
     "allow-window-set-frame-animated",
     "allow-window-save-frame",
     "allow-window-restore-frame-animated",

@@ -11,6 +11,8 @@ Default permissions for the plugin
 - `allow-window-emit-navigate`
 - `allow-window-is-exists`
 - `allow-window-is-occluded`
+- `allow-webview-health-ack`
+- `allow-webview-health-ready`
 - `allow-window-set-frame-animated`
 - `allow-window-save-frame`
 - `allow-window-restore-frame-animated`
@@ -317,6 +319,58 @@ Enables the set_show_app_in_dock command without any pre-configured scope.
 <td>
 
 Denies the set_show_app_in_dock command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-webview-health-ack`
+
+</td>
+<td>
+
+Enables the webview_health_ack command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-webview-health-ack`
+
+</td>
+<td>
+
+Denies the webview_health_ack command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-webview-health-ready`
+
+</td>
+<td>
+
+Enables the webview_health_ready command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-webview-health-ready`
+
+</td>
+<td>
+
+Denies the webview_health_ready command without any pre-configured scope.
 
 </td>
 </tr>

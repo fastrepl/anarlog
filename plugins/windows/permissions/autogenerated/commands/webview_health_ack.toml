@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-webview-health-ack"
+description = "Enables the webview_health_ack command without any pre-configured scope."
+commands.allow = ["webview_health_ack"]
+
+[[permission]]
+identifier = "deny-webview-health-ack"
+description = "Denies the webview_health_ack command without any pre-configured scope."
+commands.deny = ["webview_health_ack"]

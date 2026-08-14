@@ -18,6 +18,9 @@ use std::sync::{
     Mutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
+use std::time::{Duration, Instant};
+
+const WEBVIEW_RECOVERY_GRACE_PERIOD: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy)]
 pub struct SavedFrame {
@@ -91,6 +94,81 @@ pub struct WindowReadyState {
     pending: Mutex<HashMap<String, (u64, oneshot::Sender<()>)>>,
 }
 
+#[derive(Default)]
+struct WebviewHealthState {
+    next_registration_id: AtomicU64,
+    pending: Mutex<HashMap<String, (u64, String, oneshot::Sender<()>)>>,
+    recovering_since: Mutex<HashMap<String, Instant>>,
+}
+
+impl WebviewHealthState {
+    fn register(&self, label: String) -> Option<(u64, String, oneshot::Receiver<()>)> {
+        let mut recovering_since = self.recovering_since.lock().unwrap();
+        if recovering_since
+            .get(&label)
+            .is_some_and(|started_at| started_at.elapsed() < WEBVIEW_RECOVERY_GRACE_PERIOD)
+        {
+            return None;
+        }
+        recovering_since.remove(&label);
+
+        let (tx, rx) = oneshot::channel();
+        let registration_id = self.next_registration_id.fetch_add(1, Ordering::Relaxed);
+        let request_id = uuid::Uuid::new_v4().to_string();
+        self.pending
+            .lock()
+            .unwrap()
+            .insert(label, (registration_id, request_id.clone(), tx));
+        drop(recovering_since);
+
+        Some((registration_id, request_id, rx))
+    }
+
+    fn acknowledge(&self, label: &str, request_id: &str) -> bool {
+        let mut pending = self.pending.lock().unwrap();
+        let is_match = pending
+            .get(label)
+            .is_some_and(|(_, current_request_id, _)| current_request_id == request_id);
+
+        if !is_match {
+            return false;
+        }
+
+        if let Some((_, _, tx)) = pending.remove(label) {
+            let _ = tx.send(());
+        }
+        true
+    }
+
+    fn unregister(&self, label: &str, registration_id: u64) -> bool {
+        let mut pending = self.pending.lock().unwrap();
+        let is_match = pending
+            .get(label)
+            .is_some_and(|(current_id, _, _)| *current_id == registration_id);
+
+        if is_match {
+            pending.remove(label);
+        }
+        is_match
+    }
+
+    fn begin_recovery(&self, label: &str) {
+        let mut recovering_since = self.recovering_since.lock().unwrap();
+        recovering_since.insert(label.to_string(), Instant::now());
+        self.pending.lock().unwrap().remove(label);
+    }
+
+    fn ready(&self, label: &str) {
+        self.recovering_since.lock().unwrap().remove(label);
+    }
+
+    fn remove(&self, label: &str) {
+        let mut recovering_since = self.recovering_since.lock().unwrap();
+        recovering_since.remove(label);
+        self.pending.lock().unwrap().remove(label);
+    }
+}
+
 impl WindowReadyState {
     pub fn register(&self, label: String) -> (u64, oneshot::Receiver<()>) {
         let (tx, rx) = oneshot::channel();
@@ -127,6 +205,9 @@ pub(crate) fn clear_window_state(app: &tauri::AppHandle<tauri::Wry>, label: &str
     if let Some(state) = app.try_state::<WindowReadyState>() {
         state.remove(label);
     }
+    if let Some(state) = app.try_state::<WebviewHealthState>() {
+        state.remove(label);
+    }
     if let Some(state) = app.try_state::<SavedFrames>() {
         state.remove(label);
     }
@@ -143,6 +224,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             events::WindowDestroyed,
             events::OpenTab,
             events::VisibilityEvent,
+            events::WebviewHealthCheck,
             events::FloatingBarStop,
             events::FloatingBarOpenMain,
             events::FloatingBarSettingsChange,
@@ -156,6 +238,8 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::window_emit_navigate,
             commands::window_is_exists,
             commands::window_is_occluded,
+            commands::webview_health_ack,
+            commands::webview_health_ready,
             commands::window_set_frame_animated,
             commands::window_save_frame,
             commands::window_restore_frame_animated,
@@ -191,6 +275,11 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
             {
                 let ready_state = WindowReadyState::default();
                 app.manage(ready_state);
+            }
+
+            {
+                let health_state = WebviewHealthState::default();
+                app.manage(health_state);
             }
 
             {
@@ -253,6 +342,42 @@ mod test {
         assert!(second_rx.await.is_ok());
         state.unregister("note-1", second_id);
         assert!(state.pending.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn webview_health_acknowledges_only_the_current_request() {
+        let state = WebviewHealthState::default();
+        let (first_id, first_request_id, first_rx) = state.register("main".into()).unwrap();
+        let (second_id, second_request_id, second_rx) = state.register("main".into()).unwrap();
+
+        assert!(first_rx.await.is_err());
+        assert!(!state.acknowledge("main", &first_request_id));
+        assert!(!state.unregister("main", first_id));
+        assert!(state.acknowledge("main", &second_request_id));
+        assert!(second_rx.await.is_ok());
+        assert!(!state.unregister("main", second_id));
+        assert!(state.pending.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn webview_health_timeout_unregisters_only_the_current_request() {
+        let state = WebviewHealthState::default();
+        let (first_id, _, _) = state.register("main".into()).unwrap();
+        let (second_id, _, _) = state.register("main".into()).unwrap();
+
+        assert!(!state.unregister("main", first_id));
+        assert!(state.unregister("main", second_id));
+        assert!(state.pending.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn webview_health_waits_for_reloaded_frontend() {
+        let state = WebviewHealthState::default();
+        state.begin_recovery("main");
+
+        assert!(state.register("main".into()).is_none());
+        state.ready("main");
+        assert!(state.register("main".into()).is_some());
     }
 
     #[test]

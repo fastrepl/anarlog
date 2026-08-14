@@ -1,7 +1,10 @@
 use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_specta::Event;
 
-use crate::{AppWindow, SavedFrame, WindowImpl, WindowReadyState, events};
+use crate::{AppWindow, SavedFrame, WebviewHealthState, WindowImpl, WindowReadyState, events};
+
+#[cfg(target_os = "macos")]
+const WEBVIEW_HEALTH_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(2);
 
 #[cfg(target_os = "macos")]
 pub(crate) fn run_on_main_thread<R: Send + 'static>(
@@ -18,6 +21,92 @@ pub(crate) fn run_on_main_thread<R: Send + 'static>(
 }
 
 impl AppWindow {
+    #[cfg(target_os = "macos")]
+    fn reload_unresponsive_webview(app: &AppHandle<tauri::Wry>, label: &str, request_id: &str) {
+        let Some(window) = app.get_webview_window(label) else {
+            return;
+        };
+        if !window.is_visible().unwrap_or(false) {
+            return;
+        }
+
+        let Some(state) = app.try_state::<WebviewHealthState>() else {
+            return;
+        };
+        state.begin_recovery(label);
+
+        match window.reload() {
+            Ok(()) => tracing::warn!(
+                request_id,
+                "reloaded unresponsive main webview after reopen"
+            ),
+            Err(error) => {
+                state.ready(label);
+                tracing::error!(
+                    %error,
+                    request_id,
+                    "failed to reload unresponsive main webview after reopen"
+                );
+            }
+        }
+    }
+
+    pub fn request_webview_health_check(
+        &self,
+        app: &AppHandle<tauri::Wry>,
+        window: &WebviewWindow,
+    ) {
+        #[cfg(target_os = "macos")]
+        {
+            if !matches!(self, Self::Main) {
+                return;
+            }
+
+            let Some(state) = app.try_state::<WebviewHealthState>() else {
+                return;
+            };
+            let label = window.label().to_string();
+            let Some((registration_id, request_id, rx)) = state.register(label.clone()) else {
+                return;
+            };
+
+            let health_check = events::WebviewHealthCheck {
+                request_id: request_id.clone(),
+            };
+            if let Err(error) = health_check.emit_to(app, &label) {
+                let should_reload = state.unregister(&label, registration_id);
+                tracing::warn!(%error, "failed to request main webview health check");
+                if should_reload {
+                    Self::reload_unresponsive_webview(app, &label, &request_id);
+                }
+                return;
+            }
+
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                match tokio::time::timeout(WEBVIEW_HEALTH_CHECK_TIMEOUT, rx).await {
+                    Ok(Ok(())) | Ok(Err(_)) => return,
+                    Err(_) => {}
+                }
+
+                let Some(state) = app.try_state::<WebviewHealthState>() else {
+                    return;
+                };
+                if !state.unregister(&label, registration_id) {
+                    return;
+                }
+
+                Self::reload_unresponsive_webview(&app, &label, &request_id);
+            });
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            let _ = app;
+            let _ = window;
+        }
+    }
+
     #[cfg(target_os = "macos")]
     fn with_ns_window<R: Send + 'static>(
         &self,
@@ -279,6 +368,7 @@ impl AppWindow {
             self.ensure_visible(app, &window);
             window.show()?;
             window.set_focus()?;
+            self.request_webview_health_check(app, &window);
             return Ok(Some(window));
         }
         Ok(None)

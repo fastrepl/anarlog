@@ -252,6 +252,7 @@ pub async fn main() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
+                AppWindow::Main.request_webview_health_check(app, &window);
             }
         }));
     }

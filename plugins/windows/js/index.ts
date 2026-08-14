@@ -1,7 +1,7 @@
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
 export * from "./bindings.gen";
-import { commands } from "./bindings.gen";
+import { commands, events } from "./bindings.gen";
 
 export type WindowLabel =
   | "main"
@@ -62,12 +62,15 @@ export async function dismissInstruction() {
 
 const DROP_PREVENTION_CLEANUP_KEY =
   "__ANARLOG_WINDOWS_DROP_PREVENTION_CLEANUP__";
+const HEALTH_CHECK_CLEANUP_KEY = "__ANARLOG_WINDOWS_HEALTH_CHECK_CLEANUP__";
 
 export const init = () => {
   const host = window as typeof window & {
     [DROP_PREVENTION_CLEANUP_KEY]?: () => void;
+    [HEALTH_CHECK_CLEANUP_KEY]?: () => void;
   };
   host[DROP_PREVENTION_CLEANUP_KEY]?.();
+  host[HEALTH_CHECK_CLEANUP_KEY]?.();
 
   const allowDropAttribute = "[data-allow-file-drop='true']";
   const shouldAllow = (event: DragEvent) => {
@@ -105,15 +108,48 @@ export const init = () => {
   document.addEventListener("dragenter", preventUnlessAllowed);
   document.addEventListener("dragleave", preventUnlessAllowed);
 
-  const cleanup = () => {
+  const cleanupDropPrevention = () => {
     document.removeEventListener("dragover", preventUnlessAllowed);
     document.removeEventListener("drop", preventUnlessAllowed);
     document.removeEventListener("dragenter", preventUnlessAllowed);
     document.removeEventListener("dragleave", preventUnlessAllowed);
-    if (host[DROP_PREVENTION_CLEANUP_KEY] === cleanup) {
+    if (host[DROP_PREVENTION_CLEANUP_KEY] === cleanupDropPrevention) {
       delete host[DROP_PREVENTION_CLEANUP_KEY];
     }
   };
-  host[DROP_PREVENTION_CLEANUP_KEY] = cleanup;
-  return cleanup;
+  host[DROP_PREVENTION_CLEANUP_KEY] = cleanupDropPrevention;
+
+  let healthCheckUnlisten: (() => void) | null = null;
+  let healthCheckCancelled = false;
+  void events.webviewHealthCheck
+    .listen(({ payload }) => {
+      void commands.webviewHealthAck(payload.requestId);
+    })
+    .then((unlisten) => {
+      if (healthCheckCancelled) {
+        unlisten();
+      } else {
+        healthCheckUnlisten = unlisten;
+        void commands.webviewHealthReady().catch((error) => {
+          console.error("Failed to mark webview health checks ready", error);
+        });
+      }
+    })
+    .catch((error) => {
+      console.error("Failed to listen for webview health checks", error);
+    });
+
+  const cleanupHealthCheck = () => {
+    healthCheckCancelled = true;
+    healthCheckUnlisten?.();
+    if (host[HEALTH_CHECK_CLEANUP_KEY] === cleanupHealthCheck) {
+      delete host[HEALTH_CHECK_CLEANUP_KEY];
+    }
+  };
+  host[HEALTH_CHECK_CLEANUP_KEY] = cleanupHealthCheck;
+
+  return () => {
+    cleanupDropPrevention();
+    cleanupHealthCheck();
+  };
 };

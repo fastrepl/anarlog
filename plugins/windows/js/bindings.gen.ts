@@ -95,6 +95,30 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async webviewHealthAck(requestId: string): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:windows|webview_health_ack", {
+          requestId,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
+  async webviewHealthReady(): Promise<Result<null, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:windows|webview_health_ready"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async windowSetFrameAnimated(
     window: AppWindow,
     anchor: Anchor,
@@ -300,6 +324,7 @@ export const events = __makeEvents__<{
   navigate: Navigate;
   openTab: OpenTab;
   visibilityEvent: VisibilityEvent;
+  webviewHealthCheck: WebviewHealthCheck;
   windowDestroyed: WindowDestroyed;
 }>({
   devtoolsPanelAction: "plugin:windows:devtools-panel-action",
@@ -309,6 +334,7 @@ export const events = __makeEvents__<{
   navigate: "plugin:windows:navigate",
   openTab: "plugin:windows:open-tab",
   visibilityEvent: "plugin:windows:visibility-event",
+  webviewHealthCheck: "plugin:windows:webview-health-check",
   windowDestroyed: "plugin:windows:window-destroyed",
 });
 
@@ -433,6 +459,7 @@ export type TemplatesState = {
   selectedWebIndex: number | null;
 };
 export type VisibilityEvent = { window: AppWindow; visible: boolean };
+export type WebviewHealthCheck = { requestId: string };
 export type WindowDestroyed = { window: AppWindow };
 
 /** tauri-specta globals **/

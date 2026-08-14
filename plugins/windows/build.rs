@@ -6,6 +6,8 @@ const COMMANDS: &[&str] = &[
     "window_emit_navigate",
     "window_is_exists",
     "window_is_occluded",
+    "webview_health_ack",
+    "webview_health_ready",
     "window_set_frame_animated",
     "window_save_frame",
     "window_restore_frame_animated",

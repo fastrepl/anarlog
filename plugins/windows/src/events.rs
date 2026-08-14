@@ -91,6 +91,12 @@ common_event_derives! {
     }
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, specta::Type, tauri_specta::Event)]
+#[serde(rename_all = "camelCase")]
+pub struct WebviewHealthCheck {
+    pub request_id: String,
+}
+
 common_event_derives! {
     pub struct FloatingBarStop {}
 }
