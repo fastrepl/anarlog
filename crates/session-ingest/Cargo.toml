@@ -1,0 +1,21 @@
+[package]
+name = "session-ingest"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true, optional = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"], optional = true }
+thiserror = { workspace = true, optional = true }
+
+[features]
+default = ["apply"]
+apply = ["dep:sha2", "dep:sqlx", "dep:thiserror"]
+
+[dev-dependencies]
+anlg-agent-access = { workspace = true }
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }

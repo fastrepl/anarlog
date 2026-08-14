@@ -16187,6 +16187,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "session-ingest"
+version = "0.1.0"
+dependencies = [
+ "agent-access",
+ "db-app",
+ "db-core",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "sqlx",
+ "thiserror 2.0.18",
+ "tokio",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"

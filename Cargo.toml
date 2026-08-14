@@ -156,6 +156,7 @@ anlg-resampler = { path = "crates/resampler", package = "resampler" }
 anlg-s3 = { path = "crates/s3", package = "s3" }
 anlg-screen-core = { path = "crates/screen-core", package = "screen-core" }
 anlg-segmentation = { path = "crates/segmentation", package = "segmentation" }
+anlg-session-ingest = { path = "crates/session-ingest", package = "session-ingest" }
 anlg-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 anlg-slack-web = { path = "crates/slack-web", package = "slack-web" }
 anlg-storage = { path = "crates/storage", package = "storage" }
