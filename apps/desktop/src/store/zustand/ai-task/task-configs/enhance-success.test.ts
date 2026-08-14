@@ -94,6 +94,7 @@ function createTransformedArgs(): EnhanceSuccessParams["transformedArgs"] {
     postMeetingMemo: "",
     transcripts: [],
     imageContext: [],
+    summaryLength: "detailed",
   };
 }
 
@@ -393,6 +394,7 @@ describe("enhanceSuccess.onSuccess", () => {
       createSnapshot("Meeting title"),
     );
     const transformedArgs = createTransformedArgs();
+    transformedArgs.summaryLength = "crisp";
     transformedArgs.template = {
       title: "1:1 Meeting",
       description: null,

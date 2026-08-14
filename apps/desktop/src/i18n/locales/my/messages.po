@@ -452,6 +452,10 @@ msgstr ""
 msgid "Background sync"
 msgstr ""
 
+#: src/settings/general/summary-length.tsx
+msgid "Balanced"
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "Base URL"
 msgstr ""
@@ -659,6 +663,10 @@ msgstr ""
 
 #: src/settings/general/audio-settings.tsx
 msgid "Choose how long recordings stay on this device."
+msgstr ""
+
+#: src/settings/general/summary-length.tsx
+msgid "Choose how much detail generated meeting summaries include."
 msgstr ""
 
 #: src/onboarding/folder-location.tsx
@@ -1027,6 +1035,10 @@ msgstr ""
 msgid "Created {createdAt}"
 msgstr ""
 
+#: src/settings/general/summary-length.tsx
+msgid "Crisp"
+msgstr ""
+
 #: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
 msgid "Current default"
@@ -1127,6 +1139,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Describe what should happen and when. This draft becomes an automation once you send the first message."
+msgstr ""
+
+#: src/settings/general/summary-length.tsx
+msgid "Detailed"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -2746,6 +2762,10 @@ msgstr "ဘာသာစကားကို ရွေးပါ"
 msgid "Select or type to add speaker"
 msgstr ""
 
+#: src/settings/general/summary-length.tsx
+msgid "Select summary length"
+msgstr ""
+
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
 msgstr ""
@@ -3195,6 +3215,10 @@ msgstr ""
 msgid "Suggested templates"
 msgstr ""
 
+#: src/settings/general/index.tsx
+msgid "Summaries"
+msgstr ""
+
 #: src/contacts/details.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
@@ -3211,6 +3235,10 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
+msgstr ""
+
+#: src/settings/general/summary-length.tsx
+msgid "Summary length"
 msgstr ""
 
 #: src/settings/general/week-start.tsx

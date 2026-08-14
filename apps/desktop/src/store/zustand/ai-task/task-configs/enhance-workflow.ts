@@ -13,6 +13,7 @@ import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
 
 import {
+  formatSummaryLengthModeGuidance,
   formatSummaryLengthGuidance,
   getSummaryLengthPolicy,
 } from "~/services/enhancer/summary-length";
@@ -49,6 +50,7 @@ async function* executeWorkflow(params: {
     withImageContextNote(await getUserPrompt(args), args.imageContext.length),
     args.transcripts,
     Boolean(args.template?.sections.length),
+    args.summaryLength,
   );
 
   yield* generateSummary({
@@ -73,7 +75,16 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
     throw new Error(result.error);
   }
 
-  return result.data;
+  const modeGuidance = formatSummaryLengthModeGuidance(
+    args.summaryLength,
+    Boolean(args.template?.sections.length),
+  );
+
+  return `${result.data}
+
+# Summary Mode
+
+${modeGuidance}`;
 }
 
 async function getUserPrompt(args: TaskArgsMapTransformed["enhance"]) {
@@ -203,15 +214,16 @@ function withLengthGuidance(
   prompt: string,
   transcripts: TaskArgsMapTransformed["enhance"]["transcripts"],
   hasTemplateSections: boolean,
+  summaryLength: TaskArgsMapTransformed["enhance"]["summaryLength"],
 ): string {
-  if (hasTemplateSections) return prompt;
-
-  const guidance = formatSummaryLengthGuidance(
-    getSummaryLengthPolicy(transcripts),
-  );
-  if (!guidance) {
+  if (hasTemplateSections) {
     return prompt;
   }
+
+  const guidance = formatSummaryLengthGuidance(
+    getSummaryLengthPolicy(transcripts, summaryLength),
+  );
+  if (!guidance) return prompt;
 
   return `${prompt}
 

@@ -16,6 +16,7 @@ import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 import { collectEnhanceImageContext } from "./enhance-images";
 
 import { loadHumansByIds } from "~/contacts/queries";
+import { normalizeSummaryLengthMode } from "~/services/enhancer/summary-length";
 import {
   loadSessionContentSnapshot,
   type SessionContentSnapshot,
@@ -109,6 +110,7 @@ async function transformArgs(
     postMeetingMemo: sessionContext.postMeetingMemo,
     transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
     imageContext,
+    summaryLength: normalizeSummaryLengthMode(settingsValues.summary_length),
   };
 }
 

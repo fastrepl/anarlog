@@ -187,6 +187,11 @@ export const SETTING_DEFINITIONS = {
     path: ["ai", "auto_summary_prompt"],
     default: "" as string,
   },
+  summary_length: {
+    type: "string",
+    path: ["ai", "summary_length"],
+    default: "detailed" as string,
+  },
   ignored_platforms: {
     type: "string",
     path: ["notification", "ignored_platforms"],

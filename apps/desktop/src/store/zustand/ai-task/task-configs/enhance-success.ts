@@ -52,7 +52,10 @@ export const runEnhanceSuccess = async ({
 }: EnhanceSuccessParams) => {
   const lengthPolicy = transformedArgs.template?.sections.length
     ? null
-    : getSummaryLengthPolicy(transformedArgs.transcripts);
+    : getSummaryLengthPolicy(
+        transformedArgs.transcripts,
+        transformedArgs.summaryLength,
+      );
   const constrainedText = constrainSummaryLength(text, lengthPolicy);
   if (!constrainedText) {
     return;

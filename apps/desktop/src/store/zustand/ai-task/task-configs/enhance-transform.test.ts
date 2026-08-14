@@ -246,6 +246,16 @@ describe("enhanceTransform.transformArgs", () => {
     );
 
     expect(result.formatOverride).toBe("");
+    expect(result.summaryLength).toBe("detailed");
+  });
+
+  it("uses the saved summary length mode", async () => {
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      { ...settingsValues, summary_length: "crisp" },
+    );
+
+    expect(result.summaryLength).toBe("crisp");
   });
 
   it("falls back to generic enhancement when template loading fails", async () => {

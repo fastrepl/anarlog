@@ -4,8 +4,10 @@ import {
   constrainSummaryLength,
   countNormalizedCharacters,
   countTranscriptWordCharacters,
+  formatSummaryLengthModeGuidance,
   formatSummaryLengthGuidance,
   getSummaryLengthPolicy,
+  normalizeSummaryLengthMode,
 } from "./summary-length";
 
 describe("summary length policy", () => {
@@ -59,7 +61,7 @@ describe("summary length policy", () => {
       maxSections: 4,
     });
     expect(policyFor(30_000)).toEqual({
-      maxCharacters: 6_000,
+      maxCharacters: 7_500,
       minSections: 5,
       maxSections: 8,
     });
@@ -96,6 +98,48 @@ describe("summary length policy", () => {
       maxCharacters: 10_000,
       maxSections: null,
     });
+  });
+
+  it("reduces output budgets for balanced and crisp modes", () => {
+    const transcripts = [
+      {
+        startedAt: null,
+        endedAt: null,
+        segments: [{ speaker: "John", text: "a".repeat(10_000) }],
+      },
+    ];
+
+    expect(getSummaryLengthPolicy(transcripts, "detailed")).toMatchObject({
+      maxCharacters: 10_000,
+      guidance: { maxCharacters: 7_500, minSections: 3, maxSections: 6 },
+    });
+    expect(getSummaryLengthPolicy(transcripts, "balanced")).toMatchObject({
+      maxCharacters: 8_750,
+      guidance: { maxCharacters: 6_000, minSections: 3, maxSections: 6 },
+    });
+    expect(getSummaryLengthPolicy(transcripts, "crisp")).toMatchObject({
+      maxCharacters: 7_500,
+      guidance: { maxCharacters: 4_500, minSections: 3, maxSections: 5 },
+    });
+  });
+
+  it("keeps detailed as the default and explicitly requests full context", () => {
+    expect(normalizeSummaryLengthMode(undefined)).toBe("detailed");
+    expect(normalizeSummaryLengthMode("unsupported")).toBe("detailed");
+    expect(normalizeSummaryLengthMode("crisp")).toBe("crisp");
+    expect(formatSummaryLengthModeGuidance("detailed", false)).toContain(
+      "every material topic",
+    );
+  });
+
+  it("guides crisp summaries toward short bullets and explicit follow-ups", () => {
+    const guidance = formatSummaryLengthModeGuidance("crisp", false);
+
+    expect(guidance).toContain("one idea per bullet");
+    expect(guidance).toContain("# Next Steps");
+    expect(formatSummaryLengthModeGuidance("crisp", true)).toContain(
+      "Preserve every requested template section",
+    );
   });
 
   it("keeps no more than two sections or the transcript character count", () => {

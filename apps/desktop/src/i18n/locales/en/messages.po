@@ -452,6 +452,10 @@ msgstr "Back"
 msgid "Background sync"
 msgstr "Background sync"
 
+#: src/settings/general/summary-length.tsx
+msgid "Balanced"
+msgstr "Balanced"
+
 #: src/settings/ai/shared/index.tsx
 msgid "Base URL"
 msgstr "Base URL"
@@ -660,6 +664,10 @@ msgstr "Choose how Auto structures and styles your summaries."
 #: src/settings/general/audio-settings.tsx
 msgid "Choose how long recordings stay on this device."
 msgstr "Choose how long recordings stay on this device."
+
+#: src/settings/general/summary-length.tsx
+msgid "Choose how much detail generated meeting summaries include."
+msgstr "Choose how much detail generated meeting summaries include."
 
 #: src/onboarding/folder-location.tsx
 msgid "Choose storage location"
@@ -1027,6 +1035,10 @@ msgstr "Created"
 msgid "Created {createdAt}"
 msgstr "Created {createdAt}"
 
+#: src/settings/general/summary-length.tsx
+msgid "Crisp"
+msgstr "Crisp"
+
 #: src/settings/general/audio-settings.tsx
 #: src/templates/auto-form.tsx
 msgid "Current default"
@@ -1128,6 +1140,10 @@ msgstr "Describe the template purpose..."
 #: src/settings/automations/index.tsx
 msgid "Describe what should happen and when. This draft becomes an automation once you send the first message."
 msgstr "Describe what should happen and when. This draft becomes an automation once you send the first message."
+
+#: src/settings/general/summary-length.tsx
+msgid "Detailed"
+msgstr "Detailed"
 
 #: src/settings/general/notification.tsx
 msgid "Detect meetings from microphone activity."
@@ -2746,6 +2762,10 @@ msgstr "Select language"
 msgid "Select or type to add speaker"
 msgstr "Select or type to add speaker"
 
+#: src/settings/general/summary-length.tsx
+msgid "Select summary length"
+msgstr "Select summary length"
+
 #: src/settings/general/timezone.tsx
 msgid "Select timezone"
 msgstr "Select timezone"
@@ -3195,6 +3215,10 @@ msgstr "Submit callback URL"
 msgid "Suggested templates"
 msgstr "Suggested templates"
 
+#: src/settings/general/index.tsx
+msgid "Summaries"
+msgstr "Summaries"
+
 #: src/contacts/details.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
@@ -3212,6 +3236,10 @@ msgstr "Summary format cannot be empty."
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Summary generation failed"
 msgstr "Summary generation failed"
+
+#: src/settings/general/summary-length.tsx
+msgid "Summary length"
+msgstr "Summary length"
 
 #: src/settings/general/week-start.tsx
 msgid "Sunday"

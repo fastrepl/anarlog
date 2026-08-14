@@ -23,6 +23,7 @@ function createEnhanceArgs(
     postMeetingMemo: "",
     transcripts: [],
     imageContext: [],
+    summaryLength: "detailed",
     ...overrides,
   };
 }

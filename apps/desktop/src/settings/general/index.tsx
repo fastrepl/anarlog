@@ -19,6 +19,7 @@ import { NotificationSettingsView } from "./notification";
 import { Permissions } from "./permissions";
 import { SpokenLanguagesView } from "./spoken-languages";
 import { StorageSettingsView } from "./storage";
+import { SummaryLengthSelector } from "./summary-length";
 import { TimezoneSelector } from "./timezone";
 import { WeekStartSelector } from "./week-start";
 
@@ -313,6 +314,13 @@ function SettingsSectionContent({
               />
             )}
           </form.Subscribe>
+
+          <div>
+            <h2 className="mb-4 font-sans text-lg font-semibold">
+              <Trans>Summaries</Trans>
+            </h2>
+            <SummaryLengthSelector />
+          </div>
 
           <div>
             <h2 className="mb-4 font-sans text-lg font-semibold">

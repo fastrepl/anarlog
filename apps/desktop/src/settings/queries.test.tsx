@@ -232,6 +232,22 @@ describe("SQLite settings", () => {
     ]);
   });
 
+  it("persists and restores the summary length mode", async () => {
+    await setSettingValues({ summary_length: "crisp" });
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.params.slice(0, 2)).toEqual([
+      "summary_length",
+      JSON.stringify("crisp"),
+    ]);
+
+    const restored = parseSettingRows([
+      { id: "summary_length", value_json: JSON.stringify("balanced") },
+    ]);
+    expect(restored.values.summary_length).toBe("balanced");
+    expect(restored.hasValues.has("summary_length")).toBe(true);
+  });
+
   it("preserves the legacy telemetry choice when splitting crash reporting", async () => {
     mocks.execute.mockResolvedValue([
       {
