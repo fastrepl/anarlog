@@ -152,44 +152,54 @@ export function SharedNoteChatPanel({
   }
 
   return (
-    <>
-      <div
-        aria-hidden="true"
-        className="h-[calc(5rem+env(safe-area-inset-bottom))]"
-      />
-      <Dialog modal={false} open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <button
-            type="button"
+    <Dialog modal={false} open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          aria-label="Ask anything about this note"
+          className="group/anarlog-chat-cta fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-30 h-10 w-[180px] max-w-[calc(100vw-2rem)] -translate-x-1/2 cursor-text focus-visible:outline-none"
+        >
+          <span
+            aria-hidden="true"
             className={cn([
-              "surface border-color-subtle fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-30 mx-auto flex min-h-12 w-auto max-w-[420px] items-center gap-2 rounded-full border px-5 shadow-lg",
-              "text-color-muted hover:text-color hover:bg-surface-subtle font-mono text-sm transition-colors",
-              "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden",
+              "pointer-events-none absolute bottom-0 left-1/2 inline-flex h-2 w-[180px] -translate-x-1/2 items-center overflow-hidden rounded-full border border-transparent",
+              "origin-bottom bg-[linear-gradient(180deg,#faf8f6_0%,#e3e1df_100%)] px-0 text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.16),0_4px_16px_rgba(0,0,0,0.1),inset_0_-1px_0_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.4)] transition-[width,height,padding,background-color,border-color,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "group-hover/anarlog-chat-cta:border-stone-300 group-hover/anarlog-chat-cta:bg-[#f4f4f5] group-focus-visible/anarlog-chat-cta:border-stone-300 group-focus-visible/anarlog-chat-cta:bg-[#f4f4f5]",
+              "group-hover/anarlog-chat-cta:h-10 group-hover/anarlog-chat-cta:w-[min(640px,calc(100vw-2rem))] group-hover/anarlog-chat-cta:px-4 group-hover/anarlog-chat-cta:shadow-[0_16px_42px_rgba(0,0,0,0.26)]",
+              "group-focus-visible/anarlog-chat-cta:h-10 group-focus-visible/anarlog-chat-cta:w-[min(640px,calc(100vw-2rem))] group-focus-visible/anarlog-chat-cta:px-4 group-focus-visible/anarlog-chat-cta:shadow-[0_16px_42px_rgba(0,0,0,0.26)]",
+              "group-focus-visible/anarlog-chat-cta:ring-2 group-focus-visible/anarlog-chat-cta:ring-stone-500 group-focus-visible/anarlog-chat-cta:ring-offset-2",
             ])}
           >
+            <span
+              className={cn([
+                "text-color-muted min-w-0 flex-1 truncate text-left opacity-0",
+                "transition-opacity duration-100 ease-out",
+                "group-hover/anarlog-chat-cta:opacity-100 group-focus-visible/anarlog-chat-cta:opacity-100",
+              ])}
+            >
+              Ask anything about this note
+            </span>
+          </span>
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        showOverlay={false}
+        className={cn([
+          "surface border-color-subtle !top-auto !right-4 !bottom-[calc(1rem+env(safe-area-inset-bottom))] !left-4 !z-50 !mx-auto !flex !translate-x-0 !translate-y-0 flex-col overflow-hidden border shadow-2xl",
+          "!h-[min(680px,calc(100dvh-5rem-env(safe-area-inset-bottom)))] !w-auto !max-w-[648px] !gap-0 !rounded-[28px] !p-0",
+        ])}
+      >
+        <header className="border-color-subtle flex items-center gap-3 border-b px-5 py-4 pr-14">
+          <div className="text-color flex items-center gap-2">
             <Sparkle className="size-4" aria-hidden="true" />
-            Ask anything about this note
-          </button>
-        </DialogTrigger>
-        <DialogContent
-          showOverlay={false}
-          className={cn([
-            "surface border-color-subtle !top-auto !right-4 !bottom-[calc(1rem+env(safe-area-inset-bottom))] !left-4 !z-50 !mx-auto !flex !translate-x-0 !translate-y-0 flex-col overflow-hidden border shadow-2xl",
-            "!h-[min(680px,calc(100dvh-5rem-env(safe-area-inset-bottom)))] !w-auto !max-w-[648px] !gap-0 !rounded-[28px] !p-0",
-          ])}
-        >
-          <header className="border-color-subtle flex items-center gap-3 border-b px-5 py-4 pr-14">
-            <div className="text-color flex items-center gap-2">
-              <Sparkle className="size-4" aria-hidden="true" />
-              <DialogTitle className="font-mono text-sm font-medium">
-                Ask about this note
-              </DialogTitle>
-            </div>
-          </header>
-          {body}
-        </DialogContent>
-      </Dialog>
-    </>
+            <DialogTitle className="font-mono text-sm font-medium">
+              Ask about this note
+            </DialogTitle>
+          </div>
+        </header>
+        {body}
+      </DialogContent>
+    </Dialog>
   );
 }
 
