@@ -126,7 +126,7 @@ export const buildEditSummaryTool = (
         usePendingEditStore.getState().addEdit({
           requestId: toolCallId,
           sessionId,
-          enhancedNoteId,
+          target: { kind: "summary", enhancedNoteId },
           currentContent,
           proposedContent: params.content,
           resolve,

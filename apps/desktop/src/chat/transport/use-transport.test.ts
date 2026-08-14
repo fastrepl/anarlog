@@ -15,10 +15,16 @@ describe("chat transport prompt guidance", () => {
     expect(prompt).toContain("Use get_recurring_meeting_history");
     expect(prompt).toContain("Use typed meeting tools");
     expect(prompt).toContain("Do not ask the user to open or share a meeting");
+    expect(prompt).toContain("call edit_memo");
+    expect(prompt).toContain("Use edit_memo even when the memo is empty");
+    expect(prompt).toContain("do not use edit_summary for meeting preparation");
     expect(prompt).toContain("call edit_summary");
     expect(prompt).toContain("complete replacement markdown");
     expect(prompt).toContain(
       "Use apply_session_correction for narrow exact old-to-new corrections and edit_summary for broader summary rewrites",
+    );
+    expect(prompt).toContain(
+      "Use edit_summary only for existing generated post-meeting summaries",
     );
     expect(prompt).toContain(
       "Do not return the rewrite only as a fenced markdown block",

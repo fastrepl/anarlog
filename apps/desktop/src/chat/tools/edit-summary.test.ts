@@ -40,7 +40,7 @@ describe("edit summary chat tool", () => {
       const pending = usePendingEditStore.getState().edits.get(requestId);
       expect(pending).toMatchObject({
         sessionId: "session-1",
-        enhancedNoteId: "summary-1",
+        target: { kind: "summary", enhancedNoteId: "summary-1" },
         currentContent: "Current summary",
         proposedContent: "Updated summary",
       });

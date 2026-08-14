@@ -18,7 +18,7 @@ vi.mock("~/store/zustand/tabs", () => ({
   },
 }));
 
-import { ToolEditSummary } from "./edit-summary";
+import { ToolEditMemo, ToolEditSummary } from "./edit-summary";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
 
@@ -27,6 +27,13 @@ const part = {
   toolCallId: "tool-call-1",
   state: "input-available",
   input: { content: "Updated summary" },
+} as const;
+
+const memoPart = {
+  type: "tool-edit_memo",
+  toolCallId: "tool-call-1",
+  state: "input-available",
+  input: { content: "## Agenda" },
 } as const;
 
 describe("ToolEditSummary", () => {
@@ -53,7 +60,7 @@ describe("ToolEditSummary", () => {
     usePendingEditStore.getState().addEdit({
       requestId: "tool-call-1",
       sessionId: "session-1",
-      enhancedNoteId: "summary-1",
+      target: { kind: "summary", enhancedNoteId: "summary-1" },
       currentContent: "Current summary",
       proposedContent: "Updated summary",
       resolve,
@@ -74,5 +81,23 @@ describe("ToolEditSummary", () => {
     expect(
       screen.queryByRole("button", { name: "Apply to summary" }),
     ).toBeNull();
+  });
+
+  it("applies a reviewed memo edit from the chat card", () => {
+    const resolve = vi.fn();
+    usePendingEditStore.getState().addEdit({
+      requestId: "tool-call-1",
+      sessionId: "session-1",
+      target: { kind: "memo" },
+      currentContent: "",
+      proposedContent: "## Agenda",
+      resolve,
+    });
+
+    render(<ToolEditMemo part={memoPart} />);
+    fireEvent.click(screen.getByRole("button", { name: "Apply to memo" }));
+
+    expect(resolve).toHaveBeenCalledWith(true);
+    expect(tabState.close).toHaveBeenCalledWith(tabState.tabs[0]);
   });
 });

@@ -3,7 +3,7 @@ import { create } from "zustand";
 type PendingEdit = {
   requestId: string;
   sessionId: string;
-  enhancedNoteId: string;
+  target: { kind: "memo" } | { kind: "summary"; enhancedNoteId: string };
   currentContent: string;
   proposedContent: string;
   resolve: (approved: boolean) => void;

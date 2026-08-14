@@ -1,4 +1,4 @@
-import { ToolEditSummary } from "./edit-summary";
+import { ToolEditMemo, ToolEditSummary } from "./edit-summary";
 import { ToolGeneric } from "./generic";
 import { ToolSearchMeetings } from "./search-meetings";
 import { ToolUpdatePromptTemplate } from "./update-prompt-template";
@@ -11,6 +11,7 @@ const toolRegistry: Record<string, ToolComponent> = {
   "tool-list_meetings": ToolSearchMeetings as ToolComponent,
   "tool-search_meetings": ToolSearchMeetings as ToolComponent,
   "tool-search_sessions": ToolSearchMeetings as ToolComponent,
+  "tool-edit_memo": ToolEditMemo as ToolComponent,
   "tool-edit_summary": ToolEditSummary as ToolComponent,
   "tool-update_prompt_template": ToolUpdatePromptTemplate as ToolComponent,
 };

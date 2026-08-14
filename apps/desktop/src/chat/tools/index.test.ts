@@ -32,6 +32,8 @@ describe("chat tool registration", () => {
     expect(tools).toHaveProperty("search_meetings");
     expect(tools).toHaveProperty("search_meeting_content");
     expect(tools).toHaveProperty("find_related_meetings");
+    expect(tools).toHaveProperty("edit_memo");
+    expect(tools).toHaveProperty("edit_summary");
     expect(tools).not.toHaveProperty("search_sessions");
     expect(tools).not.toHaveProperty("grep_notes");
     expect(tools).not.toHaveProperty("read_note");

@@ -9,6 +9,7 @@ import type {
 } from "@anlg/plugin-db";
 
 import { CONTEXT_TEXT_FIELD } from "./context-text";
+import { buildEditMemoTool } from "./edit-memo";
 import { buildEditSummaryTool } from "./edit-summary";
 import {
   buildGetMeetingTool,
@@ -100,6 +101,7 @@ export const buildChatTools = (deps: ToolDependencies) => ({
     buildSearchCalendarEventsTool(deps),
   ),
   web_search: withToolLogging("web_search", buildWebSearchTool(deps)),
+  edit_memo: withToolLogging("edit_memo", buildEditMemoTool(deps)),
   edit_summary: withToolLogging("edit_summary", buildEditSummaryTool(deps)),
   apply_session_correction: withToolLogging(
     "apply_session_correction",
@@ -203,6 +205,13 @@ type LocalTools = {
       limit?: number;
     };
     output: WebSearchResponse;
+  };
+  edit_memo: {
+    input: { sessionId?: string; content: string };
+    output: {
+      status: string;
+      message?: string;
+    };
   };
   edit_summary: {
     input: { sessionId?: string; enhancedNoteId?: string; content: string };

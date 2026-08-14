@@ -14,9 +14,12 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
   const edit = usePendingEditStore((s) => s.edits.get(tab.requestId));
 
   const session = useSessionSummary(edit?.sessionId ?? "");
-  const summary = useEnhancedNote(edit?.enhancedNoteId ?? "");
+  const summary = useEnhancedNote(
+    edit?.target.kind === "summary" ? edit.target.enhancedNoteId : "",
+  );
   const sessionTitle = session?.title.trim() || null;
   const summaryTitle = summary?.title.trim() || null;
+  const isMemo = edit?.target.kind === "memo";
 
   const declineOnUnmount = useCallback(() => {
     const still = usePendingEditStore.getState().edits.get(tab.requestId);
@@ -28,13 +31,23 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
 
   const oldFile = useMemo(
     () =>
-      edit ? { name: "summary.md", contents: edit.currentContent || "" } : null,
-    [edit],
+      edit
+        ? {
+            name: isMemo ? "memo.md" : "summary.md",
+            contents: edit.currentContent || "",
+          }
+        : null,
+    [edit, isMemo],
   );
   const newFile = useMemo(
     () =>
-      edit ? { name: "summary.md", contents: edit.proposedContent } : null,
-    [edit],
+      edit
+        ? {
+            name: isMemo ? "memo.md" : "summary.md",
+            contents: edit.proposedContent,
+          }
+        : null,
+    [edit, isMemo],
   );
 
   if (!edit) {
@@ -56,7 +69,7 @@ export function TabContentEdit({ tab }: { tab: EditTab }) {
               {sessionTitle ?? "Untitled session"}
             </div>
             <div className="text-muted-foreground text-[12px]">
-              {summaryTitle ?? "Summary"}
+              {isMemo ? "Memo" : (summaryTitle ?? "Summary")}
             </div>
           </div>
         </div>

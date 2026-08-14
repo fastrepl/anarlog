@@ -29,7 +29,13 @@ function parseEditSummaryOutput(output: unknown): EditSummaryOutput | null {
   return parseMcpObjectOutput<EditSummaryOutput>(output);
 }
 
-function EditSummaryActions({ toolCallId }: { toolCallId: string }) {
+function EditActions({
+  toolCallId,
+  target,
+}: {
+  toolCallId: string;
+  target: "memo" | "summary";
+}) {
   const editPending = usePendingEditStore((state) =>
     state.edits.has(toolCallId),
   );
@@ -62,7 +68,7 @@ function EditSummaryActions({ toolCallId }: { toolCallId: string }) {
         Decline
       </Button>
       <Button type="button" size="sm" onClick={() => resolve(true)}>
-        Apply to summary
+        Apply to {target}
       </Button>
     </div>
   );
@@ -103,7 +109,36 @@ export const ToolEditSummary = defineTool({
           </div>
         ) : null}
       </ToolCardFooters>
-      <EditSummaryActions toolCallId={toolCallId} />
+      <EditActions toolCallId={toolCallId} target="summary" />
+    </>
+  ),
+});
+
+export const ToolEditMemo = defineTool({
+  icon: <Pencil />,
+  parseFn: parseEditSummaryOutput,
+  isDone: (parsed) => parsed?.status === "applied",
+  label: ({ running, failed, parsed }) => {
+    if (running) return "Edit memo — review tab opened";
+    if (failed) return "Memo edit failed";
+    if (parsed?.status === "applied") return "Memo updated";
+    if (parsed?.status === "declined") return "Memo edit declined";
+    return "Edit memo";
+  },
+  renderBody: (input) =>
+    input?.content ? (
+      <ToolCardBody>
+        <MarkdownPreview>{input.content}</MarkdownPreview>
+      </ToolCardBody>
+    ) : null,
+  renderFooter: ({ failed, errorText, parsed, toolCallId }) => (
+    <>
+      <ToolCardFooters failed={failed} errorText={errorText} rawText={null}>
+        {parsed?.status === "error" ? (
+          <ToolCardFooterError text={parsed.message ?? "Unknown error"} />
+        ) : null}
+      </ToolCardFooters>
+      <EditActions toolCallId={toolCallId} target="memo" />
     </>
   ),
 });
