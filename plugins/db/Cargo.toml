@@ -16,6 +16,7 @@ anlg-db-migrate = { workspace = true }
 anlg-db-reactive = { workspace = true, features = ["specta"] }
 anlg-e2ee = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
+anlg-session-ingest = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-tauri-utils = { workspace = true }
 

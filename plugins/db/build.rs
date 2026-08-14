@@ -10,6 +10,7 @@ const COMMANDS: &[&str] = &[
     "list_meetings",
     "cleanup_legacy_files",
     "run_legacy_import",
+    "apply_session_ingest",
     "get_e2ee_identity_status",
     "inspect_e2ee_recovery_key",
     "create_e2ee_identity",

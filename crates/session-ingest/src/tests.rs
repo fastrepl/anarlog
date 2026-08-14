@@ -122,6 +122,17 @@ fn envelope(finalized: bool) -> SessionIngestEnvelope {
     }
 }
 
+#[test]
+fn only_database_failures_are_retryable() {
+    assert!(
+        !Error::DeletedSession {
+            session_id: "session-1".to_string(),
+        }
+        .is_retryable()
+    );
+    assert!(Error::Database(sqlx::Error::RowNotFound).is_retryable());
+}
+
 #[tokio::test]
 async fn applies_canonical_graph_idempotently_and_marks_rows_for_e2ee() {
     let db = test_db().await;

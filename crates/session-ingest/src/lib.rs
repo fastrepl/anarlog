@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
 mod model;
+mod protocol;
 
 #[cfg(feature = "apply")]
 mod apply;
@@ -12,6 +13,10 @@ pub use apply::{ApplyOutcome, Error, apply_session_envelope};
 pub use model::{
     DocumentFormat, DocumentKind, IngestAttachment, IngestDocument, IngestParticipant,
     IngestSession, IngestSpeakerHint, IngestTranscript, IngestWord, SessionIngestEnvelope,
+};
+pub use protocol::{
+    AcknowledgeRequest, AcknowledgeResponse, DeliveryItem, DeliveryPage, RecordingDownload,
+    SessionRead,
 };
 
 pub const SESSION_INGEST_SCHEMA_VERSION: u32 = 1;

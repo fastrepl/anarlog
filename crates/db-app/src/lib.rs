@@ -329,6 +329,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         },
         sql: include_str!("../migrations/20260812100100_e2ee_replica_reconciliation_triggers.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260814090000_enterprise_session_delivery",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260814090000_enterprise_session_delivery.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

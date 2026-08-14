@@ -106,6 +106,14 @@ pub struct LegacyCleanupResult {
     pub deleted_bytes: u64,
 }
 
+#[derive(Debug, Clone, Copy, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SessionIngestApplyResult {
+    Applied,
+    AlreadyApplied,
+    Rejected,
+}
+
 #[derive(Debug, Clone, serde::Serialize, specta::Type, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct E2eeIdentityStatus {
@@ -244,6 +252,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::get_legacy_cleanup_status,
             commands::cleanup_legacy_files,
             commands::run_legacy_import,
+            commands::apply_session_ingest,
             commands::get_e2ee_identity_status<tauri::Wry>,
             commands::inspect_e2ee_recovery_key,
             commands::create_e2ee_identity<tauri::Wry>,

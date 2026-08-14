@@ -39,6 +39,10 @@ vi.mock("~/devtools-panel/host", () => ({
   DevtoolsFloatingPanelHost: () => null,
 }));
 
+vi.mock("~/enterprise-capture/lifecycle", () => ({
+  EnterpriseCaptureSync: () => <div data-testid="enterprise-capture-sync" />,
+}));
+
 vi.mock("~/session/queries", () => ({
   getOrCreateSessionForEventId: vi.fn(),
 }));
@@ -73,13 +77,15 @@ describe("MainAppLayout", () => {
 
   afterEach(cleanup);
 
-  it("mounts connected import sync inside the auth provider", () => {
+  it("mounts main-window sync services inside the auth provider", () => {
     render(<MainAppLayout />);
 
+    const authProvider = screen.getByTestId("auth-provider");
     expect(
-      screen
-        .getByTestId("auth-provider")
-        .contains(screen.getByTestId("meeting-import-sync")),
+      authProvider.contains(screen.getByTestId("meeting-import-sync")),
+    ).toBe(true);
+    expect(
+      authProvider.contains(screen.getByTestId("enterprise-capture-sync")),
     ).toBe(true);
   });
 
@@ -89,5 +95,6 @@ describe("MainAppLayout", () => {
     render(<MainAppLayout />);
 
     expect(screen.queryByTestId("meeting-import-sync")).toBeNull();
+    expect(screen.queryByTestId("enterprise-capture-sync")).toBeNull();
   });
 });

@@ -6,6 +6,7 @@ export const env = createEnv({
   client: {
     VITE_APP_URL: z.string().min(1).default("http://localhost:3000"),
     VITE_API_URL: z.string().min(1).default("http://localhost:3001"),
+    VITE_ENTERPRISE_API_URL: z.string().url().optional(),
     VITE_SUPABASE_URL: z.string().min(1).optional(),
     VITE_SUPABASE_ANON_KEY: z.string().min(1).optional(),
     VITE_PRO_PRODUCT_ID: z.string().min(1).optional(),

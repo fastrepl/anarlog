@@ -184,6 +184,36 @@ pub(crate) async fn run_legacy_import(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn apply_session_ingest(
+    state: tauri::State<'_, ManagedState>,
+    workspace_id: String,
+    envelope: serde_json::Value,
+) -> Result<crate::SessionIngestApplyResult, String> {
+    let envelope = match serde_json::from_value(envelope) {
+        Ok(envelope) => envelope,
+        Err(error) => {
+            tracing::warn!(%workspace_id, %error, "rejected malformed session ingest envelope");
+            return Ok(crate::SessionIngestApplyResult::Rejected);
+        }
+    };
+    match anlg_session_ingest::apply_session_envelope(state.pool(), &workspace_id, &envelope).await
+    {
+        Ok(outcome) => Ok(match outcome {
+            anlg_session_ingest::ApplyOutcome::Applied => crate::SessionIngestApplyResult::Applied,
+            anlg_session_ingest::ApplyOutcome::AlreadyApplied => {
+                crate::SessionIngestApplyResult::AlreadyApplied
+            }
+        }),
+        Err(error) if error.is_retryable() => Err(error.to_string()),
+        Err(error) => {
+            tracing::warn!(%workspace_id, %error, "rejected permanent session ingest envelope");
+            Ok(crate::SessionIngestApplyResult::Rejected)
+        }
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     account_user_id: String,

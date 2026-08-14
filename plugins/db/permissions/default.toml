@@ -1,6 +1,7 @@
 [default]
 description = "Default permissions for the plugin"
 permissions = [
+    "allow-apply-session-ingest",
   "allow-execute",
   "allow-execute-proxy",
   "allow-execute-transaction",

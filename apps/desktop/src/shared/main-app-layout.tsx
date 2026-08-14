@@ -15,6 +15,7 @@ import {
 import { AuthProvider } from "~/auth";
 import { BillingProvider } from "~/auth/billing";
 import { DevtoolsFloatingPanelHost } from "~/devtools-panel/host";
+import { EnterpriseCaptureSync } from "~/enterprise-capture/lifecycle";
 import { MeetingImportSync } from "~/services/meeting-import-sync";
 import { getOrCreateSessionForEventId } from "~/session/queries";
 import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
@@ -42,6 +43,7 @@ function MainAppContent() {
     <>
       <Outlet />
       {isMainWindow ? <MeetingImportSync /> : null}
+      {isMainWindow ? <EnterpriseCaptureSync /> : null}
       <UndoDeleteToast />
       <DevtoolsFloatingPanelHost />
     </>

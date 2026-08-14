@@ -94,6 +94,14 @@ async runLegacyImport(dryRun: boolean) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async applySessionIngest(workspaceId: string, envelope: JsonValue) : Promise<Result<SessionIngestApplyResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|apply_session_ingest", { workspaceId, envelope }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getE2eeIdentityStatus(accountUserId: string) : Promise<Result<E2eeIdentityStatus, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|get_e2ee_identity_status", { accountUserId }) };
@@ -304,6 +312,7 @@ export type MeetingPage = { meetings: MeetingListItem[]; pagination: Pagination 
 export type Pagination = { offset: number; limit: number; returned: number; total: number | null; next_offset: number | null }
 export type Participant = { human_id: string; display_name: string; email: string; role: string; job_title: string; organization_id: string; organization_name: string }
 export type QueryEvent = { event: "result"; data: JsonValue[] } | { event: "error"; data: string }
+export type SessionIngestApplyResult = "applied" | "already_applied" | "rejected"
 export type StorageMigrationState = { phase: string; latestRunId: string; parityVerified: boolean; cutoverAt: string | null; rollbackUntil: string | null; lastError: string; updatedAt: string }
 export type SubscriptionRegistration = { id: string; analysis: DependencyAnalysis }
 export type TAURI_CHANNEL<TSend> = null

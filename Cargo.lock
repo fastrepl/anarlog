@@ -18337,6 +18337,7 @@ dependencies = [
  "reqwest 0.13.2",
  "serde",
  "serde_json",
+ "session-ingest",
  "sha2 0.11.0",
  "specta",
  "specta-typescript",

@@ -17,6 +17,7 @@ import type {
   ListMeetingsInput as GeneratedListMeetingsInput,
   Meeting,
   MeetingPage,
+  SessionIngestApplyResult,
   SubscriptionRegistration,
   TranscriptPage,
 } from "./bindings.gen";
@@ -35,6 +36,7 @@ export type {
   LegacyImportReport,
   Meeting,
   MeetingPage,
+  SessionIngestApplyResult,
   TranscriptPage,
 } from "./bindings.gen";
 
@@ -199,6 +201,13 @@ export async function cleanupLegacyFiles(): Promise<LegacyCleanupResult> {
 
 export async function runLegacyImport(dryRun = false): Promise<string> {
   return invoke("plugin:db|run_legacy_import", { dryRun });
+}
+
+export async function applySessionIngest(
+  workspaceId: string,
+  envelope: Record<string, unknown>,
+): Promise<SessionIngestApplyResult> {
+  return invoke("plugin:db|apply_session_ingest", { workspaceId, envelope });
 }
 
 export async function getE2eeIdentityStatus(

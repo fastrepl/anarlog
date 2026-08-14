@@ -55,6 +55,9 @@ async fn migrations_apply_cleanly() {
             "e2ee_witness_records",
             "e2ee_witness_repair_pending",
             "e2ee_witness_state",
+            "enterprise_session_completion_outbox",
+            "enterprise_session_delivery_receipts",
+            "enterprise_session_delivery_state",
             "entity_mentions",
             "events",
             "humans",
@@ -468,4 +471,38 @@ async fn prepare_schema_seeds_templates_when_repair_migration_creates_missing_ta
         .await
         .unwrap();
     assert!(row_count > 0);
+}
+
+#[tokio::test]
+async fn enterprise_session_delivery_tables_are_registered() {
+    let migration = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260814090000_enterprise_session_delivery")
+        .unwrap();
+    assert_eq!(migration.scope, anlg_db_migrate::MigrationScope::Plain);
+
+    let db = test_db().await;
+    let tables: Vec<String> = sqlx::query_scalar(
+        r#"SELECT name
+           FROM sqlite_master
+           WHERE type = 'table'
+             AND name IN (
+               'enterprise_session_delivery_state',
+               'enterprise_session_delivery_receipts',
+               'enterprise_session_completion_outbox'
+             )
+           ORDER BY name"#,
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+
+    assert_eq!(
+        tables,
+        vec![
+            "enterprise_session_completion_outbox",
+            "enterprise_session_delivery_receipts",
+            "enterprise_session_delivery_state",
+        ]
+    );
 }

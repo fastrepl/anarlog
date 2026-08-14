@@ -56,3 +56,10 @@ fn default_permissions_include_device_enrollment_workflow() {
         assert!(permissions.contains(permission), "missing {permission}");
     }
 }
+
+#[test]
+fn default_permissions_include_session_ingest() {
+    let permissions = include_str!("../../permissions/default.toml");
+
+    assert!(permissions.contains("allow-apply-session-ingest"));
+}

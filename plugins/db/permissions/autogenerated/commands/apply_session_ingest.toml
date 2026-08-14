@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-apply-session-ingest"
+description = "Enables the apply_session_ingest command without any pre-configured scope."
+commands.allow = ["apply_session_ingest"]
+
+[[permission]]
+identifier = "deny-apply-session-ingest"
+description = "Denies the apply_session_ingest command without any pre-configured scope."
+commands.deny = ["apply_session_ingest"]

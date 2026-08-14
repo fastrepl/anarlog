@@ -54,6 +54,12 @@ pub enum Error {
     Database(#[from] sqlx::Error),
 }
 
+impl Error {
+    pub fn is_retryable(&self) -> bool {
+        matches!(self, Self::Database(_))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct IngestMarker {
     source_id: String,
