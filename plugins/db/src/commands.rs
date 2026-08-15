@@ -359,12 +359,14 @@ pub(crate) async fn seal_e2ee_recovery_key_for_device<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn seal_workspace_e2ee_key_for_recipients(
+pub(crate) async fn seal_workspace_e2ee_key_for_recipients<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,
     workspace_id: String,
     recipients: Vec<crate::WorkspaceE2eeKeyRecipient>,
     rotate: bool,
+    source_grant: Option<crate::CloudsyncWorkspaceKeyGrant>,
 ) -> Result<crate::SealedWorkspaceE2eeKey, String> {
     let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
     let workspace_id = uuid::Uuid::parse_str(workspace_id.trim())
@@ -375,14 +377,43 @@ pub(crate) fn seal_workspace_e2ee_key_for_recipients(
     }
 
     let key = if rotate {
-        anlg_e2ee::WorkspaceKey::generate()
+        anlg_e2ee::WorkspaceKey::generate().map_err(|error| error.to_string())
     } else {
-        state
-            .workspace_key(&workspace_id)
-            .ok_or(anlg_e2ee::Error::UnknownKey)
-    }
-    .map_err(|error| error.to_string())?;
+        match state.workspace_key(&workspace_id) {
+            Some(key) => Ok(key),
+            None => {
+                let source_grant = source_grant
+                    .ok_or_else(|| "workspace E2EE source grant is invalid".to_string())?;
+                let recovery_key = load_e2ee_recovery_key(app, &account_user_id)
+                    .await?
+                    .ok_or_else(|| "E2EE recovery key is not configured".to_string())?;
+                open_workspace_e2ee_source_key(
+                    &recovery_key,
+                    &account_user_id,
+                    &workspace_id,
+                    source_grant,
+                )
+            }
+        }
+    }?;
     seal_workspace_e2ee_key(key, &account_user_id, &workspace_id, recipients)
+}
+
+fn open_workspace_e2ee_source_key(
+    recovery_key: &anlg_e2ee::RecoveryKey,
+    account_user_id: &str,
+    workspace_id: &str,
+    source_grant: crate::CloudsyncWorkspaceKeyGrant,
+) -> Result<anlg_e2ee::WorkspaceKey, String> {
+    if source_grant.workspace_id != workspace_id || !source_grant.is_active {
+        return Err("workspace E2EE source grant is invalid".to_string());
+    }
+    recovery_key
+        .member_identity_key()
+        .and_then(|identity| {
+            identity.open_workspace_key(workspace_id, account_user_id, &source_grant.into())
+        })
+        .map_err(|error| error.to_string())
 }
 
 fn seal_workspace_e2ee_key(
@@ -958,6 +989,46 @@ mod tests {
                 MEMBER,
                 WORKSPACE,
                 vec![recipient.clone(), recipient],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn opens_an_active_source_grant_after_runtime_keys_are_lost() {
+        const OWNER: &str = "11111111-1111-4111-8111-111111111111";
+        const WORKSPACE: &str = "33333333-3333-4333-8333-333333333333";
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
+        let key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+        let expected_key_id = key.key_id().to_string();
+        let grant = anlg_e2ee::seal_workspace_key_for_member(
+            &key,
+            &recovery_key.member_identity_key().unwrap().public_key(),
+            WORKSPACE,
+            OWNER,
+        )
+        .unwrap();
+        let source_grant = crate::CloudsyncWorkspaceKeyGrant {
+            workspace_id: WORKSPACE.to_string(),
+            key_id: grant.key_id,
+            ephemeral_public_key: grant.ephemeral_public_key,
+            nonce: grant.nonce,
+            ciphertext: grant.ciphertext,
+            is_active: true,
+        };
+
+        assert_eq!(
+            open_workspace_e2ee_source_key(&recovery_key, OWNER, WORKSPACE, source_grant.clone(),)
+                .unwrap()
+                .key_id(),
+            expected_key_id,
+        );
+        assert!(
+            open_workspace_e2ee_source_key(
+                &recovery_key,
+                "22222222-2222-4222-8222-222222222222",
+                WORKSPACE,
+                source_grant,
             )
             .is_err()
         );

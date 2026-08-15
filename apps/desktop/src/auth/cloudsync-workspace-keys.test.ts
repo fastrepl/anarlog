@@ -53,7 +53,13 @@ function credentials(role = "owner"): ProjectedCloudsyncCredentials {
   };
 }
 
-function recipients(memberPublicKey: string | null = "B".repeat(43)) {
+function recipients(memberPublicKey: string | null = "B".repeat(43)): Array<{
+  userId: string;
+  userEmail: string;
+  role: string;
+  publicKey: string | null;
+  grantedKeyIds: string[];
+}> {
   return [
     {
       userId: OWNER_ID,
@@ -120,6 +126,7 @@ test("mints and publishes the first shared workspace key", async () => {
       { userId: MEMBER_ID, publicKey: "B".repeat(43) },
     ],
     true,
+    null,
   );
   expect(fetchMock).toHaveBeenNthCalledWith(
     2,
@@ -171,7 +178,16 @@ test("does nothing when every shared workspace has an active grant", async () =>
       isActive: true,
     },
   ];
-  const fetchMock = vi.fn();
+  const fetchMock = vi.fn(() =>
+    Promise.resolve(
+      Response.json(
+        recipients().map((recipient) => ({
+          ...recipient,
+          grantedKeyIds: ["AAAAAAAAAAAAAAAAAAAAAA"],
+        })),
+      ),
+    ),
+  );
   vi.stubGlobal("fetch", fetchMock);
 
   await expect(
@@ -182,6 +198,66 @@ test("does nothing when every shared workspace has an active grant", async () =>
       new AbortController().signal,
     ),
   ).resolves.toBe("ready");
-  expect(fetchMock).not.toHaveBeenCalled();
+  expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(sealWorkspaceE2eeKeyForRecipients).not.toHaveBeenCalled();
+});
+
+test("re-wraps the active key for a newly joined member", async () => {
+  const value = credentials();
+  const sourceGrant = {
+    workspaceId: WORKSPACE_ID,
+    keyId: "AAAAAAAAAAAAAAAAAAAAAA",
+    ephemeralPublicKey: "A".repeat(43),
+    nonce: "B".repeat(32),
+    ciphertext: "C".repeat(64),
+    isActive: true,
+  };
+  value.workspaceKeyGrants = [sourceGrant];
+  const sealed = {
+    keyId: sourceGrant.keyId,
+    grants: [
+      {
+        userId: OWNER_ID,
+        ephemeralPublicKey: "D".repeat(43),
+        nonce: "E".repeat(32),
+        ciphertext: "F".repeat(64),
+      },
+      {
+        userId: MEMBER_ID,
+        ephemeralPublicKey: "G".repeat(43),
+        nonce: "H".repeat(32),
+        ciphertext: "I".repeat(64),
+      },
+    ],
+  };
+  vi.mocked(sealWorkspaceE2eeKeyForRecipients).mockResolvedValue(sealed);
+  const recipientRows = recipients();
+  recipientRows[0]!.grantedKeyIds = [sourceGrant.keyId];
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json(recipientRows))
+    .mockResolvedValueOnce(
+      Response.json({ keyId: sealed.keyId, grantedMemberCount: 2 }),
+    );
+  vi.stubGlobal("fetch", fetchMock);
+
+  await expect(
+    provisionMissingWorkspaceKeys(
+      value,
+      "access-token",
+      OWNER_ID,
+      new AbortController().signal,
+    ),
+  ).resolves.toBe("provisioned");
+
+  expect(sealWorkspaceE2eeKeyForRecipients).toHaveBeenCalledWith(
+    OWNER_ID,
+    WORKSPACE_ID,
+    [
+      { userId: OWNER_ID, publicKey: "A".repeat(43) },
+      { userId: MEMBER_ID, publicKey: "B".repeat(43) },
+    ],
+    false,
+    sourceGrant,
+  );
 });

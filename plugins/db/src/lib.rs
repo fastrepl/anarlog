@@ -305,7 +305,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::import_e2ee_identity<tauri::Wry>,
             commands::get_or_create_e2ee_device_identity<tauri::Wry>,
             commands::seal_e2ee_recovery_key_for_device<tauri::Wry>,
-            commands::seal_workspace_e2ee_key_for_recipients,
+            commands::seal_workspace_e2ee_key_for_recipients<tauri::Wry>,
             commands::import_e2ee_device_enrollment<tauri::Wry>,
             commands::subscribe,
             commands::unsubscribe,

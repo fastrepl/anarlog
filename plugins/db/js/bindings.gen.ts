@@ -150,9 +150,9 @@ async sealE2eeRecoveryKeyForDevice(accountUserId: string, requestId: string, rec
     else return { status: "error", error: e  as any };
 }
 },
-async sealWorkspaceE2eeKeyForRecipients(accountUserId: string, workspaceId: string, recipients: WorkspaceE2eeKeyRecipient[], rotate: boolean) : Promise<Result<SealedWorkspaceE2eeKey, string>> {
+async sealWorkspaceE2eeKeyForRecipients(accountUserId: string, workspaceId: string, recipients: WorkspaceE2eeKeyRecipient[], rotate: boolean, sourceGrant: CloudsyncWorkspaceKeyGrant | null) : Promise<Result<SealedWorkspaceE2eeKey, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:db|seal_workspace_e2ee_key_for_recipients", { accountUserId, workspaceId, recipients, rotate }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|seal_workspace_e2ee_key_for_recipients", { accountUserId, workspaceId, recipients, rotate, sourceGrant }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

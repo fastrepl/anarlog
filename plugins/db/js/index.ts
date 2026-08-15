@@ -269,12 +269,14 @@ export async function sealWorkspaceE2eeKeyForRecipients(
   workspaceId: string,
   recipients: WorkspaceE2eeKeyRecipient[],
   rotate: boolean,
+  sourceGrant: CloudsyncWorkspaceKeyGrant | null = null,
 ): Promise<SealedWorkspaceE2eeKey> {
   return invoke("plugin:db|seal_workspace_e2ee_key_for_recipients", {
     accountUserId,
     workspaceId,
     recipients,
     rotate,
+    sourceGrant,
   });
 }
 
