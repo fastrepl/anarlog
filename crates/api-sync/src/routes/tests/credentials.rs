@@ -1,6 +1,40 @@
 use super::*;
 
 #[tokio::test]
+async fn issues_replica_credentials_without_contacting_sqlitecloud() {
+    let server = MockServer::start().await;
+    mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
+
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::post("/replica/credentials")
+                .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[http_header::CACHE_CONTROL], "no-store");
+    let body = response_json(response).await;
+    assert_eq!(body["transport"], "replica");
+    assert_eq!(body["encryptionVersion"], 2);
+    assert_eq!(body["encryptionKeyId"], TEST_KEY_ID);
+    assert_eq!(body["workspaceId"], "user-123");
+    assert_eq!(body["accountUserId"], "user-123");
+    assert!(body["expiresAt"].as_str().unwrap().ends_with('Z'));
+    assert!(
+        server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .all(|request| request.url.path() != "/v2/tokens")
+    );
+}
+
+#[tokio::test]
 async fn mints_token_for_verified_supabase_subject() {
     let server = MockServer::start().await;
     mock_workspace_projection(

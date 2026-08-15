@@ -27,6 +27,7 @@ Default permissions for the plugin
 - `allow-unsubscribe`
 - `allow-bind-cloudsync-account`
 - `allow-configure-cloudsync-token`
+- `allow-configure-e2ee-replica`
 - `allow-stop-cloudsync`
 - `allow-suspend-cloudsync`
 - `allow-suspend-cloudsync-for-sign-out`
@@ -194,6 +195,32 @@ Enables the configure_cloudsync_token command without any pre-configured scope.
 <td>
 
 Denies the configure_cloudsync_token command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-configure-e2ee-replica`
+
+</td>
+<td>
+
+Enables the configure_e2ee_replica command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-configure-e2ee-replica`
+
+</td>
+<td>
+
+Denies the configure_e2ee_replica command without any pre-configured scope.
 
 </td>
 </tr>

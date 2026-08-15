@@ -12,6 +12,7 @@ use crate::{QueryEvent, Result, TransactionStatement};
 mod e2ee_sync;
 mod open;
 mod recovery;
+mod replica_sync;
 mod sync_result;
 mod witness_watch;
 
@@ -144,6 +145,7 @@ pub struct PluginDbRuntime {
     cloudsync_auth_generation: std::sync::Arc<std::sync::atomic::AtomicU64>,
     cloudsync_auth_changed: std::sync::Arc<tokio::sync::Notify>,
     cloudsync_focus_nudge_at: std::sync::Mutex<Option<std::time::Instant>>,
+    _replica_sync: replica_sync::ReplicaSyncTask,
     _witness_watch: witness_watch::WitnessWatchTask,
     #[cfg(test)]
     pause_transaction_after_begin: std::sync::atomic::AtomicBool,
@@ -192,6 +194,10 @@ impl PluginDbRuntime {
             std::sync::Arc::clone(&db),
             std::sync::Arc::clone(&e2ee_sync_hook),
         );
+        let replica_sync = replica_sync::spawn_replica_sync(
+            std::sync::Arc::clone(&db),
+            std::sync::Arc::clone(&e2ee_sync_hook),
+        );
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
@@ -207,6 +213,7 @@ impl PluginDbRuntime {
             cloudsync_auth_generation: Default::default(),
             cloudsync_auth_changed: Default::default(),
             cloudsync_focus_nudge_at: Default::default(),
+            _replica_sync: replica_sync,
             #[cfg(test)]
             pause_transaction_after_begin: Default::default(),
             #[cfg(test)]
@@ -229,6 +236,14 @@ impl PluginDbRuntime {
         self.db.pool()
     }
 
+    fn request_active_sync(&self) {
+        if self.e2ee_sync_hook.replica_transport_configured() {
+            self.e2ee_sync_hook.request_replica_sync();
+        } else {
+            self.db.cloudsync_request_sync();
+        }
+    }
+
     /// Ask CloudSync to pull promptly when the user comes back to the app,
     /// throttled so rapid window switches do not stack sync rounds.
     pub fn nudge_cloudsync_on_focus(&self) {
@@ -240,7 +255,7 @@ impl PluginDbRuntime {
             }
             *last = Some(now);
         }
-        self.db.cloudsync_request_sync();
+        self.request_active_sync();
     }
 
     #[cfg(test)]
@@ -406,7 +421,7 @@ impl PluginDbRuntime {
             .unwrap()
             .mark_activity_resumed();
         self.e2ee_sync_hook.notify_activity_changed();
-        self.db.cloudsync_request_sync();
+        self.request_active_sync();
     }
 
     async fn ensure_app_schema(&self) -> Result<()> {
@@ -543,6 +558,81 @@ impl PluginDbRuntime {
         Ok(())
     }
 
+    pub(crate) async fn configure_replica_transport_at_generation(
+        &self,
+        account_user_id: String,
+        e2ee_witness: crate::CloudsyncE2eeWitness,
+        recovery_key: anlg_e2ee::RecoveryKey,
+        auth_generation: u64,
+    ) -> Result<crate::CloudsyncTokenConfigurationResult> {
+        let _control_operation = self.cloudsync_control_guard().await?;
+        self.ensure_legacy_migration_ready().await?;
+        let cancellation = crate::e2ee_witness::E2eeWitnessCancellation::default();
+        let operation = async {
+            self.ensure_cloudsync_configuration_active(auth_generation, &cancellation)?;
+            self.cancel_cloudsync_full_resync().await;
+            if self.e2ee_sync_hook.replica_transport_configured() {
+                self.e2ee_sync_hook.clear();
+            }
+            if self.db.cloudsync_enabled() {
+                self.db.cloudsync_stop().await?;
+            }
+            self.ensure_cloudsync_configuration_active(auth_generation, &cancellation)?;
+            self.set_e2ee_recovery_key(&account_user_id, &recovery_key)?;
+            if !self
+                .claim_replica_workspace(&account_user_id, &cancellation)
+                .await?
+            {
+                return Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch);
+            }
+            self.ensure_cloudsync_configuration_active(auth_generation, &cancellation)?;
+            let witness =
+                crate::e2ee_witness::E2eeWitnessClient::new(e2ee_witness, &account_user_id)?;
+            let key = self
+                .e2ee_sync_hook
+                .workspace_key(&account_user_id)
+                .ok_or(crate::Error::E2eeIdentityRequired)?;
+            self.e2ee_sync_hook
+                .prepare_local_snapshot(self.db.pool(), &cancellation)
+                .await
+                .map_err(|error| std::io::Error::other(error.to_string()))?;
+            cancellation.check()?;
+            witness
+                .initialize_cancellable(self.db.pool(), &key, &cancellation)
+                .await?;
+            self.ensure_cloudsync_configuration_active(auth_generation, &cancellation)?;
+            self.e2ee_sync_hook.set_replica_witness(witness);
+            Ok(crate::CloudsyncTokenConfigurationResult::Configured)
+        };
+        tokio::pin!(operation);
+        let result = tokio::select! {
+            biased;
+            _ = self.wait_until_cloudsync_auth_generation_changes(auth_generation) => {
+                cancellation.cancel();
+                let _ = operation.await;
+                Err(crate::Error::CloudsyncConfigurationCancelled)
+            }
+            _ = self.e2ee_sync_hook.wait_until_activity_paused() => {
+                cancellation.cancel();
+                let _ = operation.await;
+                Err(crate::Error::CloudsyncActivityDeferred)
+            }
+            result = &mut operation => result,
+        };
+        if result.is_err()
+            || matches!(
+                result,
+                Ok(crate::CloudsyncTokenConfigurationResult::AccountMismatch)
+            )
+        {
+            if self.db.cloudsync_enabled() {
+                let _ = self.db.cloudsync_suspend().await;
+            }
+            self.e2ee_sync_hook.clear();
+        }
+        result
+    }
+
     pub async fn configure_cloudsync_token(
         &self,
         database_id: String,
@@ -600,6 +690,9 @@ impl PluginDbRuntime {
                 )?;
                 attempt_started = true;
                 self.cancel_cloudsync_full_resync().await;
+                if self.e2ee_sync_hook.replica_transport_configured() {
+                    self.e2ee_sync_hook.clear();
+                }
                 self.ensure_cloudsync_configuration_active(
                     auth_generation,
                     &configuration_cancellation,
@@ -997,6 +1090,38 @@ impl PluginDbRuntime {
         }
     }
 
+    async fn claim_replica_workspace(
+        &self,
+        account_user_id: &str,
+        cancellation: &crate::e2ee_witness::E2eeWitnessCancellation,
+    ) -> Result<bool> {
+        cancellation.check()?;
+        self.ensure_app_schema().await?;
+        cancellation.check()?;
+        match anlg_db_app::cloudsync_workspace_is_claimed_by(self.db.pool(), account_user_id).await
+        {
+            Ok(true) => return Ok(true),
+            Ok(false) => {}
+            Err(error) if is_permanent_cloudsync_workspace_rejection(&error) => return Ok(false),
+            Err(error) => return Err(error.into()),
+        }
+
+        match anlg_db_app::claim_cloudsync_workspace_cancellable(
+            self.db.pool(),
+            account_user_id,
+            || cancellation.is_cancelled(),
+        )
+        .await
+        {
+            Ok(()) => Ok(true),
+            Err(anlg_db_app::CloudsyncWorkspaceError::ClaimCancelled) => {
+                Err(crate::Error::CloudsyncConfigurationCancelled)
+            }
+            Err(error) if is_permanent_cloudsync_workspace_rejection(&error) => Ok(false),
+            Err(error) => Err(error.into()),
+        }
+    }
+
     async fn prepare_cloudsync_config_fail_closed(
         &self,
         config: anlg_db_core::CloudsyncRuntimeConfig,
@@ -1127,25 +1252,36 @@ impl PluginDbRuntime {
         let _control_operation = self.cloudsync_control_guard().await?;
         self.ensure_legacy_migration_ready().await?;
         self.e2ee_sync_hook.request_reconciliation();
+        if self.e2ee_sync_hook.replica_transport_configured() {
+            self.e2ee_sync_hook.request_replica_sync();
+            return Ok(());
+        }
         self.db.cloudsync_start().await?;
         Ok(())
     }
 
     pub async fn stop_cloudsync(&self) -> Result<()> {
+        let replica_transport = self.e2ee_sync_hook.replica_transport_configured();
         self.invalidate_cloudsync_auth_generation();
         self.cancel_cloudsync_full_resync().await;
         let _control_operation = self.cloudsync_control_operation.lock().await;
         self.cancel_cloudsync_full_resync().await;
-        self.db.cloudsync_stop().await?;
+        if !replica_transport {
+            self.db.cloudsync_stop().await?;
+        }
+        self.e2ee_sync_hook.clear();
         Ok(())
     }
 
     pub async fn suspend_cloudsync(&self) -> Result<()> {
+        let replica_transport = self.e2ee_sync_hook.replica_transport_configured();
         self.invalidate_cloudsync_auth_generation();
         self.cancel_cloudsync_full_resync().await;
         let _control_operation = self.cloudsync_control_operation.lock().await;
         self.cancel_cloudsync_full_resync().await;
-        self.db.cloudsync_suspend().await?;
+        if !replica_transport {
+            self.db.cloudsync_suspend().await?;
+        }
         self.e2ee_sync_hook.clear();
         Ok(())
     }
@@ -1168,6 +1304,9 @@ impl PluginDbRuntime {
     }
 
     pub async fn cloudsync_status(&self) -> Result<serde_json::Value> {
+        if self.e2ee_sync_hook.replica_transport_configured() {
+            return self.replica_transport_status().await;
+        }
         let mut status = serde_json::to_value(self.db.cloudsync_status().await?)?;
         let activity_paused = self.e2ee_sync_hook.activity_paused();
         let deferred_for_capture = self.e2ee_sync_hook.has_activity(CLOUDSYNC_CAPTURE_ACTIVITY);
@@ -1262,21 +1401,64 @@ impl PluginDbRuntime {
 
     pub async fn sync_cloudsync_now(&self) -> Result<serde_json::Value> {
         self.ensure_legacy_migration_ready().await?;
+        if self.e2ee_sync_hook.replica_transport_configured() {
+            self.e2ee_sync_hook.request_replica_sync();
+            return Ok(serde_json::json!({}));
+        }
         Ok(serde_json::to_value(
             self.db.cloudsync_trigger_sync().await?,
         )?)
     }
 
     pub async fn logout_cloudsync(&self, discard_unsent_changes: bool) -> Result<()> {
+        let replica_transport = self.e2ee_sync_hook.replica_transport_configured();
         self.invalidate_cloudsync_auth_generation();
         self.cancel_cloudsync_full_resync().await;
         let _control_operation = self.cloudsync_control_operation.lock().await;
         self.cancel_cloudsync_full_resync().await;
         let _write_guard = self.synced_write_barrier.write().await;
-        self.db.cloudsync_logout(discard_unsent_changes).await?;
+        if !replica_transport {
+            self.db.cloudsync_logout(discard_unsent_changes).await?;
+        }
         self.e2ee_sync_hook.clear();
         self.e2ee_sync_hook.clear_activities();
         Ok(())
+    }
+
+    async fn replica_transport_status(&self) -> Result<serde_json::Value> {
+        let keys = self.e2ee_sync_hook.snapshot();
+        let local_work_pending =
+            anlg_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(
+                self.db.pool(),
+                &keys,
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!(
+                    "failed to inspect pending E2EE replica changes: {error}"
+                ))
+            })?;
+        let replica = self.e2ee_sync_hook.replica_status();
+        let activity_paused = self.e2ee_sync_hook.activity_paused();
+        Ok(serde_json::json!({
+            "cloudsync_enabled": true,
+            "extension_loaded": self.db.cloudsync_enabled(),
+            "configured": true,
+            "running": true,
+            "network_initialized": true,
+            "activity_paused": activity_paused,
+            "deferred_for_capture": self.e2ee_sync_hook.has_activity(CLOUDSYNC_CAPTURE_ACTIVITY),
+            "last_sync": null,
+            "last_sync_at_ms": replica.last_sync_at_ms,
+            "has_unsent_changes": local_work_pending || replica.syncing,
+            "last_error": replica.last_error,
+            "last_error_kind": (replica.consecutive_failures > 0).then_some("transient"),
+            "consecutive_failures": replica.consecutive_failures,
+            "recovery_pending": false,
+            "recovery_delayed": false,
+            "recovery_phase": null,
+            "activity_log": [],
+        }))
     }
 }
 

@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-configure-e2ee-replica"
+description = "Enables the configure_e2ee_replica command without any pre-configured scope."
+commands.allow = ["configure_e2ee_replica"]
+
+[[permission]]
+identifier = "deny-configure-e2ee-replica"
+description = "Denies the configure_e2ee_replica command without any pre-configured scope."
+commands.deny = ["configure_e2ee_replica"]

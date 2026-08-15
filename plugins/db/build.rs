@@ -23,6 +23,7 @@ const COMMANDS: &[&str] = &[
     "configure_cloudsync",
     "bind_cloudsync_account",
     "configure_cloudsync_token",
+    "configure_e2ee_replica",
     "start_cloudsync",
     "stop_cloudsync",
     "suspend_cloudsync",

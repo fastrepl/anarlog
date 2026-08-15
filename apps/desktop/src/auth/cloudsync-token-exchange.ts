@@ -45,6 +45,16 @@ export async function requestCloudsyncCredentials({
       }),
       signal,
     );
+    if (response.status === 404) {
+      response = await raceWithAbort(
+        fetch(new URL("/sync/replica/credentials", env.VITE_API_URL), {
+          method: "POST",
+          headers,
+          signal,
+        }),
+        signal,
+      );
+    }
 
     let credentials: unknown;
     let credentialErrorCode: string | null = null;

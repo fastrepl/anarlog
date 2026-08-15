@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   bindCloudsyncAccount,
   configureCloudsyncToken,
+  configureE2eeReplica,
   execute,
   getCloudsyncStatus,
   getE2eeIdentityStatus,
@@ -119,6 +120,23 @@ function credentialsResponse(
   );
 }
 
+function replicaCredentialsResponse() {
+  return new Response(
+    JSON.stringify({
+      transport: "replica",
+      encryptionVersion: 2,
+      encryptionKeyId: E2EE_KEY_ID,
+      expiresAt: new Date(NOW.getTime() + 15 * 60 * 1000).toISOString(),
+      workspaceId: "user-id",
+      accountUserId: "user-id",
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+}
+
 function cloudsyncStatus(activityPaused = false) {
   return {
     cloudsync_enabled: true,
@@ -199,6 +217,7 @@ describe("CloudSync auth lifecycle", () => {
     vi.clearAllMocks();
     vi.mocked(bindCloudsyncAccount).mockResolvedValue(true);
     vi.mocked(configureCloudsyncToken).mockResolvedValue("configured");
+    vi.mocked(configureE2eeReplica).mockResolvedValue("configured");
     vi.mocked(execute).mockResolvedValue([]);
     vi.mocked(getE2eeIdentityStatus).mockResolvedValue({
       configured: true,
@@ -441,6 +460,29 @@ describe("CloudSync auth lifecycle", () => {
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
 
+  test("falls back to the portable encrypted replica transport", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(replicaCredentialsResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      new URL("https://api.test/sync/token"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      new URL("https://api.test/sync/replica/credentials"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(configureE2eeReplica).toHaveBeenCalledWith("user-id", witness());
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+  });
+
   test("passes server workspace metadata to the native projection", async () => {
     vi.stubGlobal(
       "fetch",
@@ -665,7 +707,7 @@ describe("CloudSync auth lifecycle", () => {
     ).resolves.toBe("ok");
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
   });
@@ -677,13 +719,16 @@ describe("CloudSync auth lifecycle", () => {
         .fn<() => Promise<Response>>()
         .mockResolvedValueOnce(credentialsResponse())
         .mockResolvedValueOnce(new Response(null, { status }));
+      if (status === 404) {
+        fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
+      }
       vi.stubGlobal("fetch", fetchMock);
       vi.spyOn(console, "warn").mockImplementation(() => {});
 
       await handleCloudsyncAuthChange("INITIAL_SESSION", session());
       await vi.advanceTimersByTimeAsync(13 * 60 * 1000);
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(status === 404 ? 3 : 2);
       expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
       expect(suspendCloudsync).toHaveBeenCalledTimes(2);
       expect(getCloudsyncCredentialBlock()).toBe("unavailable");
@@ -719,8 +764,10 @@ describe("CloudSync auth lifecycle", () => {
     expect(getCloudsyncCredentialBlock()).toBe("not_entitled");
   });
 
-  test("does not retry credential exchange in local-only mode", async () => {
-    const fetchMock = vi.fn();
+  test("checks the portable transport in local-only mode", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response(null, { status: 404 })),
+    );
     vi.stubGlobal("fetch", fetchMock);
     vi.mocked(getCloudsyncStatus).mockResolvedValueOnce({
       cloudsync_enabled: false,
@@ -743,7 +790,7 @@ describe("CloudSync auth lifecycle", () => {
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
     expect(getCloudsyncStatus).toHaveBeenCalledTimes(1);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(getCloudsyncCredentialBlock()).toBe("unavailable");
   });

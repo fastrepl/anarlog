@@ -152,6 +152,7 @@ async fn boots_with_minimal_self_hosted_configuration() {
         StatusCode::OK
     );
     for (method, path) in [
+        (Method::POST, "/sync/replica/credentials"),
         (Method::PUT, "/sync/e2ee/identity"),
         (
             Method::GET,

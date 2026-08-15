@@ -2,5 +2,5 @@ mod bindings;
 mod cloudsync_credentials;
 mod cloudsync_lifecycle;
 mod queries;
-mod support;
+pub(crate) mod support;
 mod transactions;

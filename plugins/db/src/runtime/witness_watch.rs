@@ -75,7 +75,11 @@ pub(super) fn spawn_witness_watch(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> Witne
                 Ok(Some(head)) => {
                     last_triggered = head;
                     error_backoff = WATCH_ERROR_BACKOFF_MIN;
-                    db.cloudsync_request_sync();
+                    if hook.replica_transport_configured() {
+                        hook.request_replica_sync();
+                    } else {
+                        db.cloudsync_request_sync();
+                    }
                 }
                 Ok(None) => {
                     error_backoff = WATCH_ERROR_BACKOFF_MIN;

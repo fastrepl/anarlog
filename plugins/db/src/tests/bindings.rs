@@ -22,6 +22,7 @@ fn default_permissions_exclude_generic_cloudsync_control() {
     let permissions = include_str!("../../permissions/default.toml");
 
     assert!(permissions.contains("allow-configure-cloudsync-token"));
+    assert!(permissions.contains("allow-configure-e2ee-replica"));
     assert!(permissions.contains("allow-suspend-cloudsync-for-sign-out"));
     assert!(!permissions.contains("allow-begin-cloudsync-activity"));
     assert!(!permissions.contains("allow-end-cloudsync-activity"));

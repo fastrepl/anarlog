@@ -1,5 +1,54 @@
 use super::*;
 
+#[tokio::test]
+async fn configures_replica_transport_without_the_cloudsync_extension() {
+    let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+    anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
+    sqlx::query(
+        "UPDATE storage_migration_state
+         SET importer_version = ?, parity_verified = 1
+         WHERE id = 'legacy_v1'",
+    )
+    .bind(anlg_db_app::LEGACY_IMPORTER_VERSION)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let runtime = PluginDbRuntime::new(db);
+    let witness_state = InitiallyUninitializedWitness::default();
+    witness_state.initialized.store(true, Ordering::SeqCst);
+    let witness_server = MockServer::start().await;
+    Mock::given(path("/sync/e2ee/witness/user-a"))
+        .respond_with(witness_state)
+        .mount(&witness_server)
+        .await;
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let generation = runtime.begin_cloudsync_auth_configuration();
+
+    assert_eq!(
+        runtime
+            .configure_replica_transport_at_generation(
+                "user-a".to_string(),
+                crate::CloudsyncE2eeWitness {
+                    endpoint: format!("{}/sync/e2ee/witness/user-a", witness_server.uri()),
+                    access_token: "access-token".to_string(),
+                },
+                recovery_key,
+                generation,
+            )
+            .await
+            .unwrap(),
+        crate::CloudsyncTokenConfigurationResult::Configured
+    );
+    assert!(runtime.e2ee_sync_hook.replica_transport_configured());
+    assert_eq!(
+        runtime.cloudsync_status().await.unwrap()["configured"],
+        true
+    );
+}
+
 fn test_full_resync_config(token: &str) -> anlg_db_core::CloudsyncRuntimeConfig {
     anlg_db_core::CloudsyncRuntimeConfig {
         connection_string: "test-database".to_string(),

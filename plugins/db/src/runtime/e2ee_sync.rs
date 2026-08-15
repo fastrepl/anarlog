@@ -3,10 +3,25 @@ use std::collections::{HashMap, HashSet};
 use super::E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT;
 use super::sync_result::{cloudsync_receive_completed, cloudsync_receive_requires_reconciliation};
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum E2eeTransport {
+    None = 0,
+    Cloudsync = 1,
+    Replica = 2,
+}
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct CloudsyncActivity {
     activity: String,
     key: String,
+}
+
+#[derive(Clone, Default)]
+pub(super) struct ReplicaSyncStatus {
+    pub(super) syncing: bool,
+    pub(super) last_sync_at_ms: Option<u64>,
+    pub(super) last_error: Option<String>,
+    pub(super) consecutive_failures: u32,
 }
 
 pub(crate) struct CloudsyncTokenConfiguration {
@@ -39,7 +54,10 @@ impl CloudsyncTokenConfiguration {
 pub(super) struct E2eeSyncHook {
     keys: std::sync::RwLock<HashMap<String, anlg_e2ee::WorkspaceKey>>,
     witness: std::sync::RwLock<Option<crate::e2ee_witness::E2eeWitnessClient>>,
+    transport: std::sync::atomic::AtomicU8,
     pub(super) witness_changed: tokio::sync::Notify,
+    pub(super) replica_sync_requested: tokio::sync::Notify,
+    replica_status: std::sync::Mutex<ReplicaSyncStatus>,
     activities: std::sync::RwLock<HashSet<CloudsyncActivity>>,
     pub(super) activity_changed: tokio::sync::Notify,
     reconciliation_requested_epoch: std::sync::atomic::AtomicU64,
@@ -92,9 +110,16 @@ impl E2eeSyncHook {
     }
 
     pub(super) fn clear(&self) {
+        self.cancel_active_sync();
         self.keys.write().unwrap().clear();
         *self.witness.write().unwrap() = None;
+        self.transport.store(
+            E2eeTransport::None as u8,
+            std::sync::atomic::Ordering::Release,
+        );
         self.witness_changed.notify_waiters();
+        self.replica_sync_requested.notify_waiters();
+        *self.replica_status.lock().unwrap() = ReplicaSyncStatus::default();
         let requested = self
             .reconciliation_requested_epoch
             .load(std::sync::atomic::Ordering::Acquire);
@@ -114,9 +139,59 @@ impl E2eeSyncHook {
     }
 
     pub(super) fn set_witness(&self, witness: crate::e2ee_witness::E2eeWitnessClient) {
+        self.set_witness_for_transport(witness, E2eeTransport::Cloudsync);
+    }
+
+    pub(super) fn set_replica_witness(&self, witness: crate::e2ee_witness::E2eeWitnessClient) {
+        self.set_witness_for_transport(witness, E2eeTransport::Replica);
+        self.replica_sync_requested.notify_one();
+    }
+
+    fn set_witness_for_transport(
+        &self,
+        witness: crate::e2ee_witness::E2eeWitnessClient,
+        transport: E2eeTransport,
+    ) {
+        self.cancel_active_sync();
         *self.witness.write().unwrap() = Some(witness);
+        self.transport
+            .store(transport as u8, std::sync::atomic::Ordering::Release);
         self.witness_changed.notify_waiters();
         self.request_reconciliation();
+    }
+
+    pub(super) fn replica_transport_configured(&self) -> bool {
+        self.transport.load(std::sync::atomic::Ordering::Acquire) == E2eeTransport::Replica as u8
+    }
+
+    pub(super) fn request_replica_sync(&self) {
+        self.replica_sync_requested.notify_one();
+    }
+
+    pub(super) fn replica_sync_started(&self) {
+        self.replica_status.lock().unwrap().syncing = true;
+    }
+
+    pub(super) fn replica_sync_succeeded(&self) {
+        let mut status = self.replica_status.lock().unwrap();
+        status.syncing = false;
+        status.last_sync_at_ms = std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .ok()
+            .and_then(|duration| u64::try_from(duration.as_millis()).ok());
+        status.last_error = None;
+        status.consecutive_failures = 0;
+    }
+
+    pub(super) fn replica_sync_failed(&self, error: &std::io::Error) {
+        let mut status = self.replica_status.lock().unwrap();
+        status.syncing = false;
+        status.last_error = Some(error.to_string());
+        status.consecutive_failures = status.consecutive_failures.saturating_add(1);
+    }
+
+    pub(super) fn replica_status(&self) -> ReplicaSyncStatus {
+        self.replica_status.lock().unwrap().clone()
     }
 
     pub(super) fn witness(&self) -> Option<crate::e2ee_witness::E2eeWitnessClient> {
@@ -264,6 +339,97 @@ impl E2eeSyncHook {
         )
         .await
         .map(|_| ())
+    }
+
+    pub(super) async fn sync_replica_transport(
+        &self,
+        pool: &sqlx::SqlitePool,
+    ) -> std::io::Result<bool> {
+        if !self.replica_transport_configured() {
+            return Ok(false);
+        }
+        let keys = self.snapshot();
+        let witness = self.witness();
+        let active_sync = self.begin_sync();
+        let cancellation = active_sync.cancellation.clone();
+        let operation = async {
+            cancellation.check()?;
+            let witness = witness
+                .ok_or_else(|| std::io::Error::other("E2EE replica service is not configured"))?;
+            let key = keys
+                .get(witness.workspace_id())
+                .ok_or_else(|| std::io::Error::other("E2EE replica identity is not configured"))?;
+            witness
+                .refresh_notifying_cancellable(
+                    pool,
+                    key,
+                    || {
+                        self.request_reconciliation();
+                    },
+                    &cancellation,
+                )
+                .await?;
+            cancellation.check()?;
+            anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
+                pool,
+                &keys,
+                E2EE_CLOUDSYNC_DIRTY_ROW_LIMIT,
+                || cancellation.is_cancelled(),
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!("E2EE replica encryption failed: {error}"))
+            })?;
+            cancellation.check()?;
+            witness
+                .publish_and_refresh_notifying_cancellable(
+                    pool,
+                    key,
+                    || {
+                        self.request_reconciliation();
+                    },
+                    &cancellation,
+                )
+                .await?;
+            cancellation.check()?;
+            let reconciliation_epoch = self.request_reconciliation();
+            let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
+                pool,
+                &keys,
+                true,
+                || self.received_apply_cancelled(&cancellation),
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!("E2EE replica application failed: {error}"))
+            })?;
+            cancellation.check()?;
+            if stats.remaining_replica_changes {
+                self.request_reconciliation();
+            }
+            self.complete_reconciliation(reconciliation_epoch);
+            let local_work_remaining = stats.remaining_replica_changes
+                || self.reconciliation_requested()
+                || anlg_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(pool, &keys)
+                    .await
+                    .map_err(|error| {
+                        std::io::Error::other(format!(
+                            "failed to inspect pending E2EE replica changes: {error}"
+                        ))
+                    })?;
+            cancellation.check()?;
+            Ok(local_work_remaining)
+        };
+        tokio::pin!(operation);
+        tokio::select! {
+            biased;
+            _ = self.wait_until_activity_paused() => {
+                cancellation.cancel();
+                let _ = operation.await;
+                Ok(true)
+            }
+            result = &mut operation => result,
+        }
     }
 }
 

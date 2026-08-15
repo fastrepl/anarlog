@@ -24,6 +24,7 @@ permissions = [
   "allow-unsubscribe",
   "allow-bind-cloudsync-account",
   "allow-configure-cloudsync-token",
+  "allow-configure-e2ee-replica",
   "allow-stop-cloudsync",
   "allow-suspend-cloudsync",
   "allow-suspend-cloudsync-for-sign-out",

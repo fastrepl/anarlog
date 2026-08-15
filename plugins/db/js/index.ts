@@ -294,6 +294,16 @@ export async function configureCloudsyncToken(
   });
 }
 
+export async function configureE2eeReplica(
+  workspaceId: string,
+  e2eeWitness: CloudsyncE2eeWitness,
+): Promise<CloudsyncTokenConfigurationResult> {
+  return invoke("plugin:db|configure_e2ee_replica", {
+    workspaceId,
+    e2eeWitness,
+  });
+}
+
 export async function bindCloudsyncAccount(
   accountUserId: string,
 ): Promise<boolean> {

@@ -148,7 +148,7 @@ impl Respond for WitnessResponder {
     }
 }
 
-pub(super) async fn setup_witness(workspace_id: &str) -> (MockServer, CloudsyncE2eeWitness) {
+pub(crate) async fn setup_witness(workspace_id: &str) -> (MockServer, CloudsyncE2eeWitness) {
     let server = MockServer::start().await;
     Mock::given(path(format!("/sync/e2ee/witness/{workspace_id}")))
         .respond_with(WitnessResponder::default())

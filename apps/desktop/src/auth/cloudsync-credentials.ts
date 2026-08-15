@@ -8,13 +8,22 @@ import { commands as miscCommands } from "@anlg/plugin-misc";
 
 import { getStoredSettingValues } from "~/settings/queries";
 
-type CloudsyncCredentialCore = {
+type E2eeCredentialCore = {
   encryptionVersion: 2;
   encryptionKeyId: string;
-  databaseId: string;
-  token: string;
   expiresAt: string;
   workspaceId: string;
+};
+
+type CloudsyncCredentialCore = E2eeCredentialCore & {
+  databaseId: string;
+  token: string;
+  transport?: undefined;
+};
+
+export type ReplicaCredentials = E2eeCredentialCore & {
+  transport: "replica";
+  accountUserId: string;
 };
 
 type LegacyCloudsyncCredentials = CloudsyncCredentialCore & {
@@ -28,7 +37,8 @@ export type ProjectedCloudsyncCredentials = CloudsyncCredentialCore &
 
 export type CloudsyncCredentials =
   | LegacyCloudsyncCredentials
-  | ProjectedCloudsyncCredentials;
+  | ProjectedCloudsyncCredentials
+  | ReplicaCredentials;
 
 export const DEVICE_NAME_HEADER = "x-anarlog-device-name";
 export const DEVICE_LIMIT_ERROR_CODE = "sync_device_limit_reached";
@@ -193,15 +203,27 @@ export function isCredentials(value: unknown): value is CloudsyncCredentials {
     candidate.encryptionVersion === 2 &&
     typeof candidate.encryptionKeyId === "string" &&
     /^[A-Za-z0-9_-]{22}$/.test(candidate.encryptionKeyId) &&
-    typeof candidate.databaseId === "string" &&
-    candidate.databaseId.length > 0 &&
-    typeof candidate.token === "string" &&
-    candidate.token.length > 0 &&
     typeof candidate.expiresAt === "string" &&
     Number.isFinite(Date.parse(candidate.expiresAt)) &&
     typeof candidate.workspaceId === "string" &&
     candidate.workspaceId.length > 0;
   if (!hasCoreCredentials) {
+    return false;
+  }
+
+  if (candidate.transport === "replica") {
+    return (
+      typeof candidate.accountUserId === "string" &&
+      candidate.accountUserId === candidate.workspaceId
+    );
+  }
+
+  if (
+    typeof candidate.databaseId !== "string" ||
+    candidate.databaseId.length === 0 ||
+    typeof candidate.token !== "string" ||
+    candidate.token.length === 0
+  ) {
     return false;
   }
 
@@ -279,5 +301,14 @@ export function isCredentials(value: unknown): value is CloudsyncCredentials {
 export function hasWorkspaceProjection(
   credentials: CloudsyncCredentials,
 ): credentials is ProjectedCloudsyncCredentials {
-  return credentials.accountUserId !== undefined;
+  return (
+    credentials.transport !== "replica" &&
+    credentials.accountUserId !== undefined
+  );
+}
+
+export function isReplicaCredentials(
+  credentials: CloudsyncCredentials,
+): credentials is ReplicaCredentials {
+  return credentials.transport === "replica";
 }

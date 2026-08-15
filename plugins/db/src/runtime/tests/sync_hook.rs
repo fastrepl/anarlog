@@ -1,6 +1,118 @@
 use super::*;
 
 #[tokio::test]
+async fn replica_transport_syncs_without_the_cloudsync_extension() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let hook = E2eeSyncHook::default();
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    hook.set_personal_workspace("workspace-1", &recovery_key)
+        .unwrap();
+    let witness_state = InitiallyUninitializedWitness::default();
+    witness_state.initialized.store(true, Ordering::SeqCst);
+    let witness_server = MockServer::start().await;
+    Mock::given(path("/sync/e2ee/witness/workspace-1"))
+        .respond_with(witness_state)
+        .mount(&witness_server)
+        .await;
+    hook.set_replica_witness(
+        crate::e2ee_witness::E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/workspace-1", witness_server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "workspace-1",
+        )
+        .unwrap(),
+    );
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, title)
+         VALUES ('session-1', 'workspace-1', 'Portable sync')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    assert!(!hook.sync_replica_transport(db.pool()).await.unwrap());
+    assert!(
+        witness_server
+            .received_requests()
+            .await
+            .unwrap()
+            .iter()
+            .any(|request| request.method == wiremock::http::Method::POST)
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_dirty_rows")
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+        0
+    );
+    assert!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_witness_records")
+            .fetch_one(db.pool())
+            .await
+            .unwrap()
+            > 0
+    );
+}
+
+#[tokio::test]
+async fn replica_transport_hydrates_a_fresh_local_database() {
+    let source = Db::connect_memory_plain().await.unwrap();
+    let target = Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&source).await.unwrap();
+    anlg_db_app::prepare_schema(&target).await.unwrap();
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let (witness_server, witness_config) =
+        crate::tests::support::setup_witness("workspace-1").await;
+    let configure = |hook: &E2eeSyncHook| {
+        hook.set_personal_workspace("workspace-1", &recovery_key)
+            .unwrap();
+        hook.set_replica_witness(
+            crate::e2ee_witness::E2eeWitnessClient::new(witness_config.clone(), "workspace-1")
+                .unwrap(),
+        );
+    };
+    let source_hook = E2eeSyncHook::default();
+    let target_hook = E2eeSyncHook::default();
+    configure(&source_hook);
+    configure(&target_hook);
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, title)
+         VALUES ('session-1', 'workspace-1', 'Portable hydration')",
+    )
+    .execute(source.pool())
+    .await
+    .unwrap();
+
+    source_hook
+        .sync_replica_transport(source.pool())
+        .await
+        .unwrap();
+    target_hook
+        .sync_replica_transport(target.pool())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(target.pool())
+            .await
+            .unwrap(),
+        "Portable hydration"
+    );
+    assert!(!witness_server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn capture_lifecycle_marker_defers_only_its_transcript() {
     let db = Db::connect_memory_plain().await.unwrap();
     anlg_db_app::prepare_schema(&db).await.unwrap();

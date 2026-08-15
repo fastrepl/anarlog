@@ -2810,6 +2810,57 @@
         ]
       }
     },
+    "/sync/replica/credentials": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "create_replica_credentials",
+        "parameters": [
+          {
+            "name": "x-anarlog-e2ee-key-id",
+            "in": "header",
+            "description": "Local recovery-key identity",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Encrypted replica credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplicaCredentials"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid E2EE key identity"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "409": {
+            "description": "Account already uses a different recovery key"
+          },
+          "502": {
+            "description": "Replica credential service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/shares/{share_id}/attachments/finalize": {
       "post": {
         "tags": [
@@ -9234,6 +9285,39 @@
               "boolean",
               "null"
             ]
+          }
+        }
+      },
+      "ReplicaCredentials": {
+        "type": "object",
+        "required": [
+          "transport",
+          "encryptionVersion",
+          "encryptionKeyId",
+          "expiresAt",
+          "workspaceId",
+          "accountUserId"
+        ],
+        "properties": {
+          "accountUserId": {
+            "type": "string"
+          },
+          "encryptionKeyId": {
+            "type": "string"
+          },
+          "encryptionVersion": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
           }
         }
       },

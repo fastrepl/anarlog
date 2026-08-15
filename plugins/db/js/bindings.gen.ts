@@ -198,6 +198,14 @@ async configureCloudsyncToken(databaseId: string, token: string, workspaceId: st
     else return { status: "error", error: e  as any };
 }
 },
+async configureE2eeReplica(workspaceId: string, e2eeWitness: CloudsyncE2eeWitness) : Promise<Result<CloudsyncTokenConfigurationResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|configure_e2ee_replica", { workspaceId, e2eeWitness }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async startCloudsync() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|start_cloudsync") };

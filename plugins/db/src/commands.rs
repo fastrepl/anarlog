@@ -465,6 +465,31 @@ pub(crate) async fn configure_cloudsync_token<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn configure_e2ee_replica<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    state: tauri::State<'_, ManagedState>,
+    workspace_id: String,
+    e2ee_witness: crate::CloudsyncE2eeWitness,
+) -> Result<crate::CloudsyncTokenConfigurationResult, String> {
+    let auth_generation = state.begin_cloudsync_auth_configuration();
+    let recovery_key = load_e2ee_recovery_key(app, &workspace_id)
+        .await?
+        .ok_or_else(|| {
+            "end-to-end encryption recovery key setup is required before sync can start".to_string()
+        })?;
+    state
+        .configure_replica_transport_at_generation(
+            workspace_id,
+            e2ee_witness,
+            recovery_key,
+            auth_generation,
+        )
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn bind_cloudsync_account(
     state: tauri::State<'_, ManagedState>,
     account_user_id: String,

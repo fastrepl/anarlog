@@ -1,7 +1,8 @@
-import { configureCloudsyncToken } from "@anlg/plugin-db";
+import { configureCloudsyncToken, configureE2eeReplica } from "@anlg/plugin-db";
 
 import {
   hasWorkspaceProjection,
+  isReplicaCredentials,
   type CloudsyncCredentials,
 } from "./cloudsync-credentials";
 
@@ -22,6 +23,10 @@ export function configureCloudsyncCredentials(
     ).toString(),
     accessToken,
   };
+
+  if (isReplicaCredentials(credentials)) {
+    return configureE2eeReplica(credentials.workspaceId, witness);
+  }
 
   return hasWorkspaceProjection(credentials)
     ? configureCloudsyncToken(

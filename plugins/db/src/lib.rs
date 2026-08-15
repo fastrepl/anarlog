@@ -265,6 +265,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::configure_cloudsync,
             commands::bind_cloudsync_account,
             commands::configure_cloudsync_token<tauri::Wry>,
+            commands::configure_e2ee_replica<tauri::Wry>,
             commands::start_cloudsync,
             commands::stop_cloudsync,
             commands::suspend_cloudsync,

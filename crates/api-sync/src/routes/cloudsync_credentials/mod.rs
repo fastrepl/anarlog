@@ -36,6 +36,7 @@ pub(super) use projection::{
 
 const SUPABASE_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
 const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 2;
+const REPLICA_CREDENTIAL_TTL_SECONDS: u64 = 15 * 60;
 pub(super) const E2EE_KEY_ID_HEADER: &str = "x-anarlog-e2ee-key-id";
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -62,6 +63,17 @@ pub struct LegacyCloudsyncCredentials {
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ReplicaCredentials {
+    transport: &'static str,
+    encryption_version: u8,
+    encryption_key_id: String,
+    expires_at: String,
+    workspace_id: String,
+    account_user_id: String,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(untagged)]
 pub enum CloudsyncCredentialResponse {
     Legacy(LegacyCloudsyncCredentials),
@@ -82,14 +94,15 @@ pub struct E2eeIdentity {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(create_credentials, claim_e2ee_identity),
+    paths(create_credentials, create_replica_credentials, claim_e2ee_identity),
     components(schemas(
         CloudsyncCredentialResponse,
         CloudsyncCredentials,
         CloudsyncWorkspace,
         ClaimE2eeIdentityRequest,
         E2eeIdentity,
-        LegacyCloudsyncCredentials
+        LegacyCloudsyncCredentials,
+        ReplicaCredentials
     ))
 )]
 pub struct ApiDoc;
@@ -104,9 +117,59 @@ pub(super) fn router() -> Router<AppState> {
 
 pub(super) fn replica_router() -> Router<ReplicaState> {
     Router::new()
+        .route("/replica/credentials", post(create_replica_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
         .route("/devices", get(get_devices))
         .route("/devices/{fingerprint}", delete(delete_device))
+}
+
+#[utoipa::path(
+    post,
+    path = "/replica/credentials",
+    tag = "sync",
+    params(("x-anarlog-e2ee-key-id" = String, Header, description = "Local recovery-key identity")),
+    responses(
+        (status = 200, description = "Encrypted replica credentials", body = ReplicaCredentials),
+        (status = 400, description = "Invalid E2EE key identity"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 409, description = "Account already uses a different recovery key"),
+        (status = 502, description = "Replica credential service unavailable")
+    )
+)]
+async fn create_replica_credentials(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<ReplicaState>,
+    headers: HeaderMap,
+) -> Result<(
+    [(header::HeaderName, HeaderValue); 1],
+    Json<ReplicaCredentials>,
+)> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+
+    claim_sync_device(&state, &auth.claims.sub, &headers).await?;
+    let requested_key_id = headers
+        .get(E2EE_KEY_ID_HEADER)
+        .ok_or_else(|| SyncError::BadRequest("E2EE key identity is required".to_string()))?
+        .to_str()
+        .map_err(|_| SyncError::BadRequest("E2EE key identity is invalid".to_string()))?;
+    let encryption_key_id =
+        claim_personal_e2ee_key(&state, &auth.claims.sub, requested_key_id).await?;
+    let expires_at = token_expiry(REPLICA_CREDENTIAL_TTL_SECONDS)?;
+
+    Ok((
+        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+        Json(ReplicaCredentials {
+            transport: "replica",
+            encryption_version: CLOUDSYNC_ENCRYPTION_VERSION,
+            encryption_key_id,
+            expires_at,
+            workspace_id: auth.claims.sub.clone(),
+            account_user_id: auth.claims.sub,
+        }),
+    ))
 }
 
 #[derive(Serialize)]
