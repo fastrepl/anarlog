@@ -161,7 +161,7 @@ select ok(
 
 select ok(
   (
-    select count(*) = 6
+    select count(*) = 11
       and bool_and(
         has_function_privilege('service_role', proc.oid, 'EXECUTE')
           = (proc.proname = 'publish_session_share_snapshot')
@@ -170,8 +170,13 @@ select ok(
         has_function_privilege('authenticated', proc.oid, 'EXECUTE')
           = (proc.proname in (
             'read_my_session_share_snapshot',
+            'read_my_session_share_snapshot_v2',
+            'read_my_session_share_snapshot_with_attachments',
             'list_my_session_share_snapshots',
-            'list_my_session_share_snapshot_page'
+            'list_my_session_share_snapshots_with_attachments',
+            'list_my_session_share_snapshot_page',
+            'list_my_session_share_snapshot_page_v2',
+            'list_my_session_share_snapshot_page_with_attachments'
           ))
       )
       and bool_and(
@@ -184,10 +189,15 @@ select ok(
       and proc.proname in (
         'publish_session_share_snapshot',
         'read_my_session_share_snapshot',
+        'read_my_session_share_snapshot_v2',
+        'read_my_session_share_snapshot_with_attachments',
         'read_session_share_link_snapshot',
         'read_public_session_share_snapshot',
         'list_my_session_share_snapshots',
-        'list_my_session_share_snapshot_page'
+        'list_my_session_share_snapshots_with_attachments',
+        'list_my_session_share_snapshot_page',
+        'list_my_session_share_snapshot_page_v2',
+        'list_my_session_share_snapshot_page_with_attachments'
       )
   ),
   'Snapshot RPC grants keep general-access reads behind the service gateway'
