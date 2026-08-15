@@ -130,6 +130,7 @@ pub fn seal_workspace_key_for_member(
 ///
 /// Rotation mints a new key and leaves earlier ones in place, so history stays
 /// readable while writes move to the newest generation.
+#[derive(Clone)]
 pub struct WorkspaceKeyring {
     active: WorkspaceKey,
     retired: Vec<WorkspaceKey>,
@@ -156,6 +157,10 @@ impl WorkspaceKeyring {
         &self.active
     }
 
+    pub fn generations(&self) -> impl Iterator<Item = &WorkspaceKey> {
+        std::iter::once(&self.active).chain(self.retired.iter())
+    }
+
     pub fn get(&self, key_id: &str) -> Option<&WorkspaceKey> {
         if self.active.key_id() == key_id {
             return Some(&self.active);
@@ -174,6 +179,20 @@ impl WorkspaceKeyring {
         self.get(&envelope.key_id)
             .ok_or(Error::UnknownKey)?
             .open_field(workspace_id, record_id, payload)
+    }
+}
+
+impl From<WorkspaceKey> for WorkspaceKeyring {
+    fn from(key: WorkspaceKey) -> Self {
+        Self::new(key)
+    }
+}
+
+impl std::ops::Deref for WorkspaceKeyring {
+    type Target = WorkspaceKey;
+
+    fn deref(&self) -> &Self::Target {
+        self.active()
     }
 }
 

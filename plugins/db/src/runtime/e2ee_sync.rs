@@ -59,7 +59,7 @@ impl CloudsyncTokenConfiguration {
 
 #[derive(Default)]
 pub(super) struct E2eeSyncHook {
-    keys: std::sync::RwLock<HashMap<String, anlg_e2ee::WorkspaceKey>>,
+    keys: std::sync::RwLock<HashMap<String, anlg_e2ee::WorkspaceKeyring>>,
     witness: std::sync::RwLock<Option<crate::e2ee_witness::E2eeWitnessClient>>,
     transport: std::sync::atomic::AtomicU8,
     pub(super) witness_changed: tokio::sync::Notify,
@@ -103,7 +103,10 @@ impl E2eeSyncHook {
         recovery_key: &anlg_e2ee::RecoveryKey,
     ) -> std::result::Result<(), anlg_e2ee::Error> {
         let key = recovery_key.workspace_key(workspace_id)?;
-        *self.keys.write().unwrap() = HashMap::from([(workspace_id.to_string(), key)]);
+        *self.keys.write().unwrap() = HashMap::from([(
+            workspace_id.to_string(),
+            anlg_e2ee::WorkspaceKeyring::new(key),
+        )]);
         self.request_reconciliation();
         Ok(())
     }
@@ -113,7 +116,11 @@ impl E2eeSyncHook {
     }
 
     pub(super) fn workspace_key(&self, workspace_id: &str) -> Option<anlg_e2ee::WorkspaceKey> {
-        self.keys.read().unwrap().get(workspace_id).cloned()
+        self.keys
+            .read()
+            .unwrap()
+            .get(workspace_id)
+            .map(|keyring| keyring.active().clone())
     }
 
     pub(super) fn clear(&self) {
@@ -141,7 +148,7 @@ impl E2eeSyncHook {
         self.activity_changed.notify_waiters();
     }
 
-    pub(super) fn snapshot(&self) -> HashMap<String, anlg_e2ee::WorkspaceKey> {
+    pub(super) fn snapshot(&self) -> HashMap<String, anlg_e2ee::WorkspaceKeyring> {
         self.keys.read().unwrap().clone()
     }
 
@@ -367,13 +374,13 @@ impl E2eeSyncHook {
             cancellation.check()?;
             let witness = witness
                 .ok_or_else(|| std::io::Error::other("E2EE replica service is not configured"))?;
-            let key = keys
+            let keyring = keys
                 .get(witness.workspace_id())
                 .ok_or_else(|| std::io::Error::other("E2EE replica identity is not configured"))?;
             witness
                 .refresh_notifying_cancellable(
                     pool,
-                    key,
+                    keyring.active(),
                     || {
                         self.request_reconciliation();
                     },
@@ -395,7 +402,7 @@ impl E2eeSyncHook {
             witness
                 .publish_and_refresh_notifying_cancellable(
                     pool,
-                    key,
+                    keyring.active(),
                     || {
                         self.request_reconciliation();
                     },
@@ -469,7 +476,7 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 let witness = witness.ok_or_else(|| {
                     std::io::Error::other("E2EE freshness witness is not configured")
                 })?;
-                let key = keys.get(witness.workspace_id()).ok_or_else(|| {
+                let keyring = keys.get(witness.workspace_id()).ok_or_else(|| {
                     std::io::Error::other("E2EE freshness witness identity is not configured")
                 })?;
                 let full_resync_pending = anlg_db_app::cloudsync_full_resync_generation(pool)
@@ -490,7 +497,7 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 witness
                     .refresh_notifying_cancellable(
                         pool,
-                        key,
+                        keyring.active(),
                         || {
                             self.request_reconciliation();
                         },
@@ -517,7 +524,7 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 witness
                     .publish_and_refresh_notifying_cancellable(
                         pool,
-                        key,
+                        keyring.active(),
                         || {
                             self.request_reconciliation();
                         },
@@ -558,13 +565,13 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                 let witness = witness.ok_or_else(|| {
                     std::io::Error::other("E2EE freshness witness is not configured")
                 })?;
-                let key = keys.get(witness.workspace_id()).ok_or_else(|| {
+                let keyring = keys.get(witness.workspace_id()).ok_or_else(|| {
                     std::io::Error::other("E2EE freshness witness identity is not configured")
                 })?;
                 witness
                     .refresh_notifying_cancellable(
                         pool,
-                        key,
+                        keyring.active(),
                         || {
                             self.request_reconciliation();
                         },

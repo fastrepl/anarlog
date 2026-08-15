@@ -665,11 +665,11 @@ async fn id_collision_does_not_record_unmaterialized_remote_state() {
     let workspace_keys = HashMap::from([
         (
             "workspace-a".to_string(),
-            recovery.workspace_key("workspace-a").unwrap(),
+            recovery.workspace_key("workspace-a").unwrap().into(),
         ),
         (
             "workspace-b".to_string(),
-            recovery.workspace_key("workspace-b").unwrap(),
+            recovery.workspace_key("workspace-b").unwrap().into(),
         ),
     ]);
     let source = test_db().await;

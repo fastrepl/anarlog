@@ -105,7 +105,7 @@ async fn cancelled_witness_merge_releases_local_writes_without_advancing_the_cur
 async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes() {
     let db = test_db().await;
     let key = workspace_key();
-    let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone())]);
+    let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone().into())]);
     let events = witness_events(&key, 4);
     merge_e2ee_witness_events(db.pool(), &key, "workspace-a", &events)
         .await
@@ -170,7 +170,7 @@ async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes(
 async fn cancelled_encryption_rolls_back_the_current_row_and_releases_local_writes() {
     let db = test_db().await;
     let key = workspace_key();
-    let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone())]);
+    let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone().into())]);
     sqlx::query(
         "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
          VALUES ('session-1', 'workspace-a', 'user-a', 'Encrypt me')",
@@ -259,7 +259,7 @@ async fn cancelled_encryption_rolls_back_the_current_row_and_releases_local_writ
 async fn pending_witness_check_does_not_scan_matching_payloads() {
     let db = test_db().await;
     let key = workspace_key();
-    let workspace_keys = HashMap::from([("workspace-a".to_string(), key)]);
+    let workspace_keys = HashMap::from([("workspace-a".to_string(), key.into())]);
     let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await.unwrap();
     sqlx::query(
         "WITH digits(value) AS (
@@ -327,7 +327,7 @@ async fn pending_witness_check_does_not_scan_matching_payloads() {
 #[tokio::test]
 async fn witness_scan_selects_only_records_that_need_repair() {
     let db = test_db().await;
-    let workspace_keys = HashMap::from([("workspace-a".to_string(), workspace_key())]);
+    let workspace_keys = HashMap::from([("workspace-a".to_string(), workspace_key().into())]);
     sqlx::query(
         "WITH RECURSIVE counter(value) AS (
            SELECT 0
@@ -403,7 +403,7 @@ async fn witness_scan_selects_only_records_that_need_repair() {
 async fn cancelled_witness_upload_processing_releases_local_writes() {
     let db = test_db().await;
     let key = workspace_key();
-    let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone())]);
+    let workspace_keys = HashMap::from([("workspace-a".to_string(), key.clone().into())]);
     sqlx::query(
         "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
          VALUES ('session-1', 'workspace-a', 'user-a', 'Publish me')",

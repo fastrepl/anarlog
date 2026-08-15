@@ -7,12 +7,12 @@ async fn test_db() -> anlg_db_core::Db {
     db
 }
 
-fn keys(workspace_id: &str) -> HashMap<String, WorkspaceKey> {
+fn keys(workspace_id: &str) -> HashMap<String, anlg_e2ee::WorkspaceKeyring> {
     let recovery =
         RecoveryKey::parse("anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc").unwrap();
     HashMap::from([(
         workspace_id.to_string(),
-        recovery.workspace_key(workspace_id).unwrap(),
+        recovery.workspace_key(workspace_id).unwrap().into(),
     )])
 }
 

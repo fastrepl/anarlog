@@ -1,6 +1,68 @@
 use super::*;
 
 #[tokio::test]
+async fn rotated_keyring_applies_new_writes_over_an_old_snapshot() {
+    let recovery =
+        RecoveryKey::parse("anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc").unwrap();
+    let old_key = recovery.workspace_key("workspace-a").unwrap();
+    let old_keys = HashMap::from([(
+        "workspace-a".to_string(),
+        anlg_e2ee::WorkspaceKeyring::new(old_key.clone()),
+    )]);
+    let source = test_db().await;
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+             VALUES ('session-1', 'workspace-a', 'user-a', 'Before rotation')",
+    )
+    .execute(source.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(source.pool(), &old_keys)
+        .await
+        .unwrap();
+
+    let target = test_db().await;
+    copy_replica(source.pool(), target.pool()).await;
+    apply_e2ee_replica_changes(target.pool(), &old_keys)
+        .await
+        .unwrap();
+
+    let new_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+    let old_title_id = old_key.blind_field_id("sessions", "session-1", "title");
+    let new_title_id = new_key.blind_field_id("sessions", "session-1", "title");
+    let mut rotated_keyring = anlg_e2ee::WorkspaceKeyring::new(new_key);
+    rotated_keyring.insert_retired(old_key);
+    let rotated_keys = HashMap::from([("workspace-a".to_string(), rotated_keyring)]);
+
+    sqlx::query("UPDATE sessions SET title = 'After rotation' WHERE id = 'session-1'")
+        .execute(source.pool())
+        .await
+        .unwrap();
+    encrypt_e2ee_replica_changes(source.pool(), &rotated_keys)
+        .await
+        .unwrap();
+    copy_replica(source.pool(), target.pool()).await;
+    let stats = apply_e2ee_replica_changes(target.pool(), &rotated_keys)
+        .await
+        .unwrap();
+
+    let title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+        .fetch_one(target.pool())
+        .await
+        .unwrap();
+    let title_generations: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records WHERE id IN (?, ?)")
+            .bind(old_title_id)
+            .bind(new_title_id)
+            .fetch_one(target.pool())
+            .await
+            .unwrap();
+    assert_eq!(title, "After rotation");
+    assert_eq!(title_generations, 2);
+    assert_eq!(stats.skipped_local_changes, 0);
+}
+
+#[tokio::test]
 async fn fresh_device_does_not_materialize_an_unwitnessed_snapshot() {
     let workspace_keys = keys("workspace-a");
     let source = test_db().await;

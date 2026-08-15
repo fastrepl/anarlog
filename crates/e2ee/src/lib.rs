@@ -436,6 +436,7 @@ impl WorkspaceKey {
         }
 
         Ok(OpenedField {
+            key_id: self.key_id.clone(),
             table: field.table,
             row_id: field.row_id,
             field: field.field,
@@ -455,6 +456,7 @@ pub struct SealedField {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct OpenedField {
+    pub key_id: String,
     pub table: String,
     pub row_id: String,
     pub field: String,

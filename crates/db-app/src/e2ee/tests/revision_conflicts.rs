@@ -32,7 +32,8 @@ async fn rejects_authenticated_payloads_in_the_wrong_workspace() {
         RecoveryKey::parse("anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc")
             .unwrap()
             .workspace_key("workspace-b")
-            .unwrap(),
+            .unwrap()
+            .into(),
     );
     assert!(
         apply_e2ee_replica_changes(db.pool(), &wrong_keys)

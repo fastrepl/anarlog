@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anlg_e2ee::WorkspaceKey;
+use anlg_e2ee::{WorkspaceKey, WorkspaceKeyring};
 use serde_json::{Value, json};
 use sqlx::{Column, QueryBuilder, Row, Sqlite, SqlitePool, Transaction};
 
@@ -17,21 +17,21 @@ use super::{
 
 pub async fn encrypt_e2ee_replica_changes(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     encrypt_e2ee_replica_changes_inner(pool, keys, false, &|| false).await
 }
 
 pub async fn encrypt_e2ee_replica_changes_deferring_active_captures(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     encrypt_e2ee_replica_changes_inner(pool, keys, true, &|| false).await
 }
 
 pub async fn encrypt_e2ee_replica_changes_deferring_active_captures_cancellable(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     is_cancelled: impl Fn() -> bool + Sync,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     encrypt_e2ee_replica_changes_inner(pool, keys, true, &is_cancelled).await
@@ -39,7 +39,7 @@ pub async fn encrypt_e2ee_replica_changes_deferring_active_captures_cancellable(
 
 async fn encrypt_e2ee_replica_changes_inner(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     defer_active_captures: bool,
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
@@ -77,7 +77,7 @@ async fn encrypt_e2ee_replica_changes_inner(
 
 pub async fn encrypt_e2ee_replica_changes_bounded(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, false, &|| false).await
@@ -85,7 +85,7 @@ pub async fn encrypt_e2ee_replica_changes_bounded(
 
 pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     encrypt_e2ee_replica_changes_bounded_inner(pool, keys, max_rows, true, &|| false).await
@@ -93,7 +93,7 @@ pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures(
 
 pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
     is_cancelled: impl Fn() -> bool + Sync,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
@@ -102,7 +102,7 @@ pub async fn encrypt_e2ee_replica_changes_bounded_deferring_active_captures_canc
 
 async fn encrypt_e2ee_replica_changes_bounded_inner(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
     defer_active_captures: bool,
     is_cancelled: &(impl Fn() -> bool + Sync),
@@ -150,7 +150,7 @@ async fn encrypt_e2ee_replica_changes_bounded_inner(
         return Ok(stats);
     }
     for dirty in dirty_rows {
-        let key = &keys[&dirty.workspace_id];
+        let key = keys[&dirty.workspace_id].active();
         let prepared =
             prepare_dirty_row_cancellable(pool, key, &writer_id, dirty, is_cancelled).await?;
         if is_cancelled() {
@@ -183,21 +183,21 @@ async fn encrypt_e2ee_replica_changes_bounded_inner(
 
 pub async fn has_pending_e2ee_replica_changes(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<bool> {
     has_pending_e2ee_replica_changes_inner(pool, keys, false).await
 }
 
 pub async fn has_pending_e2ee_replica_changes_deferring_active_captures(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<bool> {
     has_pending_e2ee_replica_changes_inner(pool, keys, true).await
 }
 
 pub async fn has_pending_e2ee_dirty_rows_deferring_active_captures(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<bool> {
     if keys.is_empty() {
         return Ok(false);
@@ -207,7 +207,7 @@ pub async fn has_pending_e2ee_dirty_rows_deferring_active_captures(
 
 async fn has_pending_e2ee_replica_changes_inner(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     defer_active_captures: bool,
 ) -> E2eeReplicaResult<bool> {
     if keys.is_empty() {
@@ -225,7 +225,7 @@ async fn has_pending_e2ee_replica_changes_inner(
 #[cfg(test)]
 pub(super) async fn load_dirty_rows(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
 ) -> E2eeReplicaResult<Vec<DirtyRow>> {
     load_dirty_rows_inner(pool, keys, max_rows, false).await
@@ -233,7 +233,7 @@ pub(super) async fn load_dirty_rows(
 
 async fn load_dirty_rows_inner(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
     defer_active_captures: bool,
 ) -> E2eeReplicaResult<Vec<DirtyRow>> {
@@ -260,7 +260,7 @@ async fn load_dirty_rows_inner(
 
 pub(super) async fn load_dirty_rows_page(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     max_rows: i64,
     defer_active_captures: bool,
 ) -> E2eeReplicaResult<(Vec<DirtyRow>, bool)> {

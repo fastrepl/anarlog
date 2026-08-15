@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-use anlg_e2ee::WorkspaceKey;
+use anlg_e2ee::WorkspaceKeyring;
 use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde_json::{Value, json};
@@ -459,7 +459,7 @@ pub(super) async fn update_field(
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn row_changed_since_snapshot(
     transaction: &mut Transaction<'_, Sqlite>,
-    key: &WorkspaceKey,
+    keyring: &WorkspaceKeyring,
     workspace_id: &str,
     table: &str,
     row_id: &str,
@@ -474,8 +474,11 @@ pub(super) async fn row_changed_since_snapshot(
         if state.field_name == ROW_MANIFEST_FIELD {
             found_manifest = true;
             let value = if row_exists { json!(true) } else { Value::Null };
-            let current_tag = key.value_tag(table, row_id, ROW_MANIFEST_FIELD, !row_exists, &value);
-            if current_tag != state.value_tag {
+            let matches_snapshot = keyring.generations().any(|key| {
+                key.value_tag(table, row_id, ROW_MANIFEST_FIELD, !row_exists, &value)
+                    == state.value_tag
+            });
+            if !matches_snapshot {
                 return Ok(true);
             }
             continue;
@@ -488,8 +491,10 @@ pub(super) async fn row_changed_since_snapshot(
         else {
             return Ok(true);
         };
-        let current_tag = key.value_tag(table, row_id, &state.field_name, false, &value);
-        if current_tag != state.value_tag {
+        let matches_snapshot = keyring.generations().any(|key| {
+            key.value_tag(table, row_id, &state.field_name, false, &value) == state.value_tag
+        });
+        if !matches_snapshot {
             return Ok(true);
         }
     }

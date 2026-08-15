@@ -368,7 +368,7 @@ async fn initialized_witness_refreshes_before_publishing_pending_state() {
     let key = recovery_key.workspace_key("user-a").unwrap();
     anlg_db_app::encrypt_e2ee_replica_changes(
         db.pool(),
-        &HashMap::from([("user-a".to_string(), key.clone())]),
+        &HashMap::from([("user-a".to_string(), key.clone().into())]),
     )
     .await
     .unwrap();
@@ -416,7 +416,7 @@ async fn pending_local_state_is_retryable_after_a_failed_publish() {
     )
     .unwrap();
     let key = recovery_key.workspace_key("user-a").unwrap();
-    let keys = HashMap::from([("user-a".to_string(), key.clone())]);
+    let keys = HashMap::from([("user-a".to_string(), key.clone().into())]);
     anlg_db_app::encrypt_e2ee_replica_changes(db.pool(), &keys)
         .await
         .unwrap();
@@ -556,7 +556,7 @@ async fn resumes_refresh_from_the_last_authenticated_page() {
     let key = recovery_key.workspace_key("user-a").unwrap();
     anlg_db_app::encrypt_e2ee_replica_changes(
         db.pool(),
-        &HashMap::from([("user-a".to_string(), key.clone())]),
+        &HashMap::from([("user-a".to_string(), key.clone().into())]),
     )
     .await
     .unwrap();

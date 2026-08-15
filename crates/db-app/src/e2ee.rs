@@ -3,8 +3,6 @@ use std::collections::HashMap;
 
 use anlg_e2ee::OpenedField;
 #[cfg(test)]
-use anlg_e2ee::WorkspaceKey;
-#[cfg(test)]
 use serde_json::{Value, json};
 #[cfg(test)]
 use sqlx::SqlitePool;

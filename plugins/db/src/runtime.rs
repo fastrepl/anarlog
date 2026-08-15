@@ -1464,7 +1464,7 @@ impl PluginDbRuntime {
 
 async fn has_pending_e2ee_dirty_rows_for_status(
     connection: &mut sqlx::SqliteConnection,
-    keys: &HashMap<String, anlg_e2ee::WorkspaceKey>,
+    keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
 ) -> std::result::Result<bool, sqlx::Error> {
     if keys.is_empty() {
         return Ok(false);

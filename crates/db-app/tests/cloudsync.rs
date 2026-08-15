@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anlg_db_core::{CloudsyncAuth, CloudsyncRuntimeConfig, Db, DbOpenOptions, DbStorage};
-use anlg_e2ee::{RecoveryKey, WorkspaceKey};
+use anlg_e2ee::{RecoveryKey, WorkspaceKeyring};
 use db_app::{
     apply_e2ee_replica_changes, claim_cloudsync_workspace, cloudsync_table_registry,
     encrypt_e2ee_replica_changes, prepare_schema,
@@ -33,7 +33,7 @@ fn token_auth(token: &str) -> CloudsyncAuth {
     }
 }
 
-fn workspace_keys(workspace_id: &str, recovery_key_env: &str) -> HashMap<String, WorkspaceKey> {
+fn workspace_keys(workspace_id: &str, recovery_key_env: &str) -> HashMap<String, WorkspaceKeyring> {
     let recovery_key = RecoveryKey::parse(
         &std::env::var(recovery_key_env)
             .unwrap_or_else(|_| panic!("{recovery_key_env} must be set")),
@@ -41,7 +41,7 @@ fn workspace_keys(workspace_id: &str, recovery_key_env: &str) -> HashMap<String,
     .unwrap_or_else(|error| panic!("{recovery_key_env} is invalid: {error}"));
     HashMap::from([(
         workspace_id.to_string(),
-        recovery_key.workspace_key(workspace_id).unwrap(),
+        recovery_key.workspace_key(workspace_id).unwrap().into(),
     )])
 }
 
@@ -174,7 +174,7 @@ struct EncryptedNote {
 async fn insert_encrypted_note(
     db: &Db,
     workspace_id: &str,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     marker: u128,
 ) -> EncryptedNote {
     let note = EncryptedNote {

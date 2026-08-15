@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
-use anlg_e2ee::WorkspaceKey;
+use anlg_e2ee::WorkspaceKeyring;
 use serde_json::{Value, json};
 use sqlx::{QueryBuilder, Sqlite, SqlitePool, Transaction};
 
@@ -22,7 +22,7 @@ use super::{
 
 pub async fn apply_e2ee_replica_changes(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     apply_e2ee_replica_changes_inner(
         pool,
@@ -37,14 +37,14 @@ pub async fn apply_e2ee_replica_changes(
 
 pub async fn apply_e2ee_replica_changes_with_witness(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     apply_received_e2ee_replica_changes_with_witness(pool, keys, true).await
 }
 
 pub async fn apply_received_e2ee_replica_changes_with_witness(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     snapshot_complete: bool,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
     apply_received_e2ee_replica_changes_with_witness_cancellable(
@@ -58,7 +58,7 @@ pub async fn apply_received_e2ee_replica_changes_with_witness(
 
 pub async fn apply_received_e2ee_replica_changes_with_witness_cancellable(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     snapshot_complete: bool,
     is_cancelled: impl Fn() -> bool + Sync,
 ) -> E2eeReplicaResult<E2eeReplicaStats> {
@@ -75,7 +75,7 @@ pub async fn apply_received_e2ee_replica_changes_with_witness_cancellable(
 
 pub(super) async fn apply_received_e2ee_replica_changes_with_witness_bounded(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     snapshot_complete: bool,
     max_repair_records: i64,
     max_repair_bytes: usize,
@@ -141,7 +141,7 @@ async fn commit_e2ee_apply_transaction(
 
 pub(super) async fn load_changed_e2ee_record_metadata(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<Vec<EncryptedRecordMetadata>> {
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
     workspace_ids.sort_unstable();
@@ -235,7 +235,7 @@ async fn load_encrypted_records_by_id(
 
 pub(super) async fn apply_e2ee_replica_changes_inner(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     require_witness: bool,
     max_rows: usize,
     max_bytes: usize,
@@ -335,7 +335,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             yield_once().await;
             check_e2ee_apply_cancellation(is_cancelled)?;
         }
-        let key = &keys[&workspace_id];
+        let keyring = &keys[&workspace_id];
         let columns = match column_cache.get(&table) {
             Some(columns) => columns.clone(),
             None => {
@@ -356,7 +356,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
         check_e2ee_apply_cancellation(is_cancelled)?;
         let encrypted_records = load_encrypted_row_group(
             pool,
-            key,
+            keyring,
             (&workspace_id, &table, &row_id),
             &columns,
             max_bytes,
@@ -382,13 +382,13 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             break;
         }
         attempted_bytes = attempted_bytes.saturating_add(row_bytes);
-        let mut records = Vec::with_capacity(encrypted_records.len());
+        let mut records_by_field = BTreeMap::<String, DecryptedRecord>::new();
         for record in encrypted_records {
             check_e2ee_apply_cancellation(is_cancelled)?;
             if require_witness && !record.witnessed {
                 continue;
             }
-            let field = key.open_field(&record.workspace_id, &record.id, &record.payload)?;
+            let field = keyring.open_field(&record.workspace_id, &record.id, &record.payload)?;
             check_e2ee_apply_cancellation(is_cancelled)?;
             if field.table != table || field.row_id != row_id {
                 return Err(E2eeReplicaError::InvalidField);
@@ -403,14 +403,28 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             }
             let payload_hash = anlg_e2ee::payload_hash(&record.payload);
             check_e2ee_apply_cancellation(is_cancelled)?;
-            records.push(DecryptedRecord {
+            let field_name = field.field.clone();
+            let candidate = DecryptedRecord {
                 record_id: record.id,
                 workspace_id: record.workspace_id,
                 payload_hash,
                 payload: record.payload,
                 field,
+            };
+            let candidate_is_newer = records_by_field.get(&field_name).is_none_or(|current| {
+                candidate
+                    .field
+                    .revision
+                    .cmp(&current.field.revision)
+                    .then_with(|| candidate.field.writer_id.cmp(&current.field.writer_id))
+                    .then_with(|| candidate.payload_hash.cmp(&current.payload_hash))
+                    == Ordering::Greater
             });
+            if candidate_is_newer {
+                records_by_field.insert(field_name, candidate);
+            }
         }
+        let mut records = records_by_field.into_values().collect::<Vec<_>>();
 
         check_e2ee_apply_cancellation(is_cancelled)?;
         let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
@@ -466,6 +480,9 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             continue;
         };
         let manifest = records.swap_remove(manifest_index);
+        let manifest_key = keyring
+            .get(&manifest.field.key_id)
+            .ok_or(E2eeReplicaError::InvalidRow)?;
         let manifest_state = states.get(&manifest.record_id).cloned();
         let manifest_unchanged = manifest_state
             .as_ref()
@@ -477,7 +494,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
         if !manifest_unchanged {
             let locally_changed = row_changed_since_snapshot(
                 &mut transaction,
-                key,
+                keyring,
                 &workspace_id,
                 &table,
                 &row_id,
@@ -498,7 +515,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 delete_row(&mut transaction, &table, &workspace_id, &row_id).await?;
                 rollback_if_cancelled!(transaction, is_cancelled);
                 let value_tag =
-                    key.value_tag(&table, &row_id, ROW_MANIFEST_FIELD, true, &Value::Null);
+                    manifest_key.value_tag(&table, &row_id, ROW_MANIFEST_FIELD, true, &Value::Null);
                 let state = LocalState {
                     record_id: manifest.record_id,
                     workspace_id: workspace_id.clone(),
@@ -552,7 +569,8 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 states.retain(|_, state| state.field_name == ROW_MANIFEST_FIELD);
                 row_materialized = true;
             }
-            let value_tag = key.value_tag(&table, &row_id, ROW_MANIFEST_FIELD, false, &json!(true));
+            let value_tag =
+                manifest_key.value_tag(&table, &row_id, ROW_MANIFEST_FIELD, false, &json!(true));
             let state = LocalState {
                 record_id: manifest.record_id,
                 workspace_id: workspace_id.clone(),
@@ -582,6 +600,9 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
         let mut deferred_pending_ids = HashSet::new();
         for record in records {
             rollback_if_cancelled!(transaction, is_cancelled);
+            let record_key = keyring
+                .get(&record.field.key_id)
+                .ok_or(E2eeReplicaError::InvalidRow)?;
             let field_name = record.field.field.as_str();
             if field_name == ROW_MANIFEST_FIELD
                 || field_name == "id"
@@ -609,8 +630,10 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                     continue;
                 };
                 rollback_if_cancelled!(transaction, is_cancelled);
-                let current_tag = key.value_tag(&table, &row_id, field_name, false, &current);
-                if current_tag != state.value_tag {
+                let matches_snapshot = keyring.generations().any(|key| {
+                    key.value_tag(&table, &row_id, field_name, false, &current) == state.value_tag
+                });
+                if !matches_snapshot {
                     stats.skipped_local_changes += 1;
                     deferred_pending_ids.insert(record.record_id.clone());
                     continue;
@@ -627,7 +650,8 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
             )
             .await?;
             rollback_if_cancelled!(transaction, is_cancelled);
-            let value_tag = key.value_tag(&table, &row_id, field_name, false, &record.field.value);
+            let value_tag =
+                record_key.value_tag(&table, &row_id, field_name, false, &record.field.value);
             let state = LocalState {
                 record_id: record.record_id,
                 workspace_id: record.workspace_id,
@@ -697,7 +721,7 @@ async fn delete_reconciled_replica_entries_in_transaction(
 
 async fn has_pending_e2ee_replica_entries(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
 ) -> E2eeReplicaResult<bool> {
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
     workspace_ids.sort_unstable();
@@ -717,19 +741,27 @@ async fn has_pending_e2ee_replica_entries(
 
 async fn load_encrypted_row_group(
     pool: &SqlitePool,
-    key: &WorkspaceKey,
+    keyring: &WorkspaceKeyring,
     row: (&str, &str, &str),
     columns: &HashSet<String>,
     max_bytes: usize,
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<Vec<EncryptedRecord>> {
     let (workspace_id, table, row_id) = row;
-    let mut record_ids = columns
-        .iter()
-        .filter(|field| !matches!(field.as_str(), "id" | "workspace_id"))
-        .map(|field| key.blind_field_id(table, row_id, field))
+    let mut record_ids = keyring
+        .generations()
+        .flat_map(|key| {
+            columns
+                .iter()
+                .filter(|field| !matches!(field.as_str(), "id" | "workspace_id"))
+                .map(|field| key.blind_field_id(table, row_id, field))
+                .chain(std::iter::once(key.blind_field_id(
+                    table,
+                    row_id,
+                    ROW_MANIFEST_FIELD,
+                )))
+        })
         .collect::<Vec<_>>();
-    record_ids.push(key.blind_field_id(table, row_id, ROW_MANIFEST_FIELD));
     record_ids.sort_unstable();
 
     check_e2ee_apply_cancellation(is_cancelled)?;
@@ -782,7 +814,7 @@ async fn load_encrypted_row_group(
 
 async fn normalize_e2ee_record_payload_hashes(
     pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKey>,
+    keys: &HashMap<String, WorkspaceKeyring>,
     is_cancelled: &(impl Fn() -> bool + Sync),
 ) -> E2eeReplicaResult<()> {
     let mut workspace_ids = keys.keys().collect::<Vec<_>>();
