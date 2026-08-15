@@ -1,4 +1,5 @@
 import * as WebBrowser from "expo-web-browser";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +10,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
+import {
+  MOBILE_BILLING_RETURN_URL,
+  parseBillingCallbackUrl,
+} from "@/auth/billing-handoff";
 import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
@@ -31,7 +36,7 @@ export function SignInScreen({
         </View>
         <Text style={styles.subtitle}>Meetings, remembered.</Text>
         <Text style={styles.copy}>
-          Sign in to sync your notes and recordings.
+          Sign in to use the mobile companion with your Pro account.
         </Text>
       </View>
 
@@ -57,12 +62,17 @@ export function SignInScreen({
 export function PaywallScreen({
   billing,
   email,
+  onRefreshBilling,
   onSignOut,
 }: {
   billing: BillingInfo;
   email: string;
+  onRefreshBilling: () => Promise<boolean>;
   onSignOut: () => void;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [accessPending, setAccessPending] = useState(false);
+
   useMountEffect(() => {
     captureAnalytics("paywall_viewed", {
       entry_point: "mobile_gate",
@@ -70,16 +80,67 @@ export function PaywallScreen({
     });
   });
 
-  const handleOpenPlans = async () => {
+  const refreshAccess = async (checkoutType: "trial" | "paid" | "unknown") => {
+    const unlocked = await onRefreshBilling();
+    if (unlocked) {
+      captureAnalytics("mobile_access_unlocked", {
+        entry_point: "mobile_checkout",
+        checkout_type: checkoutType,
+      });
+    } else {
+      setAccessPending(true);
+      captureAnalytics("billing_refresh_pending", {
+        entry_point: "mobile_checkout",
+        checkout_type: checkoutType,
+      });
+    }
+  };
+
+  const handlePrimaryAction = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
-      await WebBrowser.openBrowserAsync(
-        `${env.appUrl}/app/checkout?source=mobile`,
+      if (accessPending) {
+        await refreshAccess("unknown");
+        return;
+      }
+
+      captureAnalytics("upgrade_clicked", {
+        plan: "pro",
+        period: "monthly",
+        source: "mobile",
+      });
+      const result = await WebBrowser.openAuthSessionAsync(
+        `${env.appUrl.replace(/\/+$/, "")}/app/checkout?period=monthly&source=mobile&scheme=anarlog`,
+        MOBILE_BILLING_RETURN_URL,
       );
+      if (result.type !== "success") return;
+
+      const callback = parseBillingCallbackUrl(result.url);
+      if (!callback) {
+        throw new Error("Invalid billing callback URL");
+      }
+      if (callback.checkout === "canceled" || callback.checkout === "failed") {
+        captureAnalytics(`checkout_${callback.checkout}`, {
+          checkout_type: callback.checkoutType ?? "unknown",
+          entry_source: callback.source,
+        });
+        return;
+      }
+
+      const checkoutType = callback.checkout ?? "unknown";
+      captureAnalytics("checkout_returned", {
+        checkout_type: checkoutType,
+        entry_source: callback.source,
+      });
+      await refreshAccess(checkoutType);
     } catch (error) {
       captureOperationalError(error, {
         operation: "billing_checkout_open",
         tags: { entry_point: "mobile_gate" },
       });
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -91,9 +152,14 @@ export function PaywallScreen({
           <View style={styles.accentDot} />
         </View>
         <Text style={styles.copy}>
-          Keep notes end-to-end encrypted and up to date across your signed-in
-          devices.
+          Record in-person meetings and voice notes from your phone. Notes stay
+          on this device while mobile sync is in development.
         </Text>
+        {accessPending && (
+          <Text style={styles.pendingCopy}>
+            Your plan changed, but mobile access is still updating.
+          </Text>
+        )}
         {billing.plan === "trial" && billing.trialDaysRemaining !== null && (
           <Text style={styles.trialLine}>
             Trial: {billing.trialDaysRemaining} days left
@@ -102,10 +168,21 @@ export function PaywallScreen({
       </View>
 
       <Pressable
-        onPress={() => void handleOpenPlans()}
-        style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+        onPress={() => void handlePrimaryAction()}
+        disabled={busy}
+        style={({ pressed }) => [
+          styles.cta,
+          pressed && styles.ctaPressed,
+          busy && styles.ctaDisabled,
+        ]}
       >
-        <Text style={styles.ctaLabel}>View plans</Text>
+        {busy ? (
+          <ActivityIndicator color={Colors.inkInverse} />
+        ) : (
+          <Text style={styles.ctaLabel}>
+            {accessPending ? "Refresh access" : "View plans"}
+          </Text>
+        )}
       </Pressable>
 
       <View style={styles.footer}>
@@ -169,6 +246,12 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     fontSize: 13,
     color: Colors.muted,
+  },
+  pendingCopy: {
+    marginTop: Spacing.md,
+    fontSize: 13,
+    lineHeight: 19,
+    color: Colors.accent,
   },
   cta: {
     alignItems: "center",

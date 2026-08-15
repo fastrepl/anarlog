@@ -23,6 +23,7 @@ import {
   deriveBillingInfo,
   type BillingInfo,
 } from "@/auth/billing";
+import { refreshBillingEntitlement as retryBillingEntitlement } from "@/auth/billing-handoff";
 import { authStorageKey, supabase } from "@/auth/client";
 import {
   captureAnalytics,
@@ -44,6 +45,7 @@ export type AuthState = {
   billing: BillingInfo;
   billingReady: boolean;
   signIn: () => Promise<void>;
+  refreshBilling: () => Promise<boolean>;
   signOut: () => Promise<void>;
 };
 
@@ -200,6 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sessionRef = useRef<Session | null | undefined>(session);
   const identifiedUserIdRef = useRef<string | null>(null);
   const reportedUndecodableUserIdRef = useRef<string | null>(null);
+  const billingRefreshRef = useRef<Promise<boolean> | null>(null);
   // Prevents double init in React StrictMode (refresh token races)
   const initStartedRef = useRef(false);
 
@@ -362,6 +365,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshBilling = useCallback((): Promise<boolean> => {
+    const client = supabase;
+    if (!client) return Promise.resolve(true);
+    if (billingRefreshRef.current) return billingRefreshRef.current;
+
+    let lastError: unknown;
+    const task = retryBillingEntitlement({
+      refresh: async () => {
+        const { data, error } = await client.auth.refreshSession();
+        if (error) {
+          lastError = error;
+          return false;
+        }
+
+        const nextSession = data.session;
+        if (!nextSession) return false;
+        setSession(nextSession);
+        return deriveBillingInfo(decodeJwtPayload(nextSession.access_token))
+          .isPro;
+      },
+    })
+      .then((unlocked) => {
+        if (!unlocked && lastError) {
+          captureOperationalError(lastError, {
+            operation: "billing_entitlement_refresh",
+            level: "warning",
+          });
+        }
+        return unlocked;
+      })
+      .finally(() => {
+        billingRefreshRef.current = null;
+      });
+    billingRefreshRef.current = task;
+    return task;
+  }, [setSession]);
+
   const signOut = useCallback(async () => {
     if (!supabase) {
       return;
@@ -419,9 +459,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       billing,
       billingReady,
       signIn,
+      refreshBilling,
       signOut,
     }),
-    [status, bypass, session, billing, billingReady, signIn, signOut],
+    [
+      status,
+      bypass,
+      session,
+      billing,
+      billingReady,
+      signIn,
+      refreshBilling,
+      signOut,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

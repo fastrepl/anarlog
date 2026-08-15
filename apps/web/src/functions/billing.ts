@@ -25,6 +25,10 @@ import {
   sanitizeInternalReturnPath,
   toAbsoluteInternalReturnUrl,
 } from "@/lib/auth-redirect";
+import {
+  checkoutSourceSchema,
+  type CheckoutSource,
+} from "@/lib/checkout-source";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { captureServerAnalytics } from "@/lib/server-analytics";
 import {
@@ -272,12 +276,7 @@ async function createCheckoutUrl({
   trial?: boolean;
   reservationId?: string;
   trialDays?: number;
-  source?:
-    | "onboarding"
-    | "settings"
-    | "trial_ended"
-    | "feature_gate"
-    | "unknown";
+  source?: CheckoutSource;
   returnTo?: string;
 }) {
   const stripe = getStripeClient();
@@ -389,9 +388,7 @@ const createCheckoutSessionInput = z.object({
   plan: z.enum(["pro"]).default("pro").optional(),
   scheme: desktopSchemeSchema.optional(),
   trial: z.boolean().default(false),
-  source: z
-    .enum(["onboarding", "settings", "trial_ended", "feature_gate", "unknown"])
-    .default("unknown"),
+  source: checkoutSourceSchema.default("unknown"),
   returnTo: z.string().optional(),
 });
 
@@ -452,7 +449,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             await releaseTrialReservation(user.id, reservationId);
           }
           const returnUrl = data.scheme
-            ? getBillingReturnUrl(data.scheme)
+            ? `${getBillingReturnUrl(data.scheme)}&source=${data.source}`
             : toAbsoluteInternalReturnUrl(getRequestAppOrigin(), returnTo);
           const portalSession = await stripe.billingPortal.sessions.create({
             customer: stripeCustomerId,

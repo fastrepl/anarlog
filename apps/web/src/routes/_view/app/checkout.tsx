@@ -7,6 +7,7 @@ import {
   addInternalReturnPathSearch,
   sanitizeInternalReturnPath,
 } from "@/lib/auth-redirect";
+import { checkoutSourceSchema } from "@/lib/checkout-source";
 import { captureOperationalError } from "@/lib/error-reporting";
 
 const validateSearch = z.object({
@@ -17,9 +18,7 @@ const validateSearch = z.object({
     .enum(["true", "false"])
     .catch("false")
     .transform((value) => value === "true"),
-  source: z
-    .enum(["onboarding", "settings", "trial_ended", "feature_gate", "unknown"])
-    .catch("unknown"),
+  source: checkoutSourceSchema.catch("unknown"),
   return_to: z.string().optional(),
 });
 

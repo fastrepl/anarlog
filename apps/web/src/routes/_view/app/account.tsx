@@ -11,6 +11,7 @@ import { AnarlogLogo } from "@/components/anarlog-logo";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 import { useAnalytics } from "@/hooks/use-posthog";
+import { checkoutSourceSchema } from "@/lib/checkout-source";
 
 import { AccountAccessSection } from "./-account-access";
 import { ApiKeysSection } from "./-account-api-keys";
@@ -30,13 +31,7 @@ const validateSearch = z
     scheme: desktopSchemeSchema,
     checkout: z.enum(["trial", "paid", "canceled", "failed"]),
     checkout_type: z.enum(["trial", "paid"]),
-    source: z.enum([
-      "onboarding",
-      "settings",
-      "trial_ended",
-      "feature_gate",
-      "unknown",
-    ]),
+    source: checkoutSourceSchema,
     referral: z.enum(["ineligible"]),
   })
   .partial();

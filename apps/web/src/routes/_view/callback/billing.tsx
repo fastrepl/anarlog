@@ -10,14 +10,16 @@ import {
   desktopSchemeSchema,
 } from "@/functions/desktop-flow";
 import { useAnalytics } from "@/hooks/use-posthog";
+import {
+  buildBillingRefreshDeeplink,
+  checkoutSourceSchema,
+} from "@/lib/checkout-source";
 
 const validateSearch = z.object({
   scheme: desktopSchemeSchema.optional(),
   checkout: z.enum(["trial", "paid", "canceled", "failed"]).optional(),
   checkout_type: z.enum(["trial", "paid"]).optional(),
-  source: z
-    .enum(["onboarding", "settings", "trial_ended", "feature_gate", "unknown"])
-    .optional(),
+  source: checkoutSourceSchema.optional(),
 });
 
 export const Route = createFileRoute("/_view/callback/billing")({
@@ -43,7 +45,12 @@ function Component() {
   const { track } = useAnalytics();
   const [copied, setCopied] = useState(false);
 
-  const deeplink = `${scheme}://billing/refresh`;
+  const deeplink = buildBillingRefreshDeeplink({
+    scheme,
+    checkout,
+    checkoutType,
+    source,
+  });
 
   const handleDeeplink = () => {
     window.location.href = deeplink;

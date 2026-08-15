@@ -107,6 +107,7 @@ function Gate() {
       <PaywallScreen
         billing={auth.billing}
         email={auth.session?.user.email ?? ""}
+        onRefreshBilling={auth.refreshBilling}
         onSignOut={auth.signOut}
       />
     );
