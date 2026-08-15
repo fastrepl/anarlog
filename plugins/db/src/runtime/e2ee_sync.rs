@@ -24,6 +24,13 @@ pub(super) struct ReplicaSyncStatus {
     pub(super) consecutive_failures: u32,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum ReplicaSyncOutcome {
+    Settled,
+    MoreWork,
+    Paused,
+}
+
 pub(crate) struct CloudsyncTokenConfiguration {
     pub(super) database_id: String,
     pub(super) token: String,
@@ -181,6 +188,10 @@ impl E2eeSyncHook {
             .and_then(|duration| u64::try_from(duration.as_millis()).ok());
         status.last_error = None;
         status.consecutive_failures = 0;
+    }
+
+    pub(super) fn replica_sync_paused(&self) {
+        self.replica_status.lock().unwrap().syncing = false;
     }
 
     pub(super) fn replica_sync_failed(&self, error: &std::io::Error) {
@@ -344,9 +355,9 @@ impl E2eeSyncHook {
     pub(super) async fn sync_replica_transport(
         &self,
         pool: &sqlx::SqlitePool,
-    ) -> std::io::Result<bool> {
+    ) -> std::io::Result<ReplicaSyncOutcome> {
         if !self.replica_transport_configured() {
-            return Ok(false);
+            return Ok(ReplicaSyncOutcome::Settled);
         }
         let keys = self.snapshot();
         let witness = self.witness();
@@ -426,9 +437,15 @@ impl E2eeSyncHook {
             _ = self.wait_until_activity_paused() => {
                 cancellation.cancel();
                 let _ = operation.await;
-                Ok(true)
+                Ok(ReplicaSyncOutcome::Paused)
             }
-            result = &mut operation => result,
+            result = &mut operation => result.map(|work_remaining| {
+                if work_remaining {
+                    ReplicaSyncOutcome::MoreWork
+                } else {
+                    ReplicaSyncOutcome::Settled
+                }
+            }),
         }
     }
 }

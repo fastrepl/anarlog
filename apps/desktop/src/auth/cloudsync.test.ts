@@ -764,9 +764,9 @@ describe("CloudSync auth lifecycle", () => {
     expect(getCloudsyncCredentialBlock()).toBe("not_entitled");
   });
 
-  test("checks the portable transport in local-only mode", async () => {
+  test("uses the portable transport directly in local-only mode", async () => {
     const fetchMock = vi.fn(() =>
-      Promise.resolve(new Response(null, { status: 404 })),
+      Promise.resolve(replicaCredentialsResponse()),
     );
     vi.stubGlobal("fetch", fetchMock);
     vi.mocked(getCloudsyncStatus).mockResolvedValueOnce({
@@ -787,12 +787,14 @@ describe("CloudSync auth lifecycle", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await handleCloudsyncAuthChange("INITIAL_SESSION", session());
-    await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
-
     expect(getCloudsyncStatus).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL("https://api.test/sync/replica/credentials"),
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(configureE2eeReplica).toHaveBeenCalledWith("user-id", witness());
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
-    expect(getCloudsyncCredentialBlock()).toBe("unavailable");
   });
 
   test("does not configure local sync when the session is rejected", async () => {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anlg_db_core::Db;
 
-use super::e2ee_sync::E2eeSyncHook;
+use super::e2ee_sync::{E2eeSyncHook, ReplicaSyncOutcome};
 
 const REPLICA_SYNC_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 const REPLICA_SYNC_RETRY: std::time::Duration = std::time::Duration::from_secs(5);
@@ -52,7 +52,7 @@ pub(super) fn spawn_replica_sync(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> Replic
                 continue;
             }
             match result {
-                Ok(true) => {
+                Ok(ReplicaSyncOutcome::MoreWork) => {
                     hook.replica_sync_succeeded();
                     tokio::select! {
                         _ = &mut shutdown_rx => return,
@@ -61,9 +61,10 @@ pub(super) fn spawn_replica_sync(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> Replic
                         }
                     }
                 }
-                Ok(false) => {
+                Ok(ReplicaSyncOutcome::Settled) => {
                     hook.replica_sync_succeeded();
                 }
+                Ok(ReplicaSyncOutcome::Paused) => hook.replica_sync_paused(),
                 Err(error) => {
                     hook.replica_sync_failed(&error);
                     tracing::warn!(%error, "encrypted replica sync failed");

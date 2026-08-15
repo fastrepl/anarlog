@@ -1,4 +1,5 @@
 use super::*;
+use crate::runtime::e2ee_sync::ReplicaSyncOutcome;
 
 #[tokio::test]
 async fn replica_transport_syncs_without_the_cloudsync_extension() {
@@ -36,7 +37,10 @@ async fn replica_transport_syncs_without_the_cloudsync_extension() {
     .await
     .unwrap();
 
-    assert!(!hook.sync_replica_transport(db.pool()).await.unwrap());
+    assert_eq!(
+        hook.sync_replica_transport(db.pool()).await.unwrap(),
+        ReplicaSyncOutcome::Settled
+    );
     assert!(
         witness_server
             .received_requests()
@@ -59,6 +63,23 @@ async fn replica_transport_syncs_without_the_cloudsync_extension() {
             .unwrap()
             > 0
     );
+}
+
+#[test]
+fn paused_replica_sync_preserves_the_last_completed_result() {
+    let hook = E2eeSyncHook::default();
+    hook.replica_sync_succeeded();
+    hook.replica_sync_failed(&std::io::Error::other("temporary failure"));
+    let before = hook.replica_status();
+
+    hook.replica_sync_started();
+    hook.replica_sync_paused();
+
+    let after = hook.replica_status();
+    assert!(!after.syncing);
+    assert_eq!(after.last_sync_at_ms, before.last_sync_at_ms);
+    assert_eq!(after.last_error, before.last_error);
+    assert_eq!(after.consecutive_failures, before.consecutive_failures);
 }
 
 #[tokio::test]

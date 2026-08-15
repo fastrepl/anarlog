@@ -10,11 +10,13 @@ import { DEVICE_FINGERPRINT_HEADER } from "~/shared/utils";
 
 export async function requestCloudsyncCredentials({
   accessToken,
+  cloudsyncExtensionAvailable,
   encryptionKeyId,
   shouldStop,
   signal,
 }: {
   accessToken: string;
+  cloudsyncExtensionAvailable: boolean;
   encryptionKeyId: string;
   shouldStop: () => boolean;
   signal: AbortSignal;
@@ -38,14 +40,22 @@ export async function requestCloudsyncCredentials({
     }
 
     response = await raceWithAbort(
-      fetch(new URL("/sync/token", env.VITE_API_URL), {
-        method: "POST",
-        headers,
-        signal,
-      }),
+      fetch(
+        new URL(
+          cloudsyncExtensionAvailable
+            ? "/sync/token"
+            : "/sync/replica/credentials",
+          env.VITE_API_URL,
+        ),
+        {
+          method: "POST",
+          headers,
+          signal,
+        },
+      ),
       signal,
     );
-    if (response.status === 404) {
+    if (cloudsyncExtensionAvailable && response.status === 404) {
       response = await raceWithAbort(
         fetch(new URL("/sync/replica/credentials", env.VITE_API_URL), {
           method: "POST",
