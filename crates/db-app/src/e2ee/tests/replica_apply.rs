@@ -838,24 +838,28 @@ async fn replica_apply_scan_bounds_payload_comparisons_before_filtering() {
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO e2ee_records (id, workspace_id, payload)
-         SELECT record_id, workspace_id, payload FROM e2ee_witness_records",
+        "INSERT INTO e2ee_records (id, workspace_id, payload_hash, payload)
+         SELECT record_id, workspace_id, payload_hash, payload FROM e2ee_witness_records",
     )
     .execute(target.pool())
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO e2ee_local_state (record_id, workspace_id, payload)
-         SELECT id, workspace_id, payload FROM e2ee_records",
+        "INSERT INTO e2ee_local_state (record_id, workspace_id, payload_hash, payload)
+         SELECT id, workspace_id, payload_hash, payload FROM e2ee_records",
     )
     .execute(target.pool())
     .await
     .unwrap();
 
-    sqlx::query("UPDATE e2ee_records SET payload = 'changed' WHERE id = 'record-255'")
-        .execute(target.pool())
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE e2ee_records
+         SET payload_hash = 'changed-hash', payload = 'changed'
+         WHERE id = 'record-255'",
+    )
+    .execute(target.pool())
+    .await
+    .unwrap();
 
     let changed = load_changed_e2ee_record_metadata(target.pool(), &workspace_keys)
         .await

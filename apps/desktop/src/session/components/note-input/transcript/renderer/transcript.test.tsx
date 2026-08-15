@@ -9,23 +9,31 @@ import type {
 
 import { RenderTranscript } from "./transcript";
 
-import type { RenderLabelContext, Segment } from "~/stt/live-segment";
+import type { Segment } from "~/stt/live-segment";
 
 const mocks = vi.hoisted(() => ({
   assignTranscriptSpeaker: vi.fn(),
+  search: null as null | {
+    activeMatchId: string | null;
+    caseSensitive: boolean;
+    isVisible: boolean;
+    query: string;
+    wholeWord: boolean;
+  },
   useRenderedTranscriptData: vi.fn(),
-  useTranscript: vi.fn(),
-  useTranscriptLabelContext: vi.fn(),
-  useTranscriptOffset: vi.fn(() => 0),
+  useTranscriptTimelineMetadata: vi.fn(() => ({
+    offsetMs: 0,
+    sessionId: "session-1",
+  })),
 }));
 
 vi.mock("../../search/context", () => ({
-  useSearch: () => null,
+  useSearch: () => mocks.search,
 }));
 
 vi.mock("./data-hooks", () => ({
   useRenderedTranscriptData: mocks.useRenderedTranscriptData,
-  useTranscriptOffset: mocks.useTranscriptOffset,
+  useTranscriptTimelineMetadata: mocks.useTranscriptTimelineMetadata,
 }));
 
 vi.mock("./word-span", () => ({
@@ -58,24 +66,21 @@ vi.mock("~/session/queries", () => ({
 
 vi.mock("~/stt/queries", () => ({
   assignTranscriptSpeaker: mocks.assignTranscriptSpeaker,
-  useTranscript: mocks.useTranscript,
-  useTranscriptLabelContext: mocks.useTranscriptLabelContext,
 }));
 
 describe("RenderTranscript", () => {
   beforeEach(() => {
     cleanup();
     vi.clearAllMocks();
+    mocks.search = null;
     mocks.useRenderedTranscriptData.mockReturnValue({
       maxSpeakerNumber: undefined,
       request: createRenderRequest(createSegments(500)),
       segments: createSegments(500),
     });
-    mocks.useTranscript.mockReturnValue({ sessionId: "session-1" });
-    mocks.useTranscriptLabelContext.mockReturnValue(labelContext);
   });
 
-  it("loads transcript metadata once instead of once per rendered segment", () => {
+  it("loads one content record and one metadata projection per transcript", () => {
     render(
       <RenderTranscript
         scrollElement={null}
@@ -92,17 +97,20 @@ describe("RenderTranscript", () => {
       />,
     );
 
-    expect(document.querySelectorAll("section")).toHaveLength(500);
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(20);
+    expect(
+      document
+        .querySelector("[data-transcript-virtual-total]")
+        ?.getAttribute("data-transcript-virtual-total"),
+    ).toBe("500");
     expect(mocks.useRenderedTranscriptData).toHaveBeenCalledOnce();
     expect(mocks.useRenderedTranscriptData).toHaveBeenCalledWith(
       "transcript-1",
       true,
       7,
     );
-    expect(mocks.useTranscript).toHaveBeenCalledTimes(1);
-    expect(mocks.useTranscript).toHaveBeenCalledWith("transcript-1");
-    expect(mocks.useTranscriptLabelContext).toHaveBeenCalledTimes(1);
-    expect(mocks.useTranscriptLabelContext).toHaveBeenCalledWith(
+    expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledTimes(1);
+    expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledWith(
       "transcript-1",
     );
   });
@@ -215,15 +223,12 @@ describe("RenderTranscript", () => {
         },
       },
     ];
+    const request = createRenderRequest([live], assignments);
+    request.humans = [{ human_id: "human-1", name: "Ada" }];
     mocks.useRenderedTranscriptData.mockReturnValue({
       maxSpeakerNumber: undefined,
-      request: createRenderRequest([live], assignments),
+      request,
       segments: [],
-    });
-    mocks.useTranscriptLabelContext.mockReturnValue({
-      ...labelContext,
-      getHumanName: (humanId: string) =>
-        humanId === "human-1" ? "Ada" : undefined,
     });
 
     render(
@@ -243,13 +248,140 @@ describe("RenderTranscript", () => {
 
     expect(screen.getByRole("button", { name: "Ada" })).toBeTruthy();
   });
+
+  it("keeps the DOM bounded for a multi-hour transcript fixture", () => {
+    const segments = createSegments(10_000);
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request: createRenderRequest(segments),
+      segments,
+    });
+
+    renderTranscript();
+
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(20);
+    expect(
+      document
+        .querySelector("[data-transcript-virtual-total]")
+        ?.getAttribute("data-transcript-virtual-total"),
+    ).toBe("10000");
+  });
+
+  it("mounts and scrolls to an active off-screen search match", () => {
+    const segments = createSegments(1_000);
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request: createRenderRequest(segments),
+      segments,
+    });
+    mocks.search = {
+      activeMatchId: "word-999",
+      caseSensitive: false,
+      isVisible: true,
+      query: "word-999",
+      wholeWord: false,
+    };
+    const scrollElement = createScrollElement();
+
+    renderTranscript(scrollElement);
+
+    expect(
+      document.querySelector(
+        "section[data-transcript-segment-id='segment-999']",
+      ),
+    ).toBeTruthy();
+    expect(scrollElement.scrollTo).toHaveBeenCalled();
+  });
+
+  it("pins the active playback segment outside the viewport", () => {
+    const segments = createSegments(1_000);
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request: createRenderRequest(segments),
+      segments,
+    });
+
+    renderTranscript(null, 99_950);
+
+    expect(
+      document.querySelector(
+        "section[data-transcript-segment-id='segment-999']",
+      ),
+    ).toBeTruthy();
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(21);
+  });
+
+  it("preserves visible segment nodes when incremental updates append", () => {
+    const initial = createSegments(500);
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request: createRenderRequest(initial),
+      segments: initial,
+    });
+    const rendered = renderTranscript();
+    const first = document.querySelector(
+      "section[data-transcript-segment-id='segment-0']",
+    );
+    const updated = [...initial, createSegment("500", 500)];
+    mocks.useRenderedTranscriptData.mockReturnValue({
+      maxSpeakerNumber: undefined,
+      request: createRenderRequest(updated),
+      segments: updated,
+    });
+
+    rendered.rerender(
+      <RenderTranscript
+        scrollElement={null}
+        isLastTranscript
+        shouldScrollToEnd={false}
+        transcriptId="transcript-1"
+        currentActive={false}
+        liveSegments={[]}
+        currentMs={0}
+        seek={vi.fn()}
+        startPlayback={vi.fn()}
+        audioExists
+      />,
+    );
+
+    expect(
+      document.querySelector("section[data-transcript-segment-id='segment-0']"),
+    ).toBe(first);
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(20);
+  });
 });
 
-const labelContext: RenderLabelContext = {
-  getSelfHumanId: () => "self",
-  getHumanName: () => undefined,
-  getParticipantHumanIds: () => [],
-};
+function renderTranscript(
+  scrollElement: HTMLDivElement | null = null,
+  currentMs = 0,
+) {
+  return render(
+    <RenderTranscript
+      scrollElement={scrollElement}
+      isLastTranscript
+      shouldScrollToEnd={false}
+      transcriptId="transcript-1"
+      currentActive={false}
+      liveSegments={[]}
+      currentMs={currentMs}
+      seek={vi.fn()}
+      startPlayback={vi.fn()}
+      audioExists
+    />,
+    scrollElement ? { container: scrollElement } : undefined,
+  );
+}
+
+function createScrollElement() {
+  const element = document.createElement("div");
+  Object.defineProperties(element, {
+    clientHeight: { value: 600 },
+    scrollTop: { value: 0, writable: true },
+    scrollTo: { value: vi.fn() },
+  });
+  document.body.append(element);
+  return element;
+}
 
 function createSegments(count: number): Segment[] {
   return Array.from({ length: count }, (_, index) =>

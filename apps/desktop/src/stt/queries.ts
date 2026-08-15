@@ -1,5 +1,3 @@
-import { useMemo } from "react";
-
 import type {
   LiveTranscriptDelta,
   RenderTranscriptHuman,
@@ -8,8 +6,7 @@ import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
-import type { RenderLabelContext, SegmentKey } from "~/stt/live-segment";
-import { collectAssignedHumanIdsFromTranscriptRows } from "~/stt/render-transcript";
+import type { SegmentKey } from "~/stt/live-segment";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
@@ -29,6 +26,16 @@ type TranscriptSqlRow = {
   ended_at_ms: number | null;
   words_json: string;
   speaker_hints_json: string;
+  content_revision: number;
+  pending_deltas_json: string;
+};
+
+type TranscriptMetadataSqlRow = {
+  id: string;
+  session_id: string;
+  started_at_ms: number;
+  ended_at_ms: number | null;
+  has_words: number;
 };
 
 type ParticipantHumanSqlRow = { human_id: string };
@@ -36,6 +43,8 @@ type HumanSqlRow = { id: string; name: string };
 type TranscriptMutationSqlRow = {
   words_json: string;
   speaker_hints_json: string;
+  content_revision: number;
+  pending_deltas_json: string;
 };
 
 type TranscriptInsert = {
@@ -66,18 +75,58 @@ export type TranscriptRecord = {
   speakerHints: SpeakerHintWithId[];
 };
 
+export type TranscriptMetadata = {
+  id: string;
+  sessionId: string;
+  startedAt: number;
+  endedAt?: number;
+  hasWords: boolean;
+};
+
 const EMPTY_TRANSCRIPTS: TranscriptRecord[] = [];
+const EMPTY_TRANSCRIPT_METADATA: TranscriptMetadata[] = [];
 const EMPTY_IDS: string[] = [];
 const EMPTY_HUMANS: RenderTranscriptHuman[] = [];
 
 const TRANSCRIPT_COLUMNS = `
-  id,
-  owner_user_id,
-  session_id,
-  started_at_ms,
-  ended_at_ms,
-  words_json,
-  speaker_hints_json
+  transcript.id,
+  transcript.owner_user_id,
+  transcript.session_id,
+  transcript.started_at_ms,
+  transcript.ended_at_ms,
+  transcript.words_json,
+  transcript.speaker_hints_json,
+  transcript.content_revision,
+  COALESCE((
+    SELECT json_group_array(json(ordered_delta.delta_json))
+    FROM (
+      SELECT delta.delta_json
+      FROM transcript_live_deltas AS delta
+      WHERE delta.transcript_id = transcript.id
+      ORDER BY delta.sequence
+    ) AS ordered_delta
+  ), '[]') AS pending_deltas_json
+`;
+
+const TRANSCRIPT_METADATA_COLUMNS = `
+  transcript.id,
+  transcript.session_id,
+  transcript.started_at_ms,
+  transcript.ended_at_ms,
+  CASE
+    WHEN trim(transcript.words_json) NOT IN ('', '[]', '{}', 'null')
+    OR EXISTS (
+      SELECT 1
+      FROM transcript_live_deltas AS delta
+      WHERE delta.transcript_id = transcript.id
+        AND json_valid(delta.delta_json)
+        AND (
+          COALESCE(json_array_length(delta.delta_json, '$.new_words'), 0) > 0
+          OR COALESCE(json_array_length(delta.delta_json, '$.partials'), 0) > 0
+        )
+    ) THEN 1
+    ELSE 0
+  END AS has_words
 `;
 
 export function useSessionTranscripts(sessionId: string): TranscriptRecord[] {
@@ -87,9 +136,9 @@ export function useSessionTranscripts(sessionId: string): TranscriptRecord[] {
   >({
     sql: `
       SELECT ${TRANSCRIPT_COLUMNS}
-      FROM transcripts
-      WHERE session_id = ? AND deleted_at IS NULL
-      ORDER BY started_at_ms, created_at, id
+      FROM transcripts AS transcript
+      WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
+      ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id
     `,
     params: [sessionId],
     enabled: Boolean(sessionId),
@@ -105,13 +154,53 @@ export function useTranscript(transcriptId: string): TranscriptRecord | null {
   >({
     sql: `
       SELECT ${TRANSCRIPT_COLUMNS}
-      FROM transcripts
-      WHERE id = ? AND deleted_at IS NULL
+      FROM transcripts AS transcript
+      WHERE transcript.id = ? AND transcript.deleted_at IS NULL
       LIMIT 1
     `,
     params: [transcriptId],
     enabled: Boolean(transcriptId),
     mapRows: (rows) => (rows[0] ? mapTranscriptRow(rows[0]) : null),
+  });
+  return transcriptId ? data : null;
+}
+
+export function useSessionTranscriptMetadata(
+  sessionId: string,
+): TranscriptMetadata[] {
+  const { data = EMPTY_TRANSCRIPT_METADATA } = useLiveQuery<
+    TranscriptMetadataSqlRow,
+    TranscriptMetadata[]
+  >({
+    sql: `
+      SELECT ${TRANSCRIPT_METADATA_COLUMNS}
+      FROM transcripts AS transcript
+      WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
+      ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id
+    `,
+    params: [sessionId],
+    enabled: Boolean(sessionId),
+    mapRows: (rows) => rows.map(mapTranscriptMetadataRow),
+  });
+  return sessionId ? data : EMPTY_TRANSCRIPT_METADATA;
+}
+
+export function useTranscriptMetadata(
+  transcriptId: string,
+): TranscriptMetadata | null {
+  const { data = null } = useLiveQuery<
+    TranscriptMetadataSqlRow,
+    TranscriptMetadata | null
+  >({
+    sql: `
+      SELECT ${TRANSCRIPT_METADATA_COLUMNS}
+      FROM transcripts AS transcript
+      WHERE transcript.id = ? AND transcript.deleted_at IS NULL
+      LIMIT 1
+    `,
+    params: [transcriptId],
+    enabled: Boolean(transcriptId),
+    mapRows: (rows) => (rows[0] ? mapTranscriptMetadataRow(rows[0]) : null),
   });
   return transcriptId ? data : null;
 }
@@ -126,8 +215,8 @@ export async function getTranscriptRecord(
   const rows = await liveQueryClient.execute<TranscriptSqlRow>(
     `
       SELECT ${TRANSCRIPT_COLUMNS}
-      FROM transcripts
-      WHERE id = ? AND deleted_at IS NULL
+      FROM transcripts AS transcript
+      WHERE transcript.id = ? AND transcript.deleted_at IS NULL
       LIMIT 1
     `,
     [transcriptId],
@@ -176,46 +265,6 @@ export function useTranscriptHumans(
       rows.map((row) => ({ human_id: row.id, name: row.name })),
   });
   return uniqueIds.length > 0 ? data : EMPTY_HUMANS;
-}
-
-export function useTranscriptLabelContext(
-  transcriptId: string,
-): RenderLabelContext | undefined {
-  const transcript = useTranscript(transcriptId);
-  const participantHumanIds = useSessionParticipantHumanIds(
-    transcript?.sessionId ?? "",
-  );
-  const assignedHumanIds = useMemo(
-    () =>
-      transcript
-        ? collectAssignedHumanIdsFromTranscriptRows([
-            { speaker_hints: transcript.speakerHints },
-          ])
-        : EMPTY_IDS,
-    [transcript],
-  );
-  const humanIds = useMemo(
-    () => [
-      ...new Set([
-        ...participantHumanIds,
-        ...assignedHumanIds,
-        transcript?.ownerUserId ?? "",
-      ]),
-    ],
-    [assignedHumanIds, participantHumanIds, transcript?.ownerUserId],
-  );
-  const humans = useTranscriptHumans(humanIds);
-
-  return useMemo(() => {
-    if (!transcript) return undefined;
-
-    const names = new Map(humans.map((human) => [human.human_id, human.name]));
-    return {
-      getSelfHumanId: () => transcript.ownerUserId || undefined,
-      getHumanName: (humanId) => names.get(humanId),
-      getParticipantHumanIds: () => participantHumanIds,
-    };
-  }, [humans, participantHumanIds, transcript]);
 }
 
 export function createTranscript(input: TranscriptInsert): Promise<void> {
@@ -312,9 +361,52 @@ export function applyLiveTranscriptDeltaToDatabase(
   transcriptId: string,
   delta: LiveTranscriptDelta,
 ): Promise<void> {
-  return mutateTranscript(transcriptId, (store) => {
-    applyLiveTranscriptDelta(store, transcriptId, delta);
+  return enqueueDatabaseWrite(`transcript:${transcriptId}`, async () => {
+    const now = new Date().toISOString();
+    const journalId = `${transcriptId}:${crypto.randomUUID()}`;
+    const [, inserted = 0] = await executeTransaction([
+      {
+        sql: `
+          INSERT OR IGNORE INTO transcript_live_state (
+            transcript_id, next_sequence, updated_at
+          )
+          SELECT id, 0, ?
+          FROM transcripts
+          WHERE id = ? AND deleted_at IS NULL
+        `,
+        params: [now, transcriptId],
+      },
+      {
+        sql: `
+          INSERT INTO transcript_live_deltas (
+            id, transcript_id, sequence, delta_json, created_at
+          )
+          SELECT ?, transcript_id, next_sequence, ?, ?
+          FROM transcript_live_state
+          WHERE transcript_id = ?
+        `,
+        params: [journalId, JSON.stringify(delta), now, transcriptId],
+      },
+      {
+        sql: `
+          UPDATE transcript_live_state
+          SET next_sequence = next_sequence + 1, updated_at = ?
+          WHERE transcript_id = ?
+        `,
+        params: [now, transcriptId],
+      },
+    ]);
+
+    if (inserted !== 1) {
+      throw new Error(`Transcript ${transcriptId} does not exist`);
+    }
   });
+}
+
+export function flushLiveTranscriptDeltasToDatabase(
+  transcriptId: string,
+): Promise<void> {
+  return mutateTranscript(transcriptId);
 }
 
 export function appendTranscriptWordsAndHints(
@@ -473,18 +565,32 @@ export async function removeHumanSpeakerAssignments(
 }
 
 function mapTranscriptRow(row: TranscriptSqlRow): TranscriptRecord {
+  const snapshot = materializeTranscriptSnapshot(
+    row.words_json,
+    row.speaker_hints_json,
+    row.id,
+    row.pending_deltas_json,
+  );
   return {
     id: row.id,
     ownerUserId: row.owner_user_id,
     sessionId: row.session_id,
     startedAt: Number(row.started_at_ms),
     endedAt: row.ended_at_ms === null ? undefined : Number(row.ended_at_ms),
-    words: parseJsonArray(row.words_json, row.id, "words"),
-    speakerHints: parseJsonArray(
-      row.speaker_hints_json,
-      row.id,
-      "speaker hints",
-    ),
+    words: parseJsonArray(snapshot.wordsJson, row.id, "words"),
+    speakerHints: parseJsonArray(snapshot.hintsJson, row.id, "speaker hints"),
+  };
+}
+
+function mapTranscriptMetadataRow(
+  row: TranscriptMetadataSqlRow,
+): TranscriptMetadata {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    startedAt: Number(row.started_at_ms),
+    endedAt: row.ended_at_ms === null ? undefined : Number(row.ended_at_ms),
+    hasWords: row.has_words === 1,
   };
 }
 
@@ -501,21 +607,34 @@ function parseJsonArray<T>(value: string, rowId: string, field: string): T[] {
 
 async function mutateTranscript(
   transcriptId: string,
-  mutation: (store: MemoryTranscriptStore) => void,
+  mutation?: (store: MemoryTranscriptStore) => void,
 ): Promise<void> {
   return enqueueDatabaseWrite(`transcript:${transcriptId}`, async () => {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const rows = await liveQueryClient.execute<TranscriptMutationSqlRow>(
         `
-          SELECT words_json, speaker_hints_json
-          FROM transcripts
-          WHERE id = ? AND deleted_at IS NULL
+          SELECT
+            transcript.words_json,
+            transcript.speaker_hints_json,
+            transcript.content_revision,
+            COALESCE((
+              SELECT json_group_array(json(ordered_delta.delta_json))
+              FROM (
+                SELECT delta.delta_json
+                FROM transcript_live_deltas AS delta
+                WHERE delta.transcript_id = transcript.id
+                ORDER BY delta.sequence
+              ) AS ordered_delta
+            ), '[]') AS pending_deltas_json
+          FROM transcripts AS transcript
+          WHERE transcript.id = ? AND transcript.deleted_at IS NULL
           LIMIT 1
         `,
         [transcriptId],
       );
       const current = rows[0];
       if (!current) {
+        if (!mutation) return;
         throw new Error(`Transcript ${transcriptId} does not exist`);
       }
 
@@ -525,21 +644,37 @@ async function mutateTranscript(
         transcriptId,
         "speaker hints",
       );
-      const next = mutateTranscriptSnapshot(
+      const pendingDeltas = parseLiveTranscriptDeltas(
+        current.pending_deltas_json,
+        transcriptId,
+      );
+      if (!mutation && pendingDeltas.length === 0) return;
+
+      const materialized = materializeTranscriptSnapshot(
         current.words_json,
         current.speaker_hints_json,
         transcriptId,
-        mutation,
+        current.pending_deltas_json,
       );
+      const next = mutation
+        ? mutateTranscriptSnapshot(
+            materialized.wordsJson,
+            materialized.hintsJson,
+            transcriptId,
+            mutation,
+          )
+        : materialized;
       const now = new Date().toISOString();
       const [updated = 0] = await executeTransaction([
         {
           sql: `
             UPDATE transcripts
-            SET words_json = ?, speaker_hints_json = ?, updated_at = ?
+            SET words_json = ?,
+              speaker_hints_json = ?,
+              content_revision = content_revision + 1,
+              updated_at = ?
             WHERE id = ?
-              AND words_json = ?
-              AND speaker_hints_json = ?
+              AND content_revision = ?
               AND deleted_at IS NULL
           `,
           params: [
@@ -547,9 +682,15 @@ async function mutateTranscript(
             next.hintsJson,
             now,
             transcriptId,
-            current.words_json,
-            current.speaker_hints_json,
+            Number(current.content_revision ?? 0),
           ],
+        },
+        {
+          sql: `
+            DELETE FROM transcript_live_state
+            WHERE transcript_id = ? AND changes() = 1
+          `,
+          params: [transcriptId],
         },
       ]);
 
@@ -558,6 +699,44 @@ async function mutateTranscript(
 
     throw new Error(`Transcript ${transcriptId} changed too frequently`);
   });
+}
+
+function materializeTranscriptSnapshot(
+  wordsJson: string,
+  hintsJson: string,
+  transcriptId: string,
+  pendingDeltasJson: string,
+) {
+  let snapshot = { wordsJson, hintsJson };
+  for (const delta of parseLiveTranscriptDeltas(
+    pendingDeltasJson,
+    transcriptId,
+  )) {
+    snapshot = mutateTranscriptSnapshot(
+      snapshot.wordsJson,
+      snapshot.hintsJson,
+      transcriptId,
+      (store) => applyLiveTranscriptDelta(store, transcriptId, delta),
+    );
+  }
+  return snapshot;
+}
+
+function parseLiveTranscriptDeltas(
+  value: string | undefined,
+  transcriptId: string,
+): LiveTranscriptDelta[] {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed as LiveTranscriptDelta[];
+  } catch (error) {
+    console.error(
+      `[transcript] failed to parse live deltas for ${transcriptId}`,
+      error,
+    );
+  }
+  return [];
 }
 
 type MemoryTranscriptStore = {

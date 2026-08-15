@@ -32,6 +32,7 @@
     "windows:allow-floating-bar-show",
     "windows:allow-floating-bar-hide",
     "windows:allow-floating-bar-update",
+    "windows:allow-floating-bar-update-amplitude",
     "windows:allow-devtools-panel-show",
     "windows:allow-devtools-panel-hide",
     "tracing:default",

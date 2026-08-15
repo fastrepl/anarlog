@@ -1,5 +1,6 @@
 import { I18nProvider } from "@lingui/react";
-import { type ReactNode, useMemo } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { type ReactNode } from "react";
 
 import { createI18n } from "./catalogs";
 import { resolveDisplayLocale } from "./locales";
@@ -10,11 +11,19 @@ import { useMountEffect } from "~/shared/hooks/useMountEffect";
 export function AppI18nProvider({ children }: { children: ReactNode }) {
   const mainLanguage = useConfigValue("ai_language");
   const locale = resolveDisplayLocale(mainLanguage);
-  const i18n = useMemo(() => createI18n(locale), [locale]);
+  const { data: i18n } = useQuery({
+    queryKey: ["i18n-catalog", locale],
+    queryFn: () => createI18n(locale),
+    placeholderData: keepPreviousData,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: Number.POSITIVE_INFINITY,
+  });
+
+  if (!i18n) return null;
 
   return (
     <I18nProvider i18n={i18n}>
-      <DocumentLanguage key={locale} locale={locale} />
+      <DocumentLanguage key={i18n.locale} locale={i18n.locale} />
       {children}
     </I18nProvider>
   );

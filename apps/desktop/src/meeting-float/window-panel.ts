@@ -11,6 +11,7 @@ export function createFloatingMeetingWindowSynchronizer() {
   let desiredRevision = 0;
   let appliedRevision = 0;
   let shownSessionId: string | null = null;
+  let appliedRouteState: FloatingRouteState | null = null;
   let nativeCommandsUnavailable = false;
   let running: Promise<void> | null = null;
   let disposeRequested = false;
@@ -35,6 +36,7 @@ export function createFloatingMeetingWindowSynchronizer() {
         nextShownSessionId = await syncFloatingMeetingWindow(
           routeState,
           shownSessionId,
+          appliedRouteState,
           () => revision === desiredRevision || desiredRouteState !== null,
         );
       } catch (error) {
@@ -47,6 +49,7 @@ export function createFloatingMeetingWindowSynchronizer() {
       if (revision !== desiredRevision) {
         if (desiredRouteState && nextShownSessionId !== "unavailable") {
           shownSessionId = nextShownSessionId;
+          appliedRouteState = routeState;
         }
         continue;
       }
@@ -56,6 +59,7 @@ export function createFloatingMeetingWindowSynchronizer() {
         nativeCommandsUnavailable = true;
       } else {
         shownSessionId = nextShownSessionId;
+        appliedRouteState = routeState;
       }
     }
 
@@ -111,6 +115,7 @@ export function createFloatingMeetingWindowSynchronizer() {
 export async function syncFloatingMeetingWindow(
   routeState: FloatingRouteState | null,
   shownSessionId: string | null,
+  appliedRouteState: FloatingRouteState | null,
   shouldContinue: () => boolean,
 ): Promise<string | null | "unavailable"> {
   if (!shouldContinue()) {
@@ -126,6 +131,7 @@ export async function syncFloatingMeetingWindow(
     routeState,
     shownSessionId !== routeState.sessionId,
     shouldContinue,
+    appliedRouteState,
   );
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
@@ -139,6 +145,7 @@ export async function showFloatingMeetingWindow(
   routeState: FloatingRouteState,
   shouldShow: boolean,
   shouldContinue: () => boolean = () => true,
+  appliedRouteState: FloatingRouteState | null = null,
 ): Promise<boolean> {
   if (!shouldContinue()) {
     return false;
@@ -157,27 +164,34 @@ export async function showFloatingMeetingWindow(
     }
   }
 
+  const amplitudeOnly =
+    !shouldShow &&
+    appliedRouteState !== null &&
+    isAmplitudeOnlyFloatingRouteUpdate(appliedRouteState, routeState);
   const shouldSendTranscript =
-    shouldShow ||
-    sentTranscriptSessionId !== routeState.sessionId ||
-    sentTranscriptBubbles !== routeState.transcriptBubbles;
+    !amplitudeOnly &&
+    (shouldShow ||
+      sentTranscriptSessionId !== routeState.sessionId ||
+      sentTranscriptBubbles !== routeState.transcriptBubbles);
 
-  const updateResult = await windowsCommands.floatingBarUpdate({
-    amplitude: routeState.amplitude,
-    title: routeState.title,
-    status: routeState.status,
-    colorScheme: routeState.colorScheme,
-    opacity: routeState.opacity,
-    liveCaptionOpacity: routeState.liveCaptionOpacity,
-    liveCaptionWidth: routeState.liveCaptionWidth,
-    liveCaptionLineCount: routeState.liveCaptionLineCount,
-    liveCaptionPosition: routeState.liveCaptionPosition,
-    liveCaptionMinimized: routeState.liveCaptionMinimized,
-    liveCaptionToggleVisible: routeState.liveCaptionToggleVisible,
-    transcriptBubbles: shouldSendTranscript
-      ? routeState.transcriptBubbles
-      : null,
-  });
+  const updateResult = amplitudeOnly
+    ? await windowsCommands.floatingBarUpdateAmplitude(routeState.amplitude)
+    : await windowsCommands.floatingBarUpdate({
+        amplitude: routeState.amplitude,
+        title: routeState.title,
+        status: routeState.status,
+        colorScheme: routeState.colorScheme,
+        opacity: routeState.opacity,
+        liveCaptionOpacity: routeState.liveCaptionOpacity,
+        liveCaptionWidth: routeState.liveCaptionWidth,
+        liveCaptionLineCount: routeState.liveCaptionLineCount,
+        liveCaptionPosition: routeState.liveCaptionPosition,
+        liveCaptionMinimized: routeState.liveCaptionMinimized,
+        liveCaptionToggleVisible: routeState.liveCaptionToggleVisible,
+        transcriptBubbles: shouldSendTranscript
+          ? routeState.transcriptBubbles
+          : null,
+      });
   if (!shouldContinue()) {
     await hideFloatingMeetingPanel();
     return false;
@@ -197,6 +211,28 @@ export async function showFloatingMeetingWindow(
   }
 
   return true;
+}
+
+function isAmplitudeOnlyFloatingRouteUpdate(
+  previousState: FloatingRouteState,
+  nextState: FloatingRouteState,
+) {
+  return (
+    previousState.amplitude !== nextState.amplitude &&
+    previousState.sessionId === nextState.sessionId &&
+    previousState.title === nextState.title &&
+    previousState.status === nextState.status &&
+    previousState.colorScheme === nextState.colorScheme &&
+    previousState.opacity === nextState.opacity &&
+    previousState.liveCaptionOpacity === nextState.liveCaptionOpacity &&
+    previousState.liveCaptionWidth === nextState.liveCaptionWidth &&
+    previousState.liveCaptionLineCount === nextState.liveCaptionLineCount &&
+    previousState.liveCaptionPosition === nextState.liveCaptionPosition &&
+    previousState.liveCaptionMinimized === nextState.liveCaptionMinimized &&
+    previousState.liveCaptionToggleVisible ===
+      nextState.liveCaptionToggleVisible &&
+    previousState.transcriptBubbles === nextState.transcriptBubbles
+  );
 }
 
 export async function hideFloatingMeetingPanel() {

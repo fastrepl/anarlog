@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   show: vi.fn(),
   hide: vi.fn(),
   update: vi.fn(),
+  updateAmplitude: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-windows", () => ({
@@ -11,6 +12,7 @@ vi.mock("@anlg/plugin-windows", () => ({
     floatingBarShow: mocks.show,
     floatingBarHide: mocks.hide,
     floatingBarUpdate: mocks.update,
+    floatingBarUpdateAmplitude: mocks.updateAmplitude,
   },
 }));
 
@@ -65,6 +67,7 @@ describe("floating meeting window synchronizer", () => {
     mocks.show.mockResolvedValue({ status: "ok", data: null });
     mocks.hide.mockResolvedValue({ status: "ok", data: null });
     mocks.update.mockResolvedValue({ status: "ok", data: null });
+    mocks.updateAmplitude.mockResolvedValue({ status: "ok", data: null });
   });
 
   it("keeps one sync in flight and coalesces updates to the latest state", async () => {
@@ -80,16 +83,65 @@ describe("floating meeting window synchronizer", () => {
     expect(mocks.update).toHaveBeenCalledOnce();
 
     firstUpdate.resolve({ status: "ok", data: null });
-    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(2));
-    expect(mocks.update).toHaveBeenLastCalledWith(
-      expect.objectContaining({ amplitude: 0.3, transcriptBubbles: null }),
+    await vi.waitFor(() =>
+      expect(mocks.updateAmplitude).toHaveBeenCalledOnce(),
     );
-    expect(mocks.update).not.toHaveBeenCalledWith(
-      expect.objectContaining({ amplitude: 0.2 }),
-    );
+    expect(mocks.updateAmplitude).toHaveBeenCalledWith(0.3);
+    expect(mocks.updateAmplitude).not.toHaveBeenCalledWith(0.2);
+    expect(mocks.update).toHaveBeenCalledOnce();
     expect(mocks.show).toHaveBeenCalledOnce();
 
     await synchronizer.dispose();
+  });
+
+  it("uses a full update when any non-amplitude state changes", async () => {
+    const synchronizer = createFloatingMeetingWindowSynchronizer();
+
+    synchronizer.update(routeState(0.1));
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledOnce());
+
+    synchronizer.update({
+      ...routeState(0.2),
+      title: "Renamed meeting",
+    });
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(2));
+
+    expect(mocks.updateAmplitude).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        amplitude: 0.2,
+        title: "Renamed meeting",
+      }),
+    );
+
+    await synchronizer.dispose();
+  });
+
+  it("orders teardown after a pending amplitude-only update", async () => {
+    const pendingAmplitude = deferred<{ status: "ok"; data: null }>();
+    const synchronizer = createFloatingMeetingWindowSynchronizer();
+
+    synchronizer.update(routeState(0.1));
+    await vi.waitFor(() => expect(mocks.update).toHaveBeenCalledOnce());
+    mocks.updateAmplitude.mockImplementationOnce(
+      () => pendingAmplitude.promise,
+    );
+
+    synchronizer.update(routeState(0.2));
+    await vi.waitFor(() =>
+      expect(mocks.updateAmplitude).toHaveBeenCalledOnce(),
+    );
+
+    const disposed = synchronizer.dispose();
+    expect(mocks.hide).not.toHaveBeenCalled();
+
+    pendingAmplitude.resolve({ status: "ok", data: null });
+    await disposed;
+
+    expect(mocks.hide).toHaveBeenCalled();
+    expect(mocks.hide.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mocks.updateAmplitude.mock.invocationCallOrder[0]!,
+    );
   });
 
   it("orders a newer hide after a stale pending update", async () => {

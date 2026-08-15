@@ -294,9 +294,9 @@ async fn idle_sync_skips_replica_reconciliation_until_new_work_arrives() {
         "SELECT replica.id, replica.payload
              FROM e2ee_records AS replica
              INNER JOIN e2ee_witness_records AS witness
-               ON witness.workspace_id = replica.workspace_id
-              AND witness.record_id = replica.id
-              AND witness.payload = replica.payload
+              ON witness.workspace_id = replica.workspace_id
+             AND witness.record_id = replica.id
+              AND witness.payload_hash = replica.payload_hash
              WHERE replica.workspace_id = 'workspace-1'
              ORDER BY replica.id
              LIMIT 1",

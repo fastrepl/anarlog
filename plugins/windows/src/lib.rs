@@ -249,6 +249,7 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::floating_bar_show,
             commands::floating_bar_hide,
             commands::floating_bar_update,
+            commands::floating_bar_update_amplitude,
             commands::live_caption_show,
             commands::live_caption_hide,
             commands::live_caption_update,

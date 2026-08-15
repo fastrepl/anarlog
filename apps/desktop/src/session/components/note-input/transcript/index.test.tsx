@@ -7,12 +7,12 @@ import { Transcript } from "./index";
 const {
   useListenerMock,
   useAudioPlayerMock,
-  useSessionTranscriptsMock,
+  useSessionTranscriptMetadataMock,
   regenerateTranscriptMock,
 } = vi.hoisted(() => ({
   useListenerMock: vi.fn(),
   useAudioPlayerMock: vi.fn(),
-  useSessionTranscriptsMock: vi.fn(),
+  useSessionTranscriptMetadataMock: vi.fn(),
   regenerateTranscriptMock: vi.fn(),
 }));
 
@@ -21,7 +21,7 @@ vi.mock("./actions", () => ({
 }));
 
 vi.mock("~/stt/queries", () => ({
-  useSessionTranscripts: useSessionTranscriptsMock,
+  useSessionTranscriptMetadata: useSessionTranscriptMetadataMock,
 }));
 
 vi.mock("~/stt/contexts", () => ({
@@ -92,14 +92,14 @@ describe("Transcript", () => {
     partialWordsByChannel: Record<number, unknown[]>;
     partialHintsByChannel: Record<number, unknown[]>;
   };
-  let transcripts: Array<{ id: string; words: unknown[] }>;
+  let transcripts: Array<{ id: string; hasWords: boolean }>;
 
   afterEach(() => {
     cleanup();
   });
 
   beforeEach(() => {
-    transcripts = [{ id: transcriptId, words: [] }];
+    transcripts = [{ id: transcriptId, hasWords: false }];
 
     listenerState = {
       getSessionMode: () => "active",
@@ -119,7 +119,7 @@ describe("Transcript", () => {
       partialHintsByChannel: {},
     };
 
-    useSessionTranscriptsMock.mockImplementation(() => transcripts);
+    useSessionTranscriptMetadataMock.mockImplementation(() => transcripts);
     useListenerMock.mockImplementation((selector) => selector(listenerState));
     useAudioPlayerMock.mockReturnValue({ audioExists: false });
   });
@@ -132,9 +132,7 @@ describe("Transcript", () => {
 
     expect(screen.getByTestId("listening-state").textContent).toBe("listening");
 
-    transcripts = [
-      { id: transcriptId, words: [{ id: "word-1", text: " Hello" }] },
-    ];
+    transcripts = [{ id: transcriptId, hasWords: true }];
 
     view.rerender(<Transcript sessionId={sessionId} scrollRef={scrollRef} />);
 
@@ -150,9 +148,7 @@ describe("Transcript", () => {
       ...listenerState,
       getSessionMode: () => "finalizing",
     };
-    transcripts = [
-      { id: transcriptId, words: [{ id: "word-1", text: " Hello" }] },
-    ];
+    transcripts = [{ id: transcriptId, hasWords: true }];
 
     render(<Transcript sessionId={sessionId} scrollRef={createRef()} />);
 
@@ -181,9 +177,7 @@ describe("Transcript", () => {
       ...listenerState,
       getSessionMode: () => "inactive",
     };
-    transcripts = [
-      { id: transcriptId, words: [{ id: "word-1", text: " Hello" }] },
-    ];
+    transcripts = [{ id: transcriptId, hasWords: true }];
 
     const view = render(
       <Transcript

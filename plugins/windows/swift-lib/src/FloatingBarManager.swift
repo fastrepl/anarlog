@@ -44,6 +44,10 @@ final class FloatingBarManager {
     commandCoalescer.enqueueUpdate(state)
   }
 
+  func update(amplitude: Double) {
+    commandCoalescer.enqueueAmplitude(amplitude)
+  }
+
   private func apply(_ action: FloatingBarCommandCoalescer.Action) {
     dispatchPrecondition(condition: .onQueue(.main))
 
@@ -54,6 +58,8 @@ final class FloatingBarManager {
       applyHide()
     case .update(let state):
       applyUpdate(state)
+    case .amplitude(let amplitude):
+      applyAmplitude(amplitude)
     }
   }
 
@@ -105,17 +111,30 @@ final class FloatingBarManager {
 
   private func applyUpdate(_ state: FloatingBarStatePayload) {
     isApplyingExternalState = true
-    model.status = state.status
-    model.amplitude = min(max(state.amplitude, 0), 1)
-    model.colorScheme = state.colorScheme
-    model.title = state.title
-    model.liveCaptionToggleVisible = state.liveCaptionToggleVisible
-    if let transcriptBubbles = state.transcriptBubbles {
+    if model.status != state.status {
+      model.status = state.status
+    }
+    applyAmplitude(state.amplitude)
+    if model.colorScheme != state.colorScheme {
+      model.colorScheme = state.colorScheme
+    }
+    if model.title != state.title {
+      model.title = state.title
+    }
+    if model.liveCaptionToggleVisible != state.liveCaptionToggleVisible {
+      model.liveCaptionToggleVisible = state.liveCaptionToggleVisible
+    }
+    if let transcriptBubbles = state.transcriptBubbles,
+      model.transcriptBubbles != transcriptBubbles
+    {
       model.transcriptBubbles = transcriptBubbles
     }
     settingsModel.apply(floatingBarState: state)
-    model.isExpanded =
+    let isExpanded =
       state.liveCaptionToggleVisible && !settingsModel.liveCaptionMinimized
+    if model.isExpanded != isExpanded {
+      model.isExpanded = isExpanded
+    }
     isApplyingExternalState = false
     if let panel {
       let didResize = resize(panel)
@@ -123,6 +142,12 @@ final class FloatingBarManager {
         position(panel, force: true)
       }
     }
+  }
+
+  private func applyAmplitude(_ amplitude: Double) {
+    let amplitude = min(max(amplitude, 0), 1)
+    guard model.amplitude != amplitude else { return }
+    model.amplitude = amplitude
   }
 
   private func createPanel() -> NSPanel {

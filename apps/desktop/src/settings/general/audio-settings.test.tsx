@@ -9,11 +9,16 @@ function renderAudioSettings({
     devices: ["External Microphone"],
     onChange: vi.fn(),
   },
+  rememberSpeakers = {
+    value: false,
+    onChange: vi.fn(),
+  },
 } = {}) {
   return render(
     <AudioSettingsView
       audioRetention={{ value: "forever", onChange: vi.fn() }}
       microphoneDevice={microphoneDevice}
+      rememberSpeakers={rememberSpeakers}
     />,
   );
 }
@@ -45,5 +50,18 @@ describe("AudioSettingsView", () => {
     ).toContain(
       "Disconnected Microphone (Unavailable — using current default)",
     );
+  });
+
+  it("toggles remember speakers through its switch", () => {
+    const onChange = vi.fn();
+    renderAudioSettings({
+      rememberSpeakers: { value: false, onChange },
+    });
+
+    const toggle = screen.getByRole("switch", { name: "Remember speakers" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+
+    toggle.click();
+    expect(onChange).toHaveBeenCalledWith(true);
   });
 });

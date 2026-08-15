@@ -559,6 +559,66 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
         Ok(())
     }
 
+    pub async fn apply_document_batch(
+        &self,
+        collection: Option<String>,
+        documents: Vec<SearchDocument>,
+        removals: Vec<String>,
+    ) -> Result<(), crate::Error> {
+        let collection_name = Self::get_collection_name(collection);
+        let state = self.manager.state::<IndexState>();
+        let mut guard = state.inner.write().await;
+
+        let collection_index = guard
+            .collections
+            .get_mut(&collection_name)
+            .ok_or_else(|| crate::Error::CollectionNotFound(collection_name.clone()))?;
+
+        let schema = &collection_index.schema;
+        let writer = &mut collection_index.writer;
+        let fields = get_fields(schema);
+        let updated_count = documents.len();
+        let removed_count = removals.len();
+
+        for id in removals {
+            writer.delete_term(Term::from_field_text(fields.id, &id));
+        }
+
+        for document in documents {
+            writer.delete_term(Term::from_field_text(fields.id, &document.id));
+
+            let mut doc = TantivyDocument::new();
+            doc.add_text(fields.id, &document.id);
+            doc.add_text(fields.doc_type, &document.doc_type);
+            doc.add_text(fields.language, document.language.as_deref().unwrap_or(""));
+            doc.add_text(fields.title, &document.title);
+            doc.add_text(fields.content, &document.content);
+            doc.add_date(
+                fields.created_at,
+                DateTime::from_timestamp_millis(document.created_at),
+            );
+
+            for facet_path in &document.facets {
+                if let Ok(facet) = Facet::from_text(facet_path) {
+                    doc.add_facet(fields.facets, facet);
+                }
+            }
+
+            writer.add_document(doc)?;
+        }
+
+        writer.commit()?;
+
+        tracing::debug!(
+            updated_count,
+            removed_count,
+            collection = collection_name,
+            "applied search document batch"
+        );
+
+        Ok(())
+    }
+
     pub async fn remove_document(
         &self,
         collection: Option<String>,

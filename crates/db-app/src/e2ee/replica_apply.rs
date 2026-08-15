@@ -185,13 +185,13 @@ pub(super) async fn load_changed_e2ee_record_metadata(
                FROM e2ee_witness_records AS witness
                WHERE witness.workspace_id = replica.workspace_id
                  AND witness.record_id = replica.id
-                 AND witness.payload = replica.payload
+                 AND witness.payload_hash = replica.payload_hash
              ) AS witnessed,
            replica.id IS NOT NULL
            AND (
              local.record_id IS NULL
              OR local.workspace_id != replica.workspace_id
-             OR local.payload != replica.payload
+             OR local.payload_hash != replica.payload_hash
            ) AS changed
          FROM page
          LEFT JOIN e2ee_records AS replica
@@ -218,7 +218,7 @@ async fn load_encrypted_records_by_id(
              FROM e2ee_witness_records AS witness
              WHERE witness.workspace_id = replica.workspace_id
                AND witness.record_id = replica.id
-               AND witness.payload = replica.payload
+               AND witness.payload_hash = replica.payload_hash
            ) AS witnessed
          FROM e2ee_records AS replica
          WHERE replica.id IN (",
@@ -247,6 +247,8 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
 
     check_e2ee_apply_cancellation(is_cancelled)?;
     clear_stale_apply_guards(pool).await?;
+    check_e2ee_apply_cancellation(is_cancelled)?;
+    normalize_e2ee_record_payload_hashes(pool, keys, is_cancelled).await?;
     check_e2ee_apply_cancellation(is_cancelled)?;
     let mut groups = BTreeMap::<(String, String, String), BTreeSet<String>>::new();
     let mut group_pending = BTreeMap::<(String, String, String), Vec<(String, i64)>>::new();
@@ -744,7 +746,7 @@ async fn load_encrypted_row_group(
              FROM e2ee_witness_records AS witness
              WHERE witness.workspace_id = replica.workspace_id
                AND witness.record_id = replica.id
-               AND witness.payload = replica.payload
+               AND witness.payload_hash = replica.payload_hash
            ) AS witnessed,
            1 AS changed
          FROM e2ee_records AS replica
@@ -776,4 +778,54 @@ async fn load_encrypted_row_group(
         .into_iter()
         .filter(|record| record.workspace_id == workspace_id)
         .collect())
+}
+
+async fn normalize_e2ee_record_payload_hashes(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKey>,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<()> {
+    let mut workspace_ids = keys.keys().collect::<Vec<_>>();
+    workspace_ids.sort_unstable();
+    loop {
+        check_e2ee_apply_cancellation(is_cancelled)?;
+        let mut query = QueryBuilder::<Sqlite>::new(
+            "SELECT id, workspace_id, payload
+             FROM e2ee_records
+             WHERE payload_hash = '' AND workspace_id IN (",
+        );
+        {
+            let mut separated = query.separated(", ");
+            for workspace_id in &workspace_ids {
+                separated.push_bind(workspace_id);
+            }
+        }
+        query.push(") ORDER BY workspace_id, id LIMIT 64");
+        let records: Vec<(String, String, String)> = query.build_query_as().fetch_all(pool).await?;
+        check_e2ee_apply_cancellation(is_cancelled)?;
+        if records.is_empty() {
+            return Ok(());
+        }
+
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        for (record_id, workspace_id, payload) in records {
+            if is_cancelled() {
+                return rollback_cancelled_e2ee_apply(transaction).await;
+            }
+            let payload_hash = anlg_e2ee::payload_hash(&payload);
+            sqlx::query(
+                "UPDATE e2ee_records
+                 SET payload_hash = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                 WHERE id = ? AND workspace_id = ? AND payload = ? AND payload_hash = ''",
+            )
+            .bind(payload_hash)
+            .bind(record_id)
+            .bind(workspace_id)
+            .bind(payload)
+            .execute(&mut *transaction)
+            .await?;
+        }
+        commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
+        yield_once().await;
+    }
 }

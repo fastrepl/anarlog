@@ -11,7 +11,8 @@ use tauri_plugin_tantivy::{
 
 // Increment when the SQLite-to-Tantivy document shape changes so existing indexes are rebuilt.
 const PROJECTION_VERSION: i64 = 2;
-const BATCH_SIZE: i64 = 8;
+const BATCH_SIZE: i64 = 64;
+const DIRTY_DEBOUNCE: Duration = Duration::from_millis(250);
 const RETRY_INTERVAL: Duration = Duration::from_secs(5);
 
 type WorkerResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -58,7 +59,16 @@ async fn run(app: AppHandle, db: Arc<anlg_db_core::Db>) {
         tokio::select! {
             change = changes.recv() => {
                 match change {
-                    Ok(change) if change.table == "search_index_dirty" => {}
+                    Ok(change) if change.table == "search_index_dirty" => {
+                        tokio::time::sleep(DIRTY_DEBOUNCE).await;
+                        loop {
+                            match changes.try_recv() {
+                                Ok(_) | Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {}
+                                Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+                                Err(tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+                            }
+                        }
+                    }
                     Ok(_) => continue,
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
@@ -190,6 +200,7 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
         let rows = sqlx::query(
             "SELECT entity_type, entity_id, generation
              FROM search_index_dirty
+             WHERE generation > acknowledged_generation
              ORDER BY queued_at, entity_type, entity_id
              LIMIT ?",
         )
@@ -220,11 +231,10 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
             }
         }
 
-        if !documents.is_empty() {
-            app.tantivy().update_documents(None, documents).await?;
-        }
-        for id in removals {
-            app.tantivy().remove_document(None, id).await?;
+        if !documents.is_empty() || !removals.is_empty() {
+            app.tantivy()
+                .apply_document_batch(None, documents, removals)
+                .await?;
         }
 
         acknowledge_dirty_entities(pool, &dirty_entities).await?;
@@ -240,8 +250,12 @@ async fn acknowledge_dirty_entities(
     let mut tx = pool.begin().await?;
     for dirty in dirty_entities {
         sqlx::query(
-            "DELETE FROM search_index_dirty
-             WHERE entity_type = ? AND entity_id = ? AND generation = ?",
+            "UPDATE search_index_dirty
+             SET acknowledged_generation = generation
+             WHERE entity_type = ?
+               AND entity_id = ?
+               AND generation = ?
+               AND acknowledged_generation < generation",
         )
         .bind(&dirty.entity_type)
         .bind(&dirty.entity_id)
@@ -426,9 +440,12 @@ async fn projection_consistency_snapshot(pool: &SqlitePool) -> Result<(i64, i64)
     )
     .fetch_one(&mut *tx)
     .await?;
-    let pending_count = sqlx::query_scalar("SELECT COUNT(*) FROM search_index_dirty")
-        .fetch_one(&mut *tx)
-        .await?;
+    let pending_count = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM search_index_dirty
+         WHERE generation > acknowledged_generation",
+    )
+    .fetch_one(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok((active_count, pending_count))
 }
@@ -663,14 +680,15 @@ mod tests {
         .await
         .unwrap();
 
-        let current_generation: i64 = sqlx::query_scalar(
-            "SELECT generation FROM search_index_dirty
+        let (current_generation, acknowledged_generation): (i64, i64) = sqlx::query_as(
+            "SELECT generation, acknowledged_generation FROM search_index_dirty
              WHERE entity_type = 'session' AND entity_id = 'session-1'",
         )
         .fetch_one(db.pool())
         .await
         .unwrap();
         assert_eq!(current_generation, queued_generation + 1);
+        assert_eq!(acknowledged_generation, 0);
 
         acknowledge_dirty_entities(
             db.pool(),
@@ -684,12 +702,23 @@ mod tests {
         .unwrap();
         let remaining: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM search_index_dirty
-             WHERE entity_type = 'session' AND entity_id = 'session-1'",
+             WHERE entity_type = 'session'
+               AND entity_id = 'session-1'
+               AND generation > acknowledged_generation",
         )
         .fetch_one(db.pool())
         .await
         .unwrap();
         assert_eq!(remaining, 0);
+
+        let acknowledged_generation: i64 = sqlx::query_scalar(
+            "SELECT acknowledged_generation FROM search_index_dirty
+             WHERE entity_type = 'session' AND entity_id = 'session-1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(acknowledged_generation, current_generation);
     }
 
     #[test]

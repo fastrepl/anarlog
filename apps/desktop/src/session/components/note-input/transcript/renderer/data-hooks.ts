@@ -10,7 +10,10 @@ import {
   getMaxSpeakerNumberForParticipants,
   type Segment,
 } from "~/stt/live-segment";
-import { useSessionTranscripts, useTranscript } from "~/stt/queries";
+import {
+  useSessionTranscriptMetadata,
+  useTranscriptMetadata,
+} from "~/stt/queries";
 import {
   getRenderTranscriptRequestKey,
   renderTranscriptSegments,
@@ -96,21 +99,27 @@ export function useRenderedTranscriptData(
   return { maxSpeakerNumber, request, segments: data };
 }
 
-export function useTranscriptOffset(transcriptId: string): number {
-  const transcript = useTranscript(transcriptId);
-  const transcripts = useSessionTranscripts(transcript?.sessionId ?? "");
+export function useTranscriptTimelineMetadata(transcriptId: string): {
+  offsetMs: number;
+  sessionId?: string;
+} {
+  const transcript = useTranscriptMetadata(transcriptId);
+  const transcripts = useSessionTranscriptMetadata(transcript?.sessionId ?? "");
 
   return useMemo(() => {
     if (!transcript) {
-      return 0;
+      return { offsetMs: 0 };
     }
 
     const earliestStartedAt = Math.min(
       ...transcripts.map((current) => current.startedAt),
     );
 
-    return Number.isFinite(earliestStartedAt)
-      ? transcript.startedAt - earliestStartedAt
-      : 0;
+    return {
+      offsetMs: Number.isFinite(earliestStartedAt)
+        ? transcript.startedAt - earliestStartedAt
+        : 0,
+      sessionId: transcript.sessionId,
+    };
   }, [transcript, transcripts]);
 }

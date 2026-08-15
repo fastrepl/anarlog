@@ -13,6 +13,33 @@ export interface MatchResult {
   id: string | null;
 }
 
+export type TranscriptSearchSource = (
+  preparedQuery: string,
+  opts: SearchOptions,
+) => MatchResult[];
+
+const transcriptSearchSources = new WeakMap<
+  HTMLElement,
+  Map<symbol, TranscriptSearchSource>
+>();
+
+export function registerTranscriptSearchSource(
+  container: HTMLElement,
+  source: TranscriptSearchSource,
+): () => void {
+  const key = Symbol();
+  const sources = transcriptSearchSources.get(container) ?? new Map();
+  sources.set(key, source);
+  transcriptSearchSources.set(container, sources);
+
+  return () => {
+    sources.delete(key);
+    if (sources.size === 0) {
+      transcriptSearchSources.delete(container);
+    }
+  };
+}
+
 export function prepareQuery(query: string, caseSensitive: boolean): string {
   const trimmed = query.trim().normalize("NFC");
   return caseSensitive ? trimmed : trimmed.toLowerCase();
@@ -57,6 +84,13 @@ export function getMatchingElements(
   const prepared = prepareQuery(query, opts.caseSensitive);
   if (!prepared) return [];
 
+  const sources = transcriptSearchSources.get(container);
+  if (sources?.size) {
+    return Array.from(sources.values()).flatMap((source) =>
+      source(prepared, opts),
+    );
+  }
+
   const wordSpans = Array.from(
     container.querySelectorAll<HTMLElement>("[data-word-id]"),
   );
@@ -80,11 +114,43 @@ export function getTranscriptMatches(
   prepared: string,
   opts: SearchOptions,
 ): MatchResult[] {
+  return getTranscriptEntryMatches(
+    allSpans.map((element) => ({
+      element,
+      id: element.dataset.wordId || null,
+      text: element.textContent || "",
+    })),
+    prepared,
+    opts,
+  );
+}
+
+export function getTranscriptWordMatches(
+  words: { id: string | null; text: string; scrollIntoView: () => void }[],
+  prepared: string,
+  opts: SearchOptions,
+): MatchResult[] {
+  return getTranscriptEntryMatches(
+    words.map((word) => ({
+      element: { scrollIntoView: word.scrollIntoView } as HTMLElement,
+      id: word.id,
+      text: word.text,
+    })),
+    prepared,
+    opts,
+  );
+}
+
+function getTranscriptEntryMatches(
+  entries: { element: HTMLElement; id: string | null; text: string }[],
+  prepared: string,
+  opts: SearchOptions,
+): MatchResult[] {
   const spanPositions: { start: number; end: number }[] = [];
   let fullText = "";
 
-  for (let i = 0; i < allSpans.length; i++) {
-    const text = (allSpans[i].textContent || "").normalize("NFC");
+  for (let i = 0; i < entries.length; i++) {
+    const text = entries[i].text.normalize("NFC");
     if (i > 0) fullText += " ";
     const start = fullText.length;
     fullText += text;
@@ -108,8 +174,8 @@ export function getTranscriptMatches(
     const { start, end } = spanPositions[spanIndex];
     if (idx >= start && idx < end) {
       result.push({
-        element: allSpans[spanIndex],
-        id: allSpans[spanIndex].dataset.wordId || null,
+        element: entries[spanIndex].element,
+        id: entries[spanIndex].id,
       });
       continue;
     }
@@ -119,10 +185,10 @@ export function getTranscriptMatches(
       idx >= end &&
       idx < spanPositions[spanIndex + 1].start
     ) {
-      const nextSpan = allSpans[spanIndex + 1];
+      const nextSpan = entries[spanIndex + 1];
       result.push({
-        element: nextSpan,
-        id: nextSpan.dataset.wordId || null,
+        element: nextSpan.element,
+        id: nextSpan.id,
       });
     }
   }

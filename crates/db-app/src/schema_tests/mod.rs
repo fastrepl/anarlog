@@ -174,4 +174,5 @@ mod entities;
 mod migrations;
 mod search_index;
 mod shared_session_cache;
+mod transcript_live_deltas;
 mod voiceprints;

@@ -17,6 +17,7 @@ type PendingTranscriptWrite = {
 const MAX_PENDING_WORDS = 10_000;
 const MAX_PENDING_TEXT_LENGTH = 1_000_000;
 const MAX_PENDING_REPLACED_IDS = 10_000;
+const TRANSCRIPT_BATCH_WINDOW_MS = 250;
 const TRANSCRIPT_PERSIST_TIMEOUT_MS = 15_000;
 const TRANSCRIPT_FLUSH_TIMEOUT_MS = 20_000;
 
@@ -26,15 +27,19 @@ export function createTranscriptPersistenceWorker(
   persist: (delta: LiveTranscriptDelta) => Promise<void>,
   onError: (error: unknown) => void,
   options: {
+    afterFlush?: () => Promise<void>;
+    batchWindowMs?: number;
     persistTimeoutMs?: number;
     flushTimeoutMs?: number;
   } = {},
 ) {
+  const batchWindowMs = options.batchWindowMs ?? TRANSCRIPT_BATCH_WINDOW_MS;
   const persistTimeoutMs =
     options.persistTimeoutMs ?? TRANSCRIPT_PERSIST_TIMEOUT_MS;
   const flushTimeoutMs = options.flushTimeoutMs ?? TRANSCRIPT_FLUSH_TIMEOUT_MS;
   let pendingWrite: PendingTranscriptWrite | null = null;
   let drainPromise: Promise<void> | null = null;
+  let batchTimer: ReturnType<typeof setTimeout> | null = null;
   let overflowed = false;
   let timedOut = false;
   let cancelActivePersist: ((error: Error) => void) | null = null;
@@ -56,6 +61,10 @@ export function createTranscriptPersistenceWorker(
 
     timedOut = true;
     pendingWrite = null;
+    if (batchTimer) {
+      clearTimeout(batchTimer);
+      batchTimer = null;
+    }
     reportError(error);
     cancelActivePersist?.(error);
   };
@@ -111,8 +120,18 @@ export function createTranscriptPersistenceWorker(
     }
   };
 
-  const startDrain = () => {
-    if (drainPromise) {
+  const startDrain = (immediate = false) => {
+    if (drainPromise || timedOut) {
+      return;
+    }
+    if (!immediate && batchWindowMs > 0) {
+      if (batchTimer) {
+        return;
+      }
+      batchTimer = setTimeout(() => {
+        batchTimer = null;
+        startDrain(true);
+      }, batchWindowMs);
       return;
     }
 
@@ -165,7 +184,17 @@ export function createTranscriptPersistenceWorker(
     });
 
     try {
-      while (drainPromise) {
+      while (drainPromise || pendingWrite || batchTimer) {
+        if (batchTimer) {
+          clearTimeout(batchTimer);
+          batchTimer = null;
+        }
+        if (pendingWrite && !drainPromise) {
+          startDrain(true);
+        }
+        if (!drainPromise) {
+          continue;
+        }
         const result = await Promise.race([
           drainPromise.then(() => null),
           timeout,
@@ -177,6 +206,28 @@ export function createTranscriptPersistenceWorker(
             ),
           );
           return;
+        }
+      }
+
+      if (!timedOut && options.afterFlush) {
+        const result = await Promise.race([
+          Promise.resolve()
+            .then(options.afterFlush)
+            .then(
+              () => null,
+              (error) => {
+                reportError(error);
+                return null;
+              },
+            ),
+          timeout,
+        ]);
+        if (result === flushTimedOut) {
+          stopAfterTimeout(
+            new TranscriptPersistenceTimeoutError(
+              `Transcript persistence flush timed out after ${flushTimeoutMs}ms`,
+            ),
+          );
         }
       }
     } finally {

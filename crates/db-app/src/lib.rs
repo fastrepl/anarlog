@@ -334,6 +334,35 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         scope: anlg_db_migrate::MigrationScope::Plain,
         sql: include_str!("../migrations/20260814090000_enterprise_session_delivery.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260815100000_transcript_content_revision",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "transcripts",
+        },
+        sql: include_str!("../migrations/20260815100000_transcript_content_revision.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260815100100_transcript_live_deltas",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260815100100_transcript_live_deltas.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260815100200_search_index_acknowledgements",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260815100200_search_index_acknowledgements.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260815100300_e2ee_record_payload_hash",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "e2ee_records",
+        },
+        sql: include_str!("../migrations/20260815100300_e2ee_record_payload_hash.sql"),
+    },
+    anlg_db_migrate::MigrationStep {
+        id: "20260815100400_e2ee_ciphertext_ownership",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260815100400_e2ee_ciphertext_ownership.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

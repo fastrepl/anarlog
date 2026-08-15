@@ -82,6 +82,12 @@ pub enum Error {
     DenoiseError(String),
 }
 
+impl From<anlg_audio_utils::Error> for Error {
+    fn from(error: anlg_audio_utils::Error) -> Self {
+        Self::DenoiseError(error.to_string())
+    }
+}
+
 impl Serialize for Error {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
     where

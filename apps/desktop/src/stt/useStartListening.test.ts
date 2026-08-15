@@ -35,12 +35,14 @@ const {
   useSessionParticipantHumanIdsMock,
   createLiveTranscriptMock,
   applyLiveTranscriptDeltaToDatabaseMock,
+  flushLiveTranscriptDeltasToDatabaseMock,
   transcriptExistsMock,
   softDeleteTranscriptMock,
   saveCaptureLifecycleMarkerMock,
   loadCaptureLifecycleMarkerMock,
   clearCaptureLifecycleMarkerMock,
   requestCaptureRecoveryMock,
+  waitForSessionSearchIndexMock,
   useConfigValueMock,
   useSTTConnectionMock,
   isSupportedLanguagesLiveMock,
@@ -84,12 +86,14 @@ const {
   useSessionParticipantHumanIdsMock: vi.fn(),
   createLiveTranscriptMock: vi.fn(),
   applyLiveTranscriptDeltaToDatabaseMock: vi.fn(),
+  flushLiveTranscriptDeltasToDatabaseMock: vi.fn(),
   transcriptExistsMock: vi.fn(),
   softDeleteTranscriptMock: vi.fn(),
   saveCaptureLifecycleMarkerMock: vi.fn(),
   loadCaptureLifecycleMarkerMock: vi.fn(),
   clearCaptureLifecycleMarkerMock: vi.fn(),
   requestCaptureRecoveryMock: vi.fn(),
+  waitForSessionSearchIndexMock: vi.fn(),
   useConfigValueMock: vi.fn(),
   useSTTConnectionMock: vi.fn(),
   isSupportedLanguagesLiveMock: vi.fn(),
@@ -251,9 +255,14 @@ vi.mock("~/stt/capture-recovery-requests", () => ({
   requestCaptureRecovery: requestCaptureRecoveryMock,
 }));
 
+vi.mock("~/stt/search-index-consistency", () => ({
+  waitForSessionSearchIndex: waitForSessionSearchIndexMock,
+}));
+
 vi.mock("~/stt/queries", () => ({
   applyLiveTranscriptDeltaToDatabase: applyLiveTranscriptDeltaToDatabaseMock,
   createLiveTranscript: createLiveTranscriptMock,
+  flushLiveTranscriptDeltasToDatabase: flushLiveTranscriptDeltasToDatabaseMock,
   softDeleteTranscript: softDeleteTranscriptMock,
   transcriptExists: transcriptExistsMock,
   useSessionParticipantHumanIds: useSessionParticipantHumanIdsMock,
@@ -456,12 +465,14 @@ describe("useStartListening", () => {
     useSessionParticipantHumanIdsMock.mockReturnValue([]);
     createLiveTranscriptMock.mockResolvedValue(undefined);
     applyLiveTranscriptDeltaToDatabaseMock.mockResolvedValue(undefined);
+    flushLiveTranscriptDeltasToDatabaseMock.mockResolvedValue(undefined);
     transcriptExistsMock.mockResolvedValue(false);
     softDeleteTranscriptMock.mockResolvedValue(undefined);
     saveCaptureLifecycleMarkerMock.mockResolvedValue(undefined);
     loadCaptureLifecycleMarkerMock.mockResolvedValue(null);
     clearCaptureLifecycleMarkerMock.mockResolvedValue(undefined);
     requestCaptureRecoveryMock.mockResolvedValue(undefined);
+    waitForSessionSearchIndexMock.mockResolvedValue(undefined);
     beginCloudsyncActivityMock.mockResolvedValue(undefined);
     endCloudsyncActivityMock.mockResolvedValue(undefined);
     flushCanonicalSessionEditorChangesMock.mockResolvedValue(undefined);
@@ -2478,7 +2489,7 @@ describe("useStartListening", () => {
     consoleError.mockRestore();
   });
 
-  test("persists live transcript deltas in arrival order", async () => {
+  test("coalesces live transcript deltas in arrival order", async () => {
     let resolveCreate: (() => void) | undefined;
     createLiveTranscriptMock.mockImplementationOnce(
       () =>
@@ -2524,11 +2535,13 @@ describe("useStartListening", () => {
       expect(createLiveTranscriptMock).toHaveBeenCalledTimes(1);
     });
     expect(applyLiveTranscriptDeltaToDatabaseMock).not.toHaveBeenCalled();
+    expect(
+      createLiveTranscriptMock.mock.calls[0]?.[1].new_words.map(
+        (word: { id: string }) => word.id,
+      ),
+    ).toEqual(["word-1", "word-2"]);
 
     resolveCreate?.();
-    await waitFor(() => {
-      expect(applyLiveTranscriptDeltaToDatabaseMock).toHaveBeenCalledTimes(1);
-    });
 
     await act(async () => {
       await callbacks?.onStopped?.("session-1", {
@@ -2539,6 +2552,10 @@ describe("useStartListening", () => {
         needsBatchRepair: false,
       });
     });
+    expect(flushLiveTranscriptDeltasToDatabaseMock).toHaveBeenCalledWith(
+      "generated-id",
+    );
+    expect(waitForSessionSearchIndexMock).toHaveBeenCalledWith("session-1");
   });
 
   test("does not summarize an incomplete live transcript without repair audio", async () => {

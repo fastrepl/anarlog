@@ -1,9 +1,13 @@
-import { memo, useCallback, useEffect, useMemo } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo } from "react";
 
+import type { RenderTranscriptRequest } from "@anlg/plugin-transcription";
 import { cn } from "@anlg/utils";
 
 import { useSearch } from "../../search/context";
-import { useRenderedTranscriptData, useTranscriptOffset } from "./data-hooks";
+import {
+  useRenderedTranscriptData,
+  useTranscriptTimelineMetadata,
+} from "./data-hooks";
 import {
   EMPTY_TRANSCRIPT_SEARCH,
   SegmentRenderer,
@@ -14,6 +18,7 @@ import {
   segmentsShallowEqual,
   useStableSegments,
 } from "./segment-hooks";
+import { useVirtualSegments, VirtualSegmentRow } from "./virtual-segments";
 
 import {
   applyRenderRequestIdentitiesToSegments,
@@ -24,7 +29,6 @@ import {
   type Segment,
   type SegmentWord,
 } from "~/stt/live-segment";
-import { useTranscript, useTranscriptLabelContext } from "~/stt/queries";
 import { SpeakerLabelManager } from "~/stt/segment/shared";
 import { isTranscriptWordSeekable } from "~/stt/timing";
 
@@ -124,6 +128,7 @@ function PersistedTranscript({
       startPlayback={startPlayback}
       audioExists={audioExists}
       maxSpeakerNumber={maxSpeakerNumber}
+      request={request}
       editMode={editMode}
     />
   );
@@ -139,6 +144,7 @@ function TranscriptSegments({
   startPlayback,
   audioExists,
   maxSpeakerNumber,
+  request,
   editMode,
 }: {
   segments: Segment[];
@@ -150,12 +156,23 @@ function TranscriptSegments({
   startPlayback: () => void;
   audioExists: boolean;
   maxSpeakerNumber?: number;
+  request: RenderTranscriptRequest | null;
   editMode: boolean;
 }) {
   const segments = useStableSegments(rawSegments);
-  const offsetMs = useTranscriptOffset(transcriptId);
-  const transcript = useTranscript(transcriptId);
-  const labelContext = useTranscriptLabelContext(transcriptId);
+  const { offsetMs, sessionId } = useTranscriptTimelineMetadata(transcriptId);
+  const labelContext = useMemo<RenderLabelContext | undefined>(() => {
+    if (!request) return undefined;
+
+    const names = new Map(
+      request.humans.map((human) => [human.human_id, human.name]),
+    );
+    return {
+      getSelfHumanId: () => request.self_human_id ?? undefined,
+      getHumanName: (humanId) => names.get(humanId),
+      getParticipantHumanIds: () => request.participant_human_ids,
+    };
+  }, [request]);
 
   if (segments.length === 0) {
     return null;
@@ -166,7 +183,7 @@ function TranscriptSegments({
       segments={segments}
       scrollElement={scrollElement}
       transcriptId={transcriptId}
-      sessionId={transcript?.sessionId}
+      sessionId={sessionId}
       labelContext={labelContext}
       offsetMs={offsetMs}
       shouldScrollToEnd={shouldScrollToEnd}
@@ -261,6 +278,21 @@ const SegmentsList = memo(
       search?.query,
       search?.wholeWord,
     ]);
+    const segmentKeys = useMemo(
+      () =>
+        segments.map((segment, index) =>
+          createSegmentKey(segment, transcriptId, index),
+        ),
+      [segments, transcriptId],
+    );
+    const virtual = useVirtualSegments({
+      segments,
+      segmentKeys,
+      scrollElement,
+      activeMatchId: transcriptSearch.activeMatchId,
+      currentMs,
+      offsetMs,
+    });
 
     const seekAndPlay = useCallback(
       (word: SegmentWord) => {
@@ -272,7 +304,7 @@ const SegmentsList = memo(
       [audioExists, offsetMs, seek, startPlayback],
     );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       if (!scrollElement || !shouldScrollToEnd) {
         return;
       }
@@ -286,29 +318,44 @@ const SegmentsList = memo(
     }, [scrollElement, segments.length, shouldScrollToEnd]);
 
     return (
-      <div>
-        {segments.map((segment, index) => (
-          <div
-            key={createSegmentKey(segment, transcriptId, index)}
-            className={cn([index > 0 && "pt-4"])}
-          >
-            <SegmentRenderer
-              segment={segment}
-              offsetMs={offsetMs}
-              transcriptId={transcriptId}
-              sessionId={sessionId}
-              speakerLabel={
-                speakerLabels.get(segment) ??
-                SegmentKeyUtils.renderLabel(segment.key)
-              }
-              currentMs={currentMs}
-              seekAndPlay={seekAndPlay}
-              audioExists={audioExists}
-              search={transcriptSearch}
-              editMode={editMode}
-            />
-          </div>
-        ))}
+      <div
+        ref={virtual.listRef}
+        data-transcript-virtual-total={segments.length}
+        className="relative"
+        style={{ height: virtual.totalHeight }}
+      >
+        {virtual.virtualItems.map(({ index, key, top }) => {
+          const segment = segments[index]!;
+          return (
+            <VirtualSegmentRow
+              key={key}
+              rowKey={key}
+              index={index}
+              top={top}
+              onMeasure={virtual.measureRow}
+              onFocus={virtual.handleRowFocus}
+              onBlur={virtual.handleRowBlur}
+            >
+              <div className={cn([index > 0 && "pt-4"])}>
+                <SegmentRenderer
+                  segment={segment}
+                  offsetMs={offsetMs}
+                  transcriptId={transcriptId}
+                  sessionId={sessionId}
+                  speakerLabel={
+                    speakerLabels.get(segment) ??
+                    SegmentKeyUtils.renderLabel(segment.key)
+                  }
+                  currentMs={currentMs}
+                  seekAndPlay={seekAndPlay}
+                  audioExists={audioExists}
+                  search={transcriptSearch}
+                  editMode={editMode}
+                />
+              </div>
+            </VirtualSegmentRow>
+          );
+        })}
       </div>
     );
   },

@@ -5,6 +5,7 @@ final class FloatingBarCommandCoalescer {
     case show
     case hide
     case update(FloatingBarStatePayload)
+    case amplitude(Double)
   }
 
   typealias Scheduler = (@escaping () -> Void) -> Void
@@ -54,6 +55,18 @@ final class FloatingBarCommandCoalescer {
       }
       let state = state.preservingTranscriptBubbles(from: previousState)
       pendingUpdate = SequencedAction(sequence: sequence, action: .update(state))
+    }
+  }
+
+  func enqueueAmplitude(_ amplitude: Double) {
+    enqueue { sequence in
+      let action: Action
+      if let pendingUpdate, case .update(let state) = pendingUpdate.action {
+        action = .update(state.replacingAmplitude(with: amplitude))
+      } else {
+        action = .amplitude(amplitude)
+      }
+      pendingUpdate = SequencedAction(sequence: sequence, action: action)
     }
   }
 
@@ -118,6 +131,22 @@ extension FloatingBarStatePayload {
     }
 
     return FloatingBarStatePayload(
+      amplitude: amplitude,
+      title: title,
+      status: status,
+      colorScheme: colorScheme,
+      opacity: opacity,
+      liveCaptionOpacity: liveCaptionOpacity,
+      liveCaptionWidth: liveCaptionWidth,
+      liveCaptionLineCount: liveCaptionLineCount,
+      liveCaptionPosition: liveCaptionPosition,
+      liveCaptionMinimized: liveCaptionMinimized,
+      liveCaptionToggleVisible: liveCaptionToggleVisible,
+      transcriptBubbles: transcriptBubbles)
+  }
+
+  fileprivate func replacingAmplitude(with amplitude: Double) -> FloatingBarStatePayload {
+    FloatingBarStatePayload(
       amplitude: amplitude,
       title: title,
       status: status,

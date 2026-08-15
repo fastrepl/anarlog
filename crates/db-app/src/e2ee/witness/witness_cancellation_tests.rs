@@ -112,7 +112,7 @@ async fn cancelled_witness_repair_finishes_one_record_and_releases_local_writes(
         .unwrap();
     let records: Vec<WitnessRecord> = sqlx::query_as(
         "SELECT workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
-         FROM e2ee_witness_records
+         FROM e2ee_witness_records_resolved
          ORDER BY workspace_id, record_id",
     )
     .fetch_all(db.pool())
@@ -352,8 +352,8 @@ async fn witness_scan_selects_only_records_that_need_repair() {
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO e2ee_records (id, workspace_id, payload)
-         SELECT record_id, workspace_id, payload FROM e2ee_witness_records",
+        "INSERT INTO e2ee_records (id, workspace_id, payload_hash, payload)
+         SELECT record_id, workspace_id, payload_hash, payload FROM e2ee_witness_records",
     )
     .execute(db.pool())
     .await
@@ -370,10 +370,14 @@ async fn witness_scan_selects_only_records_that_need_repair() {
     assert!(repairs.is_empty());
     assert!(cancellation_checks.load(Ordering::SeqCst) <= 10);
 
-    sqlx::query("UPDATE e2ee_records SET payload = 'changed' WHERE id = 'record-255'")
-        .execute(db.pool())
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE e2ee_records
+         SET payload_hash = 'changed-hash', payload = 'changed'
+         WHERE id = 'record-255'",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
 
     let mut repairs = Vec::new();
     for _ in 0..3 {

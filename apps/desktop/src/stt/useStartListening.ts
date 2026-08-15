@@ -10,7 +10,6 @@ import {
   MEETING_DISCLOSURE_MESSAGE,
   startMeetingRecordingDisclosure,
 } from "./meeting-disclosure";
-import { getSessionKeywords } from "./useKeywords";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useShell } from "~/contexts/shell";
@@ -66,6 +65,7 @@ export function useStartListening(sessionId: string) {
     await stopMeetingChatTasks();
     const lifecycle = createCaptureLifecycle();
     await lifecycle.ready;
+    const { getSessionKeywords } = await import("./useKeywords");
     const keywords = await getSessionKeywords({
       sessionId,
       dictionaryTerms,

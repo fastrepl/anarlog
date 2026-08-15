@@ -116,6 +116,7 @@ final class FloatingOverlaySettingsModel: ObservableObject {
       self.pendingFloatingBarOpacity = nil
     }
 
+    guard !opacitiesMatch(floatingBarOpacity, nextValue) else { return }
     floatingBarOpacity = nextValue
   }
 
@@ -126,6 +127,7 @@ final class FloatingOverlaySettingsModel: ObservableObject {
       self.pendingLiveCaptionOpacity = nil
     }
 
+    guard !opacitiesMatch(liveCaptionOpacity, nextValue) else { return }
     liveCaptionOpacity = nextValue
   }
 
@@ -136,6 +138,7 @@ final class FloatingOverlaySettingsModel: ObservableObject {
       self.pendingLiveCaptionWidth = nil
     }
 
+    guard !numbersMatch(liveCaptionWidth, nextValue) else { return }
     liveCaptionWidth = nextValue
   }
 
@@ -146,6 +149,7 @@ final class FloatingOverlaySettingsModel: ObservableObject {
       self.pendingLiveCaptionLineCount = nil
     }
 
+    guard liveCaptionLineCount != nextValue else { return }
     liveCaptionLineCount = nextValue
   }
 

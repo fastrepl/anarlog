@@ -7,7 +7,6 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { BatchResponseProcessingError } from "./batch-response-processing-error";
 import { useListener } from "./contexts";
 import { persistTranscriptWrite } from "./persist-retry";
-import { getSessionKeywords } from "./useKeywords";
 import { useSTTConnection } from "./useSTTConnection";
 
 import { useAuth } from "~/auth";
@@ -793,12 +792,14 @@ export const useRunBatch = (sessionId: string) => {
       const createdAt = new Date().toISOString();
       const startedAt = Date.now();
       const memoMd = session?.raw_md ?? "";
-      const keywords =
-        options?.keywords ??
-        (await getSessionKeywords({
+      let keywords = options?.keywords;
+      if (keywords === undefined) {
+        const { getSessionKeywords } = await import("./useKeywords");
+        keywords = await getSessionKeywords({
           sessionId,
           dictionaryTerms,
-        }));
+        });
+      }
       let transcriptId: string | null = null;
       const inferredNumSpeakers =
         options?.numSpeakers === undefined &&

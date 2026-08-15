@@ -389,20 +389,16 @@ fn compute_embeddings(
     spans: Vec<SelectedSpan>,
 ) -> Result<Vec<SpanEmbedding>, String> {
     let source = anlg_audio_utils::source_from_path(path).map_err(|error| error.to_string())?;
-    let channels = anlg_audio_utils::resample_audio_channels(source, EMBEDDING_SAMPLE_RATE)
-        .map_err(|error| error.to_string())?;
-    if channels.is_empty() || channels[0].is_empty() {
-        return Ok(Vec::new());
-    }
+    let (collected, _) = collect_span_samples(source, spans)?;
 
     let mut extractor =
         anlg_embedding::EmbeddingExtractor::new().map_err(|error| error.to_string())?;
 
     let mut results = Vec::new();
-    for span in spans {
-        let Some(samples) = span_samples(&channels, &span) else {
+    for CollectedSpan { span, samples } in collected {
+        if samples.is_empty() {
             continue;
-        };
+        }
         match extractor.compute_optional(&samples) {
             Ok(Some(embedding)) => results.push((span, embedding)),
             Ok(None) => {}
@@ -414,11 +410,115 @@ fn compute_embeddings(
     Ok(results)
 }
 
-fn span_samples(channels: &[Vec<f32>], span: &SelectedSpan) -> Option<Vec<f32>> {
+#[derive(Debug)]
+struct CollectedSpan {
+    span: SelectedSpan,
+    samples: Vec<f32>,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct SpanCollectionStats {
+    decoded_frames: usize,
+    retained_samples: usize,
+    max_decoder_block_samples: usize,
+}
+
+fn collect_span_samples<S>(
+    source: S,
+    spans: Vec<SelectedSpan>,
+) -> Result<(Vec<CollectedSpan>, SpanCollectionStats), String>
+where
+    S: anlg_audio_utils::Source,
+{
+    let mut collected = spans
+        .into_iter()
+        .map(|span| {
+            let (start, end) = span_sample_bounds(&span);
+            CollectedSpan {
+                span,
+                samples: Vec::with_capacity(end.saturating_sub(start)),
+            }
+        })
+        .collect::<Vec<_>>();
+    let mut block_start = 0usize;
+    let mut stats = SpanCollectionStats::default();
+
+    let info = anlg_audio_utils::for_each_resampled_channel_block::<_, anlg_audio_utils::Error>(
+        source,
+        EMBEDDING_SAMPLE_RATE,
+        |channels| {
+            let block_frames = channels.first().map_or(0, |channel| channel.len());
+            stats.max_decoder_block_samples = stats
+                .max_decoder_block_samples
+                .max(channels.iter().map(|channel| channel.len()).sum());
+
+            for span in &mut collected {
+                append_span_block(span, channels, block_start, block_frames);
+            }
+            block_start += block_frames;
+            Ok(())
+        },
+    )
+    .map_err(|error| error.to_string())?;
+
+    stats.decoded_frames = info.frame_count;
+    stats.retained_samples = collected.iter().map(|span| span.samples.len()).sum();
+    Ok((collected, stats))
+}
+
+fn span_sample_bounds(span: &SelectedSpan) -> (usize, usize) {
     let ms_to_index =
         |ms: i64| -> usize { (ms.max(0) as usize) * (EMBEDDING_SAMPLE_RATE as usize) / 1000 };
-    let start = ms_to_index(span.start_ms);
-    let end = ms_to_index(span.end_ms);
+    (ms_to_index(span.start_ms), ms_to_index(span.end_ms))
+}
+
+fn append_span_block(
+    collected: &mut CollectedSpan,
+    channels: &[&[f32]],
+    block_start: usize,
+    block_frames: usize,
+) {
+    if channels.is_empty() || block_frames == 0 {
+        return;
+    }
+
+    let (span_start, span_end) = span_sample_bounds(&collected.span);
+    let block_end = block_start + block_frames;
+    let overlap_start = span_start.max(block_start);
+    let overlap_end = span_end.min(block_end);
+    if overlap_start >= overlap_end {
+        return;
+    }
+
+    let local_start = overlap_start - block_start;
+    let local_end = overlap_end - block_start;
+    let channel_count = channels.len();
+
+    match collected.span.channel {
+        channel if channel >= 0 && channel_count > 1 && (channel as usize) < channel_count => {
+            collected
+                .samples
+                .extend_from_slice(&channels[channel as usize][local_start..local_end]);
+        }
+        _ if channel_count == 1 => {
+            collected
+                .samples
+                .extend_from_slice(&channels[0][local_start..local_end]);
+        }
+        _ => {
+            collected
+                .samples
+                .extend((local_start..local_end).map(|index| {
+                    channels.iter().map(|channel| channel[index]).sum::<f32>()
+                        / channel_count as f32
+                }));
+        }
+    }
+}
+
+#[cfg(test)]
+fn span_samples(channels: &[Vec<f32>], span: &SelectedSpan) -> Option<Vec<f32>> {
+    let (start, end) = span_sample_bounds(span);
 
     let slice = |channel: &Vec<f32>| -> Option<Vec<f32>> {
         let end = end.min(channel.len());
@@ -470,6 +570,9 @@ fn encode_embedding(embedding: &[f32]) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZero;
+    use std::time::Duration;
+
     use super::*;
 
     #[test]
@@ -520,6 +623,118 @@ mod tests {
     }
 
     #[test]
+    fn streamed_span_samples_and_embeddings_match_full_audio_extraction() {
+        let input_rate = 44_100u32;
+        let input_frames = input_rate as usize * 3;
+        let audio = (0..input_frames)
+            .flat_map(|frame| {
+                let phase = frame as f32 * 0.013;
+                [phase.sin() * 0.2, phase.cos() * 0.3]
+            })
+            .collect::<Vec<_>>();
+        let spans = vec![
+            SelectedSpan {
+                channel: 1,
+                speaker_index: Some(0),
+                start_ms: 400,
+                end_ms: 1_900,
+                quality_score: 0.15,
+            },
+            SelectedSpan {
+                channel: 2,
+                speaker_index: Some(1),
+                start_ms: 1_200,
+                end_ms: 2_700,
+                quality_score: 0.15,
+            },
+        ];
+
+        let full_channels = anlg_audio_utils::resample_audio_channels(
+            rodio::buffer::SamplesBuffer::new(
+                NonZero::new(2).unwrap(),
+                NonZero::new(input_rate).unwrap(),
+                audio.clone(),
+            ),
+            EMBEDDING_SAMPLE_RATE,
+        )
+        .unwrap();
+        let expected = spans
+            .iter()
+            .map(|span| span_samples(&full_channels, span).unwrap())
+            .collect::<Vec<_>>();
+        let (streamed, stats) = collect_span_samples(
+            rodio::buffer::SamplesBuffer::new(
+                NonZero::new(2).unwrap(),
+                NonZero::new(input_rate).unwrap(),
+                audio,
+            ),
+            spans,
+        )
+        .unwrap();
+
+        assert_eq!(streamed.len(), expected.len());
+        for (streamed, expected) in streamed.iter().zip(&expected) {
+            assert_eq!(streamed.samples, *expected);
+        }
+        assert_eq!(
+            stats.retained_samples,
+            expected.iter().map(Vec::len).sum::<usize>()
+        );
+        assert!(stats.max_decoder_block_samples < stats.decoded_frames * 2);
+
+        let mut streamed_extractor = anlg_embedding::EmbeddingExtractor::new().unwrap();
+        let mut full_extractor = anlg_embedding::EmbeddingExtractor::new().unwrap();
+        let streamed_embedding = streamed_extractor.compute(&streamed[0].samples).unwrap();
+        let full_embedding = full_extractor.compute(&expected[0]).unwrap();
+        assert_eq!(streamed_embedding.len(), full_embedding.len());
+        assert!(
+            streamed_embedding
+                .iter()
+                .zip(full_embedding)
+                .all(|(streamed, full)| (streamed - full).abs() < 1e-6)
+        );
+    }
+
+    #[test]
+    #[ignore = "long synthetic-audio memory benchmark"]
+    fn thirty_minute_span_collection_retains_only_selected_audio() {
+        let duration_seconds = 30 * 60usize;
+        let spans = vec![
+            SelectedSpan {
+                channel: 0,
+                speaker_index: Some(0),
+                start_ms: 10_000,
+                end_ms: 20_000,
+                quality_score: 1.0,
+            },
+            SelectedSpan {
+                channel: 1,
+                speaker_index: Some(1),
+                start_ms: 1_780_000,
+                end_ms: 1_790_000,
+                quality_score: 1.0,
+            },
+        ];
+        let (collected, stats) =
+            collect_span_samples(SyntheticStereoSource::new(duration_seconds), spans).unwrap();
+
+        assert_eq!(
+            stats.decoded_frames,
+            duration_seconds * EMBEDDING_SAMPLE_RATE as usize
+        );
+        assert_eq!(
+            collected[0].samples.len(),
+            10 * EMBEDDING_SAMPLE_RATE as usize
+        );
+        assert_eq!(
+            collected[1].samples.len(),
+            10 * EMBEDDING_SAMPLE_RATE as usize
+        );
+        assert_eq!(stats.retained_samples, 20 * EMBEDDING_SAMPLE_RATE as usize);
+        assert!(stats.max_decoder_block_samples <= 2 * 1024);
+    }
+
+    #[test]
     fn embedding_round_trips_through_base64() {
         let embedding = vec![0.5_f32, -1.25, 3.0];
         let encoded = encode_embedding(&embedding);
@@ -531,5 +746,53 @@ mod tests {
             .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
             .collect();
         assert_eq!(decoded, embedding);
+    }
+
+    struct SyntheticStereoSource {
+        sample_index: usize,
+        total_samples: usize,
+    }
+
+    impl SyntheticStereoSource {
+        fn new(duration_seconds: usize) -> Self {
+            Self {
+                sample_index: 0,
+                total_samples: duration_seconds * EMBEDDING_SAMPLE_RATE as usize * 2,
+            }
+        }
+    }
+
+    impl Iterator for SyntheticStereoSource {
+        type Item = f32;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.sample_index >= self.total_samples {
+                return None;
+            }
+            let frame = self.sample_index / 2;
+            let channel = self.sample_index % 2;
+            self.sample_index += 1;
+            Some(((frame + channel * 17) as f32 * 0.001).sin() * 0.1)
+        }
+    }
+
+    impl anlg_audio_utils::Source for SyntheticStereoSource {
+        fn current_span_len(&self) -> Option<usize> {
+            Some(self.total_samples - self.sample_index)
+        }
+
+        fn channels(&self) -> NonZero<u16> {
+            NonZero::new(2).unwrap()
+        }
+
+        fn sample_rate(&self) -> NonZero<u32> {
+            NonZero::new(EMBEDDING_SAMPLE_RATE).unwrap()
+        }
+
+        fn total_duration(&self) -> Option<Duration> {
+            Some(Duration::from_secs(
+                (self.total_samples / 2 / EMBEDDING_SAMPLE_RATE as usize) as u64,
+            ))
+        }
     }
 }

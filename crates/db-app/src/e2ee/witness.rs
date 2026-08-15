@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anlg_e2ee::{OpenedField, WorkspaceKey};
 use sqlx::{QueryBuilder, Sqlite, SqlitePool, Transaction};
 
+use super::replica_storage::{prune_ciphertext_archive, retain_ciphertext};
 use super::{
     E2EE_DOMAIN_TABLES, E2eeReplicaError, E2eeReplicaResult, LocalState, check_e2ee_cancellation,
     reconcile_e2ee_witness_pending, yield_once,
@@ -12,13 +13,13 @@ const E2EE_WITNESS_REPAIR_SCAN_PAGE_LIMIT: i64 = 128;
 pub(super) const PENDING_E2EE_WITNESS_UPLOADS_SQL: &str = "
   SELECT
     pending.record_id,
-    LENGTH(CAST(local.payload AS BLOB))
+    LENGTH(CAST(COALESCE(local.payload, '') AS BLOB))
       + LENGTH(CAST(local.record_id AS BLOB))
       + LENGTH(CAST(local.payload_hash AS BLOB))
       + 256
   FROM e2ee_witness_pending AS pending
   INDEXED BY idx_e2ee_witness_pending_workspace_record
-  CROSS JOIN e2ee_local_state AS local
+  CROSS JOIN e2ee_local_state_resolved AS local
   WHERE pending.workspace_id = ?
     AND local.record_id = pending.record_id
     AND local.workspace_id = pending.workspace_id
@@ -183,7 +184,7 @@ async fn pending_e2ee_witness_uploads_inner(
     let mut query = QueryBuilder::<Sqlite>::new(
         "SELECT record_id, workspace_id, table_name, row_id, field_name, revision,
                 writer_id, value_tag, payload_hash, payload
-         FROM e2ee_local_state
+         FROM e2ee_local_state_resolved
          WHERE workspace_id = ",
     );
     query.push_bind(workspace_id);
@@ -628,12 +629,12 @@ async fn load_bounded_e2ee_witness_repairs(
                  replica.id IS NOT NULL
                  AND (
                    replica.workspace_id != witness.workspace_id
-                   OR replica.payload != witness.payload
+                   OR replica.payload_hash != witness.payload_hash
                  )
                )
              ) AS needs_repair
          FROM page
-         LEFT JOIN e2ee_witness_records AS witness
+         LEFT JOIN e2ee_witness_records_resolved AS witness
            ON witness.workspace_id = page.workspace_id
           AND witness.record_id = page.record_id
          LEFT JOIN e2ee_records AS replica
@@ -693,7 +694,7 @@ async fn finish_e2ee_witness_repair_selection(
            witness.sequence,
            wanted.generation
          FROM wanted
-         INNER JOIN e2ee_witness_records AS witness
+         INNER JOIN e2ee_witness_records_resolved AS witness
            ON witness.workspace_id = wanted.workspace_id
           AND witness.record_id = wanted.record_id
          ORDER BY witness.workspace_id, witness.record_id",
@@ -759,7 +760,7 @@ async fn persist_e2ee_witness_repairs(
         }
         let current_witness: Option<(i64, String, String, String, i64)> = sqlx::query_as(
             "SELECT revision, writer_id, payload_hash, payload, sequence
-             FROM e2ee_witness_records
+             FROM e2ee_witness_records_resolved
              WHERE workspace_id = ? AND record_id = ?",
         )
         .bind(&record.workspace_id)
@@ -790,10 +791,11 @@ async fn persist_e2ee_witness_repairs(
             continue;
         }
         let result = sqlx::query(
-            "INSERT INTO e2ee_records (id, workspace_id, payload)
-             VALUES (?, ?, ?)
+            "INSERT INTO e2ee_records (id, workspace_id, payload, payload_hash)
+             VALUES (?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                payload = excluded.payload,
+               payload_hash = excluded.payload_hash,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
              WHERE e2ee_records.workspace_id = excluded.workspace_id
                AND e2ee_records.payload != excluded.payload",
@@ -801,6 +803,7 @@ async fn persist_e2ee_witness_repairs(
         .bind(&record.record_id)
         .bind(&record.workspace_id)
         .bind(&record.payload)
+        .bind(&record.payload_hash)
         .execute(&mut *transaction)
         .await?;
         if let Err(error) = check_e2ee_cancellation(is_cancelled) {
@@ -832,6 +835,7 @@ async fn persist_e2ee_witness_repairs(
             .bind(&record.record_id)
             .execute(&mut *transaction)
             .await?;
+        prune_ciphertext_archive(&mut transaction, &record.workspace_id, &record.record_id).await?;
         transaction.commit().await?;
         check_e2ee_cancellation(is_cancelled)?;
     }
@@ -878,15 +882,22 @@ async fn upsert_witness_record(
     transaction: &mut Transaction<'_, Sqlite>,
     record: &WitnessRecord,
 ) -> E2eeReplicaResult<()> {
+    retain_ciphertext(
+        transaction,
+        &record.workspace_id,
+        &record.record_id,
+        &record.payload_hash,
+        &record.payload,
+    )
+    .await?;
     sqlx::query(
         "INSERT INTO e2ee_witness_records (
-           workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
-         ) VALUES (?, ?, ?, ?, ?, ?, ?)
+           workspace_id, record_id, revision, writer_id, payload_hash, sequence
+         ) VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(workspace_id, record_id) DO UPDATE SET
            revision = excluded.revision,
            writer_id = excluded.writer_id,
            payload_hash = excluded.payload_hash,
-           payload = excluded.payload,
            sequence = MAX(e2ee_witness_records.sequence, excluded.sequence),
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE excluded.revision > e2ee_witness_records.revision
@@ -911,11 +922,11 @@ async fn upsert_witness_record(
     .bind(record.revision)
     .bind(&record.writer_id)
     .bind(&record.payload_hash)
-    .bind(&record.payload)
     .bind(record.sequence)
     .execute(&mut **transaction)
     .await?;
     reconcile_e2ee_witness_pending(transaction, &record.record_id).await?;
+    prune_ciphertext_archive(transaction, &record.workspace_id, &record.record_id).await?;
     Ok(())
 }
 

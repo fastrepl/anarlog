@@ -81,9 +81,44 @@ function createTranscriptStore(
   };
 }
 
+function createImmediateTranscriptPersistenceWorker(
+  persist: Parameters<typeof createTranscriptPersistenceWorker>[0],
+  onError: Parameters<typeof createTranscriptPersistenceWorker>[1],
+  options: Parameters<typeof createTranscriptPersistenceWorker>[2] = {},
+) {
+  return createTranscriptPersistenceWorker(persist, onError, {
+    batchWindowMs: 0,
+    ...options,
+  });
+}
+
 describe("createTranscriptPersistenceWorker", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("persists one coalesced journal chunk per batch window", async () => {
+    vi.useFakeTimers();
+    const persist = vi.fn(async (_delta: LiveTranscriptDelta) => undefined);
+    const afterFlush = vi.fn(async () => undefined);
+    const worker = createTranscriptPersistenceWorker(persist, vi.fn(), {
+      afterFlush,
+      batchWindowMs: 50,
+    });
+
+    worker.enqueue(delta("word-1"));
+    worker.enqueue(delta("word-2"));
+    await vi.advanceTimersByTimeAsync(49);
+    expect(persist).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await worker.flush();
+
+    expect(persist).toHaveBeenCalledOnce();
+    expect(persist.mock.calls[0]?.[0].new_words.map((word) => word.id)).toEqual(
+      ["word-1", "word-2"],
+    );
+    expect(afterFlush).toHaveBeenCalledOnce();
   });
 
   it("coalesces a long burst behind one in-flight write and flushes later work", async () => {
@@ -103,7 +138,7 @@ describe("createTranscriptPersistenceWorker", () => {
       }
       activeWrites -= 1;
     });
-    const worker = createTranscriptPersistenceWorker(persist, vi.fn());
+    const worker = createImmediateTranscriptPersistenceWorker(persist, vi.fn());
 
     worker.enqueue(delta("word-0"));
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
@@ -137,12 +172,15 @@ describe("createTranscriptPersistenceWorker", () => {
   it("collapses corrections and append runs into their canonical final delta", async () => {
     const firstWrite = deferred();
     const writes: LiveTranscriptDelta[] = [];
-    const worker = createTranscriptPersistenceWorker(async (nextDelta) => {
-      writes.push(nextDelta);
-      if (writes.length === 1) {
-        await firstWrite.promise;
-      }
-    }, vi.fn());
+    const worker = createImmediateTranscriptPersistenceWorker(
+      async (nextDelta) => {
+        writes.push(nextDelta);
+        if (writes.length === 1) {
+          await firstWrite.promise;
+        }
+      },
+      vi.fn(),
+    );
 
     worker.enqueue(delta("blocker"));
     worker.enqueue(delta("word-1", { text: "latest" }));
@@ -218,7 +256,7 @@ describe("createTranscriptPersistenceWorker", () => {
       accumulator.dispose();
       activeWrites -= 1;
     });
-    const worker = createTranscriptPersistenceWorker(persist, vi.fn());
+    const worker = createImmediateTranscriptPersistenceWorker(persist, vi.fn());
 
     worker.enqueue(
       delta("blocker", {
@@ -326,7 +364,7 @@ describe("createTranscriptPersistenceWorker", () => {
       accumulator.applyLiveDelta(nextDelta);
       accumulator.dispose();
     });
-    const worker = createTranscriptPersistenceWorker(persist, vi.fn());
+    const worker = createImmediateTranscriptPersistenceWorker(persist, vi.fn());
 
     worker.enqueue(delta("blocker", { channel: 1, startMs: 10_000 }));
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
@@ -400,7 +438,7 @@ describe("createTranscriptPersistenceWorker", () => {
     const persist = vi.fn(async () => {
       await firstWrite.promise;
     });
-    const worker = createTranscriptPersistenceWorker(persist, onError);
+    const worker = createImmediateTranscriptPersistenceWorker(persist, onError);
 
     worker.enqueue(delta("blocker"));
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(1));
@@ -429,7 +467,7 @@ describe("createTranscriptPersistenceWorker", () => {
       .fn<(delta: LiveTranscriptDelta) => Promise<void>>()
       .mockRejectedValueOnce(error)
       .mockResolvedValue(undefined);
-    const worker = createTranscriptPersistenceWorker(persist, onError);
+    const worker = createImmediateTranscriptPersistenceWorker(persist, onError);
 
     worker.enqueue(delta("word-1", { replacedIds: ["old-word"] }));
     worker.enqueue(delta("word-2"));
@@ -449,10 +487,14 @@ describe("createTranscriptPersistenceWorker", () => {
         }),
     );
     const onError = vi.fn();
-    const worker = createTranscriptPersistenceWorker(persist, onError, {
-      persistTimeoutMs: 50,
-      flushTimeoutMs: 100,
-    });
+    const worker = createImmediateTranscriptPersistenceWorker(
+      persist,
+      onError,
+      {
+        persistTimeoutMs: 50,
+        flushTimeoutMs: 100,
+      },
+    );
 
     worker.enqueue(delta("word-1"));
     const flushed = worker.flush();
@@ -486,10 +528,14 @@ describe("createTranscriptPersistenceWorker", () => {
         }),
     );
     const onError = vi.fn();
-    const worker = createTranscriptPersistenceWorker(persist, onError, {
-      persistTimeoutMs: 1_000,
-      flushTimeoutMs: 25,
-    });
+    const worker = createImmediateTranscriptPersistenceWorker(
+      persist,
+      onError,
+      {
+        persistTimeoutMs: 1_000,
+        flushTimeoutMs: 25,
+      },
+    );
 
     worker.enqueue(delta("word-1"));
     const flushed = worker.flush();

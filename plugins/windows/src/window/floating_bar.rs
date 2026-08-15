@@ -64,6 +64,7 @@ mod platform {
     swift!(fn _floating_bar_show() -> Bool);
     swift!(fn _floating_bar_hide() -> Bool);
     swift!(fn _floating_bar_update(json: &SRString) -> Bool);
+    swift!(fn _floating_bar_update_amplitude(amplitude: f64) -> Bool);
 
     static APP_HANDLE: OnceLock<tauri::AppHandle<tauri::Wry>> = OnceLock::new();
 
@@ -89,14 +90,26 @@ mod platform {
         let json = serde_json::to_string(&state).map_err(|error| {
             Error::PanelError(format!("failed to serialize floating bar state: {error}"))
         })?;
-        let json = SRString::from(json.as_str());
-
-        let ok = unsafe { _floating_bar_update(&json) };
+        let ok = swift_rs::autoreleasepool!({
+            let json = SRString::from(json.as_str());
+            unsafe { _floating_bar_update(&json) }
+        });
         if ok {
             Ok(())
         } else {
             Err(Error::PanelError(
                 "failed to update native floating bar".to_string(),
+            ))
+        }
+    }
+
+    pub fn update_amplitude(amplitude: f64) -> Result<(), Error> {
+        let ok = unsafe { _floating_bar_update_amplitude(amplitude) };
+        if ok {
+            Ok(())
+        } else {
+            Err(Error::PanelError(
+                "failed to update native floating bar amplitude".to_string(),
             ))
         }
     }
@@ -153,6 +166,10 @@ mod platform {
     pub fn update(_state: FloatingBarState) -> Result<(), Error> {
         Ok(())
     }
+
+    pub fn update_amplitude(_amplitude: f64) -> Result<(), Error> {
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -168,4 +185,8 @@ pub fn hide() -> Result<(), Error> {
 
 pub fn update(state: FloatingBarState) -> Result<(), Error> {
     platform::update(state)
+}
+
+pub fn update_amplitude(amplitude: f64) -> Result<(), Error> {
+    platform::update_amplitude(amplitude)
 }

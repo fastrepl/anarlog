@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { getTranscriptMatches, type SearchOptions } from "./matching";
+import {
+  getMatchingElements,
+  getTranscriptMatches,
+  getTranscriptWordMatches,
+  registerTranscriptSearchSource,
+  type SearchOptions,
+} from "./matching";
 
 const defaultOptions: SearchOptions = {
   caseSensitive: false,
@@ -49,6 +55,33 @@ describe("getTranscriptMatches", () => {
         wholeWord: true,
       }).map((match) => match.id),
     ).toEqual(["word-1"]);
+  });
+
+  it("searches registered virtual transcript words and navigates off-screen", () => {
+    const container = document.createElement("div");
+    const scrollIntoView = vi.fn();
+    const unregister = registerTranscriptSearchSource(
+      container,
+      (prepared, options) =>
+        getTranscriptWordMatches(
+          [
+            { id: "word-1", text: "visible", scrollIntoView: vi.fn() },
+            { id: "word-999", text: "offscreen target", scrollIntoView },
+          ],
+          prepared,
+          options,
+        ),
+    );
+
+    const matches = getMatchingElements(container, "target", defaultOptions);
+    expect(matches.map((match) => match.id)).toEqual(["word-999"]);
+    matches[0].element.scrollIntoView();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+
+    unregister();
+    expect(getMatchingElements(container, "target", defaultOptions)).toEqual(
+      [],
+    );
   });
 });
 

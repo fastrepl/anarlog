@@ -49,10 +49,12 @@ import { requestCaptureRecovery } from "~/stt/capture-recovery-requests";
 import {
   applyLiveTranscriptDeltaToDatabase,
   createLiveTranscript,
+  flushLiveTranscriptDeltasToDatabase,
   softDeleteTranscript,
   transcriptExists,
   useSessionParticipantHumanIds,
 } from "~/stt/queries";
+import { waitForSessionSearchIndex } from "~/stt/search-index-consistency";
 
 const CLOUDSYNC_CAPTURE_ACTIVITY = "capture";
 
@@ -326,6 +328,12 @@ export function useCaptureLifecycle(sessionId: string) {
           transcriptWriteError = error;
           console.error("[listener] failed to persist transcript", error);
         },
+        {
+          afterFlush: () =>
+            persistTranscriptWrite(() =>
+              flushLiveTranscriptDeltasToDatabase(transcriptId),
+            ),
+        },
       );
       const marker = async (): Promise<CaptureLifecycleMarker> => ({
         version: 1,
@@ -394,6 +402,16 @@ export function useCaptureLifecycle(sessionId: string) {
         const useLocalBatchForSpeakerDiarization =
           shouldUseLocalBatchForSpeakerDiarization();
         const refineSpeakerDiarization = shouldRefineSpeakerDiarization();
+        if (transcriptCreated) {
+          try {
+            await waitForSessionSearchIndex(sessionId);
+          } catch (error) {
+            console.warn(
+              "[listener] search index finalization is still pending",
+              error,
+            );
+          }
+        }
 
         const postCaptureAction = pendingSummaryMode
           ? ("enhance_only" as const)

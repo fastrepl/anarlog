@@ -1,21 +1,56 @@
-import { TabContentCalendar } from "~/calendar";
-import { TabContentChangelog } from "~/changelog";
-import { TabContentContact } from "~/contacts";
-import { TabContentHuman } from "~/contacts/humans";
-import { TabContentEdit } from "~/edit";
-import { TabContentOnboarding } from "~/onboarding";
-import { TabContentNote } from "~/session";
-import { TabContentSettings } from "~/settings";
-import { TabContentAutomations } from "~/settings/automations";
-import {
-  TabContentSharedNote,
-  TabContentSharedNotePreview,
-} from "~/shared-notes";
+import { lazy, Suspense } from "react";
+
 import { type Tab } from "~/store/zustand/tabs";
-import { TabContentTask } from "~/task";
-import { TabContentTemplate } from "~/templates";
+
+const TabContentAutomations = lazy(async () => ({
+  default: (await import("~/settings/automations")).TabContentAutomations,
+}));
+const TabContentCalendar = lazy(async () => ({
+  default: (await import("~/calendar")).TabContentCalendar,
+}));
+const TabContentChangelog = lazy(async () => ({
+  default: (await import("~/changelog")).TabContentChangelog,
+}));
+const TabContentContact = lazy(async () => ({
+  default: (await import("~/contacts")).TabContentContact,
+}));
+const TabContentHuman = lazy(async () => ({
+  default: (await import("~/contacts/humans")).TabContentHuman,
+}));
+const TabContentEdit = lazy(async () => ({
+  default: (await import("~/edit")).TabContentEdit,
+}));
+const TabContentNote = lazy(async () => ({
+  default: (await import("~/session")).TabContentNote,
+}));
+const TabContentOnboarding = lazy(async () => ({
+  default: (await import("~/onboarding")).TabContentOnboarding,
+}));
+const TabContentSettings = lazy(async () => ({
+  default: (await import("~/settings")).TabContentSettings,
+}));
+const TabContentSharedNote = lazy(async () => ({
+  default: (await import("~/shared-notes")).TabContentSharedNote,
+}));
+const TabContentSharedNotePreview = lazy(async () => ({
+  default: (await import("~/shared-notes")).TabContentSharedNotePreview,
+}));
+const TabContentTask = lazy(async () => ({
+  default: (await import("~/task")).TabContentTask,
+}));
+const TabContentTemplate = lazy(async () => ({
+  default: (await import("~/templates")).TabContentTemplate,
+}));
 
 export function MainTabContent({ tab }: { tab: Tab }) {
+  return (
+    <Suspense fallback={null}>
+      <LazyTabContent tab={tab} />
+    </Suspense>
+  );
+}
+
+function LazyTabContent({ tab }: { tab: Tab }) {
   if (tab.type === "automations") {
     return <TabContentAutomations />;
   }

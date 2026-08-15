@@ -11,6 +11,7 @@ description = ""
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
+rodio = { workspace = true }
 specta-typescript = { workspace = true }
 
 [dependencies]

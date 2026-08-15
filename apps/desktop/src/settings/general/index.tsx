@@ -174,6 +174,8 @@ function SettingsSectionContent({
   const setSettingValues = useSetSettingValues();
   const audioRetention =
     resolveConfigValue("audio_retention", storedSettings) || "forever";
+  const rememberSpeakers =
+    resolveConfigValue("remember_speakers", storedSettings) === true;
   const microphoneDevice = resolveConfigValue(
     "microphone_device",
     storedSettings,
@@ -340,6 +342,11 @@ function SettingsSectionContent({
                 devices: microphoneDevicesQuery.data ?? [],
                 onChange: (value) =>
                   setSettingValues({ microphone_device: value }),
+              }}
+              rememberSpeakers={{
+                value: rememberSpeakers,
+                onChange: (value) =>
+                  setSettingValues({ remember_speakers: value }),
               }}
             />
           </div>

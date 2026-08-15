@@ -40,6 +40,281 @@ fn cloudsync_registry_enables_only_the_encrypted_replica() {
     assert!(!cloudsync_alter_guard_required("calendars"));
 }
 
+#[test]
+fn ciphertext_ownership_migrations_use_the_required_scopes() {
+    let record_hash = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260815100300_e2ee_record_payload_hash")
+        .unwrap();
+    assert_eq!(
+        record_hash.scope,
+        anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "e2ee_records"
+        }
+    );
+    let ownership = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260815100400_e2ee_ciphertext_ownership")
+        .unwrap();
+    assert_eq!(ownership.scope, anlg_db_migrate::MigrationScope::Plain);
+}
+
+#[tokio::test]
+async fn ciphertext_ownership_migration_preserves_legacy_versions_and_is_resumable() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260815100300_e2ee_record_payload_hash"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    let current_payload = "current-ciphertext";
+    let current_hash = anlg_e2ee::payload_hash(current_payload);
+    let witnessed_payload = "witnessed-ciphertext";
+    let witnessed_hash = anlg_e2ee::payload_hash(witnessed_payload);
+    sqlx::query(
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+         VALUES ('record-1', 'workspace-a', ?)",
+    )
+    .bind(current_payload)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO e2ee_local_state (
+           record_id, workspace_id, table_name, row_id, field_name,
+           revision, writer_id, value_tag, payload_hash, payload
+         ) VALUES (
+           'record-1', 'workspace-a', 'sessions', 'session-1', 'title',
+           2, 'writer-b', 'tag-b', ?, ?
+         )",
+    )
+    .bind(&current_hash)
+    .bind(current_payload)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO e2ee_witness_records (
+           workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+         ) VALUES ('workspace-a', 'record-1', 1, 'writer-a', ?, ?, 1)",
+    )
+    .bind(&witnessed_hash)
+    .bind(witnessed_payload)
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+    anlg_db_migrate::migrate(&db, schema()).await.unwrap();
+
+    let current: (String, String) =
+        sqlx::query_as("SELECT payload_hash, payload FROM e2ee_records WHERE id = 'record-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(current, (current_hash, current_payload.to_string()));
+    let base_payloads: (String, String) = sqlx::query_as(
+        "SELECT local.payload, witness.payload
+         FROM e2ee_local_state AS local
+         JOIN e2ee_witness_records AS witness
+           ON witness.workspace_id = local.workspace_id
+          AND witness.record_id = local.record_id
+         WHERE local.record_id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(base_payloads, (String::new(), String::new()));
+    let resolved: (String, String) = sqlx::query_as(
+        "SELECT local.payload, witness.payload
+         FROM e2ee_local_state_resolved AS local
+         JOIN e2ee_witness_records_resolved AS witness
+           ON witness.workspace_id = local.workspace_id
+          AND witness.record_id = local.record_id
+         WHERE local.record_id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        resolved,
+        (current_payload.to_string(), witnessed_payload.to_string())
+    );
+    let archived: Vec<(String, String)> = sqlx::query_as(
+        "SELECT payload_hash, payload FROM e2ee_ciphertext_archive
+         ORDER BY payload_hash",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        archived,
+        vec![(witnessed_hash, witnessed_payload.to_string())]
+    );
+}
+
+#[tokio::test]
+async fn current_ciphertext_is_shared_by_local_and_witness_metadata() {
+    let db = test_db().await;
+    let current_payload = "current-ciphertext";
+    let current_hash = anlg_e2ee::payload_hash(current_payload);
+    sqlx::query(
+        "INSERT INTO e2ee_records (id, workspace_id, payload, payload_hash)
+         VALUES ('record-1', 'workspace-a', ?, ?)",
+    )
+    .bind(current_payload)
+    .bind(&current_hash)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO e2ee_local_state (
+           record_id, workspace_id, table_name, row_id, field_name,
+           revision, writer_id, value_tag, payload_hash, payload
+         ) VALUES (
+           'record-1', 'workspace-a', 'sessions', 'session-1', 'title',
+           1, 'writer-a', 'tag-a', ?, ?
+         )",
+    )
+    .bind(&current_hash)
+    .bind(current_payload)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO e2ee_witness_records (
+           workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+         ) VALUES ('workspace-a', 'record-1', 1, 'writer-a', ?, ?, 1)",
+    )
+    .bind(&current_hash)
+    .bind(current_payload)
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let base_payloads: (String, String) = sqlx::query_as(
+        "SELECT local.payload, witness.payload
+         FROM e2ee_local_state AS local
+         JOIN e2ee_witness_records AS witness
+           ON witness.workspace_id = local.workspace_id
+          AND witness.record_id = local.record_id
+         WHERE local.record_id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(base_payloads, (String::new(), String::new()));
+    let archive_count: i64 = sqlx::query_scalar("SELECT count(*) FROM e2ee_ciphertext_archive")
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+    assert_eq!(archive_count, 0);
+
+    let rollback_payload = "replayed-ciphertext";
+    let rollback_hash = anlg_e2ee::payload_hash(rollback_payload);
+    sqlx::query("UPDATE e2ee_records SET payload = ?, payload_hash = ? WHERE id = 'record-1'")
+        .bind(rollback_payload)
+        .bind(rollback_hash)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    let resolved: (String, String) = sqlx::query_as(
+        "SELECT local.payload, witness.payload
+         FROM e2ee_local_state_resolved AS local
+         JOIN e2ee_witness_records_resolved AS witness
+           ON witness.workspace_id = local.workspace_id
+          AND witness.record_id = local.record_id
+         WHERE local.record_id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        resolved,
+        (current_payload.to_string(), current_payload.to_string())
+    );
+    let archived: (String, String) = sqlx::query_as(
+        "SELECT payload_hash, payload FROM e2ee_ciphertext_archive
+         WHERE workspace_id = 'workspace-a' AND record_id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(archived, (current_hash, current_payload.to_string()));
+}
+
+#[tokio::test]
+async fn representative_ciphertext_corpus_uses_one_steady_state_copy() {
+    let db = test_db().await;
+    let mut expected_payload_bytes = 0_i64;
+    for index in 0..16 {
+        let payload = format!("{index:02}-{}", "x".repeat(64 * 1024));
+        let payload_hash = anlg_e2ee::payload_hash(&payload);
+        let record_id = format!("record-{index}");
+        expected_payload_bytes += i64::try_from(payload.len()).unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_records (id, workspace_id, payload, payload_hash)
+             VALUES (?, 'workspace-a', ?, ?)",
+        )
+        .bind(&record_id)
+        .bind(&payload)
+        .bind(&payload_hash)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_local_state (
+               record_id, workspace_id, table_name, row_id, field_name,
+               revision, writer_id, value_tag, payload_hash, payload
+             ) VALUES (?, 'workspace-a', 'transcripts', ?, 'words_json',
+                       1, 'writer-a', 'tag-a', ?, ?)",
+        )
+        .bind(&record_id)
+        .bind(format!("transcript-{index}"))
+        .bind(&payload_hash)
+        .bind(&payload)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO e2ee_witness_records (
+               workspace_id, record_id, revision, writer_id, payload_hash, payload, sequence
+             ) VALUES ('workspace-a', ?, 1, 'writer-a', ?, ?, ?)",
+        )
+        .bind(&record_id)
+        .bind(&payload_hash)
+        .bind(&payload)
+        .bind(index + 1)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    }
+
+    let stored_payload_bytes: i64 = sqlx::query_scalar(
+        "SELECT
+           (SELECT COALESCE(sum(length(CAST(payload AS BLOB))), 0) FROM e2ee_records) +
+           (SELECT COALESCE(sum(length(CAST(payload AS BLOB))), 0) FROM e2ee_local_state) +
+           (SELECT COALESCE(sum(length(CAST(payload AS BLOB))), 0) FROM e2ee_witness_records) +
+           (SELECT COALESCE(sum(length(CAST(payload AS BLOB))), 0)
+              FROM e2ee_ciphertext_archive)",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(stored_payload_bytes, expected_payload_bytes);
+    let legacy_payload_bytes = expected_payload_bytes * 3;
+    assert_eq!(
+        legacy_payload_bytes - stored_payload_bytes,
+        expected_payload_bytes * 2
+    );
+}
+
 #[tokio::test]
 async fn e2ee_order_migration_backfills_the_canonical_payload_locally() {
     let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();

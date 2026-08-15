@@ -11,4 +11,8 @@ pub trait BatchRuntime: Send + Sync + 'static {
 
 pub trait DenoiseRuntime: Send + Sync + 'static {
     fn emit(&self, event: DenoiseEvent);
+
+    fn is_cancelled(&self) -> bool {
+        false
+    }
 }

@@ -88,7 +88,7 @@ pub fn select_speaker_spans(words: &[SpanWord], config: &SpanConfig) -> Vec<Sele
             })
             .collect();
 
-        spans.sort_by(|a, b| b.duration_ms().cmp(&a.duration_ms()));
+        spans.sort_by_key(|span| std::cmp::Reverse(span.duration_ms()));
         spans.truncate(config.max_spans_per_speaker);
         selected.extend(spans);
     }

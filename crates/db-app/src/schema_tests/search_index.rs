@@ -8,6 +8,14 @@ fn search_index_trigger_migrations_are_cloudsync_guarded() {
         .find(|step| step.id == "20260714120000_search_index_queue")
         .unwrap();
     assert_eq!(queue_step.scope, anlg_db_migrate::MigrationScope::Plain);
+    let acknowledgement_step = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260815100200_search_index_acknowledgements")
+        .unwrap();
+    assert_eq!(
+        acknowledgement_step.scope,
+        anlg_db_migrate::MigrationScope::Plain
+    );
 
     for (id, table_name) in [
         ("20260714120100_search_index_sessions_triggers", "sessions"),
@@ -34,6 +42,118 @@ fn search_index_trigger_migrations_are_cloudsync_guarded() {
             anlg_db_migrate::MigrationScope::CloudsyncAlter { table_name }
         );
     }
+}
+
+#[tokio::test]
+async fn acknowledged_search_generations_remain_monotonic() {
+    let db = test_db().await;
+    sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'One')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE search_index_dirty
+         SET acknowledged_generation = generation
+         WHERE entity_type = 'session' AND entity_id = 'session-1'",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query("UPDATE sessions SET title = 'Two' WHERE id = 'session-1'")
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+    let (generation, acknowledged_generation): (i64, i64) = sqlx::query_as(
+        "SELECT generation, acknowledged_generation
+         FROM search_index_dirty
+         WHERE entity_type = 'session' AND entity_id = 'session-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(generation, 2);
+    assert_eq!(acknowledged_generation, 1);
+}
+
+#[tokio::test]
+async fn active_transcript_journal_defers_search_until_final_compaction() {
+    let db = test_db().await;
+    sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'One')")
+        .execute(db.pool())
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO transcripts (id, session_id, words_json)
+         VALUES ('transcript-1', 'session-1', '[]')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE search_index_dirty
+         SET acknowledged_generation = generation
+         WHERE entity_type = 'session' AND entity_id = 'session-1'",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let baseline_generation: i64 = sqlx::query_scalar(
+        "SELECT generation FROM search_index_dirty
+         WHERE entity_type = 'session' AND entity_id = 'session-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+
+    let mut transaction = db.pool().begin().await.unwrap();
+    sqlx::query(
+        "INSERT INTO transcript_live_state (transcript_id, next_sequence)
+         VALUES ('transcript-1', 120)",
+    )
+    .execute(&mut *transaction)
+    .await
+    .unwrap();
+    for sequence in 0..120 {
+        sqlx::query(
+            "INSERT INTO transcript_live_deltas (id, transcript_id, sequence)
+             VALUES (?, 'transcript-1', ?)",
+        )
+        .bind(format!("delta-{sequence}"))
+        .bind(sequence)
+        .execute(&mut *transaction)
+        .await
+        .unwrap();
+    }
+    transaction.commit().await.unwrap();
+
+    let generation_during_capture: i64 = sqlx::query_scalar(
+        "SELECT generation FROM search_index_dirty
+         WHERE entity_type = 'session' AND entity_id = 'session-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(generation_during_capture, baseline_generation);
+
+    sqlx::query(
+        "UPDATE transcripts
+         SET words_json = '[{\"text\":\"final\"}]', content_revision = content_revision + 1
+         WHERE id = 'transcript-1'",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    let (final_generation, acknowledged_generation): (i64, i64) = sqlx::query_as(
+        "SELECT generation, acknowledged_generation
+         FROM search_index_dirty
+         WHERE entity_type = 'session' AND entity_id = 'session-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(final_generation, baseline_generation + 1);
+    assert_eq!(acknowledged_generation, baseline_generation);
 }
 
 #[tokio::test]

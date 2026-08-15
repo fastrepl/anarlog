@@ -1,0 +1,2 @@
+ALTER TABLE e2ee_records
+ADD COLUMN payload_hash TEXT NOT NULL DEFAULT '';

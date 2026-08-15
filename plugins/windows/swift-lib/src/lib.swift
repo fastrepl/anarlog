@@ -15,14 +15,22 @@ public func _floatingBarHide() -> Bool {
 
 @_cdecl("_floating_bar_update")
 public func _floatingBarUpdate(json: SRString) -> Bool {
-  let jsonString = json.toString()
-  guard let data = jsonString.data(using: .utf8),
-    let payload = try? JSONDecoder().decode(FloatingBarStatePayload.self, from: data)
-  else {
-    return false
-  }
+  autoreleasepool {
+    let jsonString = json.toString()
+    guard let data = jsonString.data(using: .utf8),
+      let payload = try? JSONDecoder().decode(FloatingBarStatePayload.self, from: data)
+    else {
+      return false
+    }
 
-  FloatingBarManager.shared.update(state: payload)
+    FloatingBarManager.shared.update(state: payload)
+    return true
+  }
+}
+
+@_cdecl("_floating_bar_update_amplitude")
+public func _floatingBarUpdateAmplitude(amplitude: Double) -> Bool {
+  FloatingBarManager.shared.update(amplitude: amplitude)
   return true
 }
 

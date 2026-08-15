@@ -19332,6 +19332,7 @@ dependencies = [
  "owhisper-client",
  "owhisper-interface",
  "ractor",
+ "rodio",
  "serde",
  "serde_json",
  "specta",

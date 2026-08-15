@@ -1,16 +1,16 @@
 import Foundation
 
-enum FloatingBarStatus: String, Codable {
+enum FloatingBarStatus: String, Codable, Equatable {
   case recording
   case error
 }
 
-enum FloatingBarColorScheme: String, Codable {
+enum FloatingBarColorScheme: String, Codable, Equatable {
   case light
   case dark
 }
 
-struct FloatingTranscriptBubblePayload: Codable, Identifiable {
+struct FloatingTranscriptBubblePayload: Codable, Identifiable, Equatable {
   let id: String
   let speakerLabel: String
   let text: String

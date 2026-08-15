@@ -19,6 +19,7 @@ permissions = [
     "allow-floating-bar-show",
     "allow-floating-bar-hide",
     "allow-floating-bar-update",
+    "allow-floating-bar-update-amplitude",
     "allow-live-caption-show",
     "allow-live-caption-hide",
     "allow-live-caption-update",

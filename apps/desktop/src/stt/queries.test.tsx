@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   executeTransaction: vi.fn(
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
-      Promise.resolve([1]),
+      Promise.resolve(_statements.map(() => 1)),
   ),
   humanRows: [] as Array<Record<string, unknown>>,
   participantRows: [] as Array<Record<string, unknown>>,
@@ -52,13 +52,15 @@ import {
   assignTranscriptSpeaker,
   createLiveTranscript,
   createTranscript,
+  flushLiveTranscriptDeltasToDatabase,
   removeHumanSpeakerAssignments,
   updateTranscriptSegmentText,
   useSessionParticipantHumanIds,
+  useSessionTranscriptMetadata,
   useSessionTranscripts,
   useTranscript,
   useTranscriptHumans,
-  useTranscriptLabelContext,
+  useTranscriptMetadata,
 } from "./queries";
 
 describe("transcript SQLite queries", () => {
@@ -107,8 +109,97 @@ describe("transcript SQLite queries", () => {
       }),
     ]);
     expect(mocks.queryOptions[0]?.sql).toContain(
-      "ORDER BY started_at_ms, created_at, id",
+      "ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id",
     );
+  });
+
+  it("materializes ordered live journal chunks on read", () => {
+    mocks.transcriptRows = [
+      {
+        id: "transcript-1",
+        owner_user_id: "user-1",
+        session_id: "session-1",
+        started_at_ms: 1000,
+        ended_at_ms: null,
+        words_json: JSON.stringify([
+          {
+            id: "word-old",
+            text: "Old",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 0,
+          },
+        ]),
+        speaker_hints_json: "[]",
+        content_revision: 0,
+        pending_deltas_json: JSON.stringify([
+          liveDelta(
+            [
+              {
+                id: "word-final",
+                text: "Final",
+                start_ms: 0,
+                end_ms: 100,
+                channel: 0,
+                state: "final",
+              },
+            ],
+            ["word-old"],
+          ),
+          liveDelta([
+            {
+              id: "word-next",
+              text: "Next",
+              start_ms: 100,
+              end_ms: 200,
+              channel: 0,
+              state: "final",
+            },
+          ]),
+        ]),
+      },
+    ];
+
+    const { result } = renderHook(() => useTranscript("transcript-1"));
+
+    expect(result.current?.words.map((word) => word.id)).toEqual([
+      "word-final",
+      "word-next",
+    ]);
+  });
+
+  it("projects transcript metadata without transferring content blobs", () => {
+    mocks.transcriptRows = [
+      {
+        id: "transcript-1",
+        session_id: "session-1",
+        started_at_ms: 1000,
+        ended_at_ms: 2000,
+        has_words: 1,
+      },
+    ];
+
+    const session = renderHook(() => useSessionTranscriptMetadata("session-1"));
+    const transcript = renderHook(() => useTranscriptMetadata("transcript-1"));
+
+    expect(session.result.current).toEqual([
+      {
+        id: "transcript-1",
+        sessionId: "session-1",
+        startedAt: 1000,
+        endedAt: 2000,
+        hasWords: true,
+      },
+    ]);
+    expect(transcript.result.current).toEqual(session.result.current[0]);
+    for (const query of mocks.queryOptions) {
+      expect(query.sql).toContain("END AS has_words");
+      expect(query.sql).not.toContain("transcript.speaker_hints_json");
+      expect(query.sql).not.toMatch(/transcript\.words_json,\s/);
+      expect(query.sql).not.toContain(
+        "json_array_length(transcript.words_json)",
+      );
+    }
   });
 
   it("treats non-array transcript payloads as empty without hiding the row", () => {
@@ -162,36 +253,6 @@ describe("transcript SQLite queries", () => {
       { human_id: "human-2", name: "Bob" },
     ]);
     expect(mocks.queryOptions[0]?.params).toEqual(["human-1", "human-2"]);
-  });
-
-  it("builds speaker labels from canonical owner, participant, and human rows", () => {
-    mocks.transcriptRows = [
-      {
-        id: "transcript-1",
-        owner_user_id: "self",
-        session_id: "session-1",
-        started_at_ms: 1000,
-        ended_at_ms: null,
-        words_json: "[]",
-        speaker_hints_json: "[]",
-      },
-    ];
-    mocks.participantRows = [{ human_id: "self" }, { human_id: "human-1" }];
-    mocks.humanRows = [
-      { id: "self", name: "John" },
-      { id: "human-1", name: "Alice" },
-    ];
-
-    const { result } = renderHook(() =>
-      useTranscriptLabelContext("transcript-1"),
-    );
-
-    expect(result.current?.getSelfHumanId()).toBe("self");
-    expect(result.current?.getHumanName("human-1")).toBe("Alice");
-    expect(result.current?.getParticipantHumanIds?.()).toEqual([
-      "self",
-      "human-1",
-    ]);
   });
 
   it("creates the first live transcript delta in one insert", async () => {
@@ -318,27 +379,7 @@ describe("transcript SQLite queries", () => {
     expect(statements[1]?.sql).toContain("INSERT INTO transcripts");
   });
 
-  it("retries a live delta against the latest row after a concurrent write", async () => {
-    mocks.execute
-      .mockResolvedValueOnce([{ words_json: "[]", speaker_hints_json: "[]" }])
-      .mockResolvedValueOnce([
-        {
-          words_json: JSON.stringify([
-            {
-              id: "external-word",
-              text: "External",
-              start_ms: 0,
-              end_ms: 100,
-              channel: 0,
-            },
-          ]),
-          speaker_hints_json: "[]",
-        },
-      ]);
-    mocks.executeTransaction
-      .mockResolvedValueOnce([0])
-      .mockResolvedValueOnce([1]);
-
+  it("appends a live delta without reading or binding canonical blobs", async () => {
     await applyLiveTranscriptDeltaToDatabase(
       "transcript-1",
       liveDelta([
@@ -353,13 +394,126 @@ describe("transcript SQLite queries", () => {
       ]),
     );
 
+    expect(mocks.execute).not.toHaveBeenCalled();
+    const statements = mocks.executeTransaction.mock.calls[0]?.[0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(3);
+    expect(statements[1]?.sql).toContain("INSERT INTO transcript_live_deltas");
+    expect(
+      statements.map((statement) => statement.sql).join("\n"),
+    ).not.toContain("words_json");
+    expect(JSON.parse(String(statements[1]?.params[1]))).toEqual(
+      expect.objectContaining({
+        new_words: [expect.objectContaining({ id: "word-2" })],
+      }),
+    );
+  });
+
+  it("retries a canonical edit with a small revision token", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([
+        {
+          words_json: "[]",
+          speaker_hints_json: "[]",
+          content_revision: 3,
+          pending_deltas_json: "[]",
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          words_json: JSON.stringify([
+            {
+              id: "external-word",
+              text: "External",
+              start_ms: 0,
+              end_ms: 100,
+              channel: 0,
+            },
+          ]),
+          speaker_hints_json: "[]",
+          content_revision: 4,
+          pending_deltas_json: "[]",
+        },
+      ]);
+    mocks.executeTransaction
+      .mockResolvedValueOnce([0, 0])
+      .mockResolvedValueOnce([1, 0]);
+
+    await appendTranscriptWordsAndHints(
+      "transcript-1",
+      [
+        {
+          id: "word-2",
+          text: "Hello",
+          start_ms: 200,
+          end_ms: 500,
+          channel: 0,
+        },
+      ],
+      [],
+    );
+
     const retryStatement = mocks.executeTransaction.mock.calls[1]?.[0]?.[0] as {
+      sql: string;
       params: unknown[];
     };
+    expect(retryStatement.sql).toContain("content_revision = ?");
+    expect(retryStatement.sql).not.toContain(
+      "words_json = ?\n              AND",
+    );
+    expect(retryStatement.params[retryStatement.params.length - 1]).toBe(4);
     expect(JSON.parse(String(retryStatement.params[0]))).toEqual([
       expect.objectContaining({ id: "external-word" }),
       expect.objectContaining({ id: "word-2" }),
     ]);
+  });
+
+  it("compacts pending chunks deterministically and clears the journal", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        words_json: JSON.stringify([
+          {
+            id: "word-old",
+            text: "Old",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 0,
+          },
+        ]),
+        speaker_hints_json: "[]",
+        content_revision: 7,
+        pending_deltas_json: JSON.stringify([
+          liveDelta(
+            [
+              {
+                id: "word-final",
+                text: "Final",
+                start_ms: 0,
+                end_ms: 100,
+                channel: 0,
+                state: "final",
+              },
+            ],
+            ["word-old"],
+          ),
+        ]),
+      },
+    ]);
+
+    await flushLiveTranscriptDeltasToDatabase("transcript-1");
+
+    const statements = mocks.executeTransaction.mock.calls[0]?.[0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(JSON.parse(String(statements[0]?.params[0]))).toEqual([
+      expect.objectContaining({ id: "word-final", text: "Final" }),
+    ]);
+    const updateParams = statements[0]?.params ?? [];
+    expect(updateParams[updateParams.length - 1]).toBe(7);
+    expect(statements[1]?.sql).toContain("changes() = 1");
   });
 
   it("refuses to overwrite malformed transcript JSON", async () => {

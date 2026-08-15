@@ -1,29 +1,48 @@
-import { setupI18n, type Messages } from "@lingui/core";
+import { setupI18n, type I18n, type Messages } from "@lingui/core";
 
-import type { DisplayLocale } from "./locales";
+import { SOURCE_LOCALE, type DisplayLocale } from "./locales";
 
 const catalogModules = import.meta.glob<{ messages: Messages }>(
   "./locales/*/messages.ts",
-  { eager: true },
 );
+const catalogCache = new Map<DisplayLocale, Promise<Messages>>();
 
-const catalogs = Object.fromEntries(
-  Object.entries(catalogModules).map(([path, module]) => {
-    const locale = path.match(/^\.\/locales\/([^/]+)\/messages\.ts$/)?.[1];
+export function getCatalogLocalesForDisplayLocale(
+  locale: DisplayLocale,
+): DisplayLocale[] {
+  return locale === SOURCE_LOCALE ? [SOURCE_LOCALE] : [SOURCE_LOCALE, locale];
+}
 
-    if (!locale) {
-      throw new Error(`Invalid i18n catalog path: ${path}`);
-    }
-
-    return [locale, module.messages];
-  }),
-) as Record<DisplayLocale, Messages>;
-
-export function createI18n(locale: DisplayLocale) {
+export async function createI18n(locale: DisplayLocale): Promise<I18n> {
   const i18n = setupI18n();
+  const locales = getCatalogLocalesForDisplayLocale(locale);
+  const messages = await Promise.all(locales.map(loadCatalog));
+  const sourceMessages = messages[0]!;
+  const activeMessages = messages[messages.length - 1]!;
 
-  i18n.load(catalogs);
+  i18n.load(SOURCE_LOCALE, sourceMessages);
+  i18n.load(locale, { ...sourceMessages, ...activeMessages });
   i18n.activate(locale);
 
   return i18n;
+}
+
+function loadCatalog(locale: DisplayLocale): Promise<Messages> {
+  const cached = catalogCache.get(locale);
+  if (cached) return cached;
+
+  const path = `./locales/${locale}/messages.ts`;
+  const load = catalogModules[path];
+  if (!load) {
+    return Promise.reject(new Error(`Missing i18n catalog: ${locale}`));
+  }
+
+  const pending = load()
+    .then((module) => module.messages)
+    .catch((error: unknown) => {
+      catalogCache.delete(locale);
+      throw error;
+    });
+  catalogCache.set(locale, pending);
+  return pending;
 }

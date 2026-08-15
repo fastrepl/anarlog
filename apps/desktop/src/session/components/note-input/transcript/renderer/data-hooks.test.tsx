@@ -22,8 +22,8 @@ vi.mock("../render-request-hooks", () => ({
 }));
 
 vi.mock("~/stt/queries", () => ({
-  useSessionTranscripts: vi.fn(() => []),
-  useTranscript: vi.fn(() => null),
+  useSessionTranscriptMetadata: vi.fn(() => []),
+  useTranscriptMetadata: vi.fn(() => null),
 }));
 
 vi.mock("~/stt/render-transcript", () => ({

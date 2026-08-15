@@ -22,6 +22,7 @@ Default permissions for the plugin
 - `allow-floating-bar-show`
 - `allow-floating-bar-hide`
 - `allow-floating-bar-update`
+- `allow-floating-bar-update-amplitude`
 - `allow-live-caption-show`
 - `allow-live-caption-hide`
 - `allow-live-caption-update`
@@ -163,6 +164,32 @@ Enables the floating_bar_update command without any pre-configured scope.
 <td>
 
 Denies the floating_bar_update command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-floating-bar-update-amplitude`
+
+</td>
+<td>
+
+Enables the floating_bar_update_amplitude command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-floating-bar-update-amplitude`
+
+</td>
+<td>
+
+Denies the floating_bar_update_amplitude command without any pre-configured scope.
 
 </td>
 </tr>

@@ -4,7 +4,7 @@ import { useAudioPlayer } from "~/audio-player";
 import { getLiveCaptureUiMode } from "~/store/zustand/listener/general-shared";
 import { useListener } from "~/stt/contexts";
 import type { Segment } from "~/stt/live-segment";
-import { useSessionTranscripts } from "~/stt/queries";
+import { useSessionTranscriptMetadata } from "~/stt/queries";
 
 type ListeningStatus = "listening" | "finalizing";
 type BatchPhase = "importing" | "transcribing";
@@ -43,12 +43,25 @@ export function useTranscriptScreen({
 }: {
   sessionId: string;
 }): TranscriptScreen {
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const batchError = useListener(
-    (state) => state.batch[sessionId]?.error ?? null,
-  );
-  const batchProgress = useListener((state) => state.batch[sessionId] ?? null);
-  const live = useListener((state) => state.live);
+  const {
+    batchError,
+    batchPercentage,
+    batchPhase,
+    captureGeneration,
+    captureMode,
+    degraded,
+    requestedLiveTranscription,
+    sessionMode,
+  } = useListener((state) => ({
+    batchError: state.batch[sessionId]?.error ?? null,
+    batchPercentage: state.batch[sessionId]?.percentage,
+    batchPhase: state.batch[sessionId]?.phase,
+    captureGeneration: state.live.captureGenerationBySession[sessionId] ?? 0,
+    captureMode: getLiveCaptureUiMode(state.live),
+    degraded: state.live.degraded,
+    requestedLiveTranscription: state.live.requestedLiveTranscription,
+    sessionMode: state.getSessionMode(sessionId),
+  }));
   const { audioExists } = useAudioPlayer();
 
   const { transcriptIds, liveSegments, hasTranscriptWords } =
@@ -56,7 +69,6 @@ export function useTranscriptScreen({
 
   const currentActive =
     sessionMode === "active" || sessionMode === "finalizing";
-  const captureMode = getLiveCaptureUiMode(live);
   const isRecordOnlyMode = sessionMode === "active" && captureMode !== "live";
   const hasVisibleTranscriptState =
     hasTranscriptWords || liveSegments.length > 0 || !!batchError;
@@ -64,16 +76,16 @@ export function useTranscriptScreen({
   if (sessionMode === "running_batch") {
     return {
       kind: "running_batch",
-      percentage: batchProgress?.percentage,
-      phase: batchProgress?.phase,
+      percentage: batchPercentage,
+      phase: batchPhase,
     };
   }
 
   if (isRecordOnlyMode) {
     return {
       kind: "batch_fallback",
-      requestedLiveTranscription: live.requestedLiveTranscription,
-      error: live.degraded,
+      requestedLiveTranscription,
+      error: degraded,
     };
   }
 
@@ -97,19 +109,17 @@ export function useTranscriptScreen({
     transcriptIds,
     liveSegments,
     currentActive,
-    captureGeneration: live.captureGenerationBySession[sessionId] ?? 0,
+    captureGeneration,
   };
 }
 
 function useTranscriptContent(sessionId: string) {
-  const transcripts = useSessionTranscripts(sessionId);
+  const transcripts = useSessionTranscriptMetadata(sessionId);
   const liveSegments = useListener((state) => state.liveSegments);
 
   return {
     transcriptIds: transcripts.map((transcript) => transcript.id),
     liveSegments,
-    hasTranscriptWords: transcripts.some(
-      (transcript) => transcript.words.length > 0,
-    ),
+    hasTranscriptWords: transcripts.some((transcript) => transcript.hasWords),
   };
 }

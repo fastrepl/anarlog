@@ -43,7 +43,7 @@ pub(super) async fn load_row_local_states_from_pool(
 ) -> E2eeReplicaResult<HashMap<String, LocalState>> {
     let states: Vec<LocalState> = sqlx::query_as(
         "SELECT record_id, workspace_id, table_name, row_id, field_name, revision,
-                writer_id, value_tag, payload_hash, payload
+                writer_id, value_tag, payload_hash, '' AS payload
          FROM e2ee_local_state
          WHERE workspace_id = ? AND table_name = ? AND row_id = ?",
     )
@@ -67,7 +67,7 @@ pub(super) async fn load_row_local_states(
     let states: Vec<LocalState> = sqlx::query_as(
         "SELECT record_id, workspace_id, table_name, row_id, field_name, revision,
                 writer_id, value_tag, payload_hash, payload
-         FROM e2ee_local_state
+         FROM e2ee_local_state_resolved
          WHERE workspace_id = ? AND table_name = ? AND row_id = ?",
     )
     .bind(workspace_id)
@@ -134,11 +134,19 @@ pub(super) async fn upsert_local_state(
     transaction: &mut Transaction<'_, Sqlite>,
     state: &LocalState,
 ) -> E2eeReplicaResult<()> {
+    retain_ciphertext(
+        transaction,
+        &state.workspace_id,
+        &state.record_id,
+        &state.payload_hash,
+        &state.payload,
+    )
+    .await?;
     sqlx::query(
         "INSERT INTO e2ee_local_state (
            record_id, workspace_id, table_name, row_id, field_name, revision,
-           writer_id, value_tag, payload_hash, payload
-         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           writer_id, value_tag, payload_hash
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(record_id) DO UPDATE SET
            workspace_id = excluded.workspace_id,
            table_name = excluded.table_name,
@@ -148,7 +156,6 @@ pub(super) async fn upsert_local_state(
            writer_id = excluded.writer_id,
            value_tag = excluded.value_tag,
            payload_hash = excluded.payload_hash,
-           payload = excluded.payload,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
     )
     .bind(&state.record_id)
@@ -160,10 +167,108 @@ pub(super) async fn upsert_local_state(
     .bind(&state.writer_id)
     .bind(&state.value_tag)
     .bind(&state.payload_hash)
-    .bind(&state.payload)
     .execute(&mut **transaction)
     .await?;
     reconcile_e2ee_witness_pending(transaction, &state.record_id).await?;
+    prune_ciphertext_archive(transaction, &state.workspace_id, &state.record_id).await?;
+    Ok(())
+}
+
+pub(super) async fn retain_ciphertext(
+    transaction: &mut Transaction<'_, Sqlite>,
+    workspace_id: &str,
+    record_id: &str,
+    payload_hash: &str,
+    payload: &str,
+) -> E2eeReplicaResult<()> {
+    if workspace_id.is_empty()
+        || record_id.is_empty()
+        || payload_hash.is_empty()
+        || payload.is_empty()
+        || anlg_e2ee::payload_hash(payload) != payload_hash
+    {
+        return Err(E2eeReplicaError::RollbackDetected);
+    }
+
+    let current: Option<(String, String, String)> = sqlx::query_as(
+        "SELECT workspace_id, payload_hash, payload
+         FROM e2ee_records
+         WHERE id = ?",
+    )
+    .bind(record_id)
+    .fetch_optional(&mut **transaction)
+    .await?;
+    if let Some((current_workspace_id, current_payload_hash, current_payload)) = current
+        && current_workspace_id == workspace_id
+        && current_payload == payload
+    {
+        if current_payload_hash != payload_hash {
+            sqlx::query(
+                "UPDATE e2ee_records
+                 SET payload_hash = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+                 WHERE id = ? AND workspace_id = ? AND payload = ?",
+            )
+            .bind(payload_hash)
+            .bind(record_id)
+            .bind(workspace_id)
+            .bind(payload)
+            .execute(&mut **transaction)
+            .await?;
+        }
+        return Ok(());
+    }
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO e2ee_ciphertext_archive (
+           workspace_id, record_id, payload_hash, payload
+         ) VALUES (?, ?, ?, ?)",
+    )
+    .bind(workspace_id)
+    .bind(record_id)
+    .bind(payload_hash)
+    .bind(payload)
+    .execute(&mut **transaction)
+    .await?;
+    Ok(())
+}
+
+pub(super) async fn prune_ciphertext_archive(
+    transaction: &mut Transaction<'_, Sqlite>,
+    workspace_id: &str,
+    record_id: &str,
+) -> E2eeReplicaResult<()> {
+    sqlx::query(
+        "DELETE FROM e2ee_ciphertext_archive AS archive
+         WHERE archive.workspace_id = ?
+           AND archive.record_id = ?
+           AND (
+             EXISTS (
+               SELECT 1 FROM e2ee_records AS replica
+               WHERE replica.workspace_id = archive.workspace_id
+                 AND replica.id = archive.record_id
+                 AND replica.payload_hash = archive.payload_hash
+                 AND replica.payload = archive.payload
+             )
+             OR (
+               NOT EXISTS (
+                 SELECT 1 FROM e2ee_local_state AS local
+                 WHERE local.workspace_id = archive.workspace_id
+                   AND local.record_id = archive.record_id
+                   AND local.payload_hash = archive.payload_hash
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM e2ee_witness_records AS witness
+                 WHERE witness.workspace_id = archive.workspace_id
+                   AND witness.record_id = archive.record_id
+                   AND witness.payload_hash = archive.payload_hash
+               )
+             )
+           )",
+    )
+    .bind(workspace_id)
+    .bind(record_id)
+    .execute(&mut **transaction)
+    .await?;
     Ok(())
 }
 
@@ -241,10 +346,12 @@ pub(super) async fn restore_local_payload(
     }
     sqlx::query(
         "UPDATE e2ee_records
-         SET payload = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         SET payload = ?, payload_hash = ?,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ? AND workspace_id = ?",
     )
     .bind(&state.payload)
+    .bind(&state.payload_hash)
     .bind(&state.record_id)
     .bind(&state.workspace_id)
     .execute(&mut **transaction)

@@ -30,7 +30,7 @@ import {
 } from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import type { EditorView } from "~/store/zustand/tabs/schema";
-import { useSessionTranscripts } from "~/stt/queries";
+import { useSessionTranscriptMetadata } from "~/stt/queries";
 
 type FileFormat = "pdf" | "txt" | "md" | "org";
 
@@ -97,7 +97,7 @@ export function ExportModal({
   const { data: transcriptItems, isLoading: isTranscriptLoading } =
     useTranscriptExportSegments(sessionId);
 
-  const transcripts = useSessionTranscripts(sessionId);
+  const transcripts = useSessionTranscriptMetadata(sessionId);
 
   const transcriptDuration = useMemo((): string | null => {
     if (transcripts.length === 0) {
