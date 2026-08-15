@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
+import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -14,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSessionRecorder } from "@/audio/use-session-recorder";
 import { AudioChip } from "@/components/audio-chip";
+import { HandoffCard } from "@/components/handoff-card";
 import { ListeningSheet } from "@/components/listening-sheet";
 import { Colors, Spacing } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
@@ -25,8 +27,10 @@ import {
 } from "@/data/session";
 import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
 import { useSessionTranscripts } from "@/data/transcripts";
+import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
+import { useMountEffect } from "@/lib/use-mount-effect";
 
 export default function NoteScreen() {
   const router = useRouter();
@@ -89,7 +93,12 @@ export default function NoteScreen() {
     }
   };
 
-  useEffect(() => flush, [id]);
+  useMountEffect(() => {
+    captureAnalytics("note_opened", {
+      entry_point: "mobile_note",
+    });
+    return flush;
+  });
 
   const onEdit = (patch: Partial<{ title: string; body: string }>) => {
     draftRef.current = { ...draftRef.current, ...patch };
@@ -108,12 +117,23 @@ export default function NoteScreen() {
   };
 
   const handleStop = async () => {
-    if (recorder.phase === "error" || recorder.phase === "unavailable") {
-      setListening(false);
-      return;
-    }
     const result = await recorder.stop();
     if (result !== "failed") setListening(false);
+  };
+
+  const handleRetryRecording = async () => {
+    const result = await recorder.retry();
+    if (result === "saved") setListening(false);
+  };
+
+  const handleOpenSettings = async () => {
+    try {
+      await Linking.openSettings();
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "recording_permission_settings_open",
+      });
+    }
   };
 
   const handleDelete = async () => {
@@ -161,15 +181,23 @@ export default function NoteScreen() {
             onChangeText={(title) => onEdit({ title })}
           />
           {audio.data && (
-            <AudioChip
-              key={`${audio.data.filename}:${audio.data.createdAt}`}
-              uri={
-                new File(Paths.document, "sessions", id, audio.data.filename)
-                  .uri
-              }
-              filename={audio.data.filename}
-              sizeBytes={audio.data.sizeBytes}
-            />
+            <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
+              <AudioChip
+                uri={
+                  new File(Paths.document, "sessions", id, audio.data.filename)
+                    .uri
+                }
+                filename={audio.data.filename}
+                sizeBytes={audio.data.sizeBytes}
+              />
+              <HandoffCard
+                uri={
+                  new File(Paths.document, "sessions", id, audio.data.filename)
+                    .uri
+                }
+                filename={audio.data.filename}
+              />
+            </View>
           )}
           {audio.data &&
             audio.data.transcriptStatus !== "complete" &&
@@ -229,9 +257,12 @@ export default function NoteScreen() {
       {listening && (
         <ListeningSheet
           phase={recorder.phase}
+          failure={recorder.failure}
           levels={recorder.levels}
           durationMs={recorder.durationMs}
           onStop={() => void handleStop()}
+          onRetry={() => void handleRetryRecording()}
+          onOpenSettings={() => void handleOpenSettings()}
         />
       )}
     </SafeAreaView>

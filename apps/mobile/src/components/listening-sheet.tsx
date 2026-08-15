@@ -13,7 +13,10 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import type { RecorderPhase } from "@/audio/use-session-recorder";
+import type {
+  RecorderFailure,
+  RecorderPhase,
+} from "@/audio/use-session-recorder";
 import { Waveform } from "@/components/waveform";
 import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
 
@@ -33,9 +36,15 @@ function statusLabel(phase: RecorderPhase, durationMs: number): string {
     case "saving":
       return "Saving recording…";
     case "unavailable":
-      return "Microphone unavailable";
+      return "Microphone access needed";
+    case "interrupted":
+      return "Recording interrupted";
+    case "save_error":
+      return "Recording needs to be saved";
     case "error":
-      return "Couldn't save the recording";
+      return "Recorder unavailable";
+    case "saved":
+      return "Recording saved";
     default:
       return "Getting ready…";
   }
@@ -43,14 +52,20 @@ function statusLabel(phase: RecorderPhase, durationMs: number): string {
 
 export function ListeningSheet({
   phase,
+  failure,
   levels,
   durationMs,
   onStop,
+  onRetry,
+  onOpenSettings,
 }: {
   phase: RecorderPhase;
+  failure: RecorderFailure | null;
   levels: number[] | null;
   durationMs: number;
   onStop: () => void;
+  onRetry: () => void;
+  onOpenSettings: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailHeight = useSharedValue(0);
@@ -66,6 +81,14 @@ export function ListeningSheet({
   const detailStyle = useAnimatedStyle(() => ({
     height: detailHeight.value,
   }));
+  const permissionDenied =
+    phase === "unavailable" && failure === "permission_denied";
+  const recoverable = ["interrupted", "save_error", "error"].includes(phase);
+  const handlePanelPress = permissionDenied
+    ? onOpenSettings
+    : recoverable
+      ? onRetry
+      : onStop;
 
   return (
     <View style={styles.sheet}>
@@ -85,13 +108,13 @@ export function ListeningSheet({
           </Text>
         </View>
         <Text style={styles.detailHint}>
-          Leave your phone on the table and talk. The transcript is generated
-          once the recording syncs.
+          Leave your phone on the table and talk. Audio saves locally first;
+          transcription starts after you stop.
         </Text>
       </Animated.View>
 
       <Pressable
-        onPress={onStop}
+        onPress={handlePanelPress}
         disabled={phase === "saving"}
         style={({ pressed }) => [styles.panel, pressed && styles.panelPressed]}
       >
@@ -99,11 +122,27 @@ export function ListeningSheet({
           <View style={styles.panelCenter}>
             <ActivityIndicator color={Colors.inkInverse} />
           </View>
-        ) : phase === "error" ? (
+        ) : permissionDenied ? (
           <View style={styles.panelCenter}>
             <Text style={styles.panelMessage}>
-              Couldn't save — tap to dismiss
+              Microphone access is off — open Settings
             </Text>
+          </View>
+        ) : phase === "interrupted" ? (
+          <View style={styles.panelCenter}>
+            <Text style={styles.panelMessage}>
+              Interrupted — tap to save or retry
+            </Text>
+          </View>
+        ) : phase === "save_error" ? (
+          <View style={styles.panelCenter}>
+            <Text style={styles.panelMessage}>
+              Couldn't save — tap to retry
+            </Text>
+          </View>
+        ) : phase === "error" ? (
+          <View style={styles.panelCenter}>
+            <Text style={styles.panelMessage}>Tap to recover recording</Text>
           </View>
         ) : (
           <Waveform levels={levels} />
