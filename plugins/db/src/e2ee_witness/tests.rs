@@ -117,6 +117,26 @@ fn witness_page(
 }
 
 #[test]
+fn derives_a_sibling_witness_endpoint_for_a_shared_workspace() {
+    let client = E2eeWitnessClient::new(
+        crate::CloudsyncE2eeWitness {
+            endpoint: "https://api.example.com/sync/e2ee/witness/personal".to_string(),
+            access_token: "access-token".to_string(),
+        },
+        "personal",
+    )
+    .unwrap();
+
+    let shared = client.for_workspace("shared-workspace").unwrap();
+
+    assert_eq!(
+        shared.endpoint.as_str(),
+        "https://api.example.com/sync/e2ee/witness/shared-workspace"
+    );
+    assert_eq!(shared.workspace_id(), "shared-workspace");
+}
+
+#[test]
 fn cancelled_replica_work_is_reported_as_an_interrupted_witness_operation() {
     assert_eq!(
         replica_error(anlg_db_app::E2eeReplicaError::Cancelled).kind(),

@@ -836,3 +836,86 @@ async fn failed_reconciliation_epoch_stays_pending() {
     );
     assert!(hook.reconciliation_requested());
 }
+
+#[tokio::test]
+async fn shared_witness_rejection_blocks_the_cloudsync_network_phase() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let hook = E2eeSyncHook::default();
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let shared_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+    hook.set_workspaces(
+        "personal",
+        &recovery_key,
+        HashMap::from([(
+            "shared".to_string(),
+            anlg_e2ee::WorkspaceKeyring::new(shared_key),
+        )]),
+    )
+    .unwrap();
+
+    let server = MockServer::start().await;
+    let initialized_page = || {
+        ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "initialized": true,
+            "initializedAt": "2026-08-15T00:00:00Z",
+            "headSequence": 0,
+            "throughSequence": 0,
+            "nextAfterSequence": 0,
+            "events": [],
+        }))
+    };
+    Mock::given(wiremock::matchers::method("GET"))
+        .and(path("/sync/e2ee/witness/personal"))
+        .respond_with(initialized_page())
+        .mount(&server)
+        .await;
+    Mock::given(wiremock::matchers::method("POST"))
+        .and(path("/sync/e2ee/witness/personal"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "initializedAt": "2026-08-15T00:00:00Z",
+            "headSequence": 0,
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(wiremock::matchers::method("GET"))
+        .and(path("/sync/e2ee/witness/shared"))
+        .respond_with(initialized_page())
+        .mount(&server)
+        .await;
+    Mock::given(wiremock::matchers::method("POST"))
+        .and(path("/sync/e2ee/witness/shared"))
+        .respond_with(ResponseTemplate::new(403))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let personal_witness = crate::e2ee_witness::E2eeWitnessClient::new(
+        crate::CloudsyncE2eeWitness {
+            endpoint: format!("{}/sync/e2ee/witness/personal", server.uri()),
+            access_token: "access-token".to_string(),
+        },
+        "personal",
+    )
+    .unwrap();
+    let shared_witness = personal_witness.for_workspace("shared").unwrap();
+    hook.set_witnesses(HashMap::from([
+        ("personal".to_string(), personal_witness),
+        ("shared".to_string(), shared_witness),
+    ]));
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+         VALUES ('shared-session', 'shared', 'member', 'Retired key write')",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    let error = anlg_db_core::CloudsyncSyncHook::before_sync(&hook, db.pool())
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("403 Forbidden"));
+}

@@ -148,3 +148,56 @@ async fn watcher_restarts_the_cursor_when_the_witness_workspace_changes() {
         "a swapped witness must not inherit the previous workspace's trigger cursor"
     );
 }
+
+#[tokio::test]
+async fn watcher_polls_every_configured_workspace_witness() {
+    let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+    anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
+    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+
+    let server = MockServer::start().await;
+    for workspace in ["personal", "shared"] {
+        Mock::given(method("GET"))
+            .and(wiremock::matchers::path(format!(
+                "/sync/e2ee/witness/{workspace}/wait"
+            )))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "initialized": true,
+                "headSequence": 0,
+            })))
+            .mount(&server)
+            .await;
+    }
+    let personal = crate::e2ee_witness::E2eeWitnessClient::new(
+        crate::CloudsyncE2eeWitness {
+            endpoint: format!("{}/sync/e2ee/witness/personal", server.uri()),
+            access_token: "access-token".to_string(),
+        },
+        "personal",
+    )
+    .unwrap();
+    let shared = personal.for_workspace("shared").unwrap();
+
+    runtime.e2ee_sync_hook.set_witnesses(HashMap::from([
+        ("personal".to_string(), personal),
+        ("shared".to_string(), shared),
+    ]));
+
+    tokio::time::timeout(std::time::Duration::from_secs(10), async {
+        loop {
+            let paths = wait_requests(&server)
+                .await
+                .into_iter()
+                .map(|request| request.url.path().to_string())
+                .collect::<std::collections::HashSet<_>>();
+            if paths.contains("/sync/e2ee/witness/personal/wait")
+                && paths.contains("/sync/e2ee/witness/shared/wait")
+            {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("the watcher did not poll every configured workspace");
+}

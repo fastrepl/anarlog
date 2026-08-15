@@ -31,6 +31,25 @@ pub(super) enum ReplicaSyncOutcome {
     Paused,
 }
 
+fn ordered_witness_workspace_ids(
+    keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+    witnesses: &HashMap<String, crate::e2ee_witness::E2eeWitnessClient>,
+) -> std::io::Result<Vec<String>> {
+    if keys.is_empty()
+        || keys.len() != witnesses.len()
+        || keys
+            .keys()
+            .any(|workspace_id| !witnesses.contains_key(workspace_id))
+    {
+        return Err(std::io::Error::other(
+            "E2EE freshness witnesses do not match configured workspaces",
+        ));
+    }
+    let mut workspace_ids = keys.keys().cloned().collect::<Vec<_>>();
+    workspace_ids.sort_unstable();
+    Ok(workspace_ids)
+}
+
 pub(crate) struct CloudsyncTokenConfiguration {
     pub(super) database_id: String,
     pub(super) token: String,
@@ -80,7 +99,7 @@ impl CloudsyncTokenConfiguration {
 #[derive(Default)]
 pub(super) struct E2eeSyncHook {
     keys: std::sync::RwLock<HashMap<String, anlg_e2ee::WorkspaceKeyring>>,
-    witness: std::sync::RwLock<Option<crate::e2ee_witness::E2eeWitnessClient>>,
+    witnesses: std::sync::RwLock<HashMap<String, crate::e2ee_witness::E2eeWitnessClient>>,
     transport: std::sync::atomic::AtomicU8,
     pub(super) witness_changed: tokio::sync::Notify,
     pub(super) replica_sync_requested: tokio::sync::Notify,
@@ -161,7 +180,7 @@ impl E2eeSyncHook {
     pub(super) fn clear(&self) {
         self.cancel_active_sync();
         self.keys.write().unwrap().clear();
-        *self.witness.write().unwrap() = None;
+        self.witnesses.write().unwrap().clear();
         self.transport.store(
             E2eeTransport::None as u8,
             std::sync::atomic::Ordering::Release,
@@ -187,22 +206,36 @@ impl E2eeSyncHook {
         self.keys.read().unwrap().clone()
     }
 
+    #[cfg(test)]
     pub(super) fn set_witness(&self, witness: crate::e2ee_witness::E2eeWitnessClient) {
-        self.set_witness_for_transport(witness, E2eeTransport::Cloudsync);
+        self.set_witnesses_for_transport(
+            HashMap::from([(witness.workspace_id().to_string(), witness)]),
+            E2eeTransport::Cloudsync,
+        );
+    }
+
+    pub(super) fn set_witnesses(
+        &self,
+        witnesses: HashMap<String, crate::e2ee_witness::E2eeWitnessClient>,
+    ) {
+        self.set_witnesses_for_transport(witnesses, E2eeTransport::Cloudsync);
     }
 
     pub(super) fn set_replica_witness(&self, witness: crate::e2ee_witness::E2eeWitnessClient) {
-        self.set_witness_for_transport(witness, E2eeTransport::Replica);
+        self.set_witnesses_for_transport(
+            HashMap::from([(witness.workspace_id().to_string(), witness)]),
+            E2eeTransport::Replica,
+        );
         self.replica_sync_requested.notify_one();
     }
 
-    fn set_witness_for_transport(
+    fn set_witnesses_for_transport(
         &self,
-        witness: crate::e2ee_witness::E2eeWitnessClient,
+        witnesses: HashMap<String, crate::e2ee_witness::E2eeWitnessClient>,
         transport: E2eeTransport,
     ) {
         self.cancel_active_sync();
-        *self.witness.write().unwrap() = Some(witness);
+        *self.witnesses.write().unwrap() = witnesses;
         self.transport
             .store(transport as u8, std::sync::atomic::Ordering::Release);
         self.witness_changed.notify_waiters();
@@ -248,7 +281,21 @@ impl E2eeSyncHook {
     }
 
     pub(super) fn witness(&self) -> Option<crate::e2ee_witness::E2eeWitnessClient> {
-        self.witness.read().unwrap().clone()
+        let witnesses = self.witnesses.read().unwrap();
+        (witnesses.len() == 1)
+            .then(|| witnesses.values().next().cloned())
+            .flatten()
+    }
+
+    pub(super) fn witness_for_workspace(
+        &self,
+        workspace_id: &str,
+    ) -> Option<crate::e2ee_witness::E2eeWitnessClient> {
+        self.witnesses.read().unwrap().get(workspace_id).cloned()
+    }
+
+    pub(super) fn witnesses(&self) -> HashMap<String, crate::e2ee_witness::E2eeWitnessClient> {
+        self.witnesses.read().unwrap().clone()
     }
 
     pub(super) fn begin_activity(&self, activity: String, key: String) {
@@ -502,18 +549,13 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
         pool: &'a sqlx::SqlitePool,
     ) -> anlg_db_core::CloudsyncBeforeHookFuture<'a> {
         let keys = self.snapshot();
-        let witness = self.witness();
+        let witnesses = self.witnesses();
         Box::pin(async move {
             let active_sync = self.begin_sync();
             let cancellation = active_sync.cancellation.clone();
             let operation = async {
                 cancellation.check()?;
-                let witness = witness.ok_or_else(|| {
-                    std::io::Error::other("E2EE freshness witness is not configured")
-                })?;
-                let keyring = keys.get(witness.workspace_id()).ok_or_else(|| {
-                    std::io::Error::other("E2EE freshness witness identity is not configured")
-                })?;
+                let workspace_ids = ordered_witness_workspace_ids(&keys, &witnesses)?;
                 let full_resync_pending = anlg_db_app::cloudsync_full_resync_generation(pool)
                     .await
                     .map_err(|error| {
@@ -529,17 +571,19 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                     );
                     return Ok(anlg_db_core::CloudsyncSyncDirective::ReceiveOnly);
                 }
-                witness
-                    .refresh_notifying_cancellable(
-                        pool,
-                        keyring.active(),
-                        || {
-                            self.request_reconciliation();
-                        },
-                        &cancellation,
-                    )
-                    .await?;
-                cancellation.check()?;
+                for workspace_id in &workspace_ids {
+                    witnesses[workspace_id]
+                        .refresh_keyring_notifying_cancellable(
+                            pool,
+                            &keys[workspace_id],
+                            || {
+                                self.request_reconciliation();
+                            },
+                            &cancellation,
+                        )
+                        .await?;
+                    cancellation.check()?;
+                }
                 let stats =
                     anlg_db_app::encrypt_e2ee_replica_changes_bounded_deferring_active_captures_cancellable(
                         pool,
@@ -556,17 +600,19 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
                     encrypted_fields = stats.encrypted_fields,
                     "prepared encrypted CloudSync replica"
                 );
-                witness
-                    .publish_and_refresh_notifying_cancellable(
-                        pool,
-                        keyring.active(),
-                        || {
-                            self.request_reconciliation();
-                        },
-                        &cancellation,
-                    )
-                    .await?;
-                cancellation.check()?;
+                for workspace_id in &workspace_ids {
+                    witnesses[workspace_id]
+                        .publish_and_refresh_keyring_notifying_cancellable(
+                            pool,
+                            &keys[workspace_id],
+                            || {
+                                self.request_reconciliation();
+                            },
+                            &cancellation,
+                        )
+                        .await?;
+                    cancellation.check()?;
+                }
                 Ok(anlg_db_core::CloudsyncSyncDirective::SendAndReceive)
             };
             tokio::pin!(operation);
@@ -591,29 +637,26 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
             self.request_reconciliation();
         }
         let keys = self.snapshot();
-        let witness = self.witness();
+        let witnesses = self.witnesses();
         Box::pin(async move {
             let active_sync = self.begin_sync();
             let cancellation = active_sync.cancellation.clone();
             let operation = async {
                 cancellation.check()?;
-                let witness = witness.ok_or_else(|| {
-                    std::io::Error::other("E2EE freshness witness is not configured")
-                })?;
-                let keyring = keys.get(witness.workspace_id()).ok_or_else(|| {
-                    std::io::Error::other("E2EE freshness witness identity is not configured")
-                })?;
-                witness
-                    .refresh_notifying_cancellable(
-                        pool,
-                        keyring.active(),
-                        || {
-                            self.request_reconciliation();
-                        },
-                        &cancellation,
-                    )
-                    .await?;
-                cancellation.check()?;
+                let workspace_ids = ordered_witness_workspace_ids(&keys, &witnesses)?;
+                for workspace_id in &workspace_ids {
+                    witnesses[workspace_id]
+                        .refresh_keyring_notifying_cancellable(
+                            pool,
+                            &keys[workspace_id],
+                            || {
+                                self.request_reconciliation();
+                            },
+                            &cancellation,
+                        )
+                        .await?;
+                    cancellation.check()?;
+                }
                 let recovery_pending = anlg_db_app::cloudsync_full_resync_generation(pool)
                     .await
                     .map_err(|error| {

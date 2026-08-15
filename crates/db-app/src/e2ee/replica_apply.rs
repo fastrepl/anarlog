@@ -412,10 +412,9 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
                 field,
             };
             let candidate_is_newer = records_by_field.get(&field_name).is_none_or(|current| {
-                candidate
-                    .field
-                    .revision
-                    .cmp(&current.field.revision)
+                (candidate.field.key_id == keyring.active().key_id())
+                    .cmp(&(current.field.key_id == keyring.active().key_id()))
+                    .then_with(|| candidate.field.revision.cmp(&current.field.revision))
                     .then_with(|| candidate.field.writer_id.cmp(&current.field.writer_id))
                     .then_with(|| candidate.payload_hash.cmp(&current.payload_hash))
                     == Ordering::Greater

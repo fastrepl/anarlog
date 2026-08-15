@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use anlg_db_core::Db;
+use futures_util::StreamExt;
 
 use super::e2ee_sync::E2eeSyncHook;
 use crate::e2ee_witness::E2eeWitnessCancellation;
@@ -20,83 +21,83 @@ pub(super) struct WitnessWatchTask {
 pub(super) fn spawn_witness_watch(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> WitnessWatchTask {
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     tauri::async_runtime::spawn(async move {
-        let mut error_backoff = WATCH_ERROR_BACKOFF_MIN;
-        let mut last_triggered: u64 = 0;
-        let mut watched_workspace: Option<String> = None;
         loop {
             let witness_changed = hook.witness_changed.notified();
             tokio::pin!(witness_changed);
             witness_changed.as_mut().enable();
-            let Some(witness) = hook.witness() else {
+            let witnesses = hook.witnesses();
+            if witnesses.is_empty() {
                 tokio::select! {
                     _ = &mut shutdown_rx => return,
                     () = &mut witness_changed => {}
                 }
                 continue;
-            };
-            // A swapped witness (sign-out, account switch) starts over in a new
-            // sequence space; carrying last_triggered across would suppress wakes
-            // until the new head outgrows the old workspace's sequence.
-            if watched_workspace.as_deref() != Some(witness.workspace_id()) {
-                last_triggered = 0;
-                watched_workspace = Some(witness.workspace_id().to_string());
             }
-
+            let mut workers = futures_util::stream::FuturesUnordered::new();
+            for witness in witnesses.into_values() {
+                workers.push(watch_witness(Arc::clone(&db), Arc::clone(&hook), witness));
+            }
             tokio::select! {
                 _ = &mut shutdown_rx => return,
-                () = tokio::time::sleep(WATCH_POLL_PACING) => {}
-            }
-
-            let cursor =
-                match anlg_db_app::e2ee_witness_cursor(db.pool(), witness.workspace_id()).await {
-                    Ok(cursor) => cursor,
-                    Err(error) => {
-                        tracing::debug!(%error, "witness watch could not read the local cursor");
-                        tokio::select! {
-                            _ = &mut shutdown_rx => return,
-                            () = tokio::time::sleep(error_backoff) => {}
-                            () = &mut witness_changed => {}
-                        }
-                        error_backoff = (error_backoff * 2).min(WATCH_ERROR_BACKOFF_MAX);
-                        continue;
-                    }
-                };
-            let after = cursor.max(last_triggered);
-
-            let cancellation = E2eeWitnessCancellation::default();
-            let wait = witness.wait_for_remote_head(after, &cancellation);
-            tokio::pin!(wait);
-            let result = tokio::select! {
-                _ = &mut shutdown_rx => return,
                 () = &mut witness_changed => continue,
-                result = &mut wait => result,
-            };
-            match result {
-                Ok(Some(head)) => {
-                    last_triggered = head;
-                    error_backoff = WATCH_ERROR_BACKOFF_MIN;
-                    if hook.replica_transport_configured() {
-                        hook.request_replica_sync();
-                    } else {
-                        db.cloudsync_request_sync();
-                    }
-                }
-                Ok(None) => {
-                    error_backoff = WATCH_ERROR_BACKOFF_MIN;
-                }
-                Err(error) => {
-                    tracing::debug!(%error, "witness watch long-poll failed");
-                    tokio::select! {
-                        _ = &mut shutdown_rx => return,
-                        () = tokio::time::sleep(error_backoff) => {}
-                        () = &mut witness_changed => {}
-                    }
-                    error_backoff = (error_backoff * 2).min(WATCH_ERROR_BACKOFF_MAX);
-                }
+                _ = workers.next() => {}
             }
         }
     });
     WitnessWatchTask {
         _shutdown_tx: shutdown_tx,
+    }
+}
+
+async fn watch_witness(
+    db: Arc<Db>,
+    hook: Arc<E2eeSyncHook>,
+    witness: crate::e2ee_witness::E2eeWitnessClient,
+) {
+    let mut error_backoff = WATCH_ERROR_BACKOFF_MIN;
+    let mut last_triggered = 0_u64;
+    loop {
+        tokio::time::sleep(WATCH_POLL_PACING).await;
+        let cursor = match anlg_db_app::e2ee_witness_cursor(db.pool(), witness.workspace_id()).await
+        {
+            Ok(cursor) => cursor,
+            Err(error) => {
+                tracing::debug!(
+                    workspace_id = witness.workspace_id(),
+                    %error,
+                    "witness watch could not read the local cursor"
+                );
+                tokio::time::sleep(error_backoff).await;
+                error_backoff = (error_backoff * 2).min(WATCH_ERROR_BACKOFF_MAX);
+                continue;
+            }
+        };
+        let cancellation = E2eeWitnessCancellation::default();
+        match witness
+            .wait_for_remote_head(cursor.max(last_triggered), &cancellation)
+            .await
+        {
+            Ok(Some(head)) => {
+                last_triggered = head;
+                error_backoff = WATCH_ERROR_BACKOFF_MIN;
+                if hook.replica_transport_configured() {
+                    hook.request_replica_sync();
+                } else {
+                    db.cloudsync_request_sync();
+                }
+            }
+            Ok(None) => {
+                error_backoff = WATCH_ERROR_BACKOFF_MIN;
+            }
+            Err(error) => {
+                tracing::debug!(
+                    workspace_id = witness.workspace_id(),
+                    %error,
+                    "witness watch long-poll failed"
+                );
+                tokio::time::sleep(error_backoff).await;
+                error_backoff = (error_backoff * 2).min(WATCH_ERROR_BACKOFF_MAX);
+            }
+        }
     }
 }

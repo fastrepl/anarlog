@@ -1,5 +1,5 @@
 begin;
-select plan(28);
+select plan(37);
 
 select tests.create_supabase_user('grant_owner', 'grant-owner@example.com');
 select tests.create_supabase_user('grant_member', 'grant-member@example.com');
@@ -13,6 +13,33 @@ create temporary table workspace_grant_test_state (
 );
 
 grant all on workspace_grant_test_state to authenticated, service_role;
+
+create temporary table workspace_witness_test_event as
+select
+  key_id,
+  repeat(lower(left(key_id, 1)), 43)::text as record_id,
+  payload,
+  rtrim(
+    translate(encode(extensions.digest(payload, 'sha256'), 'base64'), '+/', '-_'),
+    '='
+  )::text as payload_hash
+from (
+  select key_id,
+    jsonb_build_object(
+      'version', 1,
+      'key_id', key_id,
+      'nonce', repeat('N', 32),
+      'ciphertext', 'opaque-' || key_id
+    )::text as payload
+  from (
+    values
+      ('AAAAAAAAAAAAAAAAAAAAAA'::text),
+      ('BBBBBBBBBBBBBBBBBBBBBB'::text),
+      ('CCCCCCCCCCCCCCCCCCCCCC'::text)
+  ) as key_ids(key_id)
+) as payloads;
+
+grant all on workspace_witness_test_event to authenticated, service_role;
 
 reset role;
 
@@ -47,7 +74,8 @@ select ok(
         'set_workspace_e2ee_key',
         'list_my_workspace_e2ee_grants',
         'list_all_my_workspace_e2ee_grants',
-        'purge_workspace_e2ee_grants_for_membership'
+        'purge_workspace_e2ee_grants_for_membership',
+        'initialize_shared_workspace_e2ee_witness'
       )
       and (
         not proc.prosecdef
@@ -220,6 +248,52 @@ select results_eq(
 );
 
 select tests.clear_authentication();
+select tests.authenticate_as_service_role();
+
+select isnt(
+  (
+    select e2ee_freshness_initialized_at
+    from public.workspaces
+    where id = (select workspace_id from workspace_grant_test_state where name = 'hq')
+  ),
+  null,
+  'The first shared workspace key initializes its authoritative witness'
+);
+
+select lives_ok(
+  $$
+    select * from public.read_e2ee_freshness_page(
+      tests.get_supabase_uid('grant_member'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      0,
+      null,
+      64
+    )
+  $$,
+  'An active shared member can read the workspace witness through trusted service code'
+);
+
+select lives_ok(
+  $$
+    select * from public.publish_e2ee_freshness_events(
+      tests.get_supabase_uid('grant_member'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      false,
+      (
+        select jsonb_build_array(jsonb_build_object(
+          'record_id', record_id,
+          'payload_hash', payload_hash,
+          'payload', payload
+        ))
+        from workspace_witness_test_event
+        where key_id = 'AAAAAAAAAAAAAAAAAAAAAA'
+      )
+    )
+  $$,
+  'An active shared member can publish ciphertext sealed by the active generation'
+);
+
+select tests.clear_authentication();
 select tests.authenticate_as('grant_member');
 
 select results_eq(
@@ -299,6 +373,54 @@ select lives_ok(
   'A manager can rotate the workspace to a new key generation'
 );
 
+select tests.clear_authentication();
+select tests.authenticate_as_service_role();
+
+select throws_ok(
+  $$
+    select * from public.publish_e2ee_freshness_events(
+      tests.get_supabase_uid('grant_owner'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      false,
+      (
+        select jsonb_build_array(jsonb_build_object(
+          'record_id', record_id,
+          'payload_hash', payload_hash,
+          'payload', payload
+        ))
+        from workspace_witness_test_event
+        where key_id = 'AAAAAAAAAAAAAAAAAAAAAA'
+      )
+    )
+  $$,
+  '22023',
+  'E2EE freshness event is invalid',
+  'A retired shared key generation can no longer publish witness events'
+);
+
+select lives_ok(
+  $$
+    select * from public.publish_e2ee_freshness_events(
+      tests.get_supabase_uid('grant_owner'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      false,
+      (
+        select jsonb_build_array(jsonb_build_object(
+          'record_id', record_id,
+          'payload_hash', payload_hash,
+          'payload', payload
+        ))
+        from workspace_witness_test_event
+        where key_id = 'BBBBBBBBBBBBBBBBBBBBBB'
+      )
+    )
+  $$,
+  'The active rotated generation can publish witness events'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as_hyprnote_pro('grant_owner');
+
 select results_eq(
   $$
     select key_id, is_active
@@ -360,6 +482,35 @@ select results_eq(
   'Revoking membership retires the exposed generation before future writes can sync'
 );
 
+select throws_ok(
+  $$
+    select * from public.publish_e2ee_freshness_events(
+      tests.get_supabase_uid('grant_owner'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      false,
+      '[]'::jsonb
+    )
+  $$,
+  '42501',
+  'E2EE freshness publication is not permitted',
+  'A membership change freezes publication until a replacement key is active'
+);
+
+select throws_ok(
+  $$
+    select * from public.read_e2ee_freshness_page(
+      tests.get_supabase_uid('grant_owner'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      0,
+      null,
+      64
+    )
+  $$,
+  '42501',
+  'E2EE freshness read is not permitted',
+  'A workspace without an active generation cannot consume witness history'
+);
+
 select tests.clear_authentication();
 select tests.authenticate_as_hyprnote_pro('grant_owner');
 
@@ -376,6 +527,44 @@ select results_eq(
   $$,
   $$values ('CCCCCCCCCCCCCCCCCCCCCC'::text, 1)$$,
   'The remaining manager can rotate to a key that excludes the removed member'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as_service_role();
+
+select lives_ok(
+  $$
+    select * from public.publish_e2ee_freshness_events(
+      tests.get_supabase_uid('grant_owner'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      false,
+      (
+        select jsonb_build_array(jsonb_build_object(
+          'record_id', record_id,
+          'payload_hash', payload_hash,
+          'payload', payload
+        ))
+        from workspace_witness_test_event
+        where key_id = 'CCCCCCCCCCCCCCCCCCCCCC'
+      )
+    )
+  $$,
+  'The replacement generation resumes witness publication for remaining members'
+);
+
+select throws_ok(
+  $$
+    select * from public.read_e2ee_freshness_page(
+      tests.get_supabase_uid('grant_member'),
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      0,
+      null,
+      64
+    )
+  $$,
+  '42501',
+  'E2EE freshness read is not permitted',
+  'A removed member cannot read witness history after the replacement key is active'
 );
 
 select tests.clear_authentication();

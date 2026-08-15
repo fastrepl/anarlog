@@ -16,9 +16,10 @@ pub use witness::{
     acknowledge_e2ee_witness_uploads, acknowledge_e2ee_witness_uploads_cancellable,
     advance_e2ee_witness_cursor, e2ee_witness_cursor, has_e2ee_local_state,
     has_pending_e2ee_witness_repairs, has_pending_e2ee_witness_repairs_cancellable,
-    merge_e2ee_witness_events, merge_e2ee_witness_events_cancellable, pending_e2ee_witness_uploads,
-    pending_e2ee_witness_uploads_cancellable, repair_e2ee_replica_from_witness_bounded,
-    repair_e2ee_replica_from_witness_bounded_cancellable,
+    merge_e2ee_witness_events, merge_e2ee_witness_events_cancellable,
+    merge_e2ee_witness_events_with_keyring, merge_e2ee_witness_events_with_keyring_cancellable,
+    pending_e2ee_witness_uploads, pending_e2ee_witness_uploads_cancellable,
+    repair_e2ee_replica_from_witness_bounded, repair_e2ee_replica_from_witness_bounded_cancellable,
 };
 
 pub const E2EE_DOMAIN_TABLES: &[&str] = &[

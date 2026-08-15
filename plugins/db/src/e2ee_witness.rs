@@ -150,6 +150,30 @@ impl E2eeWitnessClient {
         })
     }
 
+    pub(crate) fn for_workspace(&self, workspace_id: &str) -> io::Result<Self> {
+        if workspace_id.is_empty()
+            || workspace_id.contains('/')
+            || workspace_id.contains('?')
+            || workspace_id.contains('#')
+        {
+            return Err(invalid_data("E2EE witness workspace is invalid"));
+        }
+        let mut endpoint = self.endpoint.clone();
+        let mut segments = endpoint
+            .path_segments_mut()
+            .map_err(|()| invalid_data("E2EE witness endpoint is invalid"))?;
+        segments.pop_if_empty();
+        segments.pop();
+        segments.push(workspace_id);
+        drop(segments);
+        Ok(Self {
+            client: self.client.clone(),
+            endpoint,
+            access_token: self.access_token.clone(),
+            workspace_id: workspace_id.to_string(),
+        })
+    }
+
     pub(crate) fn workspace_id(&self) -> &str {
         &self.workspace_id
     }
@@ -170,6 +194,17 @@ impl E2eeWitnessClient {
         key: &anlg_e2ee::WorkspaceKey,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()> {
+        let keyring = anlg_e2ee::WorkspaceKeyring::new(key.clone());
+        self.initialize_keyring_cancellable(pool, &keyring, cancellation)
+            .await
+    }
+
+    pub(crate) async fn initialize_keyring_cancellable(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<()> {
         let cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
         let status = self
             .read_page_cancellable(cursor, None, cancellation)
@@ -180,8 +215,10 @@ impl E2eeWitnessClient {
         }
 
         if status.initialized {
-            self.refresh_cancellable(pool, key, cancellation).await?;
-            self.publish_pending(pool, key, false, cancellation).await?;
+            self.refresh_keyring_cancellable(pool, keyring, cancellation)
+                .await?;
+            self.publish_pending(pool, keyring.active(), false, cancellation)
+                .await?;
         } else {
             cancellation.check()?;
             let has_local_state = anlg_db_app::has_e2ee_local_state(pool, &self.workspace_id)
@@ -193,10 +230,11 @@ impl E2eeWitnessClient {
                     "E2EE freshness witness must be initialized from an existing trusted device",
                 ));
             }
-            self.publish_pending(pool, key, true, cancellation).await?;
+            self.publish_pending(pool, keyring.active(), true, cancellation)
+                .await?;
         }
 
-        self.refresh_cancellable(pool, key, cancellation)
+        self.refresh_keyring_cancellable(pool, keyring, cancellation)
             .await
             .map(|_| ())
     }
@@ -217,8 +255,21 @@ impl E2eeWitnessClient {
         key: &anlg_e2ee::WorkspaceKey,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize> {
-        self.publish_pending(pool, key, false, cancellation).await?;
-        self.refresh_cancellable(pool, key, cancellation).await
+        let keyring = anlg_e2ee::WorkspaceKeyring::new(key.clone());
+        self.publish_and_refresh_keyring_cancellable(pool, &keyring, cancellation)
+            .await
+    }
+
+    pub(crate) async fn publish_and_refresh_keyring_cancellable(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize> {
+        self.publish_pending(pool, keyring.active(), false, cancellation)
+            .await?;
+        self.refresh_keyring_cancellable(pool, keyring, cancellation)
+            .await
     }
 
     pub(crate) async fn publish_and_refresh_notifying_cancellable<F>(
@@ -231,8 +282,29 @@ impl E2eeWitnessClient {
     where
         F: FnMut(),
     {
-        self.publish_pending(pool, key, false, cancellation).await?;
-        self.refresh_notifying_cancellable(pool, key, on_events, cancellation)
+        let keyring = anlg_e2ee::WorkspaceKeyring::new(key.clone());
+        self.publish_and_refresh_keyring_notifying_cancellable(
+            pool,
+            &keyring,
+            on_events,
+            cancellation,
+        )
+        .await
+    }
+
+    pub(crate) async fn publish_and_refresh_keyring_notifying_cancellable<F>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        on_events: F,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize>
+    where
+        F: FnMut(),
+    {
+        self.publish_pending(pool, keyring.active(), false, cancellation)
+            .await?;
+        self.refresh_keyring_notifying_cancellable(pool, keyring, on_events, cancellation)
             .await
     }
 
@@ -252,7 +324,18 @@ impl E2eeWitnessClient {
         key: &anlg_e2ee::WorkspaceKey,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize> {
-        self.refresh_notifying_cancellable(pool, key, || {}, cancellation)
+        let keyring = anlg_e2ee::WorkspaceKeyring::new(key.clone());
+        self.refresh_keyring_cancellable(pool, &keyring, cancellation)
+            .await
+    }
+
+    pub(crate) async fn refresh_keyring_cancellable(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize> {
+        self.refresh_keyring_notifying_cancellable(pool, keyring, || {}, cancellation)
             .await
     }
 
@@ -279,6 +362,21 @@ impl E2eeWitnessClient {
         &self,
         pool: &sqlx::SqlitePool,
         key: &anlg_e2ee::WorkspaceKey,
+        on_events: F,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize>
+    where
+        F: FnMut(),
+    {
+        let keyring = anlg_e2ee::WorkspaceKeyring::new(key.clone());
+        self.refresh_keyring_notifying_cancellable(pool, &keyring, on_events, cancellation)
+            .await
+    }
+
+    pub(crate) async fn refresh_keyring_notifying_cancellable<F>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
         mut on_events: F,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize>
@@ -318,9 +416,9 @@ impl E2eeWitnessClient {
                 })
                 .collect::<Vec<_>>();
             cancellation.check()?;
-            anlg_db_app::merge_e2ee_witness_events_cancellable(
+            anlg_db_app::merge_e2ee_witness_events_with_keyring_cancellable(
                 pool,
-                key,
+                keyring,
                 &self.workspace_id,
                 &events,
                 || cancellation.is_cancelled(),

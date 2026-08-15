@@ -325,7 +325,8 @@ pub async fn merge_e2ee_witness_events(
     workspace_id: &str,
     events: &[E2eeWitnessEvent],
 ) -> E2eeReplicaResult<()> {
-    merge_e2ee_witness_events_inner(pool, key, workspace_id, events, &|| false).await
+    let keyring = WorkspaceKeyring::new(key.clone());
+    merge_e2ee_witness_events_inner(pool, &keyring, workspace_id, events, &|| false).await
 }
 
 pub async fn merge_e2ee_witness_events_cancellable(
@@ -335,12 +336,32 @@ pub async fn merge_e2ee_witness_events_cancellable(
     events: &[E2eeWitnessEvent],
     is_cancelled: impl Fn() -> bool + Sync,
 ) -> E2eeReplicaResult<()> {
-    merge_e2ee_witness_events_inner(pool, key, workspace_id, events, &is_cancelled).await
+    let keyring = WorkspaceKeyring::new(key.clone());
+    merge_e2ee_witness_events_inner(pool, &keyring, workspace_id, events, &is_cancelled).await
+}
+
+pub async fn merge_e2ee_witness_events_with_keyring(
+    pool: &SqlitePool,
+    keyring: &WorkspaceKeyring,
+    workspace_id: &str,
+    events: &[E2eeWitnessEvent],
+) -> E2eeReplicaResult<()> {
+    merge_e2ee_witness_events_inner(pool, keyring, workspace_id, events, &|| false).await
+}
+
+pub async fn merge_e2ee_witness_events_with_keyring_cancellable(
+    pool: &SqlitePool,
+    keyring: &WorkspaceKeyring,
+    workspace_id: &str,
+    events: &[E2eeWitnessEvent],
+    is_cancelled: impl Fn() -> bool + Sync,
+) -> E2eeReplicaResult<()> {
+    merge_e2ee_witness_events_inner(pool, keyring, workspace_id, events, &is_cancelled).await
 }
 
 async fn merge_e2ee_witness_events_inner(
     pool: &SqlitePool,
-    key: &WorkspaceKey,
+    keyring: &WorkspaceKeyring,
     workspace_id: &str,
     events: &[E2eeWitnessEvent],
     is_cancelled: &(impl Fn() -> bool + Sync),
@@ -356,7 +377,7 @@ async fn merge_e2ee_witness_events_inner(
             return Err(E2eeReplicaError::InvalidRow);
         }
         let sequence = i64::try_from(event.sequence).map_err(|_| E2eeReplicaError::InvalidRow)?;
-        let field = key.open_field(workspace_id, &event.record_id, &event.payload)?;
+        let field = keyring.open_field(workspace_id, &event.record_id, &event.payload)?;
         check_e2ee_cancellation(is_cancelled)?;
         let revision = i64::try_from(field.revision).map_err(|_| E2eeReplicaError::InvalidRow)?;
         validate_opened_witness_field(

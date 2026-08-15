@@ -50,6 +50,26 @@ select ok(
       'service_role',
       'public.read_e2ee_freshness_page_v2(uuid, uuid, bigint, bigint, integer, integer)',
       'EXECUTE'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'private.active_e2ee_freshness_key_id(uuid, uuid)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'service_role',
+      'private.active_e2ee_freshness_key_id(uuid, uuid)',
+      'EXECUTE'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'private.e2ee_freshness_payload_key_id(text)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'service_role',
+      'private.e2ee_freshness_payload_key_id(text)',
+      'EXECUTE'
     ),
   'Only trusted service code can use witness functions'
 );
@@ -94,7 +114,7 @@ select results_eq(
 create temporary table witness_event as
 select
   repeat('r', 43)::text as record_id,
-  '{"version":1,"ciphertext":"opaque"}'::text as payload;
+  '{"version":1,"key_id":"abcdefghijklmnopqrstuv","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","ciphertext":"opaque"}'::text as payload;
 
 alter table witness_event add column payload_hash text;
 update witness_event
@@ -185,7 +205,11 @@ select
     '='
   )::text as payload_hash
 from (
-  select ordinal, format('{"version":1,"ciphertext":"opaque-%s"}', ordinal)::text as payload
+  select ordinal,
+    format(
+      '{"version":1,"key_id":"abcdefghijklmnopqrstuv","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","ciphertext":"opaque-%s"}',
+      ordinal
+    )::text as payload
   from generate_series(1, 64) as series(ordinal)
 ) as generated;
 
@@ -284,7 +308,7 @@ select throws_ok(
 );
 
 update public.workspaces
-set e2ee_key_id = 'zyxwvutsrqponmlkjihgfe',
+set e2ee_key_id = 'abcdefghijklmnopqrstuv',
     e2ee_freshness_initialized_at = null
 where id = tests.get_supabase_uid('witness_other');
 

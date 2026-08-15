@@ -179,7 +179,7 @@ pub fn router() -> Router<ReplicaState> {
     path = "/e2ee/witness/{workspace_id}",
     tag = "sync",
     params(
-        ("workspace_id" = String, Path, description = "Personal workspace ID"),
+        ("workspace_id" = String, Path, description = "Workspace ID"),
         ("afterSequence" = Option<u64>, Query, description = "Last applied witness sequence"),
         ("throughSequence" = Option<u64>, Query, description = "Stable witness page boundary")
     ),
@@ -200,7 +200,7 @@ async fn read_e2ee_witness(
     [(header::HeaderName, HeaderValue); 1],
     Json<E2eeWitnessPage>,
 )> {
-    require_personal_workspace(&auth, &workspace_id)?;
+    require_witness_workspace(&auth, &workspace_id)?;
     let after_sequence = i64::try_from(query.after_sequence)
         .map_err(|_| SyncError::BadRequest("E2EE witness cursor is invalid".to_string()))?;
     let through_sequence = query
@@ -235,7 +235,7 @@ async fn read_e2ee_witness(
     path = "/e2ee/witness/{workspace_id}/wait",
     tag = "sync",
     params(
-        ("workspace_id" = String, Path, description = "Personal workspace ID"),
+        ("workspace_id" = String, Path, description = "Workspace ID"),
         ("afterSequence" = Option<u64>, Query, description = "Last witness sequence known to the caller")
     ),
     responses(
@@ -255,7 +255,7 @@ async fn wait_e2ee_witness(
     [(header::HeaderName, HeaderValue); 1],
     Json<E2eeWitnessWaitResponse>,
 )> {
-    require_personal_workspace(&auth, &workspace_id)?;
+    require_witness_workspace(&auth, &workspace_id)?;
     i64::try_from(query.after_sequence)
         .map_err(|_| SyncError::BadRequest("E2EE witness cursor is invalid".to_string()))?;
     let wake = state.witness_wakes.subscribe(&workspace_id);
@@ -407,7 +407,7 @@ async fn read_witness_page(
     post,
     path = "/e2ee/witness/{workspace_id}",
     tag = "sync",
-    params(("workspace_id" = String, Path, description = "Personal workspace ID")),
+    params(("workspace_id" = String, Path, description = "Workspace ID")),
     request_body = PublishE2eeWitnessRequest,
     responses(
         (status = 200, description = "Ciphertext events appended", body = PublishE2eeWitnessResponse),
@@ -427,7 +427,7 @@ async fn publish_e2ee_witness(
     [(header::HeaderName, HeaderValue); 1],
     Json<PublishE2eeWitnessResponse>,
 )> {
-    require_personal_workspace(&auth, &workspace_id)?;
+    require_witness_workspace(&auth, &workspace_id)?;
     validate_publish_request(&request)?;
     let events = request
         .events
@@ -487,14 +487,16 @@ async fn publish_e2ee_witness(
     ))
 }
 
-fn require_personal_workspace(auth: &AuthContext, workspace_id: &str) -> Result<()> {
+fn require_witness_workspace(auth: &AuthContext, workspace_id: &str) -> Result<()> {
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
     }
     let workspace = Uuid::parse_str(workspace_id)
         .map_err(|_| SyncError::BadRequest("E2EE witness workspace is invalid".to_string()))?;
-    if workspace.to_string() != workspace_id || auth.claims.sub != workspace_id {
-        return Err(SyncError::E2eeWitnessForbidden);
+    if workspace.to_string() != workspace_id {
+        return Err(SyncError::BadRequest(
+            "E2EE witness workspace is invalid".to_string(),
+        ));
     }
     Ok(())
 }
@@ -1042,8 +1044,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn rejects_cross_workspace_access_before_calling_supabase() {
+    async fn proxies_shared_workspace_access_to_supabase() {
         let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page_v2"))
+            .and(body_partial_json(json!({
+                "p_actor_user_id": OWNER,
+                "p_workspace_id": OTHER
+            })))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+                "initialized_at": "2026-08-15T00:00:00Z",
+                "head_sequence": 0,
+                "through_sequence": 0,
+                "event_sequence": null,
+                "record_id": null,
+                "payload_hash": null,
+                "payload": null
+            }])))
+            .expect(1)
+            .mount(&server)
+            .await;
         let response = test_router(&server)
             .oneshot(request(
                 Method::GET,
@@ -1052,8 +1072,34 @@ mod tests {
             ))
             .await
             .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        server.verify().await;
+    }
+
+    #[tokio::test]
+    async fn maps_revoked_shared_workspace_access_to_forbidden() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/read_e2ee_freshness_page_v2"))
+            .respond_with(ResponseTemplate::new(500).set_body_json(json!({
+                "code": "42501",
+                "message": "E2EE freshness read is not permitted"
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let response = test_router(&server)
+            .oneshot(request(
+                Method::GET,
+                &format!("/e2ee/witness/{OTHER}"),
+                None,
+            ))
+            .await
+            .unwrap();
+
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
-        assert!(server.received_requests().await.unwrap().is_empty());
+        server.verify().await;
     }
 
     #[tokio::test]

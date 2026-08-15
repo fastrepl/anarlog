@@ -2632,7 +2632,7 @@
           {
             "name": "workspace_id",
             "in": "path",
-            "description": "Personal workspace ID",
+            "description": "Workspace ID",
             "required": true,
             "schema": {
               "type": "string"
@@ -2700,7 +2700,7 @@
           {
             "name": "workspace_id",
             "in": "path",
-            "description": "Personal workspace ID",
+            "description": "Workspace ID",
             "required": true,
             "schema": {
               "type": "string"
@@ -2761,7 +2761,7 @@
           {
             "name": "workspace_id",
             "in": "path",
-            "description": "Personal workspace ID",
+            "description": "Workspace ID",
             "required": true,
             "schema": {
               "type": "string"
@@ -2810,6 +2810,115 @@
         ]
       }
     },
+    "/sync/e2ee/workspaces/{workspace_id}/key": {
+      "put": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "set_workspace_e2ee_key",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Shared workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetWorkspaceE2eeKeyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Wrapped workspace key published",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetWorkspaceE2eeKeyResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid workspace key grants"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Workspace manager access required"
+          },
+          "502": {
+            "description": "Workspace key service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/e2ee/workspaces/{workspace_id}/recipients": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "get_workspace_e2ee_key_recipients",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "path",
+            "description": "Shared workspace ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active workspace key recipients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceE2eeKeyRecipient"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid workspace ID"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Workspace manager access required"
+          },
+          "502": {
+            "description": "Workspace key service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/replica/credentials": {
       "post": {
         "tags": [
@@ -2824,6 +2933,18 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "x-anarlog-e2ee-member-public-key",
+            "in": "header",
+            "description": "Account-level member identity public key",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
             }
           }
         ],
@@ -3195,6 +3316,18 @@
             "name": "x-anarlog-e2ee-key-id",
             "in": "header",
             "description": "Local recovery-key identity",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "x-anarlog-e2ee-member-public-key",
+            "in": "header",
+            "description": "Account-level member identity public key",
             "required": false,
             "schema": {
               "type": [
@@ -5032,7 +5165,8 @@
           "workspaceId",
           "accountUserId",
           "personalWorkspaceId",
-          "workspaces"
+          "workspaces",
+          "workspaceKeyGrants"
         ],
         "properties": {
           "accountUserId": {
@@ -5060,6 +5194,12 @@
           },
           "workspaceId": {
             "type": "string"
+          },
+          "workspaceKeyGrants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceE2eeKeyGrant"
+            }
           },
           "workspaces": {
             "type": "array",
@@ -9597,6 +9737,41 @@
           }
         }
       },
+      "SetWorkspaceE2eeKeyRequest": {
+        "type": "object",
+        "required": [
+          "keyId",
+          "grants"
+        ],
+        "properties": {
+          "grants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceE2eeKeyGrantUpload"
+            }
+          },
+          "keyId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetWorkspaceE2eeKeyResult": {
+        "type": "object",
+        "required": [
+          "keyId",
+          "grantedMemberCount"
+        ],
+        "properties": {
+          "grantedMemberCount": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "keyId": {
+            "type": "string"
+          }
+        }
+      },
       "SharedAttachmentDownload": {
         "type": "object",
         "required": [
@@ -10952,6 +11127,93 @@
           "customLocation",
           "unknown"
         ]
+      },
+      "WorkspaceE2eeKeyGrant": {
+        "type": "object",
+        "required": [
+          "workspaceId",
+          "keyId",
+          "ephemeralPublicKey",
+          "nonce",
+          "ciphertext",
+          "isActive"
+        ],
+        "properties": {
+          "ciphertext": {
+            "type": "string"
+          },
+          "ephemeralPublicKey": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "keyId": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkspaceE2eeKeyGrantUpload": {
+        "type": "object",
+        "required": [
+          "userId",
+          "ephemeralPublicKey",
+          "nonce",
+          "ciphertext"
+        ],
+        "properties": {
+          "ciphertext": {
+            "type": "string"
+          },
+          "ephemeralPublicKey": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "WorkspaceE2eeKeyRecipient": {
+        "type": "object",
+        "required": [
+          "userId",
+          "userEmail",
+          "role",
+          "grantedKeyIds"
+        ],
+        "properties": {
+          "grantedKeyIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "publicKey": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "type": "string"
+          },
+          "userEmail": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          }
+        }
       },
       "google.Attendee": {
         "type": "object",

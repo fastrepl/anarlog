@@ -209,15 +209,11 @@ impl PluginDbRuntime {
                     let key = e2ee_sync_hook
                         .workspace_key(&state.workspace_id)
                         .ok_or(crate::Error::E2eeIdentityRequired)?;
-                    let witness = e2ee_sync_hook.witness().ok_or_else(|| {
-                        std::io::Error::other("E2EE freshness witness is not configured")
-                    })?;
-                    if witness.workspace_id() != state.workspace_id {
-                        return Err(std::io::Error::other(
-                            "E2EE freshness witness workspace changed during recovery",
-                        )
-                        .into());
-                    }
+                    let witness = e2ee_sync_hook
+                        .witness_for_workspace(&state.workspace_id)
+                        .ok_or_else(|| {
+                            std::io::Error::other("E2EE freshness witness is not configured")
+                        })?;
                     if cloudsync_recovery_cancelled(&recovery_cancelled) {
                         return Ok(CloudsyncRecoveryStep::Deferred);
                     }

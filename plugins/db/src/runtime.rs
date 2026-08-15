@@ -847,16 +847,27 @@ impl PluginDbRuntime {
             self.db.cloudsync_suspend().await?;
             self.ensure_cloudsync_configuration_active(auth_generation, cancellation)?;
         }
-        let witness =
+        let personal_witness =
             crate::e2ee_witness::E2eeWitnessClient::new(e2ee_witness, personal_workspace_id)?;
-        let key = self
-            .e2ee_sync_hook
-            .workspace_key(personal_workspace_id)
-            .ok_or(crate::Error::E2eeIdentityRequired)?;
-        self.prepare_e2ee_cutover_and_initialize_witness(&witness, &key, cancellation)
+        let keys = self.e2ee_sync_hook.snapshot();
+        let personal_key = keys
+            .get(personal_workspace_id)
+            .ok_or(crate::Error::E2eeIdentityRequired)?
+            .active()
+            .clone();
+        let mut witnesses = HashMap::with_capacity(keys.len());
+        for workspace_id in keys.keys() {
+            let witness = if workspace_id == personal_workspace_id {
+                personal_witness.clone()
+            } else {
+                personal_witness.for_workspace(workspace_id)?
+            };
+            witnesses.insert(workspace_id.clone(), witness);
+        }
+        self.prepare_e2ee_cutover_and_initialize_witnesses(&witnesses, &keys, cancellation)
             .await?;
         self.ensure_cloudsync_configuration_active(auth_generation, cancellation)?;
-        self.e2ee_sync_hook.set_witness(witness);
+        self.e2ee_sync_hook.set_witnesses(witnesses);
         let config = anlg_db_core::CloudsyncRuntimeConfig {
             connection_string: database_id,
             auth: anlg_db_core::CloudsyncAuth::Token { token },
@@ -950,7 +961,7 @@ impl PluginDbRuntime {
                 &generation,
                 &account_user_id,
                 personal_workspace_id,
-                &key,
+                &personal_key,
             )
             .await?;
             self.ensure_cloudsync_configuration_active(auth_generation, cancellation)?;
@@ -1003,7 +1014,7 @@ impl PluginDbRuntime {
                     self.db.as_ref(),
                     &account_user_id,
                     personal_workspace_id,
-                    &key,
+                    &personal_key,
                     CloudsyncOperationCancellation::Configuration(cancellation),
                 )
                 .await?;
@@ -1194,18 +1205,34 @@ impl PluginDbRuntime {
         Ok(())
     }
 
-    async fn prepare_e2ee_cutover_and_initialize_witness(
+    async fn prepare_e2ee_cutover_and_initialize_witnesses(
         &self,
-        witness: &crate::e2ee_witness::E2eeWitnessClient,
-        key: &anlg_e2ee::WorkspaceKey,
+        witnesses: &HashMap<String, crate::e2ee_witness::E2eeWitnessClient>,
+        keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
         cancellation: &crate::e2ee_witness::E2eeWitnessCancellation,
     ) -> Result<()> {
+        if keys.is_empty()
+            || keys.len() != witnesses.len()
+            || keys
+                .keys()
+                .any(|workspace_id| !witnesses.contains_key(workspace_id))
+        {
+            return Err(std::io::Error::other(
+                "E2EE freshness witnesses do not match configured workspaces",
+            )
+            .into());
+        }
         self.prepare_e2ee_cutover(cancellation).await?;
         cancellation.check()?;
-        witness
-            .initialize_cancellable(self.db.pool(), key, cancellation)
-            .await?;
-        cancellation.check()?;
+        let mut workspace_ids = keys.keys().collect::<Vec<_>>();
+        workspace_ids.sort_unstable();
+        for workspace_id in workspace_ids {
+            let witness = &witnesses[workspace_id];
+            witness
+                .initialize_keyring_cancellable(self.db.pool(), &keys[workspace_id], cancellation)
+                .await?;
+            cancellation.check()?;
+        }
         Ok(())
     }
 

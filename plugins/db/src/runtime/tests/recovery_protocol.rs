@@ -252,7 +252,14 @@ async fn legacy_cutover_snapshots_local_state_before_initializing_the_witness() 
 
     let cancellation = crate::e2ee_witness::E2eeWitnessCancellation::default();
     runtime
-        .prepare_e2ee_cutover_and_initialize_witness(&witness, &workspace_key, &cancellation)
+        .prepare_e2ee_cutover_and_initialize_witnesses(
+            &HashMap::from([("workspace-1".to_string(), witness)]),
+            &HashMap::from([(
+                "workspace-1".to_string(),
+                anlg_e2ee::WorkspaceKeyring::new(workspace_key),
+            )]),
+            &cancellation,
+        )
         .await
         .unwrap();
 
