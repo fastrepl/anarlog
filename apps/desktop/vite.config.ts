@@ -17,7 +17,7 @@ export default defineConfig(() => ({
   plugins: [
     relayShim(),
     changelog(),
-    tanstackRouter({ target: "react", autoCodeSplitting: false }),
+    tanstackRouter({ target: "react", autoCodeSplitting: true }),
     react(),
     lingui(),
     babel({

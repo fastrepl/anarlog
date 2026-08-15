@@ -71,7 +71,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const localSttQuery = useQuery({
     enabled: isLocalSttModel,
     queryKey: ["local-stt-status", sttModel],
-    refetchInterval: 1000,
+    refetchInterval: (query) => (query.state.data === "loading" ? 1000 : false),
     queryFn: async () => {
       if (!sttModel) return null;
 

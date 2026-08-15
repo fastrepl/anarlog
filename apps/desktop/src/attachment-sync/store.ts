@@ -13,6 +13,7 @@ import {
   retryAttachmentTransfersForAttachment,
   setDownloadGrant,
   setUploadReservation,
+  subscribeToNextAttachmentTransferAttempt,
 } from "./store/jobs";
 import {
   reconcileAttachmentTransferJobs,
@@ -41,6 +42,7 @@ export {
   retryAttachmentTransfersForAttachment,
   setDownloadGrant,
   setUploadReservation,
+  subscribeToNextAttachmentTransferAttempt,
 };
 
 export const attachmentTransferStore = {
@@ -48,6 +50,7 @@ export const attachmentTransferStore = {
   resetProcessLocalAttempts: resetProcessLocalAttachmentTransferAttempts,
   recoverInterrupted: recoverInterruptedAttachmentTransfers,
   claimNext: claimNextAttachmentTransferJob,
+  subscribeToNextAttempt: subscribeToNextAttachmentTransferAttempt,
   setUploadReservation,
   setDownloadGrant,
   markPhase,

@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
-import { useManager, useScheduleTaskRun, useSetTask } from "tinytick/ui-react";
 
 import { events as appleCalendarEvents } from "@anlg/plugin-calendar";
 
@@ -23,23 +22,26 @@ import {
 } from "./event-notification";
 import { cleanupExpiredVoiceprintCandidates } from "./voiceprint";
 
+import {
+  useRegisterTask,
+  useScheduleTaskRun,
+  useTaskScheduler,
+} from "~/services/task-scheduler";
 import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 const CALENDAR_SYNC_INTERVAL = 60 * 1000; // 60 sec
 const CALENDAR_SYNC_MAX_DURATION = 120 * 1000; // 2 min
 
-// tinytick aborts runs after a default maxDuration of 1s and never re-schedules
-// the repeatDelay of a timed-out run, which permanently kills the repeating
-// task. Long-running tasks must set an explicit maxDuration, and retries keep
-// the repeat loop alive if a run still exceeds it.
+// Long-running tasks need explicit deadlines so a hung provider cannot block
+// later deadline-driven work indefinitely.
 const AUDIO_RETENTION_MAX_DURATION = 10 * 60 * 1000; // 10 min
 const EVENT_NOTIFICATION_MAX_DURATION = 60 * 1000; // 60 sec
 const REPEATING_TASK_MAX_RETRIES = 3;
 
 export function TaskManager() {
   const queryClient = useQueryClient();
-  const manager = useManager();
+  const manager = useTaskScheduler();
 
   const notificationEvent = useConfigValue("notification_event");
   const audioRetention = normalizeAudioRetention(
@@ -47,13 +49,11 @@ export function TaskManager() {
   );
   const notifiedEventsRef = useRef<NotifiedEventsMap>(new Map());
 
-  useSetTask(
+  useRegisterTask(
     CALENDAR_SYNC_TASK_ID,
     async (_arg, signal) => {
       await syncCalendarEvents({ signal });
     },
-    [],
-    undefined,
     { maxDuration: CALENDAR_SYNC_MAX_DURATION },
   );
 
@@ -97,7 +97,7 @@ export function TaskManager() {
     };
   });
 
-  useSetTask(
+  useRegisterTask(
     EVENT_NOTIFICATION_TASK_ID,
     async () => {
       await checkEventNotifications(
@@ -105,8 +105,6 @@ export function TaskManager() {
         notifiedEventsRef.current,
       );
     },
-    [notificationEvent],
-    undefined,
     {
       maxDuration: EVENT_NOTIFICATION_MAX_DURATION,
       maxRetries: REPEATING_TASK_MAX_RETRIES,
@@ -118,7 +116,7 @@ export function TaskManager() {
     repeatDelay: EVENT_NOTIFICATION_INTERVAL,
   });
 
-  useSetTask(
+  useRegisterTask(
     AUDIO_RETENTION_TASK_ID,
     async () => {
       const deletedSessionIds = await cleanupExpiredAudio(audioRetention);
@@ -132,8 +130,6 @@ export function TaskManager() {
       }
       void cleanupExpiredVoiceprintCandidates();
     },
-    [audioRetention, queryClient],
-    undefined,
     {
       maxDuration: AUDIO_RETENTION_MAX_DURATION,
       maxRetries: REPEATING_TASK_MAX_RETRIES,

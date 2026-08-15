@@ -1,4 +1,3 @@
-import { createManager } from "tinytick";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 const ctxMocks = vi.hoisted(() => ({
@@ -50,6 +49,8 @@ import {
   syncCalendarEventsForRange,
 } from ".";
 
+import { createTaskScheduler } from "~/services/task-scheduler";
+
 const ctx = {
   provider: "google" as const,
   connectionId: "conn-1",
@@ -59,7 +60,7 @@ const ctx = {
   calendarTrackingIdToId: new Map([["primary", "cal-1"]]),
 };
 
-const managers: ReturnType<typeof createManager>[] = [];
+const managers: ReturnType<typeof createTaskScheduler>[] = [];
 
 describe("syncCalendarEventsForRange", () => {
   beforeEach(() => {
@@ -100,7 +101,7 @@ describe("syncCalendarEventsForRange", () => {
 
   afterEach(() => {
     for (const manager of managers) {
-      manager.stop(true);
+      manager.stop();
     }
     managers.length = 0;
     vi.useRealTimers();
@@ -347,7 +348,7 @@ describe("syncCalendarEventsForRange", () => {
   });
 
   test("reuses an active scheduled calendar sync", () => {
-    const manager = createManager();
+    const manager = createTaskScheduler();
     managers.push(manager);
     manager.setTask(CALENDAR_SYNC_TASK_ID, async () => undefined);
 
@@ -360,7 +361,7 @@ describe("syncCalendarEventsForRange", () => {
 
   test("reuses a running calendar sync", async () => {
     vi.useFakeTimers();
-    const manager = createManager();
+    const manager = createTaskScheduler();
     managers.push(manager);
     manager.setTask(
       CALENDAR_SYNC_TASK_ID,
@@ -380,7 +381,7 @@ describe("syncCalendarEventsForRange", () => {
   });
 
   test("can schedule a new calendar sync after a timeout", async () => {
-    const manager = createManager();
+    const manager = createTaskScheduler();
     managers.push(manager);
     manager.setTask(
       CALENDAR_SYNC_TASK_ID,
@@ -388,7 +389,6 @@ describe("syncCalendarEventsForRange", () => {
         await new Promise<void>((resolve) => {
           signal.addEventListener("abort", () => resolve(), { once: true });
         }),
-      undefined,
       { maxDuration: 50 },
     );
     manager.start();

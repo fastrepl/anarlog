@@ -1,5 +1,3 @@
-import type { Manager } from "tinytick";
-
 import type { CalendarProviderType } from "@anlg/plugin-calendar";
 
 import {
@@ -26,6 +24,7 @@ import {
 } from "./storage";
 
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import type { TaskScheduler } from "~/services/task-scheduler";
 
 export const CALENDAR_SYNC_TASK_ID = "calendarSync";
 export type { CalendarSyncRange };
@@ -56,7 +55,9 @@ export function syncCalendarEvents(
   });
 }
 
-export function scheduleCalendarSync(manager: Manager): string | undefined {
+export function scheduleCalendarSync(
+  manager: TaskScheduler,
+): string | undefined {
   const activeTaskRunId = [
     ...manager.getScheduledTaskRunIds(),
     ...manager.getRunningTaskRunIds(),

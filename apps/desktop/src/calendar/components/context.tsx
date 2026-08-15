@@ -5,11 +5,6 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  useManager,
-  useRunningTaskRunIds,
-  useScheduledTaskRunIds,
-} from "tinytick/ui-react";
 
 import {
   type CalendarSyncRange,
@@ -17,6 +12,11 @@ import {
   scheduleCalendarSync,
   syncCalendarEventsForRange,
 } from "~/services/calendar";
+import {
+  useRunningTaskRunIds,
+  useScheduledTaskRunIds,
+  useTaskScheduler,
+} from "~/services/task-scheduler";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export const TOGGLE_SYNC_DEBOUNCE_MS = 5000;
@@ -35,9 +35,9 @@ interface SyncContextValue {
 const SyncContext = createContext<SyncContextValue | null>(null);
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
-  const manager = useManager();
-  const scheduledTaskRunIds = useScheduledTaskRunIds() ?? [];
-  const runningTaskRunIds = useRunningTaskRunIds() ?? [];
+  const manager = useTaskScheduler();
+  const scheduledTaskRunIds = useScheduledTaskRunIds();
+  const runningTaskRunIds = useRunningTaskRunIds();
   const toggleSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -49,7 +49,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const isScheduled = scheduledTaskRunIds.some(isCalendarTaskRun);
   const isSyncing = runningTaskRunIds.some(isCalendarTaskRun);
   const isRangeSyncing = rangeSyncCount > 0;
-  const canSync = manager !== undefined;
+  const canSync = manager !== null;
 
   const status: SyncStatus =
     isSyncing || isRangeSyncing

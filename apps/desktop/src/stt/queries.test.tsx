@@ -168,6 +168,37 @@ describe("transcript SQLite queries", () => {
     ]);
   });
 
+  it("skips live journal replay for an active renderer baseline", () => {
+    mocks.transcriptRows = [
+      {
+        id: "transcript-1",
+        owner_user_id: "user-1",
+        session_id: "session-1",
+        started_at_ms: 1000,
+        ended_at_ms: null,
+        words_json: JSON.stringify([
+          {
+            id: "word-base",
+            text: "Base",
+            start_ms: 0,
+            end_ms: 100,
+            channel: 0,
+          },
+        ]),
+        speaker_hints_json: "[]",
+        content_revision: 0,
+        pending_deltas_json: "[]",
+      },
+    ];
+
+    const { result } = renderHook(() => useTranscript("transcript-1", false));
+
+    expect(result.current?.words.map((word) => word.id)).toEqual(["word-base"]);
+    expect(mocks.queryOptions[0]?.sql).not.toContain(
+      "FROM transcript_live_deltas AS delta",
+    );
+  });
+
   it("projects transcript metadata without transferring content blobs", () => {
     mocks.transcriptRows = [
       {

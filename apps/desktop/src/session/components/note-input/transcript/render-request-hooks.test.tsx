@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   humanIds: [] as string[],
   humans: [{ human_id: "human-1", name: "Alice" }],
   participantHumanIds: ["human-1"],
+  transcriptQueryArgs: [] as unknown[],
   transcript: {
     id: "transcript-1",
     ownerUserId: "user-1",
@@ -27,7 +28,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/stt/queries", () => ({
   useSessionParticipantHumanIds: () => mocks.participantHumanIds,
   useSessionTranscripts: () => [mocks.transcript],
-  useTranscript: () => mocks.transcript,
+  useTranscript: (...args: unknown[]) => {
+    mocks.transcriptQueryArgs = args;
+    return mocks.transcript;
+  },
   useTranscriptHumans: (humanIds: string[]) => {
     mocks.humanIds = humanIds;
     return mocks.humans;
@@ -42,6 +46,13 @@ import {
 describe("SQLite transcript render data", () => {
   beforeEach(() => {
     mocks.humanIds = [];
+    mocks.transcriptQueryArgs = [];
+  });
+
+  it("can read only the compacted base for an active transcript", () => {
+    renderHook(() => useTranscriptRenderData("transcript-1", false));
+
+    expect(mocks.transcriptQueryArgs).toEqual(["transcript-1", false]);
   });
 
   it("builds a renderer request from one canonical transcript", () => {

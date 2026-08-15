@@ -42,6 +42,26 @@ type CacheSqlRow = {
 const WRITE_KEY = "shared-attachment-cache-runner";
 
 export const sharedAttachmentCacheStore = {
+  subscribeToNextAttempt(
+    viewerUserId: string,
+    onChange: (nextAttemptAt: string | null) => void,
+    onError?: (error: string) => void,
+  ) {
+    return liveQueryClient.subscribe<{ next_attempt_at: string | null }>(
+      `
+        SELECT MIN(next_attempt_at) AS next_attempt_at
+        FROM shared_session_attachment_cache
+        WHERE viewer_user_id = ?
+          AND availability IN ('pending', 'delete_pending', 'failed')
+      `,
+      [viewerUserId],
+      {
+        onData: (rows) => onChange(rows[0]?.next_attempt_at ?? null),
+        onError,
+      },
+    );
+  },
+
   async recoverInterrupted(viewerUserId: string) {
     await enqueueDatabaseWrite(WRITE_KEY, () =>
       executeTransaction([

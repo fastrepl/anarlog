@@ -14,7 +14,10 @@ use tauri::{
 };
 
 use crate::{
-    schedule::{TrayAgendaSection, TrayScheduleEvent, agenda_sections, menu_bar_title},
+    schedule::{
+        TrayAgendaSection, TrayScheduleEvent, agenda_sections, menu_bar_title,
+        next_schedule_refresh_ms,
+    },
     tray_icon::{RECORDING_FRAMES, TrayIconState},
 };
 
@@ -222,22 +225,7 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         Self::refresh_menu_bar_title(app)?;
         Self::refresh_menu_if_agenda_changed(app)?;
 
-        let mut task = SCHEDULE_TASK.lock().unwrap();
-        if task.is_none() {
-            let app = app.clone();
-            *task = Some(tauri::async_runtime::spawn(async move {
-                let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
-                loop {
-                    interval.tick().await;
-                    if let Err(error) = Self::refresh_menu_bar_title(&app) {
-                        tracing::warn!(%error, "failed to refresh menu bar title");
-                    }
-                    if let Err(error) = Self::refresh_menu_if_agenda_changed(&app) {
-                        tracing::warn!(%error, "failed to refresh tray agenda");
-                    }
-                }
-            }));
-        }
+        Self::restart_schedule_task(app);
 
         Ok(())
     }
@@ -252,7 +240,9 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         let app = self.manager.app_handle();
         Self::persist_show_events(app, show);
         Self::refresh_menu_bar_title(app)?;
-        Self::rebuild_menu(app)
+        Self::rebuild_menu(app)?;
+        Self::restart_schedule_task(app);
+        Ok(())
     }
 
     fn load_show_events(app: &AppHandle<tauri::Wry>) -> bool {
@@ -388,6 +378,47 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         Ok(())
     }
 
+    fn restart_schedule_task(app: &AppHandle<tauri::Wry>) {
+        let mut task = SCHEDULE_TASK.lock().unwrap();
+        if let Some(handle) = task.take() {
+            handle.abort();
+        }
+
+        let next_delay = || {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as f64;
+            next_schedule_refresh_ms(
+                &SCHEDULE.lock().unwrap(),
+                now_ms,
+                SHOW_EVENTS.load(Ordering::SeqCst),
+                IS_RECORDING.load(Ordering::SeqCst),
+            )
+        };
+        let Some(initial_delay_ms) = next_delay() else {
+            return;
+        };
+
+        let app = app.clone();
+        *task = Some(tauri::async_runtime::spawn(async move {
+            let mut delay_ms = initial_delay_ms;
+            loop {
+                tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                if let Err(error) = Self::refresh_menu_bar_title(&app) {
+                    tracing::warn!(%error, "failed to refresh menu bar title");
+                }
+                if let Err(error) = Self::refresh_menu_if_agenda_changed(&app) {
+                    tracing::warn!(%error, "failed to refresh tray agenda");
+                }
+                let Some(next_delay_ms) = next_delay() else {
+                    return;
+                };
+                delay_ms = next_delay_ms;
+            }
+        }));
+    }
+
     pub fn set_recording(&self, recording: bool) -> Result<()> {
         IS_RECORDING.store(recording, Ordering::SeqCst);
         if !recording {
@@ -396,7 +427,9 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
 
         let app = self.manager.app_handle();
         Self::refresh_menu_bar_title(app)?;
-        Self::refresh_icon(app)
+        Self::refresh_icon(app)?;
+        Self::restart_schedule_task(app);
+        Ok(())
     }
 
     pub fn set_recording_title(&self, title: Option<String>) -> Result<()> {

@@ -48,6 +48,11 @@ describe("useRenderedTranscriptData", () => {
   it("keeps settled transcript data cached across short tab remounts", () => {
     renderHook(() => useRenderedTranscriptData("transcript-1"));
 
+    expect(mocks.useTranscriptRenderData).toHaveBeenCalledWith(
+      "transcript-1",
+      true,
+    );
+
     expect(mocks.useQuery).toHaveBeenCalledWith(
       expect.objectContaining({
         queryKey: [
@@ -66,6 +71,11 @@ describe("useRenderedTranscriptData", () => {
 
   it("keeps one reusable render baseline while the transcript is active", () => {
     renderHook(() => useRenderedTranscriptData("transcript-1", true));
+
+    expect(mocks.useTranscriptRenderData).toHaveBeenCalledWith(
+      "transcript-1",
+      false,
+    );
 
     expect(mocks.useQuery).toHaveBeenCalledWith(
       expect.objectContaining({

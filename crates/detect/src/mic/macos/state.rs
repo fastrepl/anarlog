@@ -1,8 +1,10 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
 use crate::{DetectEvent, InstalledApp};
+
+use super::WorkerSignal;
 
 pub(super) struct DetectorState {
     /// Latest physical state reported by CoreAudio.
@@ -96,10 +98,26 @@ pub(super) struct SharedContext {
     polling_fallback_required: Arc<AtomicBool>,
     device_listener_context_retention_required: Arc<AtomicBool>,
     listener_callbacks_active: Arc<AtomicBool>,
+    worker_signal: Option<mpsc::SyncSender<WorkerSignal>>,
 }
 
 impl SharedContext {
+    #[cfg(test)]
     pub(super) fn new(callback: crate::DetectCallback) -> Self {
+        Self::new_inner(callback, None)
+    }
+
+    pub(super) fn with_worker_signal(
+        callback: crate::DetectCallback,
+        worker_signal: mpsc::SyncSender<WorkerSignal>,
+    ) -> Self {
+        Self::new_inner(callback, Some(worker_signal))
+    }
+
+    fn new_inner(
+        callback: crate::DetectCallback,
+        worker_signal: Option<mpsc::SyncSender<WorkerSignal>>,
+    ) -> Self {
         Self {
             callback: Arc::new(Mutex::new(callback)),
             current_device: Arc::new(Mutex::new(None)),
@@ -109,6 +127,7 @@ impl SharedContext {
             polling_fallback_required: Arc::new(AtomicBool::new(false)),
             device_listener_context_retention_required: Arc::new(AtomicBool::new(false)),
             listener_callbacks_active: Arc::new(AtomicBool::new(true)),
+            worker_signal,
         }
     }
 
@@ -124,6 +143,13 @@ impl SharedContext {
                 .device_listener_context_retention_required
                 .clone(),
             listener_callbacks_active: self.listener_callbacks_active.clone(),
+            worker_signal: self.worker_signal.clone(),
+        }
+    }
+
+    fn wake_worker(&self) {
+        if let Some(worker_signal) = &self.worker_signal {
+            let _ = worker_signal.try_send(WorkerSignal::Wake);
         }
     }
 
@@ -142,6 +168,7 @@ impl SharedContext {
 
     pub(super) fn enable_polling_fallback(&self) {
         self.polling_fallback_active.store(true, Ordering::SeqCst);
+        self.wake_worker();
     }
 
     pub(super) fn require_polling_fallback(&self) {
@@ -152,6 +179,7 @@ impl SharedContext {
     pub(super) fn disable_polling_fallback(&self) {
         if !self.polling_fallback_required.load(Ordering::SeqCst) {
             self.polling_fallback_active.store(false, Ordering::SeqCst);
+            self.wake_worker();
         }
     }
 
@@ -213,6 +241,15 @@ impl SharedContext {
         self.flush_pending_mic_change_at(Instant::now());
     }
 
+    pub(super) fn next_pending_delay(&self, now: Instant) -> Option<Duration> {
+        self.state.lock().ok().and_then(|state| {
+            state
+                .pending_change
+                .as_ref()
+                .map(|pending| pending.emit_at.saturating_duration_since(now))
+        })
+    }
+
     pub(super) fn seed_running_state(&self, mic_in_use: bool) {
         let app_snapshot = if mic_in_use {
             crate::list_mic_using_apps()
@@ -233,6 +270,7 @@ impl SharedContext {
 
         state_guard.seed(mic_in_use, Instant::now());
         self.polling_active.store(mic_in_use, Ordering::SeqCst);
+        self.wake_worker();
 
         if !mic_in_use {
             state_guard.active_apps.clear();
@@ -296,6 +334,7 @@ impl SharedContext {
 
         let event = state_guard.record_edge(mic_in_use, event, now);
         drop(state_guard);
+        self.wake_worker();
         if let Some(event) = event {
             self.emit(event);
         }

@@ -36,6 +36,9 @@ const job: AttachmentTransferJob = {
 
 function dependencies() {
   const store = {
+    subscribeToNextAttempt: vi
+      .fn()
+      .mockResolvedValue(vi.fn(async () => undefined)),
     resetProcessLocalAttempts: vi.fn(),
     recoverInterrupted: vi.fn(),
     reconcile: vi.fn(),
@@ -124,6 +127,41 @@ function dependencies() {
 }
 
 describe("attachment transfer runner", () => {
+  it("sleeps on an empty queue and wakes at the database retry deadline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-15T12:00:00.000Z"));
+    const deps = dependencies();
+    deps.store.claimNext.mockResolvedValue(undefined);
+    let onChange: ((value: string | null) => void) | undefined;
+    const unsubscribe = vi.fn(async () => undefined);
+    deps.store.subscribeToNextAttempt.mockImplementationOnce(
+      (listener: (value: string | null) => void) => {
+        onChange = listener;
+        return Promise.resolve(unsubscribe);
+      },
+    );
+
+    try {
+      const stop = startAttachmentTransferRunner({
+        ...deps,
+        supabaseUrl: "https://project.supabase.co",
+      } as any);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(deps.store.claimNext).toHaveBeenCalledOnce();
+
+      onChange?.(new Date(Date.now() + 30_000).toISOString());
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(deps.store.claimNext).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(deps.store.claimNext).toHaveBeenCalledTimes(2);
+      stop();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(unsubscribe).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("uploads, finalizes, promotes, and commits the private backup", async () => {
     const deps = dependencies();
 

@@ -143,11 +143,50 @@ export function startSharedAttachmentCacheRunner(
   dependencies: SharedAttachmentCacheRunnerDependencies,
 ) {
   const controller = new AbortController();
+  const store = dependencies.store ?? sharedAttachmentCacheStore;
   let timeout: ReturnType<typeof setTimeout> | undefined;
   let initialized = false;
+  let nextAttemptAt: number | null = null;
+  let fallbackAt: number | null = null;
+  let running = false;
+  let runAgain = false;
+  let unsubscribeStarted = false;
+  let unsubscribePromise: Promise<() => Promise<void>> | undefined;
+
+  const reschedule = () => {
+    clearTimeout(timeout);
+    timeout = undefined;
+    if (controller.signal.aborted || running) return;
+
+    const deadline = [nextAttemptAt, fallbackAt]
+      .filter((value): value is number => value !== null)
+      .reduce(
+        (earliest, value) => Math.min(earliest, value),
+        Number.POSITIVE_INFINITY,
+      );
+    if (Number.isFinite(deadline)) {
+      timeout = setTimeout(
+        () => void tick(),
+        Math.max(0, deadline - Date.now()),
+      );
+    }
+  };
 
   const tick = async () => {
     if (controller.signal.aborted) return;
+    if (running) {
+      runAgain = true;
+      return;
+    }
+    running = true;
+    clearTimeout(timeout);
+    timeout = undefined;
+    const now = Date.now();
+    if (nextAttemptAt !== null && nextAttemptAt <= now) nextAttemptAt = null;
+    if (fallbackAt !== null && fallbackAt <= now) {
+      fallbackAt = now + PASS_INTERVAL_MS;
+    }
+
     try {
       if (!initialized) {
         const native = dependencies.native ?? attachmentTransferNative;
@@ -158,21 +197,67 @@ export function startSharedAttachmentCacheRunner(
         );
         initialized = true;
       }
-      await runSharedAttachmentCachePass(dependencies, controller.signal);
+      const processed = await runSharedAttachmentCachePass(
+        dependencies,
+        controller.signal,
+      );
+      if (processed === MAX_JOBS_PER_PASS) runAgain = true;
     } catch (error) {
       if (!controller.signal.aborted) {
         console.error("[shared-attachments] cache pass failed", error);
+        fallbackAt = Date.now() + PASS_INTERVAL_MS;
       }
+    } finally {
+      running = false;
     }
-    if (!controller.signal.aborted) {
-      timeout = setTimeout(() => void tick(), PASS_INTERVAL_MS);
+
+    if (runAgain && !controller.signal.aborted) {
+      runAgain = false;
+      void tick();
+    } else {
+      reschedule();
     }
   };
+
+  const subscribeToNextAttempt = store.subscribeToNextAttempt?.bind(store);
+  if (!subscribeToNextAttempt) fallbackAt = Date.now() + PASS_INTERVAL_MS;
+  unsubscribePromise = subscribeToNextAttempt?.(
+    dependencies.viewerUserId,
+    (value) => {
+      const timestamp = value ? Date.parse(value) : Number.NaN;
+      nextAttemptAt = Number.isFinite(timestamp) ? timestamp : null;
+      fallbackAt = null;
+      if (running && nextAttemptAt !== null && nextAttemptAt <= Date.now()) {
+        runAgain = true;
+      } else {
+        reschedule();
+      }
+    },
+    (error) => {
+      console.error("[shared-attachments] queue subscription failed", error);
+      fallbackAt = Date.now() + PASS_INTERVAL_MS;
+      reschedule();
+    },
+  ).catch((error) => {
+    if (!controller.signal.aborted) {
+      console.error("[shared-attachments] queue subscription failed", error);
+      fallbackAt = Date.now() + PASS_INTERVAL_MS;
+      reschedule();
+    }
+    return async () => {};
+  });
   void tick();
 
   return () => {
     controller.abort();
-    if (timeout) clearTimeout(timeout);
+    clearTimeout(timeout);
+    if (!unsubscribePromise || unsubscribeStarted) return;
+    unsubscribeStarted = true;
+    void unsubscribePromise
+      .then((unsubscribe) => unsubscribe())
+      .catch((error) =>
+        console.error("[shared-attachments] queue unsubscribe failed", error),
+      );
   };
 }
 

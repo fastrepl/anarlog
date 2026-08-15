@@ -295,7 +295,7 @@ export function SettingsSync() {
     queryKey: statusQueryKey,
     queryFn: getCloudsyncStatus,
     refetchInterval: STATUS_POLL_INTERVAL_MS,
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
     enabled: Boolean(session) && isPro && syncEnabled,
   });
   const syncNowMutation = useMutation({

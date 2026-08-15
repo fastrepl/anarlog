@@ -7,6 +7,7 @@ import { commands as transcriptionCommands } from "@anlg/plugin-transcription";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 import type { SegmentKey } from "~/stt/live-segment";
+import { coalesceLiveTranscriptDeltas } from "~/stt/transcript-persistence-worker";
 import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 import {
   applyLiveTranscriptDelta,
@@ -108,6 +109,18 @@ const TRANSCRIPT_COLUMNS = `
   ), '[]') AS pending_deltas_json
 `;
 
+const TRANSCRIPT_BASE_COLUMNS = `
+  transcript.id,
+  transcript.owner_user_id,
+  transcript.session_id,
+  transcript.started_at_ms,
+  transcript.ended_at_ms,
+  transcript.words_json,
+  transcript.speaker_hints_json,
+  transcript.content_revision,
+  '[]' AS pending_deltas_json
+`;
+
 const TRANSCRIPT_METADATA_COLUMNS = `
   transcript.id,
   transcript.session_id,
@@ -147,13 +160,16 @@ export function useSessionTranscripts(sessionId: string): TranscriptRecord[] {
   return sessionId ? data : EMPTY_TRANSCRIPTS;
 }
 
-export function useTranscript(transcriptId: string): TranscriptRecord | null {
+export function useTranscript(
+  transcriptId: string,
+  includePendingDeltas = true,
+): TranscriptRecord | null {
   const { data = null } = useLiveQuery<
     TranscriptSqlRow,
     TranscriptRecord | null
   >({
     sql: `
-      SELECT ${TRANSCRIPT_COLUMNS}
+      SELECT ${includePendingDeltas ? TRANSCRIPT_COLUMNS : TRANSCRIPT_BASE_COLUMNS}
       FROM transcripts AS transcript
       WHERE transcript.id = ? AND transcript.deleted_at IS NULL
       LIMIT 1
@@ -707,19 +723,16 @@ function materializeTranscriptSnapshot(
   transcriptId: string,
   pendingDeltasJson: string,
 ) {
-  let snapshot = { wordsJson, hintsJson };
-  for (const delta of parseLiveTranscriptDeltas(
-    pendingDeltasJson,
-    transcriptId,
-  )) {
-    snapshot = mutateTranscriptSnapshot(
-      snapshot.wordsJson,
-      snapshot.hintsJson,
+  const deltas = parseLiveTranscriptDeltas(pendingDeltasJson, transcriptId);
+  if (deltas.length === 0) return { wordsJson, hintsJson };
+
+  return mutateTranscriptSnapshot(wordsJson, hintsJson, transcriptId, (store) =>
+    applyLiveTranscriptDelta(
+      store,
       transcriptId,
-      (store) => applyLiveTranscriptDelta(store, transcriptId, delta),
-    );
-  }
-  return snapshot;
+      coalesceLiveTranscriptDeltas(deltas),
+    ),
+  );
 }
 
 function parseLiveTranscriptDeltas(

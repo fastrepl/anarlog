@@ -20,11 +20,14 @@ export type TranscriptRowWithId = {
   row: TranscriptRow;
 };
 
-export function useTranscriptRenderData(transcriptId: string): {
+export function useTranscriptRenderData(
+  transcriptId: string,
+  includePendingDeltas = true,
+): {
   request: RenderTranscriptRequest | null;
   transcriptRows: TranscriptRowWithId[];
 } {
-  const transcript = useTranscript(transcriptId);
+  const transcript = useTranscript(transcriptId, includePendingDeltas);
   const transcripts = useMemo(
     () => (transcript ? [transcript] : emptyTranscripts),
     [transcript],

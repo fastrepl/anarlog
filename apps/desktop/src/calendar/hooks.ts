@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 import { safeParseDate } from "@anlg/utils";
 import { TZDate } from "@anlg/utils";
@@ -28,16 +28,72 @@ export function toTz(date: Date | string, tz?: string): Date {
 
 export function useNow() {
   const tz = useTimezone();
-  const [now, setNow] = useState(() => toTz(new Date(), tz));
+  const store = useMemo(() => getNowStore(tz), [tz]);
+  return useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
+}
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNow(toTz(new Date(), tz));
-    }, 60000);
-    return () => clearInterval(interval);
-  }, [tz]);
+const nowStores = new Map<string, ReturnType<typeof createNowStore>>();
 
-  return now;
+function getNowStore(timezone: string | undefined) {
+  const key = timezone ?? "";
+  let store = nowStores.get(key);
+  if (!store) {
+    store = createNowStore(timezone);
+    nowStores.set(key, store);
+  }
+  return store;
+}
+
+function createNowStore(timezone: string | undefined) {
+  let now = toTz(new Date(), timezone);
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const listeners = new Set<() => void>();
+
+  const scheduleRefresh = () => {
+    clearTimeout(timeout);
+    timeout = undefined;
+    if (listeners.size === 0 || document.visibilityState === "hidden") return;
+    const remainder = Date.now() % 60_000;
+    timeout = setTimeout(
+      refresh,
+      remainder === 0 ? 60_000 : 60_000 - remainder,
+    );
+  };
+  const refresh = () => {
+    now = toTz(new Date(), timezone);
+    listeners.forEach((listener) => listener());
+    scheduleRefresh();
+  };
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") refresh();
+    else scheduleRefresh();
+  };
+  const subscribe = (listener: () => void) => {
+    if (listeners.size === 0) {
+      window.addEventListener("focus", refresh);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+    listeners.add(listener);
+    refresh();
+
+    return () => {
+      listeners.delete(listener);
+      if (listeners.size === 0) {
+        scheduleRefresh();
+        window.removeEventListener("focus", refresh);
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
+      }
+    };
+  };
+
+  return { getSnapshot: () => now, subscribe };
 }
 
 function getSystemWeekStart(): 0 | 1 {

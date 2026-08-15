@@ -345,9 +345,6 @@ importers:
       streamdown:
         specifier: ^2.5.0
         version: 2.5.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
-      tinytick:
-        specifier: ^1.2.8
-        version: 1.2.8
       unified:
         specifier: ^11.0.5
         version: 11.0.5
@@ -16662,9 +16659,6 @@ packages:
   tinyrainbow@3.1.0:
     resolution: {integrity: sha512-Bf+ILmBgretUrdJxzXM0SgXLZ3XfiaUuOj/IKQHuTXip+05Xn+uyEYdVg0kYDipTBcLrCVyUzAPz7QmArb0mmw==}
     engines: {node: '>=14.0.0'}
-
-  tinytick@1.2.8:
-    resolution: {integrity: sha512-tT7/2EIfUcQN4yjREOx7xwL85pooPYg9vahoPcY9/sGdfurR/cp/bgfxlAAKQnIoXjcD8peYhqa6NS3em2PioA==}
 
   tlds@1.261.0:
     resolution: {integrity: sha512-QXqwfEl9ddlGBaRFXIvNKK6OhipSiLXuRuLJX5DErz0o0Q0rYxulWLdFryTkV5PkdZct5iMInwYEGe/eR++1AA==}
@@ -37077,8 +37071,6 @@ snapshots:
   tinyrainbow@1.2.0: {}
 
   tinyrainbow@3.1.0: {}
-
-  tinytick@1.2.8: {}
 
   tlds@1.261.0: {}
 

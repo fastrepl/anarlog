@@ -33,7 +33,6 @@ export const localSttQueries = {
     }),
   isDownloaded: (model: LocalModel) =>
     queryOptions({
-      refetchInterval: 1000,
       queryKey: localSttKeys.modelDownloaded(model),
       queryFn: () => localSttCommands.isModelDownloaded(model),
       select: (result) => {
@@ -45,7 +44,6 @@ export const localSttQueries = {
     }),
   isDownloading: (model: LocalModel) =>
     queryOptions({
-      refetchInterval: 1000,
       queryKey: localSttKeys.modelDownloading(model),
       queryFn: () => localSttCommands.isModelDownloading(model),
       select: (result) => {
@@ -68,6 +66,7 @@ export function useLocalModelDownload(
   const isDownloaded = useQuery(localSttQueries.isDownloaded(model));
   const isDownloading = useQuery(localSttQueries.isDownloading(model));
   const refetchDownloaded = isDownloaded.refetch;
+  const refetchDownloading = isDownloading.refetch;
 
   const showProgress =
     !isDownloaded.data && (isStarting || (isDownloading.data ?? false));
@@ -86,11 +85,16 @@ export function useLocalModelDownload(
           setErrorMessage(status.failed);
           setIsStarting(false);
           setProgress(0);
+          void refetchDownloading();
         } else if (status === "completed") {
           setErrorMessage(null);
           setProgress(100);
+          setIsStarting(false);
+          void refetchDownloaded();
+          void refetchDownloading();
         } else if (typeof status === "object" && "downloading" in status) {
           setErrorMessage(null);
+          setIsStarting(true);
           setProgress(Math.max(0, Math.min(100, status.downloading)));
         }
       }
@@ -99,7 +103,7 @@ export function useLocalModelDownload(
     return () => {
       void unlisten.then((fn) => fn());
     };
-  }, [model]);
+  }, [model, refetchDownloaded, refetchDownloading]);
 
   useEffect(() => {
     if (isDownloaded.data && progress > 0) {
@@ -124,10 +128,12 @@ export function useLocalModelDownload(
   }, [isDownloaded.data, isDownloading.data, isStarting, model]);
 
   const handleCancel = useCallback(() => {
-    void localSttCommands.cancelDownload(model);
+    void localSttCommands
+      .cancelDownload(model)
+      .then(() => refetchDownloading());
     setIsStarting(false);
     setProgress(0);
-  }, [model]);
+  }, [model, refetchDownloading]);
 
   const handleDelete = useCallback(() => {
     void localSttCommands.deleteModel(model).then((result) => {

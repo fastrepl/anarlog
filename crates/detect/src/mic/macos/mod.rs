@@ -3,7 +3,7 @@ mod device;
 mod state;
 
 use cidre::core_audio as ca;
-use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc;
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -19,7 +19,6 @@ const DEVICE_IS_RUNNING_SOMEWHERE: ca::PropAddr = ca::PropAddr {
 };
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
-const DEBOUNCE_TICK_INTERVAL: Duration = Duration::from_millis(50);
 const LISTENER_GENERATION_IDLE: u8 = 0;
 const LISTENER_GENERATION_ACTIVE: u8 = 1;
 const LISTENER_GENERATION_DISABLED: u8 = 2;
@@ -273,13 +272,19 @@ impl Drop for CoreAudioListeners {
 }
 
 struct Worker {
-    shutdown_tx: mpsc::Sender<()>,
+    shutdown: std::sync::Arc<AtomicBool>,
+    signal_tx: mpsc::SyncSender<WorkerSignal>,
     thread: JoinHandle<()>,
+}
+
+pub(super) enum WorkerSignal {
+    Wake,
 }
 
 impl Worker {
     fn stop(self) {
-        let _ = self.shutdown_tx.send(());
+        self.shutdown.store(true, Ordering::SeqCst);
+        let _ = self.signal_tx.try_send(WorkerSignal::Wake);
 
         if self.thread.thread().id() == std::thread::current().id() {
             return;
@@ -332,22 +337,49 @@ impl crate::Observer for Detector {
             }
         }
 
-        let (shutdown_tx, shutdown_rx) = mpsc::channel();
+        let shutdown = std::sync::Arc::new(AtomicBool::new(false));
+        let thread_shutdown = shutdown.clone();
+        let (signal_tx, signal_rx) = mpsc::sync_channel(1);
+        let context_signal_tx = signal_tx.clone();
         let thread = match std::thread::Builder::new()
             .name("coreaudio-mic-detector".to_string())
             .spawn(move || {
                 let generation = ListenerGeneration::new();
-                let ctx = SharedContext::new(f);
+                let ctx = SharedContext::with_worker_signal(f, context_signal_tx);
                 let _listeners = CoreAudioListeners::new(ctx.clone_shared(), generation);
                 let mut last_app_poll = std::time::Instant::now();
 
-                while let Err(mpsc::RecvTimeoutError::Timeout) =
-                    shutdown_rx.recv_timeout(DEBOUNCE_TICK_INTERVAL)
-                {
+                loop {
+                    if thread_shutdown.load(Ordering::SeqCst) {
+                        break;
+                    }
                     ctx.flush_pending_mic_change();
-                    if last_app_poll.elapsed() >= POLL_INTERVAL {
+                    if ctx.app_polling_active() && last_app_poll.elapsed() >= POLL_INTERVAL {
                         poll_apps(&ctx);
                         last_app_poll = std::time::Instant::now();
+                    }
+
+                    let now = std::time::Instant::now();
+                    let debounce_wait = ctx.next_pending_delay(now);
+                    let app_poll_wait = ctx.app_polling_active().then(|| {
+                        POLL_INTERVAL.saturating_sub(now.saturating_duration_since(last_app_poll))
+                    });
+                    let wait = match (debounce_wait, app_poll_wait) {
+                        (Some(debounce), Some(app_poll)) => Some(debounce.min(app_poll)),
+                        (Some(debounce), None) => Some(debounce),
+                        (None, Some(app_poll)) => Some(app_poll),
+                        (None, None) => None,
+                    };
+
+                    match wait {
+                        Some(wait) => match signal_rx.recv_timeout(wait) {
+                            Ok(WorkerSignal::Wake) | Err(mpsc::RecvTimeoutError::Timeout) => {}
+                            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                        },
+                        None => match signal_rx.recv() {
+                            Ok(WorkerSignal::Wake) => {}
+                            Err(_) => break,
+                        },
                     }
                 }
             }) {
@@ -360,7 +392,8 @@ impl crate::Observer for Detector {
         };
 
         self.worker = Some(Worker {
-            shutdown_tx,
+            shutdown,
+            signal_tx,
             thread,
         });
     }

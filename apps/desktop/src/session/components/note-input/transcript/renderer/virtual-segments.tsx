@@ -11,7 +11,8 @@ import {
 } from "react";
 
 import {
-  getTranscriptWordMatches,
+  createTranscriptSearchIndex,
+  getTranscriptSearchIndexMatches,
   registerTranscriptSearchSource,
   type TranscriptSearchSource,
 } from "../../search/matching";
@@ -86,14 +87,14 @@ export function useVirtualSegments({
   }, [estimatedHeights, measuredHeights, segmentKeys]);
   const totalHeight = offsets[offsets.length - 1] ?? 0;
   const viewport = useVirtualViewport(scrollElement, listElement);
+  const segmentIndex = useMemo(() => createSegmentIndex(segments), [segments]);
 
-  const activeMatchIndex = useMemo(
-    () => findWordSegmentIndex(segments, activeMatchId),
-    [activeMatchId, segments],
-  );
+  const activeMatchIndex = activeMatchId
+    ? (segmentIndex.wordIndexes.get(activeMatchId) ?? null)
+    : null;
   const playbackIndex = useMemo(
-    () => findPlaybackSegmentIndex(segments, currentMs, offsetMs),
-    [currentMs, offsetMs, segments],
+    () => findPlaybackSegmentIndex(segmentIndex, currentMs, offsetMs),
+    [currentMs, offsetMs, segmentIndex],
   );
   const selectedIndexes = useSelectedSegmentIndexes(listElement);
   const virtualItems = useMemo(() => {
@@ -215,18 +216,21 @@ export function useVirtualSegments({
     scrollToIndex,
   ]);
 
-  searchSourceRef.current = (preparedQuery, options) =>
-    getTranscriptWordMatches(
-      segments.flatMap((segment, index) =>
-        segment.words.map((word) => ({
-          id: word.id ?? null,
-          text: word.text.trim(),
-          scrollIntoView: () => scrollToIndexRef.current(index, "smooth"),
-        })),
+  const searchIndex = useMemo(
+    () =>
+      createTranscriptSearchIndex(
+        segments.flatMap((segment, index) =>
+          segment.words.map((word) => ({
+            id: word.id ?? null,
+            text: word.text.trim(),
+            scrollIntoView: () => scrollToIndexRef.current(index, "smooth"),
+          })),
+        ),
       ),
-      preparedQuery,
-      options,
-    );
+    [segments],
+  );
+  searchSourceRef.current = (preparedQuery, options) =>
+    getTranscriptSearchIndexMatches(searchIndex, preparedQuery, options);
 
   const listRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -355,40 +359,98 @@ function useVirtualViewport(
   scrollElement: HTMLDivElement | null,
   listElement: HTMLDivElement | null,
 ) {
-  const subscribe = useCallback(
-    (notify: () => void) => {
-      if (!scrollElement) return () => {};
-      scrollElement.addEventListener("scroll", notify, { passive: true });
-      window.addEventListener("resize", notify);
-      const observer =
-        typeof ResizeObserver === "undefined"
-          ? null
-          : new ResizeObserver(notify);
-      observer?.observe(scrollElement);
-      if (listElement) observer?.observe(listElement);
-
-      return () => {
-        scrollElement.removeEventListener("scroll", notify);
-        window.removeEventListener("resize", notify);
-        observer?.disconnect();
-      };
-    },
+  const store = useMemo(
+    () => createVirtualViewportStore(scrollElement, listElement),
     [listElement, scrollElement],
   );
-  const getSnapshot = useCallback(() => {
-    if (!scrollElement) {
-      return `0|${FALLBACK_VIEWPORT_HEIGHT}|0`;
-    }
-    const scrollRect = scrollElement.getBoundingClientRect();
-    const listRect = listElement?.getBoundingClientRect();
-    const listTop = listRect
-      ? scrollElement.scrollTop + listRect.top - scrollRect.top
-      : scrollElement.scrollTop;
-    return `${scrollElement.scrollTop}|${scrollElement.clientHeight || FALLBACK_VIEWPORT_HEIGHT}|${listTop}`;
-  }, [listElement, scrollElement]);
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const snapshot = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  );
   const [scrollTop, height, listTop] = snapshot.split("|").map(Number);
   return { scrollTop, height, listTop };
+}
+
+function createVirtualViewportStore(
+  scrollElement: HTMLDivElement | null,
+  listElement: HTMLDivElement | null,
+) {
+  let listTop: number | null = null;
+  let snapshot = "0|800|0";
+  let animationFrame: number | null = null;
+  let shouldMeasureList = true;
+  const listeners = new Set<() => void>();
+
+  const refresh = (measureList: boolean) => {
+    if (!scrollElement) {
+      snapshot = `0|${FALLBACK_VIEWPORT_HEIGHT}|0`;
+      return;
+    }
+
+    if (measureList || listTop === null) {
+      const scrollRect = scrollElement.getBoundingClientRect();
+      const listRect = listElement?.getBoundingClientRect();
+      listTop = listRect
+        ? scrollElement.scrollTop + listRect.top - scrollRect.top
+        : scrollElement.scrollTop;
+    }
+    const next = `${scrollElement.scrollTop}|${scrollElement.clientHeight || FALLBACK_VIEWPORT_HEIGHT}|${listTop}`;
+    if (next !== snapshot) {
+      snapshot = next;
+      listeners.forEach((listener) => listener());
+    }
+  };
+
+  const scheduleRefresh = (measureList = false) => {
+    shouldMeasureList ||= measureList;
+    if (animationFrame !== null) return;
+    animationFrame = requestAnimationFrame(() => {
+      animationFrame = null;
+      const measure = shouldMeasureList;
+      shouldMeasureList = false;
+      refresh(measure);
+    });
+  };
+
+  refresh(true);
+  const subscribe = (listener: () => void) => {
+    if (!scrollElement) return () => {};
+    listeners.add(listener);
+    const handleScroll = () => scheduleRefresh();
+    const handleLayout = () => scheduleRefresh(true);
+    scrollElement.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleLayout);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(handleLayout);
+    resizeObserver?.observe(scrollElement);
+    if (listElement) resizeObserver?.observe(listElement);
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(handleLayout);
+    mutationObserver?.observe(scrollElement, {
+      childList: true,
+      subtree: true,
+    });
+    scheduleRefresh(true);
+
+    return () => {
+      listeners.delete(listener);
+      scrollElement.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleLayout);
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+    };
+  };
+
+  return { getSnapshot: () => snapshot, subscribe };
 }
 
 function findRowIndex(offsets: number[], target: number): number {
@@ -406,31 +468,70 @@ function findRowIndex(offsets: number[], target: number): number {
   return low;
 }
 
-function findWordSegmentIndex(
-  segments: Segment[],
-  wordId: string | null,
-): number | null {
-  if (!wordId) return null;
-  const index = segments.findIndex((segment) =>
-    segment.words.some((word) => word.id === wordId),
-  );
-  return index < 0 ? null : index;
+function createSegmentIndex(segments: Segment[]) {
+  const wordIndexes = new Map<string, number>();
+  const playbackStarts: number[] = [];
+  const playbackEnds: number[] = [];
+  const playbackSegmentIndexes: number[] = [];
+  const playbackPrefixMaxEnds: number[] = [];
+
+  segments.forEach((segment, segmentIndex) => {
+    for (const word of segment.words) {
+      if (word.id && !wordIndexes.has(word.id)) {
+        wordIndexes.set(word.id, segmentIndex);
+      }
+    }
+    const first = segment.words[0];
+    const last = segment.words[segment.words.length - 1];
+    if (!first || !last) return;
+    const start = first.start_ms ?? 0;
+    const end = last.end_ms ?? 0;
+    playbackStarts.push(start);
+    playbackEnds.push(end);
+    playbackSegmentIndexes.push(segmentIndex);
+    playbackPrefixMaxEnds.push(
+      Math.max(
+        playbackPrefixMaxEnds[playbackPrefixMaxEnds.length - 1] ??
+          Number.NEGATIVE_INFINITY,
+        end,
+      ),
+    );
+  });
+
+  return {
+    wordIndexes,
+    playbackStarts,
+    playbackEnds,
+    playbackSegmentIndexes,
+    playbackPrefixMaxEnds,
+  };
 }
 
 function findPlaybackSegmentIndex(
-  segments: Segment[],
+  index: ReturnType<typeof createSegmentIndex>,
   currentMs: number,
   offsetMs: number,
 ): number | null {
   if (currentMs <= 0) return null;
-  const index = segments.findIndex((segment) => {
-    const first = segment.words[0];
-    const last = segment.words[segment.words.length - 1];
-    if (!first || !last) return false;
-    return (
-      currentMs >= offsetMs + (first.start_ms ?? 0) &&
-      currentMs <= offsetMs + (last.end_ms ?? 0)
-    );
-  });
-  return index < 0 ? null : index;
+  const target = currentMs - offsetMs;
+  let low = 0;
+  let high = index.playbackStarts.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (index.playbackStarts[middle]! <= target) low = middle + 1;
+    else high = middle;
+  }
+  const lastStarted = low - 1;
+  if (lastStarted < 0) return null;
+
+  low = 0;
+  high = lastStarted;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (index.playbackPrefixMaxEnds[middle]! < target) low = middle + 1;
+    else high = middle;
+  }
+  return index.playbackEnds[low]! >= target
+    ? index.playbackSegmentIndexes[low]!
+    : null;
 }

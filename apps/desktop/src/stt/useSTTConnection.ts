@@ -49,7 +49,8 @@ export const useSTTConnection = () => {
   const local = useQuery({
     enabled: isLocalModel,
     queryKey: ["stt-connection", current_stt_provider, localModel],
-    refetchInterval: 1000,
+    refetchInterval: (query) =>
+      query.state.data?.status === "loading" ? 1000 : false,
     queryFn: async () => {
       if (!localModel) {
         return null;

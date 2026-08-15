@@ -102,33 +102,126 @@ export function startAttachmentTransferRunner(
   externalSignal?: AbortSignal,
 ): () => void {
   const controller = new AbortController();
+  const store = dependencies.store ?? attachmentTransferStore;
   let timeout: ReturnType<typeof setTimeout> | undefined;
+  let nextAttemptAt: number | null = null;
+  let nextMaintenanceAt = Date.now();
+  let fallbackAt: number | null = null;
+  let running = false;
+  let runAgain = false;
+  let stopRequested = false;
+  let unsubscribeStarted = false;
+  let unsubscribePromise: Promise<() => Promise<void>> | undefined;
+
+  const reschedule = () => {
+    clearTimeout(timeout);
+    timeout = undefined;
+    if (controller.signal.aborted || running) return;
+
+    const deadline = [nextAttemptAt, nextMaintenanceAt, fallbackAt]
+      .filter((value): value is number => value !== null)
+      .reduce(
+        (earliest, value) => Math.min(earliest, value),
+        Number.POSITIVE_INFINITY,
+      );
+    if (Number.isFinite(deadline)) {
+      timeout = setTimeout(
+        () => void tick(),
+        Math.max(0, deadline - Date.now()),
+      );
+    }
+  };
+
+  const requestUnsubscribe = () => {
+    stopRequested = true;
+    if (!unsubscribePromise || unsubscribeStarted) return;
+    unsubscribeStarted = true;
+    void unsubscribePromise
+      .then((unsubscribe) => unsubscribe())
+      .catch((error) =>
+        console.error("[attachment-sync] queue unsubscribe failed", error),
+      );
+  };
   const stop = () => {
     controller.abort();
-    if (timeout) clearTimeout(timeout);
+    clearTimeout(timeout);
+    requestUnsubscribe();
   };
   const stopFromExternalSignal = () => stop();
   externalSignal?.addEventListener("abort", stopFromExternalSignal, {
     once: true,
   });
+  if (externalSignal?.aborted) stop();
 
   const tick = async () => {
     if (controller.signal.aborted) return;
+    if (running) {
+      runAgain = true;
+      return;
+    }
+    running = true;
+    clearTimeout(timeout);
+    timeout = undefined;
+    const now = Date.now();
+    if (nextAttemptAt !== null && nextAttemptAt <= now) nextAttemptAt = null;
+    if (fallbackAt !== null && fallbackAt <= now) {
+      fallbackAt = now + PASS_INTERVAL_MS;
+    }
+
     try {
-      const store = dependencies.store ?? attachmentTransferStore;
       const native = dependencies.native ?? attachmentTransferNative;
       await ensureProcessLocalAttemptsReset(store);
       await ensureDeleteGuardsReconciled(native);
-      await runAttachmentTransferPass(dependencies, controller.signal);
+      nextMaintenanceAt = Date.now() + DELETE_GUARD_RECONCILE_INTERVAL_MS;
+      const processed = await runAttachmentTransferPass(
+        dependencies,
+        controller.signal,
+      );
+      if (processed === MAX_JOBS_PER_PASS) runAgain = true;
     } catch (error) {
       if (!controller.signal.aborted) {
         console.error("[attachment-sync] transfer pass failed", error);
+        fallbackAt = Date.now() + PASS_INTERVAL_MS;
       }
+    } finally {
+      running = false;
     }
-    if (!controller.signal.aborted) {
-      timeout = setTimeout(() => void tick(), PASS_INTERVAL_MS);
+
+    if (runAgain && !controller.signal.aborted) {
+      runAgain = false;
+      void tick();
+    } else {
+      reschedule();
     }
   };
+
+  const subscribeToNextAttempt = store.subscribeToNextAttempt?.bind(store);
+  if (!subscribeToNextAttempt) fallbackAt = Date.now() + PASS_INTERVAL_MS;
+  unsubscribePromise = subscribeToNextAttempt?.(
+    (value) => {
+      const timestamp = value ? Date.parse(value) : Number.NaN;
+      nextAttemptAt = Number.isFinite(timestamp) ? timestamp : null;
+      fallbackAt = null;
+      if (running && nextAttemptAt !== null && nextAttemptAt <= Date.now()) {
+        runAgain = true;
+      } else {
+        reschedule();
+      }
+    },
+    (error) => {
+      console.error("[attachment-sync] queue subscription failed", error);
+      fallbackAt = Date.now() + PASS_INTERVAL_MS;
+      reschedule();
+    },
+  ).catch((error) => {
+    if (!controller.signal.aborted) {
+      console.error("[attachment-sync] queue subscription failed", error);
+      fallbackAt = Date.now() + PASS_INTERVAL_MS;
+      reschedule();
+    }
+    return async () => {};
+  });
+  if (stopRequested) requestUnsubscribe();
   void tick();
 
   return () => {

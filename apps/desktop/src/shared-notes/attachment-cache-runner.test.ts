@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   runSharedAttachmentCacheJob,
   runSharedAttachmentCachePass,
+  startSharedAttachmentCacheRunner,
 } from "./attachment-cache-runner";
 import { SharedAttachmentGatewayError } from "./attachment-client";
 
@@ -47,6 +48,9 @@ function dependencies() {
       clearSharedAttachmentScope: vi.fn().mockResolvedValue(0),
     },
     store: {
+      subscribeToNextAttempt: vi
+        .fn()
+        .mockResolvedValue(vi.fn(async () => undefined)),
       recoverInterrupted: vi.fn().mockResolvedValue(undefined),
       claimNext: vi.fn().mockResolvedValue(null),
       completeDownload: vi.fn().mockResolvedValue(true),
@@ -58,6 +62,27 @@ function dependencies() {
 }
 
 describe("shared attachment cache runner", () => {
+  it("does not poll an empty cache queue", async () => {
+    vi.useFakeTimers();
+    const deps = dependencies();
+    const unsubscribe = vi.fn(async () => undefined);
+    deps.store.subscribeToNextAttempt.mockResolvedValueOnce(unsubscribe);
+
+    try {
+      const stop = startSharedAttachmentCacheRunner(deps as never);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(deps.store.claimNext).toHaveBeenCalledOnce();
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(deps.store.claimNext).toHaveBeenCalledOnce();
+      stop();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(unsubscribe).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("downloads only a grant that exactly matches the cached manifest", async () => {
     const deps = dependencies();
 

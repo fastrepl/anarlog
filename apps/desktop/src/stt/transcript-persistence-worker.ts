@@ -315,6 +315,14 @@ function toDelta(pendingWrite: PendingTranscriptWrite): LiveTranscriptDelta {
   };
 }
 
+export function coalesceLiveTranscriptDeltas(
+  deltas: readonly LiveTranscriptDelta[],
+): LiveTranscriptDelta {
+  const pendingWrite = createPendingWrite();
+  for (const delta of deltas) mergeDelta(pendingWrite, delta);
+  return toDelta(pendingWrite);
+}
+
 function removePendingWords(
   pendingWrite: PendingTranscriptWrite,
   wordId: string,

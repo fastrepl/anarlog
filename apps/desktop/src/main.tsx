@@ -5,11 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode, useMemo } from "react";
 import ReactDOM from "react-dom/client";
-import { createManager } from "tinytick";
-import {
-  Provider as TinyTickProvider,
-  useCreateManager,
-} from "tinytick/ui-react";
 
 import "@anlg/ui/globals.css";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -31,6 +26,10 @@ import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
 import { TaskManager } from "./services/task-manager";
+import {
+  createTaskScheduler,
+  TaskSchedulerProvider,
+} from "./services/task-scheduler";
 import { TrayRecordingSync } from "./services/tray-recording";
 import { TrayScheduleSync } from "./services/tray-schedule";
 import { UpdaterMeetingSync } from "./services/updater-meeting";
@@ -87,15 +86,13 @@ function App() {
 initializeErrorReporting();
 
 function AppRoot() {
-  const manager = useCreateManager(() => {
-    return createManager().start();
-  });
+  const scheduler = useMemo(() => createTaskScheduler().start(), []);
   const theme = useConfigValue("theme") as ThemePreference;
   useRemoteSessionDeletionUndoListener(isMainWindow);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TinyTickProvider manager={manager}>
+      <TaskSchedulerProvider scheduler={scheduler}>
         <App />
         {isMainWindow ? <TaskManager /> : null}
         {isMainWindow ? <FloatingMeetingWindowHost /> : null}
@@ -104,7 +101,7 @@ function AppRoot() {
         {isMainWindow ? <TrayRecordingSync /> : null}
         {isMainWindow ? <UpdaterMeetingSync /> : null}
         <Toaster position="bottom-right" theme={theme} />
-      </TinyTickProvider>
+      </TaskSchedulerProvider>
     </QueryClientProvider>
   );
 }

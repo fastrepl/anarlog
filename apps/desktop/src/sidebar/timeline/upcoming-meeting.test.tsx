@@ -139,9 +139,8 @@ describe("useSidebarUpcomingMeetingStatus", () => {
       title: "Team standup",
     });
 
-    vi.setSystemTime(new Date("2024-01-15T12:30:01.000Z"));
     act(() => {
-      vi.advanceTimersByTime(1_000);
+      vi.advanceTimersByTime(30 * 60_000 + 1);
     });
 
     expect(active.result.current).toBeNull();

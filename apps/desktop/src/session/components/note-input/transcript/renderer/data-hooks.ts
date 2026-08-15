@@ -32,7 +32,7 @@ export function useRenderedTranscriptData(
   request: RenderTranscriptRequest | null;
   segments: Segment[];
 } {
-  const { request } = useTranscriptRenderData(transcriptId);
+  const { request } = useTranscriptRenderData(transcriptId, !currentActive);
   // Recovery needs the persisted prefix. The active key stays stable across
   // word and assignment writes so tab remounts reuse the same native render.
   const activeBaselineRef = useRef<{

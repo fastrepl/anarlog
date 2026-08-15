@@ -18,6 +18,19 @@ export type TranscriptSearchSource = (
   opts: SearchOptions,
 ) => MatchResult[];
 
+export type TranscriptSearchWord = {
+  id: string | null;
+  text: string;
+  scrollIntoView: () => void;
+};
+
+export type TranscriptSearchIndex = {
+  entries: { element: HTMLElement; id: string | null }[];
+  spanPositions: { start: number; end: number }[];
+  normalizedText: string;
+  foldedText: string;
+};
+
 const transcriptSearchSources = new WeakMap<
   HTMLElement,
   Map<symbol, TranscriptSearchSource>
@@ -126,18 +139,26 @@ export function getTranscriptMatches(
 }
 
 export function getTranscriptWordMatches(
-  words: { id: string | null; text: string; scrollIntoView: () => void }[],
+  words: TranscriptSearchWord[],
   prepared: string,
   opts: SearchOptions,
 ): MatchResult[] {
-  return getTranscriptEntryMatches(
+  return getTranscriptSearchIndexMatches(
+    createTranscriptSearchIndex(words),
+    prepared,
+    opts,
+  );
+}
+
+export function createTranscriptSearchIndex(
+  words: TranscriptSearchWord[],
+): TranscriptSearchIndex {
+  return createTranscriptEntryIndex(
     words.map((word) => ({
       element: { scrollIntoView: word.scrollIntoView } as HTMLElement,
       id: word.id,
       text: word.text,
     })),
-    prepared,
-    opts,
   );
 }
 
@@ -146,6 +167,16 @@ function getTranscriptEntryMatches(
   prepared: string,
   opts: SearchOptions,
 ): MatchResult[] {
+  return getTranscriptSearchIndexMatches(
+    createTranscriptEntryIndex(entries),
+    prepared,
+    opts,
+  );
+}
+
+function createTranscriptEntryIndex(
+  entries: { element: HTMLElement; id: string | null; text: string }[],
+): TranscriptSearchIndex {
   const spanPositions: { start: number; end: number }[] = [];
   let fullText = "";
 
@@ -157,35 +188,53 @@ function getTranscriptEntryMatches(
     spanPositions.push({ start, end: fullText.length });
   }
 
-  const searchText = prepareText(fullText, opts.caseSensitive);
+  const normalizedText = fullText.normalize("NFC");
+  return {
+    entries: entries.map(({ element, id }) => ({ element, id })),
+    spanPositions,
+    normalizedText,
+    foldedText: normalizedText.toLowerCase(),
+  };
+}
+
+export function getTranscriptSearchIndexMatches(
+  index: TranscriptSearchIndex,
+  prepared: string,
+  opts: SearchOptions,
+): MatchResult[] {
+  const searchText = opts.caseSensitive
+    ? index.normalizedText
+    : index.foldedText;
   const indices = findOccurrences(searchText, prepared, opts.wholeWord);
   const result: MatchResult[] = [];
   let spanIndex = 0;
 
   for (const idx of indices) {
     while (
-      spanIndex < spanPositions.length - 1 &&
-      idx >= spanPositions[spanIndex].end &&
-      idx >= spanPositions[spanIndex + 1].start
+      spanIndex < index.spanPositions.length - 1 &&
+      idx >= index.spanPositions[spanIndex].end &&
+      idx >= index.spanPositions[spanIndex + 1].start
     ) {
       spanIndex += 1;
     }
 
-    const { start, end } = spanPositions[spanIndex];
+    const position = index.spanPositions[spanIndex];
+    if (!position) continue;
+    const { start, end } = position;
     if (idx >= start && idx < end) {
       result.push({
-        element: entries[spanIndex].element,
-        id: entries[spanIndex].id,
+        element: index.entries[spanIndex].element,
+        id: index.entries[spanIndex].id,
       });
       continue;
     }
 
     if (
-      spanIndex < spanPositions.length - 1 &&
+      spanIndex < index.spanPositions.length - 1 &&
       idx >= end &&
-      idx < spanPositions[spanIndex + 1].start
+      idx < index.spanPositions[spanIndex + 1].start
     ) {
-      const nextSpan = entries[spanIndex + 1];
+      const nextSpan = index.entries[spanIndex + 1];
       result.push({
         element: nextSpan.element,
         id: nextSpan.id,

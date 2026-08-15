@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { useRef } from "react";
-import { useScheduleTaskRunCallback } from "tinytick/ui-react";
 
 import {
   type DeepLink,
@@ -19,6 +18,7 @@ import {
   removeDisconnectedCalendarConnection,
   syncCalendarEvents,
 } from "~/services/calendar";
+import { useScheduleTaskRunCallback } from "~/services/task-scheduler";
 import {
   createShareOpenProcessor,
   subscribeThenDrainShareOpens,

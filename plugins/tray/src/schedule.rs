@@ -100,7 +100,69 @@ pub fn menu_bar_title(
         return None;
     }
 
-    let active = events
+    let active = active_event(events, now_ms);
+
+    if let Some(event) = active {
+        let suffix = format!(
+            " • {} left",
+            duration_label(event.ends_at_ms.unwrap_or(now_ms) - now_ms)
+        );
+        return Some(menu_bar_label(&event.title, &suffix));
+    }
+
+    let event = upcoming_event(events, now_ms)?;
+
+    let suffix = format!(" • in {}", duration_label(event.starts_at_ms - now_ms));
+    Some(menu_bar_label(&event.title, &suffix))
+}
+
+pub fn next_schedule_refresh_ms(
+    events: &[TrayScheduleEvent],
+    now_ms: f64,
+    show_events: bool,
+    is_recording: bool,
+) -> Option<u64> {
+    if !show_events {
+        return None;
+    }
+
+    let mut next_delay_ms = events
+        .iter()
+        .flat_map(|event| {
+            [
+                event.starts_at_ms,
+                event.ends_at_ms.unwrap_or(f64::NAN),
+                event.day_start_ms,
+                event.previous_day_start_ms,
+                event.starts_at_ms - DISPLAY_HORIZON_MS,
+            ]
+        })
+        .filter(|deadline_ms| deadline_ms.is_finite() && *deadline_ms > now_ms)
+        .map(|deadline_ms| deadline_ms - now_ms)
+        .min_by(f64::total_cmp);
+
+    if !is_recording {
+        let displayed_event = active_event(events, now_ms)
+            .map(|event| event.ends_at_ms.unwrap_or(now_ms) - now_ms)
+            .or_else(|| upcoming_event(events, now_ms).map(|event| event.starts_at_ms - now_ms));
+        if let Some(diff_ms) = displayed_event {
+            let total_seconds = (diff_ms / 1000.0).floor().max(1.0) as u64;
+            let quantum_ms = if total_seconds < 60 {
+                1_000.0
+            } else {
+                60_000.0
+            };
+            let label_delay_ms = diff_ms.rem_euclid(quantum_ms).floor() + 1.0;
+            next_delay_ms =
+                Some(next_delay_ms.map_or(label_delay_ms, |delay| delay.min(label_delay_ms)));
+        }
+    }
+
+    next_delay_ms.map(|delay| delay.ceil().max(1.0) as u64)
+}
+
+fn active_event(events: &[TrayScheduleEvent], now_ms: f64) -> Option<&TrayScheduleEvent> {
+    events
         .iter()
         .filter(|event| {
             event.starts_at_ms.is_finite()
@@ -113,17 +175,11 @@ pub fn menu_bar_title(
             left.ends_at_ms
                 .partial_cmp(&right.ends_at_ms)
                 .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        })
+}
 
-    if let Some(event) = active {
-        let suffix = format!(
-            " • {} left",
-            duration_label(event.ends_at_ms.unwrap_or(now_ms) - now_ms)
-        );
-        return Some(menu_bar_label(&event.title, &suffix));
-    }
-
-    let event = events
+fn upcoming_event(events: &[TrayScheduleEvent], now_ms: f64) -> Option<&TrayScheduleEvent> {
+    events
         .iter()
         .filter(|event| {
             event.starts_at_ms.is_finite()
@@ -134,10 +190,7 @@ pub fn menu_bar_title(
             left.starts_at_ms
                 .partial_cmp(&right.starts_at_ms)
                 .unwrap_or(std::cmp::Ordering::Equal)
-        })?;
-
-    let suffix = format!(" • in {}", duration_label(event.starts_at_ms - now_ms));
-    Some(menu_bar_label(&event.title, &suffix))
+        })
 }
 
 fn menu_bar_label(title: &str, suffix: &str) -> String {
@@ -238,6 +291,29 @@ mod tests {
         assert_eq!(
             menu_bar_title(&events, now, true, false, None),
             Some("Standup • in 5m".to_string())
+        );
+    }
+
+    #[test]
+    fn schedules_only_the_next_visible_title_change() {
+        let now = 1_000_000.0;
+        let events = vec![event("Standup", now + 5.0 * 60.0 * 1000.0 + 750.0, None)];
+
+        assert_eq!(
+            next_schedule_refresh_ms(&events, now, true, false),
+            Some(751)
+        );
+        assert_eq!(next_schedule_refresh_ms(&events, now, false, false), None);
+    }
+
+    #[test]
+    fn recording_title_skips_countdown_ticks_but_keeps_event_deadlines() {
+        let now = 1_000_000.0;
+        let events = vec![event("Standup", now + 5.0 * 60.0 * 1000.0 + 750.0, None)];
+
+        assert_eq!(
+            next_schedule_refresh_ms(&events, now, true, true),
+            Some(300_750)
         );
     }
 

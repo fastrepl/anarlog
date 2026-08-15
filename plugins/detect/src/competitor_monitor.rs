@@ -4,24 +4,32 @@ use std::time::Duration;
 
 const TERMINATION_INTERVAL: Duration = Duration::from_secs(5);
 
+#[derive(Default)]
+struct CompetitorTerminationInner {
+    pause_count: AtomicUsize,
+    changed: tokio::sync::Notify,
+}
+
 #[derive(Clone, Default)]
-pub(crate) struct CompetitorTerminationState(Arc<AtomicUsize>);
+pub(crate) struct CompetitorTerminationState(Arc<CompetitorTerminationInner>);
 
 impl CompetitorTerminationState {
     pub fn set_paused(&self, paused: bool) {
         if paused {
-            self.0.fetch_add(1, Ordering::SeqCst);
+            self.0.pause_count.fetch_add(1, Ordering::SeqCst);
         } else {
             let _ = self
                 .0
+                .pause_count
                 .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
                     count.checked_sub(1)
                 });
         }
+        self.0.changed.notify_one();
     }
 
     pub fn is_paused(&self) -> bool {
-        self.0.load(Ordering::SeqCst) > 0
+        self.0.pause_count.load(Ordering::SeqCst) > 0
     }
 }
 
@@ -35,16 +43,21 @@ async fn run(
     terminate: impl Fn() -> Vec<anlg_detect::InstalledApp> + Send + 'static,
 ) {
     loop {
-        if !state.is_paused() {
-            let terminated = terminate();
-            if !terminated.is_empty() {
-                tracing::info!(
-                    apps = ?terminated.iter().map(|app| &app.name).collect::<Vec<_>>(),
-                    "terminated competing meeting assistants"
-                );
-            }
+        while state.is_paused() {
+            state.0.changed.notified().await;
         }
-        tokio::time::sleep(TERMINATION_INTERVAL).await;
+
+        let terminated = terminate();
+        if !terminated.is_empty() {
+            tracing::info!(
+                apps = ?terminated.iter().map(|app| &app.name).collect::<Vec<_>>(),
+                "terminated competing meeting assistants"
+            );
+        }
+        tokio::select! {
+            _ = tokio::time::sleep(TERMINATION_INTERVAL) => {}
+            _ = state.0.changed.notified() => {}
+        }
     }
 }
 

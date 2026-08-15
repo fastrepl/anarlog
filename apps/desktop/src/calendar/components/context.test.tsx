@@ -5,47 +5,62 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import { createManager } from "tinytick";
-import { Provider as TinyTickProvider } from "tinytick/ui-react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { SyncProvider, useSync } from "./context";
 
 import { CALENDAR_SYNC_TASK_ID } from "~/services/calendar";
+import {
+  createTaskScheduler,
+  TaskSchedulerProvider,
+} from "~/services/task-scheduler";
 
 function StatusHarness() {
-  const { scheduleSync, status } = useSync();
+  const { canSync, scheduleSync, status } = useSync();
 
   return (
-    <button type="button" onClick={scheduleSync}>
+    <button type="button" disabled={!canSync} onClick={scheduleSync}>
       {status}
     </button>
   );
 }
 
 describe("SyncProvider", () => {
-  const managers: ReturnType<typeof createManager>[] = [];
+  const managers: ReturnType<typeof createTaskScheduler>[] = [];
 
   afterEach(() => {
     cleanup();
     for (const manager of managers) {
-      manager.stop(true);
+      manager.stop();
     }
     managers.length = 0;
     vi.useRealTimers();
   });
 
+  test("disables sync without a scheduler", () => {
+    render(
+      <SyncProvider>
+        <StatusHarness />
+      </SyncProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "idle" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
   test("keeps a newly scheduled sync in the scheduled state", () => {
-    const manager = createManager();
+    const manager = createTaskScheduler();
     managers.push(manager);
     manager.setTask(CALENDAR_SYNC_TASK_ID, async () => undefined);
 
     render(
-      <TinyTickProvider manager={manager}>
+      <TaskSchedulerProvider scheduler={manager}>
         <SyncProvider>
           <StatusHarness />
         </SyncProvider>
-      </TinyTickProvider>,
+      </TaskSchedulerProvider>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "idle" }));
@@ -54,17 +69,17 @@ describe("SyncProvider", () => {
   });
 
   test("reflects a calendar sync scheduled outside the provider", () => {
-    const manager = createManager();
+    const manager = createTaskScheduler();
     managers.push(manager);
     manager.setTask(CALENDAR_SYNC_TASK_ID, async () => undefined);
     manager.scheduleTaskRun(CALENDAR_SYNC_TASK_ID);
 
     render(
-      <TinyTickProvider manager={manager}>
+      <TaskSchedulerProvider scheduler={manager}>
         <SyncProvider>
           <StatusHarness />
         </SyncProvider>
-      </TinyTickProvider>,
+      </TaskSchedulerProvider>,
     );
 
     expect(screen.getByRole("button", { name: "scheduled" })).toBeDefined();
@@ -72,7 +87,7 @@ describe("SyncProvider", () => {
 
   test("moves from scheduled to syncing to idle", async () => {
     vi.useFakeTimers();
-    const manager = createManager();
+    const manager = createTaskScheduler();
     managers.push(manager);
     let finishTask = () => {};
     manager.setTask(
@@ -84,11 +99,11 @@ describe("SyncProvider", () => {
     );
 
     render(
-      <TinyTickProvider manager={manager}>
+      <TaskSchedulerProvider scheduler={manager}>
         <SyncProvider>
           <StatusHarness />
         </SyncProvider>
-      </TinyTickProvider>,
+      </TaskSchedulerProvider>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "idle" }));

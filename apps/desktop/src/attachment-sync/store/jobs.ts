@@ -8,6 +8,26 @@ import {
 import { executeTransaction, liveQueryClient } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
 
+type NextAttemptRow = { next_attempt_at: string | null };
+
+export function subscribeToNextAttachmentTransferAttempt(
+  onChange: (nextAttemptAt: string | null) => void,
+  onError?: (error: string) => void,
+) {
+  return liveQueryClient.subscribe<NextAttemptRow>(
+    `
+      SELECT MIN(next_attempt_at) AS next_attempt_at
+      FROM attachment_transfer_jobs
+      WHERE phase IN ('queued', 'retry_wait')
+    `,
+    [],
+    {
+      onData: (rows) => onChange(rows[0]?.next_attempt_at ?? null),
+      onError,
+    },
+  );
+}
+
 export async function claimNextAttachmentTransferJob(): Promise<
   AttachmentTransferJob | undefined
 > {

@@ -1,7 +1,5 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
 use std::thread::JoinHandle;
-use std::time::Duration;
 
 use block2::RcBlock;
 use objc2::{msg_send, rc::Retained};
@@ -26,14 +24,14 @@ impl Drop for SleepObserver {
 }
 
 pub struct SleepDetector {
-    running: Arc<AtomicBool>,
+    shutdown_tx: Option<mpsc::Sender<()>>,
     thread_handle: Option<JoinHandle<()>>,
 }
 
 impl Default for SleepDetector {
     fn default() -> Self {
         Self {
-            running: Arc::new(AtomicBool::new(false)),
+            shutdown_tx: None,
             thread_handle: None,
         }
     }
@@ -41,12 +39,12 @@ impl Default for SleepDetector {
 
 impl crate::Observer for SleepDetector {
     fn start(&mut self, f: DetectCallback) {
-        if self.running.load(Ordering::SeqCst) {
+        if self.thread_handle.is_some() {
             return;
         }
 
-        self.running.store(true, Ordering::SeqCst);
-        let running = self.running.clone();
+        let (shutdown_tx, shutdown_rx) = mpsc::channel();
+        self.shutdown_tx = Some(shutdown_tx);
 
         self.thread_handle = Some(std::thread::spawn(move || {
             let will_sleep_callback = f.clone();
@@ -89,18 +87,18 @@ impl crate::Observer for SleepDetector {
                 }
             };
 
-            while running.load(Ordering::SeqCst) {
-                std::thread::sleep(Duration::from_millis(500));
-            }
+            let _ = shutdown_rx.recv();
         }));
     }
 
     fn stop(&mut self) {
-        if !self.running.load(Ordering::SeqCst) {
+        if self.thread_handle.is_none() {
             return;
         }
 
-        self.running.store(false, Ordering::SeqCst);
+        if let Some(shutdown_tx) = self.shutdown_tx.take() {
+            let _ = shutdown_tx.send(());
+        }
 
         if let Some(handle) = self.thread_handle.take() {
             let _ = handle.join();

@@ -91,10 +91,25 @@ pub struct Detector {
 #[cfg(feature = "mic")]
 impl Detector {
     pub fn start(&mut self, f: DetectCallback) {
-        self.mic_detector.start(f.clone());
+        #[cfg(all(target_os = "macos", feature = "zoom", feature = "list"))]
+        let zoom_mic_usage = ZoomMicUsage::default();
+        #[cfg(all(target_os = "macos", feature = "zoom", feature = "list"))]
+        let mic_callback = {
+            let f = f.clone();
+            let zoom_mic_usage = zoom_mic_usage.clone();
+            new_callback(move |event| {
+                zoom_mic_usage.update_from_mic_event(&event);
+                f(event);
+            })
+        };
+        #[cfg(not(all(target_os = "macos", feature = "zoom", feature = "list")))]
+        let mic_callback = f.clone();
+
+        self.mic_detector.start(mic_callback);
 
         #[cfg(all(target_os = "macos", feature = "zoom", feature = "list"))]
-        self.zoom_watcher.start(f.clone());
+        self.zoom_watcher
+            .start_with_mic_usage(f.clone(), zoom_mic_usage);
 
         #[cfg(all(target_os = "macos", feature = "sleep"))]
         self.sleep_detector.start(f);

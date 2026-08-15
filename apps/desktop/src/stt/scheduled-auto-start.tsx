@@ -1,3 +1,5 @@
+import { useCallback, useRef } from "react";
+
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
 import { safeParseDate } from "@anlg/utils";
@@ -126,6 +128,13 @@ export function ScheduledMeetingAutoStart() {
   ] as const);
   const autoStartRef = useLatestRef(autoStart);
   const autoJoinRef = useLatestRef(autoJoin);
+  const configChangedRef = useRef<() => void>(() => {});
+  const configChangeNodeRef = useCallback(
+    (node: HTMLSpanElement | null) => {
+      if (node) configChangedRef.current();
+    },
+    [autoJoin, autoStart],
+  );
 
   useMountEffect(() => {
     if (getCurrentWebviewWindowLabel() !== "main") {
@@ -136,16 +145,47 @@ export function ScheduledMeetingAutoStart() {
     let rows: ScheduledMeetingRow[] = [];
     let unsubscribe: (() => Promise<void>) | null = null;
     let starting = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const firedEventIds = new Set<string>();
 
+    const scheduleTick = (delayMs: number) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(
+        () => {
+          timeout = undefined;
+          tick();
+        },
+        Math.max(1, delayMs),
+      );
+    };
+
+    const scheduleNextStart = () => {
+      clearTimeout(timeout);
+      timeout = undefined;
+      if (!autoStartRef.current) return;
+
+      const now = Date.now();
+      const nextStart = rows.reduce((earliest, row) => {
+        if (firedEventIds.has(row.id)) return earliest;
+        const start = safeParseDate(row.started_at)?.getTime();
+        return start !== undefined && start > now
+          ? Math.min(earliest, start)
+          : earliest;
+      }, Number.POSITIVE_INFINITY);
+      if (Number.isFinite(nextStart)) {
+        scheduleTick(nextStart - now);
+      }
+    };
+
     const tick = () => {
-      // Ticks come from both the interval and calendar updates; without this a
-      // second tick could open another meeting mid-start.
+      // Deadlines and state updates can coincide; without this a second tick
+      // could open another meeting mid-start.
       if (starting) {
         return;
       }
 
       if (!autoStartRef.current) {
+        scheduleNextStart();
         return;
       }
 
@@ -161,24 +201,32 @@ export function ScheduledMeetingAutoStart() {
         });
       }
 
-      if (
-        hasScheduledAutoStartInFlight() ||
-        hasPendingAutoStart(useTabs.getState().tabs)
-      ) {
-        return;
-      }
-
-      if (listenerStore.getState().live.status !== "inactive") {
-        return;
-      }
-
       const due = selectDueMeetings({
         rows,
         nowMs: Date.now(),
         firedEventIds,
       });
       const next = due[0];
+      const scheduleAfterTransientBlock = () => {
+        if (next) scheduleTick(TICK_MS);
+        else scheduleNextStart();
+      };
+
+      if (
+        hasScheduledAutoStartInFlight() ||
+        hasPendingAutoStart(useTabs.getState().tabs)
+      ) {
+        scheduleAfterTransientBlock();
+        return;
+      }
+
+      if (listenerStore.getState().live.status !== "inactive") {
+        scheduleAfterTransientBlock();
+        return;
+      }
+
       if (!next) {
+        scheduleNextStart();
         return;
       }
 
@@ -188,6 +236,7 @@ export function ScheduledMeetingAutoStart() {
           // A blocked start is transient (another session finalizing, a start
           // already in flight), so leave it eligible for the next tick.
           if (outcome === "blocked") {
+            scheduleTick(TICK_MS);
             return;
           }
 
@@ -207,13 +256,18 @@ export function ScheduledMeetingAutoStart() {
             "[listener] failed to auto-start scheduled meeting",
             error,
           );
+          scheduleTick(TICK_MS);
         })
         .finally(() => {
           starting = false;
+          if (!timeout) tick();
         });
     };
-
-    const interval = setInterval(tick, TICK_MS);
+    configChangedRef.current = tick;
+    const unsubscribeTabs = useTabs.subscribe(tick);
+    const unsubscribeListener = listenerStore.subscribe((state, previous) => {
+      if (state.live.status !== previous.live.status) tick();
+    });
 
     void liveQueryClient
       .subscribe<ScheduledMeetingRow>(SCHEDULED_MEETINGS_SQL, [], {
@@ -241,10 +295,13 @@ export function ScheduledMeetingAutoStart() {
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      configChangedRef.current = () => {};
+      clearTimeout(timeout);
+      unsubscribeTabs();
+      unsubscribeListener();
       void unsubscribe?.();
     };
   });
 
-  return null;
+  return <span ref={configChangeNodeRef} hidden aria-hidden="true" />;
 }

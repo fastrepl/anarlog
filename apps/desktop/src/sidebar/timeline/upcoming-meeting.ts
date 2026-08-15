@@ -84,32 +84,44 @@ function createUpcomingMeetingStatusStore(
   activeLabel: string,
 ) {
   const getCurrentStatus = () =>
-    getUpcomingMeetingStatus(
-      buckets,
-      Math.floor(Date.now() / UPCOMING_MEETING_STATUS_TICK_MS) *
-        UPCOMING_MEETING_STATUS_TICK_MS,
-      formatLabel,
-      activeLabel,
-    );
+    getUpcomingMeetingStatus(buckets, Date.now(), formatLabel, activeLabel);
   let status = getCurrentStatus();
   const listeners = new Set<() => void>();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
 
-  const refresh = () => {
-    const nextStatus = getCurrentStatus();
-    if (upcomingMeetingStatusesAreEqual(status, nextStatus)) {
+  const scheduleRefresh = () => {
+    clearTimeout(timeout);
+    timeout = undefined;
+    if (listeners.size === 0 || document.visibilityState === "hidden") {
       return;
     }
 
-    status = nextStatus;
-    listeners.forEach((listener) => listener());
+    const delayMs = getNextUpcomingMeetingStatusRefreshMs(
+      buckets,
+      Date.now(),
+      status,
+    );
+    if (delayMs !== null) {
+      timeout = setTimeout(refresh, delayMs);
+    }
+  };
+
+  const refresh = () => {
+    const nextStatus = getCurrentStatus();
+    if (!upcomingMeetingStatusesAreEqual(status, nextStatus)) {
+      status = nextStatus;
+      listeners.forEach((listener) => listener());
+    }
+    scheduleRefresh();
   };
 
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
-    const interval = setInterval(refresh, UPCOMING_MEETING_STATUS_TICK_MS);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         refresh();
+      } else {
+        scheduleRefresh();
       }
     };
 
@@ -119,7 +131,7 @@ function createUpcomingMeetingStatusStore(
 
     return () => {
       listeners.delete(listener);
-      clearInterval(interval);
+      scheduleRefresh();
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -129,6 +141,43 @@ function createUpcomingMeetingStatusStore(
     getSnapshot: () => status,
     subscribe,
   };
+}
+
+export function getNextUpcomingMeetingStatusRefreshMs(
+  buckets: TimelineBucket[],
+  currentTimeMs: number,
+  status: SidebarUpcomingMeetingStatus | null,
+): number | null {
+  if (status?.progress !== undefined && status.progress < 1) {
+    const remainder = currentTimeMs % UPCOMING_MEETING_STATUS_TICK_MS;
+    return Math.max(1, UPCOMING_MEETING_STATUS_TICK_MS - remainder);
+  }
+
+  let nextDeadlineMs = Number.POSITIVE_INFINITY;
+  for (const bucket of buckets) {
+    for (const item of bucket.items) {
+      if (item.type === "event" && item.data.is_all_day) continue;
+
+      const { start, end } = getItemTimeRange(item);
+      const startsAtMs = start?.getTime();
+      if (startsAtMs === undefined) continue;
+
+      const deadlines = [
+        startsAtMs - UPCOMING_MEETING_VISIBLE_WINDOW_MS,
+        startsAtMs,
+        end ? end.getTime() + 1 : Number.NaN,
+      ];
+      for (const deadlineMs of deadlines) {
+        if (deadlineMs > currentTimeMs && deadlineMs < nextDeadlineMs) {
+          nextDeadlineMs = deadlineMs;
+        }
+      }
+    }
+  }
+
+  return Number.isFinite(nextDeadlineMs)
+    ? Math.max(1, Math.ceil(nextDeadlineMs - currentTimeMs))
+    : null;
 }
 
 export function getUpcomingMeetingStatus(
