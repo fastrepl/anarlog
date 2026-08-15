@@ -45,6 +45,7 @@ fn test_router_with_protocol(
         supabase_service_role_key: "service-role-key".to_string(),
     });
     cloudsync_router(state.clone())
+        .merge(replica_router(state.replica.clone()))
         .merge(session_share_router(state.clone()))
         .merge(web_edit_router(state))
         .layer(Extension(AuthContext {

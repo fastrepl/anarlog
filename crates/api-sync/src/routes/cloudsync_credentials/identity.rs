@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use super::SUPABASE_REQUEST_TIMEOUT;
 use crate::{
     error::{Result, SyncError},
-    state::AppState,
+    state::ReplicaState,
 };
 
 pub(in crate::routes) const DEVICE_FINGERPRINT_HEADER: &str = "x-device-fingerprint";
@@ -45,7 +45,7 @@ pub(super) struct SyncDeviceRow {
 }
 
 pub(super) async fn list_sync_devices(
-    state: &AppState,
+    state: &ReplicaState,
     account_user_id: &str,
 ) -> Result<Vec<SyncDeviceRow>> {
     let response = state
@@ -75,7 +75,7 @@ pub(super) async fn list_sync_devices(
 }
 
 pub(super) async fn remove_sync_device(
-    state: &AppState,
+    state: &ReplicaState,
     account_user_id: &str,
     fingerprint: &str,
 ) -> Result<()> {
@@ -114,7 +114,7 @@ fn is_valid_device_fingerprint(fingerprint: &str) -> bool {
 }
 
 pub(super) async fn claim_sync_device(
-    state: &AppState,
+    state: &ReplicaState,
     account_user_id: &str,
     headers: &HeaderMap,
 ) -> Result<()> {
@@ -185,7 +185,7 @@ pub(super) async fn claim_sync_device(
 }
 
 pub(super) async fn claim_personal_e2ee_key(
-    state: &AppState,
+    state: &ReplicaState,
     account_user_id: &str,
     requested_key_id: &str,
 ) -> Result<String> {

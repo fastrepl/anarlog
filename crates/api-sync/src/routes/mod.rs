@@ -1,6 +1,6 @@
 use axum::Router;
 
-use crate::state::AppState;
+use crate::state::{AppState, ReplicaState};
 
 mod attachment_backups;
 mod cloudsync_credentials;
@@ -33,13 +33,17 @@ pub fn cloudsync_router(state: AppState) -> Router {
         .with_state(state)
 }
 
+pub fn replica_router(state: ReplicaState) -> Router {
+    cloudsync_credentials::replica_router().with_state(state)
+}
+
 pub fn session_share_router(state: AppState) -> Router {
     session_shares::router()
         .merge(shared_attachments::router())
         .with_state(state)
 }
 
-pub fn e2ee_witness_router(state: AppState) -> Router {
+pub fn e2ee_witness_router(state: ReplicaState) -> Router {
     e2ee_witness::router().with_state(state)
 }
 

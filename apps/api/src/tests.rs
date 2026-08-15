@@ -73,6 +73,12 @@ fn test_sync_state(server: &MockServer) -> anlg_api_sync::AppState {
     anlg_api_sync::AppState::new(config)
 }
 
+fn test_replica_state(server: &MockServer) -> anlg_api_sync::ReplicaState {
+    anlg_api_sync::ReplicaState::new(
+        anlg_api_sync::ReplicaConfig::new(server.uri(), "anon-key", "service-role-key").unwrap(),
+    )
+}
+
 async fn response_bytes(response: axum::response::Response) -> Vec<u8> {
     to_bytes(response.into_body(), 16 * 1024)
         .await
@@ -144,6 +150,24 @@ async fn boots_with_minimal_self_hosted_configuration() {
     assert_eq!(
         request_status(&app, Method::GET, "/health").await,
         StatusCode::OK
+    );
+    for (method, path) in [
+        (Method::PUT, "/sync/e2ee/identity"),
+        (
+            Method::GET,
+            "/sync/e2ee/witness/11111111-1111-4111-8111-111111111111",
+        ),
+    ] {
+        assert_eq!(
+            request_status(&app, method, path).await,
+            StatusCode::UNAUTHORIZED,
+            "core encrypted replica route should be mounted: {path}"
+        );
+    }
+    assert_eq!(
+        request_status(&app, Method::POST, "/sync/token").await,
+        StatusCode::NOT_FOUND,
+        "SQLiteCloud credential route should remain optional"
     );
     for (method, path) in [
         (Method::POST, "/research/search"),
@@ -267,10 +291,13 @@ async fn sync_composition_allows_non_pro_web_edits_but_keeps_other_routes_pro_on
         .mount(&server)
         .await;
 
+    let sync_state = test_sync_state(&server);
+    let replica_state = test_replica_state(&server);
     let app = Router::new().nest(
         "/sync",
         build_sync_routes(
-            test_sync_state(&server),
+            Some(sync_state),
+            replica_state,
             test_sync_rate_limit(10),
             test_sync_rate_limit(10),
             test_sync_rate_limit(10),
@@ -374,10 +401,13 @@ async fn sync_composition_keeps_sharing_available_when_cloudsync_is_rate_limited
         .mount(&server)
         .await;
 
+    let sync_state = test_sync_state(&server);
+    let replica_state = test_replica_state(&server);
     let app = Router::new().nest(
         "/sync",
         build_sync_routes(
-            test_sync_state(&server),
+            Some(sync_state),
+            replica_state,
             test_sync_rate_limit(1),
             test_sync_rate_limit(1),
             test_sync_rate_limit(1),

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::Semaphore;
 
-use crate::config::SyncConfig;
+use crate::config::{ReplicaConfig, SyncConfig};
 
 const UPSTREAM_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const ATTACHMENT_VERIFICATION_CONCURRENCY: usize = 1;
@@ -35,21 +35,41 @@ impl WitnessWakes {
 }
 
 #[derive(Clone)]
-pub struct AppState {
-    pub config: SyncConfig,
-    pub client: reqwest::Client,
-    pub storage: anlg_supabase_storage::SupabaseStorage,
-    pub attachment_verification_slots: Arc<Semaphore>,
-    pub witness_wakes: WitnessWakes,
+pub struct ReplicaState {
+    pub(crate) config: ReplicaConfig,
+    pub(crate) client: reqwest::Client,
+    pub(crate) witness_wakes: WitnessWakes,
 }
 
-impl AppState {
-    pub fn new(config: SyncConfig) -> Self {
+impl ReplicaState {
+    pub fn new(config: ReplicaConfig) -> Self {
         let client = reqwest::Client::builder()
             .timeout(UPSTREAM_REQUEST_TIMEOUT)
             .redirect(reqwest::redirect::Policy::none())
             .build()
-            .expect("CloudSync HTTP client must build");
+            .expect("encrypted replica HTTP client must build");
+
+        Self {
+            config,
+            client,
+            witness_wakes: WitnessWakes::default(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct AppState {
+    pub config: SyncConfig,
+    pub(crate) replica: ReplicaState,
+    pub client: reqwest::Client,
+    pub storage: anlg_supabase_storage::SupabaseStorage,
+    pub attachment_verification_slots: Arc<Semaphore>,
+}
+
+impl AppState {
+    pub fn new(config: SyncConfig) -> Self {
+        let replica = ReplicaState::new(config.replica_config());
+        let client = replica.client.clone();
         let storage = anlg_supabase_storage::SupabaseStorage::new(
             client.clone(),
             &config.supabase_url,
@@ -58,12 +78,12 @@ impl AppState {
 
         Self {
             config,
+            replica,
             client,
             storage,
             attachment_verification_slots: Arc::new(Semaphore::new(
                 ATTACHMENT_VERIFICATION_CONCURRENCY,
             )),
-            witness_wakes: WitnessWakes::default(),
         }
     }
 }

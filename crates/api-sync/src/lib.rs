@@ -5,14 +5,15 @@ mod shared_notes;
 mod snapshot;
 mod state;
 
-pub use config::{SharedNotesConfig, SyncConfig, SyncEnv};
+pub use config::{ReplicaConfig, SharedNotesConfig, SyncConfig, SyncEnv};
 pub use error::{Result, SyncError};
 pub use routes::{
-    cloudsync_router, e2ee_witness_router, openapi, session_share_router, web_edit_router,
+    cloudsync_router, e2ee_witness_router, openapi, replica_router, session_share_router,
+    web_edit_router,
 };
 pub use shared_notes::{
     SharedNotesState, authenticated_router as authenticated_shared_notes_router,
     openapi as shared_notes_openapi, recap_openapi as shared_note_recap_openapi,
     router as shared_notes_router,
 };
-pub use state::AppState;
+pub use state::{AppState, ReplicaState};

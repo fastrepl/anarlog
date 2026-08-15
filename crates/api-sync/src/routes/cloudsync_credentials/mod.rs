@@ -11,7 +11,7 @@ use utoipa::OpenApi;
 use crate::{
     config::CloudsyncProtocolMode,
     error::{Result, SyncError},
-    state::AppState,
+    state::{AppState, ReplicaState},
 };
 
 mod identity;
@@ -99,8 +99,11 @@ pub(super) fn openapi() -> utoipa::openapi::OpenApi {
 }
 
 pub(super) fn router() -> Router<AppState> {
+    Router::new().route("/token", post(create_credentials))
+}
+
+pub(super) fn replica_router() -> Router<ReplicaState> {
     Router::new()
-        .route("/token", post(create_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
         .route("/devices", get(get_devices))
         .route("/devices/{fingerprint}", delete(delete_device))
@@ -114,7 +117,7 @@ struct SyncDevicesResponse {
 
 async fn get_devices(
     Extension(auth): Extension<AuthContext>,
-    State(state): State<AppState>,
+    State(state): State<ReplicaState>,
 ) -> Result<Json<SyncDevicesResponse>> {
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
@@ -126,7 +129,7 @@ async fn get_devices(
 
 async fn delete_device(
     Extension(auth): Extension<AuthContext>,
-    State(state): State<AppState>,
+    State(state): State<ReplicaState>,
     Path(fingerprint): Path<String>,
 ) -> Result<axum::http::StatusCode> {
     if !auth.claims.is_pro() {
@@ -152,7 +155,7 @@ async fn delete_device(
 )]
 async fn claim_e2ee_identity(
     Extension(auth): Extension<AuthContext>,
-    State(state): State<AppState>,
+    State(state): State<ReplicaState>,
     Json(request): Json<ClaimE2eeIdentityRequest>,
 ) -> Result<([(header::HeaderName, HeaderValue); 1], Json<E2eeIdentity>)> {
     if !auth.claims.is_pro() {
@@ -191,7 +194,7 @@ async fn create_credentials(
         return Err(SyncError::ProPlanRequired);
     }
 
-    claim_sync_device(&state, &auth.claims.sub, &headers).await?;
+    claim_sync_device(&state.replica, &auth.claims.sub, &headers).await?;
 
     let requested_key_id = headers
         .get(E2EE_KEY_ID_HEADER)
@@ -241,11 +244,11 @@ async fn create_credentials(
     }
     let requested_key_id = requested_key_id.expect("header presence was checked");
 
-    let workspace_rows = fetch_workspace_projection(&state, &auth).await?;
+    let workspace_rows = fetch_workspace_projection(&state.replica, &auth).await?;
     let (personal_workspace_id, workspaces) =
         validate_workspace_projection(workspace_rows, &auth.claims.sub)?;
     let encryption_key_id =
-        claim_personal_e2ee_key(&state, &auth.claims.sub, requested_key_id).await?;
+        claim_personal_e2ee_key(&state.replica, &auth.claims.sub, requested_key_id).await?;
     let token_attributes = encode_workspace_token_attributes(&workspaces)?;
 
     let token = mint_cloudsync_token(

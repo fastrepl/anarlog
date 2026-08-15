@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::SUPABASE_REQUEST_TIMEOUT;
 use crate::{
     error::{Result, SyncError},
-    state::AppState,
+    state::ReplicaState,
 };
 
 pub(in crate::routes) const WORKSPACE_PROJECTION_SELECT: &str = "id,user_id,role,created_at,updated_at,workspace:workspaces!inner(id,owner_user_id,kind,name,created_at,updated_at)";
@@ -49,7 +49,7 @@ pub(super) struct WorkspaceRow {
 }
 
 pub(super) async fn fetch_workspace_projection(
-    state: &AppState,
+    state: &ReplicaState,
     auth: &AuthContext,
 ) -> Result<Vec<WorkspaceMembershipRow>> {
     let user_filter = format!("eq.{}", auth.claims.sub);

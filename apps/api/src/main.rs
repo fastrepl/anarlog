@@ -78,12 +78,39 @@ fn request_client_address(request: &Request<Body>) -> Option<String> {
 }
 
 fn build_sync_routes(
-    state: anlg_api_sync::AppState,
+    state: Option<anlg_api_sync::AppState>,
+    replica_state: anlg_api_sync::ReplicaState,
     cloudsync_rate_limit_state: rate_limit::RateLimitState,
     session_share_rate_limit_state: rate_limit::RateLimitState,
     witness_rate_limit_state: rate_limit::RateLimitState,
     auth_state: AuthState,
 ) -> Router {
+    let replica_routes = anlg_api_sync::replica_router(replica_state.clone())
+        .route_layer(middleware::from_fn_with_state(
+            cloudsync_rate_limit_state.clone(),
+            rate_limit::rate_limit,
+        ))
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone().with_required_entitlement("hyprnote_pro"),
+            auth::require_auth,
+        ));
+    let witness_routes = anlg_api_sync::e2ee_witness_router(replica_state)
+        .route_layer(middleware::from_fn_with_state(
+            witness_rate_limit_state,
+            rate_limit::wait_for_rate_limit,
+        ))
+        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
+        .route_layer(middleware::from_fn_with_state(
+            auth_state.clone().with_required_entitlement("hyprnote_pro"),
+            auth::require_auth,
+        ));
+    let replica_routes = replica_routes.merge(witness_routes);
+
+    let Some(state) = state else {
+        return replica_routes;
+    };
+
     let cloudsync_routes = anlg_api_sync::cloudsync_router(state.clone())
         .route_layer(middleware::from_fn_with_state(
             cloudsync_rate_limit_state,
@@ -104,16 +131,6 @@ fn build_sync_routes(
             auth_state.clone().with_required_entitlement("hyprnote_pro"),
             auth::require_auth,
         ));
-    let witness_routes = anlg_api_sync::e2ee_witness_router(state.clone())
-        .route_layer(middleware::from_fn_with_state(
-            witness_rate_limit_state,
-            rate_limit::wait_for_rate_limit,
-        ))
-        .route_layer(middleware::from_fn(auth::sentry_and_analytics))
-        .route_layer(middleware::from_fn_with_state(
-            auth_state.clone().with_required_entitlement("hyprnote_pro"),
-            auth::require_auth,
-        ));
     let web_edit_routes = anlg_api_sync::web_edit_router(state)
         .route_layer(middleware::from_fn_with_state(
             session_share_rate_limit_state,
@@ -125,9 +142,9 @@ fn build_sync_routes(
             auth::require_auth,
         ));
 
-    cloudsync_routes
+    replica_routes
+        .merge(cloudsync_routes)
         .merge(session_share_routes)
-        .merge(witness_routes)
         .merge(web_edit_routes)
 }
 
@@ -318,16 +335,23 @@ async fn app_with_env(env: &'static Env) -> Router {
             ))
     };
 
-    let sync_routes = match sync_config {
-        Some(config) => build_sync_routes(
-            anlg_api_sync::AppState::new(config),
-            cloudsync_rate_limit,
-            session_share_rate_limit,
-            e2ee_witness_rate_limit,
-            auth_state.clone(),
-        ),
-        None => Router::new(),
-    };
+    let replica_state = anlg_api_sync::ReplicaState::new(
+        anlg_api_sync::ReplicaConfig::new(
+            &env.supabase.supabase_url,
+            &env.supabase.supabase_anon_key,
+            &env.supabase.supabase_service_role_key,
+        )
+        .unwrap_or_else(|error| panic!("Failed to load environment: {error}")),
+    );
+    let sync_state = sync_config.map(anlg_api_sync::AppState::new);
+    let sync_routes = build_sync_routes(
+        sync_state,
+        replica_state,
+        cloudsync_rate_limit,
+        session_share_rate_limit,
+        e2ee_witness_rate_limit,
+        auth_state.clone(),
+    );
     let shared_notes_state = anlg_api_sync::SharedNotesState::new(shared_notes_config);
     let shared_notes_routes = anlg_api_sync::shared_notes_router(shared_notes_state.clone())
         .route_layer(middleware::from_fn_with_state(

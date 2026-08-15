@@ -65,6 +65,13 @@ pub struct SyncConfig {
 }
 
 #[derive(Clone)]
+pub struct ReplicaConfig {
+    pub(crate) supabase_url: String,
+    pub(crate) supabase_anon_key: String,
+    pub(crate) supabase_service_role_key: String,
+}
+
+#[derive(Clone)]
 pub struct SharedNotesConfig {
     pub(crate) supabase_url: String,
     pub(crate) supabase_service_role_key: String,
@@ -258,6 +265,39 @@ impl SyncConfig {
             .with_protocol_mode(protocol_mode, legacy_database_id)?
             .with_token_ttl_seconds(token_ttl_seconds)?,
         ))
+    }
+
+    pub(crate) fn replica_config(&self) -> ReplicaConfig {
+        ReplicaConfig {
+            supabase_url: self.supabase_url.clone(),
+            supabase_anon_key: self.supabase_anon_key.clone(),
+            supabase_service_role_key: self.supabase_service_role_key.clone(),
+        }
+    }
+}
+
+impl ReplicaConfig {
+    pub fn new(
+        supabase_url: impl Into<String>,
+        supabase_anon_key: impl Into<String>,
+        supabase_service_role_key: impl Into<String>,
+    ) -> Result<Self, String> {
+        let supabase_anon_key = supabase_anon_key.into();
+        if supabase_anon_key.trim().is_empty() {
+            return Err("SUPABASE_ANON_KEY is required for encrypted replica sync".to_string());
+        }
+        let supabase_service_role_key = supabase_service_role_key.into();
+        if supabase_service_role_key.trim().is_empty() {
+            return Err(
+                "SUPABASE_SERVICE_ROLE_KEY is required for encrypted replica sync".to_string(),
+            );
+        }
+
+        Ok(Self {
+            supabase_url: validate_supabase_url(supabase_url.into())?,
+            supabase_anon_key,
+            supabase_service_role_key,
+        })
     }
 }
 

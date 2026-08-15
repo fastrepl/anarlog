@@ -11,7 +11,7 @@ use utoipa::OpenApi;
 use uuid::Uuid;
 
 use crate::error::{Result, SyncError};
-use crate::state::AppState;
+use crate::state::ReplicaState;
 
 const MAX_EVENTS_PER_BATCH: usize = 64;
 const MAX_EVENT_BYTES: usize = 16 * 1024 * 1024;
@@ -164,7 +164,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     ApiDoc::openapi()
 }
 
-pub fn router() -> Router<AppState> {
+pub fn router() -> Router<ReplicaState> {
     Router::new()
         .route(
             "/e2ee/witness/{workspace_id}",
@@ -193,7 +193,7 @@ pub fn router() -> Router<AppState> {
 )]
 async fn read_e2ee_witness(
     Extension(auth): Extension<AuthContext>,
-    State(state): State<AppState>,
+    State(state): State<ReplicaState>,
     Path(workspace_id): Path<String>,
     Query(query): Query<ReadE2eeWitnessQuery>,
 ) -> Result<(
@@ -248,7 +248,7 @@ async fn read_e2ee_witness(
 )]
 async fn wait_e2ee_witness(
     Extension(auth): Extension<AuthContext>,
-    State(state): State<AppState>,
+    State(state): State<ReplicaState>,
     Path(workspace_id): Path<String>,
     Query(query): Query<WaitE2eeWitnessQuery>,
 ) -> Result<(
@@ -280,7 +280,7 @@ async fn wait_e2ee_witness(
 }
 
 async fn read_witness_head(
-    state: &AppState,
+    state: &ReplicaState,
     actor_user_id: &str,
     workspace_id: &str,
 ) -> Result<E2eeWitnessWaitResponse> {
@@ -350,7 +350,7 @@ async fn read_witness_head(
 }
 
 async fn read_witness_page(
-    state: &AppState,
+    state: &ReplicaState,
     actor_user_id: &str,
     workspace_id: &str,
     after_sequence: i64,
@@ -420,7 +420,7 @@ async fn read_witness_page(
 )]
 async fn publish_e2ee_witness(
     Extension(auth): Extension<AuthContext>,
-    State(state): State<AppState>,
+    State(state): State<ReplicaState>,
     Path(workspace_id): Path<String>,
     Json(request): Json<PublishE2eeWitnessRequest>,
 ) -> Result<(
@@ -672,7 +672,7 @@ mod tests {
     };
 
     use super::*;
-    use crate::SyncConfig;
+    use crate::ReplicaConfig;
 
     const OWNER: &str = "11111111-1111-4111-8111-111111111111";
     const OTHER: &str = "22222222-2222-4222-8222-222222222222";
@@ -681,17 +681,9 @@ mod tests {
 
     fn test_router(server: &MockServer) -> Router {
         router()
-            .with_state(AppState::new(SyncConfig {
-                project_url: server.uri(),
-                token_issuer_api_key: "issuer-key".to_string(),
-                database_id: "database-id".to_string(),
-                legacy_database_id: None,
-                protocol_mode: crate::config::CloudsyncProtocolMode::E2eeEnforced,
-                token_ttl_seconds: 60,
-                supabase_url: server.uri(),
-                supabase_anon_key: "anon-key".to_string(),
-                supabase_service_role_key: "service-role-key".to_string(),
-            }))
+            .with_state(ReplicaState::new(
+                ReplicaConfig::new(server.uri(), "anon-key", "service-role-key").unwrap(),
+            ))
             .layer(Extension(AuthContext {
                 token: "user-token".to_string(),
                 claims: Claims {
