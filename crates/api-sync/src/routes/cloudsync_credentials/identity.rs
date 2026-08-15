@@ -9,6 +9,8 @@ use crate::{
 
 pub(in crate::routes) const DEVICE_FINGERPRINT_HEADER: &str = "x-device-fingerprint";
 pub(in crate::routes) const DEVICE_NAME_HEADER: &str = "x-anarlog-device-name";
+pub(in crate::routes) const E2EE_MEMBER_PUBLIC_KEY_HEADER: &str =
+    "x-anarlog-e2ee-member-public-key";
 const MAX_DEVICE_NAME_BYTES: usize = 128;
 
 #[derive(Serialize)]
@@ -20,6 +22,16 @@ struct ClaimE2eeKeyRpcRequest<'a> {
 #[derive(Deserialize)]
 struct E2eeKeyIdRow {
     key_id: String,
+}
+
+#[derive(Serialize)]
+struct PublishE2eeMemberIdentityRpcRequest<'a> {
+    p_public_key: &'a str,
+}
+
+#[derive(Deserialize)]
+struct E2eeMemberIdentityRow {
+    public_key: String,
 }
 
 #[derive(Serialize)]
@@ -239,9 +251,69 @@ pub(super) async fn claim_personal_e2ee_key(
     Ok(key_id)
 }
 
+pub(super) async fn publish_e2ee_member_identity(
+    state: &ReplicaState,
+    access_token: &str,
+    public_key: &str,
+) -> Result<()> {
+    if !is_valid_e2ee_member_public_key(public_key) {
+        return Err(SyncError::BadRequest(
+            "E2EE member identity is invalid".to_string(),
+        ));
+    }
+
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/publish_e2ee_member_identity",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_anon_key)
+        .bearer_auth(access_token)
+        .timeout(SUPABASE_REQUEST_TIMEOUT)
+        .json(&PublishE2eeMemberIdentityRpcRequest {
+            p_public_key: public_key,
+        })
+        .send()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase E2EE member identity request failed");
+            SyncError::Upstream
+        })?;
+    if !response.status().is_success() {
+        tracing::warn!(
+            status = %response.status(),
+            "Supabase E2EE member identity request was rejected"
+        );
+        return Err(SyncError::Upstream);
+    }
+    let rows = response
+        .json::<Vec<E2eeMemberIdentityRow>>()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "Supabase E2EE member identity response was invalid");
+            SyncError::Upstream
+        })?;
+    if rows.len() != 1 || rows[0].public_key != public_key {
+        tracing::warn!(
+            row_count = rows.len(),
+            "Supabase E2EE member identity response failed validation"
+        );
+        return Err(SyncError::Upstream);
+    }
+    Ok(())
+}
+
 pub(super) fn is_valid_e2ee_key_id(key_id: &str) -> bool {
     key_id.len() == 22
         && key_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn is_valid_e2ee_member_public_key(public_key: &str) -> bool {
+    public_key.len() == 43
+        && public_key
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }

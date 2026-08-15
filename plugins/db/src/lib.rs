@@ -119,6 +119,7 @@ pub enum SessionIngestApplyResult {
 pub struct E2eeIdentityStatus {
     pub configured: bool,
     pub key_id: Option<String>,
+    pub member_public_key: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, specta::Type, PartialEq, Eq)]

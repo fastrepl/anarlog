@@ -20,7 +20,7 @@ mod token;
 
 use identity::{
     SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, is_valid_e2ee_key_id,
-    list_sync_devices, remove_sync_device,
+    list_sync_devices, publish_e2ee_member_identity, remove_sync_device,
 };
 pub use projection::CloudsyncWorkspace;
 pub(super) use projection::encode_workspace_token_attributes;
@@ -38,6 +38,7 @@ const SUPABASE_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_
 const CLOUDSYNC_ENCRYPTION_VERSION: u8 = 2;
 const REPLICA_CREDENTIAL_TTL_SECONDS: u64 = 15 * 60;
 pub(super) const E2EE_KEY_ID_HEADER: &str = "x-anarlog-e2ee-key-id";
+pub(super) use identity::E2EE_MEMBER_PUBLIC_KEY_HEADER;
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
@@ -127,7 +128,10 @@ pub(super) fn replica_router() -> Router<ReplicaState> {
     post,
     path = "/replica/credentials",
     tag = "sync",
-    params(("x-anarlog-e2ee-key-id" = String, Header, description = "Local recovery-key identity")),
+    params(
+        ("x-anarlog-e2ee-key-id" = String, Header, description = "Local recovery-key identity"),
+        ("x-anarlog-e2ee-member-public-key" = Option<String>, Header, description = "Account-level member identity public key")
+    ),
     responses(
         (status = 200, description = "Encrypted replica credentials", body = ReplicaCredentials),
         (status = 400, description = "Invalid E2EE key identity"),
@@ -149,6 +153,7 @@ async fn create_replica_credentials(
         return Err(SyncError::ProPlanRequired);
     }
 
+    publish_requested_member_identity(&state, &auth, &headers).await?;
     claim_sync_device(&state, &auth.claims.sub, &headers).await?;
     let requested_key_id = headers
         .get(E2EE_KEY_ID_HEADER)
@@ -236,7 +241,10 @@ async fn claim_e2ee_identity(
     post,
     path = "/token",
     tag = "sync",
-    params(("x-anarlog-e2ee-key-id" = Option<String>, Header, description = "Local recovery-key identity")),
+    params(
+        ("x-anarlog-e2ee-key-id" = Option<String>, Header, description = "Local recovery-key identity"),
+        ("x-anarlog-e2ee-member-public-key" = Option<String>, Header, description = "Account-level member identity public key")
+    ),
     responses(
         (status = 200, description = "Short-lived CloudSync credentials", body = CloudsyncCredentialResponse),
         (status = 401, description = "Authentication required"),
@@ -257,6 +265,7 @@ async fn create_credentials(
         return Err(SyncError::ProPlanRequired);
     }
 
+    publish_requested_member_identity(&state.replica, &auth, &headers).await?;
     claim_sync_device(&state.replica, &auth.claims.sub, &headers).await?;
 
     let requested_key_id = headers
@@ -339,4 +348,18 @@ async fn create_credentials(
             workspaces,
         })),
     ))
+}
+
+async fn publish_requested_member_identity(
+    state: &ReplicaState,
+    auth: &AuthContext,
+    headers: &HeaderMap,
+) -> Result<()> {
+    let Some(public_key) = headers.get(E2EE_MEMBER_PUBLIC_KEY_HEADER) else {
+        return Ok(());
+    };
+    let public_key = public_key
+        .to_str()
+        .map_err(|_| SyncError::BadRequest("E2EE member identity is invalid".to_string()))?;
+    publish_e2ee_member_identity(state, &auth.token, public_key).await
 }

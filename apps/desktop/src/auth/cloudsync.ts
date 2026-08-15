@@ -786,6 +786,7 @@ async function activateCloudsync(
   }
 
   let encryptionKeyId: string;
+  let memberPublicKey: string;
   try {
     const identityRead = await settleCloudsyncOperationWithin(
       readE2eeIdentity(session.user.id),
@@ -821,7 +822,9 @@ async function activateCloudsync(
     if (
       !identity.configured ||
       !identity.keyId ||
-      !/^[A-Za-z0-9_-]{22}$/.test(identity.keyId)
+      !/^[A-Za-z0-9_-]{22}$/.test(identity.keyId) ||
+      !identity.memberPublicKey ||
+      !/^[A-Za-z0-9_-]{43}$/.test(identity.memberPublicKey)
     ) {
       setCredentialBlock("setup_required");
       await suspendCloudsyncAfterCredentialRejection(activeGeneration);
@@ -831,6 +834,7 @@ async function activateCloudsync(
       return "ok";
     }
     encryptionKeyId = identity.keyId;
+    memberPublicKey = identity.memberPublicKey;
   } catch (error) {
     if (isCleanupSuspendRequired()) {
       await suspendCloudsyncPreemptivelyForGeneration(activeGeneration);
@@ -913,6 +917,7 @@ async function activateCloudsync(
     accessToken: session.access_token,
     cloudsyncExtensionAvailable: status.extension_loaded,
     encryptionKeyId,
+    memberPublicKey,
     shouldStop: isCleanupSuspendRequired,
     signal: controller.signal,
   });

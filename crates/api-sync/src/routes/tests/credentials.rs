@@ -1,5 +1,7 @@
 use super::*;
 
+const TEST_MEMBER_PUBLIC_KEY: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq";
+
 #[tokio::test]
 async fn issues_replica_credentials_without_contacting_sqlitecloud() {
     let server = MockServer::start().await;
@@ -32,6 +34,64 @@ async fn issues_replica_credentials_without_contacting_sqlitecloud() {
             .iter()
             .all(|request| request.url.path() != "/v2/tokens")
     );
+}
+
+#[tokio::test]
+async fn publishes_the_member_identity_before_issuing_replica_credentials() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/publish_e2ee_member_identity"))
+        .and(header("apikey", "anon-key"))
+        .and(header("authorization", "Bearer supabase-token"))
+        .and(body_partial_json(json!({
+            "p_public_key": TEST_MEMBER_PUBLIC_KEY,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "public_key": TEST_MEMBER_PUBLIC_KEY,
+        }])))
+        .mount(&server)
+        .await;
+    mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
+
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::post("/replica/credentials")
+                .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)
+                .header(E2EE_MEMBER_PUBLIC_KEY_HEADER, TEST_MEMBER_PUBLIC_KEY)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(
+        requests[0].url.path(),
+        "/rest/v1/rpc/publish_e2ee_member_identity"
+    );
+    assert_eq!(
+        requests[1].url.path(),
+        "/rest/v1/rpc/claim_personal_workspace_e2ee_key"
+    );
+}
+
+#[tokio::test]
+async fn rejects_a_malformed_member_identity_without_contacting_supabase() {
+    let server = MockServer::start().await;
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::post("/replica/credentials")
+                .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)
+                .header(E2EE_MEMBER_PUBLIC_KEY_HEADER, "invalid")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(server.received_requests().await.unwrap().is_empty());
 }
 
 #[tokio::test]

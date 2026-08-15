@@ -219,9 +219,22 @@ pub(crate) async fn get_e2ee_identity_status<R: tauri::Runtime>(
     account_user_id: String,
 ) -> Result<crate::E2eeIdentityStatus, String> {
     let recovery_key = load_e2ee_recovery_key(app, &account_user_id).await?;
+    let (key_id, member_public_key) = match recovery_key {
+        Some(recovery_key) => (
+            Some(recovery_key.key_id()),
+            Some(
+                recovery_key
+                    .member_identity_key()
+                    .map_err(|error| error.to_string())?
+                    .public_key(),
+            ),
+        ),
+        None => (None, None),
+    };
     Ok(crate::E2eeIdentityStatus {
-        configured: recovery_key.is_some(),
-        key_id: recovery_key.map(|key| key.key_id()),
+        configured: key_id.is_some(),
+        key_id,
+        member_public_key,
     })
 }
 

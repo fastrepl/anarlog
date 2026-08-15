@@ -41,6 +41,7 @@ export type CloudsyncCredentials =
   | ReplicaCredentials;
 
 export const DEVICE_NAME_HEADER = "x-anarlog-device-name";
+export const E2EE_MEMBER_PUBLIC_KEY_HEADER = "x-anarlog-e2ee-member-public-key";
 export const DEVICE_LIMIT_ERROR_CODE = "sync_device_limit_reached";
 export const DEVICE_LIMIT_TOAST_ID = "cloudsync-device-limit";
 
