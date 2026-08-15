@@ -142,6 +142,28 @@ pub struct E2eeDeviceEnrollmentPackage {
     pub ciphertext: String,
 }
 
+#[derive(Debug, Clone, serde::Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CloudsyncWorkspaceKeyGrant {
+    pub workspace_id: String,
+    pub key_id: String,
+    pub ephemeral_public_key: String,
+    pub nonce: String,
+    pub ciphertext: String,
+    pub is_active: bool,
+}
+
+impl From<CloudsyncWorkspaceKeyGrant> for anlg_e2ee::WorkspaceKeyGrant {
+    fn from(value: CloudsyncWorkspaceKeyGrant) -> Self {
+        Self {
+            key_id: value.key_id,
+            ephemeral_public_key: value.ephemeral_public_key,
+            nonce: value.nonce,
+            ciphertext: value.ciphertext,
+        }
+    }
+}
+
 impl From<anlg_e2ee::DeviceEnrollmentPackage> for E2eeDeviceEnrollmentPackage {
     fn from(value: anlg_e2ee::DeviceEnrollmentPackage) -> Self {
         Self {

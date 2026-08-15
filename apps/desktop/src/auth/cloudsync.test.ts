@@ -192,6 +192,16 @@ function projectedCredentialsPayload() {
         updatedAt: "2026-07-15T00:00:00Z",
       },
     ],
+    workspaceKeyGrants: [
+      {
+        workspaceId: "workspace-shared",
+        keyId: "AAAAAAAAAAAAAAAAAAAAAA",
+        ephemeralPublicKey: "A".repeat(43),
+        nonce: "B".repeat(32),
+        ciphertext: "C".repeat(64),
+        isActive: true,
+      },
+    ],
   };
 }
 
@@ -520,7 +530,34 @@ describe("CloudSync auth lifecycle", () => {
           }),
         ],
       },
+      [
+        {
+          workspaceId: "workspace-shared",
+          keyId: "AAAAAAAAAAAAAAAAAAAAAA",
+          ephemeralPublicKey: "A".repeat(43),
+          nonce: "B".repeat(32),
+          ciphertext: "C".repeat(64),
+          isActive: true,
+        },
+      ],
     );
+  });
+
+  test("rejects shared workspace credentials without an active key grant", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          projectedCredentialsResponse((payload) => {
+            payload.workspaceKeyGrants[0]!.isActive = false;
+          }),
+        ),
+      ),
+    );
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
   });
 
   test("deletes queued folders only after native revocation succeeds", async () => {

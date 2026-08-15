@@ -14,10 +14,12 @@ use crate::{
     state::{AppState, ReplicaState},
 };
 
+mod grants;
 mod identity;
 mod projection;
 mod token;
 
+use grants::{WorkspaceE2eeKeyGrant, fetch_workspace_key_grants};
 use identity::{
     SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, is_valid_e2ee_key_id,
     list_sync_devices, publish_e2ee_member_identity, remove_sync_device,
@@ -52,6 +54,7 @@ pub struct CloudsyncCredentials {
     account_user_id: String,
     personal_workspace_id: String,
     workspaces: Vec<CloudsyncWorkspace>,
+    workspace_key_grants: Vec<WorkspaceE2eeKeyGrant>,
 }
 
 #[derive(Serialize, utoipa::ToSchema)]
@@ -100,6 +103,7 @@ pub struct E2eeIdentity {
         CloudsyncCredentialResponse,
         CloudsyncCredentials,
         CloudsyncWorkspace,
+        WorkspaceE2eeKeyGrant,
         ClaimE2eeIdentityRequest,
         E2eeIdentity,
         LegacyCloudsyncCredentials,
@@ -319,6 +323,8 @@ async fn create_credentials(
     let workspace_rows = fetch_workspace_projection(&state.replica, &auth).await?;
     let (personal_workspace_id, workspaces) =
         validate_workspace_projection(workspace_rows, &auth.claims.sub)?;
+    let workspace_key_grants =
+        fetch_workspace_key_grants(&state.replica, &auth.token, &workspaces).await?;
     let encryption_key_id =
         claim_personal_e2ee_key(&state.replica, &auth.claims.sub, requested_key_id).await?;
     let token_attributes = encode_workspace_token_attributes(&workspaces)?;
@@ -346,6 +352,7 @@ async fn create_credentials(
             account_user_id: auth.claims.sub,
             personal_workspace_id,
             workspaces,
+            workspace_key_grants,
         })),
     ))
 }

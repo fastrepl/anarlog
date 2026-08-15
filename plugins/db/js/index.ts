@@ -7,6 +7,7 @@ import type {
   CloudsyncE2eeWitness,
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
+  CloudsyncWorkspaceKeyGrant,
   E2eeIdentityStatus,
   E2eeDeviceEnrollmentPackage,
   E2eeDeviceIdentity,
@@ -26,6 +27,7 @@ export type {
   CloudsyncE2eeWitness,
   CloudsyncTokenConfigurationResult,
   CloudsyncWorkspaceProjection,
+  CloudsyncWorkspaceKeyGrant,
   E2eeIdentityStatus,
   E2eeDeviceEnrollmentPackage,
   E2eeDeviceIdentity,
@@ -284,6 +286,7 @@ export async function configureCloudsyncToken(
   workspaceId: string,
   e2eeWitness: CloudsyncE2eeWitness,
   workspaceProjection?: CloudsyncWorkspaceProjection,
+  workspaceKeyGrants: CloudsyncWorkspaceKeyGrant[] = [],
 ): Promise<CloudsyncTokenConfigurationResult> {
   return invoke("plugin:db|configure_cloudsync_token", {
     databaseId,
@@ -291,6 +294,7 @@ export async function configureCloudsyncToken(
     workspaceId,
     e2eeWitness,
     workspaceProjection: workspaceProjection ?? null,
+    workspaceKeyGrants,
   });
 }
 

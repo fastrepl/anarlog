@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(26);
 
 select tests.create_supabase_user('grant_owner', 'grant-owner@example.com');
 select tests.create_supabase_user('grant_member', 'grant-member@example.com');
@@ -46,6 +46,7 @@ select ok(
         'list_workspace_key_recipients',
         'set_workspace_e2ee_key',
         'list_my_workspace_e2ee_grants',
+        'list_all_my_workspace_e2ee_grants',
         'purge_workspace_e2ee_grants_for_membership'
       )
       and (
@@ -59,7 +60,8 @@ select ok(
         'publish_e2ee_member_identity',
         'list_workspace_key_recipients',
         'set_workspace_e2ee_key',
-        'list_my_workspace_e2ee_grants'
+        'list_my_workspace_e2ee_grants',
+        'list_all_my_workspace_e2ee_grants'
       )
       and (
         proc.prosecdef
@@ -231,6 +233,21 @@ select results_eq(
   'A member can fetch the wrapped key addressed to them'
 );
 
+select results_eq(
+  $$
+    select workspace_id, key_id, is_active
+    from public.list_all_my_workspace_e2ee_grants()
+  $$,
+  $$
+    values (
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      'AAAAAAAAAAAAAAAAAAAAAA'::text,
+      true
+    )
+  $$,
+  'Credential delivery can fetch all wrapped keys addressed to a member'
+);
+
 select throws_ok(
   $$
     select * from public.set_workspace_e2ee_key(
@@ -256,6 +273,12 @@ select throws_ok(
   '42501',
   'E2EE key operation not permitted',
   'Non-members cannot read wrapped keys for a workspace'
+);
+
+select results_eq(
+  $$select count(*) from public.list_all_my_workspace_e2ee_grants()$$,
+  array[0::bigint],
+  'Credential delivery reveals no grants from workspaces the caller does not belong to'
 );
 
 select tests.clear_authentication();
@@ -322,6 +345,15 @@ select results_eq(
   $$,
   array[2::bigint],
   'Remaining members keep their grants across both generations'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as('grant_member');
+
+select results_eq(
+  $$select count(*) from public.list_all_my_workspace_e2ee_grants()$$,
+  array[0::bigint],
+  'A removed member cannot fetch any prior workspace grant'
 );
 
 select * from finish();

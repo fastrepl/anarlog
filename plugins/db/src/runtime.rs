@@ -16,8 +16,8 @@ mod replica_sync;
 mod sync_result;
 mod witness_watch;
 
-pub(crate) use e2ee_sync::CloudsyncTokenConfiguration;
 use e2ee_sync::E2eeSyncHook;
+pub(crate) use e2ee_sync::{CloudsyncTokenConfiguration, E2eeWorkspaceKeyConfiguration};
 pub use open::open_app_db;
 #[cfg(test)]
 use open::{app_db_open_options, database_uses_cloudsync_schema, open_app_db_without_cloudsync};
@@ -228,6 +228,17 @@ impl PluginDbRuntime {
     ) -> Result<()> {
         self.e2ee_sync_hook
             .set_personal_workspace(workspace_id, recovery_key)
+            .map_err(|error| std::io::Error::other(error.to_string()))?;
+        Ok(())
+    }
+
+    fn set_e2ee_workspace_keys(&self, configuration: E2eeWorkspaceKeyConfiguration) -> Result<()> {
+        self.e2ee_sync_hook
+            .set_workspaces(
+                &configuration.personal_workspace_id,
+                &configuration.recovery_key,
+                configuration.shared_keyrings,
+            )
             .map_err(|error| std::io::Error::other(error.to_string()))?;
         Ok(())
     }
@@ -676,7 +687,7 @@ impl PluginDbRuntime {
     pub(crate) async fn configure_cloudsync_token_with_projection_at_generation(
         &self,
         configuration: CloudsyncTokenConfiguration,
-        recovery_key: Option<(String, anlg_e2ee::RecoveryKey)>,
+        workspace_keys: Option<E2eeWorkspaceKeyConfiguration>,
         auth_generation: u64,
     ) -> Result<crate::CloudsyncTokenConfigurationResult> {
         let _control_operation = self.cloudsync_control_guard().await?;
@@ -702,8 +713,8 @@ impl PluginDbRuntime {
                     auth_generation,
                     &configuration_cancellation,
                 )?;
-                if let Some((workspace_id, recovery_key)) = recovery_key {
-                    self.set_e2ee_recovery_key(&workspace_id, &recovery_key)?;
+                if let Some(workspace_keys) = workspace_keys {
+                    self.set_e2ee_workspace_keys(workspace_keys)?;
                     self.ensure_cloudsync_configuration_active(
                         auth_generation,
                         &configuration_cancellation,

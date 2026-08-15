@@ -535,7 +535,11 @@ async fn stale_configuration_waiting_after_a_newer_attempt_does_not_clear_its_ke
                     access_token: "access-token".to_string(),
                 },
             ),
-            Some(("old-user".to_string(), recovery_key)),
+            Some(crate::runtime::E2eeWorkspaceKeyConfiguration::new(
+                "old-user".to_string(),
+                recovery_key,
+                std::collections::HashMap::new(),
+            )),
             stale_generation,
         )
         .await

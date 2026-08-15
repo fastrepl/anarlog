@@ -39,6 +39,26 @@ pub(crate) struct CloudsyncTokenConfiguration {
     pub(super) e2ee_witness: crate::CloudsyncE2eeWitness,
 }
 
+pub(crate) struct E2eeWorkspaceKeyConfiguration {
+    pub(super) personal_workspace_id: String,
+    pub(super) recovery_key: anlg_e2ee::RecoveryKey,
+    pub(super) shared_keyrings: HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+}
+
+impl E2eeWorkspaceKeyConfiguration {
+    pub(crate) fn new(
+        personal_workspace_id: String,
+        recovery_key: anlg_e2ee::RecoveryKey,
+        shared_keyrings: HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+    ) -> Self {
+        Self {
+            personal_workspace_id,
+            recovery_key,
+            shared_keyrings,
+        }
+    }
+}
+
 impl CloudsyncTokenConfiguration {
     pub(crate) fn new(
         database_id: String,
@@ -107,6 +127,21 @@ impl E2eeSyncHook {
             workspace_id.to_string(),
             anlg_e2ee::WorkspaceKeyring::new(key),
         )]);
+        self.request_reconciliation();
+        Ok(())
+    }
+
+    pub(super) fn set_workspaces(
+        &self,
+        personal_workspace_id: &str,
+        recovery_key: &anlg_e2ee::RecoveryKey,
+        mut shared_keyrings: HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+    ) -> std::result::Result<(), anlg_e2ee::Error> {
+        shared_keyrings.insert(
+            personal_workspace_id.to_string(),
+            anlg_e2ee::WorkspaceKeyring::new(recovery_key.workspace_key(personal_workspace_id)?),
+        );
+        *self.keys.write().unwrap() = shared_keyrings;
         self.request_reconciliation();
         Ok(())
     }

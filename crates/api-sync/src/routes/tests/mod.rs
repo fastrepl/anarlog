@@ -112,6 +112,17 @@ async fn mock_e2ee_key_claim(server: &MockServer, returned_key_id: &str) {
         .await;
 }
 
+async fn mock_workspace_key_grants(server: &MockServer, body: Value) {
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_all_my_workspace_e2ee_grants"))
+        .and(header("apikey", "anon-key"))
+        .and(header("authorization", "Bearer supabase-token"))
+        .and(body_partial_json(json!({})))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(server)
+        .await;
+}
+
 fn token_request() -> Request<Body> {
     Request::post("/token")
         .header(E2EE_KEY_ID_HEADER, TEST_KEY_ID)

@@ -119,6 +119,20 @@ async fn mints_token_for_verified_supabase_subject() {
         ]),
     )
     .await;
+    mock_workspace_key_grants(
+        &server,
+        json!([
+            {
+                "workspace_id": "workspace-team",
+                "key_id": "AAAAAAAAAAAAAAAAAAAAAA",
+                "ephemeral_public_key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+                "nonce": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+                "ciphertext": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+                "is_active": true
+            }
+        ]),
+    )
+    .await;
     mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
     Mock::given(method("POST"))
         .and(path("/v2/tokens"))
@@ -164,16 +178,29 @@ async fn mints_token_for_verified_supabase_subject() {
     );
     assert_eq!(body["workspaces"][1]["createdAt"], "2026-07-16T09:00:00Z");
     assert_eq!(body["workspaces"][1]["updatedAt"], "2026-07-16T10:00:00Z");
+    assert_eq!(
+        body["workspaceKeyGrants"][0]["workspaceId"],
+        "workspace-team"
+    );
+    assert_eq!(
+        body["workspaceKeyGrants"][0]["keyId"],
+        "AAAAAAAAAAAAAAAAAAAAAA"
+    );
+    assert_eq!(body["workspaceKeyGrants"][0]["isActive"], true);
     assert!(body["expiresAt"].as_str().unwrap().ends_with('Z'));
 
     let requests = server.received_requests().await.unwrap();
     assert_eq!(requests[0].url.path(), "/rest/v1/workspace_memberships");
     assert_eq!(
         requests[1].url.path(),
+        "/rest/v1/rpc/list_all_my_workspace_e2ee_grants"
+    );
+    assert_eq!(
+        requests[2].url.path(),
         "/rest/v1/rpc/claim_personal_workspace_e2ee_key"
     );
-    assert_eq!(requests[2].url.path(), "/v2/tokens");
-    let token_request: Value = serde_json::from_slice(&requests[2].body).unwrap();
+    assert_eq!(requests[3].url.path(), "/v2/tokens");
+    let token_request: Value = serde_json::from_slice(&requests[3].body).unwrap();
     assert_eq!(token_request.as_object().unwrap().len(), 4);
     assert_eq!(token_request["userId"], "user-123");
     let attributes: Value =
