@@ -150,6 +150,14 @@ async sealE2eeRecoveryKeyForDevice(accountUserId: string, requestId: string, rec
     else return { status: "error", error: e  as any };
 }
 },
+async sealWorkspaceE2eeKeyForRecipients(accountUserId: string, workspaceId: string, recipients: WorkspaceE2eeKeyRecipient[], rotate: boolean) : Promise<Result<SealedWorkspaceE2eeKey, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:db|seal_workspace_e2ee_key_for_recipients", { accountUserId, workspaceId, recipients, rotate }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async importE2eeDeviceEnrollment(accountUserId: string, requestId: string, package: E2eeDeviceEnrollmentPackage) : Promise<Result<E2eeRecoveryKeyIdentity, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|import_e2ee_device_enrollment", { accountUserId, requestId, package }) };
@@ -321,12 +329,15 @@ export type MeetingPage = { meetings: MeetingListItem[]; pagination: Pagination 
 export type Pagination = { offset: number; limit: number; returned: number; total: number | null; next_offset: number | null }
 export type Participant = { human_id: string; display_name: string; email: string; role: string; job_title: string; organization_id: string; organization_name: string }
 export type QueryEvent = { event: "result"; data: JsonValue[] } | { event: "error"; data: string }
+export type SealedWorkspaceE2eeKey = { keyId: string; grants: WorkspaceE2eeKeyGrantUpload[] }
 export type SessionIngestApplyResult = "applied" | "already_applied" | "rejected"
 export type StorageMigrationState = { phase: string; latestRunId: string; parityVerified: boolean; cutoverAt: string | null; rollbackUntil: string | null; lastError: string; updatedAt: string }
 export type SubscriptionRegistration = { id: string; analysis: DependencyAnalysis }
 export type TAURI_CHANNEL<TSend> = null
 export type TransactionStatement = { sql: string; params: JsonValue[]; expectedRowsAffected?: number | null }
 export type TranscriptPage = { meeting_id: string; text: string; words: JsonValue[]; pagination: Pagination }
+export type WorkspaceE2eeKeyGrantUpload = { userId: string; ephemeralPublicKey: string; nonce: string; ciphertext: string }
+export type WorkspaceE2eeKeyRecipient = { userId: string; publicKey: string }
 
 /** tauri-specta globals **/
 

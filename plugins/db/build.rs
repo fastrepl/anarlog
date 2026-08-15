@@ -17,6 +17,7 @@ const COMMANDS: &[&str] = &[
     "import_e2ee_identity",
     "get_or_create_e2ee_device_identity",
     "seal_e2ee_recovery_key_for_device",
+    "seal_workspace_e2ee_key_for_recipients",
     "import_e2ee_device_enrollment",
     "subscribe",
     "unsubscribe",

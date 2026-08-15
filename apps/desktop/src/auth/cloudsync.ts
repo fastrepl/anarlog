@@ -30,6 +30,7 @@ import {
 } from "./cloudsync-progress";
 import { flushCloudsyncSessionEvictions } from "./cloudsync-session-evictions";
 import { requestCloudsyncCredentials } from "./cloudsync-token-exchange";
+import { provisionMissingWorkspaceKeys } from "./cloudsync-workspace-keys";
 
 import { resolveConfigValue } from "~/shared/config";
 import { isKeychainAccessError } from "~/shared/keychain";
@@ -1071,6 +1072,46 @@ async function activateCloudsync(
       onAccountMismatch,
     );
     return "ok";
+  }
+
+  if (hasWorkspaceProjection(credentials)) {
+    let keyProvisioning: Awaited<
+      ReturnType<typeof provisionMissingWorkspaceKeys>
+    >;
+    try {
+      keyProvisioning = await provisionMissingWorkspaceKeys(
+        credentials,
+        session.access_token,
+        accountUserId,
+        controller.signal,
+      );
+    } catch {
+      if (activeGeneration !== generation) {
+        return "ok";
+      }
+      console.warn("[cloudsync] shared workspace key provisioning failed");
+      scheduleExchange(
+        session,
+        activeGeneration,
+        RETRY_DELAY_MS,
+        onAccountMismatch,
+      );
+      return "ok";
+    }
+    if (activeGeneration !== generation) {
+      return "ok";
+    }
+    if (keyProvisioning !== "ready") {
+      scheduleExchange(
+        session,
+        activeGeneration,
+        keyProvisioning === "provisioned"
+          ? MIN_REFRESH_DELAY_MS
+          : RETRY_DELAY_MS,
+        onAccountMismatch,
+      );
+      return "ok";
+    }
   }
 
   setCredentialBlock(null);

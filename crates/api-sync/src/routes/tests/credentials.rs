@@ -1,6 +1,121 @@
 use super::*;
 
 const TEST_MEMBER_PUBLIC_KEY: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopq";
+const TEST_SHARED_WORKSPACE_ID: &str = "11111111-1111-4111-8111-111111111111";
+const TEST_RECIPIENT_USER_ID: &str = "22222222-2222-4222-8222-222222222222";
+
+#[tokio::test]
+async fn lists_workspace_key_recipients_with_the_user_session() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_workspace_key_recipients"))
+        .and(header("apikey", "anon-key"))
+        .and(header("authorization", "Bearer supabase-token"))
+        .and(body_partial_json(json!({
+            "p_workspace_id": TEST_SHARED_WORKSPACE_ID,
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "user_id": TEST_RECIPIENT_USER_ID,
+            "user_email": "member@example.com",
+            "role": "member",
+            "public_key": TEST_MEMBER_PUBLIC_KEY,
+            "granted_key_ids": ["AAAAAAAAAAAAAAAAAAAAAA"],
+        }])))
+        .mount(&server)
+        .await;
+
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::get(format!(
+                "/e2ee/workspaces/{TEST_SHARED_WORKSPACE_ID}/recipients"
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body[0]["userId"], TEST_RECIPIENT_USER_ID);
+    assert_eq!(body[0]["publicKey"], TEST_MEMBER_PUBLIC_KEY);
+    assert_eq!(body[0]["grantedKeyIds"][0], "AAAAAAAAAAAAAAAAAAAAAA");
+}
+
+#[tokio::test]
+async fn publishes_only_wrapped_workspace_key_grants_with_the_user_session() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/set_workspace_e2ee_key"))
+        .and(header("apikey", "anon-key"))
+        .and(header("authorization", "Bearer supabase-token"))
+        .and(body_partial_json(json!({
+            "p_workspace_id": TEST_SHARED_WORKSPACE_ID,
+            "p_key_id": "AAAAAAAAAAAAAAAAAAAAAA",
+            "p_grants": [{
+                "userId": TEST_RECIPIENT_USER_ID,
+                "ephemeralPublicKey": "A".repeat(43),
+                "nonce": "B".repeat(32),
+                "ciphertext": "C".repeat(64),
+            }],
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "key_id": "AAAAAAAAAAAAAAAAAAAAAA",
+            "granted_member_count": 1,
+        }])))
+        .mount(&server)
+        .await;
+
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::put(format!("/e2ee/workspaces/{TEST_SHARED_WORKSPACE_ID}/key"))
+                .header(http_header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "keyId": "AAAAAAAAAAAAAAAAAAAAAA",
+                        "grants": [{
+                            "userId": TEST_RECIPIENT_USER_ID,
+                            "ephemeralPublicKey": "A".repeat(43),
+                            "nonce": "B".repeat(32),
+                            "ciphertext": "C".repeat(64),
+                        }],
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[http_header::CACHE_CONTROL], "no-store");
+    let body = response_json(response).await;
+    assert_eq!(body["keyId"], "AAAAAAAAAAAAAAAAAAAAAA");
+    assert_eq!(body["grantedMemberCount"], 1);
+}
+
+#[tokio::test]
+async fn rejects_malformed_workspace_key_grants_without_contacting_supabase() {
+    let server = MockServer::start().await;
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::put(format!("/e2ee/workspaces/{TEST_SHARED_WORKSPACE_ID}/key"))
+                .header(http_header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({
+                        "keyId": "invalid",
+                        "grants": [],
+                    }))
+                    .unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
 
 #[tokio::test]
 async fn issues_replica_credentials_without_contacting_sqlitecloud() {

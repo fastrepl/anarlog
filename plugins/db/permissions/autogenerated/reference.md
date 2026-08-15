@@ -22,6 +22,7 @@ Default permissions for the plugin
 - `allow-import-e2ee-identity`
 - `allow-get-or-create-e2ee-device-identity`
 - `allow-seal-e2ee-recovery-key-for-device`
+- `allow-seal-workspace-e2ee-key-for-recipients`
 - `allow-import-e2ee-device-enrollment`
 - `allow-subscribe`
 - `allow-unsubscribe`
@@ -715,6 +716,32 @@ Enables the seal_e2ee_recovery_key_for_device command without any pre-configured
 <td>
 
 Denies the seal_e2ee_recovery_key_for_device command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-seal-workspace-e2ee-key-for-recipients`
+
+</td>
+<td>
+
+Enables the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-seal-workspace-e2ee-key-for-recipients`
+
+</td>
+<td>
+
+Denies the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope.
 
 </td>
 </tr>

@@ -332,10 +332,6 @@ export function isCredentials(value: unknown): value is CloudsyncCredentials {
       activeGrantWorkspaceIds.add(grant.workspaceId);
     }
   }
-  if (activeGrantWorkspaceIds.size !== sharedWorkspaceIds.size) {
-    return false;
-  }
-
   const personalWorkspaces = candidate.workspaces.filter(
     (workspace) => workspace.kind === "personal",
   );

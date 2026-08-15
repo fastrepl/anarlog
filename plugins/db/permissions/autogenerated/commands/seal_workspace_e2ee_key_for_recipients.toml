@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-seal-workspace-e2ee-key-for-recipients"
+description = "Enables the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope."
+commands.allow = ["seal_workspace_e2ee_key_for_recipients"]
+
+[[permission]]
+identifier = "deny-seal-workspace-e2ee-key-for-recipients"
+description = "Denies the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope."
+commands.deny = ["seal_workspace_e2ee_key_for_recipients"]

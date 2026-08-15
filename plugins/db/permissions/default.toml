@@ -19,6 +19,7 @@ permissions = [
   "allow-import-e2ee-identity",
   "allow-get-or-create-e2ee-device-identity",
   "allow-seal-e2ee-recovery-key-for-device",
+  "allow-seal-workspace-e2ee-key-for-recipients",
   "allow-import-e2ee-device-enrollment",
   "allow-subscribe",
   "allow-unsubscribe",

@@ -359,6 +359,77 @@ pub(crate) async fn seal_e2ee_recovery_key_for_device<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) fn seal_workspace_e2ee_key_for_recipients(
+    state: tauri::State<'_, ManagedState>,
+    account_user_id: String,
+    workspace_id: String,
+    recipients: Vec<crate::WorkspaceE2eeKeyRecipient>,
+    rotate: bool,
+) -> Result<crate::SealedWorkspaceE2eeKey, String> {
+    let account_user_id = canonical_e2ee_account_user_id(&account_user_id)?;
+    let workspace_id = uuid::Uuid::parse_str(workspace_id.trim())
+        .map(|workspace_id| workspace_id.to_string())
+        .map_err(|_| "E2EE workspace ID is invalid".to_string())?;
+    if recipients.is_empty() || recipients.len() > 256 {
+        return Err("workspace E2EE recipients are invalid".to_string());
+    }
+
+    let key = if rotate {
+        anlg_e2ee::WorkspaceKey::generate()
+    } else {
+        state
+            .workspace_key(&workspace_id)
+            .ok_or(anlg_e2ee::Error::UnknownKey)
+    }
+    .map_err(|error| error.to_string())?;
+    seal_workspace_e2ee_key(key, &account_user_id, &workspace_id, recipients)
+}
+
+fn seal_workspace_e2ee_key(
+    key: anlg_e2ee::WorkspaceKey,
+    account_user_id: &str,
+    workspace_id: &str,
+    recipients: Vec<crate::WorkspaceE2eeKeyRecipient>,
+) -> Result<crate::SealedWorkspaceE2eeKey, String> {
+    if recipients.is_empty() || recipients.len() > 256 {
+        return Err("workspace E2EE recipients are invalid".to_string());
+    }
+    let mut recipient_ids = std::collections::HashSet::with_capacity(recipients.len());
+    if recipients.iter().any(|recipient| {
+        uuid::Uuid::parse_str(recipient.user_id.trim()).is_err()
+            || !recipient_ids.insert(recipient.user_id.trim())
+    }) || !recipient_ids.contains(account_user_id)
+    {
+        return Err("workspace E2EE recipients are invalid".to_string());
+    }
+
+    let key_id = key.key_id().to_string();
+    let grants = recipients
+        .into_iter()
+        .map(|recipient| {
+            let user_id = uuid::Uuid::parse_str(recipient.user_id.trim())
+                .expect("recipient IDs were validated")
+                .to_string();
+            let grant = anlg_e2ee::seal_workspace_key_for_member(
+                &key,
+                &recipient.public_key,
+                &workspace_id,
+                &user_id,
+            )
+            .map_err(|error| error.to_string())?;
+            Ok(crate::WorkspaceE2eeKeyGrantUpload {
+                user_id,
+                ephemeral_public_key: grant.ephemeral_public_key,
+                nonce: grant.nonce,
+                ciphertext: grant.ciphertext,
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    Ok(crate::SealedWorkspaceE2eeKey { key_id, grants })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn import_e2ee_device_enrollment<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     account_user_id: String,
@@ -806,6 +877,87 @@ mod tests {
                     &key,
                     true,
                 )],
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn seals_one_workspace_key_for_each_recipient_identity() {
+        const OWNER: &str = "11111111-1111-4111-8111-111111111111";
+        const MEMBER: &str = "22222222-2222-4222-8222-222222222222";
+        const WORKSPACE: &str = "33333333-3333-4333-8333-333333333333";
+        let owner_recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+        let member_recovery = anlg_e2ee::RecoveryKey::generate().unwrap();
+        let key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+        let expected_key_id = key.key_id().to_string();
+
+        let sealed = seal_workspace_e2ee_key(
+            key,
+            OWNER,
+            WORKSPACE,
+            vec![
+                crate::WorkspaceE2eeKeyRecipient {
+                    user_id: OWNER.to_string(),
+                    public_key: owner_recovery.member_identity_key().unwrap().public_key(),
+                },
+                crate::WorkspaceE2eeKeyRecipient {
+                    user_id: MEMBER.to_string(),
+                    public_key: member_recovery.member_identity_key().unwrap().public_key(),
+                },
+            ],
+        )
+        .unwrap();
+
+        assert_eq!(sealed.key_id, expected_key_id);
+        for (recovery_key, user_id, upload) in [
+            (&owner_recovery, OWNER, &sealed.grants[0]),
+            (&member_recovery, MEMBER, &sealed.grants[1]),
+        ] {
+            let opened = recovery_key
+                .member_identity_key()
+                .unwrap()
+                .open_workspace_key(
+                    WORKSPACE,
+                    user_id,
+                    &anlg_e2ee::WorkspaceKeyGrant {
+                        key_id: sealed.key_id.clone(),
+                        ephemeral_public_key: upload.ephemeral_public_key.clone(),
+                        nonce: upload.nonce.clone(),
+                        ciphertext: upload.ciphertext.clone(),
+                    },
+                )
+                .unwrap();
+            assert_eq!(opened.key_id(), expected_key_id);
+        }
+    }
+
+    #[test]
+    fn sealing_workspace_keys_requires_the_issuer_and_unique_recipients() {
+        const OWNER: &str = "11111111-1111-4111-8111-111111111111";
+        const MEMBER: &str = "22222222-2222-4222-8222-222222222222";
+        const WORKSPACE: &str = "33333333-3333-4333-8333-333333333333";
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
+        let recipient = crate::WorkspaceE2eeKeyRecipient {
+            user_id: MEMBER.to_string(),
+            public_key: recovery_key.member_identity_key().unwrap().public_key(),
+        };
+
+        assert!(
+            seal_workspace_e2ee_key(
+                anlg_e2ee::WorkspaceKey::generate().unwrap(),
+                OWNER,
+                WORKSPACE,
+                vec![recipient.clone()],
+            )
+            .is_err()
+        );
+        assert!(
+            seal_workspace_e2ee_key(
+                anlg_e2ee::WorkspaceKey::generate().unwrap(),
+                MEMBER,
+                WORKSPACE,
+                vec![recipient.clone(), recipient],
             )
             .is_err()
         );

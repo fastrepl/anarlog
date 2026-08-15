@@ -19,6 +19,10 @@ mod identity;
 mod projection;
 mod token;
 
+use grants::{
+    SetWorkspaceE2eeKeyRequest, SetWorkspaceE2eeKeyResult, WorkspaceE2eeKeyRecipient,
+    fetch_workspace_key_recipients, publish_workspace_e2ee_key,
+};
 use grants::{WorkspaceE2eeKeyGrant, fetch_workspace_key_grants};
 use identity::{
     SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, is_valid_e2ee_key_id,
@@ -98,12 +102,21 @@ pub struct E2eeIdentity {
 
 #[derive(OpenApi)]
 #[openapi(
-    paths(create_credentials, create_replica_credentials, claim_e2ee_identity),
+    paths(
+        create_credentials,
+        create_replica_credentials,
+        claim_e2ee_identity,
+        get_workspace_e2ee_key_recipients,
+        set_workspace_e2ee_key
+    ),
     components(schemas(
         CloudsyncCredentialResponse,
         CloudsyncCredentials,
         CloudsyncWorkspace,
         WorkspaceE2eeKeyGrant,
+        WorkspaceE2eeKeyRecipient,
+        SetWorkspaceE2eeKeyRequest,
+        SetWorkspaceE2eeKeyResult,
         ClaimE2eeIdentityRequest,
         E2eeIdentity,
         LegacyCloudsyncCredentials,
@@ -126,6 +139,72 @@ pub(super) fn replica_router() -> Router<ReplicaState> {
         .route("/e2ee/identity", put(claim_e2ee_identity))
         .route("/devices", get(get_devices))
         .route("/devices/{fingerprint}", delete(delete_device))
+        .route(
+            "/e2ee/workspaces/{workspace_id}/recipients",
+            get(get_workspace_e2ee_key_recipients),
+        )
+        .route(
+            "/e2ee/workspaces/{workspace_id}/key",
+            put(set_workspace_e2ee_key),
+        )
+}
+
+#[utoipa::path(
+    get,
+    path = "/e2ee/workspaces/{workspace_id}/recipients",
+    tag = "sync",
+    params(("workspace_id" = String, Path, description = "Shared workspace ID")),
+    responses(
+        (status = 200, description = "Active workspace key recipients", body = [WorkspaceE2eeKeyRecipient]),
+        (status = 400, description = "Invalid workspace ID"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Workspace manager access required"),
+        (status = 502, description = "Workspace key service unavailable")
+    )
+)]
+async fn get_workspace_e2ee_key_recipients(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<ReplicaState>,
+    Path(workspace_id): Path<String>,
+) -> Result<Json<Vec<WorkspaceE2eeKeyRecipient>>> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+    Ok(Json(
+        fetch_workspace_key_recipients(&state, &auth.token, &workspace_id).await?,
+    ))
+}
+
+#[utoipa::path(
+    put,
+    path = "/e2ee/workspaces/{workspace_id}/key",
+    tag = "sync",
+    params(("workspace_id" = String, Path, description = "Shared workspace ID")),
+    request_body = SetWorkspaceE2eeKeyRequest,
+    responses(
+        (status = 200, description = "Wrapped workspace key published", body = SetWorkspaceE2eeKeyResult),
+        (status = 400, description = "Invalid workspace key grants"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Workspace manager access required"),
+        (status = 502, description = "Workspace key service unavailable")
+    )
+)]
+async fn set_workspace_e2ee_key(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<ReplicaState>,
+    Path(workspace_id): Path<String>,
+    Json(request): Json<SetWorkspaceE2eeKeyRequest>,
+) -> Result<(
+    [(header::HeaderName, HeaderValue); 1],
+    Json<SetWorkspaceE2eeKeyResult>,
+)> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+    Ok((
+        [(header::CACHE_CONTROL, HeaderValue::from_static("no-store"))],
+        Json(publish_workspace_e2ee_key(&state, &auth.token, &workspace_id, request).await?),
+    ))
 }
 
 #[utoipa::path(

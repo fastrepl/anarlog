@@ -67,6 +67,7 @@ vi.mock("@anlg/plugin-db", () => ({
   bindCloudsyncAccount: vi.fn().mockResolvedValue(true),
   configureCloudsyncToken: vi.fn().mockResolvedValue("configured"),
   configureE2eeReplica: vi.fn().mockResolvedValue("configured"),
+  sealWorkspaceE2eeKeyForRecipients: vi.fn(),
   execute: vi.fn().mockResolvedValue([]),
   executeProxy: vi.fn().mockResolvedValue({ rows: [] }),
   executeTransaction: vi.fn().mockResolvedValue([]),

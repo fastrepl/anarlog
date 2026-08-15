@@ -12,6 +12,7 @@ import type {
   E2eeDeviceEnrollmentPackage,
   E2eeDeviceIdentity,
   E2eeRecoveryKeyIdentity,
+  SealedWorkspaceE2eeKey,
   LegacyCleanupResult,
   LegacyCleanupStatus,
   LegacyImportReport,
@@ -21,6 +22,7 @@ import type {
   SessionIngestApplyResult,
   SubscriptionRegistration,
   TranscriptPage,
+  WorkspaceE2eeKeyRecipient,
 } from "./bindings.gen";
 
 export type {
@@ -32,6 +34,7 @@ export type {
   E2eeDeviceEnrollmentPackage,
   E2eeDeviceIdentity,
   E2eeRecoveryKeyIdentity,
+  SealedWorkspaceE2eeKey,
   GetMeetingInput,
   LegacyCleanupResult,
   LegacyCleanupStatus,
@@ -40,6 +43,7 @@ export type {
   MeetingPage,
   SessionIngestApplyResult,
   TranscriptPage,
+  WorkspaceE2eeKeyRecipient,
 } from "./bindings.gen";
 
 export type ListMeetingsInput = Partial<GeneratedListMeetingsInput>;
@@ -257,6 +261,20 @@ export async function sealE2eeRecoveryKeyForDevice(
     accountUserId,
     requestId,
     recipientPublicKey,
+  });
+}
+
+export async function sealWorkspaceE2eeKeyForRecipients(
+  accountUserId: string,
+  workspaceId: string,
+  recipients: WorkspaceE2eeKeyRecipient[],
+  rotate: boolean,
+): Promise<SealedWorkspaceE2eeKey> {
+  return invoke("plugin:db|seal_workspace_e2ee_key_for_recipients", {
+    accountUserId,
+    workspaceId,
+    recipients,
+    rotate,
   });
 }
 

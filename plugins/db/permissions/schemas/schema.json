@@ -607,6 +607,18 @@
           "markdownDescription": "Denies the seal_e2ee_recovery_key_for_device command without any pre-configured scope."
         },
         {
+          "description": "Enables the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-seal-workspace-e2ee-key-for-recipients",
+          "markdownDescription": "Enables the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-seal-workspace-e2ee-key-for-recipients",
+          "markdownDescription": "Denies the seal_workspace_e2ee_key_for_recipients command without any pre-configured scope."
+        },
+        {
           "description": "Enables the start_cloudsync command without any pre-configured scope.",
           "type": "string",
           "const": "allow-start-cloudsync",
@@ -703,10 +715,10 @@
           "markdownDescription": "Denies the unsubscribe command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-apply-session-ingest`\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-get-legacy-import-report`\n- `allow-cleanup-legacy-files`\n- `allow-run-legacy-import`\n- `allow-get-e2ee-identity-status`\n- `allow-inspect-e2ee-recovery-key`\n- `allow-create-e2ee-identity`\n- `allow-import-e2ee-identity`\n- `allow-get-or-create-e2ee-device-identity`\n- `allow-seal-e2ee-recovery-key-for-device`\n- `allow-import-e2ee-device-enrollment`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-configure-e2ee-replica`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-suspend-cloudsync-for-sign-out`\n- `allow-suspend-cloudsync-after-auth-loss`\n- `allow-get-cloudsync-status`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-apply-session-ingest`\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-get-legacy-import-report`\n- `allow-cleanup-legacy-files`\n- `allow-run-legacy-import`\n- `allow-get-e2ee-identity-status`\n- `allow-inspect-e2ee-recovery-key`\n- `allow-create-e2ee-identity`\n- `allow-import-e2ee-identity`\n- `allow-get-or-create-e2ee-device-identity`\n- `allow-seal-e2ee-recovery-key-for-device`\n- `allow-seal-workspace-e2ee-key-for-recipients`\n- `allow-import-e2ee-device-enrollment`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-configure-e2ee-replica`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-suspend-cloudsync-for-sign-out`\n- `allow-suspend-cloudsync-after-auth-loss`\n- `allow-get-cloudsync-status`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-apply-session-ingest`\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-get-legacy-import-report`\n- `allow-cleanup-legacy-files`\n- `allow-run-legacy-import`\n- `allow-get-e2ee-identity-status`\n- `allow-inspect-e2ee-recovery-key`\n- `allow-create-e2ee-identity`\n- `allow-import-e2ee-identity`\n- `allow-get-or-create-e2ee-device-identity`\n- `allow-seal-e2ee-recovery-key-for-device`\n- `allow-import-e2ee-device-enrollment`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-configure-e2ee-replica`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-suspend-cloudsync-for-sign-out`\n- `allow-suspend-cloudsync-after-auth-loss`\n- `allow-get-cloudsync-status`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-apply-session-ingest`\n- `allow-execute`\n- `allow-execute-proxy`\n- `allow-execute-transaction`\n- `allow-list-meetings`\n- `allow-get-meeting`\n- `allow-get-meeting-transcript`\n- `allow-get-recurring-meeting-history`\n- `allow-get-legacy-cleanup-status`\n- `allow-get-legacy-import-report`\n- `allow-cleanup-legacy-files`\n- `allow-run-legacy-import`\n- `allow-get-e2ee-identity-status`\n- `allow-inspect-e2ee-recovery-key`\n- `allow-create-e2ee-identity`\n- `allow-import-e2ee-identity`\n- `allow-get-or-create-e2ee-device-identity`\n- `allow-seal-e2ee-recovery-key-for-device`\n- `allow-seal-workspace-e2ee-key-for-recipients`\n- `allow-import-e2ee-device-enrollment`\n- `allow-subscribe`\n- `allow-unsubscribe`\n- `allow-bind-cloudsync-account`\n- `allow-configure-cloudsync-token`\n- `allow-configure-e2ee-replica`\n- `allow-stop-cloudsync`\n- `allow-suspend-cloudsync`\n- `allow-suspend-cloudsync-for-sign-out`\n- `allow-suspend-cloudsync-after-auth-loss`\n- `allow-get-cloudsync-status`"
         }
       ]
     }

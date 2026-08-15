@@ -52,6 +52,7 @@ fn default_permissions_include_device_enrollment_workflow() {
     for permission in [
         "allow-get-or-create-e2ee-device-identity",
         "allow-seal-e2ee-recovery-key-for-device",
+        "allow-seal-workspace-e2ee-key-for-recipients",
         "allow-import-e2ee-device-enrollment",
     ] {
         assert!(permissions.contains(permission), "missing {permission}");
