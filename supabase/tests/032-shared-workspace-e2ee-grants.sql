@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(28);
 
 select tests.create_supabase_user('grant_owner', 'grant-owner@example.com');
 select tests.create_supabase_user('grant_member', 'grant-member@example.com');
@@ -345,6 +345,37 @@ select results_eq(
   $$,
   array[2::bigint],
   'Remaining members keep their grants across both generations'
+);
+
+select results_eq(
+  $$
+    select count(*)
+    from public.workspace_e2ee_keys
+    where workspace_id = (
+      select workspace_id from workspace_grant_test_state where name = 'hq'
+    )
+      and retired_at is null
+  $$,
+  array[0::bigint],
+  'Revoking membership retires the exposed generation before future writes can sync'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as_hyprnote_pro('grant_owner');
+
+select results_eq(
+  $$
+    select key_id, granted_member_count
+    from public.set_workspace_e2ee_key(
+      (select workspace_id from workspace_grant_test_state where name = 'hq'),
+      'CCCCCCCCCCCCCCCCCCCCCC',
+      jsonb_build_array(
+        jsonb_build_object('userId', tests.get_supabase_uid('grant_owner'), 'ephemeralPublicKey', rpad('eo3', 43, 'A'), 'nonce', rpad('no3', 32, 'B'), 'ciphertext', rpad('co3', 64, 'C'))
+      )
+    )
+  $$,
+  $$values ('CCCCCCCCCCCCCCCCCCCCCC'::text, 1)$$,
+  'The remaining manager can rotate to a key that excludes the removed member'
 );
 
 select tests.clear_authentication();
