@@ -27,7 +27,6 @@ const dependencies = (
     throw new Error("should not delete a workspace customer");
   },
   syncWorkspaceCustomer: async () => "cus_team123",
-  teamPriceIds: new Set(["price_team"]),
   ...overrides,
 });
 
@@ -37,7 +36,7 @@ describe("syncBillingBridge", () => {
     const subscription = {
       customer: "cus_team123",
       items: {
-        data: [{ price: { id: "price_team" }, quantity: 4 }],
+        data: [{ price: { id: "price_pro" }, quantity: 4 }],
       },
     } as Stripe.Subscription;
 
@@ -65,7 +64,7 @@ describe("syncBillingBridge", () => {
     const subscription = {
       customer: "cus_team123",
       items: {
-        data: [{ price: { id: "price_team" }, quantity: 4 }],
+        data: [{ price: { id: "price_pro" }, quantity: 4 }],
       },
     } as Stripe.Subscription;
 
@@ -83,7 +82,7 @@ describe("syncBillingBridge", () => {
     const subscription = {
       customer: "cus_team123",
       items: {
-        data: [{ price: { id: "price_team" }, quantity: 4 }],
+        data: [{ price: { id: "price_pro" }, quantity: 4 }],
       },
     } as Stripe.Subscription;
 

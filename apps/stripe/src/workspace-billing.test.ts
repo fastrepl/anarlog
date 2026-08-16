@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 
 import {
-  getTeamSubscriptionSeatLimit,
   getWorkspaceBillingUpdate,
+  getWorkspaceSubscriptionSeatLimit,
 } from "./workspace-billing";
 
 const subscriptionWithItems = (
@@ -10,46 +10,37 @@ const subscriptionWithItems = (
 ) =>
   ({
     items: { data: items },
-  }) as Parameters<typeof getTeamSubscriptionSeatLimit>[0];
+  }) as Parameters<typeof getWorkspaceSubscriptionSeatLimit>[0];
 
-test("reads the configured Team subscription quantity", () => {
+test("reads the shared Pro subscription quantity as workspace seats", () => {
   expect(
-    getTeamSubscriptionSeatLimit(
-      subscriptionWithItems([
-        { price: { id: "price_team" }, quantity: 7 },
-        { price: { id: "price_addon" }, quantity: 1 },
-      ]),
-      new Set(["price_team"]),
+    getWorkspaceSubscriptionSeatLimit(
+      subscriptionWithItems([{ price: { id: "price_pro" }, quantity: 7 }]),
     ),
   ).toBe(7);
 });
 
-test("uses Stripe's default quantity for a Team subscription item", () => {
+test("uses Stripe's default quantity for a workspace subscription item", () => {
   expect(
-    getTeamSubscriptionSeatLimit(
-      subscriptionWithItems([{ price: { id: "price_team" }, quantity: null }]),
-      new Set(["price_team"]),
+    getWorkspaceSubscriptionSeatLimit(
+      subscriptionWithItems([{ price: { id: "price_pro" }, quantity: null }]),
     ),
   ).toBe(1);
 });
 
-test("ignores subscriptions without a configured Team price", () => {
+test("rejects workspace subscriptions without a price item", () => {
   expect(
-    getTeamSubscriptionSeatLimit(
-      subscriptionWithItems([{ price: { id: "price_personal" }, quantity: 1 }]),
-      new Set(["price_team"]),
-    ),
+    getWorkspaceSubscriptionSeatLimit(subscriptionWithItems([])),
   ).toBeNull();
 });
 
-test("rejects ambiguous Team subscription items", () => {
+test("rejects ambiguous workspace subscription items", () => {
   expect(
-    getTeamSubscriptionSeatLimit(
+    getWorkspaceSubscriptionSeatLimit(
       subscriptionWithItems([
-        { price: { id: "price_team_monthly" }, quantity: 3 },
-        { price: { id: "price_team_yearly" }, quantity: 3 },
+        { price: { id: "price_pro" }, quantity: 3 },
+        { price: { id: "price_addon" }, quantity: 1 },
       ]),
-      new Set(["price_team_monthly", "price_team_yearly"]),
     ),
   ).toBeNull();
 });
@@ -59,12 +50,12 @@ test("reconciles quantities from subscription lifecycle events", () => {
     type: "customer.subscription.updated",
     data: {
       object: subscriptionWithItems([
-        { price: { id: "price_team" }, quantity: 4 },
+        { price: { id: "price_pro" }, quantity: 4 },
       ]),
     },
   } as Parameters<typeof getWorkspaceBillingUpdate>[0];
 
-  expect(getWorkspaceBillingUpdate(event, new Set(["price_team"]))).toEqual({
+  expect(getWorkspaceBillingUpdate(event)).toEqual({
     seatLimit: 4,
     updateSeatLimit: true,
   });
@@ -75,12 +66,12 @@ test("clears the seat limit when a Team subscription is deleted", () => {
     type: "customer.subscription.deleted",
     data: {
       object: subscriptionWithItems([
-        { price: { id: "price_team" }, quantity: 4 },
+        { price: { id: "price_pro" }, quantity: 4 },
       ]),
     },
   } as Parameters<typeof getWorkspaceBillingUpdate>[0];
 
-  expect(getWorkspaceBillingUpdate(event, new Set(["price_team"]))).toEqual({
+  expect(getWorkspaceBillingUpdate(event)).toEqual({
     seatLimit: null,
     updateSeatLimit: true,
   });
@@ -92,7 +83,7 @@ test("binds customer events without changing the seat limit", () => {
     data: { object: {} },
   } as Parameters<typeof getWorkspaceBillingUpdate>[0];
 
-  expect(getWorkspaceBillingUpdate(event, new Set(["price_team"]))).toEqual({
+  expect(getWorkspaceBillingUpdate(event)).toEqual({
     seatLimit: null,
     updateSeatLimit: false,
   });

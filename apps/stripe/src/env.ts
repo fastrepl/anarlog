@@ -15,8 +15,6 @@ export const env = createEnv({
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     STRIPE_SECRET_KEY: z.string().min(1),
     STRIPE_WEBHOOK_SECRET: z.string().min(1),
-    STRIPE_TEAM_MONTHLY_PRICE_ID: z.string().min(1).optional(),
-    STRIPE_TEAM_YEARLY_PRICE_ID: z.string().min(1).optional(),
     POSTHOG_API_KEY: z.string().min(1).optional(),
     LOOPS_API_KEY: requiredInProduction(z.string().min(1)),
   },

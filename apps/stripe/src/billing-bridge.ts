@@ -32,7 +32,6 @@ type BillingBridgeDependencies = {
     seatLimit: number | null;
     updateSeatLimit: boolean;
   }) => Promise<string | null | undefined>;
-  teamPriceIds: ReadonlySet<string>;
 };
 
 export async function syncBillingBridge(
@@ -64,10 +63,7 @@ export async function syncBillingBridge(
   }
 
   if (owner.kind === "workspace") {
-    const update = getWorkspaceBillingUpdate(
-      event,
-      activeDependencies.teamPriceIds,
-    );
+    const update = getWorkspaceBillingUpdate(event);
     const assignedCustomerId = await activeDependencies.syncWorkspaceCustomer({
       workspaceId: owner.id,
       customerId,
@@ -151,8 +147,7 @@ export const getUserIdFromCustomer = (
 };
 
 async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
-  const [{ env }, { stripe }, { supabaseAdmin }] = await Promise.all([
-    import("./env"),
+  const [{ stripe }, { supabaseAdmin }] = await Promise.all([
     import("./integration/stripe"),
     import("./integration/supabase"),
   ]);
@@ -218,11 +213,5 @@ async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
       }
       return data?.[0]?.assigned_customer_id as string | null | undefined;
     },
-    teamPriceIds: new Set(
-      [
-        env.STRIPE_TEAM_MONTHLY_PRICE_ID,
-        env.STRIPE_TEAM_YEARLY_PRICE_ID,
-      ].filter((priceId): priceId is string => Boolean(priceId)),
-    ),
   };
 }
