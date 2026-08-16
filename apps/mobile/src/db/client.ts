@@ -14,6 +14,12 @@ import {
 } from "@anlg/mobile-bridge";
 
 import { captureOperationalError } from "@/lib/error-reporting";
+import {
+  requestReplicaCredentials,
+  type E2eeRecoveryKeyIdentity,
+} from "@/sync/replica-credentials";
+
+export type { E2eeRecoveryKeyIdentity } from "@/sync/replica-credentials";
 
 let bridge: MobileDbBridgeLike | null = null;
 
@@ -124,6 +130,48 @@ export type MobileSyncStatus = {
   consecutive_failures: number;
 };
 
+export async function generateE2eeRecoveryKey(): Promise<string> {
+  try {
+    return getBridge().generateE2eeRecoveryKey();
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_recovery_key_generate",
+    });
+    throw error;
+  }
+}
+
+export async function inspectE2eeRecoveryKey(
+  recoveryKeyCode: string,
+): Promise<E2eeRecoveryKeyIdentity> {
+  try {
+    const value: unknown = JSON.parse(
+      getBridge().inspectE2eeRecoveryKey(recoveryKeyCode),
+    );
+    if (!value || typeof value !== "object") {
+      throw new Error("Unexpected recovery key identity");
+    }
+    const candidate = value as Record<string, unknown>;
+    if (
+      typeof candidate.keyId !== "string" ||
+      !/^[A-Za-z0-9_-]{22}$/.test(candidate.keyId) ||
+      typeof candidate.memberPublicKey !== "string" ||
+      !/^[A-Za-z0-9_-]{43}$/.test(candidate.memberPublicKey)
+    ) {
+      throw new Error("Unexpected recovery key identity");
+    }
+    return {
+      keyId: candidate.keyId,
+      memberPublicKey: candidate.memberPublicKey,
+    };
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_recovery_key_inspect",
+    });
+    throw error;
+  }
+}
+
 export async function configureE2eeReplica({
   workspaceId,
   witnessEndpoint,
@@ -149,6 +197,49 @@ export async function configureE2eeReplica({
   } catch (error) {
     captureOperationalError(error, {
       operation: "database_replica_configure",
+    });
+    throw error;
+  }
+}
+
+export async function bootstrapE2eeReplica({
+  apiUrl,
+  accessToken,
+  accountUserId,
+  recoveryKeyCode,
+  device,
+}: {
+  apiUrl: string;
+  accessToken: string;
+  accountUserId: string;
+  recoveryKeyCode: string;
+  device?: { fingerprint?: string | null; name?: string | null };
+}): Promise<"configured" | "account_mismatch"> {
+  try {
+    const identity = await inspectE2eeRecoveryKey(recoveryKeyCode);
+    const credentials = await requestReplicaCredentials({
+      apiUrl,
+      accessToken,
+      accountUserId,
+      identity,
+      device,
+    });
+    const result = await configureE2eeReplica({
+      workspaceId: credentials.workspaceId,
+      witnessEndpoint: new URL(
+        `/sync/e2ee/witness/${encodeURIComponent(credentials.workspaceId)}`,
+        apiUrl,
+      ).toString(),
+      witnessAccessToken: accessToken,
+      recoveryKeyCode,
+    });
+    if (result === "configured") {
+      await startSync();
+    }
+    return result;
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_replica_bootstrap",
     });
     throw error;
   }

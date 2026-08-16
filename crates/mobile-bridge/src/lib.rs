@@ -301,6 +301,30 @@ impl MobileDbBridge {
         .map_err(cloudsync_runtime_error)
     }
 
+    pub fn generate_e2ee_recovery_key(&self) -> Result<String, BridgeError> {
+        self.with_state(|_| Ok(()))?;
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().map_err(cloudsync_error)?;
+        Ok(recovery_key.expose_code().to_string())
+    }
+
+    pub fn inspect_e2ee_recovery_key(
+        &self,
+        recovery_key_code: String,
+    ) -> Result<String, BridgeError> {
+        self.with_state(|_| Ok(()))?;
+        let recovery_key =
+            anlg_e2ee::RecoveryKey::parse(&recovery_key_code).map_err(cloudsync_error)?;
+        let member_public_key = recovery_key
+            .member_identity_key()
+            .map_err(cloudsync_error)?
+            .public_key();
+        serde_json::to_string(&serde_json::json!({
+            "keyId": recovery_key.key_id(),
+            "memberPublicKey": member_public_key,
+        }))
+        .map_err(serialization_error)
+    }
+
     pub fn configure_e2ee_replica(
         &self,
         workspace_id: String,
@@ -870,6 +894,37 @@ mod tests {
 
         assert_eq!(bridge.cloudsync_sync_now().unwrap(), "{}");
         bridge.stop_cloudsync().unwrap();
+    }
+
+    #[test]
+    fn recovery_key_identity_roundtrips() {
+        let (_dir, bridge) = new_bridge(None);
+
+        let recovery_key = bridge.generate_e2ee_recovery_key().unwrap();
+        let identity: serde_json::Value = serde_json::from_str(
+            &bridge
+                .inspect_e2ee_recovery_key(recovery_key.clone())
+                .unwrap(),
+        )
+        .unwrap();
+        let parsed = anlg_e2ee::RecoveryKey::parse(&recovery_key).unwrap();
+
+        assert_eq!(identity["keyId"], parsed.key_id());
+        assert_eq!(
+            identity["memberPublicKey"],
+            parsed.member_identity_key().unwrap().public_key()
+        );
+    }
+
+    #[test]
+    fn inspect_e2ee_recovery_key_rejects_invalid_input() {
+        let (_dir, bridge) = new_bridge(None);
+
+        let error = bridge
+            .inspect_e2ee_recovery_key("invalid-recovery-key".to_string())
+            .unwrap_err();
+
+        assert!(matches!(error, BridgeError::CloudsyncFailed { .. }));
     }
 
     #[test]
