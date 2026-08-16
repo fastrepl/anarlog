@@ -209,6 +209,10 @@ impl E2eeSyncHook {
         self.transport.load(std::sync::atomic::Ordering::Acquire) == E2eeTransport::Replica as u8
     }
 
+    fn transport_configured(&self) -> bool {
+        self.transport.load(std::sync::atomic::Ordering::Acquire) != E2eeTransport::None as u8
+    }
+
     pub fn request_replica_sync(&self) {
         self.replica_sync_requested.notify_one();
     }
@@ -497,13 +501,16 @@ impl E2eeSyncHook {
 
 impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
     fn activity_paused(&self) -> bool {
-        self.activity_paused()
+        self.transport_configured() && self.activity_paused()
     }
 
     fn before_sync<'a>(
         &'a self,
         pool: &'a sqlx::SqlitePool,
     ) -> anlg_db_core::CloudsyncBeforeHookFuture<'a> {
+        if !self.transport_configured() {
+            return Box::pin(async { Ok(anlg_db_core::CloudsyncSyncDirective::default()) });
+        }
         let keys = self.snapshot();
         let witnesses = self.witnesses();
         Box::pin(async move {
@@ -589,6 +596,9 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
         pool: &'a sqlx::SqlitePool,
         result: &'a anlg_db_core::CloudsyncNetworkResult,
     ) -> anlg_db_core::CloudsyncHookFuture<'a> {
+        if !self.transport_configured() {
+            return Box::pin(async { Ok(anlg_db_core::CloudsyncHookOutcome::default()) });
+        }
         if cloudsync_receive_requires_reconciliation(result) {
             self.request_reconciliation();
         }
@@ -690,5 +700,32 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
 
     fn cancel_active_sync(&self) {
         E2eeSyncHook::cancel_active_sync(self);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anlg_db_core::CloudsyncSyncHook;
+
+    use super::E2eeSyncHook;
+
+    #[tokio::test]
+    async fn unconfigured_hook_is_transparent_to_cloudsync() {
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        let hook = E2eeSyncHook::default();
+        hook.begin_activity("capture".to_string(), "session-a".to_string());
+
+        assert!(!CloudsyncSyncHook::activity_paused(&hook));
+        assert_eq!(
+            hook.before_sync(&pool).await.unwrap(),
+            anlg_db_core::CloudsyncSyncDirective::default()
+        );
+        assert_eq!(
+            hook.after_sync(&pool, &anlg_db_core::CloudsyncNetworkResult::default())
+                .await
+                .unwrap(),
+            anlg_db_core::CloudsyncHookOutcome::default()
+        );
+        assert!(!hook.reconciliation_requested());
     }
 }
