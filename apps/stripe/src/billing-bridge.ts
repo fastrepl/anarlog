@@ -1,11 +1,10 @@
-import Stripe from "stripe";
+import type Stripe from "stripe";
 
 import {
   getCustomerIdentityMetadata,
-  getCustomerUserId,
+  getCustomerOwner,
 } from "./customer-metadata";
-import { stripe } from "./integration/stripe";
-import { supabaseAdmin } from "./integration/supabase";
+import { getWorkspaceBillingUpdate } from "./workspace-billing";
 
 const CUSTOMER_EVENTS: Stripe.Event.Type[] = [
   "checkout.session.completed",
@@ -13,9 +12,33 @@ const CUSTOMER_EVENTS: Stripe.Event.Type[] = [
   "customer.updated",
   "customer.subscription.created",
   "customer.subscription.updated",
+  "customer.subscription.deleted",
 ];
 
-export async function syncBillingBridge(event: Stripe.Event) {
+type BillingBridgeDependencies = {
+  getCustomer: (customerId: string) => Promise<Stripe.Customer | null>;
+  updateCustomerMetadata: (
+    customerId: string,
+    metadata: Record<string, string>,
+  ) => Promise<void>;
+  assignProfileCustomer: (
+    userId: string,
+    customerId: string,
+  ) => Promise<string | null | undefined>;
+  deleteCustomer: (customerId: string) => Promise<void>;
+  syncWorkspaceCustomer: (update: {
+    workspaceId: string;
+    customerId: string;
+    seatLimit: number | null;
+    updateSeatLimit: boolean;
+  }) => Promise<string | null | undefined>;
+  teamPriceIds: ReadonlySet<string>;
+};
+
+export async function syncBillingBridge(
+  event: Stripe.Event,
+  dependencies?: BillingBridgeDependencies,
+) {
   if (!isCustomerEvent(event.type)) {
     return;
   }
@@ -26,64 +49,55 @@ export async function syncBillingBridge(event: Stripe.Event) {
     return;
   }
 
-  const customer = await getStripeCustomer(customerId);
+  const activeDependencies =
+    dependencies ?? (await createDefaultDependencies());
+  const customer = await activeDependencies.getCustomer(customerId);
 
   if (!customer) {
     return;
   }
 
-  const userId = getUserIdFromCustomer(customer);
+  const owner = getCustomerOwner(customer.metadata);
 
-  if (!userId) {
+  if (!owner) {
     return;
   }
+
+  if (owner.kind === "workspace") {
+    const update = getWorkspaceBillingUpdate(
+      event,
+      activeDependencies.teamPriceIds,
+    );
+    const assignedCustomerId = await activeDependencies.syncWorkspaceCustomer({
+      workspaceId: owner.id,
+      customerId,
+      ...update,
+    });
+    if (assignedCustomerId && assignedCustomerId !== customerId) {
+      throw new Error("Workspace Stripe customer assignment conflict");
+    }
+    return;
+  }
+
+  const userId = owner.id;
 
   const identityMetadata = getCustomerIdentityMetadata(
     customer.metadata,
     userId,
   );
   if (identityMetadata) {
-    await stripe.customers.update(customerId, {
-      metadata: identityMetadata,
-    });
+    await activeDependencies.updateCustomerMetadata(
+      customerId,
+      identityMetadata,
+    );
   }
 
-  const { data, error } = await supabaseAdmin.rpc(
-    "assign_profile_stripe_customer",
-    {
-      p_owner_user_id: userId,
-      p_stripe_customer_id: customerId,
-    },
+  const assignedCustomerId = await activeDependencies.assignProfileCustomer(
+    userId,
+    customerId,
   );
-
-  let assignedCustomerId = data?.[0]?.assigned_customer_id as
-    | string
-    | null
-    | undefined;
-  if (error) {
-    if (error.code !== "PGRST202") {
-      throw error;
-    }
-    const { error: updateError } = await supabaseAdmin
-      .from("profiles")
-      .update({ stripe_customer_id: customerId })
-      .eq("id", userId)
-      .is("stripe_customer_id", null);
-    if (updateError) {
-      throw updateError;
-    }
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("stripe_customer_id")
-      .eq("id", userId)
-      .single();
-    if (profileError) {
-      throw profileError;
-    }
-    assignedCustomerId = profile.stripe_customer_id as string | null;
-  }
   if (assignedCustomerId !== customerId) {
-    await stripe.customers.del(customerId);
+    await activeDependencies.deleteCustomer(customerId);
   }
 }
 
@@ -114,6 +128,7 @@ export const getCustomerId = (
 };
 
 export const getStripeCustomer = async (customerId: string) => {
+  const { stripe } = await import("./integration/stripe");
   const customer = await stripe.customers.retrieve(customerId);
 
   if (isDeletedCustomer(customer)) {
@@ -130,4 +145,84 @@ const isDeletedCustomer = (
 
 export const getUserIdFromCustomer = (
   customer: Stripe.Customer,
-): string | null => getCustomerUserId(customer.metadata);
+): string | null => {
+  const owner = getCustomerOwner(customer.metadata);
+  return owner?.kind === "user" ? owner.id : null;
+};
+
+async function createDefaultDependencies(): Promise<BillingBridgeDependencies> {
+  const [{ env }, { stripe }, { supabaseAdmin }] = await Promise.all([
+    import("./env"),
+    import("./integration/stripe"),
+    import("./integration/supabase"),
+  ]);
+
+  return {
+    async getCustomer(customerId) {
+      const customer = await stripe.customers.retrieve(customerId);
+      return isDeletedCustomer(customer) ? null : customer;
+    },
+    async updateCustomerMetadata(customerId, metadata) {
+      await stripe.customers.update(customerId, { metadata });
+    },
+    async assignProfileCustomer(userId, customerId) {
+      const { data, error } = await supabaseAdmin.rpc(
+        "assign_profile_stripe_customer",
+        {
+          p_owner_user_id: userId,
+          p_stripe_customer_id: customerId,
+        },
+      );
+
+      if (!error) {
+        return data?.[0]?.assigned_customer_id as string | null | undefined;
+      }
+      if (error.code !== "PGRST202") {
+        throw error;
+      }
+
+      const { error: updateError } = await supabaseAdmin
+        .from("profiles")
+        .update({ stripe_customer_id: customerId })
+        .eq("id", userId)
+        .is("stripe_customer_id", null);
+      if (updateError) {
+        throw updateError;
+      }
+
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from("profiles")
+        .select("stripe_customer_id")
+        .eq("id", userId)
+        .single();
+      if (profileError) {
+        throw profileError;
+      }
+      return profile.stripe_customer_id as string | null;
+    },
+    async deleteCustomer(customerId) {
+      await stripe.customers.del(customerId);
+    },
+    async syncWorkspaceCustomer(update) {
+      const { data, error } = await supabaseAdmin.rpc(
+        "sync_workspace_stripe_billing",
+        {
+          p_workspace_id: update.workspaceId,
+          p_stripe_customer_id: update.customerId,
+          p_seat_limit: update.seatLimit,
+          p_update_seat_limit: update.updateSeatLimit,
+        },
+      );
+      if (error) {
+        throw error;
+      }
+      return data?.[0]?.assigned_customer_id as string | null | undefined;
+    },
+    teamPriceIds: new Set(
+      [
+        env.STRIPE_TEAM_MONTHLY_PRICE_ID,
+        env.STRIPE_TEAM_YEARLY_PRICE_ID,
+      ].filter((priceId): priceId is string => Boolean(priceId)),
+    ),
+  };
+}
