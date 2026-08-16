@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
   InputAccessoryView,
+  Keyboard,
   Platform,
   Pressable,
   ScrollView,
@@ -38,34 +39,58 @@ import { useMountEffect } from "@/lib/use-mount-effect";
 
 function BodyEditor({
   accessoryId,
+  defaultBodyFormat,
   defaultValue,
   editable,
   onChangeText,
 }: {
   accessoryId: string;
+  defaultBodyFormat: "prosemirror_json" | "markdown";
   defaultValue: string;
   editable: boolean;
-  onChangeText: (body: string) => void;
+  onChangeText: (
+    body: string,
+    bodyFormat: "prosemirror_json" | "markdown",
+  ) => void;
 }) {
   const inputRef = useRef<TextInput>(null);
   const [text, setText] = useState(defaultValue);
+  const [bodyFormat, setBodyFormat] = useState(defaultBodyFormat);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
-  const [focused, setFocused] = useState(false);
+  const [androidKeyboardVisible, setAndroidKeyboardVisible] = useState(false);
+
+  useMountEffect(() => {
+    if (Platform.OS !== "android") return;
+    const showSubscription = Keyboard.addListener("keyboardDidShow", () =>
+      setAndroidKeyboardVisible(true),
+    );
+    const hideSubscription = Keyboard.addListener("keyboardDidHide", () =>
+      setAndroidKeyboardVisible(false),
+    );
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  });
 
   const handleChangeText = (body: string) => {
     setText(body);
-    onChangeText(body);
+    onChangeText(body, bodyFormat);
   };
 
   const handleFormat = (format: EditorFormat) => {
     const formatted = applyEditorFormat(text, selection, format);
     setText(formatted.text);
+    setBodyFormat(formatted.bodyFormat);
     setSelection(formatted.selection);
-    onChangeText(formatted.text);
+    onChangeText(formatted.text, formatted.bodyFormat);
     inputRef.current?.focus();
   };
 
-  const handleDismissKeyboard = () => inputRef.current?.blur();
+  const handleDismissKeyboard = () => {
+    inputRef.current?.blur();
+    Keyboard.dismiss();
+  };
 
   return (
     <>
@@ -80,9 +105,7 @@ function BodyEditor({
         placeholder="Start typing…"
         placeholderTextColor={Colors.muted}
         textAlignVertical="top"
-        onBlur={() => setFocused(false)}
         onChangeText={handleChangeText}
-        onFocus={() => setFocused(true)}
         onSelectionChange={(event) => setSelection(event.nativeEvent.selection)}
       />
       {Platform.OS === "ios" && editable && (
@@ -96,7 +119,7 @@ function BodyEditor({
           />
         </InputAccessoryView>
       )}
-      {Platform.OS !== "ios" && editable && focused && (
+      {Platform.OS === "android" && editable && androidKeyboardVisible && (
         <View style={styles.androidAccessory}>
           <EditorAccessory
             onFormat={handleFormat}
@@ -123,7 +146,11 @@ export default function NoteScreen() {
 
   const dataRef = useRef(data);
   dataRef.current = data;
-  const draftRef = useRef<{ title?: string; body?: string }>({});
+  const draftRef = useRef<{
+    title?: string;
+    body?: string;
+    bodyFormat?: "prosemirror_json" | "markdown";
+  }>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // The live query lags our own writes, so a body-only flush would otherwise
@@ -144,16 +171,17 @@ export default function NoteScreen() {
     if (!current) return;
     if (draft.body !== undefined) {
       const title = draft.title ?? savedTitleRef.current ?? current.title;
+      const bodyFormat = draft.bodyFormat ?? current.bodyFormat;
       savedTitleRef.current = title;
       void saveSessionNote(id, {
         title,
         bodyText: draft.body,
-        bodyFormat: current.bodyFormat,
+        bodyFormat,
       }).catch((error) => {
         captureOperationalError(error, {
           operation: "session_note_save",
           tags: {
-            body_format: current.bodyFormat,
+            body_format: bodyFormat,
             edit_type: "body",
           },
         });
@@ -176,7 +204,13 @@ export default function NoteScreen() {
     return flush;
   });
 
-  const onEdit = (patch: Partial<{ title: string; body: string }>) => {
+  const onEdit = (
+    patch: Partial<{
+      title: string;
+      body: string;
+      bodyFormat: "prosemirror_json" | "markdown";
+    }>,
+  ) => {
     draftRef.current = { ...draftRef.current, ...patch };
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(flush, 500);
@@ -312,9 +346,10 @@ export default function NoteScreen() {
           )}
           <BodyEditor
             accessoryId={`note-editor-controls-${data.id}`}
+            defaultBodyFormat={data.bodyFormat}
             defaultValue={data.noteText}
             editable={data.plainEditable}
-            onChangeText={(body) => onEdit({ body })}
+            onChangeText={(body, bodyFormat) => onEdit({ body, bodyFormat })}
           />
         </View>
       )}

@@ -8,10 +8,12 @@ test("wraps and unwraps selected inline text", () => {
   assert.deepEqual(bold, {
     text: "**hello** world",
     selection: { start: 2, end: 7 },
+    bodyFormat: "markdown",
   });
   assert.deepEqual(applyEditorFormat(bold.text, bold.selection, "bold"), {
     text: "hello world",
     selection: { start: 0, end: 5 },
+    bodyFormat: "markdown",
   });
 });
 
@@ -21,6 +23,7 @@ test("inserts paired inline markers at the cursor", () => {
     {
       text: "hello __",
       selection: { start: 7, end: 7 },
+      bodyFormat: "markdown",
     },
   );
 });
@@ -34,12 +37,14 @@ test("toggles a heading on the current line", () => {
   assert.deepEqual(heading, {
     text: "first\n# second",
     selection: { start: 10, end: 10 },
+    bodyFormat: "markdown",
   });
   assert.deepEqual(
     applyEditorFormat(heading.text, heading.selection, "heading"),
     {
       text: "first\nsecond",
       selection: { start: 8, end: 8 },
+      bodyFormat: "markdown",
     },
   );
 });
@@ -50,6 +55,18 @@ test("switches line formats instead of stacking prefixes", () => {
     {
       text: "- [ ] item",
       selection: { start: 7, end: 7 },
+      bodyFormat: "markdown",
+    },
+  );
+});
+
+test("converts checklist lines to bullets without leaking task markers", () => {
+  assert.deepEqual(
+    applyEditorFormat("- [ ] item", { start: 6, end: 6 }, "bullet"),
+    {
+      text: "- item",
+      selection: { start: 2, end: 2 },
+      bodyFormat: "markdown",
     },
   );
 });
@@ -60,6 +77,7 @@ test("formats every selected line", () => {
     {
       text: "- one\n- two\nthree",
       selection: { start: 0, end: 11 },
+      bodyFormat: "markdown",
     },
   );
 });

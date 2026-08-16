@@ -9,7 +9,7 @@ type TextSelection = { start: number; end: number };
 
 const BLOCK_FORMATS = {
   heading: { prefix: "# ", pattern: /^#{1,6} / },
-  bullet: { prefix: "- ", pattern: /^[-*+] / },
+  bullet: { prefix: "- ", pattern: /^(?:[-*+] )(?!\[(?: |x|X)\] )/ },
   checklist: { prefix: "- [ ] ", pattern: /^- \[(?: |x|X)\] / },
 } as const;
 
@@ -112,8 +112,16 @@ export function applyEditorFormat(
   text: string,
   selection: TextSelection,
   format: EditorFormat,
-): { text: string; selection: TextSelection } {
-  if (format === "bold") return wrapSelection(text, selection, "**");
-  if (format === "italic") return wrapSelection(text, selection, "_");
-  return formatLines(text, selection, format);
+): {
+  text: string;
+  selection: TextSelection;
+  bodyFormat: "markdown";
+} {
+  const formatted =
+    format === "bold"
+      ? wrapSelection(text, selection, "**")
+      : format === "italic"
+        ? wrapSelection(text, selection, "_")
+        : formatLines(text, selection, format);
+  return { ...formatted, bodyFormat: "markdown" };
 }
