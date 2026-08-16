@@ -23,13 +23,7 @@ import { HandoffCard } from "@/components/handoff-card";
 import { ListeningSheet } from "@/components/listening-sheet";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
-import {
-  Colors,
-  CornerCurve,
-  Radius,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
 import {
   deleteSession,
@@ -475,11 +469,6 @@ const styles = StyleSheet.create({
     color: Colors.ink,
   },
   androidAccessory: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
-    borderTopLeftRadius: Radius.control,
-    borderTopRightRadius: Radius.control,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.mutedSurface,
+    backgroundColor: Colors.background,
   },
 });
