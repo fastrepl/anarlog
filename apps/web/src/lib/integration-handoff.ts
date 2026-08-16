@@ -1,3 +1,7 @@
+import { useRef, useState } from "react";
+
+import { useMountEffect } from "../hooks/useMountEffect.ts";
+
 export function isDesktopIntegrationHandoff({
   pathname,
   search,
@@ -25,4 +29,28 @@ export function getNangoSessionToken(hash: string) {
 
   const token = entries[0][1].trim();
   return token || null;
+}
+
+export function useNangoSessionHandoffToken() {
+  const capturedRef = useRef(false);
+  const [sessionToken, setSessionToken] = useState<string | null | undefined>(
+    undefined,
+  );
+
+  useMountEffect(() => {
+    if (capturedRef.current) {
+      return;
+    }
+    capturedRef.current = true;
+
+    const token = getNangoSessionToken(window.location.hash);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    );
+    setSessionToken(token);
+  });
+
+  return sessionToken;
 }

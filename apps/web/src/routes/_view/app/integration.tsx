@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { z } from "zod";
 
 import {
@@ -8,9 +7,8 @@ import {
   flowSearchSchema,
 } from "@/functions/desktop-flow";
 import { useBilling } from "@/hooks/use-billing";
-import { useMountEffect } from "@/hooks/useMountEffect";
 import { getIntegrationBillingGate } from "@/lib/integration-billing-gate";
-import { getNangoSessionToken } from "@/lib/integration-handoff";
+import { useNangoSessionHandoffToken } from "@/lib/integration-handoff";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { ConnectFlow } from "./-integrations-connect-flow";
@@ -99,20 +97,7 @@ function Component() {
 }
 
 function DesktopHandoffConnect() {
-  const [desktopSessionToken, setDesktopSessionToken] = useState<
-    string | null | undefined
-  >(undefined);
-
-  useMountEffect(() => {
-    const sessionToken = getNangoSessionToken(window.location.hash);
-    // Do not leave the scoped credential in history while the provider flow is open.
-    window.history.replaceState(
-      window.history.state,
-      "",
-      `${window.location.pathname}${window.location.search}`,
-    );
-    setDesktopSessionToken(sessionToken);
-  });
+  const desktopSessionToken = useNangoSessionHandoffToken();
 
   if (desktopSessionToken === undefined) {
     return (
