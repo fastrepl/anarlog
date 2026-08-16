@@ -10,8 +10,116 @@ use sqlx::{QueryBuilder, Row, Sqlite, SqlitePool, Transaction, TypeInfo, ValueRe
 
 use super::{
     DecryptedRecord, E2EE_DOMAIN_TABLES, E2eeReplicaError, E2eeReplicaResult, LocalState,
-    ROW_MANIFEST_FIELD,
+    ROW_MANIFEST_FIELD, check_e2ee_cancellation, yield_once,
 };
+
+pub(super) async fn normalize_replica_payload_hashes(
+    pool: &SqlitePool,
+    keys: &HashMap<String, WorkspaceKeyring>,
+    is_cancelled: &(impl Fn() -> bool + Sync),
+) -> E2eeReplicaResult<()> {
+    if keys.is_empty() {
+        return Ok(());
+    }
+    let mut workspace_ids = keys.keys().collect::<Vec<_>>();
+    workspace_ids.sort_unstable();
+    loop {
+        check_e2ee_cancellation(is_cancelled)?;
+        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+        if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+            transaction.rollback().await?;
+            return Err(error);
+        }
+        let mut query = QueryBuilder::<Sqlite>::new(
+            "SELECT replica.id, replica.workspace_id, replica.payload
+             FROM e2ee_records AS replica
+             LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+               ON replica_hash.record_id = replica.id
+             WHERE replica.workspace_id IN (",
+        );
+        {
+            let mut separated = query.separated(", ");
+            for workspace_id in &workspace_ids {
+                separated.push_bind(workspace_id);
+            }
+        }
+        query.push(
+            ")
+             AND (
+               replica_hash.record_id IS NULL
+               OR replica_hash.workspace_id != replica.workspace_id
+               OR replica_hash.payload_hash = ''
+             )
+             ORDER BY replica.workspace_id, replica.id
+             LIMIT 64",
+        );
+        let records: Vec<(String, String, String)> =
+            query.build_query_as().fetch_all(&mut *transaction).await?;
+        if records.is_empty() {
+            transaction.commit().await?;
+            check_e2ee_cancellation(is_cancelled)?;
+            return Ok(());
+        }
+        for (record_id, workspace_id, payload) in records {
+            if let Err(error) = check_e2ee_cancellation(is_cancelled) {
+                transaction.rollback().await?;
+                return Err(error);
+            }
+            let payload_hash = anlg_e2ee::payload_hash(&payload);
+            upsert_replica_payload_hash(
+                &mut transaction,
+                &workspace_id,
+                &record_id,
+                &payload_hash,
+                &payload,
+            )
+            .await?;
+        }
+        transaction.commit().await?;
+        check_e2ee_cancellation(is_cancelled)?;
+        yield_once().await;
+    }
+}
+
+pub(super) async fn upsert_replica_payload_hash(
+    transaction: &mut Transaction<'_, Sqlite>,
+    workspace_id: &str,
+    record_id: &str,
+    payload_hash: &str,
+    payload: &str,
+) -> E2eeReplicaResult<()> {
+    if workspace_id.is_empty()
+        || record_id.is_empty()
+        || payload.is_empty()
+        || anlg_e2ee::payload_hash(payload) != payload_hash
+    {
+        return Err(E2eeReplicaError::RollbackDetected);
+    }
+    let result = sqlx::query(
+        "INSERT INTO e2ee_replica_payload_hashes (record_id, workspace_id, payload_hash)
+         SELECT ?, ?, ?
+         WHERE EXISTS (
+           SELECT 1 FROM e2ee_records
+           WHERE id = ? AND workspace_id = ? AND payload = ?
+         )
+         ON CONFLICT(record_id) DO UPDATE SET
+           workspace_id = excluded.workspace_id,
+           payload_hash = excluded.payload_hash,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+    )
+    .bind(record_id)
+    .bind(workspace_id)
+    .bind(payload_hash)
+    .bind(record_id)
+    .bind(workspace_id)
+    .bind(payload)
+    .execute(&mut **transaction)
+    .await?;
+    if result.rows_affected() != 1 {
+        return Err(E2eeReplicaError::RollbackDetected);
+    }
+    Ok(())
+}
 
 pub(super) async fn replica_records_still_current(
     transaction: &mut Transaction<'_, Sqlite>,
@@ -190,31 +298,20 @@ pub(super) async fn retain_ciphertext(
         return Err(E2eeReplicaError::RollbackDetected);
     }
 
-    let current: Option<(String, String, String)> = sqlx::query_as(
-        "SELECT workspace_id, payload_hash, payload
+    let current: Option<(String, String)> = sqlx::query_as(
+        "SELECT workspace_id, payload
          FROM e2ee_records
          WHERE id = ?",
     )
     .bind(record_id)
     .fetch_optional(&mut **transaction)
     .await?;
-    if let Some((current_workspace_id, current_payload_hash, current_payload)) = current
+    if let Some((current_workspace_id, current_payload)) = current
         && current_workspace_id == workspace_id
         && current_payload == payload
     {
-        if current_payload_hash != payload_hash {
-            sqlx::query(
-                "UPDATE e2ee_records
-                 SET payload_hash = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-                 WHERE id = ? AND workspace_id = ? AND payload = ?",
-            )
-            .bind(payload_hash)
-            .bind(record_id)
-            .bind(workspace_id)
-            .bind(payload)
-            .execute(&mut **transaction)
+        upsert_replica_payload_hash(transaction, workspace_id, record_id, payload_hash, payload)
             .await?;
-        }
         return Ok(());
     }
 
@@ -246,7 +343,6 @@ pub(super) async fn prune_ciphertext_archive(
                SELECT 1 FROM e2ee_records AS replica
                WHERE replica.workspace_id = archive.workspace_id
                  AND replica.id = archive.record_id
-                 AND replica.payload_hash = archive.payload_hash
                  AND replica.payload = archive.payload
              )
              OR (
@@ -346,15 +442,21 @@ pub(super) async fn restore_local_payload(
     }
     sqlx::query(
         "UPDATE e2ee_records
-         SET payload = ?, payload_hash = ?,
-             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         SET payload = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
          WHERE id = ? AND workspace_id = ?",
     )
     .bind(&state.payload)
-    .bind(&state.payload_hash)
     .bind(&state.record_id)
     .bind(&state.workspace_id)
     .execute(&mut **transaction)
+    .await?;
+    upsert_replica_payload_hash(
+        transaction,
+        &state.workspace_id,
+        &state.record_id,
+        &state.payload_hash,
+        &state.payload,
+    )
     .await?;
     Ok(())
 }

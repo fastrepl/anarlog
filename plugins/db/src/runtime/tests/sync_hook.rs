@@ -426,10 +426,13 @@ async fn idle_sync_skips_replica_reconciliation_until_new_work_arrives() {
     let (record_id, original_payload): (String, String) = sqlx::query_as(
         "SELECT replica.id, replica.payload
              FROM e2ee_records AS replica
+             INNER JOIN e2ee_replica_payload_hashes AS replica_hash
+              ON replica_hash.record_id = replica.id
+             AND replica_hash.workspace_id = replica.workspace_id
              INNER JOIN e2ee_witness_records AS witness
               ON witness.workspace_id = replica.workspace_id
              AND witness.record_id = replica.id
-              AND witness.payload_hash = replica.payload_hash
+              AND witness.payload_hash = replica_hash.payload_hash
              WHERE replica.workspace_id = 'workspace-1'
              ORDER BY replica.id
              LIMIT 1",

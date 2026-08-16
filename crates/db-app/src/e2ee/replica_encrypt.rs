@@ -678,11 +678,10 @@ pub(super) async fn persist_prepared_dirty_row_cancellable(
             return Err(error);
         }
         let result = sqlx::query(
-            "INSERT INTO e2ee_records (id, workspace_id, payload, payload_hash)
-             VALUES (?, ?, ?, ?)
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES (?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                payload = excluded.payload,
-               payload_hash = excluded.payload_hash,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
              WHERE e2ee_records.workspace_id = excluded.workspace_id
                AND e2ee_records.payload != excluded.payload",
@@ -690,7 +689,6 @@ pub(super) async fn persist_prepared_dirty_row_cancellable(
         .bind(&field.state.record_id)
         .bind(&field.state.workspace_id)
         .bind(&field.state.payload)
-        .bind(&field.state.payload_hash)
         .execute(&mut *transaction)
         .await?;
         if let Err(error) = check_e2ee_cancellation(is_cancelled) {

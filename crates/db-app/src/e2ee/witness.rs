@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use anlg_e2ee::{OpenedField, WorkspaceKey, WorkspaceKeyring};
 use sqlx::{QueryBuilder, Sqlite, SqlitePool, Transaction};
 
-use super::replica_storage::{prune_ciphertext_archive, retain_ciphertext};
+use super::replica_storage::{
+    normalize_replica_payload_hashes, prune_ciphertext_archive, retain_ciphertext,
+    upsert_replica_payload_hash,
+};
 use super::{
     E2EE_DOMAIN_TABLES, E2eeReplicaError, E2eeReplicaResult, LocalState, check_e2ee_cancellation,
     reconcile_e2ee_witness_pending, yield_once,
@@ -508,6 +511,8 @@ async fn repair_e2ee_replica_from_witness_bounded_inner(
         return Ok(outcome);
     }
 
+    normalize_replica_payload_hashes(pool, keys, is_cancelled).await?;
+    check_e2ee_cancellation(is_cancelled)?;
     let records = load_bounded_e2ee_witness_repairs(
         pool,
         keys,
@@ -650,7 +655,8 @@ async fn load_bounded_e2ee_witness_repairs(
                  replica.id IS NOT NULL
                  AND (
                    replica.workspace_id != witness.workspace_id
-                   OR replica.payload_hash != witness.payload_hash
+                   OR replica_hash.record_id IS NULL
+                   OR replica_hash.payload_hash != witness.payload_hash
                  )
                )
              ) AS needs_repair
@@ -660,6 +666,9 @@ async fn load_bounded_e2ee_witness_repairs(
           AND witness.record_id = page.record_id
          LEFT JOIN e2ee_records AS replica
            ON replica.id = page.record_id
+         LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+           ON replica_hash.record_id = replica.id
+          AND replica_hash.workspace_id = replica.workspace_id
          ORDER BY page.workspace_id, page.record_id",
         );
     let metadata: Vec<(String, String, i64, i64, bool)> =
@@ -812,11 +821,10 @@ async fn persist_e2ee_witness_repairs(
             continue;
         }
         let result = sqlx::query(
-            "INSERT INTO e2ee_records (id, workspace_id, payload, payload_hash)
-             VALUES (?, ?, ?, ?)
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES (?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET
                payload = excluded.payload,
-               payload_hash = excluded.payload_hash,
                updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
              WHERE e2ee_records.workspace_id = excluded.workspace_id
                AND e2ee_records.payload != excluded.payload",
@@ -824,7 +832,6 @@ async fn persist_e2ee_witness_repairs(
         .bind(&record.record_id)
         .bind(&record.workspace_id)
         .bind(&record.payload)
-        .bind(&record.payload_hash)
         .execute(&mut *transaction)
         .await?;
         if let Err(error) = check_e2ee_cancellation(is_cancelled) {
@@ -852,6 +859,14 @@ async fn persist_e2ee_witness_repairs(
         } else {
             repaired_records += 1;
         }
+        upsert_replica_payload_hash(
+            &mut transaction,
+            &record.workspace_id,
+            &record.record_id,
+            &record.payload_hash,
+            &record.payload,
+        )
+        .await?;
         sqlx::query("DELETE FROM e2ee_witness_repair_pending WHERE record_id = ?")
             .bind(&record.record_id)
             .execute(&mut *transaction)

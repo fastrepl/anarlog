@@ -242,7 +242,6 @@ def verify_e2ee_record_columns(columns: list[dict[str, object]]) -> None:
         ("payload", "TEXT", 1, 0, 0),
         ("created_at", "TEXT", 1, 0, 0),
         ("updated_at", "TEXT", 1, 0, 0),
-        ("payload_hash", "TEXT", 1, 0, 0),
     ]
     if column_shape != expected_columns:
         raise ValueError("e2ee_records has an unexpected column contract")
@@ -256,7 +255,6 @@ def verify_e2ee_record_columns(columns: list[dict[str, object]]) -> None:
             timestamp_default not in "".join(str(value).lower().split())
             for value in defaults[3:5]
         )
-        or defaults[5] != "''"
     ):
         raise ValueError("e2ee_records has unexpected column defaults")
 

@@ -55,14 +55,6 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
                 "hidden": 0,
                 "dflt_value": timestamp_default,
             },
-            {
-                "name": "payload_hash",
-                "type": "TEXT",
-                "notnull": 1,
-                "pk": 0,
-                "hidden": 0,
-                "dflt_value": "''",
-            },
         ]
 
     def test_accepts_only_known_protocol_modes(self) -> None:
@@ -189,13 +181,24 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
     def test_accepts_the_current_encrypted_replica_columns(self) -> None:
         verify.verify_e2ee_record_columns(self.e2ee_record_columns())
 
-    def test_rejects_the_pre_payload_hash_column_contract(self) -> None:
-        with self.assertRaisesRegex(ValueError, "unexpected column contract"):
-            verify.verify_e2ee_record_columns(self.e2ee_record_columns()[:-1])
-
-    def test_requires_the_payload_hash_default(self) -> None:
+    def test_rejects_a_client_only_payload_hash_column(self) -> None:
         columns = self.e2ee_record_columns()
-        columns[-1]["dflt_value"] = None
+        columns.append(
+            {
+                "name": "payload_hash",
+                "type": "TEXT",
+                "notnull": 1,
+                "pk": 0,
+                "hidden": 0,
+                "dflt_value": "''",
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "unexpected column contract"):
+            verify.verify_e2ee_record_columns(columns)
+
+    def test_requires_the_payload_default(self) -> None:
+        columns = self.e2ee_record_columns()
+        columns[2]["dflt_value"] = None
 
         with self.assertRaisesRegex(ValueError, "unexpected column defaults"):
             verify.verify_e2ee_record_columns(columns)

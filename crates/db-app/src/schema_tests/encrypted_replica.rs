@@ -57,6 +57,21 @@ fn ciphertext_ownership_migrations_use_the_required_scopes() {
         .find(|step| step.id == "20260815100400_e2ee_ciphertext_ownership")
         .unwrap();
     assert_eq!(ownership.scope, anlg_db_migrate::MigrationScope::Plain);
+    let local_hashes = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260816100000_e2ee_replica_payload_hashes")
+        .unwrap();
+    assert_eq!(local_hashes.scope, anlg_db_migrate::MigrationScope::Plain);
+    let localization = APP_MIGRATION_STEPS
+        .iter()
+        .find(|step| step.id == "20260816100100_e2ee_payload_hash_local_state")
+        .unwrap();
+    assert_eq!(
+        localization.scope,
+        anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "e2ee_records"
+        }
+    );
 }
 
 #[tokio::test]
@@ -112,12 +127,27 @@ async fn ciphertext_ownership_migration_preserves_legacy_versions_and_is_resumab
     anlg_db_migrate::migrate(&db, schema()).await.unwrap();
     anlg_db_migrate::migrate(&db, schema()).await.unwrap();
 
-    let current: (String, String) =
-        sqlx::query_as("SELECT payload_hash, payload FROM e2ee_records WHERE id = 'record-1'")
-            .fetch_one(db.pool())
+    let current: (String, String) = sqlx::query_as(
+        "SELECT replica_hash.payload_hash, replica.payload
+         FROM e2ee_records AS replica
+         JOIN e2ee_replica_payload_hashes AS replica_hash
+           ON replica_hash.record_id = replica.id
+          AND replica_hash.workspace_id = replica.workspace_id
+         WHERE replica.id = 'record-1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(current, (current_hash, current_payload.to_string()));
+    let replica_columns: Vec<String> =
+        sqlx::query_scalar("SELECT name FROM pragma_table_info('e2ee_records') ORDER BY cid")
+            .fetch_all(db.pool())
             .await
             .unwrap();
-    assert_eq!(current, (current_hash, current_payload.to_string()));
+    assert_eq!(
+        replica_columns,
+        ["id", "workspace_id", "payload", "created_at", "updated_at"]
+    );
     let base_payloads: (String, String) = sqlx::query_as(
         "SELECT local.payload, witness.payload
          FROM e2ee_local_state AS local
@@ -164,10 +194,17 @@ async fn current_ciphertext_is_shared_by_local_and_witness_metadata() {
     let current_payload = "current-ciphertext";
     let current_hash = anlg_e2ee::payload_hash(current_payload);
     sqlx::query(
-        "INSERT INTO e2ee_records (id, workspace_id, payload, payload_hash)
-         VALUES ('record-1', 'workspace-a', ?, ?)",
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+         VALUES ('record-1', 'workspace-a', ?)",
     )
     .bind(current_payload)
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE e2ee_replica_payload_hashes
+         SET payload_hash = ? WHERE record_id = 'record-1'",
+    )
     .bind(&current_hash)
     .execute(db.pool())
     .await
@@ -216,10 +253,8 @@ async fn current_ciphertext_is_shared_by_local_and_witness_metadata() {
     assert_eq!(archive_count, 0);
 
     let rollback_payload = "replayed-ciphertext";
-    let rollback_hash = anlg_e2ee::payload_hash(rollback_payload);
-    sqlx::query("UPDATE e2ee_records SET payload = ?, payload_hash = ? WHERE id = 'record-1'")
+    sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = 'record-1'")
         .bind(rollback_payload)
-        .bind(rollback_hash)
         .execute(db.pool())
         .await
         .unwrap();
@@ -259,12 +294,20 @@ async fn representative_ciphertext_corpus_uses_one_steady_state_copy() {
         let record_id = format!("record-{index}");
         expected_payload_bytes += i64::try_from(payload.len()).unwrap();
         sqlx::query(
-            "INSERT INTO e2ee_records (id, workspace_id, payload, payload_hash)
-             VALUES (?, 'workspace-a', ?, ?)",
+            "INSERT INTO e2ee_records (id, workspace_id, payload)
+             VALUES (?, 'workspace-a', ?)",
         )
         .bind(&record_id)
         .bind(&payload)
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "UPDATE e2ee_replica_payload_hashes
+             SET payload_hash = ? WHERE record_id = ?",
+        )
         .bind(&payload_hash)
+        .bind(&record_id)
         .execute(db.pool())
         .await
         .unwrap();

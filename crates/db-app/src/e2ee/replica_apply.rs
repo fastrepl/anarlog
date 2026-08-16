@@ -8,9 +8,9 @@ use sqlx::{QueryBuilder, Sqlite, SqlitePool, Transaction};
 use super::cooperative::yield_once;
 use super::replica_storage::{
     clear_stale_apply_guards, delete_row, insert_apply_guard, insert_row, load_row_local_states,
-    read_field, record_version_order, remove_apply_guard, replica_records_still_current,
-    restore_local_payload, row_changed_since_snapshot, row_exists, table_columns, update_field,
-    upsert_local_state,
+    normalize_replica_payload_hashes, read_field, record_version_order, remove_apply_guard,
+    replica_records_still_current, restore_local_payload, row_changed_since_snapshot, row_exists,
+    table_columns, update_field, upsert_local_state,
 };
 use super::witness::repair_e2ee_replica_from_witness_bounded_cancellable;
 use super::{
@@ -185,18 +185,22 @@ pub(super) async fn load_changed_e2ee_record_metadata(
                FROM e2ee_witness_records AS witness
                WHERE witness.workspace_id = replica.workspace_id
                  AND witness.record_id = replica.id
-                 AND witness.payload_hash = replica.payload_hash
+                 AND witness.payload_hash = replica_hash.payload_hash
              ) AS witnessed,
            replica.id IS NOT NULL
            AND (
-             local.record_id IS NULL
+             replica_hash.record_id IS NULL
+             OR local.record_id IS NULL
              OR local.workspace_id != replica.workspace_id
-             OR local.payload_hash != replica.payload_hash
+             OR local.payload_hash != replica_hash.payload_hash
            ) AS changed
          FROM page
          LEFT JOIN e2ee_records AS replica
            ON replica.id = page.id
           AND replica.workspace_id = page.workspace_id
+         LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+           ON replica_hash.record_id = replica.id
+          AND replica_hash.workspace_id = replica.workspace_id
          LEFT JOIN e2ee_local_state AS local
            ON local.record_id = replica.id
          ORDER BY page.workspace_id, page.id",
@@ -218,9 +222,12 @@ async fn load_encrypted_records_by_id(
              FROM e2ee_witness_records AS witness
              WHERE witness.workspace_id = replica.workspace_id
                AND witness.record_id = replica.id
-               AND witness.payload_hash = replica.payload_hash
+               AND witness.payload_hash = replica_hash.payload_hash
            ) AS witnessed
          FROM e2ee_records AS replica
+         LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+           ON replica_hash.record_id = replica.id
+          AND replica_hash.workspace_id = replica.workspace_id
          WHERE replica.id IN (",
     );
     {
@@ -248,7 +255,7 @@ pub(super) async fn apply_e2ee_replica_changes_inner(
     check_e2ee_apply_cancellation(is_cancelled)?;
     clear_stale_apply_guards(pool).await?;
     check_e2ee_apply_cancellation(is_cancelled)?;
-    normalize_e2ee_record_payload_hashes(pool, keys, is_cancelled).await?;
+    normalize_replica_payload_hashes(pool, keys, is_cancelled).await?;
     check_e2ee_apply_cancellation(is_cancelled)?;
     let mut groups = BTreeMap::<(String, String, String), BTreeSet<String>>::new();
     let mut group_pending = BTreeMap::<(String, String, String), Vec<(String, i64)>>::new();
@@ -777,10 +784,13 @@ async fn load_encrypted_row_group(
              FROM e2ee_witness_records AS witness
              WHERE witness.workspace_id = replica.workspace_id
                AND witness.record_id = replica.id
-               AND witness.payload_hash = replica.payload_hash
+               AND witness.payload_hash = replica_hash.payload_hash
            ) AS witnessed,
            1 AS changed
          FROM e2ee_records AS replica
+         LEFT JOIN e2ee_replica_payload_hashes AS replica_hash
+           ON replica_hash.record_id = replica.id
+          AND replica_hash.workspace_id = replica.workspace_id
          WHERE replica.workspace_id = ",
     );
     query.push_bind(workspace_id);
@@ -809,54 +819,4 @@ async fn load_encrypted_row_group(
         .into_iter()
         .filter(|record| record.workspace_id == workspace_id)
         .collect())
-}
-
-async fn normalize_e2ee_record_payload_hashes(
-    pool: &SqlitePool,
-    keys: &HashMap<String, WorkspaceKeyring>,
-    is_cancelled: &(impl Fn() -> bool + Sync),
-) -> E2eeReplicaResult<()> {
-    let mut workspace_ids = keys.keys().collect::<Vec<_>>();
-    workspace_ids.sort_unstable();
-    loop {
-        check_e2ee_apply_cancellation(is_cancelled)?;
-        let mut query = QueryBuilder::<Sqlite>::new(
-            "SELECT id, workspace_id, payload
-             FROM e2ee_records
-             WHERE payload_hash = '' AND workspace_id IN (",
-        );
-        {
-            let mut separated = query.separated(", ");
-            for workspace_id in &workspace_ids {
-                separated.push_bind(workspace_id);
-            }
-        }
-        query.push(") ORDER BY workspace_id, id LIMIT 64");
-        let records: Vec<(String, String, String)> = query.build_query_as().fetch_all(pool).await?;
-        check_e2ee_apply_cancellation(is_cancelled)?;
-        if records.is_empty() {
-            return Ok(());
-        }
-
-        let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
-        for (record_id, workspace_id, payload) in records {
-            if is_cancelled() {
-                return rollback_cancelled_e2ee_apply(transaction).await;
-            }
-            let payload_hash = anlg_e2ee::payload_hash(&payload);
-            sqlx::query(
-                "UPDATE e2ee_records
-                 SET payload_hash = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-                 WHERE id = ? AND workspace_id = ? AND payload = ? AND payload_hash = ''",
-            )
-            .bind(payload_hash)
-            .bind(record_id)
-            .bind(workspace_id)
-            .bind(payload)
-            .execute(&mut *transaction)
-            .await?;
-        }
-        commit_e2ee_apply_transaction(transaction, is_cancelled).await?;
-        yield_once().await;
-    }
 }

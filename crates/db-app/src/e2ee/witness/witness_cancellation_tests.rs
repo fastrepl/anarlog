@@ -352,8 +352,19 @@ async fn witness_scan_selects_only_records_that_need_repair() {
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO e2ee_records (id, workspace_id, payload_hash, payload)
-         SELECT record_id, workspace_id, payload_hash, payload FROM e2ee_witness_records",
+        "INSERT INTO e2ee_records (id, workspace_id, payload)
+         SELECT record_id, workspace_id, payload FROM e2ee_witness_records",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE e2ee_replica_payload_hashes
+         SET payload_hash = (
+           SELECT witness.payload_hash
+           FROM e2ee_witness_records AS witness
+           WHERE witness.record_id = e2ee_replica_payload_hashes.record_id
+         )",
     )
     .execute(db.pool())
     .await
@@ -372,8 +383,16 @@ async fn witness_scan_selects_only_records_that_need_repair() {
 
     sqlx::query(
         "UPDATE e2ee_records
-         SET payload_hash = 'changed-hash', payload = 'changed'
+         SET payload = 'changed'
          WHERE id = 'record-255'",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE e2ee_replica_payload_hashes
+         SET payload_hash = 'changed-hash'
+         WHERE record_id = 'record-255'",
     )
     .execute(db.pool())
     .await
