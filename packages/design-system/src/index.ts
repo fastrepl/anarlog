@@ -1,0 +1,128 @@
+export const DesignColors = {
+  light: {
+    background: "#FAFAF9",
+    foreground: "#1C1917",
+    card: "#FFFFFF",
+    cardForeground: "#1C1917",
+    primary: "#292524",
+    primaryForeground: "#FAFAF9",
+    secondary: "#F5F5F4",
+    secondaryForeground: "#1C1917",
+    muted: "#F5F5F4",
+    mutedForeground: "#78716C",
+    accent: "#F0F0ED",
+    accentForeground: "#1C1917",
+    destructive: "#EF4444",
+    destructiveForeground: "#FAFAF9",
+    alert: "#FEF2F2",
+    alertForeground: "#B91C1C",
+    alertBorder: "#FECACA",
+    border: "#E7E5E4",
+    input: "#E7E5E4",
+    ring: "#1C1917",
+    floatingChrome: "#F0F0ED",
+    floatingPanel: "#FAFAF9",
+    floatingBorder: "#DEDAD7",
+    scrim: "rgba(28, 25, 23, 0.32)",
+  },
+  dark: {
+    background: "#1F1C1A",
+    foreground: "#FAFAF9",
+    card: "#2D2926",
+    cardForeground: "#FAFAF9",
+    primary: "#2D2926",
+    primaryForeground: "#FAFAF9",
+    secondary: "#363330",
+    secondaryForeground: "#FAFAF9",
+    muted: "#363330",
+    mutedForeground: "#918A85",
+    accent: "#433F3C",
+    accentForeground: "#FAFAF9",
+    destructive: "#7F1D1D",
+    destructiveForeground: "#FAFAF9",
+    alert: "#351313",
+    alertForeground: "#FCA5A5",
+    alertBorder: "#592323",
+    border: "#4A4542",
+    input: "#4A4542",
+    ring: "#C4BFBB",
+    floatingChrome: "#3A3532",
+    floatingPanel: "#272321",
+    floatingBorder: "#56504C",
+    scrim: "rgba(0, 0, 0, 0.5)",
+  },
+} as const;
+
+export const DesignSpacing = {
+  none: 0,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+  xxxl: 40,
+} as const;
+
+export const DesignRadius = {
+  sm: 4,
+  md: 6,
+  lg: 8,
+  xl: 12,
+  panel: 20,
+  sheet: 24,
+  pill: 999,
+} as const;
+
+export const DesignTypography = {
+  largeTitle: {
+    fontSize: 34,
+    lineHeight: 40,
+    fontWeight: "700",
+    letterSpacing: -0.7,
+  },
+  title: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: "700",
+    letterSpacing: -0.35,
+  },
+  section: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "700",
+  },
+  body: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: "400",
+  },
+  bodyStrong: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: "600",
+  },
+  label: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  caption: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "400",
+  },
+  captionStrong: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+  },
+} as const;
+
+export const DesignControl = {
+  compact: 36,
+  default: 44,
+  large: 52,
+  listening: 72,
+  editorAccessory: 52,
+} as const;

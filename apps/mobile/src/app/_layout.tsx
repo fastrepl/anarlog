@@ -2,17 +2,12 @@ import * as Sentry from "@sentry/react-native";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
-import { Colors, CornerCurve } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
+import { Colors, Spacing, Typography } from "@/constants/theme";
 import { initializeAnalytics, screenAnalytics } from "@/lib/analytics";
 import {
   addNavigationBreadcrumb,
@@ -145,15 +140,11 @@ function RouteError({
       <Text style={styles.routeErrorBody}>
         Your notes are still stored on this device.
       </Text>
-      <Pressable
+      <Button
+        label="Try again"
         onPress={() => void handleRetry()}
-        style={({ pressed }) => [
-          styles.routeErrorButton,
-          pressed && styles.routeErrorButtonPressed,
-        ]}
-      >
-        <Text style={styles.routeErrorButtonLabel}>Try again</Text>
-      </Pressable>
+        style={styles.routeErrorButton}
+      />
     </View>
   );
 }
@@ -187,35 +178,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
-    paddingHorizontal: 32,
-    backgroundColor: Colors.paper,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    backgroundColor: Colors.background,
   },
   routeErrorTitle: {
-    fontSize: 22,
-    fontWeight: "700",
+    ...Typography.title,
     color: Colors.ink,
   },
   routeErrorBody: {
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.body,
     textAlign: "center",
     color: Colors.muted,
   },
   routeErrorButton: {
-    marginTop: 8,
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 999,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.ink,
-  },
-  routeErrorButtonPressed: {
-    opacity: 0.7,
-  },
-  routeErrorButtonLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.inkInverse,
+    marginTop: Spacing.sm,
+    minWidth: 140,
   },
 });

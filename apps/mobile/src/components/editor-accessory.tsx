@@ -2,7 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Colors, Spacing } from "@/constants/theme";
+import {
+  Colors,
+  ControlSize,
+  CornerCurve,
+  Radius,
+  Spacing,
+} from "@/constants/theme";
 import type { EditorFormat } from "@/lib/editor-format";
 
 function FormatButton({
@@ -99,12 +105,12 @@ export function EditorAccessory({
 
 const styles = StyleSheet.create({
   toolbar: {
-    minHeight: 52,
+    minHeight: ControlSize.editorAccessory,
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: Colors.border,
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.mutedSurface,
     paddingHorizontal: Spacing.xs,
   },
   controls: {
@@ -117,10 +123,11 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: Radius.control,
+    borderCurve: CornerCurve.squircle,
   },
   buttonPressed: {
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.accentSurface,
   },
   heading: {
     fontSize: 20,
@@ -148,7 +155,8 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: Radius.control,
+    borderCurve: CornerCurve.squircle,
     marginLeft: Spacing.xs,
   },
 });

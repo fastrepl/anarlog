@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@anlg/design-system": "workspace:^",
     "@anlg/db-react": "workspace:*",
     "@anlg/db-runtime": "workspace:*",
     "@expo/ui": "~57.0.7",

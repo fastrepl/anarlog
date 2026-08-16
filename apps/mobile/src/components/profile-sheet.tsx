@@ -1,7 +1,14 @@
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAuth } from "@/auth/context";
-import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
+import {
+  Colors,
+  CornerCurve,
+  Radius,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
 
 export function ProfileSheet({
   visible,
@@ -42,18 +49,16 @@ export function ProfileSheet({
             native sync bridge.
           </Text>
           {!auth.bypass && (
-            <Pressable
+            <Button
+              label="Sign out"
               onPress={() => {
                 onClose();
                 void auth.signOut();
               }}
-              style={({ pressed }) => [
-                styles.signOut,
-                pressed && styles.signOutPressed,
-              ]}
-            >
-              <Text style={styles.signOutLabel}>Sign out</Text>
-            </Pressable>
+              size="small"
+              style={styles.signOut}
+              variant="ghost"
+            />
           )}
         </Pressable>
       </Pressable>
@@ -65,12 +70,12 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(17, 17, 17, 0.35)",
+    backgroundColor: Colors.scrim,
   },
   sheet: {
-    backgroundColor: Colors.paper,
-    borderTopLeftRadius: Radius.pill,
-    borderTopRightRadius: Radius.pill,
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: Radius.sheet,
+    borderTopRightRadius: Radius.sheet,
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xl,
     paddingTop: Spacing.sm,
@@ -92,39 +97,29 @@ const styles = StyleSheet.create({
   },
   email: {
     flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
+    ...Typography.section,
     color: Colors.ink,
   },
   planChip: {
-    borderWidth: 1.5,
-    borderColor: Colors.ink,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
     borderRadius: Radius.pill,
     borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.accentSurface,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 2,
+    paddingVertical: Spacing.xs,
   },
   planLabel: {
-    fontSize: 12,
-    fontWeight: "600",
+    ...Typography.captionStrong,
     color: Colors.ink,
   },
   syncNote: {
     marginTop: Spacing.md,
-    fontSize: 14,
-    lineHeight: 20,
+    ...Typography.body,
     color: Colors.muted,
   },
   signOut: {
     marginTop: Spacing.lg,
     alignSelf: "flex-start",
-  },
-  signOutPressed: {
-    opacity: 0.6,
-  },
-  signOutLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.accent,
   },
 });

@@ -1,6 +1,13 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
+import {
+  Colors,
+  CornerCurve,
+  Radius,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
 import { relativeLabel, type TimelineSession } from "@/data/timeline";
 
 export function SessionCard({
@@ -25,8 +32,24 @@ export function SessionCard({
           {session.title || "Untitled"}
         </Text>
         {onDelete && (
-          <Pressable hitSlop={8} onPress={onDelete}>
-            <Text style={styles.ellipsis}>…</Text>
+          <Pressable
+            accessibilityLabel={`Delete ${session.title || "Untitled"}`}
+            accessibilityRole="button"
+            hitSlop={4}
+            onPress={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            style={({ pressed }) => [
+              styles.moreButton,
+              pressed && styles.moreButtonPressed,
+            ]}
+          >
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={17}
+              color={Colors.muted}
+            />
           </Pressable>
         )}
       </View>
@@ -37,17 +60,19 @@ export function SessionCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderWidth: 1.5,
-    borderColor: Colors.ink,
+    minHeight: 64,
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
     borderRadius: Radius.card,
     borderCurve: CornerCurve.squircle,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.paper,
+    paddingHorizontal: Spacing.compact,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.surface,
   },
   cardPressed: {
-    opacity: 0.6,
+    backgroundColor: Colors.accentSurface,
   },
   row: {
     flexDirection: "row",
@@ -56,21 +81,26 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 17,
-    fontWeight: "600",
+    ...Typography.bodyStrong,
     color: Colors.ink,
   },
   titleEmpty: {
     color: Colors.muted,
   },
-  ellipsis: {
-    fontSize: 17,
-    color: Colors.muted,
+  moreButton: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.pill,
     marginLeft: Spacing.sm,
+  },
+  moreButtonPressed: {
+    backgroundColor: Colors.accentSurface,
   },
   subtitle: {
     marginTop: Spacing.xs,
-    fontSize: 13,
+    ...Typography.caption,
     color: Colors.muted,
   },
 });

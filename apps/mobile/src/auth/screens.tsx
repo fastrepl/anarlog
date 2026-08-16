@@ -1,12 +1,6 @@
 import * as WebBrowser from "expo-web-browser";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import type { BillingInfo } from "@/auth/billing";
@@ -14,7 +8,8 @@ import {
   MOBILE_BILLING_RETURN_URL,
   parseBillingCallbackUrl,
 } from "@/auth/billing-handoff";
-import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
+import { Button } from "@/components/ui/button";
+import { Colors, CornerCurve, Spacing, Typography } from "@/constants/theme";
 import { captureAnalytics } from "@/lib/analytics";
 import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -40,21 +35,14 @@ export function SignInScreen({
         </Text>
       </View>
 
-      <Pressable
+      <Button
+        label="Sign in"
         onPress={onSignIn}
         disabled={busy}
-        style={({ pressed }) => [
-          styles.cta,
-          pressed && styles.ctaPressed,
-          busy && styles.ctaDisabled,
-        ]}
-      >
-        {busy ? (
-          <ActivityIndicator color={Colors.inkInverse} />
-        ) : (
-          <Text style={styles.ctaLabel}>Sign in</Text>
-        )}
-      </Pressable>
+        loading={busy}
+        size="large"
+        style={styles.cta}
+      />
     </SafeAreaView>
   );
 }
@@ -167,23 +155,14 @@ export function PaywallScreen({
         )}
       </View>
 
-      <Pressable
+      <Button
+        label={accessPending ? "Refresh access" : "View plans"}
         onPress={() => void handlePrimaryAction()}
         disabled={busy}
-        style={({ pressed }) => [
-          styles.cta,
-          pressed && styles.ctaPressed,
-          busy && styles.ctaDisabled,
-        ]}
-      >
-        {busy ? (
-          <ActivityIndicator color={Colors.inkInverse} />
-        ) : (
-          <Text style={styles.ctaLabel}>
-            {accessPending ? "Refresh access" : "View plans"}
-          </Text>
-        )}
-      </Pressable>
+        loading={busy}
+        size="large"
+        style={styles.cta}
+      />
 
       <View style={styles.footer}>
         <Text style={styles.footerEmail} numberOfLines={1}>
@@ -200,7 +179,7 @@ export function PaywallScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.background,
     paddingHorizontal: Spacing.lg,
   },
   body: {
@@ -213,14 +192,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   title: {
-    fontSize: 34,
-    fontWeight: "700",
+    ...Typography.largeTitle,
     color: Colors.ink,
   },
   paywallTitle: {
     flexShrink: 1,
-    fontSize: 26,
-    fontWeight: "700",
+    ...Typography.title,
     color: Colors.ink,
   },
   accentDot: {
@@ -232,46 +209,26 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: Spacing.sm,
-    fontSize: 18,
-    fontWeight: "600",
+    ...Typography.section,
     color: Colors.ink,
   },
   copy: {
     marginTop: Spacing.md,
-    fontSize: 15,
-    lineHeight: 22,
+    ...Typography.body,
     color: Colors.muted,
   },
   trialLine: {
     marginTop: Spacing.md,
-    fontSize: 13,
+    ...Typography.caption,
     color: Colors.muted,
   },
   pendingCopy: {
     marginTop: Spacing.md,
-    fontSize: 13,
-    lineHeight: 19,
-    color: Colors.accent,
+    ...Typography.caption,
+    color: Colors.alertForeground,
   },
   cta: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing.lg,
-    borderRadius: Radius.pill,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.ink,
     marginBottom: Spacing.md,
-  },
-  ctaPressed: {
-    opacity: 0.85,
-  },
-  ctaDisabled: {
-    opacity: 0.7,
-  },
-  ctaLabel: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.inkInverse,
   },
   footer: {
     flexDirection: "row",
@@ -282,12 +239,11 @@ const styles = StyleSheet.create({
   },
   footerEmail: {
     flexShrink: 1,
-    fontSize: 13,
+    ...Typography.caption,
     color: Colors.muted,
   },
   signOutLabel: {
-    fontSize: 13,
-    fontWeight: "600",
+    ...Typography.captionStrong,
     color: Colors.ink,
   },
 });

@@ -2,7 +2,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { Pressable, StyleSheet, Text } from "react-native";
 
-import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
+import {
+  Colors,
+  CornerCurve,
+  Radius,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 
@@ -104,18 +110,18 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    borderWidth: 1.5,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: Colors.border,
-    borderRadius: Radius.card,
+    borderRadius: Radius.pill,
     borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.mutedSurface,
     alignSelf: "flex-start",
   },
   pressed: {
     opacity: 0.6,
   },
   label: {
-    fontSize: 12,
-    fontWeight: "600",
+    ...Typography.captionStrong,
     color: Colors.ink,
     maxWidth: 180,
   },

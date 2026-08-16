@@ -21,7 +21,15 @@ import { AudioChip } from "@/components/audio-chip";
 import { EditorAccessory } from "@/components/editor-accessory";
 import { HandoffCard } from "@/components/handoff-card";
 import { ListeningSheet } from "@/components/listening-sheet";
-import { Colors, Spacing } from "@/constants/theme";
+import { Card } from "@/components/ui/card";
+import { IconButton } from "@/components/ui/icon-button";
+import {
+  Colors,
+  CornerCurve,
+  Radius,
+  Spacing,
+  Typography,
+} from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
 import {
   deleteSession,
@@ -129,7 +137,7 @@ function BodyEditor({
       {Platform.OS === "ios" && editable && (
         <InputAccessoryView
           nativeID={accessoryId}
-          backgroundColor={Colors.paper}
+          backgroundColor={Colors.mutedSurface}
         >
           <EditorAccessory
             onFormat={handleFormat}
@@ -284,12 +292,18 @@ export default function NoteScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Pressable hitSlop={8} onPress={() => void handleBack()}>
-          <Ionicons name="arrow-back" size={24} color={Colors.ink} />
-        </Pressable>
-        <Pressable hitSlop={8} onPress={() => void handleDelete()}>
-          <Ionicons name="trash-outline" size={20} color={Colors.ink} />
-        </Pressable>
+        <IconButton
+          accessibilityLabel="Back"
+          icon="arrow-back"
+          iconSize={22}
+          onPress={() => void handleBack()}
+        />
+        <IconButton
+          accessibilityLabel="Delete note"
+          icon="trash-outline"
+          onPress={() => void handleDelete()}
+          tone="muted"
+        />
       </View>
 
       {!isLoading && data && (
@@ -339,7 +353,7 @@ export default function NoteScreen() {
               </Pressable>
             ))}
           {transcripts.length > 0 && (
-            <View style={styles.transcript}>
+            <Card style={styles.transcript} tone="muted">
               <Text style={styles.transcriptTitle}>Transcript</Text>
               <ScrollView style={styles.transcriptScroll} nestedScrollEnabled>
                 {transcripts.map((segment) => (
@@ -348,7 +362,7 @@ export default function NoteScreen() {
                   </Text>
                 ))}
               </ScrollView>
-            </View>
+            </Card>
           )}
           {!data.plainEditable && (
             <View style={styles.readOnlyChip}>
@@ -390,7 +404,7 @@ export default function NoteScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: "row",
@@ -404,22 +418,20 @@ const styles = StyleSheet.create({
   },
   title: {
     paddingHorizontal: Spacing.lg,
-    fontSize: 24,
-    fontWeight: "700",
+    ...Typography.title,
     color: Colors.ink,
   },
   transcribeStatus: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.xs,
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.muted,
   },
   transcribeAction: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.xs,
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.accent,
+    ...Typography.captionStrong,
+    color: Colors.ink,
   },
   transcribePressed: {
     opacity: 0.6,
@@ -427,10 +439,12 @@ const styles = StyleSheet.create({
   transcript: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   transcriptTitle: {
-    fontSize: 13,
-    fontWeight: "600",
+    ...Typography.captionStrong,
     color: Colors.muted,
     marginBottom: Spacing.xs,
   },
@@ -438,8 +452,7 @@ const styles = StyleSheet.create({
     maxHeight: 160,
   },
   transcriptText: {
-    fontSize: 14,
-    lineHeight: 20,
+    ...Typography.body,
     color: Colors.ink,
     marginBottom: Spacing.sm,
   },
@@ -451,17 +464,22 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   readOnlyLabel: {
-    fontSize: 12,
+    ...Typography.caption,
     color: Colors.muted,
   },
   body: {
     flex: 1,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
-    fontSize: 16,
+    ...Typography.body,
     color: Colors.ink,
   },
   androidAccessory: {
-    backgroundColor: Colors.paper,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+    borderTopLeftRadius: Radius.control,
+    borderTopRightRadius: Radius.control,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.mutedSurface,
   },
 });

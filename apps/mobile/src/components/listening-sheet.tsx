@@ -22,8 +22,10 @@ import {
   Colors,
   CornerCurve,
   LISTENING_CONTROL_HEIGHT,
+  LISTENING_CONTROL_RADIUS,
   Radius,
   Spacing,
+  Typography,
 } from "@/constants/theme";
 
 const DETAIL_HEIGHT = 96;
@@ -102,7 +104,7 @@ export function ListeningSheet({
         <Ionicons
           name={expanded ? "chevron-down" : "chevron-up"}
           size={22}
-          color={Colors.ink}
+          color={Colors.muted}
         />
       </Pressable>
 
@@ -167,14 +169,19 @@ export function ListeningSheet({
 
 const styles = StyleSheet.create({
   sheet: {
-    borderWidth: 1.5,
+    borderWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: 0,
-    borderColor: Colors.ink,
-    borderTopLeftRadius: Radius.pill,
-    borderTopRightRadius: Radius.pill,
-    backgroundColor: Colors.paper,
+    borderColor: Colors.border,
+    borderTopLeftRadius: Radius.sheet,
+    borderTopRightRadius: Radius.sheet,
+    backgroundColor: Colors.background,
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
+    shadowColor: Colors.ink,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
   },
   chevron: {
     alignSelf: "center",
@@ -197,22 +204,20 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   detailStatus: {
-    fontSize: 15,
-    fontWeight: "600",
+    ...Typography.bodyStrong,
     color: Colors.ink,
   },
   detailHint: {
     paddingHorizontal: Spacing.sm,
     paddingTop: Spacing.sm,
-    fontSize: 14,
-    lineHeight: 20,
+    ...Typography.caption,
     color: Colors.muted,
   },
   panel: {
     height: LISTENING_CONTROL_HEIGHT,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: Radius.card + 4,
+    borderRadius: LISTENING_CONTROL_RADIUS,
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
   },
@@ -225,8 +230,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   panelMessage: {
-    fontSize: 15,
-    fontWeight: "600",
+    ...Typography.label,
     color: Colors.inkInverse,
   },
 });

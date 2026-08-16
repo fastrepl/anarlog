@@ -13,12 +13,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProfileSheet } from "@/components/profile-sheet";
 import { SessionCard } from "@/components/session-card";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import {
   Colors,
   CornerCurve,
   LISTENING_CONTROL_HEIGHT,
-  Radius,
+  LISTENING_CONTROL_RADIUS,
   Spacing,
+  Typography,
 } from "@/constants/theme";
 import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
@@ -121,18 +124,25 @@ export default function HomeScreen() {
               placeholder="Search notes"
               placeholderTextColor={Colors.muted}
             />
-            <Pressable hitSlop={8} onPress={() => setQuery(null)}>
-              <Ionicons name="close" size={22} color={Colors.ink} />
-            </Pressable>
+            <IconButton
+              accessibilityLabel="Close search"
+              icon="close"
+              onPress={() => setQuery(null)}
+            />
           </>
         ) : (
           <>
-            <Pressable hitSlop={8} onPress={() => setProfileOpen(true)}>
-              <View style={styles.avatar} />
-            </Pressable>
-            <Pressable hitSlop={8} onPress={() => setQuery("")}>
-              <Ionicons name="search" size={22} color={Colors.ink} />
-            </Pressable>
+            <IconButton
+              accessibilityLabel="Open profile"
+              icon="person-outline"
+              onPress={() => setProfileOpen(true)}
+              variant="surface"
+            />
+            <IconButton
+              accessibilityLabel="Search notes"
+              icon="search"
+              onPress={() => setQuery("")}
+            />
           </>
         )}
       </View>
@@ -206,29 +216,30 @@ export default function HomeScreen() {
       </ScrollView>
 
       <View style={styles.actions}>
-        <Pressable
+        <Button
+          label="New note"
           onPress={() => void createAndOpen()}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons name="create-outline" size={18} color={Colors.ink} />
-          <Text style={styles.secondaryLabel}>New note</Text>
-        </Pressable>
-        <Pressable
+          leading={
+            <Ionicons name="create-outline" size={17} color={Colors.ink} />
+          }
+          style={styles.secondaryButton}
+          variant="outline"
+        />
+        <Button
+          label={importing ? "Importing…" : "Import memo"}
           onPress={handleImport}
           disabled={importing}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            (pressed || importing) && styles.pressed,
-          ]}
-        >
-          <Ionicons name="cloud-upload-outline" size={18} color={Colors.ink} />
-          <Text style={styles.secondaryLabel}>
-            {importing ? "Importing…" : "Import memo"}
-          </Text>
-        </Pressable>
+          leading={
+            <Ionicons
+              name="cloud-upload-outline"
+              size={17}
+              color={Colors.ink}
+            />
+          }
+          loading={importing}
+          style={styles.secondaryButton}
+          variant="outline"
+        />
       </View>
 
       <Pressable
@@ -253,7 +264,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: Colors.paper,
+    backgroundColor: Colors.background,
   },
   header: {
     flexDirection: "row",
@@ -262,18 +273,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderCurve: CornerCurve.squircle,
-    borderWidth: 1.5,
-    borderColor: Colors.ink,
-  },
   searchInput: {
     flex: 1,
     marginRight: Spacing.sm,
-    fontSize: 17,
+    ...Typography.body,
     color: Colors.ink,
     paddingVertical: 0,
   },
@@ -290,18 +293,16 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   emptyTitle: {
-    fontSize: 17,
-    fontWeight: "600",
+    ...Typography.bodyStrong,
     color: Colors.ink,
   },
   emptyBody: {
-    fontSize: 14,
+    ...Typography.body,
     color: Colors.muted,
     textAlign: "center",
   },
   sectionLabel: {
-    fontSize: 15,
-    fontWeight: "600",
+    ...Typography.section,
     color: Colors.ink,
     marginTop: Spacing.md,
     marginBottom: Spacing.sm,
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
   },
   nowLine: {
     flex: 1,
-    height: 3,
+    height: 2,
     backgroundColor: Colors.accent,
   },
   actions: {
@@ -332,21 +333,6 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.xs,
-    borderWidth: 1.5,
-    borderColor: Colors.ink,
-    borderRadius: Radius.pill,
-    borderCurve: CornerCurve.squircle,
-    paddingVertical: Spacing.sm + 2,
-    backgroundColor: Colors.paper,
-  },
-  secondaryLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: Colors.ink,
   },
   pressed: {
     opacity: 0.6,
@@ -359,9 +345,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
-    borderRadius: Radius.pill,
+    borderRadius: LISTENING_CONTROL_RADIUS,
     borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.ink,
+    backgroundColor: Colors.primary,
   },
   listenDot: {
     width: 12,
@@ -371,8 +357,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
   },
   listenLabel: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: Colors.inkInverse,
+    ...Typography.section,
+    color: Colors.primaryForeground,
   },
 });
