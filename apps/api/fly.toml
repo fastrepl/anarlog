@@ -8,6 +8,7 @@ swap_size_mb = 512
 strategy = "bluegreen"
 
 [env]
+ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "true"
 PORT = "3001"
 
 [http_service]
