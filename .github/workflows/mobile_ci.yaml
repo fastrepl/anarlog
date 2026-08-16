@@ -96,7 +96,10 @@ jobs:
       - run: cargo install cargo-ndk --version 4.1.2 --locked
       - run: cargo xtask mobile-bridge android
       - run: pnpm -F @anlg/mobile exec expo prebuild --platform android --no-install
-      - run: ./gradlew :app:assembleRelease --no-daemon
+      - run: |
+          ./gradlew :app:assembleRelease \
+            --no-daemon \
+            -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g"
         working-directory: apps/mobile/android
 
   mobile_ci:
