@@ -36,6 +36,10 @@ import {
   getStripeCustomerOwnership,
 } from "@/lib/stripe-customer";
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
+import {
+  startWorkspaceCheckout,
+  type WorkspaceCheckoutContext,
+} from "@/lib/workspace-checkout";
 
 type SupabaseClient = ReturnType<typeof getSupabaseServerClient>;
 
@@ -152,6 +156,20 @@ const getProPriceId = (period: "monthly" | "yearly") => {
   }
 
   return requireEnv(env.STRIPE_MONTHLY_PRICE_ID, "STRIPE_MONTHLY_PRICE_ID");
+};
+
+const getTeamPriceId = (period: "monthly" | "yearly") => {
+  if (period === "yearly") {
+    return requireEnv(
+      env.STRIPE_TEAM_YEARLY_PRICE_ID,
+      "STRIPE_TEAM_YEARLY_PRICE_ID",
+    );
+  }
+
+  return requireEnv(
+    env.STRIPE_TEAM_MONTHLY_PRICE_ID,
+    "STRIPE_TEAM_MONTHLY_PRICE_ID",
+  );
 };
 
 async function getCurrentSubscription(
@@ -488,6 +506,158 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       }
       throw error;
     }
+  });
+
+const createTeamCheckoutSessionInput = z.object({
+  workspaceId: z.string().uuid(),
+  period: z.enum(["monthly", "yearly"]),
+  quantity: z.number().int().positive().max(999_999),
+  scheme: desktopSchemeSchema.optional(),
+  returnTo: z.string().optional(),
+});
+
+export const createTeamCheckoutSession = createServerFn({ method: "POST" })
+  .inputValidator(createTeamCheckoutSessionInput)
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id || user.is_anonymous) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+    const admin = getSupabaseAdminClient();
+    const customerProvisioningAttemptId = crypto.randomUUID();
+    const returnTo = sanitizeInternalReturnPath(data.returnTo);
+    const appOrigin = getRequestAppOrigin();
+    const successReturnPath = addInternalReturnPathSearch(returnTo, {
+      success: "true",
+      checkout: "paid",
+    });
+    const cancelReturnPath = addInternalReturnPathSearch(returnTo, {
+      checkout: "canceled",
+      checkout_type: "paid",
+    });
+    const returnUrl = data.scheme
+      ? getBillingReturnUrl(data.scheme)
+      : toAbsoluteInternalReturnUrl(appOrigin, returnTo);
+    const successUrl = data.scheme
+      ? `${getBillingReturnUrl(data.scheme)}&checkout=paid`
+      : toAbsoluteInternalReturnUrl(appOrigin, successReturnPath);
+    const cancelUrl = data.scheme
+      ? `${getBillingReturnUrl(data.scheme)}&checkout=canceled&checkout_type=paid`
+      : toAbsoluteInternalReturnUrl(appOrigin, cancelReturnPath);
+
+    return startWorkspaceCheckout(
+      {
+        workspaceId: data.workspaceId,
+        period: data.period,
+        quantity: data.quantity,
+        successUrl,
+        cancelUrl,
+        returnUrl,
+      },
+      {
+        async getContext(workspaceId) {
+          const { data: rows, error } = await supabase.rpc(
+            "get_workspace_billing_checkout_context",
+            { p_workspace_id: workspaceId },
+          );
+          const row = Array.isArray(rows) ? rows[0] : undefined;
+          if (error || !row) {
+            throw error ?? new Error("Workspace billing is unavailable");
+          }
+          return {
+            workspaceName: row.workspace_name,
+            stripeCustomerId: row.stripe_customer_id,
+            usedSeats: row.used_seats,
+          } as WorkspaceCheckoutContext;
+        },
+        getPriceId: getTeamPriceId,
+        async createCustomer({ workspaceId, workspaceName }) {
+          return stripe.customers.create(
+            {
+              name: workspaceName,
+              metadata: { workspaceId },
+            },
+            {
+              idempotencyKey: `create-workspace-customer-${workspaceId}-${customerProvisioningAttemptId}`,
+            },
+          );
+        },
+        async bindCustomer(workspaceId, customerId) {
+          const { data: rows, error } = await admin.rpc(
+            "sync_workspace_stripe_billing",
+            {
+              p_workspace_id: workspaceId,
+              p_stripe_customer_id: customerId,
+              p_seat_limit: null,
+              p_update_seat_limit: false,
+            },
+          );
+          if (error) throw error;
+          return rows?.[0]?.assigned_customer_id as string | null | undefined;
+        },
+        async deleteCustomer(customerId) {
+          await stripe.customers.del(customerId);
+        },
+        async retrieveCustomer(customerId) {
+          const customer = await stripe.customers.retrieve(customerId);
+          return {
+            id: customer.id,
+            deleted: "deleted" in customer && customer.deleted === true,
+            metadata: "metadata" in customer ? customer.metadata : null,
+          };
+        },
+        async listSubscriptions(customerId) {
+          const subscriptions = await stripe.subscriptions.list({
+            customer: customerId,
+            status: "all",
+            limit: 10,
+          });
+          return subscriptions.data;
+        },
+        async createCheckoutSession(input) {
+          return stripe.checkout.sessions.create({
+            customer: input.customerId,
+            success_url: input.successUrl,
+            cancel_url: input.cancelUrl,
+            client_reference_id: input.workspaceId,
+            line_items: [
+              {
+                price: input.priceId,
+                quantity: input.quantity,
+                adjustable_quantity: {
+                  enabled: true,
+                  minimum: input.minimumQuantity,
+                  maximum: 999_999,
+                },
+              },
+            ],
+            mode: "subscription",
+            metadata: {
+              checkout_type: "team",
+              workspace_id: input.workspaceId,
+            },
+            subscription_data: {
+              metadata: {
+                checkout_type: "team",
+                workspace_id: input.workspaceId,
+              },
+            },
+          });
+        },
+        async createPortalSession({ customerId, returnUrl }) {
+          return stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: returnUrl,
+          });
+        },
+      },
+    );
   });
 
 const releaseTrialReservation = async (

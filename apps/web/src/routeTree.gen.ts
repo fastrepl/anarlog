@@ -46,6 +46,7 @@ import { Route as ViewCallbackSignoutRouteImport } from './routes/_view/callback
 import { Route as ViewCallbackIntegrationRouteImport } from './routes/_view/callback/integration'
 import { Route as ViewCallbackBillingRouteImport } from './routes/_view/callback/billing'
 import { Route as ViewCallbackAuthRouteImport } from './routes/_view/callback/auth'
+import { Route as ViewAppTeamCheckoutRouteImport } from './routes/_view/app/team-checkout'
 import { Route as ViewAppSwitchPlanRouteImport } from './routes/_view/app/switch-plan'
 import { Route as ViewAppPortalRouteImport } from './routes/_view/app/portal'
 import { Route as ViewAppIntegrationRouteImport } from './routes/_view/app/integration'
@@ -267,6 +268,11 @@ const ViewCallbackAuthRoute = ViewCallbackAuthRouteImport.update({
   path: '/callback/auth',
   getParentRoute: () => ViewRouteRoute,
 } as any)
+const ViewAppTeamCheckoutRoute = ViewAppTeamCheckoutRouteImport.update({
+  id: '/team-checkout',
+  path: '/team-checkout',
+  getParentRoute: () => ViewAppRouteRoute,
+} as any)
 const ViewAppSwitchPlanRoute = ViewAppSwitchPlanRouteImport.update({
   id: '/switch-plan',
   path: '/switch-plan',
@@ -472,6 +478,7 @@ export interface FileRoutesByFullPath {
   '/app/integration': typeof ViewAppIntegrationRoute
   '/app/portal': typeof ViewAppPortalRoute
   '/app/switch-plan': typeof ViewAppSwitchPlanRoute
+  '/app/team-checkout': typeof ViewAppTeamCheckoutRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
   '/callback/billing': typeof ViewCallbackBillingRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
@@ -543,6 +550,7 @@ export interface FileRoutesByTo {
   '/app/integration': typeof ViewAppIntegrationRoute
   '/app/portal': typeof ViewAppPortalRoute
   '/app/switch-plan': typeof ViewAppSwitchPlanRoute
+  '/app/team-checkout': typeof ViewAppTeamCheckoutRoute
   '/callback/auth': typeof ViewCallbackAuthRoute
   '/callback/billing': typeof ViewCallbackBillingRoute
   '/callback/integration': typeof ViewCallbackIntegrationRoute
@@ -617,6 +625,7 @@ export interface FileRoutesById {
   '/_view/app/integration': typeof ViewAppIntegrationRoute
   '/_view/app/portal': typeof ViewAppPortalRoute
   '/_view/app/switch-plan': typeof ViewAppSwitchPlanRoute
+  '/_view/app/team-checkout': typeof ViewAppTeamCheckoutRoute
   '/_view/callback/auth': typeof ViewCallbackAuthRoute
   '/_view/callback/billing': typeof ViewCallbackBillingRoute
   '/_view/callback/integration': typeof ViewCallbackIntegrationRoute
@@ -691,6 +700,7 @@ export interface FileRouteTypes {
     | '/app/integration'
     | '/app/portal'
     | '/app/switch-plan'
+    | '/app/team-checkout'
     | '/callback/auth'
     | '/callback/billing'
     | '/callback/integration'
@@ -762,6 +772,7 @@ export interface FileRouteTypes {
     | '/app/integration'
     | '/app/portal'
     | '/app/switch-plan'
+    | '/app/team-checkout'
     | '/callback/auth'
     | '/callback/billing'
     | '/callback/integration'
@@ -835,6 +846,7 @@ export interface FileRouteTypes {
     | '/_view/app/integration'
     | '/_view/app/portal'
     | '/_view/app/switch-plan'
+    | '/_view/app/team-checkout'
     | '/_view/callback/auth'
     | '/_view/callback/billing'
     | '/_view/callback/integration'
@@ -1201,6 +1213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ViewCallbackAuthRouteImport
       parentRoute: typeof ViewRouteRoute
     }
+    '/_view/app/team-checkout': {
+      id: '/_view/app/team-checkout'
+      path: '/team-checkout'
+      fullPath: '/app/team-checkout'
+      preLoaderRoute: typeof ViewAppTeamCheckoutRouteImport
+      parentRoute: typeof ViewAppRouteRoute
+    }
     '/_view/app/switch-plan': {
       id: '/_view/app/switch-plan'
       path: '/switch-plan'
@@ -1448,6 +1467,7 @@ interface ViewAppRouteRouteChildren {
   ViewAppIntegrationRoute: typeof ViewAppIntegrationRoute
   ViewAppPortalRoute: typeof ViewAppPortalRoute
   ViewAppSwitchPlanRoute: typeof ViewAppSwitchPlanRoute
+  ViewAppTeamCheckoutRoute: typeof ViewAppTeamCheckoutRoute
   ViewAppIndexRoute: typeof ViewAppIndexRoute
 }
 
@@ -1457,6 +1477,7 @@ const ViewAppRouteRouteChildren: ViewAppRouteRouteChildren = {
   ViewAppIntegrationRoute: ViewAppIntegrationRoute,
   ViewAppPortalRoute: ViewAppPortalRoute,
   ViewAppSwitchPlanRoute: ViewAppSwitchPlanRoute,
+  ViewAppTeamCheckoutRoute: ViewAppTeamCheckoutRoute,
   ViewAppIndexRoute: ViewAppIndexRoute,
 }
 
