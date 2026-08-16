@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = ["control-plane"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license-file = "LICENSE"
+
+[workspace.dependencies]
+anlg-session-ingest = { path = "../crates/session-ingest", package = "session-ingest", default-features = false }
+
+anyhow = "1"
+async-trait = "0.1"
+axum = "0.8"
+http = "1"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+serde = "1"
+serde_json = "1"
+sha2 = "0.11"
+sqlx = { version = "=0.9.0-alpha.1", default-features = false }
+thiserror = "2"
+tokio = "1"
+tower = "0.5"
+tower-http = "0.6"
+tracing = "0.1"
+tracing-subscriber = "0.3"

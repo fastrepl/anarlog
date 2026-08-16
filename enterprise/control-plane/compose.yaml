@@ -1,0 +1,49 @@
+name: anarlog-enterprise-evaluation
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready --username "$${POSTGRES_USER}" --dbname "$${POSTGRES_DB}"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  control-plane:
+    image: anarlog-enterprise-control-plane:evaluation
+    build:
+      context: ../..
+      dockerfile: enterprise/control-plane/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ANARLOG_ENTERPRISE_DATABASE_URL: ${ANARLOG_ENTERPRISE_DATABASE_URL:?set ANARLOG_ENTERPRISE_DATABASE_URL}
+      ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS: ${ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS:-10}
+      ANARLOG_ENTERPRISE_WORKSPACE_TOKENS: ${ANARLOG_ENTERPRISE_WORKSPACE_TOKENS:?set ANARLOG_ENTERPRISE_WORKSPACE_TOKENS}
+      RUST_LOG: ${RUST_LOG:-info,tower_http=info}
+    ports:
+      - 127.0.0.1:${ANARLOG_ENTERPRISE_PORT:-8080}:8080
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+
+volumes:
+  postgres-data:

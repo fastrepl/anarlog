@@ -1,0 +1,316 @@
+use std::sync::Arc;
+
+use anlg_session_ingest::{AcknowledgeRequest, AcknowledgeResponse, DeliveryPage, SessionRead};
+use axum::{
+    Json, Router,
+    extract::{DefaultBodyLimit, Path, Query, State},
+    http::{HeaderMap, StatusCode, header},
+    response::{IntoResponse, Response},
+    routing::{get, post},
+};
+use serde::{Deserialize, Serialize};
+use tower_http::trace::TraceLayer;
+
+use crate::{
+    auth::{AuthenticationError, WorkspaceAuthenticator},
+    store::{DeliveryStore, StoreError},
+};
+
+const MAX_REQUEST_BYTES: usize = 64 * 1024;
+const DEFAULT_PAGE_LIMIT: u16 = 10;
+const MAX_PAGE_LIMIT: u16 = 100;
+
+#[derive(Clone)]
+pub struct AppState {
+    store: Arc<dyn DeliveryStore>,
+    authenticator: Arc<dyn WorkspaceAuthenticator>,
+}
+
+impl AppState {
+    pub fn new(
+        store: Arc<dyn DeliveryStore>,
+        authenticator: Arc<dyn WorkspaceAuthenticator>,
+    ) -> Self {
+        Self {
+            store,
+            authenticator,
+        }
+    }
+}
+
+pub fn router(state: AppState) -> Router {
+    Router::new()
+        .route("/health/live", get(liveness))
+        .route("/health/ready", get(readiness))
+        .route(
+            "/v1/workspaces/{workspace_id}/session-envelopes",
+            get(list_deliveries),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/session-envelopes/{job_id}/ack",
+            post(acknowledge),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/sessions/{job_id}",
+            get(read_session),
+        )
+        .layer(DefaultBodyLimit::max(MAX_REQUEST_BYTES))
+        .layer(TraceLayer::new_for_http())
+        .with_state(state)
+}
+
+async fn liveness() -> Json<HealthResponse> {
+    Json(HealthResponse { status: "ok" })
+}
+
+async fn readiness(State(state): State<AppState>) -> Response {
+    match state.store.readiness().await {
+        Ok(()) => Json(HealthResponse { status: "ready" }).into_response(),
+        Err(error) => {
+            tracing::warn!(error = %error, "database readiness check failed");
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(HealthResponse {
+                    status: "not_ready",
+                }),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn list_deliveries(
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+    Query(query): Query<ListQuery>,
+    headers: HeaderMap,
+) -> Result<Json<DeliveryPage>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&query.consumer_id, "consumerId")?;
+    let limit = query.limit.unwrap_or(DEFAULT_PAGE_LIMIT);
+    if !(1..=MAX_PAGE_LIMIT).contains(&limit) {
+        return Err(ApiError::bad_request(
+            "invalid_limit",
+            "limit must be between 1 and 100",
+        ));
+    }
+    let page = state
+        .store
+        .list_deliveries(
+            &workspace_id,
+            &query.consumer_id,
+            query.after.unwrap_or(0),
+            limit,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(page))
+}
+
+async fn acknowledge(
+    State(state): State<AppState>,
+    Path((workspace_id, job_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(request): Json<AcknowledgeRequest>,
+) -> Result<Json<AcknowledgeResponse>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&job_id, "job_id")?;
+    validate_identifier(&request.consumer_id, "consumerId")?;
+    if request.revision == 0 {
+        return Err(ApiError::bad_request(
+            "invalid_revision",
+            "revision must be greater than zero",
+        ));
+    }
+    if request.content_hash.len() != 64
+        || !request
+            .content_hash
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(ApiError::bad_request(
+            "invalid_content_hash",
+            "contentHash must be a lowercase SHA-256 digest",
+        ));
+    }
+    state
+        .store
+        .acknowledge(&workspace_id, &job_id, &request)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(AcknowledgeResponse { acknowledged: true }))
+}
+
+async fn read_session(
+    State(state): State<AppState>,
+    Path((workspace_id, job_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Json<SessionRead>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&job_id, "job_id")?;
+    let session = state
+        .store
+        .read_session(&workspace_id, &job_id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(session))
+}
+
+fn authorize(
+    state: &AppState,
+    headers: &HeaderMap,
+    requested_workspace_id: &str,
+) -> Result<(), ApiError> {
+    let authorization = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    let authenticated =
+        state
+            .authenticator
+            .authenticate(authorization)
+            .map_err(|error| match error {
+                AuthenticationError::InvalidCredentials => ApiError::unauthorized(),
+                AuthenticationError::NoCredentials | AuthenticationError::DuplicateToken => {
+                    tracing::error!(error = %error, "workspace authenticator is invalid");
+                    ApiError::internal()
+                }
+            })?;
+    if authenticated.workspace_id.as_ref() != requested_workspace_id {
+        return Err(ApiError::forbidden());
+    }
+    Ok(())
+}
+
+fn validate_identifier(value: &str, field: &'static str) -> Result<(), ApiError> {
+    if value.is_empty()
+        || value.len() > 128
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+    {
+        return Err(ApiError::bad_request(
+            "invalid_identifier",
+            match field {
+                "consumerId" => "consumerId contains unsupported characters",
+                "job_id" => "job_id contains unsupported characters",
+                _ => "workspace_id contains unsupported characters",
+            },
+        ));
+    }
+    Ok(())
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ListQuery {
+    consumer_id: String,
+    after: Option<u64>,
+    limit: Option<u16>,
+}
+
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+}
+
+struct ApiError {
+    status: StatusCode,
+    code: &'static str,
+    message: &'static str,
+    authenticate: bool,
+}
+
+impl ApiError {
+    fn bad_request(code: &'static str, message: &'static str) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            code,
+            message,
+            authenticate: false,
+        }
+    }
+
+    fn unauthorized() -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            code: "unauthorized",
+            message: "valid bearer credentials are required",
+            authenticate: true,
+        }
+    }
+
+    fn forbidden() -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            code: "workspace_forbidden",
+            message: "credentials do not authorize this workspace",
+            authenticate: false,
+        }
+    }
+
+    fn internal() -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            code: "internal_error",
+            message: "the capture service could not complete the request",
+            authenticate: false,
+        }
+    }
+
+    fn from_store(error: StoreError) -> Self {
+        match error {
+            StoreError::NotFound => Self {
+                status: StatusCode::NOT_FOUND,
+                code: "not_found",
+                message: "the requested delivery was not found",
+                authenticate: false,
+            },
+            StoreError::RevisionConflict => Self {
+                status: StatusCode::CONFLICT,
+                code: "revision_conflict",
+                message: "revision or contentHash does not match the delivery",
+                authenticate: false,
+            },
+            error => {
+                tracing::error!(error = %error, "delivery store request failed");
+                Self::internal()
+            }
+        }
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> Response {
+        let mut response = (
+            self.status,
+            Json(ErrorResponse {
+                error: ErrorBody {
+                    code: self.code,
+                    message: self.message,
+                },
+            }),
+        )
+            .into_response();
+        if self.authenticate {
+            response.headers_mut().insert(
+                header::WWW_AUTHENTICATE,
+                http::HeaderValue::from_static("Bearer"),
+            );
+        }
+        response
+    }
+}
+
+#[derive(Serialize)]
+struct ErrorResponse {
+    error: ErrorBody,
+}
+
+#[derive(Serialize)]
+struct ErrorBody {
+    code: &'static str,
+    message: &'static str,
+}
