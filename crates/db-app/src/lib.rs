@@ -400,6 +400,7 @@ pub enum AppSchemaError {
     CloudsyncWorkspace(CloudsyncWorkspaceError),
     SharedSessionCacheRepair(&'static str),
     AttachmentTransferJobsRepair(&'static str),
+    LegacyMobileSchema(&'static str),
 }
 
 impl std::fmt::Display for AppSchemaError {
@@ -410,6 +411,7 @@ impl std::fmt::Display for AppSchemaError {
             Self::CloudsyncWorkspace(error) => write!(f, "{error}"),
             Self::SharedSessionCacheRepair(error) => write!(f, "{error}"),
             Self::AttachmentTransferJobsRepair(error) => write!(f, "{error}"),
+            Self::LegacyMobileSchema(error) => write!(f, "{error}"),
         }
     }
 }
@@ -436,12 +438,126 @@ impl From<CloudsyncWorkspaceError> for AppSchemaError {
 
 pub async fn prepare_schema(db: &anlg_db_core::Db) -> Result<(), AppSchemaError> {
     let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
+    adopt_legacy_mobile_schema_migration(db.pool()).await?;
     repair_legacy_shared_session_cache_migration(db.pool()).await?;
     repair_legacy_attachment_transfer_jobs_migration(db.pool()).await?;
     anlg_db_migrate::migrate(db, schema()).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
     backfill_session_share_activation(db.pool()).await?;
     ensure_cloudsync_workspace_binding(db.pool()).await?;
+    Ok(())
+}
+
+const CALENDAR_EVENT_TOMBSTONES_MIGRATION_VERSION: i64 = 20260711000000;
+const ATTACHMENT_CLOUD_SYNC_INTENT_MIGRATION_VERSION: i64 = 20260717170000;
+
+async fn adopt_legacy_mobile_schema_migration(
+    pool: &sqlx::SqlitePool,
+) -> Result<(), AppSchemaError> {
+    let mut transaction = pool.begin_with("BEGIN IMMEDIATE").await?;
+    let user_version: i64 = sqlx::query_scalar("PRAGMA user_version")
+        .fetch_one(&mut *transaction)
+        .await?;
+    if user_version != 1 {
+        transaction.commit().await?;
+        return Ok(());
+    }
+
+    let has_legacy_schema: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sessions'
+         )",
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+    if !has_legacy_schema {
+        transaction.commit().await?;
+        return Ok(());
+    }
+
+    sqlx::raw_sql(
+        "CREATE TABLE IF NOT EXISTS _sqlx_migrations (
+            version BIGINT PRIMARY KEY,
+            description TEXT NOT NULL,
+            installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            success BOOLEAN NOT NULL,
+            checksum BLOB NOT NULL,
+            execution_time BIGINT NOT NULL
+        );",
+    )
+    .execute(&mut *transaction)
+    .await?;
+
+    let calendar_tombstones_present: bool = sqlx::query_scalar(
+        "SELECT
+            EXISTS(SELECT 1 FROM pragma_table_info('calendars') WHERE name = 'deleted_at')
+            AND EXISTS(SELECT 1 FROM pragma_table_info('events') WHERE name = 'deleted_at')",
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+    if calendar_tombstones_present {
+        adopt_legacy_mobile_migration(
+            &mut transaction,
+            CALENDAR_EVENT_TOMBSTONES_MIGRATION_VERSION,
+            "calendar_event_tombstones",
+            include_str!("../migrations/20260711000000_calendar_event_tombstones.sql"),
+        )
+        .await?;
+    }
+
+    let attachment_cloud_sync_intent_present: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+            SELECT 1 FROM pragma_table_info('session_attachments')
+            WHERE name = 'cloud_sync_enabled'
+         )",
+    )
+    .fetch_one(&mut *transaction)
+    .await?;
+    if attachment_cloud_sync_intent_present {
+        adopt_legacy_mobile_migration(
+            &mut transaction,
+            ATTACHMENT_CLOUD_SYNC_INTENT_MIGRATION_VERSION,
+            "attachment_cloud_sync_intent",
+            include_str!("../migrations/20260717170000_attachment_cloud_sync_intent.sql"),
+        )
+        .await?;
+    }
+
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn adopt_legacy_mobile_migration(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    version: i64,
+    description: &'static str,
+    sql: &'static str,
+) -> Result<(), AppSchemaError> {
+    let expected_checksum = migration_checksum(sql);
+    let existing: Option<(bool, Vec<u8>)> =
+        sqlx::query_as("SELECT success, checksum FROM _sqlx_migrations WHERE version = ?")
+            .bind(version)
+            .fetch_optional(&mut **transaction)
+            .await?;
+    if let Some((success, checksum)) = existing {
+        if !success || checksum != expected_checksum {
+            return Err(AppSchemaError::LegacyMobileSchema(
+                "legacy mobile migration history contains an unexpected record",
+            ));
+        }
+        return Ok(());
+    }
+
+    sqlx::query(
+        "INSERT INTO _sqlx_migrations (
+            version, description, success, checksum, execution_time
+         ) VALUES (?, ?, 1, ?, 0)",
+    )
+    .bind(version)
+    .bind(description)
+    .bind(expected_checksum)
+    .execute(&mut **transaction)
+    .await?;
     Ok(())
 }
 

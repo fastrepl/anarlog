@@ -1,11 +1,11 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use anlg_db_core::{Db, DbOpenOptions, DbStorage};
 
 use crate::error::OpenAppDbError;
 
 pub(crate) async fn open_app_db(
-    db_path: &PathBuf,
+    db_path: &Path,
     cloudsync_enabled: bool,
 ) -> Result<Db, OpenAppDbError> {
     let db = Db::open(DbOpenOptions {

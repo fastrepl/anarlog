@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use xshell::{Shell, cmd};
 
 pub(crate) fn mobile_bridge_ios() -> Result<()> {
-    let sh = setup_app_shell()?;
+    let sh = setup_package_shell()?;
     let ubrn = ubrn_path();
     cmd!(
         sh,
@@ -14,7 +14,7 @@ pub(crate) fn mobile_bridge_ios() -> Result<()> {
 }
 
 pub(crate) fn mobile_bridge_android() -> Result<()> {
-    let sh = setup_app_shell()?;
+    let sh = setup_package_shell()?;
     let ubrn = ubrn_path();
     cmd!(
         sh,
@@ -38,12 +38,12 @@ pub(crate) fn mobile_bridge_rn() -> Result<()> {
 
     cmd!(
         sh,
-        "{ubrn} generate jsi bindings --library {host_lib} --ts-dir apps/mobile/src/generated --cpp-dir apps/mobile/cpp/generated"
+        "{ubrn} generate jsi bindings --library {host_lib} --ts-dir packages/mobile-bridge-rn/src/generated --cpp-dir packages/mobile-bridge-rn/cpp/generated"
     )
     .run()?;
-    let app_sh = setup_app_shell()?;
+    let package_sh = setup_package_shell()?;
     cmd!(
-        app_sh,
+        package_sh,
         "{ubrn} generate jsi turbo-module --config ubrn.config.yaml mobile_bridge"
     )
     .run()?;
@@ -57,9 +57,9 @@ fn setup_shell() -> Result<Shell> {
     Ok(sh)
 }
 
-fn setup_app_shell() -> Result<Shell> {
+fn setup_package_shell() -> Result<Shell> {
     let sh = Shell::new()?;
-    sh.change_dir(crate::repo_root().join("apps/mobile"));
+    sh.change_dir(crate::repo_root().join("packages/mobile-bridge-rn"));
     Ok(sh)
 }
 
@@ -83,7 +83,5 @@ fn ubrn_path() -> PathBuf {
         "ubrn"
     };
 
-    root_dir
-        .join("apps/mobile/node_modules/.bin")
-        .join(bin_name)
+    root_dir.join("node_modules/.bin").join(bin_name)
 }

@@ -42,7 +42,6 @@
           "enableBackgroundRecording": true
         }
       ],
-      "expo-sqlite",
       "@sentry/react-native/expo"
     ],
     "experiments": {

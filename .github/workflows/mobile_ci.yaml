@@ -10,22 +10,34 @@ on:
       - .github/workflows/mobile_ci.yaml
       - apps/mobile/**
       - apps/watch/apple/**
+      - crates/db-app/**
+      - crates/db-execute/**
+      - crates/mobile-bridge/**
+      - crates/xtask/**
+      - packages/mobile-bridge-rn/**
       - packages/db-react/**
       - packages/db-runtime/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - rust-toolchain.toml
   pull_request:
     paths:
       - .github/actions/pnpm_install/**
       - .github/workflows/mobile_ci.yaml
       - apps/mobile/**
       - apps/watch/apple/**
+      - crates/db-app/**
+      - crates/db-execute/**
+      - crates/mobile-bridge/**
+      - crates/xtask/**
+      - packages/mobile-bridge-rn/**
       - packages/db-react/**
       - packages/db-runtime/**
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - rust-toolchain.toml
 
 permissions:
   contents: read
@@ -57,6 +69,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pnpm_install
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: ios
+      - run: cargo xtask mobile-bridge ios
       - run: |
           pnpm -F @anlg/mobile exec expo run:ios \
             --configuration Release \
@@ -70,10 +86,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pnpm_install
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: android
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo xtask mobile-bridge android
       - run: pnpm -F @anlg/mobile exec expo prebuild --platform android --no-install
       - run: ./gradlew :app:assembleRelease --no-daemon
         working-directory: apps/mobile/android

@@ -1,7 +1,7 @@
 use anlg_db_core::Db;
 use sqlx::{Column, Row, TypeInfo, ValueRef};
 
-use crate::{ProxyQueryMethod, ProxyQueryResult};
+use crate::{Error, ProxyQueryMethod, ProxyQueryResult, TransactionStatement};
 
 pub async fn run_query(
     db: &Db,
@@ -39,6 +39,38 @@ pub async fn run_query_proxy(
     };
 
     Ok(ProxyQueryResult { rows })
+}
+
+pub async fn run_transaction(
+    db: &Db,
+    statements: Vec<TransactionStatement>,
+) -> crate::Result<Vec<u64>> {
+    let mut transaction = db.pool().begin_with("BEGIN IMMEDIATE").await?;
+    let mut rows_affected = Vec::with_capacity(statements.len());
+
+    for (statement_index, statement) in statements.into_iter().enumerate() {
+        let result = bind_params(
+            sqlx::query(sqlx::AssertSqlSafe(statement.sql.as_str())),
+            &statement.params,
+        )
+        .execute(&mut *transaction)
+        .await?;
+        let actual = result.rows_affected();
+        if let Some(expected) = statement.expected_rows_affected
+            && actual != expected
+        {
+            transaction.rollback().await?;
+            return Err(Error::UnexpectedRowsAffected {
+                statement_index,
+                expected,
+                actual,
+            });
+        }
+        rows_affected.push(actual);
+    }
+
+    transaction.commit().await?;
+    Ok(rows_affected)
 }
 
 async fn fetch_rows(
@@ -291,5 +323,69 @@ mod tests {
 
         let error = "bogus".parse::<ProxyQueryMethod>().unwrap_err();
         assert!(matches!(error, crate::Error::InvalidQueryMethod(method) if method == "bogus"));
+    }
+
+    #[tokio::test]
+    async fn execute_transaction_commits_atomically_and_checks_affected_rows() {
+        let db = test_db().await;
+        let executor = DbExecutor::new(std::sync::Arc::new(db));
+        executor
+            .execute(
+                "CREATE TABLE transaction_values (id TEXT PRIMARY KEY NOT NULL)".to_string(),
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        let affected = executor
+            .execute_transaction(vec![
+                TransactionStatement {
+                    sql: "INSERT INTO transaction_values (id) VALUES (?)".to_string(),
+                    params: vec![json!("row-1")],
+                    expected_rows_affected: Some(1),
+                },
+                TransactionStatement {
+                    sql: "INSERT INTO transaction_values (id) VALUES (?)".to_string(),
+                    params: vec![json!("row-2")],
+                    expected_rows_affected: Some(1),
+                },
+            ])
+            .await
+            .unwrap();
+
+        assert_eq!(affected, vec![1, 1]);
+
+        let error = executor
+            .execute_transaction(vec![
+                TransactionStatement {
+                    sql: "INSERT INTO transaction_values (id) VALUES (?)".to_string(),
+                    params: vec![json!("rolled-back")],
+                    expected_rows_affected: Some(1),
+                },
+                TransactionStatement {
+                    sql: "UPDATE transaction_values SET id = id WHERE id = ?".to_string(),
+                    params: vec![json!("missing")],
+                    expected_rows_affected: Some(1),
+                },
+            ])
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            crate::Error::UnexpectedRowsAffected {
+                statement_index: 1,
+                expected: 1,
+                actual: 0,
+            }
+        ));
+        let rows = executor
+            .execute(
+                "SELECT id FROM transaction_values WHERE id = ?".to_string(),
+                vec![json!("rolled-back")],
+            )
+            .await
+            .unwrap();
+        assert!(rows.is_empty());
     }
 }

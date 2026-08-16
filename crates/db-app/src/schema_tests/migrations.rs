@@ -18,6 +18,54 @@ async fn schema_declares_legacy_migrations_and_cloudsync_registry() {
 }
 
 #[tokio::test]
+async fn legacy_mobile_schema_adopts_preexisting_alter_migrations() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    sqlx::raw_sql(
+        "CREATE TABLE sessions (id TEXT PRIMARY KEY NOT NULL);
+         CREATE TABLE calendars (id TEXT PRIMARY KEY NOT NULL, deleted_at TEXT);
+         CREATE TABLE events (id TEXT PRIMARY KEY NOT NULL, deleted_at TEXT);
+         CREATE TABLE session_attachments (
+            id TEXT PRIMARY KEY NOT NULL,
+            cloud_sync_enabled INTEGER NOT NULL DEFAULT 0
+         );
+         PRAGMA user_version = 1;",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+
+    adopt_legacy_mobile_schema_migration(db.pool())
+        .await
+        .unwrap();
+
+    let (success, checksum): (bool, Vec<u8>) = sqlx::query_as(
+        "SELECT success, checksum FROM _sqlx_migrations WHERE version = 20260711000000",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert!(success);
+    assert_eq!(
+        checksum,
+        migration_checksum(include_str!(
+            "../../migrations/20260711000000_calendar_event_tombstones.sql"
+        ))
+    );
+
+    let attachment_checksum: Vec<u8> =
+        sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = 20260717170000")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        attachment_checksum,
+        migration_checksum(include_str!(
+            "../../migrations/20260717170000_attachment_cloud_sync_intent.sql"
+        ))
+    );
+}
+
+#[tokio::test]
 async fn migrations_apply_cleanly() {
     let db = test_db().await;
 

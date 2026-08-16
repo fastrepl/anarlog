@@ -1,0 +1,48 @@
+{
+  "name": "@anlg/mobile-bridge",
+  "version": "0.1.0",
+  "description": "React Native bindings for Anarlog's Rust mobile database bridge",
+  "private": true,
+  "homepage": "https://github.com/fastrepl/anarlog",
+  "license": "AGPL-3.0-only",
+  "author": "Fastrepl, Inc.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fastrepl/anarlog.git"
+  },
+  "main": "src/index.tsx",
+  "types": "src/index.tsx",
+  "react-native": "src/index.tsx",
+  "files": [
+    "android",
+    "cpp",
+    "ios",
+    "src",
+    "MobileBridge.podspec"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ubjs/core": "0.31.0-3",
+    "uniffi-bindgen-react-native": "0.31.0-3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "react": "19.2.3",
+    "react-native": "0.86.0",
+    "typescript": "~6.0.3"
+  },
+  "codegenConfig": {
+    "name": "MobileBridgeSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "so.anarlog.mobilebridge"
+    }
+  }
+}

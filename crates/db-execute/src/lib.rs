@@ -34,6 +34,14 @@ pub struct ProxyQueryResult {
     pub rows: Vec<serde_json::Value>,
 }
 
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionStatement {
+    pub sql: String,
+    pub params: Vec<serde_json::Value>,
+    pub expected_rows_affected: Option<u64>,
+}
+
 #[derive(Clone)]
 pub struct DbExecutor {
     db: Arc<anlg_db_core::Db>,
@@ -63,5 +71,12 @@ impl DbExecutor {
         query::run_query_proxy(self.db.as_ref(), &sql, &params, method)
             .await
             .map_err(Into::into)
+    }
+
+    pub async fn execute_transaction(
+        &self,
+        statements: Vec<TransactionStatement>,
+    ) -> Result<Vec<u64>> {
+        query::run_transaction(self.db.as_ref(), statements).await
     }
 }

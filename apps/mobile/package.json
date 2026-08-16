@@ -6,9 +6,9 @@
   "scripts": {
     "start": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --dev-client",
     "android": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --dev-client --android",
-    "android:build": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo run:android",
+    "android:build": "cargo xtask mobile-bridge android && dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo run:android",
     "ios": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo start --dev-client --ios",
-    "ios:build": "dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo run:ios",
+    "ios:build": "cargo xtask mobile-bridge ios && dotenvx run --ignore MISSING_ENV_FILE -f ../../.env.supabase -f .env -- expo run:ios",
     "test:billing-handoff": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/auth/billing-handoff.test.mjs",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types",
     "test:error-reporting": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --experimental-strip-types src/lib/error-sanitization.test.mjs",
@@ -18,9 +18,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anlg/design-system": "workspace:^",
     "@anlg/db-react": "workspace:*",
     "@anlg/db-runtime": "workspace:*",
+    "@anlg/design-system": "workspace:^",
+    "@anlg/mobile-bridge": "workspace:*",
     "@expo/ui": "~57.0.7",
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -40,7 +41,6 @@
     "expo-router": "~57.0.8",
     "expo-sharing": "~57.0.12",
     "expo-splash-screen": "~57.0.5",
-    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.1",
     "expo-system-ui": "~57.0.1",

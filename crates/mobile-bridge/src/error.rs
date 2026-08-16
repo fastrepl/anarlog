@@ -8,6 +8,8 @@ pub enum BridgeError {
     InvalidCloudsyncConfigJson { reason: String },
     #[error("params json must encode an array")]
     ParamsMustBeArray,
+    #[error("invalid transaction statements json: {reason}")]
+    InvalidTransactionStatementsJson { reason: String },
     #[error("failed to open database: {reason}")]
     OpenFailed { reason: String },
     #[error("query failed: {reason}")]
