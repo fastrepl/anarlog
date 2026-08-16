@@ -2,7 +2,9 @@
 
 pub mod api;
 pub mod auth;
+pub mod capture;
 pub mod config;
+pub mod projector;
 pub mod store;
 
 use std::{future::Future, sync::Arc};

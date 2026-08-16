@@ -92,6 +92,8 @@ pub struct RecordingChunk {
     pub duration_ms: u64,
     pub content_type: String,
     pub uri: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size_bytes: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha256: Option<String>,
 }

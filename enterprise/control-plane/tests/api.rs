@@ -3,14 +3,16 @@ use std::sync::Arc;
 use anarlog_enterprise_control_plane::{
     api::{AppState, router},
     auth::StaticTokenAuthenticator,
+    capture::{CaptureJob, CaptureJobStatus, ProjectionPublication},
     serve,
-    store::{DeliveryStore, StoreError},
+    store::{ControlPlaneStore, StoreError},
 };
+use anlg_meeting_capture::{BotState, CaptureEvent};
 use anlg_session_ingest::{AcknowledgeRequest, DeliveryPage, SessionRead};
 use async_trait::async_trait;
 use axum::{
     body::{Body, to_bytes},
-    http::{Request, StatusCode, header},
+    http::{Method, Request, StatusCode, header},
 };
 use serde_json::Value;
 use tokio::{net::TcpListener, sync::oneshot, time::Duration};
@@ -24,13 +26,30 @@ struct MemoryStore {
 }
 
 #[async_trait]
-impl DeliveryStore for MemoryStore {
+impl ControlPlaneStore for MemoryStore {
     async fn readiness(&self) -> Result<(), StoreError> {
         if self.ready {
             Ok(())
         } else {
             Err(StoreError::CorruptEnvelope)
         }
+    }
+
+    async fn create_capture_job(&self, job: &CaptureJob) -> Result<CaptureJobStatus, StoreError> {
+        Ok(CaptureJobStatus {
+            job_id: job.job_id.clone(),
+            created: true,
+            state: BotState::Queued,
+        })
+    }
+
+    async fn append_capture_event(
+        &self,
+        _workspace_id: &str,
+        _job_id: &str,
+        _event: &CaptureEvent,
+    ) -> Result<ProjectionPublication, StoreError> {
+        Err(StoreError::NotFound)
     }
 
     async fn list_deliveries(
@@ -127,6 +146,52 @@ async fn requires_workspace_scoped_credentials() {
 }
 
 #[tokio::test]
+async fn authenticates_capture_job_creation_before_writing() {
+    let app = router(state(true));
+    let path = "/v1/workspaces/workspace-a/capture-jobs/job-a";
+    let body = serde_json::json!({
+        "botId": "bot-a",
+        "ownerUserId": "owner-a",
+        "requestingActorId": "actor-a",
+        "sessionId": "session-a",
+        "sessionTitle": "Architecture review",
+        "provider": "anarlog",
+        "meeting": {
+            "platform": "google_meet",
+            "url": "https://meet.google.com/abc-defg-hij"
+        },
+        "createdAt": "2026-08-17T00:00:00Z"
+    });
+
+    let missing = app
+        .clone()
+        .oneshot(json_request(Method::POST, path, None, &body))
+        .await
+        .unwrap();
+    let wrong_workspace = app
+        .clone()
+        .oneshot(json_request(Method::POST, path, Some(TOKEN_B), &body))
+        .await
+        .unwrap();
+    let created = app
+        .oneshot(json_request(Method::POST, path, Some(TOKEN_A), &body))
+        .await
+        .unwrap();
+
+    assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
+    assert_eq!(created.status(), StatusCode::CREATED);
+    assert_eq!(
+        response_json(created).await,
+        serde_json::json!({
+            "jobId": "job-a",
+            "created": true,
+            "state": "queued"
+        })
+    );
+}
+
+#[tokio::test]
 async fn boots_on_a_real_listener_and_shuts_down_gracefully() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -153,6 +218,17 @@ fn authorized_request(path: &str, token: &str) -> Request<Body> {
         .header(header::AUTHORIZATION, format!("Bearer {token}"))
         .body(Body::empty())
         .unwrap()
+}
+
+fn json_request(method: Method, path: &str, token: Option<&str>, body: &Value) -> Request<Body> {
+    let mut request = Request::builder()
+        .method(method)
+        .uri(path)
+        .header(header::CONTENT_TYPE, "application/json");
+    if let Some(token) = token {
+        request = request.header(header::AUTHORIZATION, format!("Bearer {token}"));
+    }
+    request.body(Body::from(body.to_string())).unwrap()
 }
 
 async fn response_json(response: axum::response::Response) -> Value {

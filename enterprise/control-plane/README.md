@@ -1,6 +1,6 @@
 # Anarlog Enterprise control plane
 
-This commercially licensed service packages the workspace-scoped enterprise capture delivery API with automatic PostgreSQL migrations, fail-closed startup configuration, and graceful shutdown.
+This commercially licensed service packages the workspace-scoped enterprise capture API with automatic PostgreSQL migrations, fail-closed startup configuration, and graceful shutdown. It durably appends provider-neutral capture events, projects each revision into the shared session-ingest contract, and delivers those revisions to authorized clients.
 
 ## Evaluation deployment
 
@@ -62,7 +62,9 @@ See the official [`infisical run` documentation](https://infisical.com/docs/cli/
 | `ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS` | No | PostgreSQL pool size from 1–100. Defaults to `10`. |
 | `RUST_LOG` | No | Standard tracing filter. Defaults to request and service information. No telemetry is exported. |
 
-`GET /health/live` is process-only liveness. `GET /health/ready` checks PostgreSQL. Delivery routes require `Authorization: Bearer <token>` and reject a token used against any workspace other than its configured workspace.
+`GET /health/live` is process-only liveness. `GET /health/ready` checks PostgreSQL. Capture and delivery routes require `Authorization: Bearer <token>` and reject a token used against any workspace other than its configured workspace.
+
+Capture workers create a durable job with `POST /v1/workspaces/{workspace_id}/capture-jobs/{job_id}` and append normalized events with `POST /v1/workspaces/{workspace_id}/capture-jobs/{job_id}/events`. Event IDs and zero-based sequences are idempotency keys. Each accepted event atomically advances the PostgreSQL checkpoint and publishes a delivery revision; retries return the existing byte-equivalent revision, while conflicting IDs, sequences, or lifecycle transitions fail closed.
 
 The static token map is intended for the evaluation bundle and sits behind the `WorkspaceAuthenticator` interface. Production OIDC, SCIM, offline license enforcement, object storage, and meeting browser workers are outside this service.
 

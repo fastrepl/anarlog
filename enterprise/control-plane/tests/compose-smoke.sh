@@ -44,6 +44,32 @@ base_url="http://127.0.0.1:$port"
 
 curl --connect-timeout 3 --max-time 10 --fail --silent --show-error "$base_url/health/ready" >/dev/null
 
+create_status=$(curl \
+    --connect-timeout 3 \
+    --max-time 10 \
+    --silent \
+    --output /dev/null \
+    --write-out '%{http_code}' \
+    --request POST \
+    --header "Authorization: Bearer $token" \
+    --header 'Content-Type: application/json' \
+    --data '{"botId":"bot-a","ownerUserId":"owner-a","requestingActorId":"actor-a","sessionId":"session-a","sessionTitle":"Compose smoke","provider":"anarlog","meeting":{"platform":"google_meet","url":"https://meet.google.com/abc-defg-hij"},"createdAt":"2026-08-17T00:00:00Z"}' \
+    "$base_url/v1/workspaces/workspace-a/capture-jobs/job-a")
+test "$create_status" = 201
+
+append_status=$(curl \
+    --connect-timeout 3 \
+    --max-time 10 \
+    --silent \
+    --output /dev/null \
+    --write-out '%{http_code}' \
+    --request POST \
+    --header "Authorization: Bearer $token" \
+    --header 'Content-Type: application/json' \
+    --data '{"event":{"id":"event-0","bot_id":"bot-a","sequence":0,"occurred_at":"2026-08-17T00:00:01Z","payload":{"type":"lifecycle","data":{"from":"queued","to":"launching"}},"metadata":{}}}' \
+    "$base_url/v1/workspaces/workspace-a/capture-jobs/job-a/events")
+test "$append_status" = 200
+
 authorized_status=$(curl \
     --connect-timeout 3 \
     --max-time 10 \

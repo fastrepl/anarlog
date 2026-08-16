@@ -13,22 +13,26 @@ use tower_http::trace::TraceLayer;
 
 use crate::{
     auth::{AuthenticationError, WorkspaceAuthenticator},
-    store::{DeliveryStore, StoreError},
+    capture::{
+        AppendCaptureEventRequest, CaptureJob, CaptureJobStatus, CreateCaptureJobRequest,
+        ProjectionPublication,
+    },
+    store::{ControlPlaneStore, StoreError},
 };
 
-const MAX_REQUEST_BYTES: usize = 64 * 1024;
+const MAX_REQUEST_BYTES: usize = 256 * 1024;
 const DEFAULT_PAGE_LIMIT: u16 = 10;
 const MAX_PAGE_LIMIT: u16 = 100;
 
 #[derive(Clone)]
 pub struct AppState {
-    store: Arc<dyn DeliveryStore>,
+    store: Arc<dyn ControlPlaneStore>,
     authenticator: Arc<dyn WorkspaceAuthenticator>,
 }
 
 impl AppState {
     pub fn new(
-        store: Arc<dyn DeliveryStore>,
+        store: Arc<dyn ControlPlaneStore>,
         authenticator: Arc<dyn WorkspaceAuthenticator>,
     ) -> Self {
         Self {
@@ -42,6 +46,14 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health/live", get(liveness))
         .route("/health/ready", get(readiness))
+        .route(
+            "/v1/workspaces/{workspace_id}/capture-jobs/{job_id}",
+            post(create_capture_job),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/capture-jobs/{job_id}/events",
+            post(append_capture_event),
+        )
         .route(
             "/v1/workspaces/{workspace_id}/session-envelopes",
             get(list_deliveries),
@@ -57,6 +69,68 @@ pub fn router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::max(MAX_REQUEST_BYTES))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+async fn create_capture_job(
+    State(state): State<AppState>,
+    Path((workspace_id, job_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(request): Json<CreateCaptureJobRequest>,
+) -> Result<(StatusCode, Json<CaptureJobStatus>), ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&job_id, "job_id")?;
+    validate_identifier(&request.bot_id, "bot_id")?;
+    validate_identifier(&request.owner_user_id, "owner_user_id")?;
+    validate_identifier(&request.requesting_actor_id, "requesting_actor_id")?;
+    validate_identifier(&request.session_id, "session_id")?;
+    if request.session_title.trim().is_empty() || request.session_title.len() > 1024 {
+        return Err(ApiError::bad_request(
+            "invalid_session_title",
+            "sessionTitle must be between 1 and 1024 bytes",
+        ));
+    }
+    let status = state
+        .store
+        .create_capture_job(&CaptureJob {
+            workspace_id,
+            job_id,
+            bot_id: request.bot_id,
+            owner_user_id: request.owner_user_id,
+            requesting_actor_id: request.requesting_actor_id,
+            session_id: request.session_id,
+            session_title: request.session_title,
+            provider: request.provider,
+            meeting: request.meeting,
+            created_at: request.created_at,
+        })
+        .await
+        .map_err(ApiError::from_store)?;
+    let response_status = if status.created {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+    Ok((response_status, Json(status)))
+}
+
+async fn append_capture_event(
+    State(state): State<AppState>,
+    Path((workspace_id, job_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(request): Json<AppendCaptureEventRequest>,
+) -> Result<Json<ProjectionPublication>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&job_id, "job_id")?;
+    validate_identifier(&request.event.id, "event_id")?;
+    validate_identifier(&request.event.bot_id, "bot_id")?;
+    let publication = state
+        .store
+        .append_capture_event(&workspace_id, &job_id, &request.event)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(publication))
 }
 
 async fn liveness() -> Json<HealthResponse> {
@@ -272,6 +346,30 @@ impl ApiError {
                 status: StatusCode::CONFLICT,
                 code: "revision_conflict",
                 message: "revision or contentHash does not match the delivery",
+                authenticate: false,
+            },
+            StoreError::CaptureJobConflict => Self {
+                status: StatusCode::CONFLICT,
+                code: "capture_job_conflict",
+                message: "capture job already exists with different immutable fields",
+                authenticate: false,
+            },
+            StoreError::CaptureBotConflict => Self {
+                status: StatusCode::CONFLICT,
+                code: "capture_bot_conflict",
+                message: "capture bot is already assigned to a different job",
+                authenticate: false,
+            },
+            StoreError::CaptureEventConflict | StoreError::CaptureSequenceConflict { .. } => Self {
+                status: StatusCode::CONFLICT,
+                code: "capture_event_conflict",
+                message: "capture event id, sequence, or content conflicts with persisted data",
+                authenticate: false,
+            },
+            StoreError::InvalidCaptureEvent(_) => Self {
+                status: StatusCode::UNPROCESSABLE_ENTITY,
+                code: "invalid_capture_event",
+                message: "capture event violates the normalized capture contract",
                 authenticate: false,
             },
             error => {

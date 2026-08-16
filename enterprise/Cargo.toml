@@ -8,11 +8,13 @@ edition = "2024"
 license-file = "LICENSE"
 
 [workspace.dependencies]
+anlg-meeting-capture = { path = "../crates/meeting-capture", package = "meeting-capture" }
 anlg-session-ingest = { path = "../crates/session-ingest", package = "session-ingest", default-features = false }
 
 anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"
+chrono = "0.4"
 http = "1"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 serde = "1"
