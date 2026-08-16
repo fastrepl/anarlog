@@ -4,6 +4,8 @@ import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
+  InputAccessoryView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSessionRecorder } from "@/audio/use-session-recorder";
 import { AudioChip } from "@/components/audio-chip";
+import { EditorAccessory } from "@/components/editor-accessory";
 import { HandoffCard } from "@/components/handoff-card";
 import { ListeningSheet } from "@/components/listening-sheet";
 import { Colors, Spacing } from "@/constants/theme";
@@ -29,8 +32,81 @@ import { transcribeSession, useTranscriptionState } from "@/data/transcribe";
 import { useSessionTranscripts } from "@/data/transcripts";
 import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
+import { applyEditorFormat, type EditorFormat } from "@/lib/editor-format";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+
+function BodyEditor({
+  accessoryId,
+  defaultValue,
+  editable,
+  onChangeText,
+}: {
+  accessoryId: string;
+  defaultValue: string;
+  editable: boolean;
+  onChangeText: (body: string) => void;
+}) {
+  const inputRef = useRef<TextInput>(null);
+  const [text, setText] = useState(defaultValue);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [focused, setFocused] = useState(false);
+
+  const handleChangeText = (body: string) => {
+    setText(body);
+    onChangeText(body);
+  };
+
+  const handleFormat = (format: EditorFormat) => {
+    const formatted = applyEditorFormat(text, selection, format);
+    setText(formatted.text);
+    setSelection(formatted.selection);
+    onChangeText(formatted.text);
+    inputRef.current?.focus();
+  };
+
+  const handleDismissKeyboard = () => inputRef.current?.blur();
+
+  return (
+    <>
+      <TextInput
+        ref={inputRef}
+        style={styles.body}
+        multiline
+        editable={editable}
+        inputAccessoryViewID={Platform.OS === "ios" ? accessoryId : undefined}
+        value={text}
+        selection={selection}
+        placeholder="Start typing…"
+        placeholderTextColor={Colors.muted}
+        textAlignVertical="top"
+        onBlur={() => setFocused(false)}
+        onChangeText={handleChangeText}
+        onFocus={() => setFocused(true)}
+        onSelectionChange={(event) => setSelection(event.nativeEvent.selection)}
+      />
+      {Platform.OS === "ios" && editable && (
+        <InputAccessoryView
+          nativeID={accessoryId}
+          backgroundColor={Colors.paper}
+        >
+          <EditorAccessory
+            onFormat={handleFormat}
+            onDismiss={handleDismissKeyboard}
+          />
+        </InputAccessoryView>
+      )}
+      {Platform.OS !== "ios" && editable && focused && (
+        <View style={styles.androidAccessory}>
+          <EditorAccessory
+            onFormat={handleFormat}
+            onDismiss={handleDismissKeyboard}
+          />
+        </View>
+      )}
+    </>
+  );
+}
 
 export default function NoteScreen() {
   const router = useRouter();
@@ -234,14 +310,10 @@ export default function NoteScreen() {
               </Text>
             </View>
           )}
-          <TextInput
-            style={styles.body}
-            multiline
-            editable={data.plainEditable}
+          <BodyEditor
+            accessoryId={`note-editor-controls-${data.id}`}
             defaultValue={data.noteText}
-            placeholder="Start typing…"
-            placeholderTextColor={Colors.muted}
-            textAlignVertical="top"
+            editable={data.plainEditable}
             onChangeText={(body) => onEdit({ body })}
           />
         </View>
@@ -335,5 +407,8 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     fontSize: 16,
     color: Colors.ink,
+  },
+  androidAccessory: {
+    backgroundColor: Colors.paper,
   },
 });
