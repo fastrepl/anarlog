@@ -188,6 +188,7 @@ pub(super) async fn load_changed_e2ee_record_metadata(
                  AND witness.payload_hash = replica_hash.payload_hash
              ) AS witnessed,
            replica.id IS NOT NULL
+           AND replica.payload != ''
            AND (
              replica_hash.record_id IS NULL
              OR local.record_id IS NULL

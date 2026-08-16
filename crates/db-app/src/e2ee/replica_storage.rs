@@ -50,6 +50,7 @@ pub(super) async fn normalize_replica_payload_hashes(
                OR replica_hash.workspace_id != replica.workspace_id
                OR replica_hash.payload_hash = ''
              )
+             AND replica.payload != ''
              ORDER BY replica.workspace_id, replica.id
              LIMIT 64",
         );

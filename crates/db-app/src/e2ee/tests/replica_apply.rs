@@ -1,6 +1,69 @@
 use super::*;
 
 #[tokio::test]
+async fn empty_replica_placeholders_wait_for_ciphertext() {
+    let workspace_keys = keys("workspace-a");
+    let source = test_db().await;
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+         VALUES ('session-1', 'workspace-a', 'user-a', 'Ready')",
+    )
+    .execute(source.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(source.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let record_id = workspace_keys["workspace-a"].blind_field_id("sessions", "session-1", "title");
+    let payload: String = sqlx::query_scalar("SELECT payload FROM e2ee_records WHERE id = ?")
+        .bind(&record_id)
+        .fetch_one(source.pool())
+        .await
+        .unwrap();
+
+    let target = test_db().await;
+    sqlx::query("INSERT INTO e2ee_records (id, workspace_id) VALUES (?, 'workspace-a')")
+        .bind(&record_id)
+        .execute(target.pool())
+        .await
+        .unwrap();
+
+    let stats = apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    assert_eq!(stats, E2eeReplicaStats::default());
+    let repair = repair_e2ee_replica_from_witness_bounded(
+        target.pool(),
+        &workspace_keys,
+        true,
+        64,
+        usize::MAX,
+    )
+    .await
+    .unwrap();
+    assert_eq!(repair.repaired_records, 0);
+    assert!(!repair.remaining);
+
+    sqlx::query("UPDATE e2ee_records SET payload = ? WHERE id = ?")
+        .bind(&payload)
+        .bind(&record_id)
+        .execute(target.pool())
+        .await
+        .unwrap();
+    apply_e2ee_replica_changes(target.pool(), &workspace_keys)
+        .await
+        .unwrap();
+    let payload_hash: String = sqlx::query_scalar(
+        "SELECT payload_hash FROM e2ee_replica_payload_hashes WHERE record_id = ?",
+    )
+    .bind(&record_id)
+    .fetch_one(target.pool())
+    .await
+    .unwrap();
+    assert_eq!(payload_hash, anlg_e2ee::payload_hash(&payload));
+}
+
+#[tokio::test]
 async fn field_chunk_before_manifest_waits_then_applies_without_echo() {
     let workspace_keys = keys("workspace-a");
     let source = test_db().await;
