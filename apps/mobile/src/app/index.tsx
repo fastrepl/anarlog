@@ -13,7 +13,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProfileSheet } from "@/components/profile-sheet";
 import { SessionCard } from "@/components/session-card";
-import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
+import {
+  Colors,
+  CornerCurve,
+  LISTENING_CONTROL_HEIGHT,
+  Radius,
+  Spacing,
+} from "@/constants/theme";
 import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
 import { createSession, deleteSession } from "@/data/session";
@@ -346,13 +352,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   listenButton: {
+    height: LISTENING_CONTROL_HEIGHT,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
     marginHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
-    paddingVertical: Spacing.lg,
     borderRadius: Radius.pill,
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.ink,

@@ -23,3 +23,5 @@ export const Radius = {
 export const CornerCurve = {
   squircle: "continuous",
 } as const;
+
+export const LISTENING_CONTROL_HEIGHT = 72;

@@ -18,7 +18,6 @@ import {
   shouldHandleRecorderFailure,
   type RecorderPhase,
 } from "@/audio/recorder-status";
-import { WAVEFORM_BAR_COUNT } from "@/components/waveform";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import { transcribeSession } from "@/data/transcribe";
 import { captureAnalytics } from "@/lib/analytics";
@@ -52,7 +51,7 @@ export function useSessionRecorder(
 ): {
   phase: RecorderPhase;
   failure: RecorderFailure | null;
-  levels: number[] | null;
+  amplitude: number;
   durationMs: number;
   stop: () => Promise<StopResult>;
   retry: () => Promise<StopResult>;
@@ -373,18 +372,10 @@ export function useSessionRecorder(
           Math.max(0, (metering - METERING_FLOOR_DB) / -METERING_FLOOR_DB),
         )
       : null;
-  const levels =
-    normalizedLevel === null
-      ? null
-      : Array.from({ length: WAVEFORM_BAR_COUNT }, (_, index) => {
-          const centerDistance = Math.abs(index - WAVEFORM_BAR_COUNT / 2);
-          return normalizedLevel * (0.55 + (centerDistance % 5) / 10);
-        });
-
   return {
     phase,
     failure,
-    levels,
+    amplitude: normalizedLevel ?? 0,
     durationMs: recorderState.durationMillis ?? pendingDurationRef.current,
     stop,
     retry,

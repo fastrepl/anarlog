@@ -17,8 +17,14 @@ import type {
   RecorderFailure,
   RecorderPhase,
 } from "@/audio/use-session-recorder";
-import { Waveform } from "@/components/waveform";
-import { Colors, CornerCurve, Radius, Spacing } from "@/constants/theme";
+import { DancingSticks } from "@/components/dancing-sticks";
+import {
+  Colors,
+  CornerCurve,
+  LISTENING_CONTROL_HEIGHT,
+  Radius,
+  Spacing,
+} from "@/constants/theme";
 
 const DETAIL_HEIGHT = 96;
 
@@ -53,7 +59,7 @@ function statusLabel(phase: RecorderPhase, durationMs: number): string {
 export function ListeningSheet({
   phase,
   failure,
-  levels,
+  amplitude,
   durationMs,
   onStop,
   onRetry,
@@ -61,7 +67,7 @@ export function ListeningSheet({
 }: {
   phase: RecorderPhase;
   failure: RecorderFailure | null;
-  levels: number[] | null;
+  amplitude: number;
   durationMs: number;
   onStop: () => void;
   onRetry: () => void;
@@ -145,7 +151,14 @@ export function ListeningSheet({
             <Text style={styles.panelMessage}>Tap to recover recording</Text>
           </View>
         ) : (
-          <Waveform levels={levels} />
+          <DancingSticks
+            amplitude={amplitude}
+            color={Colors.inkInverse}
+            height={36}
+            width={80}
+            stickWidth={3}
+            gap={3}
+          />
         )}
       </Pressable>
     </View>
@@ -160,7 +173,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: Radius.pill,
     borderTopRightRadius: Radius.pill,
     backgroundColor: Colors.paper,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.md,
   },
   chevron: {
@@ -196,16 +209,18 @@ const styles = StyleSheet.create({
     color: Colors.muted,
   },
   panel: {
+    height: LISTENING_CONTROL_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: Radius.card + 4,
     borderCurve: CornerCurve.squircle,
     backgroundColor: Colors.accent,
-    paddingVertical: Spacing.md,
   },
   panelPressed: {
     opacity: 0.9,
   },
   panelCenter: {
-    height: 72,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },

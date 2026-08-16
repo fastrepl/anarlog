@@ -376,7 +376,7 @@ export default function NoteScreen() {
         <ListeningSheet
           phase={recorder.phase}
           failure={recorder.failure}
-          levels={recorder.levels}
+          amplitude={recorder.amplitude}
           durationMs={recorder.durationMs}
           onStop={() => void handleStop()}
           onRetry={() => void handleRetryRecording()}
