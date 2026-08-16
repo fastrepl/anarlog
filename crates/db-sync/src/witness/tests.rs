@@ -119,7 +119,7 @@ fn witness_page(
 #[test]
 fn derives_a_sibling_witness_endpoint_for_a_shared_workspace() {
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: "https://api.example.com/sync/e2ee/witness/personal".to_string(),
             access_token: "access-token".to_string(),
         },
@@ -155,7 +155,7 @@ async fn retries_a_rate_limited_witness_read() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -178,7 +178,7 @@ async fn cancellation_stops_a_stalled_witness_request_promptly() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -251,7 +251,7 @@ async fn cancelled_witness_merge_does_not_advance_the_authenticated_cursor() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -296,7 +296,7 @@ async fn cancellation_stops_a_rate_limit_retry_sleep() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -352,7 +352,7 @@ async fn empty_refresh_does_not_write_an_unchanged_cursor() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -400,7 +400,7 @@ async fn initialized_witness_refreshes_before_publishing_pending_state() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -473,7 +473,7 @@ async fn pending_local_state_is_retryable_after_a_failed_publish() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -532,7 +532,7 @@ async fn stops_retrying_a_persistently_rate_limited_read() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -616,7 +616,7 @@ async fn resumes_refresh_from_the_last_authenticated_page() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -681,7 +681,7 @@ async fn wait_for_remote_head_reports_only_advanced_heads() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },
@@ -719,7 +719,7 @@ async fn wait_for_remote_head_ignores_stale_and_uninitialized_heads() {
         .mount(&server)
         .await;
     let client = E2eeWitnessClient::new(
-        crate::CloudsyncE2eeWitness {
+        E2eeWitnessConfig {
             endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
             access_token: "access-token".to_string(),
         },

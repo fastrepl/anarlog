@@ -830,6 +830,12 @@ export interface MobileDbBridgeLike {
   cloudsyncSyncNow() /*throws*/ : string;
   cloudsyncVersion() /*throws*/ : string;
   configureCloudsync(configJson: string) /*throws*/ : void;
+  configureE2eeReplica(
+    workspaceId: string,
+    witnessEndpoint: string,
+    witnessAccessToken: string,
+    recoveryKeyCode: string,
+  ) /*throws*/ : string;
   execute(sql: string, paramsJson: string) /*throws*/ : string;
   executeProxy(
     sql: string,
@@ -1100,6 +1106,50 @@ export class MobileDbBridge
         );
       },
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
+  configureE2eeReplica(
+    workspaceId: string,
+    witnessEndpoint: string,
+    witnessAccessToken: string,
+    recoveryKeyCode: string,
+  ): string /*throws*/ {
+    return ((__rb: Uint8Array) => {
+      try {
+        return FfiConverterString.lift(__rb);
+      } finally {
+        nativeModule().rustbuffer_free(__rb);
+      }
+    })(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              workspaceId,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(
+              witnessEndpoint,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(
+              witnessAccessToken,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(
+              recoveryKeyCode,
+              nativeModule().rustbuffer_alloc,
+            ),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+      ),
     );
   }
 
@@ -1473,6 +1523,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica() !==
+    45629
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica",
     );
   }
   if (

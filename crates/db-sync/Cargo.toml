@@ -1,0 +1,28 @@
+[package]
+name = "db-sync"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anlg-db-app = { workspace = true }
+anlg-db-core = { workspace = true }
+anlg-e2ee = { workspace = true }
+
+futures-util = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "sqlite-unbundled"] }
+tokio = { workspace = true, features = ["rt", "sync", "time"] }
+tracing = { workspace = true }
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["charset", "http2", "json", "query", "rustls-no-provider", "stream"] }
+rustls = { workspace = true, features = ["ring"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+reqwest = { workspace = true, features = ["json", "query", "stream"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+wiremock = { workspace = true }

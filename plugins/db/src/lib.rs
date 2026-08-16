@@ -258,6 +258,15 @@ pub struct CloudsyncE2eeWitness {
     pub access_token: String,
 }
 
+impl From<CloudsyncE2eeWitness> for anlg_db_sync::E2eeWitnessConfig {
+    fn from(value: CloudsyncE2eeWitness) -> Self {
+        Self {
+            endpoint: value.endpoint,
+            access_token: value.access_token,
+        }
+    }
+}
+
 impl From<CloudsyncWorkspaceProjection> for anlg_db_app::CloudsyncWorkspaceProjection {
     fn from(projection: CloudsyncWorkspaceProjection) -> Self {
         Self {

@@ -26,10 +26,14 @@ fn block_on<F: Future>(runtime: &tokio::runtime::Runtime, future: F) -> F::Outpu
 }
 
 struct BridgeState {
+    db: Arc<anlg_db_core::Db>,
     executor: anlg_db_execute::DbExecutor,
     live_query_runtime: Arc<anlg_db_reactive::LiveQueryRuntime<ListenerSink>>,
     runtime: Arc<tokio::runtime::Runtime>,
     subscription_ids: HashSet<String>,
+    e2ee_sync_hook: Arc<anlg_db_sync::E2eeSyncHook>,
+    replica_sync: anlg_db_sync::ReplicaSyncTask,
+    witness_watch: anlg_db_sync::WitnessWatchTask,
 }
 
 #[derive(uniffi::Object)]
@@ -58,18 +62,28 @@ impl MobileDbBridge {
                 }
             })?;
         let db = std::sync::Arc::new(db);
+        let e2ee_sync_hook = Arc::new(anlg_db_sync::E2eeSyncHook::default());
+        db.set_cloudsync_sync_hook(e2ee_sync_hook.clone());
         let executor = anlg_db_execute::DbExecutor::new(std::sync::Arc::clone(&db));
-        let live_query_runtime = {
+        let (live_query_runtime, replica_sync, witness_watch) = {
             let _guard = runtime.enter();
-            Arc::new(anlg_db_reactive::LiveQueryRuntime::new(db))
+            (
+                Arc::new(anlg_db_reactive::LiveQueryRuntime::new(Arc::clone(&db))),
+                anlg_db_sync::spawn_replica_sync(Arc::clone(&db), Arc::clone(&e2ee_sync_hook)),
+                anlg_db_sync::spawn_witness_watch(Arc::clone(&db), Arc::clone(&e2ee_sync_hook)),
+            )
         };
 
         Ok(Self {
             state: Mutex::new(Some(BridgeState {
+                db,
                 executor,
                 live_query_runtime,
                 runtime,
                 subscription_ids: HashSet::new(),
+                e2ee_sync_hook,
+                replica_sync,
+                witness_watch,
             })),
         })
     }
@@ -287,47 +301,162 @@ impl MobileDbBridge {
         .map_err(cloudsync_runtime_error)
     }
 
+    pub fn configure_e2ee_replica(
+        &self,
+        workspace_id: String,
+        witness_endpoint: String,
+        witness_access_token: String,
+        recovery_key_code: String,
+    ) -> Result<String, BridgeError> {
+        let recovery_key =
+            anlg_e2ee::RecoveryKey::parse(&recovery_key_code).map_err(cloudsync_error)?;
+        let (runtime, db, e2ee_sync_hook) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.db),
+                Arc::clone(&state.e2ee_sync_hook),
+            ))
+        })?;
+        let result = block_on(&runtime, async {
+            e2ee_sync_hook.clear();
+            if db.cloudsync_enabled() {
+                db.cloudsync_stop().await.map_err(cloudsync_runtime_error)?;
+            }
+            e2ee_sync_hook
+                .set_personal_workspace(&workspace_id, &recovery_key)
+                .map_err(cloudsync_error)?;
+            let claimed = anlg_db_app::cloudsync_workspace_is_claimed_by(db.pool(), &workspace_id)
+                .await
+                .map_err(cloudsync_error)?;
+            if !claimed {
+                match anlg_db_app::claim_cloudsync_workspace(db.pool(), &workspace_id).await {
+                    Ok(()) => {}
+                    Err(anlg_db_app::CloudsyncWorkspaceError::AccountMismatch) => {
+                        e2ee_sync_hook.clear();
+                        return Ok("account_mismatch".to_string());
+                    }
+                    Err(error) => return Err(cloudsync_error(error)),
+                }
+            }
+            let witness = anlg_db_sync::E2eeWitnessClient::new(
+                anlg_db_sync::E2eeWitnessConfig {
+                    endpoint: witness_endpoint,
+                    access_token: witness_access_token,
+                },
+                &workspace_id,
+            )
+            .map_err(cloudsync_error)?;
+            let key = e2ee_sync_hook
+                .workspace_key(&workspace_id)
+                .ok_or_else(|| cloudsync_error("E2EE replica identity is not configured"))?;
+            let cancellation = anlg_db_sync::E2eeWitnessCancellation::default();
+            e2ee_sync_hook
+                .prepare_local_snapshot(db.pool(), &cancellation)
+                .await
+                .map_err(cloudsync_error)?;
+            witness
+                .initialize_cancellable(db.pool(), &key, &cancellation)
+                .await
+                .map_err(cloudsync_error)?;
+            e2ee_sync_hook.set_replica_witness(witness);
+            Ok("configured".to_string())
+        });
+        if result.is_err() {
+            e2ee_sync_hook.clear();
+        }
+        result
+    }
+
     pub fn start_cloudsync(&self) -> Result<(), BridgeError> {
-        let (runtime, live_query_runtime) = self.with_state(|state| {
+        let (runtime, live_query_runtime, e2ee_sync_hook) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
+                Arc::clone(&state.e2ee_sync_hook),
             ))
         })?;
+        if e2ee_sync_hook.replica_transport_configured() {
+            e2ee_sync_hook.request_reconciliation();
+            e2ee_sync_hook.request_replica_sync();
+            return Ok(());
+        }
         block_on(&runtime, live_query_runtime.db().cloudsync_start())
             .map_err(cloudsync_runtime_error)
     }
 
     pub fn stop_cloudsync(&self) -> Result<(), BridgeError> {
-        let (runtime, live_query_runtime) = self.with_state(|state| {
+        let (runtime, live_query_runtime, e2ee_sync_hook) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
+                Arc::clone(&state.e2ee_sync_hook),
             ))
         })?;
+        if e2ee_sync_hook.replica_transport_configured() {
+            e2ee_sync_hook.clear();
+            return Ok(());
+        }
         block_on(&runtime, live_query_runtime.db().cloudsync_stop())
             .map_err(cloudsync_runtime_error)
     }
 
     pub fn cloudsync_status(&self) -> Result<String, BridgeError> {
-        let (runtime, live_query_runtime) = self.with_state(|state| {
+        let (runtime, live_query_runtime, e2ee_sync_hook) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
+                Arc::clone(&state.e2ee_sync_hook),
             ))
         })?;
+        if e2ee_sync_hook.replica_transport_configured() {
+            let keys = e2ee_sync_hook.snapshot();
+            let local_work_pending = block_on(
+                &runtime,
+                anlg_db_app::has_pending_e2ee_dirty_rows_deferring_active_captures(
+                    live_query_runtime.db().pool(),
+                    &keys,
+                ),
+            )
+            .map_err(cloudsync_error)?;
+            let replica = e2ee_sync_hook.replica_status();
+            return serde_json::to_string(&serde_json::json!({
+                "cloudsync_enabled": true,
+                "extension_loaded": live_query_runtime.db().cloudsync_enabled(),
+                "configured": true,
+                "running": true,
+                "network_initialized": true,
+                "activity_paused": e2ee_sync_hook.activity_paused(),
+                "deferred_for_capture": false,
+                "last_sync": null,
+                "last_sync_at_ms": replica.last_sync_at_ms,
+                "has_unsent_changes": local_work_pending || replica.syncing,
+                "last_error": replica.last_error,
+                "last_error_kind": (replica.consecutive_failures > 0).then_some("transient"),
+                "consecutive_failures": replica.consecutive_failures,
+                "recovery_pending": false,
+                "recovery_delayed": false,
+                "recovery_phase": null,
+                "activity_log": [],
+            }))
+            .map_err(serialization_error);
+        }
         let status = block_on(&runtime, live_query_runtime.db().cloudsync_status())
             .map_err(cloudsync_runtime_error)?;
         serde_json::to_string(&status).map_err(serialization_error)
     }
 
     pub fn cloudsync_sync_now(&self) -> Result<String, BridgeError> {
-        let (runtime, live_query_runtime) = self.with_state(|state| {
+        let (runtime, live_query_runtime, e2ee_sync_hook) = self.with_state(|state| {
             Ok((
                 Arc::clone(&state.runtime),
                 Arc::clone(&state.live_query_runtime),
+                Arc::clone(&state.e2ee_sync_hook),
             ))
         })?;
+        if e2ee_sync_hook.replica_transport_configured() {
+            e2ee_sync_hook.request_replica_sync();
+            return Ok("{}".to_string());
+        }
         let result = block_on(&runtime, live_query_runtime.db().cloudsync_trigger_sync())
             .map_err(cloudsync_runtime_error)?;
         serde_json::to_string(&result).map_err(serialization_error)
@@ -348,8 +477,12 @@ impl MobileDbBridge {
             }
             let _ = state.live_query_runtime.db().cloudsync_stop().await;
         });
+        state.e2ee_sync_hook.clear();
+        drop(state.witness_watch);
+        drop(state.replica_sync);
         drop(state.live_query_runtime);
         drop(state.executor);
+        drop(state.db);
         block_on(&state.runtime, pool.close());
 
         Ok(())
@@ -725,6 +858,46 @@ mod tests {
 
         assert_eq!(bridge.cloudsync_sync_now().unwrap(), "{}");
         bridge.stop_cloudsync().unwrap();
+    }
+
+    #[test]
+    fn configure_e2ee_replica_rejects_invalid_recovery_key() {
+        let (_dir, bridge) = new_bridge(None);
+
+        let error = bridge
+            .configure_e2ee_replica(
+                "user-a".to_string(),
+                "https://api.example.com/sync/e2ee/witness/user-a".to_string(),
+                "access-token".to_string(),
+                "invalid-recovery-key".to_string(),
+            )
+            .unwrap_err();
+
+        assert!(matches!(error, BridgeError::CloudsyncFailed { .. }));
+    }
+
+    #[test]
+    fn configure_e2ee_replica_refuses_another_bound_account() {
+        let (_dir, bridge) = new_bridge(None);
+        bridge
+            .execute(
+                "UPDATE app_settings SET value_json = ? WHERE id = 'cloudsync_workspace_binding'"
+                    .to_string(),
+                r#"["{\"workspace_id\":\"user-a\",\"account_user_id\":\"user-a\"}"]"#.to_string(),
+            )
+            .unwrap();
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
+
+        let result = bridge
+            .configure_e2ee_replica(
+                "user-b".to_string(),
+                "https://api.example.com/sync/e2ee/witness/user-b".to_string(),
+                "access-token".to_string(),
+                recovery_key.expose_code().to_string(),
+            )
+            .unwrap();
+
+        assert_eq!(result, "account_mismatch");
     }
 
     #[test]

@@ -115,6 +115,83 @@ async function subscribe<T = Row>(
   };
 }
 
+export type MobileSyncStatus = {
+  configured: boolean;
+  running: boolean;
+  has_unsent_changes: boolean;
+  last_sync_at_ms: number | null;
+  last_error: string | null;
+  consecutive_failures: number;
+};
+
+export async function configureE2eeReplica({
+  workspaceId,
+  witnessEndpoint,
+  witnessAccessToken,
+  recoveryKeyCode,
+}: {
+  workspaceId: string;
+  witnessEndpoint: string;
+  witnessAccessToken: string;
+  recoveryKeyCode: string;
+}): Promise<"configured" | "account_mismatch"> {
+  try {
+    const result = getBridge().configureE2eeReplica(
+      workspaceId,
+      witnessEndpoint,
+      witnessAccessToken,
+      recoveryKeyCode,
+    );
+    if (result !== "configured" && result !== "account_mismatch") {
+      throw new Error(`Unexpected replica configuration result: ${result}`);
+    }
+    return result;
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_replica_configure",
+    });
+    throw error;
+  }
+}
+
+export async function startSync(): Promise<void> {
+  try {
+    getBridge().startCloudsync();
+  } catch (error) {
+    captureOperationalError(error, { operation: "database_sync_start" });
+    throw error;
+  }
+}
+
+export async function stopSync(): Promise<void> {
+  try {
+    getBridge().stopCloudsync();
+  } catch (error) {
+    captureOperationalError(error, { operation: "database_sync_stop" });
+    throw error;
+  }
+}
+
+export async function syncNow(): Promise<void> {
+  try {
+    getBridge().cloudsyncSyncNow();
+  } catch (error) {
+    captureOperationalError(error, { operation: "database_sync_now" });
+    throw error;
+  }
+}
+
+export async function getSyncStatus(): Promise<MobileSyncStatus> {
+  try {
+    return JSON.parse(getBridge().cloudsyncStatus()) as MobileSyncStatus;
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "database_sync_status",
+    });
+    throw error;
+  }
+}
+
 export const mobileLiveQueryClient: LiveQueryClient = {
   execute,
   subscribe,

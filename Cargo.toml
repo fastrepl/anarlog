@@ -84,6 +84,7 @@ anlg-db-core = { path = "crates/db-core", package = "db-core" }
 anlg-db-execute = { path = "crates/db-execute", package = "db-execute" }
 anlg-db-migrate = { path = "crates/db-migrate", package = "db-migrate" }
 anlg-db-reactive = { path = "crates/db-reactive", package = "db-reactive" }
+anlg-db-sync = { path = "crates/db-sync", package = "db-sync" }
 anlg-denoise = { path = "crates/denoise", package = "denoise" }
 anlg-detect = { path = "crates/detect", package = "detect" }
 anlg-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }

@@ -237,6 +237,14 @@ interface NativeModuleInterface {
     configJson: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(
+    uniffiSelf: bigint,
+    workspaceId: Uint8Array,
+    witnessEndpoint: Uint8Array,
+    witnessAccessToken: Uint8Array,
+    recoveryKeyCode: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(
     uniffiSelf: bigint,
     sql: Uint8Array,
@@ -297,6 +305,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_sync_now(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_version(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(): number;
+  ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(): number;
   ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(): number;

@@ -13,6 +13,8 @@ anlg-db-core = { workspace = true }
 anlg-db-execute = { workspace = true }
 anlg-db-migrate = { workspace = true }
 anlg-db-reactive = { workspace = true }
+anlg-db-sync = { workspace = true }
+anlg-e2ee = { workspace = true }
 
 serde_json = { workspace = true }
 thiserror = { workspace = true }

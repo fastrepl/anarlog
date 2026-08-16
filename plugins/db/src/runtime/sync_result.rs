@@ -12,6 +12,7 @@ pub(super) fn cloudsync_send_made_progress(result: &anlg_db_core::CloudsyncNetwo
         .is_some_and(|send| send.chunks > 0 && send.last_failure.is_none())
 }
 
+#[cfg(test)]
 pub(super) fn cloudsync_receive_completed(result: &anlg_db_core::CloudsyncNetworkResult) -> bool {
     result.receive.as_ref().is_some_and(|receive| {
         receive.complete && receive.error.is_none() && receive.last_failure.is_none()
@@ -24,12 +25,14 @@ pub(super) fn cloudsync_receive_delivered(result: &anlg_db_core::CloudsyncNetwor
     })
 }
 
+#[cfg(test)]
 fn cloudsync_receive_incomplete(result: &anlg_db_core::CloudsyncNetworkResult) -> bool {
     result.receive.as_ref().is_some_and(|receive| {
         !receive.complete && receive.error.is_none() && receive.last_failure.is_none()
     })
 }
 
+#[cfg(test)]
 pub(super) fn cloudsync_receive_requires_reconciliation(
     result: &anlg_db_core::CloudsyncNetworkResult,
 ) -> bool {
