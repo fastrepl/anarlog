@@ -325,13 +325,25 @@ impl MobileDbBridge {
             e2ee_sync_hook
                 .set_personal_workspace(&workspace_id, &recovery_key)
                 .map_err(cloudsync_error)?;
-            let claimed = anlg_db_app::cloudsync_workspace_is_claimed_by(db.pool(), &workspace_id)
-                .await
-                .map_err(cloudsync_error)?;
+            let claimed = match anlg_db_app::cloudsync_workspace_is_claimed_by(
+                db.pool(),
+                &workspace_id,
+            )
+            .await
+            {
+                Ok(claimed) => claimed,
+                Err(error) if anlg_db_sync::is_permanent_cloudsync_workspace_rejection(&error) => {
+                    e2ee_sync_hook.clear();
+                    return Ok("account_mismatch".to_string());
+                }
+                Err(error) => return Err(cloudsync_error(error)),
+            };
             if !claimed {
                 match anlg_db_app::claim_cloudsync_workspace(db.pool(), &workspace_id).await {
                     Ok(()) => {}
-                    Err(anlg_db_app::CloudsyncWorkspaceError::AccountMismatch) => {
+                    Err(error)
+                        if anlg_db_sync::is_permanent_cloudsync_workspace_rejection(&error) =>
+                    {
                         e2ee_sync_hook.clear();
                         return Ok("account_mismatch".to_string());
                     }
@@ -892,6 +904,30 @@ mod tests {
             .configure_e2ee_replica(
                 "user-b".to_string(),
                 "https://api.example.com/sync/e2ee/witness/user-b".to_string(),
+                "access-token".to_string(),
+                recovery_key.expose_code().to_string(),
+            )
+            .unwrap();
+
+        assert_eq!(result, "account_mismatch");
+    }
+
+    #[test]
+    fn configure_e2ee_replica_reports_an_invalid_binding_as_account_mismatch() {
+        let (_dir, bridge) = new_bridge(None);
+        bridge
+            .execute(
+                "UPDATE app_settings SET value_json = ? WHERE id = 'cloudsync_workspace_binding'"
+                    .to_string(),
+                r#"["not-json"]"#.to_string(),
+            )
+            .unwrap();
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
+
+        let result = bridge
+            .configure_e2ee_replica(
+                "user-a".to_string(),
+                "https://api.example.com/sync/e2ee/witness/user-a".to_string(),
                 "access-token".to_string(),
                 recovery_key.expose_code().to_string(),
             )

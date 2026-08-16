@@ -990,11 +990,5 @@ pub(super) fn cloudsync_recovery_snapshot_ready(
 pub(super) fn is_permanent_cloudsync_workspace_rejection(
     error: &anlg_db_app::CloudsyncWorkspaceError,
 ) -> bool {
-    matches!(
-        error,
-        anlg_db_app::CloudsyncWorkspaceError::InvalidWorkspaceId
-            | anlg_db_app::CloudsyncWorkspaceError::InvalidBinding
-            | anlg_db_app::CloudsyncWorkspaceError::AccountMismatch
-            | anlg_db_app::CloudsyncWorkspaceError::ForeignWorkspace { .. }
-    )
+    anlg_db_sync::is_permanent_cloudsync_workspace_rejection(error)
 }
