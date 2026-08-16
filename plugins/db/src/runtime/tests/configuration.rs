@@ -49,6 +49,59 @@ async fn configures_replica_transport_without_the_cloudsync_extension() {
     );
 }
 
+#[tokio::test]
+async fn refreshed_workspace_keys_forget_revoked_memberships() {
+    let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+    let runtime = PluginDbRuntime::new(db);
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let revoked_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+    let retained_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+
+    runtime
+        .set_e2ee_workspace_keys(E2eeWorkspaceKeyConfiguration::new(
+            "user-a".to_string(),
+            recovery_key.clone(),
+            std::collections::HashMap::from([
+                (
+                    "workspace-revoked".to_string(),
+                    anlg_e2ee::WorkspaceKeyring::new(revoked_key),
+                ),
+                (
+                    "workspace-retained".to_string(),
+                    anlg_e2ee::WorkspaceKeyring::new(retained_key),
+                ),
+            ]),
+        ))
+        .unwrap();
+    assert!(runtime.workspace_key("workspace-revoked").is_some());
+
+    let rotated_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+    let rotated_key_id = rotated_key.key_id().to_string();
+    runtime
+        .set_e2ee_workspace_keys(E2eeWorkspaceKeyConfiguration::new(
+            "user-a".to_string(),
+            recovery_key,
+            std::collections::HashMap::from([(
+                "workspace-retained".to_string(),
+                anlg_e2ee::WorkspaceKeyring::new(rotated_key),
+            )]),
+        ))
+        .unwrap();
+
+    assert!(runtime.workspace_key("user-a").is_some());
+    assert!(runtime.workspace_key("workspace-revoked").is_none());
+    assert_eq!(
+        runtime
+            .workspace_key("workspace-retained")
+            .unwrap()
+            .key_id(),
+        rotated_key_id
+    );
+}
+
 fn test_full_resync_config(token: &str) -> anlg_db_core::CloudsyncRuntimeConfig {
     anlg_db_core::CloudsyncRuntimeConfig {
         connection_string: "test-database".to_string(),

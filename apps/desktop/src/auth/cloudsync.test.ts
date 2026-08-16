@@ -543,6 +543,43 @@ describe("CloudSync auth lifecycle", () => {
     );
   });
 
+  test("removes a revoked shared workspace on credential refresh", async () => {
+    const revokedCredentials = projectedCredentialsResponse((payload) => {
+      payload.workspaces.splice(1);
+      payload.workspaceKeyGrants = [];
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<() => Promise<Response>>()
+        .mockResolvedValueOnce(projectedCredentialsResponse())
+        .mockResolvedValueOnce(revokedCredentials),
+    );
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+    await handleCloudsyncAuthChange("TOKEN_REFRESHED", session());
+
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(2);
+    expect(configureCloudsyncToken).toHaveBeenLastCalledWith(
+      "database-id",
+      "sqlite-token",
+      "user-id",
+      witness(),
+      {
+        accountUserId: "user-id",
+        personalWorkspaceId: "user-id",
+        workspaces: [
+          expect.objectContaining({
+            id: "user-id",
+            membershipId: "membership-personal",
+            role: "owner",
+          }),
+        ],
+      },
+      [],
+    );
+  });
+
   test("rejects shared workspace credentials without an active key grant", async () => {
     vi.stubGlobal(
       "fetch",

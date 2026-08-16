@@ -63,6 +63,88 @@ async fn rotated_keyring_applies_new_writes_over_an_old_snapshot() {
 }
 
 #[tokio::test]
+async fn shared_replicas_collaborate_then_fail_closed_after_member_revocation() {
+    let old_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+    let shared_keys = HashMap::from([(
+        "workspace-a".to_string(),
+        anlg_e2ee::WorkspaceKeyring::new(old_key.clone()),
+    )]);
+    let owner = test_db().await;
+    let member = test_db().await;
+
+    sqlx::query(
+        "INSERT INTO sessions (id, workspace_id, owner_user_id, title)
+         VALUES ('session-1', 'workspace-a', 'user-owner', 'Owner draft')",
+    )
+    .execute(owner.pool())
+    .await
+    .unwrap();
+    encrypt_e2ee_replica_changes(owner.pool(), &shared_keys)
+        .await
+        .unwrap();
+    copy_replica(owner.pool(), member.pool()).await;
+    apply_e2ee_replica_changes(member.pool(), &shared_keys)
+        .await
+        .unwrap();
+
+    sqlx::query("UPDATE sessions SET title = 'Member edit' WHERE id = 'session-1'")
+        .execute(member.pool())
+        .await
+        .unwrap();
+    encrypt_e2ee_replica_changes(member.pool(), &shared_keys)
+        .await
+        .unwrap();
+    copy_replica(member.pool(), owner.pool()).await;
+    apply_e2ee_replica_changes(owner.pool(), &shared_keys)
+        .await
+        .unwrap();
+
+    let owner_title: String =
+        sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(owner.pool())
+            .await
+            .unwrap();
+    assert_eq!(owner_title, "Member edit");
+
+    let new_key = anlg_e2ee::WorkspaceKey::generate().unwrap();
+    let mut rotated_keyring = anlg_e2ee::WorkspaceKeyring::new(new_key);
+    rotated_keyring.insert_retired(old_key);
+    let rotated_keys = HashMap::from([("workspace-a".to_string(), rotated_keyring)]);
+
+    sqlx::query("UPDATE sessions SET title = 'After revocation' WHERE id = 'session-1'")
+        .execute(owner.pool())
+        .await
+        .unwrap();
+    encrypt_e2ee_replica_changes(owner.pool(), &rotated_keys)
+        .await
+        .unwrap();
+    copy_replica(owner.pool(), member.pool()).await;
+
+    assert!(matches!(
+        apply_e2ee_replica_changes(member.pool(), &shared_keys).await,
+        Err(E2eeReplicaError::Crypto(anlg_e2ee::Error::UnknownKey))
+    ));
+    let member_title: String =
+        sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(member.pool())
+            .await
+            .unwrap();
+    assert_eq!(member_title, "Member edit");
+
+    let restarted_owner = test_db().await;
+    copy_replica(owner.pool(), restarted_owner.pool()).await;
+    apply_e2ee_replica_changes(restarted_owner.pool(), &rotated_keys)
+        .await
+        .unwrap();
+    let restarted_title: String =
+        sqlx::query_scalar("SELECT title FROM sessions WHERE id = 'session-1'")
+            .fetch_one(restarted_owner.pool())
+            .await
+            .unwrap();
+    assert_eq!(restarted_title, "After revocation");
+}
+
+#[tokio::test]
 async fn rotated_keyring_authenticates_witness_history_from_a_retired_generation() {
     let db = test_db().await;
     let recovery =
