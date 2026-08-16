@@ -137,7 +137,7 @@ function BodyEditor({
       {Platform.OS === "ios" && editable && (
         <InputAccessoryView
           nativeID={accessoryId}
-          backgroundColor={Colors.mutedSurface}
+          backgroundColor={Colors.background}
         >
           <EditorAccessory
             onFormat={handleFormat}
