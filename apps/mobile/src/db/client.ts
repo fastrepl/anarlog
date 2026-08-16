@@ -118,7 +118,7 @@ async function subscribe<T = Row>(
 export type MobileSyncStatus = {
   configured: boolean;
   running: boolean;
-  has_unsent_changes: boolean;
+  has_unsent_changes: boolean | null;
   last_sync_at_ms: number | null;
   last_error: string | null;
   consecutive_failures: number;
