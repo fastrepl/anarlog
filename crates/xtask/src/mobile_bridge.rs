@@ -1,5 +1,8 @@
 use anyhow::{Result, bail};
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 use xshell::{Shell, cmd};
 
 pub(crate) fn mobile_bridge_ios() -> Result<()> {
@@ -10,6 +13,7 @@ pub(crate) fn mobile_bridge_ios() -> Result<()> {
         "{ubrn} build ios --config ubrn.config.yaml --and-generate"
     )
     .run()?;
+    repair_generated_android_cmake()?;
     Ok(())
 }
 
@@ -21,6 +25,7 @@ pub(crate) fn mobile_bridge_android() -> Result<()> {
         "{ubrn} build android --config ubrn.config.yaml --and-generate"
     )
     .run()?;
+    repair_generated_android_cmake()?;
     Ok(())
 }
 
@@ -47,6 +52,31 @@ pub(crate) fn mobile_bridge_rn() -> Result<()> {
         "{ubrn} generate jsi turbo-module --config ubrn.config.yaml mobile_bridge"
     )
     .run()?;
+    repair_generated_android_cmake()?;
+    Ok(())
+}
+
+fn repair_generated_android_cmake() -> Result<()> {
+    let cmake_path = crate::repo_root().join("packages/mobile-bridge-rn/android/CMakeLists.txt");
+    let contents = fs::read_to_string(&cmake_path)?;
+    let generated = r#"execute_process(
+    COMMAND node -p "require.resolve('uniffi-bindgen-react-native/package.json')"
+    OUTPUT_VARIABLE UNIFFI_BINDGEN_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# Get the directory; get_filename_component and cmake_path will normalize
+# paths with Windows path separators.
+get_filename_component(UNIFFI_BINDGEN_PATH "${UNIFFI_BINDGEN_PATH}" DIRECTORY)"#;
+    let compatible = r#"execute_process(
+    COMMAND node -p "require('path').resolve(require.resolve('uniffi-bindgen-react-native'), '../../../..')"
+    OUTPUT_VARIABLE UNIFFI_BINDGEN_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)"#;
+
+    if contents.contains(generated) {
+        fs::write(cmake_path, contents.replace(generated, compatible))?;
+    }
+
     Ok(())
 }
 

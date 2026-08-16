@@ -16,6 +16,10 @@ android:
 ios:
   directory: ios
   frameworkName: build/MobileBridge
+  targets:
+    - aarch64-apple-ios
+    - aarch64-apple-ios-sim
+    - x86_64-apple-ios
 
 turboModule:
   cpp: cpp
