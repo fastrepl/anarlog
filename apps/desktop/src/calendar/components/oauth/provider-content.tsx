@@ -18,10 +18,7 @@ import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import type { CalendarProvider } from "~/calendar/components/shared";
-import {
-  openIntegrationUrl,
-  useOpenIntegrationUrl,
-} from "~/shared/integration";
+import { useOpenIntegrationUrl } from "~/shared/integration";
 
 export function OAuthProviderContent({
   config,
@@ -216,6 +213,7 @@ function ConnectedContent({
   connections: ConnectionItem[];
   returnTo: string;
 }) {
+  const { openIntegration } = useOpenIntegrationUrl();
   const {
     groups,
     connectionSourceMap,
@@ -242,23 +240,23 @@ function ConnectedContent({
               id: `reconnect-${connection.connection_id}`,
               text: "Reconnect",
               action: () =>
-                void openIntegrationUrl(
-                  config.nangoIntegrationId,
-                  connection.connection_id,
-                  "reconnect",
+                void openIntegration({
+                  nangoIntegrationId: config.nangoIntegrationId,
+                  connectionId: connection.connection_id,
+                  action: "reconnect",
                   returnTo,
-                ),
+                }),
             },
             {
               id: `disconnect-${connection.connection_id}`,
               text: "Disconnect",
               action: () =>
-                void openIntegrationUrl(
-                  config.nangoIntegrationId,
-                  connection.connection_id,
-                  "disconnect",
+                void openIntegration({
+                  nangoIntegrationId: config.nangoIntegrationId,
+                  connectionId: connection.connection_id,
+                  action: "disconnect",
                   returnTo,
-                ),
+                }),
             },
           ],
         };
@@ -268,6 +266,7 @@ function ConnectedContent({
       connectionSourceMap,
       connections,
       groups,
+      openIntegration,
       returnTo,
     ],
   );

@@ -5,7 +5,6 @@ import { motion } from "motion/react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
-import { commands as openerCommands } from "@anlg/plugin-opener2";
 
 import { OnboardingButton } from "./shared";
 
@@ -25,7 +24,7 @@ import { PROVIDERS } from "~/calendar/components/shared";
 import { useEnabledCalendars } from "~/calendar/hooks";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { usePermission } from "~/shared/hooks/usePermissions";
-import { buildWebAppUrl } from "~/shared/utils";
+import { openIntegrationUrl } from "~/shared/integration";
 
 const GOOGLE_PROVIDER = PROVIDERS.find((provider) => provider.id === "google");
 const OUTLOOK_PROVIDER = PROVIDERS.find(
@@ -36,20 +35,16 @@ async function openOnboardingIntegrationUrl(
   nangoIntegrationId: string | undefined,
   connectionId: string | undefined,
   action: "connect" | "reconnect" | "disconnect",
+  headers: Record<string, string> | null,
 ) {
-  if (!nangoIntegrationId) return;
-
-  const params: Record<string, string> = {
+  await openIntegrationUrl(
+    nangoIntegrationId,
+    connectionId,
     action,
-    integration_id: nangoIntegrationId,
-  };
-
-  if (connectionId) {
-    params.connection_id = connectionId;
-  }
-
-  const url = await buildWebAppUrl("/app/integration", params);
-  await openerCommands.openUrl(url, null);
+    undefined,
+    headers,
+    false,
+  );
 }
 
 function getCalendarSelectionKey(groups: CalendarGroup[]) {
@@ -135,6 +130,7 @@ function GoogleCalendarConnectedContent({
 }: {
   providerConnections: ConnectionItem[];
 }) {
+  const auth = useAuth();
   const { scheduleSync } = useSync();
   const {
     groups,
@@ -157,8 +153,9 @@ function GoogleCalendarConnectedContent({
         connections: providerConnections,
         connectionSourceMap,
         provider: GOOGLE_PROVIDER!,
+        getHeaders: auth.getHeaders,
       }),
-    [connectionSourceMap, groups, providerConnections],
+    [auth.getHeaders, connectionSourceMap, groups, providerConnections],
   );
 
   useMountEffect(() => {
@@ -197,11 +194,13 @@ function addIntegrationMenus({
   connections,
   connectionSourceMap,
   provider,
+  getHeaders,
 }: {
   groups: CalendarGroup[];
   connections: ConnectionItem[];
   connectionSourceMap: Map<string, string>;
   provider: (typeof PROVIDERS)[number];
+  getHeaders: () => Record<string, string> | null;
 }) {
   return groups.map((group) => {
     const connection = connections.find(
@@ -223,6 +222,7 @@ function addIntegrationMenus({
               provider.nangoIntegrationId,
               connection.connection_id,
               "reconnect",
+              getHeaders(),
             ),
         },
         {
@@ -233,6 +233,7 @@ function addIntegrationMenus({
               provider.nangoIntegrationId,
               connection.connection_id,
               "disconnect",
+              getHeaders(),
             ),
         },
       ],
@@ -245,6 +246,7 @@ function OutlookCalendarConnectedContent({
 }: {
   providerConnections: ConnectionItem[];
 }) {
+  const auth = useAuth();
   const { scheduleSync } = useSync();
   const {
     groups,
@@ -267,8 +269,9 @@ function OutlookCalendarConnectedContent({
         connections: providerConnections,
         connectionSourceMap,
         provider: OUTLOOK_PROVIDER!,
+        getHeaders: auth.getHeaders,
       }),
-    [connectionSourceMap, groups, providerConnections],
+    [auth.getHeaders, connectionSourceMap, groups, providerConnections],
   );
 
   useMountEffect(() => {
@@ -421,11 +424,12 @@ function OutlookCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       OUTLOOK_PROVIDER?.nangoIntegrationId,
       undefined,
       "connect",
+      auth.getHeaders(),
     ).finally(() => {
       openInFlightRef.current = false;
       setIsOpening(false);
     });
-  }, [auth.session, isPro, onSignIn, upgradeToPro]);
+  }, [auth.getHeaders, auth.session, isPro, onSignIn, upgradeToPro]);
 
   if (!OUTLOOK_PROVIDER) {
     return null;
@@ -506,11 +510,12 @@ function GoogleCalendarProvider({ onSignIn }: { onSignIn: () => void }) {
       GOOGLE_PROVIDER?.nangoIntegrationId,
       undefined,
       "connect",
+      auth.getHeaders(),
     ).finally(() => {
       openInFlightRef.current = false;
       setIsOpening(false);
     });
-  }, [auth.session, isPro, onSignIn, upgradeToPro]);
+  }, [auth.getHeaders, auth.session, isPro, onSignIn, upgradeToPro]);
 
   if (!GOOGLE_PROVIDER) {
     return null;

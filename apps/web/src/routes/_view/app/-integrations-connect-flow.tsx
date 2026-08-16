@@ -30,7 +30,7 @@ function getConnectionErrorMessage(
   return `${providerName} rejected the connection. Please try again or contact support if it keeps happening.`;
 }
 
-export function ConnectFlow() {
+export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const { track } = useAnalytics();
@@ -69,34 +69,54 @@ export function ConnectFlow() {
       flow: search.flow,
     });
 
-    let sessionToken: string;
+    let connectSessionToken = sessionToken;
 
-    try {
-      const token = await getAccessToken();
-      const apiClient = createClient({
-        baseUrl: env.VITE_API_URL,
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    if (!connectSessionToken) {
+      try {
+        const token = await getAccessToken();
+        const apiClient = createClient({
+          baseUrl: env.VITE_API_URL,
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      const { data, error } = await createSession({
-        client: apiClient,
-        body: {
-          integration_id: search.integration_id,
-          mode: search.action as "connect" | "reconnect",
-          connection_id: search.connection_id,
-        },
-      });
-      if (error || !data) {
-        captureOperationalError(
-          error ?? new Error("Integration session was not created"),
-          {
-            operation: "integration_connection_session",
-            tags: {
-              integration: search.integration_id,
-              mode: search.action,
-            },
+        const { data, error } = await createSession({
+          client: apiClient,
+          body: {
+            integration_id: search.integration_id,
+            mode: search.action as "connect" | "reconnect",
+            connection_id: search.connection_id,
           },
-        );
+        });
+        if (error || !data) {
+          captureOperationalError(
+            error ?? new Error("Integration session was not created"),
+            {
+              operation: "integration_connection_session",
+              tags: {
+                integration: search.integration_id,
+                mode: search.action,
+              },
+            },
+          );
+          inFlightRef.current = false;
+          updateStatus("error");
+          track("integration_connection_failed", {
+            integration: search.integration_id,
+            mode: search.action,
+            flow: search.flow,
+            failure_stage: "session",
+          });
+          return;
+        }
+        connectSessionToken = data.token;
+      } catch (error) {
+        captureOperationalError(error, {
+          operation: "integration_connection_session",
+          tags: {
+            integration: search.integration_id,
+            mode: search.action,
+          },
+        });
         inFlightRef.current = false;
         updateStatus("error");
         track("integration_connection_failed", {
@@ -107,24 +127,6 @@ export function ConnectFlow() {
         });
         return;
       }
-      sessionToken = data.token;
-    } catch (error) {
-      captureOperationalError(error, {
-        operation: "integration_connection_session",
-        tags: {
-          integration: search.integration_id,
-          mode: search.action,
-        },
-      });
-      inFlightRef.current = false;
-      updateStatus("error");
-      track("integration_connection_failed", {
-        integration: search.integration_id,
-        mode: search.action,
-        flow: search.flow,
-        failure_stage: "session",
-      });
-      return;
     }
 
     if (disposedRef.current) return;
@@ -206,7 +208,7 @@ export function ConnectFlow() {
     });
 
     connectUIRef.current = connect;
-    connect.setSessionToken(sessionToken);
+    connect.setSessionToken(connectSessionToken);
   };
 
   // Nango's Connect UI repeats the connect prompt, so only calendars (which

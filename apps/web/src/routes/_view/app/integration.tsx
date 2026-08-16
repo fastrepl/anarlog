@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { z } from "zod";
 
 import {
@@ -7,7 +8,9 @@ import {
   flowSearchSchema,
 } from "@/functions/desktop-flow";
 import { useBilling } from "@/hooks/use-billing";
+import { useMountEffect } from "@/hooks/useMountEffect";
 import { getIntegrationBillingGate } from "@/lib/integration-billing-gate";
+import { getNangoSessionToken } from "@/lib/integration-handoff";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { ConnectFlow } from "./-integrations-connect-flow";
@@ -19,6 +22,7 @@ const commonSearch = {
   connection_id: z.string().optional(),
   action: z.enum(["connect", "reconnect", "disconnect"]).default("connect"),
   return_to: z.string().optional(),
+  handoff: z.literal("nango").optional(),
 };
 
 const validateSearch = flowSearchSchema(commonSearch);
@@ -82,6 +86,60 @@ export const Route = createFileRoute("/_view/app/integration")({
 
 function Component() {
   const search = Route.useSearch();
+  const isDesktopHandoff =
+    search.flow === "desktop" &&
+    search.handoff === "nango" &&
+    (search.action === "connect" || search.action === "reconnect");
+
+  if (isDesktopHandoff) {
+    return <DesktopHandoffConnect />;
+  }
+
+  return <BrowserAuthorizedIntegration />;
+}
+
+function DesktopHandoffConnect() {
+  const [desktopSessionToken, setDesktopSessionToken] = useState<
+    string | null | undefined
+  >(undefined);
+
+  useMountEffect(() => {
+    const sessionToken = getNangoSessionToken(window.location.hash);
+    // Do not leave the scoped credential in history while the provider flow is open.
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${window.location.search}`,
+    );
+    setDesktopSessionToken(sessionToken);
+  });
+
+  if (desktopSessionToken === undefined) {
+    return (
+      <IntegrationPageLayout>
+        <p className="text-neutral-500">Loading...</p>
+      </IntegrationPageLayout>
+    );
+  }
+
+  if (!desktopSessionToken) {
+    return (
+      <IntegrationPageLayout>
+        <div className="flex flex-col gap-4">
+          <p className="text-neutral-600">
+            This connection link is invalid or expired. Return to Anarlog and
+            try again.
+          </p>
+        </div>
+      </IntegrationPageLayout>
+    );
+  }
+
+  return <ConnectFlow sessionToken={desktopSessionToken} />;
+}
+
+function BrowserAuthorizedIntegration() {
+  const search = Route.useSearch();
   const billing = useBilling();
   const billingVerification = useQuery({
     queryKey: [
@@ -98,6 +156,7 @@ function Component() {
     staleTime: Infinity,
     retry: 1,
   });
+
   const gate = getIntegrationBillingGate({
     action: search.action,
     isBillingReady: billing.isReady,

@@ -26,10 +26,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { usePermission } from "~/shared/hooks/usePermissions";
-import {
-  openIntegrationUrl,
-  useOpenIntegrationUrl,
-} from "~/shared/integration";
+import { useOpenIntegrationUrl } from "~/shared/integration";
 
 function getProviderBadgeClassName(badge: string) {
   if (badge === "Beta") {
@@ -254,12 +251,11 @@ function ProviderAccordionItem({
               id: `add-${provider.id}-account`,
               text: t`Add ${provider.displayName} account`,
               action: () =>
-                void openIntegrationUrl(
-                  provider.nangoIntegrationId,
-                  undefined,
-                  "connect",
+                void openIntegration({
+                  nangoIntegrationId: provider.nangoIntegrationId,
+                  action: "connect",
                   returnTo,
-                ),
+                }),
             },
           ]
         : [],
@@ -268,6 +264,7 @@ function ProviderAccordionItem({
       provider.displayName,
       provider.id,
       provider.nangoIntegrationId,
+      openIntegration,
       returnTo,
       t,
     ],
