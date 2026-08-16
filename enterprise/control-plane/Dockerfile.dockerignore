@@ -17,6 +17,9 @@ crates/**
 !crates/*/
 crates/*/**
 !crates/*/Cargo.toml
+!crates/*/src/
+crates/*/src/**
+!crates/*/src/lib.rs
 !crates/meeting-capture/src/
 !crates/meeting-capture/src/**
 !crates/session-ingest/src/

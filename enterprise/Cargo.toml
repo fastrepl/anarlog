@@ -8,6 +8,9 @@ edition = "2024"
 license-file = "LICENSE"
 
 [workspace.dependencies]
+anlg-agent-access = { path = "../crates/agent-access", package = "agent-access" }
+anlg-db-app = { path = "../crates/db-app", package = "db-app" }
+anlg-db-core = { path = "../crates/db-core", package = "db-core" }
 anlg-meeting-capture = { path = "../crates/meeting-capture", package = "meeting-capture" }
 anlg-session-ingest = { path = "../crates/session-ingest", package = "session-ingest", default-features = false }
 
