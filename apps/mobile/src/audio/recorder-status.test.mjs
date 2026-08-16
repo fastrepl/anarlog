@@ -1,7 +1,54 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { recorderStatusFailure } from "./recorder-status.ts";
+import {
+  recorderRecoveryAction,
+  recorderStatusFailure,
+  shouldHandleRecorderFailure,
+} from "./recorder-status.ts";
+
+test("persists recoverable audio before handling stop or retry", () => {
+  for (const phase of ["interrupted", "save_error", "error"]) {
+    assert.equal(recorderRecoveryAction(phase, true, "stop"), "persist");
+    assert.equal(recorderRecoveryAction(phase, true, "retry"), "persist");
+  }
+});
+
+test("retries a native stop when a save error has no recoverable URI", () => {
+  assert.equal(recorderRecoveryAction("save_error", false, "retry"), "stop");
+});
+
+test("restarts capture for recoverable recorder failures without audio", () => {
+  assert.equal(
+    recorderRecoveryAction("interrupted", false, "retry"),
+    "restart",
+  );
+  assert.equal(recorderRecoveryAction("error", false, "retry"), "restart");
+  assert.equal(
+    recorderRecoveryAction("unavailable", false, "retry"),
+    "restart",
+  );
+});
+
+test("leaves settled recorder phases alone", () => {
+  assert.equal(recorderRecoveryAction("idle", false, "stop"), "noop");
+  assert.equal(recorderRecoveryAction("saved", false, "retry"), "noop");
+});
+
+test("ignores delayed recorder failures after capture has settled", () => {
+  for (const phase of ["idle", "saving", "saved", "unavailable"]) {
+    assert.equal(shouldHandleRecorderFailure(phase), false);
+  }
+  for (const phase of [
+    "starting",
+    "recording",
+    "interrupted",
+    "save_error",
+    "error",
+  ]) {
+    assert.equal(shouldHandleRecorderFailure(phase), true);
+  }
+});
 
 test("classifies a media-service reset as a recoverable interruption", () => {
   assert.deepEqual(

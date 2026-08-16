@@ -107,10 +107,7 @@ export default function NoteScreen() {
   };
 
   const handleBack = async () => {
-    // Never lose a live recording to navigation — stop and save first.
-    if (recorder.phase === "recording" || recorder.phase === "starting") {
-      await recorder.stop();
-    }
+    await recorder.stop();
     flush();
     if (router.canGoBack()) router.back();
     else router.replace("/");
@@ -142,11 +139,7 @@ export default function NoteScreen() {
       "Delete",
     );
     if (!confirmed) return;
-    // Same window as handleBack: unmounting during startup would let the hook's
-    // own teardown save audio against an already-tombstoned session.
-    if (recorder.phase === "recording" || recorder.phase === "starting") {
-      await recorder.stop();
-    }
+    await recorder.stop();
     draftRef.current = {};
     try {
       await deleteSession(id);

@@ -11,7 +11,12 @@ import { Directory, File, Paths } from "expo-file-system";
 import { useCallback, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import { recorderStatusFailure } from "@/audio/recorder-status";
+import {
+  recorderRecoveryAction,
+  recorderStatusFailure,
+  shouldHandleRecorderFailure,
+  type RecorderPhase,
+} from "@/audio/recorder-status";
 import { WAVEFORM_BAR_COUNT } from "@/components/waveform";
 import { catalogSessionAudio } from "@/data/audio-catalog";
 import { transcribeSession } from "@/data/transcribe";
@@ -29,16 +34,7 @@ const CONTENT_TYPES: Record<string, string> = {
   caf: "audio/x-caf",
 };
 
-export type RecorderPhase =
-  | "idle"
-  | "starting"
-  | "recording"
-  | "saving"
-  | "saved"
-  | "unavailable"
-  | "interrupted"
-  | "save_error"
-  | "error";
+export type { RecorderPhase } from "@/audio/recorder-status";
 
 export type RecorderFailure =
   | "permission_denied"
@@ -71,6 +67,7 @@ export function useSessionRecorder(
   );
   const startGenerationRef = useRef(0);
   const startRef = useRef<Promise<void> | null>(null);
+  const stopOperationRef = useRef<Promise<StopResult> | null>(null);
   const completionTrackedRef = useRef(false);
   const reportedFailureRef = useRef<string | null>(null);
 
@@ -101,7 +98,9 @@ export function useSessionRecorder(
   const handleRecorderStatus = useCallback(
     (status: RecordingStatus) => {
       const statusFailure = recorderStatusFailure(status);
-      if (!statusFailure) return;
+      if (!statusFailure || !shouldHandleRecorderFailure(phaseRef.current)) {
+        return;
+      }
 
       if (status.url) pendingUriRef.current = status.url;
       completionReasonRef.current = "interrupted";
@@ -260,38 +259,85 @@ export function useSessionRecorder(
     return () => subscription.remove();
   });
 
-  const stop = async (): Promise<StopResult> => {
-    if (phaseRef.current !== "recording" && phaseRef.current !== "starting") {
-      return "noop";
+  const performStop = async (): Promise<StopResult> => {
+    let action = recorderRecoveryAction(
+      phaseRef.current,
+      pendingUriRef.current !== null,
+      "stop",
+    );
+    const pendingUri = pendingUriRef.current;
+    if (action === "persist" && pendingUri) {
+      return persistRecording(pendingUri, pendingDurationRef.current);
     }
+    if (action !== "stop") return "noop";
+
     await startRef.current?.catch(() => {});
-    if (phaseRef.current !== "recording") return "noop";
+    action = recorderRecoveryAction(
+      phaseRef.current,
+      pendingUriRef.current !== null,
+      "stop",
+    );
+    const startedPendingUri = pendingUriRef.current;
+    if (action === "persist" && startedPendingUri) {
+      return persistRecording(startedPendingUri, pendingDurationRef.current);
+    }
+    if (phaseRef.current === "starting") return "noop";
+    if (action !== "stop") return "noop";
 
     setPhase("saving");
-    pendingDurationRef.current = recorderState.durationMillis ?? 0;
+    pendingDurationRef.current =
+      recorderState.durationMillis ?? pendingDurationRef.current;
     try {
       await recorder.stop();
-      const uri = recorder.uri;
-      if (!uri) throw new Error("recording produced no file");
-      pendingUriRef.current = uri;
-      return persistRecording(uri, pendingDurationRef.current);
     } catch (error) {
+      const uri = recorder.uri;
+      if (uri) {
+        pendingUriRef.current = uri;
+        return persistRecording(uri, pendingDurationRef.current);
+      }
       reportFailure("save_failed", error, "recording_stop");
       setPhase("save_error");
       return "failed";
     }
+    const uri = recorder.uri;
+    if (!uri) {
+      reportFailure(
+        "save_failed",
+        new Error("recording produced no file"),
+        "recording_stop",
+      );
+      setPhase("save_error");
+      return "failed";
+    }
+    pendingUriRef.current = uri;
+    return persistRecording(uri, pendingDurationRef.current);
+  };
+
+  const stop = (): Promise<StopResult> => {
+    const currentOperation = stopOperationRef.current;
+    if (currentOperation) return currentOperation;
+
+    const operation = performStop();
+    stopOperationRef.current = operation;
+    const clearOperation = () => {
+      if (stopOperationRef.current === operation) {
+        stopOperationRef.current = null;
+      }
+    };
+    void operation.then(clearOperation, clearOperation);
+    return operation;
   };
 
   const retry = async (): Promise<StopResult> => {
-    const pendingUri = pendingUriRef.current;
-    if (pendingUri) {
-      return persistRecording(pendingUri, pendingDurationRef.current);
+    const action = recorderRecoveryAction(
+      phaseRef.current,
+      pendingUriRef.current !== null,
+      "retry",
+    );
+    if (action === "persist" || action === "stop") {
+      return stop();
     }
-    if (
-      phaseRef.current === "unavailable" ||
-      phaseRef.current === "interrupted" ||
-      phaseRef.current === "error"
-    ) {
+    if (action === "restart") {
       startRef.current = start();
       await startRef.current;
     }
