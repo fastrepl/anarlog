@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { File, Paths } from "expo-file-system";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   InputAccessoryView,
   Keyboard,
@@ -54,25 +54,16 @@ function BodyEditor({
   ) => void;
 }) {
   const inputRef = useRef<TextInput>(null);
-  const renderedValueRef = useRef(defaultValue);
   const textRef = useRef(defaultValue);
   const bodyFormatRef = useRef(defaultBodyFormat);
   const selectionRef = useRef({ start: 0, end: 0 });
-  const restoreFocusRef = useRef(false);
-  const [editorRevision, setEditorRevision] = useState(0);
-  const [selectionOverride, setSelectionOverride] = useState<{
-    start: number;
-    end: number;
+  // Normal typing stays native so iOS retains its caret and scroll state;
+  // toolbar commands briefly override both without remounting the editor.
+  const [nativeOverride, setNativeOverride] = useState<{
+    text: string;
+    selection: { start: number; end: number };
   }>();
   const [androidKeyboardVisible, setAndroidKeyboardVisible] = useState(false);
-
-  const handleInputRef = useCallback((input: TextInput | null) => {
-    inputRef.current = input;
-    if (!input || !restoreFocusRef.current) return;
-    restoreFocusRef.current = false;
-    input.focus();
-    requestAnimationFrame(() => setSelectionOverride(undefined));
-  }, []);
 
   useMountEffect(() => {
     if (Platform.OS !== "android") return;
@@ -100,34 +91,33 @@ function BodyEditor({
       format,
     );
     textRef.current = formatted.text;
-    renderedValueRef.current = formatted.text;
     bodyFormatRef.current = formatted.bodyFormat;
     selectionRef.current = formatted.selection;
-    restoreFocusRef.current = true;
-    setSelectionOverride(formatted.selection);
-    setEditorRevision((revision) => revision + 1);
+    setNativeOverride({
+      text: formatted.text,
+      selection: formatted.selection,
+    });
     onChangeText(formatted.text, formatted.bodyFormat);
+    inputRef.current?.focus();
+    requestAnimationFrame(() => setNativeOverride(undefined));
   };
 
   const handleDismissKeyboard = () => {
     inputRef.current?.blur();
     Keyboard.dismiss();
   };
-  const nativeAccessoryId = `${accessoryId}-${editorRevision}`;
 
   return (
     <>
       <TextInput
-        key={editorRevision}
-        ref={handleInputRef}
+        ref={inputRef}
         style={styles.body}
         multiline
         editable={editable}
-        inputAccessoryViewID={
-          Platform.OS === "ios" ? nativeAccessoryId : undefined
-        }
-        defaultValue={renderedValueRef.current}
-        selection={selectionOverride}
+        inputAccessoryViewID={Platform.OS === "ios" ? accessoryId : undefined}
+        defaultValue={defaultValue}
+        value={nativeOverride?.text}
+        selection={nativeOverride?.selection}
         placeholder="Start typing…"
         placeholderTextColor={Colors.muted}
         textAlignVertical="top"
@@ -138,8 +128,7 @@ function BodyEditor({
       />
       {Platform.OS === "ios" && editable && (
         <InputAccessoryView
-          key={`accessory-${editorRevision}`}
-          nativeID={nativeAccessoryId}
+          nativeID={accessoryId}
           backgroundColor={Colors.paper}
         >
           <EditorAccessory
