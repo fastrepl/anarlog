@@ -1,4 +1,4 @@
-> **Note:** The team is now building **[char](https://char.com)**. **anarlog** remains open-source, MIT-licensed, and maintained as the local-first meeting notetaker in this repo.
+> **Note:** The team is now building **[char](https://char.com)**. The **anarlog** community application remains open-source, MIT-licensed, and maintained as the local-first meeting notetaker in this repo. Source-visible enterprise components are commercially licensed.
 
 ![anarlog](https://repository-images.githubusercontent.com/900550981/a4267a9f-414b-4c36-965c-419313ce2417)
 
@@ -25,7 +25,7 @@ To self-host, clone the repo, build it, and run it.
 - **Your data, your device.** Sessions, notes, and transcripts are stored locally in SQLite. Attachments and recordings remain local files, and you can export Markdown when you need it.
 - **Local transcription.** Transcription runs on-device, so audio never leaves your machine.
 - **Bring your own AI.** Use any LLM provider, including OpenAI-compatible services and local models.
-- **Open source, MIT.** Fork it, sell it, or self-host it.
+- **Open-source community layer, MIT.** Fork it, sell it, or self-host it.
 - **Optional cloud features.** You can use local or bring-your-own-key workflows, or opt into hosted AI, encrypted CloudSync, and sharing when those fit your workflow.
 
 ## Name history
@@ -34,7 +34,7 @@ To self-host, clone the repo, build it, and run it.
 
 We later split the work into two projects. **[char](https://char.com)** is the team's current productivity app. **anarlog** is this open-source, local-first meeting notetaker.
 
-This repository is not the current char codebase, and anarlog is not being retired. It keeps the open-source path: MIT-licensed, forkable, self-hostable, and built for local notes you control.
+This repository is not the current char codebase, and anarlog is not being retired. Its community application stays MIT-licensed, forkable, self-hostable, and built for local notes you control.
 
 If you came here from Granola, welcome. If you came here from Hyprnote, welcome back.
 
@@ -42,4 +42,4 @@ Either way, it's yours.
 
 ---
 
-**License:** [MIT](LICENSE) · [Product boundary](LICENSING.md) · **Maintainers:** [fastrepl](https://github.com/fastrepl)
+**License:** Community [MIT](LICENSE) · Enterprise [commercial](LICENSE.enterprise) · [Full boundary](LICENSING.md) · **Maintainers:** [fastrepl](https://github.com/fastrepl)

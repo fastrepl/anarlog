@@ -5,6 +5,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          python3 .github/scripts/test_check_license_boundary.py
+          python3 .github/scripts/check_license_boundary.py
       - run: >-
           node --test
           scripts/desktop-release-provenance.test.mjs

@@ -1,0 +1,7 @@
+/enterprise/ @ComputelessComputer
+/LICENSE.enterprise @ComputelessComputer
+/LICENSING.md @ComputelessComputer
+/.github/CODEOWNERS @ComputelessComputer
+/.github/scripts/check_license_boundary.py @ComputelessComputer
+/.github/scripts/test_check_license_boundary.py @ComputelessComputer
+/.github/workflows/ci.yaml @ComputelessComputer
