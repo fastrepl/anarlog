@@ -12,6 +12,59 @@ SPEC.loader.exec_module(verify)
 
 
 class VerifyCloudSyncE2eeTests(unittest.TestCase):
+    def e2ee_record_columns(self) -> list[dict[str, object]]:
+        timestamp_default = "(strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))"
+        return [
+            {
+                "name": "id",
+                "type": "TEXT",
+                "notnull": 1,
+                "pk": 1,
+                "hidden": 0,
+                "dflt_value": None,
+            },
+            {
+                "name": "workspace_id",
+                "type": "TEXT",
+                "notnull": 1,
+                "pk": 0,
+                "hidden": 0,
+                "dflt_value": "''",
+            },
+            {
+                "name": "payload",
+                "type": "TEXT",
+                "notnull": 1,
+                "pk": 0,
+                "hidden": 0,
+                "dflt_value": "''",
+            },
+            {
+                "name": "created_at",
+                "type": "TEXT",
+                "notnull": 1,
+                "pk": 0,
+                "hidden": 0,
+                "dflt_value": timestamp_default,
+            },
+            {
+                "name": "updated_at",
+                "type": "TEXT",
+                "notnull": 1,
+                "pk": 0,
+                "hidden": 0,
+                "dflt_value": timestamp_default,
+            },
+            {
+                "name": "payload_hash",
+                "type": "TEXT",
+                "notnull": 1,
+                "pk": 0,
+                "hidden": 0,
+                "dflt_value": "''",
+            },
+        ]
+
     def test_accepts_only_known_protocol_modes(self) -> None:
         for mode in verify.PROTOCOL_MODES:
             self.assertEqual(
@@ -132,6 +185,20 @@ class VerifyCloudSyncE2eeTests(unittest.TestCase):
         query = run_sql.call_args.args[3]
         for table in verify.LEGACY_PLAINTEXT_TABLES:
             self.assertIn(f"'{table}'", query)
+
+    def test_accepts_the_current_encrypted_replica_columns(self) -> None:
+        verify.verify_e2ee_record_columns(self.e2ee_record_columns())
+
+    def test_rejects_the_pre_payload_hash_column_contract(self) -> None:
+        with self.assertRaisesRegex(ValueError, "unexpected column contract"):
+            verify.verify_e2ee_record_columns(self.e2ee_record_columns()[:-1])
+
+    def test_requires_the_payload_hash_default(self) -> None:
+        columns = self.e2ee_record_columns()
+        columns[-1]["dflt_value"] = None
+
+        with self.assertRaisesRegex(ValueError, "unexpected column defaults"):
+            verify.verify_e2ee_record_columns(columns)
 
 
 if __name__ == "__main__":

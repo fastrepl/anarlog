@@ -225,6 +225,42 @@ def verify_no_plaintext_tables(
         )
 
 
+def verify_e2ee_record_columns(columns: list[dict[str, object]]) -> None:
+    column_shape = [
+        (
+            str(column.get("name", "")),
+            str(column.get("type", "")).upper(),
+            int(column.get("notnull", 0)),
+            int(column.get("pk", 0)),
+            int(column.get("hidden", 0)),
+        )
+        for column in columns
+    ]
+    expected_columns = [
+        ("id", "TEXT", 1, 1, 0),
+        ("workspace_id", "TEXT", 1, 0, 0),
+        ("payload", "TEXT", 1, 0, 0),
+        ("created_at", "TEXT", 1, 0, 0),
+        ("updated_at", "TEXT", 1, 0, 0),
+        ("payload_hash", "TEXT", 1, 0, 0),
+    ]
+    if column_shape != expected_columns:
+        raise ValueError("e2ee_records has an unexpected column contract")
+
+    defaults = [column.get("dflt_value") for column in columns]
+    timestamp_default = "strftime('%y-%m-%dt%h:%m:%fz','now')"
+    if (
+        defaults[0] is not None
+        or defaults[1:3] != ["''", "''"]
+        or any(
+            timestamp_default not in "".join(str(value).lower().split())
+            for value in defaults[3:5]
+        )
+        or defaults[5] != "''"
+    ):
+        raise ValueError("e2ee_records has unexpected column defaults")
+
+
 def run_sql(
     project_url: str,
     issuer_key: str,
@@ -323,36 +359,7 @@ def verify_remote_database(values: dict[str, str]) -> None:
         "PRAGMA table_xinfo(e2ee_records)",
         "E2EE table column check",
     )
-    column_shape = [
-        (
-            str(column.get("name", "")),
-            str(column.get("type", "")).upper(),
-            int(column.get("notnull", 0)),
-            int(column.get("pk", 0)),
-            int(column.get("hidden", 0)),
-        )
-        for column in columns
-    ]
-    expected_columns = [
-        ("id", "TEXT", 1, 1, 0),
-        ("workspace_id", "TEXT", 1, 0, 0),
-        ("payload", "TEXT", 1, 0, 0),
-        ("created_at", "TEXT", 1, 0, 0),
-        ("updated_at", "TEXT", 1, 0, 0),
-    ]
-    if column_shape != expected_columns:
-        raise ValueError("e2ee_records has an unexpected column contract")
-    defaults = [column.get("dflt_value") for column in columns]
-    timestamp_default = "strftime('%y-%m-%dt%h:%m:%fz','now')"
-    if (
-        defaults[0] is not None
-        or defaults[1:3] != ["''", "''"]
-        or any(
-            timestamp_default not in "".join(str(value).lower().split())
-            for value in defaults[3:]
-        )
-    ):
-        raise ValueError("e2ee_records has unexpected column defaults")
+    verify_e2ee_record_columns(columns)
 
     indexes = run_sql(
         project_url,
