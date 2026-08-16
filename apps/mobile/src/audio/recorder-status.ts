@@ -43,6 +43,13 @@ export function shouldHandleRecorderFailure(phase: RecorderPhase): boolean {
   );
 }
 
+export function recoverableRecordingUri(
+  statusUri: string | null | undefined,
+  recorderUri: string | null | undefined,
+): string | null {
+  return statusUri || recorderUri || null;
+}
+
 export function recorderStatusFailure(status: {
   error: string | null;
   hasError: boolean;

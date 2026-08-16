@@ -2,10 +2,22 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  recoverableRecordingUri,
   recorderRecoveryAction,
   recorderStatusFailure,
   shouldHandleRecorderFailure,
 } from "./recorder-status.ts";
+
+test("falls back to the recorder URI when native status omits it", () => {
+  assert.equal(
+    recoverableRecordingUri(null, "file:///recording.m4a"),
+    "file:///recording.m4a",
+  );
+  assert.equal(
+    recoverableRecordingUri("file:///status.m4a", "file:///recording.m4a"),
+    "file:///status.m4a",
+  );
+});
 
 test("persists recoverable audio before handling stop or retry", () => {
   for (const phase of ["interrupted", "save_error", "error"]) {

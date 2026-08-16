@@ -12,6 +12,7 @@ import { useCallback, useRef, useState } from "react";
 import { AppState } from "react-native";
 
 import {
+  recoverableRecordingUri,
   recorderRecoveryAction,
   recorderStatusFailure,
   shouldHandleRecorderFailure,
@@ -70,6 +71,7 @@ export function useSessionRecorder(
   const stopOperationRef = useRef<Promise<StopResult> | null>(null);
   const completionTrackedRef = useRef(false);
   const reportedFailureRef = useRef<string | null>(null);
+  const recorderRef = useRef<ReturnType<typeof useAudioRecorder> | null>(null);
 
   const setPhase = useCallback((next: RecorderPhase) => {
     phaseRef.current = next;
@@ -102,7 +104,11 @@ export function useSessionRecorder(
         return;
       }
 
-      if (status.url) pendingUriRef.current = status.url;
+      const recoverableUri = recoverableRecordingUri(
+        status.url,
+        recorderRef.current?.uri,
+      );
+      if (recoverableUri) pendingUriRef.current = recoverableUri;
       completionReasonRef.current = "interrupted";
       reportFailure(
         statusFailure.reason,
@@ -124,6 +130,7 @@ export function useSessionRecorder(
     },
     handleRecorderStatus,
   );
+  recorderRef.current = recorder;
   const recorderState = useAudioRecorderState(recorder, 50);
 
   const persistRecording = useCallback(

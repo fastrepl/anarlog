@@ -54,9 +54,10 @@ function BodyEditor({
   ) => void;
 }) {
   const inputRef = useRef<TextInput>(null);
-  const [text, setText] = useState(defaultValue);
-  const [bodyFormat, setBodyFormat] = useState(defaultBodyFormat);
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const initialValueRef = useRef(defaultValue);
+  const textRef = useRef(defaultValue);
+  const bodyFormatRef = useRef(defaultBodyFormat);
+  const selectionRef = useRef({ start: 0, end: 0 });
   const [androidKeyboardVisible, setAndroidKeyboardVisible] = useState(false);
 
   useMountEffect(() => {
@@ -74,15 +75,23 @@ function BodyEditor({
   });
 
   const handleChangeText = (body: string) => {
-    setText(body);
-    onChangeText(body, bodyFormat);
+    textRef.current = body;
+    onChangeText(body, bodyFormatRef.current);
   };
 
   const handleFormat = (format: EditorFormat) => {
-    const formatted = applyEditorFormat(text, selection, format);
-    setText(formatted.text);
-    setBodyFormat(formatted.bodyFormat);
-    setSelection(formatted.selection);
+    const formatted = applyEditorFormat(
+      textRef.current,
+      selectionRef.current,
+      format,
+    );
+    textRef.current = formatted.text;
+    bodyFormatRef.current = formatted.bodyFormat;
+    selectionRef.current = formatted.selection;
+    inputRef.current?.setNativeProps({
+      text: formatted.text,
+      selection: formatted.selection,
+    });
     onChangeText(formatted.text, formatted.bodyFormat);
     inputRef.current?.focus();
   };
@@ -100,13 +109,14 @@ function BodyEditor({
         multiline
         editable={editable}
         inputAccessoryViewID={Platform.OS === "ios" ? accessoryId : undefined}
-        value={text}
-        selection={selection}
+        defaultValue={initialValueRef.current}
         placeholder="Start typing…"
         placeholderTextColor={Colors.muted}
         textAlignVertical="top"
         onChangeText={handleChangeText}
-        onSelectionChange={(event) => setSelection(event.nativeEvent.selection)}
+        onSelectionChange={(event) => {
+          selectionRef.current = event.nativeEvent.selection;
+        }}
       />
       {Platform.OS === "ios" && editable && (
         <InputAccessoryView
