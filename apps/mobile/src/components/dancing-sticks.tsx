@@ -126,49 +126,54 @@ export const DancingSticks = memo(function DancingSticks({
     [pattern],
   );
   const amplitudeScale = 0.2 + 0.8 * Math.max(0, Math.min(1, amplitude));
-
-  if (amplitude === 0) {
-    return (
-      <View style={[styles.flat, { height, width }]}>
-        <View style={{ width, height: 1, backgroundColor: color }} />
-      </View>
-    );
-  }
+  const isFlat = amplitude === 0;
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          gap,
-          height,
+    <View style={[styles.root, { height, width }]}>
+      <View
+        style={{
           width,
-          transform: [{ scaleY: amplitudeScale }],
-        },
-      ]}
-    >
-      {sticks.map(({ delayMs, durationMs, maxScaleY }, index) => (
-        <DancingStick
-          key={index}
-          color={color}
-          delayMs={delayMs}
-          durationMs={durationMs}
-          height={height}
-          maxScaleY={maxScaleY}
-          width={stickWidth}
-        />
-      ))}
+          height: 1,
+          backgroundColor: color,
+          opacity: isFlat ? 1 : 0,
+        }}
+      />
+      <View
+        style={[
+          styles.container,
+          {
+            gap,
+            height,
+            width,
+            opacity: isFlat ? 0 : 1,
+            transform: [{ scaleY: amplitudeScale }],
+          },
+        ]}
+      >
+        {sticks.map(({ delayMs, durationMs, maxScaleY }, index) => (
+          <DancingStick
+            key={index}
+            color={color}
+            delayMs={delayMs}
+            durationMs={durationMs}
+            height={height}
+            maxScaleY={maxScaleY}
+            width={stickWidth}
+          />
+        ))}
+      </View>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
+  root: {
     alignItems: "center",
     justifyContent: "center",
   },
-  flat: {
+  container: {
+    position: "absolute",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
