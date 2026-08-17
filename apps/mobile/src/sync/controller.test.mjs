@@ -121,14 +121,18 @@ test("ignores a stale activation before booting the next account", async () => {
   assert.deepEqual(bootstrappedAccounts, ["user-456"]);
 });
 
-test("stores and returns a generated key before replica startup completes", async () => {
+test("does not store or claim a generated key until confirmation", async () => {
   let saved;
+  let claimCount = 0;
   let resolveBootstrap;
   const controller = new MobileSyncController(
     dependencies({
       readRecoveryKey: async () => saved ?? null,
       saveRecoveryKey: async (_accountUserId, recoveryKey) => {
         saved = recoveryKey;
+      },
+      claimIdentity: async () => {
+        claimCount += 1;
       },
       bootstrap: async () =>
         await new Promise((resolve) => {
@@ -141,9 +145,15 @@ test("stores and returns a generated key before replica startup completes", asyn
   controller.activate(session);
   await waitFor(() => controller.getSnapshot().phase === "setup_required");
 
-  const recoveryKey = await controller.createRecoveryKey();
+  const recoveryKey = await controller.generateRecoveryKey();
   assert.equal(recoveryKey, "generated-recovery-key");
+  assert.equal(saved, undefined);
+  assert.equal(claimCount, 0);
+  assert.equal(controller.getSnapshot().phase, "setup_required");
+
+  await controller.confirmRecoveryKey(recoveryKey);
   assert.equal(saved, recoveryKey);
+  assert.equal(claimCount, 1);
   await waitFor(() => resolveBootstrap !== undefined);
   resolveBootstrap("configured");
   await waitFor(() => controller.getSnapshot().phase === "ready");
@@ -172,13 +182,15 @@ test("rolls back secure storage when the server rejects a new identity", async (
   controller.activate(session);
   await waitFor(() => controller.getSnapshot().phase === "setup_required");
 
-  await assert.rejects(controller.createRecoveryKey(), /identity mismatch/);
+  await assert.rejects(
+    controller.confirmRecoveryKey("generated-recovery-key"),
+    /identity mismatch/,
+  );
   assert.equal(deleted, true);
   assert.equal(saved, null);
 });
 
 test("uses the refreshed session when setup finishes", async () => {
-  let resolveGeneratedKey;
   let saved = null;
   let claimedAccessToken;
   let bootstrappedAccessToken;
@@ -188,10 +200,6 @@ test("uses the refreshed session when setup finishes", async () => {
       saveRecoveryKey: async (_accountUserId, recoveryKey) => {
         saved = recoveryKey;
       },
-      generateRecoveryKey: async () =>
-        await new Promise((resolve) => {
-          resolveGeneratedKey = resolve;
-        }),
       claimIdentity: async (activeSession) => {
         claimedAccessToken = activeSession.accessToken;
       },
@@ -205,16 +213,68 @@ test("uses the refreshed session when setup finishes", async () => {
   );
   controller.activate(session);
   await waitFor(() => controller.getSnapshot().phase === "setup_required");
-  const setup = controller.createRecoveryKey();
-  await waitFor(() => resolveGeneratedKey !== undefined);
+  const recoveryKey = await controller.generateRecoveryKey();
 
   controller.activate({ ...session, accessToken: "refreshed-token" });
-  resolveGeneratedKey("generated-recovery-key");
-  await setup;
+  await waitFor(() => controller.getSnapshot().phase === "setup_required");
+  await controller.confirmRecoveryKey(recoveryKey);
   await waitFor(() => controller.getSnapshot().phase === "ready");
 
   assert.equal(claimedAccessToken, "refreshed-token");
   assert.equal(bootstrappedAccessToken, "refreshed-token");
+});
+
+test("does not leave a stale poll interval after re-activation", async () => {
+  let nextTimerId = 0;
+  const intervals = new Map();
+  const timeouts = new Map();
+  const timers = {
+    setInterval: (callback) => {
+      nextTimerId += 1;
+      intervals.set(nextTimerId, callback);
+      return nextTimerId;
+    },
+    clearInterval: (id) => {
+      intervals.delete(id);
+    },
+    setTimeout: (callback) => {
+      nextTimerId += 1;
+      timeouts.set(nextTimerId, callback);
+      return nextTimerId;
+    },
+    clearTimeout: (id) => {
+      timeouts.delete(id);
+    },
+  };
+  let statusCalls = 0;
+  let resolveFirstStatus;
+  const controller = new MobileSyncController(
+    dependencies({
+      getStatus: async () => {
+        statusCalls += 1;
+        if (statusCalls === 1) {
+          return await new Promise((resolve) => {
+            resolveFirstStatus = resolve;
+          });
+        }
+        return status;
+      },
+    }),
+    5_000,
+    0,
+    timers,
+  );
+  controller.activate(session);
+  await waitFor(() => resolveFirstStatus !== undefined);
+
+  controller.activate({ ...session, accessToken: "refreshed-token" });
+  resolveFirstStatus(status);
+  await waitFor(() => controller.getSnapshot().phase === "ready");
+  assert.equal(intervals.size, 1);
+
+  controller.suspend();
+  await waitFor(() => controller.getSnapshot().phase === "inactive");
+  assert.equal(intervals.size, 0);
 });
 
 test("stops native sync when the account lifecycle ends", async () => {

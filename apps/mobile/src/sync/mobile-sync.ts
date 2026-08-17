@@ -121,8 +121,14 @@ export function retryMobileSync(): void {
   controller.retry();
 }
 
-export async function createMobileRecoveryKey(): Promise<string> {
-  return await controller.createRecoveryKey();
+export async function generateMobileRecoveryKey(): Promise<string> {
+  return await controller.generateRecoveryKey();
+}
+
+export async function confirmMobileRecoveryKey(
+  recoveryKey: string,
+): Promise<void> {
+  await controller.confirmRecoveryKey(recoveryKey);
 }
 
 export async function importMobileRecoveryKey(

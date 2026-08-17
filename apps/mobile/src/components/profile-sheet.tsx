@@ -23,7 +23,8 @@ import {
 } from "@/constants/theme";
 import type { MobileSyncPhase, MobileSyncSnapshot } from "@/sync/controller";
 import {
-  createMobileRecoveryKey,
+  confirmMobileRecoveryKey,
+  generateMobileRecoveryKey,
   getMobileSyncSnapshot,
   importMobileRecoveryKey,
   retryMobileSync,
@@ -143,7 +144,7 @@ export function ProfileSheet({
     setBusy(true);
     setActionError(null);
     try {
-      const key = await createMobileRecoveryKey();
+      const key = await generateMobileRecoveryKey();
       setGeneratedKey(key);
       setMode("generated");
     } catch (error) {
@@ -189,8 +190,25 @@ export function ProfileSheet({
     }
   };
 
-  const finishRecoveryKey = () => {
+  const finishRecoveryKey = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await confirmMobileRecoveryKey(generatedKey);
+      setGeneratedKey("");
+      setMode("status");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Could not protect the key.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const discardGeneratedKey = () => {
     setGeneratedKey("");
+    setActionError(null);
     setMode("status");
   };
 
@@ -381,7 +399,11 @@ export function ProfileSheet({
                     disabled={busy}
                     onPress={() => {
                       setActionError(null);
-                      setMode("choose");
+                      setMode(
+                        sync.phase === "identity_mismatch"
+                          ? "status"
+                          : "choose",
+                      );
                     }}
                     size="small"
                     variant="ghost"
@@ -406,7 +428,18 @@ export function ProfileSheet({
                     onPress={() => void shareRecoveryKey()}
                     variant="outline"
                   />
-                  <Button label="I saved it" onPress={finishRecoveryKey} />
+                  <Button
+                    label="I saved it"
+                    loading={busy}
+                    onPress={() => void finishRecoveryKey()}
+                  />
+                  <Button
+                    label="Cancel"
+                    disabled={busy}
+                    onPress={discardGeneratedKey}
+                    size="small"
+                    variant="ghost"
+                  />
                 </View>
               )}
 

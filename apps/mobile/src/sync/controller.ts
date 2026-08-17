@@ -62,6 +62,13 @@ type ControllerDependencies = {
   reportError: (error: unknown, operation: string) => void;
 };
 
+type ControllerTimers = {
+  setInterval: typeof setInterval;
+  clearInterval: typeof clearInterval;
+  setTimeout: typeof setTimeout;
+  clearTimeout: typeof clearTimeout;
+};
+
 const initialSnapshot: MobileSyncSnapshot = {
   phase: "inactive",
   running: false,
@@ -106,15 +113,23 @@ export class MobileSyncController {
   private readonly dependencies: ControllerDependencies;
   private readonly pollIntervalMs: number;
   private readonly retryDelayMs: number;
+  private readonly timers: ControllerTimers;
 
   constructor(
     dependencies: ControllerDependencies,
     pollIntervalMs = 5_000,
     retryDelayMs = 15_000,
+    timers: ControllerTimers = {
+      setInterval,
+      clearInterval,
+      setTimeout,
+      clearTimeout,
+    },
   ) {
     this.dependencies = dependencies;
     this.pollIntervalMs = pollIntervalMs;
     this.retryDelayMs = retryDelayMs;
+    this.timers = timers;
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -154,13 +169,17 @@ export class MobileSyncController {
     }
   }
 
-  async createRecoveryKey(): Promise<string> {
-    const session = this.requireSession();
+  async generateRecoveryKey(): Promise<string> {
     const recoveryKey = await this.dependencies.generateRecoveryKey();
+    await this.dependencies.inspectRecoveryKey(recoveryKey);
+    return recoveryKey;
+  }
+
+  async confirmRecoveryKey(recoveryKey: string): Promise<void> {
+    const session = this.requireSession();
     const identity = await this.dependencies.inspectRecoveryKey(recoveryKey);
     await this.storeAndClaimIdentity(session, recoveryKey, identity.keyId);
     this.activateIfCurrentAccount(session.accountUserId);
-    return recoveryKey;
   }
 
   async importRecoveryKey(recoveryKey: string): Promise<void> {
@@ -231,6 +250,7 @@ export class MobileSyncController {
 
       this.update({ ...initialSnapshot, phase: "ready", running: true });
       await this.refreshStatus(generation);
+      if (generation !== this.generation) return;
       this.startPolling(generation);
     } catch (error) {
       if (generation !== this.generation) return;
@@ -267,14 +287,14 @@ export class MobileSyncController {
 
   private startPolling(generation: number): void {
     if (this.pollIntervalMs <= 0) return;
-    this.pollTimer = setInterval(() => {
+    this.pollTimer = this.timers.setInterval(() => {
       void this.refreshStatus(generation);
     }, this.pollIntervalMs);
   }
 
   private scheduleRetry(generation: number): void {
     if (this.retryDelayMs <= 0) return;
-    this.retryTimer = setTimeout(() => {
+    this.retryTimer = this.timers.setTimeout(() => {
       if (generation === this.generation && this.session) {
         this.activate(this.session);
       }
@@ -341,8 +361,8 @@ export class MobileSyncController {
   }
 
   private clearTimers(): void {
-    if (this.pollTimer) clearInterval(this.pollTimer);
-    if (this.retryTimer) clearTimeout(this.retryTimer);
+    if (this.pollTimer) this.timers.clearInterval(this.pollTimer);
+    if (this.retryTimer) this.timers.clearTimeout(this.retryTimer);
     this.pollTimer = null;
     this.retryTimer = null;
   }
