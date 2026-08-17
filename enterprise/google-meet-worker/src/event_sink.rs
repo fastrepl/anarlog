@@ -1,0 +1,476 @@
+use std::{collections::VecDeque, time::Duration};
+
+use anlg_meeting_capture::CaptureEvent;
+use async_trait::async_trait;
+use reqwest::StatusCode;
+use serde::Serialize;
+use url::Url;
+
+const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+const DEFAULT_MAX_ATTEMPTS: u8 = 4;
+const DEFAULT_INITIAL_RETRY_DELAY: Duration = Duration::from_millis(200);
+const DEFAULT_MAX_RETRY_DELAY: Duration = Duration::from_secs(2);
+
+#[async_trait]
+pub trait CaptureEventSink: Send + Sync {
+    type Error: std::error::Error + Send + Sync + 'static;
+
+    async fn append(&self, event: &CaptureEvent) -> Result<(), Self::Error>;
+}
+
+pub struct ControlPlaneEventSinkConfig {
+    pub base_url: Url,
+    pub workspace_id: String,
+    pub job_id: String,
+    pub bearer_token: String,
+    pub request_timeout: Duration,
+    pub retry: CaptureEventRetryConfig,
+}
+
+impl std::fmt::Debug for ControlPlaneEventSinkConfig {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("ControlPlaneEventSinkConfig")
+            .field("base_url", &self.base_url)
+            .field("workspace_id", &self.workspace_id)
+            .field("job_id", &self.job_id)
+            .field("bearer_token", &"[REDACTED]")
+            .field("request_timeout", &self.request_timeout)
+            .field("retry", &self.retry)
+            .finish()
+    }
+}
+
+impl ControlPlaneEventSinkConfig {
+    pub fn new(
+        base_url: Url,
+        workspace_id: impl Into<String>,
+        job_id: impl Into<String>,
+        bearer_token: impl Into<String>,
+    ) -> Self {
+        Self {
+            base_url,
+            workspace_id: workspace_id.into(),
+            job_id: job_id.into(),
+            bearer_token: bearer_token.into(),
+            request_timeout: DEFAULT_REQUEST_TIMEOUT,
+            retry: CaptureEventRetryConfig::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CaptureEventRetryConfig {
+    pub max_attempts: u8,
+    pub initial_delay: Duration,
+    pub max_delay: Duration,
+}
+
+impl Default for CaptureEventRetryConfig {
+    fn default() -> Self {
+        Self {
+            max_attempts: DEFAULT_MAX_ATTEMPTS,
+            initial_delay: DEFAULT_INITIAL_RETRY_DELAY,
+            max_delay: DEFAULT_MAX_RETRY_DELAY,
+        }
+    }
+}
+
+pub struct ControlPlaneEventSink {
+    client: reqwest::Client,
+    endpoint: Url,
+    bearer_token: String,
+    retry: CaptureEventRetryConfig,
+}
+
+impl ControlPlaneEventSink {
+    pub fn new(config: ControlPlaneEventSinkConfig) -> Result<Self, CaptureEventSinkConfigError> {
+        validate_identifier(&config.workspace_id, "workspace ID")?;
+        validate_identifier(&config.job_id, "job ID")?;
+        if config.bearer_token.is_empty() || config.bearer_token.chars().any(char::is_control) {
+            return Err(CaptureEventSinkConfigError::InvalidBearerToken);
+        }
+        if config.request_timeout.is_zero() {
+            return Err(CaptureEventSinkConfigError::InvalidRequestTimeout);
+        }
+        validate_retry(config.retry)?;
+
+        let mut endpoint = config.base_url;
+        if !matches!(endpoint.scheme(), "http" | "https")
+            || endpoint.host_str().is_none()
+            || !endpoint.username().is_empty()
+            || endpoint.password().is_some()
+            || endpoint.query().is_some()
+            || endpoint.fragment().is_some()
+        {
+            return Err(CaptureEventSinkConfigError::InvalidBaseUrl);
+        }
+        endpoint
+            .path_segments_mut()
+            .map_err(|_| CaptureEventSinkConfigError::InvalidBaseUrl)?
+            .pop_if_empty()
+            .extend([
+                "v1",
+                "workspaces",
+                &config.workspace_id,
+                "capture-jobs",
+                &config.job_id,
+                "events",
+            ]);
+        let client = reqwest::Client::builder()
+            .timeout(config.request_timeout)
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .map_err(CaptureEventSinkConfigError::Client)?;
+        Ok(Self {
+            client,
+            endpoint,
+            bearer_token: config.bearer_token,
+            retry: config.retry,
+        })
+    }
+}
+
+#[async_trait]
+impl CaptureEventSink for ControlPlaneEventSink {
+    type Error = CaptureEventSinkError;
+
+    async fn append(&self, event: &CaptureEvent) -> Result<(), CaptureEventSinkError> {
+        let request = AppendCaptureEventRequest { event };
+        let mut retry_delay = self.retry.initial_delay;
+        for attempt in 1..=self.retry.max_attempts {
+            match self
+                .client
+                .post(self.endpoint.clone())
+                .bearer_auth(&self.bearer_token)
+                .json(&request)
+                .send()
+                .await
+            {
+                Ok(response) if response.status().is_success() => return Ok(()),
+                Ok(response) => {
+                    let status = response.status();
+                    if attempt == self.retry.max_attempts || !retryable_status(status) {
+                        return Err(CaptureEventSinkError::ControlPlaneStatus(status));
+                    }
+                }
+                Err(error) => {
+                    if attempt == self.retry.max_attempts {
+                        return Err(CaptureEventSinkError::Request(error));
+                    }
+                }
+            }
+            tokio::time::sleep(retry_delay).await;
+            retry_delay = retry_delay.saturating_mul(2).min(self.retry.max_delay);
+        }
+        unreachable!("validated retry configuration always performs at least one attempt")
+    }
+}
+
+#[derive(Serialize)]
+struct AppendCaptureEventRequest<'a> {
+    event: &'a CaptureEvent,
+}
+
+pub struct CaptureEventPublisher<S> {
+    sink: S,
+    pending: VecDeque<CaptureEvent>,
+}
+
+impl<S> CaptureEventPublisher<S>
+where
+    S: CaptureEventSink,
+{
+    pub fn new(sink: S) -> Self {
+        Self {
+            sink,
+            pending: VecDeque::new(),
+        }
+    }
+
+    pub fn pending_count(&self) -> usize {
+        self.pending.len()
+    }
+
+    pub async fn publish(&mut self, event: CaptureEvent) -> Result<(), S::Error> {
+        self.pending.push_back(event);
+        self.flush().await
+    }
+
+    pub async fn retry_pending(&mut self) -> Result<(), S::Error> {
+        self.flush().await
+    }
+
+    async fn flush(&mut self) -> Result<(), S::Error> {
+        while let Some(event) = self.pending.front() {
+            self.sink.append(event).await?;
+            self.pending.pop_front();
+        }
+        Ok(())
+    }
+}
+
+fn validate_identifier(
+    value: &str,
+    field: &'static str,
+) -> Result<(), CaptureEventSinkConfigError> {
+    if value.is_empty()
+        || value.len() > 128
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+    {
+        return Err(CaptureEventSinkConfigError::InvalidIdentifier { field });
+    }
+    Ok(())
+}
+
+fn validate_retry(retry: CaptureEventRetryConfig) -> Result<(), CaptureEventSinkConfigError> {
+    if retry.max_attempts == 0
+        || retry.initial_delay.is_zero()
+        || retry.max_delay.is_zero()
+        || retry.initial_delay > retry.max_delay
+    {
+        return Err(CaptureEventSinkConfigError::InvalidRetryConfig);
+    }
+    Ok(())
+}
+
+fn retryable_status(status: StatusCode) -> bool {
+    matches!(status.as_u16(), 408 | 425 | 429) || status.is_server_error()
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CaptureEventSinkConfigError {
+    #[error(
+        "control-plane base URL must be an HTTP(S) URL without credentials, query, or fragment"
+    )]
+    InvalidBaseUrl,
+    #[error("invalid control-plane {field}")]
+    InvalidIdentifier { field: &'static str },
+    #[error("control-plane bearer token must be non-empty and contain no control characters")]
+    InvalidBearerToken,
+    #[error("control-plane request timeout must be greater than zero")]
+    InvalidRequestTimeout,
+    #[error("capture event retry attempts and delays must be non-zero, with initial <= maximum")]
+    InvalidRetryConfig,
+    #[error("failed to build control-plane HTTP client")]
+    Client(#[source] reqwest::Error),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum CaptureEventSinkError {
+    #[error("capture event request failed")]
+    Request(#[source] reqwest::Error),
+    #[error("control plane rejected capture event with HTTP {0}")]
+    ControlPlaneStatus(StatusCode),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use anlg_meeting_capture::{CaptureEventPayload, ProviderMetadata, TranscriptSegment};
+    use chrono::{DateTime, Utc};
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
+    use super::*;
+
+    fn event(sequence: u64) -> CaptureEvent {
+        CaptureEvent {
+            id: format!("capture-event-{sequence}"),
+            bot_id: "bot-1".into(),
+            sequence,
+            occurred_at: DateTime::parse_from_rfc3339("2026-08-17T00:00:00Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            payload: CaptureEventPayload::Transcript(TranscriptSegment {
+                id: format!("segment-{sequence}"),
+                sequence,
+                start_ms: 0,
+                end_ms: Some(100),
+                text: "hello".into(),
+                speaker: None,
+                is_final: true,
+            }),
+            metadata: ProviderMetadata::default(),
+        }
+    }
+
+    async fn server(statuses: Vec<StatusCode>) -> (Url, tokio::task::JoinHandle<Vec<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let mut requests = Vec::new();
+            for status in statuses {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut bytes = Vec::new();
+                loop {
+                    let mut chunk = [0; 4096];
+                    let count = stream.read(&mut chunk).await.unwrap();
+                    if count == 0 {
+                        break;
+                    }
+                    bytes.extend_from_slice(&chunk[..count]);
+                    if complete_request_length(&bytes).is_some_and(|length| bytes.len() >= length) {
+                        break;
+                    }
+                }
+                requests.push(String::from_utf8(bytes).unwrap());
+                let reason = status.canonical_reason().unwrap_or("Test");
+                stream
+                    .write_all(
+                        format!(
+                            "HTTP/1.1 {} {reason}\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{{}}",
+                            status.as_u16()
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+            }
+            requests
+        });
+        (
+            Url::parse(&format!("http://{address}/root/")).unwrap(),
+            task,
+        )
+    }
+
+    fn complete_request_length(bytes: &[u8]) -> Option<usize> {
+        let headers_end = bytes.windows(4).position(|window| window == b"\r\n\r\n")? + 4;
+        let headers = std::str::from_utf8(&bytes[..headers_end]).ok()?;
+        let content_length = headers.lines().find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length")
+                .then(|| value.trim().parse::<usize>().ok())
+                .flatten()
+        })?;
+        Some(headers_end + content_length)
+    }
+
+    fn sink_config(base_url: Url) -> ControlPlaneEventSinkConfig {
+        let mut config = ControlPlaneEventSinkConfig::new(
+            base_url,
+            "workspace-a",
+            "job-1",
+            "super-secret-token",
+        );
+        config.request_timeout = Duration::from_secs(1);
+        config.retry = CaptureEventRetryConfig {
+            max_attempts: 3,
+            initial_delay: Duration::from_millis(1),
+            max_delay: Duration::from_millis(2),
+        };
+        config
+    }
+
+    #[tokio::test]
+    async fn posts_the_normalized_event_with_workspace_credentials() {
+        let (base_url, server) = server(vec![StatusCode::OK]).await;
+        let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+
+        sink.append(&event(1)).await.unwrap();
+
+        let requests = server.await.unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0].starts_with(
+            "POST /root/v1/workspaces/workspace-a/capture-jobs/job-1/events HTTP/1.1"
+        ));
+        assert!(
+            requests[0]
+                .to_ascii_lowercase()
+                .contains("authorization: bearer super-secret-token")
+        );
+        assert!(requests[0].contains("\"event\":{\"id\":\"capture-event-1\""));
+    }
+
+    #[tokio::test]
+    async fn retries_a_transient_response_with_the_identical_event() {
+        let (base_url, server) =
+            server(vec![StatusCode::SERVICE_UNAVAILABLE, StatusCode::OK]).await;
+        let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+
+        sink.append(&event(1)).await.unwrap();
+
+        let requests = server.await.unwrap();
+        assert_eq!(requests.len(), 2);
+        assert_eq!(
+            requests[0].split("\r\n\r\n").nth(1),
+            requests[1].split("\r\n\r\n").nth(1)
+        );
+    }
+
+    #[tokio::test]
+    async fn does_not_retry_a_sequence_conflict() {
+        let (base_url, server) = server(vec![StatusCode::CONFLICT]).await;
+        let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+
+        assert!(matches!(
+            sink.append(&event(1)).await,
+            Err(CaptureEventSinkError::ControlPlaneStatus(
+                StatusCode::CONFLICT
+            ))
+        ));
+
+        assert_eq!(server.await.unwrap().len(), 1);
+    }
+
+    #[derive(Default)]
+    struct RecoveringSink {
+        attempts: Arc<Mutex<Vec<CaptureEvent>>>,
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    #[error("offline")]
+    struct RecoveringSinkError;
+
+    #[async_trait]
+    impl CaptureEventSink for RecoveringSink {
+        type Error = RecoveringSinkError;
+
+        async fn append(&self, event: &CaptureEvent) -> Result<(), Self::Error> {
+            let mut attempts = self.attempts.lock().unwrap();
+            attempts.push(event.clone());
+            if attempts.len() == 1 {
+                Err(RecoveringSinkError)
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn retains_an_unacknowledged_event_for_an_identical_retry() {
+        let sink = RecoveringSink::default();
+        let attempts = sink.attempts.clone();
+        let mut publisher = CaptureEventPublisher::new(sink);
+
+        assert!(publisher.publish(event(1)).await.is_err());
+        assert_eq!(publisher.pending_count(), 1);
+        publisher.retry_pending().await.unwrap();
+        assert_eq!(publisher.pending_count(), 0);
+
+        let attempts = attempts.lock().unwrap();
+        assert_eq!(attempts.len(), 2);
+        assert_eq!(attempts[0], attempts[1]);
+    }
+
+    #[test]
+    fn validates_configuration_without_exposing_the_token() {
+        let config = sink_config(Url::parse("http://127.0.0.1:8000").unwrap());
+        let debug = format!("{config:?}");
+        assert!(debug.contains("[REDACTED]"));
+        assert!(!debug.contains("super-secret-token"));
+
+        let mut invalid = sink_config(Url::parse("http://127.0.0.1:8000").unwrap());
+        invalid.workspace_id = "../../other".into();
+        assert!(matches!(
+            ControlPlaneEventSink::new(invalid),
+            Err(CaptureEventSinkConfigError::InvalidIdentifier { .. })
+        ));
+    }
+}

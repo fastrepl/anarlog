@@ -25,7 +25,7 @@ impl WorkerLifecycle {
         Self {
             bot_id: bot_id.into(),
             state: BotState::Queued,
-            next_sequence: 1,
+            next_sequence: 0,
             admission: AdmissionClassifier::default(),
             runtime: RuntimeClassifier::default(),
         }
@@ -204,17 +204,25 @@ impl WorkerLifecycle {
         occurred_at: DateTime<Utc>,
     ) -> Result<CaptureEvent, TransitionError> {
         let transition: LifecycleTransition = self.state.transition_to(next, reason)?;
+        self.state = next;
+        Ok(self.emit_payload(CaptureEventPayload::Lifecycle(transition), occurred_at))
+    }
+
+    pub fn emit_payload(
+        &mut self,
+        payload: CaptureEventPayload,
+        occurred_at: DateTime<Utc>,
+    ) -> CaptureEvent {
         let sequence = self.next_sequence;
         self.next_sequence += 1;
-        self.state = next;
-        Ok(CaptureEvent {
-            id: format!("{}:lifecycle:{sequence}", self.bot_id),
+        CaptureEvent {
+            id: format!("capture-event-{sequence}"),
             bot_id: self.bot_id.clone(),
             sequence,
             occurred_at,
-            payload: CaptureEventPayload::Lifecycle(transition),
+            payload,
             metadata: ProviderMetadata::default(),
-        })
+        }
     }
 }
 
@@ -257,11 +265,42 @@ mod tests {
             .unwrap();
         let capturing = lifecycle.capture_started(now()).unwrap();
 
-        assert_eq!(launching.sequence, 1);
-        assert_eq!(waiting.sequence, 2);
-        assert_eq!(joined.sequence, 3);
-        assert_eq!(capturing.sequence, 4);
+        assert_eq!(launching.sequence, 0);
+        assert_eq!(waiting.sequence, 1);
+        assert_eq!(joined.sequence, 2);
+        assert_eq!(capturing.sequence, 3);
         assert_eq!(lifecycle.state(), BotState::Capturing);
+    }
+
+    #[test]
+    fn shares_one_sequence_across_lifecycle_and_capture_payloads() {
+        use anlg_meeting_capture::TranscriptSegment;
+
+        let mut lifecycle = WorkerLifecycle::new("bot-1");
+        let launching = lifecycle.launch_started(now()).unwrap();
+        let transcript = lifecycle.emit_payload(
+            CaptureEventPayload::Transcript(TranscriptSegment {
+                id: "segment-1".into(),
+                sequence: 1,
+                start_ms: 0,
+                end_ms: Some(100),
+                text: "hello".into(),
+                speaker: None,
+                is_final: true,
+            }),
+            now(),
+        );
+
+        assert_eq!(launching.sequence, 0);
+        assert_eq!(transcript.sequence, 1);
+        assert_eq!(transcript.id, "capture-event-1");
+        assert!(
+            transcript.id.len() <= 128
+                && transcript
+                    .id
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
+        );
     }
 
     #[test]
