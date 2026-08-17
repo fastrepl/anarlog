@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["control-plane"]
+members = ["control-plane", "google-meet-worker"]
 
 [workspace.package]
 version = "0.1.0"
@@ -18,6 +18,7 @@ anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"
 chrono = "0.4"
+futures-util = "0.3"
 http = "1"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 serde = "1"
@@ -26,7 +27,9 @@ sha2 = "0.11"
 sqlx = { version = "=0.9.0-alpha.1", default-features = false }
 thiserror = "2"
 tokio = "1"
+tokio-tungstenite = "0.29"
 tower = "0.5"
 tower-http = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+url = "2"

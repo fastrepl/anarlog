@@ -1,0 +1,21 @@
+[package]
+name = "anarlog-enterprise-google-meet-worker"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+anlg-meeting-capture.workspace = true
+
+chrono = { workspace = true, features = ["serde"] }
+futures-util.workspace = true
+reqwest.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["fs", "macros", "net", "process", "rt", "time"] }
+tokio-tungstenite.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
