@@ -1,16 +1,16 @@
 use std::{error::Error, time::Duration};
 
-use anlg_meeting_capture::{CaptureEvent, TransitionError};
+use anlg_meeting_capture::{CaptureEvent, CaptureEventPayload, TransitionError};
 use async_trait::async_trait;
 use chrono::Utc;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 
 use crate::{
     AdmissionMonitor, AdmissionMonitorConfig, AdmissionMonitorError, AudioFrameSink,
-    BrowserCapture, BrowserCaptureError, CaptureJobRuntime, ChromiumLaunchConfig, LobbyController,
-    LobbyError, MeetingSession, MeetingSessionLaunchError, MeetingSessionShutdownError,
-    RuntimeMonitor, RuntimeMonitorError, WorkerCheckpoint, WorkerLifecycle, X11Input,
-    X11InputConfig, X11InputError,
+    AudioFrameSinkOutput, BrowserCapture, BrowserCaptureError, CaptureJobRuntime,
+    ChromiumLaunchConfig, LobbyController, LobbyError, MeetingSession, MeetingSessionLaunchError,
+    MeetingSessionShutdownError, RuntimeMonitor, RuntimeMonitorError, WorkerCheckpoint,
+    WorkerLifecycle, X11Input, X11InputConfig, X11InputError,
 };
 
 #[derive(Debug, Clone)]
@@ -110,72 +110,61 @@ where
         self.sink_started = true;
         send_event(&events, lifecycle.capture_started(Utc::now())?).await?;
 
-        let runtime_events = {
-            let page = self
-                .session
-                .as_mut()
-                .expect("launched runtime owns a session")
-                .page_mut();
-            let (_stop_tx, stop_rx) = watch::channel(false);
-            let monitor = self.runtime_monitor.run(page, lifecycle, stop_rx);
-            tokio::pin!(monitor);
-
-            loop {
-                tokio::select! {
-                    result = &mut monitor => break result?,
-                    frame = self.capture.as_mut().expect("capture was installed").next_frame() => {
-                        self.audio_sink
-                            .write_frame(frame?)
-                            .await
-                            .map_err(GoogleMeetRuntimeError::AudioSink)?;
+        let mut probes = tokio::time::interval(self.runtime_monitor.poll_interval());
+        probes.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        let terminal_outcome = loop {
+            tokio::select! {
+                _ = probes.tick() => {
+                    let outcome = self.runtime_monitor
+                        .probe_outcome(
+                            self.session
+                                .as_mut()
+                                .expect("launched runtime owns a session")
+                                .page_mut(),
+                            lifecycle,
+                        )
+                        .await?;
+                    if let Some(outcome) = outcome {
+                        break outcome;
                     }
+                }
+                frame = self.capture.as_mut().expect("capture was installed").next_frame() => {
+                    let payloads = self.audio_sink
+                        .write_frame(frame?)
+                        .await
+                        .map_err(GoogleMeetRuntimeError::AudioSink)?;
+                    send_outputs(&events, lifecycle, payloads).await?;
                 }
             }
         };
 
-        for frame in self.stop_capture().await? {
-            self.audio_sink
-                .write_frame(frame)
-                .await
-                .map_err(GoogleMeetRuntimeError::AudioSink)?;
-        }
-        for event in runtime_events {
-            send_event(&events, event).await?;
-        }
+        let finalization = self.finalize_media().await;
+        let payloads = finalization.into_result()?;
+        send_outputs(&events, lifecycle, payloads).await?;
+        send_event(
+            &events,
+            lifecycle.apply_runtime_outcome(terminal_outcome, Utc::now())?,
+        )
+        .await?;
         Ok(())
     }
 
-    async fn cleanup(&mut self) -> Result<(), Self::Error> {
-        let (capture_error, trailing_frames) = match self.stop_capture().await {
-            Ok(frames) => (None, frames),
-            Err(error) => (Some(error), Vec::new()),
-        };
-        let mut sink_error = None;
-        for frame in trailing_frames {
-            if let Err(error) = self.audio_sink.write_frame(frame).await {
-                sink_error = Some(error);
-                break;
-            }
-        }
-        if self.sink_started {
-            self.sink_started = false;
-            if let Err(error) = self.audio_sink.finish().await
-                && sink_error.is_none()
-            {
-                sink_error = Some(error);
-            }
-        }
+    async fn cleanup(&mut self) -> Result<Vec<CaptureEventPayload>, Self::Error> {
+        let finalization = self.finalize_media().await;
         let session_error = match self.session.take() {
             Some(session) => session.shutdown().await.err(),
             None => None,
         };
 
-        if capture_error.is_none() && sink_error.is_none() && session_error.is_none() {
-            Ok(())
+        if finalization.capture_error.is_none()
+            && finalization.sink_error.is_none()
+            && session_error.is_none()
+        {
+            Ok(finalization.payloads.into_iter().map(Into::into).collect())
         } else {
             Err(GoogleMeetRuntimeError::Cleanup {
-                capture_error,
-                sink_error,
+                capture_error: finalization.capture_error,
+                sink_error: finalization.sink_error,
                 session_error,
             })
         }
@@ -195,6 +184,60 @@ where
         };
         capture.stop_and_drain(session.page_mut()).await
     }
+
+    async fn finalize_media(&mut self) -> MediaFinalization<S::Error> {
+        let (capture_error, trailing_frames) = match self.stop_capture().await {
+            Ok(frames) => (None, frames),
+            Err(error) => (Some(error), Vec::new()),
+        };
+        let mut payloads = Vec::new();
+        let mut sink_error = None;
+        for frame in trailing_frames {
+            match self.audio_sink.write_frame(frame).await {
+                Ok(output) => payloads.extend(output),
+                Err(error) => {
+                    sink_error = Some(error);
+                    break;
+                }
+            }
+        }
+        if self.sink_started {
+            match self.audio_sink.finish().await {
+                Ok(output) => {
+                    self.sink_started = false;
+                    payloads.extend(output);
+                }
+                Err(error) if sink_error.is_none() => sink_error = Some(error),
+                Err(_) => {}
+            }
+        }
+        MediaFinalization {
+            payloads,
+            capture_error,
+            sink_error,
+        }
+    }
+}
+
+struct MediaFinalization<E> {
+    payloads: Vec<AudioFrameSinkOutput>,
+    capture_error: Option<BrowserCaptureError>,
+    sink_error: Option<E>,
+}
+
+impl<E> MediaFinalization<E>
+where
+    E: Error + Send + Sync + 'static,
+{
+    fn into_result(self) -> Result<Vec<AudioFrameSinkOutput>, GoogleMeetRuntimeError<E>> {
+        if let Some(error) = self.capture_error {
+            return Err(GoogleMeetRuntimeError::Capture(error));
+        }
+        if let Some(error) = self.sink_error {
+            return Err(GoogleMeetRuntimeError::AudioSink(error));
+        }
+        Ok(self.payloads)
+    }
 }
 
 async fn send_event<E>(
@@ -208,6 +251,20 @@ where
         .send(event)
         .await
         .map_err(|_| GoogleMeetRuntimeError::EventChannelClosed)
+}
+
+async fn send_outputs<E>(
+    events: &mpsc::Sender<CaptureEvent>,
+    lifecycle: &mut WorkerLifecycle,
+    outputs: Vec<AudioFrameSinkOutput>,
+) -> Result<(), GoogleMeetRuntimeError<E>>
+where
+    E: Error + Send + Sync + 'static,
+{
+    for output in outputs {
+        send_event(events, lifecycle.emit_payload(output.into(), Utc::now())).await?;
+    }
+    Ok(())
 }
 
 fn validate_bot_name(value: &str) -> Result<(), GoogleMeetRuntimeConfigError> {
@@ -264,6 +321,8 @@ where
 mod tests {
     use std::path::PathBuf;
 
+    use anlg_meeting_capture::{BotState, TranscriptSegment};
+
     use super::*;
 
     struct UnusedSink;
@@ -272,17 +331,56 @@ mod tests {
     #[error("unused sink failed")]
     struct UnusedSinkError;
 
+    struct RetryingFinishSink {
+        attempts: usize,
+    }
+
     #[async_trait]
     impl AudioFrameSink for UnusedSink {
         type Error = UnusedSinkError;
 
-        async fn write_frame(&mut self, _frame: crate::AudioFrame) -> Result<(), Self::Error> {
-            Ok(())
+        async fn write_frame(
+            &mut self,
+            _frame: crate::AudioFrame,
+        ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+            Ok(Vec::new())
         }
 
-        async fn finish(&mut self) -> Result<(), Self::Error> {
-            Ok(())
+        async fn finish(&mut self) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+            Ok(Vec::new())
         }
+    }
+
+    #[async_trait]
+    impl AudioFrameSink for RetryingFinishSink {
+        type Error = UnusedSinkError;
+
+        async fn write_frame(
+            &mut self,
+            _frame: crate::AudioFrame,
+        ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+            Ok(Vec::new())
+        }
+
+        async fn finish(&mut self) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+            self.attempts += 1;
+            if self.attempts == 1 {
+                return Err(UnusedSinkError);
+            }
+            Ok(vec![transcript_output()])
+        }
+    }
+
+    fn transcript_output() -> AudioFrameSinkOutput {
+        AudioFrameSinkOutput::Transcript(TranscriptSegment {
+            id: "segment-final".into(),
+            sequence: 0,
+            start_ms: 0,
+            end_ms: Some(500),
+            text: "final words".into(),
+            speaker: None,
+            is_final: true,
+        })
     }
 
     fn config(bot_name: &str) -> GoogleMeetRuntimeConfig {
@@ -331,5 +429,58 @@ mod tests {
                 RuntimeMonitorError::InvalidPollInterval
             ))
         ));
+    }
+
+    #[tokio::test]
+    async fn sequences_final_media_before_the_terminal_event() {
+        let mut lifecycle = WorkerLifecycle::new("bot-1");
+        lifecycle.launch_started(Utc::now()).unwrap();
+        lifecycle
+            .transition(BotState::Joined, None, Utc::now())
+            .unwrap();
+        lifecycle.capture_started(Utc::now()).unwrap();
+        let (events_tx, mut events_rx) = mpsc::channel(2);
+
+        send_outputs::<UnusedSinkError>(&events_tx, &mut lifecycle, vec![transcript_output()])
+            .await
+            .unwrap();
+        send_event::<UnusedSinkError>(
+            &events_tx,
+            lifecycle
+                .apply_runtime_outcome(
+                    crate::RuntimeOutcome::MeetingEnded("meeting ended".into()),
+                    Utc::now(),
+                )
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+        let media = events_rx.recv().await.unwrap();
+        let terminal = events_rx.recv().await.unwrap();
+        assert_eq!((media.sequence, terminal.sequence), (3, 4));
+        assert!(matches!(media.payload, CaptureEventPayload::Transcript(_)));
+        assert!(matches!(
+            terminal.payload,
+            CaptureEventPayload::Lifecycle(ref transition)
+                if transition.to == BotState::Completed
+        ));
+    }
+
+    #[tokio::test]
+    async fn retries_sink_finalization_during_cleanup_after_a_transient_failure() {
+        let mut runtime =
+            GoogleMeetRuntime::new(config("Anarlog Notes"), RetryingFinishSink { attempts: 0 })
+                .unwrap();
+        runtime.sink_started = true;
+
+        let first = runtime.finalize_media().await;
+        assert!(first.sink_error.is_some());
+        assert!(runtime.sink_started);
+
+        let second = runtime.finalize_media().await;
+        assert!(second.sink_error.is_none());
+        assert_eq!(second.payloads, vec![transcript_output()]);
+        assert!(!runtime.sink_started);
     }
 }

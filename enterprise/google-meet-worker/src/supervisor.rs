@@ -56,7 +56,7 @@ pub trait CaptureJobRuntime: Send {
         events: mpsc::Sender<CaptureEvent>,
     ) -> Result<(), Self::Error>;
 
-    async fn cleanup(&mut self) -> Result<(), Self::Error>;
+    async fn cleanup(&mut self) -> Result<Vec<CaptureEventPayload>, Self::Error>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -219,10 +219,27 @@ where
                 }
             }
         }
-        self.runtime
+        let cleanup_payloads = self
+            .runtime
             .cleanup()
             .await
             .map_err(CaptureJobSupervisorError::Cleanup)?;
+
+        if matches!(exit, RuntimeExit::Runtime(_) | RuntimeExit::Shutdown) {
+            if lifecycle.state().is_terminal() && !cleanup_payloads.is_empty() {
+                return Err(CaptureJobSupervisorError::CleanupOutputAfterTerminal);
+            }
+            for payload in cleanup_payloads {
+                if matches!(payload, CaptureEventPayload::Lifecycle(_)) {
+                    return Err(CaptureJobSupervisorError::LifecycleOutputFromCleanup);
+                }
+                let event = lifecycle.emit_payload(payload, Utc::now());
+                self.control_plane
+                    .append(&event)
+                    .await
+                    .map_err(CaptureJobSupervisorError::ControlPlane)?;
+            }
+        }
 
         if matches!(exit, RuntimeExit::Runtime(_) | RuntimeExit::Shutdown)
             && let Some(event) = deferred_terminal
@@ -321,6 +338,10 @@ where
     ControlPlane(#[source] C),
     #[error("capture runtime cleanup failed")]
     Cleanup(#[source] R),
+    #[error("capture runtime produced cleanup output after entering a terminal state")]
+    CleanupOutputAfterTerminal,
+    #[error("capture runtime cleanup cannot produce lifecycle events")]
+    LifecycleOutputFromCleanup,
     #[error(transparent)]
     Resume(#[from] WorkerLifecycleResumeError),
     #[error(transparent)]
@@ -331,7 +352,9 @@ where
 mod tests {
     use std::sync::{Arc, Mutex};
 
-    use anlg_meeting_capture::{CaptureEventPayload, TerminalReason, TerminalReasonKind};
+    use anlg_meeting_capture::{
+        CaptureEventPayload, TerminalReason, TerminalReasonKind, TranscriptSegment,
+    };
     use chrono::{DateTime, Utc};
 
     use super::*;
@@ -398,6 +421,7 @@ mod tests {
     enum RuntimeMode {
         Complete,
         Fail,
+        FailWithCleanupOutput,
         TerminalThenWait,
         Wait,
     }
@@ -448,7 +472,9 @@ mod tests {
                     events.send(completed).await.unwrap();
                     Ok(())
                 }
-                RuntimeMode::Fail => Err(TestError("browser exited")),
+                RuntimeMode::Fail | RuntimeMode::FailWithCleanupOutput => {
+                    Err(TestError("browser exited"))
+                }
                 RuntimeMode::TerminalThenWait => {
                     let joined = lifecycle.transition(BotState::Joined, None, now()).unwrap();
                     events.send(joined).await.unwrap();
@@ -470,9 +496,21 @@ mod tests {
             }
         }
 
-        async fn cleanup(&mut self) -> Result<(), Self::Error> {
+        async fn cleanup(&mut self) -> Result<Vec<CaptureEventPayload>, Self::Error> {
             *self.cleaned.lock().unwrap() = true;
-            Ok(())
+            if matches!(self.mode, RuntimeMode::FailWithCleanupOutput) {
+                Ok(vec![CaptureEventPayload::Transcript(TranscriptSegment {
+                    id: "segment-cleanup".into(),
+                    sequence: 0,
+                    start_ms: 0,
+                    end_ms: Some(500),
+                    text: "final words".into(),
+                    speaker: None,
+                    is_final: true,
+                })])
+            } else {
+                Ok(Vec::new())
+            }
         }
     }
 
@@ -661,6 +699,46 @@ mod tests {
         assert_eq!(
             *harness.append_cleanup_states.lock().unwrap(),
             vec![false, true]
+        );
+    }
+
+    #[tokio::test]
+    async fn persists_final_media_output_before_runtime_failure_terminalizes() {
+        let harness = harness(
+            BotState::Queued,
+            0,
+            RuntimeMode::FailWithCleanupOutput,
+            false,
+        );
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+
+        let outcome = harness.supervisor.run(shutdown_rx).await.unwrap();
+
+        assert_eq!(
+            outcome,
+            CaptureJobSupervisorOutcome::Terminal(BotState::Failed)
+        );
+        let events = harness.events.lock().unwrap();
+        assert_eq!(events.len(), 3);
+        assert!(matches!(
+            events[1].payload,
+            CaptureEventPayload::Transcript(_)
+        ));
+        assert!(matches!(
+            events[2].payload,
+            CaptureEventPayload::Lifecycle(ref transition)
+                if transition.to == BotState::Failed
+        ));
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.sequence)
+                .collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
+        assert_eq!(
+            *harness.append_cleanup_states.lock().unwrap(),
+            vec![false, true, true]
         );
     }
 

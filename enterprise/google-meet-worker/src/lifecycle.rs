@@ -159,60 +159,77 @@ impl WorkerLifecycle {
         observed_at: Instant,
         occurred_at: DateTime<Utc>,
     ) -> Result<Option<CaptureEvent>, TransitionError> {
-        if !matches!(self.state, BotState::Joined | BotState::Capturing) {
+        let Some(outcome) = self.classify_runtime(snapshot, observed_at) else {
             return Ok(None);
+        };
+        self.apply_runtime_outcome(outcome, occurred_at).map(Some)
+    }
+
+    pub(crate) fn classify_runtime(
+        &mut self,
+        snapshot: &RuntimeSnapshot,
+        observed_at: Instant,
+    ) -> Option<RuntimeOutcome> {
+        if !matches!(self.state, BotState::Joined | BotState::Capturing) {
+            return None;
         }
         match self.runtime.classify(snapshot, observed_at) {
-            RuntimeOutcome::Removed(indicator) => self
-                .transition(
-                    BotState::Failed,
-                    Some(TerminalReason {
-                        kind: TerminalReasonKind::RemovedFromMeeting,
-                        message: Some(indicator),
-                        retryable: false,
-                    }),
-                    occurred_at,
-                )
-                .map(Some),
-            RuntimeOutcome::MeetingEnded(indicator) => self
-                .transition(
-                    BotState::Completed,
-                    Some(TerminalReason {
-                        kind: TerminalReasonKind::MeetingEnded,
-                        message: Some(indicator),
-                        retryable: false,
-                    }),
-                    occurred_at,
-                )
-                .map(Some),
-            RuntimeOutcome::NetworkLost(indicator) => self
-                .transition(
-                    BotState::Failed,
-                    Some(TerminalReason {
-                        kind: TerminalReasonKind::NetworkLost,
-                        message: Some(indicator),
-                        retryable: true,
-                    }),
-                    occurred_at,
-                )
-                .map(Some),
-            RuntimeOutcome::StateLost => self
-                .transition(
-                    BotState::Failed,
-                    Some(TerminalReason {
-                        kind: TerminalReasonKind::ProviderError,
-                        message: Some(
-                            "Google Meet runtime indicators disappeared beyond the grace period"
-                                .into(),
-                        ),
-                        retryable: true,
-                    }),
-                    occurred_at,
-                )
-                .map(Some),
             RuntimeOutcome::Active
             | RuntimeOutcome::ConnectionInterrupted { .. }
-            | RuntimeOutcome::Unknown { .. } => Ok(None),
+            | RuntimeOutcome::Unknown { .. } => None,
+            outcome => Some(outcome),
+        }
+    }
+
+    pub(crate) fn apply_runtime_outcome(
+        &mut self,
+        outcome: RuntimeOutcome,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<CaptureEvent, TransitionError> {
+        match outcome {
+            RuntimeOutcome::Removed(indicator) => self.transition(
+                BotState::Failed,
+                Some(TerminalReason {
+                    kind: TerminalReasonKind::RemovedFromMeeting,
+                    message: Some(indicator),
+                    retryable: false,
+                }),
+                occurred_at,
+            ),
+            RuntimeOutcome::MeetingEnded(indicator) => self.transition(
+                BotState::Completed,
+                Some(TerminalReason {
+                    kind: TerminalReasonKind::MeetingEnded,
+                    message: Some(indicator),
+                    retryable: false,
+                }),
+                occurred_at,
+            ),
+            RuntimeOutcome::NetworkLost(indicator) => self.transition(
+                BotState::Failed,
+                Some(TerminalReason {
+                    kind: TerminalReasonKind::NetworkLost,
+                    message: Some(indicator),
+                    retryable: true,
+                }),
+                occurred_at,
+            ),
+            RuntimeOutcome::StateLost => self.transition(
+                BotState::Failed,
+                Some(TerminalReason {
+                    kind: TerminalReasonKind::ProviderError,
+                    message: Some(
+                        "Google Meet runtime indicators disappeared beyond the grace period".into(),
+                    ),
+                    retryable: true,
+                }),
+                occurred_at,
+            ),
+            RuntimeOutcome::Active
+            | RuntimeOutcome::ConnectionInterrupted { .. }
+            | RuntimeOutcome::Unknown { .. } => {
+                unreachable!("non-terminal runtime outcomes are not applied")
+            }
         }
     }
 

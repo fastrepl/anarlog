@@ -82,9 +82,9 @@ impl CaptureJobRuntime for CompletingRuntime {
         Ok(())
     }
 
-    async fn cleanup(&mut self) -> Result<(), Self::Error> {
+    async fn cleanup(&mut self) -> Result<Vec<CaptureEventPayload>, Self::Error> {
         self.cleaned.store(true, Ordering::SeqCst);
-        Ok(())
+        Ok(Vec::new())
     }
 }
 

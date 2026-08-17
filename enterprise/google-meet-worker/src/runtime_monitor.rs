@@ -4,7 +4,7 @@ use anlg_meeting_capture::{CaptureEvent, TransitionError};
 use chrono::Utc;
 use tokio::sync::watch;
 
-use crate::{CdpError, CdpPage, RuntimeSnapshot, WorkerLifecycle};
+use crate::{CdpError, CdpPage, RuntimeOutcome, RuntimeSnapshot, WorkerLifecycle};
 
 pub const DEFAULT_RUNTIME_POLL_INTERVAL: Duration = Duration::from_millis(1500);
 
@@ -28,6 +28,19 @@ impl RuntimeMonitor {
         stop: watch::Receiver<bool>,
     ) -> Result<Vec<CaptureEvent>, RuntimeMonitorError> {
         self.run_with_source(page, lifecycle, stop).await
+    }
+
+    pub(crate) fn poll_interval(&self) -> Duration {
+        self.poll_interval
+    }
+
+    pub(crate) async fn probe_outcome(
+        &self,
+        page: &mut CdpPage,
+        lifecycle: &mut WorkerLifecycle,
+    ) -> Result<Option<RuntimeOutcome>, RuntimeMonitorError> {
+        let snapshot = page.probe_runtime().await?;
+        Ok(lifecycle.classify_runtime(&snapshot, std::time::Instant::now()))
     }
 
     async fn run_with_source<S: RuntimeProbeSource>(
