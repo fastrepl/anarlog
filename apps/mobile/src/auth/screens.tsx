@@ -140,8 +140,8 @@ export function PaywallScreen({
           <View style={styles.accentDot} />
         </View>
         <Text style={styles.copy}>
-          Record in-person meetings and voice notes from your phone. Notes stay
-          on this device while mobile sync is in development.
+          Record in-person meetings and voice notes from your phone, then keep
+          notes and transcripts in sync with Anarlog on your other devices.
         </Text>
         {accessPending && (
           <Text style={styles.pendingCopy}>

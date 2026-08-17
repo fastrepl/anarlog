@@ -21,7 +21,6 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
-import type { MobileSyncPhase, MobileSyncSnapshot } from "@/sync/controller";
 import {
   confirmMobileRecoveryKey,
   generateMobileRecoveryKey,
@@ -31,77 +30,9 @@ import {
   subscribeMobileSync,
   syncMobileNow,
 } from "@/sync/mobile-sync";
+import { syncStatusPresentation } from "@/sync/status-presentation";
 
 type SheetMode = "status" | "choose" | "import" | "generated";
-
-const phaseCopy: Record<
-  MobileSyncPhase,
-  { title: string; description: string }
-> = {
-  inactive: {
-    title: "Cloud sync is off",
-    description: "Sign in with Anarlog Pro to sync this device.",
-  },
-  starting: {
-    title: "Connecting this device",
-    description: "Preparing your encrypted workspace…",
-  },
-  setup_required: {
-    title: "Protect cloud sync",
-    description:
-      "Create a recovery key, or use the one from another Anarlog device.",
-  },
-  ready: {
-    title: "Cloud sync is on",
-    description: "Your notes sync end-to-end encrypted across your devices.",
-  },
-  error: {
-    title: "Cloud sync needs attention",
-    description: "Your notes are safe on this device. Try connecting again.",
-  },
-  device_limit: {
-    title: "Device limit reached",
-    description: "Anarlog Pro supports cloud sync on up to five devices.",
-  },
-  identity_mismatch: {
-    title: "Use your existing recovery key",
-    description:
-      "This account already has encrypted notes. Use the same key as your other device.",
-  },
-  not_entitled: {
-    title: "Anarlog Pro required",
-    description: "Refresh your plan to continue syncing this device.",
-  },
-  reauth_required: {
-    title: "Sign in again",
-    description: "Your session expired before cloud sync could connect.",
-  },
-  account_mismatch: {
-    title: "This device belongs to another account",
-    description:
-      "Your local notes were created by a different account, so sync stays off to protect both workspaces.",
-  },
-};
-
-function relativeSyncTime(lastSyncAtMs: number | null): string | null {
-  if (!lastSyncAtMs) return null;
-  const elapsedMinutes = Math.max(
-    0,
-    Math.floor((Date.now() - lastSyncAtMs) / 60_000),
-  );
-  if (elapsedMinutes < 1) return "Synced just now";
-  if (elapsedMinutes < 60) return `Synced ${elapsedMinutes}m ago`;
-  const elapsedHours = Math.floor(elapsedMinutes / 60);
-  if (elapsedHours < 24) return `Synced ${elapsedHours}h ago`;
-  return `Synced ${Math.floor(elapsedHours / 24)}d ago`;
-}
-
-function statusDetail(snapshot: MobileSyncSnapshot): string | null {
-  if (snapshot.phase !== "ready") return snapshot.errorMessage;
-  if (snapshot.syncingNow) return "Syncing now…";
-  if (snapshot.hasUnsentChanges) return "Changes waiting to sync";
-  return relativeSyncTime(snapshot.lastSyncAtMs);
-}
 
 export function ProfileSheet({
   visible,
@@ -129,8 +60,7 @@ export function ProfileSheet({
       : auth.billing.plan === "pro"
         ? "Pro"
         : "Free";
-  const copy = phaseCopy[sync.phase];
-  const detail = statusDetail(sync);
+  const presentation = syncStatusPresentation(sync);
 
   const close = () => {
     if (mode === "generated" || busy) return;
@@ -327,16 +257,22 @@ export function ProfileSheet({
                     <View
                       style={[
                         styles.statusDot,
-                        sync.phase === "ready" && sync.running
+                        presentation.healthy
                           ? styles.statusDotReady
-                          : styles.statusDotQuiet,
+                          : presentation.retrying || presentation.pending
+                            ? styles.statusDotRetrying
+                            : styles.statusDotQuiet,
                       ]}
                     />
                     <Text style={styles.eyebrow}>Cloud sync</Text>
                   </View>
-                  <Text style={styles.syncTitle}>{copy.title}</Text>
-                  <Text style={styles.syncDescription}>{copy.description}</Text>
-                  {detail && <Text style={styles.syncDetail}>{detail}</Text>}
+                  <Text style={styles.syncTitle}>{presentation.title}</Text>
+                  <Text style={styles.syncDescription}>
+                    {presentation.description}
+                  </Text>
+                  {presentation.detail && (
+                    <Text style={styles.syncDetail}>{presentation.detail}</Text>
+                  )}
                   {renderStatusActions()}
                 </View>
               )}
@@ -545,6 +481,9 @@ const styles = StyleSheet.create({
   },
   statusDotReady: {
     backgroundColor: Colors.primary,
+  },
+  statusDotRetrying: {
+    backgroundColor: Colors.alertForeground,
   },
   statusDotQuiet: {
     backgroundColor: Colors.border,

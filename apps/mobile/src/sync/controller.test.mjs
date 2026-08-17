@@ -295,3 +295,32 @@ test("stops native sync when the account lifecycle ends", async () => {
   await waitFor(() => stopCount === 2);
   assert.equal(controller.getSnapshot().phase, "inactive");
 });
+
+test("coalesces foreground and manual sync requests while one is active", async () => {
+  let syncCount = 0;
+  let finishSync;
+  const controller = new MobileSyncController(
+    dependencies({
+      syncNow: async () => {
+        syncCount += 1;
+        await new Promise((resolve) => {
+          finishSync = resolve;
+        });
+      },
+    }),
+    0,
+    0,
+  );
+  controller.activate(session);
+  await waitFor(() => controller.getSnapshot().phase === "ready");
+
+  const foregroundSync = controller.syncNow();
+  const manualSync = controller.syncNow();
+  await waitFor(() => finishSync !== undefined);
+  assert.equal(syncCount, 1);
+  assert.equal(controller.getSnapshot().syncingNow, true);
+
+  finishSync();
+  await Promise.all([foregroundSync, manualSync]);
+  assert.equal(controller.getSnapshot().syncingNow, false);
+});
