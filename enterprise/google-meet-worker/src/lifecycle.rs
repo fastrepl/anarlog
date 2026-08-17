@@ -6,7 +6,10 @@ use anlg_meeting_capture::{
 };
 use chrono::{DateTime, Utc};
 
-use crate::{AdmissionClassifier, AdmissionOutcome, AdmissionRejectionReason, AdmissionSnapshot};
+use crate::{
+    AdmissionClassifier, AdmissionOutcome, AdmissionRejectionReason, AdmissionSnapshot,
+    RuntimeClassifier, RuntimeOutcome, RuntimeSnapshot,
+};
 
 #[derive(Debug)]
 pub struct WorkerLifecycle {
@@ -14,6 +17,7 @@ pub struct WorkerLifecycle {
     state: BotState,
     next_sequence: u64,
     admission: AdmissionClassifier,
+    runtime: RuntimeClassifier,
 }
 
 impl WorkerLifecycle {
@@ -23,6 +27,7 @@ impl WorkerLifecycle {
             state: BotState::Queued,
             next_sequence: 1,
             admission: AdmissionClassifier::default(),
+            runtime: RuntimeClassifier::default(),
         }
     }
 
@@ -95,6 +100,101 @@ impl WorkerLifecycle {
         occurred_at: DateTime<Utc>,
     ) -> Result<CaptureEvent, TransitionError> {
         self.transition(BotState::Capturing, None, occurred_at)
+    }
+
+    pub fn admission_timed_out(
+        &mut self,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<CaptureEvent, TransitionError> {
+        self.transition(
+            BotState::Failed,
+            Some(TerminalReason {
+                kind: TerminalReasonKind::AdmissionTimeout,
+                message: Some("Google Meet host did not admit the bot before the deadline".into()),
+                retryable: true,
+            }),
+            occurred_at,
+        )
+    }
+
+    pub fn observe_runtime(
+        &mut self,
+        snapshot: &RuntimeSnapshot,
+        observed_at: Instant,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<Option<CaptureEvent>, TransitionError> {
+        if !matches!(self.state, BotState::Joined | BotState::Capturing) {
+            return Ok(None);
+        }
+        match self.runtime.classify(snapshot, observed_at) {
+            RuntimeOutcome::Removed(indicator) => self
+                .transition(
+                    BotState::Failed,
+                    Some(TerminalReason {
+                        kind: TerminalReasonKind::RemovedFromMeeting,
+                        message: Some(indicator),
+                        retryable: false,
+                    }),
+                    occurred_at,
+                )
+                .map(Some),
+            RuntimeOutcome::MeetingEnded(indicator) => self
+                .transition(
+                    BotState::Completed,
+                    Some(TerminalReason {
+                        kind: TerminalReasonKind::MeetingEnded,
+                        message: Some(indicator),
+                        retryable: false,
+                    }),
+                    occurred_at,
+                )
+                .map(Some),
+            RuntimeOutcome::NetworkLost(indicator) => self
+                .transition(
+                    BotState::Failed,
+                    Some(TerminalReason {
+                        kind: TerminalReasonKind::NetworkLost,
+                        message: Some(indicator),
+                        retryable: true,
+                    }),
+                    occurred_at,
+                )
+                .map(Some),
+            RuntimeOutcome::StateLost => self
+                .transition(
+                    BotState::Failed,
+                    Some(TerminalReason {
+                        kind: TerminalReasonKind::ProviderError,
+                        message: Some(
+                            "Google Meet runtime indicators disappeared beyond the grace period"
+                                .into(),
+                        ),
+                        retryable: true,
+                    }),
+                    occurred_at,
+                )
+                .map(Some),
+            RuntimeOutcome::Active
+            | RuntimeOutcome::ConnectionInterrupted { .. }
+            | RuntimeOutcome::Unknown { .. } => Ok(None),
+        }
+    }
+
+    pub fn stopped_by_request(
+        &mut self,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<Vec<CaptureEvent>, TransitionError> {
+        let stopping = self.transition(BotState::Stopping, None, occurred_at)?;
+        let completed = self.transition(
+            BotState::Completed,
+            Some(TerminalReason {
+                kind: TerminalReasonKind::StoppedByRequest,
+                message: None,
+                retryable: false,
+            }),
+            occurred_at,
+        )?;
+        Ok(vec![stopping, completed])
     }
 
     pub fn transition(
@@ -212,5 +312,86 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[test]
+    fn admission_timeout_is_terminal_and_retry_honest() {
+        let mut lifecycle = WorkerLifecycle::new("bot-1");
+        lifecycle.launch_started(now()).unwrap();
+
+        let event = lifecycle.admission_timed_out(now()).unwrap();
+        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
+            panic!("expected lifecycle event")
+        };
+        let reason = transition.reason.unwrap();
+        assert_eq!(reason.kind, TerminalReasonKind::AdmissionTimeout);
+        assert!(reason.retryable);
+    }
+
+    #[test]
+    fn removal_and_meeting_end_map_to_distinct_terminal_reasons() {
+        for (snapshot, expected_state, expected_reason) in [
+            (
+                RuntimeSnapshot {
+                    removal_indicator: Some("you were removed".into()),
+                    ..Default::default()
+                },
+                BotState::Failed,
+                TerminalReasonKind::RemovedFromMeeting,
+            ),
+            (
+                RuntimeSnapshot {
+                    meeting_ended_indicator: Some("meeting ended".into()),
+                    ..Default::default()
+                },
+                BotState::Completed,
+                TerminalReasonKind::MeetingEnded,
+            ),
+        ] {
+            let mut lifecycle = WorkerLifecycle::new("bot-1");
+            lifecycle.launch_started(now()).unwrap();
+            lifecycle
+                .observe_admission(
+                    &AdmissionSnapshot {
+                        self_name_nodes: 1,
+                        ..Default::default()
+                    },
+                    Instant::now(),
+                    now(),
+                )
+                .unwrap();
+            lifecycle.capture_started(now()).unwrap();
+
+            let event = lifecycle
+                .observe_runtime(&snapshot, Instant::now(), now())
+                .unwrap()
+                .unwrap();
+            let CaptureEventPayload::Lifecycle(transition) = event.payload else {
+                panic!("expected lifecycle event")
+            };
+            assert_eq!(transition.to, expected_state);
+            assert_eq!(transition.reason.unwrap().kind, expected_reason);
+        }
+    }
+
+    #[test]
+    fn requested_stop_emits_stopping_before_completed() {
+        let mut lifecycle = WorkerLifecycle::new("bot-1");
+        lifecycle.launch_started(now()).unwrap();
+        lifecycle
+            .observe_admission(
+                &AdmissionSnapshot {
+                    self_name_nodes: 1,
+                    ..Default::default()
+                },
+                Instant::now(),
+                now(),
+            )
+            .unwrap();
+        lifecycle.capture_started(now()).unwrap();
+
+        let events = lifecycle.stopped_by_request(now()).unwrap();
+        assert_eq!(events.len(), 2);
+        assert_eq!(lifecycle.state(), BotState::Completed);
     }
 }
