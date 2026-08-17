@@ -1,38 +1,29 @@
 import {
   getRecordingPermissionsAsync,
-  RecordingPresets,
-  type RecordingStatus,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
-  useAudioRecorder,
-  useAudioRecorderState,
+  useAudioStream,
+  type AudioStreamBuffer,
 } from "expo-audio";
-import { Directory, File, Paths } from "expo-file-system";
 import { useCallback, useRef, useState } from "react";
 import { AppState } from "react-native";
 
-import {
-  recoverableRecordingUri,
-  recorderRecoveryAction,
-  recorderStatusFailure,
-  shouldHandleRecorderFailure,
-  type RecorderPhase,
-} from "@/audio/recorder-status";
+import { pcmAmplitude } from "@/audio/pcm-wav";
+import { type RecorderPhase } from "@/audio/recorder-status";
+import { SessionWavWriter } from "@/audio/session-wav-writer";
 import { catalogSessionAudio } from "@/data/audio-catalog";
+import {
+  HostedLiveTranscription,
+  markSessionAudioTranscribed,
+  type LiveTranscriptionStatus,
+} from "@/data/live-transcription";
 import { transcribeSession } from "@/data/transcribe";
 import { captureAnalytics } from "@/lib/analytics";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 
-const METERING_FLOOR_DB = -50;
-
-const CONTENT_TYPES: Record<string, string> = {
-  m4a: "audio/mp4",
-  mp3: "audio/mpeg",
-  wav: "audio/wav",
-  ogg: "audio/ogg",
-  caf: "audio/x-caf",
-};
+const STREAM_SAMPLE_RATE = 16_000;
+const STREAM_CHANNELS = 1;
 
 export type { RecorderPhase } from "@/audio/recorder-status";
 
@@ -53,24 +44,28 @@ export function useSessionRecorder(
   failure: RecorderFailure | null;
   amplitude: number;
   durationMs: number;
+  liveStatus: LiveTranscriptionStatus;
+  liveTranscript: string;
   stop: () => Promise<StopResult>;
   retry: () => Promise<StopResult>;
 } {
   const [phase, setPhaseState] = useState<RecorderPhase>("idle");
   const [failure, setFailure] = useState<RecorderFailure | null>(null);
+  const [amplitude, setAmplitude] = useState(0);
+  const [durationMs, setDurationMs] = useState(0);
+  const [liveStatus, setLiveStatus] =
+    useState<LiveTranscriptionStatus>("connecting");
+  const [liveTranscript, setLiveTranscript] = useState("");
   const phaseRef = useRef<RecorderPhase>("idle");
   const activeRef = useRef(true);
-  const pendingUriRef = useRef<string | null>(null);
-  const pendingDurationRef = useRef(0);
-  const completionReasonRef = useRef<"user_stopped" | "interrupted">(
-    "user_stopped",
-  );
+  const writerRef = useRef<SessionWavWriter | null>(null);
+  const liveRef = useRef<HostedLiveTranscription | null>(null);
   const startGenerationRef = useRef(0);
   const startRef = useRef<Promise<void> | null>(null);
   const stopOperationRef = useRef<Promise<StopResult> | null>(null);
   const completionTrackedRef = useRef(false);
   const reportedFailureRef = useRef<string | null>(null);
-  const recorderRef = useRef<ReturnType<typeof useAudioRecorder> | null>(null);
+  const durationRef = useRef(0);
 
   const setPhase = useCallback((next: RecorderPhase) => {
     phaseRef.current = next;
@@ -81,9 +76,7 @@ export function useSessionRecorder(
     (reason: RecorderFailure, error: unknown, operation: string) => {
       if (reportedFailureRef.current !== reason) {
         reportedFailureRef.current = reason;
-        captureAnalytics("recording_failed", {
-          failure_stage: reason,
-        });
+        captureAnalytics("recording_failed", { failure_stage: reason });
       }
       if (reason !== "permission_denied") {
         captureOperationalError(error, {
@@ -96,95 +89,75 @@ export function useSessionRecorder(
     [],
   );
 
-  const handleRecorderStatus = useCallback(
-    (status: RecordingStatus) => {
-      const statusFailure = recorderStatusFailure(status);
-      if (!statusFailure || !shouldHandleRecorderFailure(phaseRef.current)) {
+  const handleBuffer = useCallback(
+    (buffer: AudioStreamBuffer) => {
+      if (phaseRef.current !== "starting" && phaseRef.current !== "recording") {
         return;
       }
-
-      const recoverableUri = recoverableRecordingUri(
-        status.url,
-        recorderRef.current?.uri,
-      );
-      if (recoverableUri) pendingUriRef.current = recoverableUri;
-      completionReasonRef.current = "interrupted";
-      reportFailure(
-        statusFailure.reason,
-        new Error(statusFailure.message),
-        statusFailure.reason === "media_services_reset"
-          ? "recording_media_services_reset"
-          : "recording_native_status",
-      );
-      setPhase(statusFailure.phase);
-    },
-    [reportFailure, setPhase],
-  );
-
-  const recorder = useAudioRecorder(
-    {
-      ...RecordingPresets.HIGH_QUALITY,
-      directory: "document",
-      isMeteringEnabled: true,
-    },
-    handleRecorderStatus,
-  );
-  recorderRef.current = recorder;
-  const recorderState = useAudioRecorderState(recorder, 50);
-
-  const persistRecording = useCallback(
-    async (sourceUri: string, durationMs: number): Promise<StopResult> => {
-      setPhase("saving");
       try {
-        const extension = sourceUri.split(".").pop()?.toLowerCase() ?? "m4a";
-        const directory = new Directory(Paths.document, "sessions", sessionId);
-        directory.create({ intermediates: true, idempotent: true });
-        const destination = new File(directory, `audio.${extension}`);
-        if (sourceUri !== destination.uri) {
-          if (destination.exists) destination.delete();
-          const source = new File(sourceUri);
-          await source.move(destination);
-          pendingUriRef.current = destination.uri;
-        }
-        await catalogSessionAudio(sessionId, {
-          filename: `audio.${extension}`,
-          contentType: CONTENT_TYPES[extension] ?? "application/octet-stream",
-          sizeBytes: destination.size ?? 0,
-        });
-        if (!completionTrackedRef.current) {
-          completionTrackedRef.current = true;
-          captureAnalytics("recording_completed", {
-            duration_seconds: Math.round(durationMs / 1_000),
-            completion_reason: completionReasonRef.current,
-            transcription_requested: true,
-          });
-          captureAnalytics("session_completed", {
-            duration_seconds: Math.round(durationMs / 1_000),
-            completion_reason: completionReasonRef.current,
-            transcription_requested: true,
-          });
-        }
-        pendingUriRef.current = null;
-        setFailure(null);
-        void transcribeSession(sessionId);
-        setPhase("saved");
-        return "saved";
+        writerRef.current?.append(
+          buffer.data,
+          buffer.sampleRate,
+          buffer.channels,
+        );
       } catch (error) {
-        reportFailure("save_failed", error, "recording_save");
+        reportFailure("save_failed", error, "recording_stream_write");
         setPhase("save_error");
-        return "failed";
+        try {
+          streamRef.current.stop();
+        } catch {}
+        return;
+      }
+      const generation = startGenerationRef.current;
+      liveRef.current ??= new HostedLiveTranscription(
+        sessionId,
+        buffer.sampleRate,
+        buffer.channels,
+        ({ status, text }) => {
+          if (!activeRef.current || generation !== startGenerationRef.current) {
+            return;
+          }
+          setLiveStatus(status);
+          if (text !== "") setLiveTranscript(text);
+        },
+      );
+      liveRef.current?.sendAudio(buffer.data);
+      const frameDuration =
+        buffer.data.byteLength /
+        2 /
+        Math.max(1, buffer.channels) /
+        Math.max(1, buffer.sampleRate);
+      durationRef.current = Math.max(
+        durationRef.current,
+        Math.round((buffer.timestamp + frameDuration) * 1_000),
+      );
+      if (activeRef.current) {
+        setAmplitude(pcmAmplitude(buffer.data));
+        setDurationMs(durationRef.current);
       }
     },
     [reportFailure, sessionId, setPhase],
   );
 
+  const { stream } = useAudioStream({
+    sampleRate: STREAM_SAMPLE_RATE,
+    channels: STREAM_CHANNELS,
+    encoding: "int16",
+    onBuffer: handleBuffer,
+  });
+  const streamRef = useRef(stream);
+  streamRef.current = stream;
+
   const start = useCallback(async () => {
     const generation = ++startGenerationRef.current;
     const isCurrent = () =>
       activeRef.current && generation === startGenerationRef.current;
-    pendingDurationRef.current = 0;
-    completionReasonRef.current = "user_stopped";
     completionTrackedRef.current = false;
+    durationRef.current = 0;
+    setDurationMs(0);
+    setAmplitude(0);
+    setLiveStatus("connecting");
+    setLiveTranscript("");
     setFailure(null);
     reportedFailureRef.current = null;
     setPhase("starting");
@@ -216,6 +189,7 @@ export function useSessionRecorder(
         setPhase("unavailable");
         return;
       }
+
       await setAudioModeAsync({
         allowsRecording: true,
         playsInSilentMode: true,
@@ -223,26 +197,42 @@ export function useSessionRecorder(
         interruptionMode: "doNotMix",
       });
       if (!isCurrent()) return;
-      await recorder.prepareToRecordAsync();
-      if (!isCurrent()) return;
-      recorder.record();
+      writerRef.current = new SessionWavWriter(sessionId);
+      await stream.start();
+      if (!isCurrent()) {
+        phaseRef.current = "recording";
+        return;
+      }
       captureAnalytics("recording_started", {
         entry_point: "mobile_recorder",
-        transcription_mode: "post_capture",
+        transcription_mode: "live_with_batch_fallback",
       });
       captureAnalytics("session_started", {
         entry_point: "mobile_recorder",
-        transcription_mode: "post_capture",
+        transcription_mode: "live_with_batch_fallback",
       });
       setPhase("recording");
     } catch (error) {
+      try {
+        stream.stop();
+      } catch {}
+      try {
+        writerRef.current?.close();
+      } catch (cleanupError) {
+        captureOperationalError(cleanupError, {
+          operation: "recording_start_cleanup",
+        });
+      }
+      writerRef.current = null;
+      void liveRef.current?.stop();
+      liveRef.current = null;
       reportFailure("start_failed", error, "recording_start");
       captureAnalytics("session_start_failed", {
         failure_stage: "capture_start",
       });
       setPhase("error");
     }
-  }, [recorder, reportFailure, setPhase]);
+  }, [reportFailure, sessionId, setPhase, stream]);
 
   useMountEffect(() => {
     activeRef.current = true;
@@ -258,71 +248,73 @@ export function useSessionRecorder(
         nextState === "active" &&
         phaseRef.current === "unavailable";
       previousState = nextState;
-      if (returnedFromSettings) {
-        startRef.current = start();
-      }
+      if (returnedFromSettings) startRef.current = start();
     });
     return () => subscription.remove();
   });
 
   const performStop = async (): Promise<StopResult> => {
-    let action = recorderRecoveryAction(
-      phaseRef.current,
-      pendingUriRef.current !== null,
-      "stop",
-    );
-    const pendingUri = pendingUriRef.current;
-    if (action === "persist" && pendingUri) {
-      return persistRecording(pendingUri, pendingDurationRef.current);
-    }
-    if (action !== "stop") return "noop";
-
     await startRef.current?.catch(() => {});
-    action = recorderRecoveryAction(
-      phaseRef.current,
-      pendingUriRef.current !== null,
-      "stop",
-    );
-    const startedPendingUri = pendingUriRef.current;
-    if (action === "persist" && startedPendingUri) {
-      return persistRecording(startedPendingUri, pendingDurationRef.current);
+    if (
+      !["recording", "save_error", "error", "interrupted"].includes(
+        phaseRef.current,
+      )
+    ) {
+      return "noop";
     }
-    if (phaseRef.current === "starting") return "noop";
-    if (action !== "stop") return "noop";
-
+    if (!writerRef.current) return "noop";
     setPhase("saving");
-    pendingDurationRef.current =
-      recorderState.durationMillis ?? pendingDurationRef.current;
     try {
-      await recorder.stop();
-    } catch (error) {
-      const uri = recorder.uri;
-      if (uri) {
-        pendingUriRef.current = uri;
-        return persistRecording(uri, pendingDurationRef.current);
+      streamRef.current.stop();
+      const writer = writerRef.current;
+      if (!writer) throw new Error("Recording file is unavailable");
+      const live = liveRef.current;
+      const file = writer.finalize();
+      await catalogSessionAudio(sessionId, {
+        filename: "audio.wav",
+        contentType: "audio/wav",
+        sizeBytes: file.size,
+      });
+      const liveComplete = await (live?.stop() ?? Promise.resolve(false));
+      let transcriptionMode = liveComplete ? "live" : "batch_fallback";
+      if (liveComplete) {
+        await markSessionAudioTranscribed(sessionId).catch((error) => {
+          transcriptionMode = "batch_fallback";
+          captureOperationalError(error, {
+            operation: "transcription_live_mark_complete",
+            tags: { mode: "live" },
+          });
+          void transcribeSession(sessionId);
+        });
+      } else {
+        void transcribeSession(sessionId);
       }
-      reportFailure("save_failed", error, "recording_stop");
+      if (!completionTrackedRef.current) {
+        completionTrackedRef.current = true;
+        const properties = {
+          duration_seconds: Math.round(durationRef.current / 1_000),
+          completion_reason: "user_stopped",
+          transcription_requested: true,
+          transcription_mode: transcriptionMode,
+        };
+        captureAnalytics("recording_completed", properties);
+        captureAnalytics("session_completed", properties);
+      }
+      writerRef.current = null;
+      liveRef.current = null;
+      setFailure(null);
+      setPhase("saved");
+      return "saved";
+    } catch (error) {
+      reportFailure("save_failed", error, "recording_save");
       setPhase("save_error");
       return "failed";
     }
-    const uri = recorder.uri;
-    if (!uri) {
-      reportFailure(
-        "save_failed",
-        new Error("recording produced no file"),
-        "recording_stop",
-      );
-      setPhase("save_error");
-      return "failed";
-    }
-    pendingUriRef.current = uri;
-    return persistRecording(uri, pendingDurationRef.current);
   };
 
   const stop = (): Promise<StopResult> => {
     const currentOperation = stopOperationRef.current;
     if (currentOperation) return currentOperation;
-
     const operation = performStop();
     stopOperationRef.current = operation;
     const clearOperation = () => {
@@ -335,15 +327,13 @@ export function useSessionRecorder(
   };
 
   const retry = async (): Promise<StopResult> => {
-    const action = recorderRecoveryAction(
-      phaseRef.current,
-      pendingUriRef.current !== null,
-      "retry",
-    );
-    if (action === "persist" || action === "stop") {
+    if (
+      writerRef.current &&
+      ["save_error", "interrupted", "error"].includes(phaseRef.current)
+    ) {
       return stop();
     }
-    if (action === "restart") {
+    if (["unavailable", "interrupted", "error"].includes(phaseRef.current)) {
       startRef.current = start();
       await startRef.current;
     }
@@ -358,25 +348,13 @@ export function useSessionRecorder(
     void stopRef.current();
   });
 
-  const metering = recorderState.metering;
-  if (
-    phase === "recording" &&
-    (recorderState.durationMillis ?? 0) > pendingDurationRef.current
-  ) {
-    pendingDurationRef.current = recorderState.durationMillis ?? 0;
-  }
-  const normalizedLevel =
-    typeof metering === "number" && phase === "recording"
-      ? Math.min(
-          1,
-          Math.max(0, (metering - METERING_FLOOR_DB) / -METERING_FLOOR_DB),
-        )
-      : null;
   return {
     phase,
     failure,
-    amplitude: normalizedLevel ?? 0,
-    durationMs: recorderState.durationMillis ?? pendingDurationRef.current,
+    amplitude,
+    durationMs,
+    liveStatus,
+    liveTranscript,
     stop,
     retry,
   };

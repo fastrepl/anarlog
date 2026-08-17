@@ -28,7 +28,7 @@ import {
   Typography,
 } from "@/constants/theme";
 
-const DETAIL_HEIGHT = 96;
+const DETAIL_HEIGHT = 124;
 
 function formatDuration(ms: number): string {
   const totalSeconds = Math.floor(ms / 1000);
@@ -58,11 +58,24 @@ function statusLabel(phase: RecorderPhase, durationMs: number): string {
   }
 }
 
+function transcriptionLabel(status: "connecting" | "live" | "fallback") {
+  switch (status) {
+    case "live":
+      return "Live transcription";
+    case "fallback":
+      return "Recording locally · transcript after stop";
+    default:
+      return "Connecting live transcript…";
+  }
+}
+
 export function ListeningSheet({
   phase,
   failure,
   amplitude,
   durationMs,
+  liveStatus,
+  liveTranscript,
   onStop,
   onRetry,
   onOpenSettings,
@@ -71,6 +84,8 @@ export function ListeningSheet({
   failure: RecorderFailure | null;
   amplitude: number;
   durationMs: number;
+  liveStatus: "connecting" | "live" | "fallback";
+  liveTranscript: string;
   onStop: () => void;
   onRetry: () => void;
   onOpenSettings: () => void;
@@ -115,9 +130,12 @@ export function ListeningSheet({
             {statusLabel(phase, durationMs)}
           </Text>
         </View>
-        <Text style={styles.detailHint}>
-          Leave your phone on the table and talk. Audio stays locally durable
-          while Anarlog listens.
+        <Text style={styles.transcriptionStatus}>
+          {transcriptionLabel(liveStatus)}
+        </Text>
+        <Text numberOfLines={2} style={styles.detailHint}>
+          {liveTranscript ||
+            "Leave your phone on the table and talk. Audio stays locally durable while Anarlog listens."}
         </Text>
       </Animated.View>
 
@@ -212,6 +230,12 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     ...Typography.caption,
     color: Colors.muted,
+  },
+  transcriptionStatus: {
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.xs,
+    ...Typography.captionStrong,
+    color: Colors.ink,
   },
   panel: {
     height: LISTENING_CONTROL_HEIGHT,

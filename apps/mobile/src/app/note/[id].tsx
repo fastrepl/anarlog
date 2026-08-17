@@ -400,6 +400,8 @@ export default function NoteScreen() {
           failure={recorder.failure}
           amplitude={recorder.amplitude}
           durationMs={recorder.durationMs}
+          liveStatus={recorder.liveStatus}
+          liveTranscript={recorder.liveTranscript}
           onStop={() => void handleStop()}
           onRetry={() => void handleRetryRecording()}
           onOpenSettings={() => void handleOpenSettings()}
