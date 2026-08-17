@@ -1,0 +1,18 @@
+[package]
+name = "anarlog-enterprise-zoom-rtms-worker"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+
+[dependencies]
+anlg-meeting-capture.workspace = true
+
+futures-util.workspace = true
+hmac.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+sha2 = "0.10"
+thiserror.workspace = true
+tokio = { workspace = true, features = ["macros", "net", "rt", "sync", "time"] }
+tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+url.workspace = true

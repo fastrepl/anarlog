@@ -1,6 +1,8 @@
 use std::{collections::VecDeque, time::Duration};
 
-use anlg_meeting_capture::{BotState, CaptureEvent, CaptureProviderKind, MeetingPlatform};
+use anlg_meeting_capture::{
+    BotState, CaptureEvent, CaptureProviderKind, CaptureWorkerCheckpoint, MeetingReference,
+};
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use reqwest::StatusCode;
@@ -373,14 +375,7 @@ impl From<&WorkerLease> for WorkerLeaseIdentity {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct WorkerCheckpoint {
-    pub job_id: String,
-    pub bot_id: String,
-    pub meeting_url: crate::GoogleMeetUrl,
-    pub state: BotState,
-    pub next_sequence: u64,
-}
+pub type WorkerCheckpoint = CaptureWorkerCheckpoint;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -397,13 +392,7 @@ struct WireCaptureJob {
     job_id: String,
     bot_id: String,
     provider: CaptureProviderKind,
-    meeting: WireMeetingReference,
-}
-
-#[derive(Deserialize)]
-struct WireMeetingReference {
-    platform: MeetingPlatform,
-    url: String,
+    meeting: MeetingReference,
 }
 
 async fn decode_checkpoint(
@@ -420,26 +409,18 @@ async fn decode_checkpoint(
     }
     validate_identifier(&checkpoint.job.bot_id, "checkpoint bot ID")
         .map_err(|_| CaptureEventSinkError::InvalidCheckpoint("bot ID"))?;
-    if checkpoint.job.provider != CaptureProviderKind::Anarlog {
-        return Err(CaptureEventSinkError::InvalidCheckpoint("capture provider"));
-    }
-    if checkpoint.job.meeting.platform != MeetingPlatform::GoogleMeet {
-        return Err(CaptureEventSinkError::InvalidCheckpoint("meeting platform"));
-    }
-    if checkpoint.state == BotState::Queued && checkpoint.next_sequence != 0
-        || checkpoint.state != BotState::Queued && checkpoint.next_sequence == 0
-    {
-        return Err(CaptureEventSinkError::InvalidCheckpoint("next sequence"));
-    }
-    let meeting_url = crate::GoogleMeetUrl::parse(&checkpoint.job.meeting.url)
-        .map_err(|_| CaptureEventSinkError::InvalidCheckpoint("meeting URL"))?;
-    Ok(WorkerCheckpoint {
+    let checkpoint = WorkerCheckpoint {
         job_id: checkpoint.job.job_id,
         bot_id: checkpoint.job.bot_id,
-        meeting_url,
+        provider: checkpoint.job.provider,
+        meeting: checkpoint.job.meeting,
         state: checkpoint.state,
         next_sequence: checkpoint.next_sequence,
-    })
+    };
+    checkpoint
+        .validate()
+        .map_err(|_| CaptureEventSinkError::InvalidCheckpoint("worker checkpoint"))?;
+    Ok(checkpoint)
 }
 
 async fn decode_bounded_json<T: serde::de::DeserializeOwned>(
@@ -905,7 +886,7 @@ mod tests {
         assert_eq!(checkpoint.job_id, "job-1");
         assert_eq!(checkpoint.bot_id, "bot-1");
         assert_eq!(
-            checkpoint.meeting_url.as_str(),
+            checkpoint.meeting.url,
             "https://meet.google.com/abc-defg-hij"
         );
         assert_eq!(checkpoint.state, BotState::Capturing);

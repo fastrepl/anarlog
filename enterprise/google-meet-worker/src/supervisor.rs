@@ -49,6 +49,10 @@ impl CaptureJobControlPlane for ControlPlaneEventSink {
 pub trait CaptureJobRuntime: Send {
     type Error: Error + Send + Sync + 'static;
 
+    fn validate_checkpoint(&self, _checkpoint: &WorkerCheckpoint) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     async fn run(
         &mut self,
         checkpoint: &WorkerCheckpoint,
@@ -137,6 +141,9 @@ where
         if *shutdown.borrow() {
             return Ok(CaptureJobSupervisorOutcome::ShutdownBeforeClaim);
         }
+        self.runtime
+            .validate_checkpoint(&checkpoint)
+            .map_err(CaptureJobSupervisorError::RuntimeValidation)?;
 
         self.control_plane
             .claim(&self.worker_id, &self.lease_id)
@@ -338,6 +345,8 @@ where
     ControlPlane(#[source] C),
     #[error("capture runtime cleanup failed")]
     Cleanup(#[source] R),
+    #[error("capture runtime rejected the worker checkpoint")]
+    RuntimeValidation(#[source] R),
     #[error("capture runtime produced cleanup output after entering a terminal state")]
     CleanupOutputAfterTerminal,
     #[error("capture runtime cleanup cannot produce lifecycle events")]
@@ -446,7 +455,7 @@ mod tests {
         ) -> Result<(), Self::Error> {
             assert_eq!(checkpoint.job_id, "job-a");
             assert_eq!(
-                checkpoint.meeting_url.as_str(),
+                checkpoint.meeting.url,
                 "https://meet.google.com/abc-defg-hij"
             );
             events
@@ -524,8 +533,13 @@ mod tests {
         WorkerCheckpoint {
             job_id: "job-a".into(),
             bot_id: "bot-a".into(),
-            meeting_url: crate::GoogleMeetUrl::parse("https://meet.google.com/abc-defg-hij")
-                .unwrap(),
+            provider: anlg_meeting_capture::CaptureProviderKind::Anarlog,
+            meeting: anlg_meeting_capture::MeetingReference {
+                platform: anlg_meeting_capture::MeetingPlatform::GoogleMeet,
+                url: "https://meet.google.com/abc-defg-hij".into(),
+                external_id: None,
+                calendar_event_id: None,
+            },
             state,
             next_sequence,
         }

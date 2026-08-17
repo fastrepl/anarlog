@@ -312,6 +312,8 @@ fn provider_name(provider: CaptureProviderKind) -> &'static str {
         CaptureProviderKind::Anarlog => "anarlog",
         CaptureProviderKind::Recall => "recall",
         CaptureProviderKind::ZoomRtms => "zoom_rtms",
+        CaptureProviderKind::MicrosoftGraph => "microsoft_graph",
+        CaptureProviderKind::WebexMeetingsSdk => "webex_meetings_sdk",
     }
 }
 

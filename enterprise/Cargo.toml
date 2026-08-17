@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["control-plane", "google-meet-worker"]
+members = [
+  "control-plane",
+  "google-meet-worker",
+  "meeting-sdk-bridge-worker",
+  "zoom-rtms-worker",
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -20,6 +25,7 @@ axum = "0.8"
 base64 = "0.22"
 chrono = "0.4"
 futures-util = "0.3"
+hmac = "0.12"
 http = "1"
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 serde = "1"

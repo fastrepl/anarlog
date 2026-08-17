@@ -19,6 +19,19 @@ pub enum CaptureProviderKind {
     Anarlog,
     Recall,
     ZoomRtms,
+    MicrosoftGraph,
+    WebexMeetingsSdk,
+}
+
+impl CaptureProviderKind {
+    pub fn native_platform(self) -> Option<MeetingPlatform> {
+        match self {
+            Self::ZoomRtms => Some(MeetingPlatform::Zoom),
+            Self::MicrosoftGraph => Some(MeetingPlatform::MicrosoftTeams),
+            Self::WebexMeetingsSdk => Some(MeetingPlatform::Webex),
+            Self::Anarlog | Self::Recall => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

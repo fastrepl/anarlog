@@ -64,7 +64,13 @@ async fn captures_a_live_google_meet_and_cleans_up() -> Result<(), Box<dyn std::
     let checkpoint = WorkerCheckpoint {
         job_id: "live-google-meet-job".into(),
         bot_id: "live-google-meet-bot".into(),
-        meeting_url,
+        provider: anlg_meeting_capture::CaptureProviderKind::Anarlog,
+        meeting: anlg_meeting_capture::MeetingReference {
+            platform: anlg_meeting_capture::MeetingPlatform::GoogleMeet,
+            url: meeting_url.as_str().into(),
+            external_id: None,
+            calendar_event_id: None,
+        },
         state: BotState::Queued,
         next_sequence: 0,
     };

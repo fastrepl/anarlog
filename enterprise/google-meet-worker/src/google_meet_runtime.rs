@@ -1,6 +1,8 @@
 use std::{error::Error, time::Duration};
 
-use anlg_meeting_capture::{CaptureEvent, CaptureEventPayload, TransitionError};
+use anlg_meeting_capture::{
+    CaptureEvent, CaptureEventPayload, CaptureProviderKind, MeetingPlatform, TransitionError,
+};
 use async_trait::async_trait;
 use chrono::Utc;
 use tokio::sync::mpsc;
@@ -70,6 +72,10 @@ where
 {
     type Error = GoogleMeetRuntimeError<S::Error>;
 
+    fn validate_checkpoint(&self, checkpoint: &WorkerCheckpoint) -> Result<(), Self::Error> {
+        google_meet_url(checkpoint).map(|_| ())
+    }
+
     async fn run(
         &mut self,
         checkpoint: &WorkerCheckpoint,
@@ -79,11 +85,11 @@ where
         if self.started {
             return Err(GoogleMeetRuntimeError::AlreadyStarted);
         }
+        let meeting_url = google_meet_url(checkpoint)?;
         self.started = true;
         send_event(&events, lifecycle.launch_started(Utc::now())?).await?;
 
-        let session =
-            MeetingSession::launch(self.chromium.clone(), &checkpoint.meeting_url).await?;
+        let session = MeetingSession::launch(self.chromium.clone(), &meeting_url).await?;
         self.session = Some(session);
 
         {
@@ -174,6 +180,21 @@ where
             })
         }
     }
+}
+
+fn google_meet_url<S>(
+    checkpoint: &WorkerCheckpoint,
+) -> Result<crate::GoogleMeetUrl, GoogleMeetRuntimeError<S>>
+where
+    S: Error + Send + Sync + 'static,
+{
+    if checkpoint.provider != CaptureProviderKind::Anarlog
+        || checkpoint.meeting.platform != MeetingPlatform::GoogleMeet
+    {
+        return Err(GoogleMeetRuntimeError::UnsupportedCheckpoint);
+    }
+    crate::GoogleMeetUrl::parse(&checkpoint.meeting.url)
+        .map_err(GoogleMeetRuntimeError::InvalidMeetingUrl)
 }
 
 impl<S> GoogleMeetRuntime<S>
@@ -303,6 +324,10 @@ where
 {
     #[error("Google Meet runtime can only be started once")]
     AlreadyStarted,
+    #[error("Google Meet runtime received a checkpoint for another provider or platform")]
+    UnsupportedCheckpoint,
+    #[error("Google Meet runtime received an invalid meeting URL")]
+    InvalidMeetingUrl(#[source] crate::CdpError),
     #[error("capture supervisor stopped accepting runtime events")]
     EventChannelClosed,
     #[error(transparent)]
@@ -331,7 +356,9 @@ where
 mod tests {
     use std::path::PathBuf;
 
-    use anlg_meeting_capture::{BotState, TranscriptSegment};
+    use anlg_meeting_capture::{
+        BotState, CaptureProviderKind, MeetingPlatform, MeetingReference, TranscriptSegment,
+    };
 
     use super::*;
 
@@ -444,6 +471,29 @@ mod tests {
             Err(GoogleMeetRuntimeConfigError::RuntimeMonitor(
                 RuntimeMonitorError::InvalidPollInterval
             ))
+        ));
+    }
+
+    #[test]
+    fn rejects_other_platforms_before_launching_the_browser() {
+        let runtime = GoogleMeetRuntime::new(config("Anarlog Notetaker"), UnusedSink).unwrap();
+        let checkpoint = WorkerCheckpoint {
+            job_id: "job-1".into(),
+            bot_id: "bot-1".into(),
+            provider: CaptureProviderKind::MicrosoftGraph,
+            meeting: MeetingReference {
+                platform: MeetingPlatform::MicrosoftTeams,
+                url: "https://teams.microsoft.com/l/meetup-join/test".into(),
+                external_id: None,
+                calendar_event_id: None,
+            },
+            state: BotState::Queued,
+            next_sequence: 0,
+        };
+
+        assert!(matches!(
+            runtime.validate_checkpoint(&checkpoint),
+            Err(GoogleMeetRuntimeError::UnsupportedCheckpoint)
         ));
     }
 
