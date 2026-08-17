@@ -1,6 +1,7 @@
 import { getDocumentAsync } from "expo-document-picker";
 import { Directory, File, FileMode, Paths } from "expo-file-system";
 
+import { requestAttachmentBackupDownload } from "@/data/attachment-backup-client";
 import type { SessionAudio } from "@/data/audio-catalog";
 import {
   assertRestorableAudioMetadata,
@@ -9,6 +10,7 @@ import {
 } from "@/data/audio-restore-model";
 import { hashFileSha256 } from "@/data/file-sha256";
 import { executeTransaction } from "@/db";
+import { restoreAttachment } from "@/db/client";
 import { nowIso } from "@/lib/ids";
 
 export async function restoreSessionAudioFromPicker(
@@ -77,5 +79,51 @@ export async function restoreSessionAudioFromPicker(
       // The unreferenced copy is harmless and can be replaced on retry.
     }
     throw error;
+  }
+}
+
+export async function restoreSessionAudioFromCloud(
+  sessionId: string,
+  audio: SessionAudio,
+  input: {
+    accessToken: string;
+    apiBaseUrl: string;
+    supabaseUrl: string;
+    signal?: AbortSignal;
+  },
+): Promise<void> {
+  if (!audio.cloudObjectKey) {
+    throw new Error("This recording has not finished syncing to the cloud.");
+  }
+  assertRestorableAudioMetadata(audio);
+  const download = await requestAttachmentBackupDownload({
+    accessToken: input.accessToken,
+    apiBaseUrl: input.apiBaseUrl,
+    objectKey: audio.cloudObjectKey,
+    signal: input.signal,
+  });
+  const restored = await restoreAttachment(
+    {
+      sessionId,
+      attachmentId: audio.attachmentId,
+      objectId: download.objectId,
+      objectKey: download.objectKey,
+      signedUrl: download.signedUrl,
+      supabaseUrl: input.supabaseUrl,
+      ciphertextSha256: download.ciphertextSha256,
+      ciphertextSizeBytes: download.ciphertextSizeBytes,
+      formatVersion: download.formatVersion,
+    },
+    input.signal,
+  );
+  assertRestoredAudioMatches(audio, {
+    sha256: restored.sha256,
+    sizeBytes: restored.sizeBytes,
+  });
+  if (
+    restored.attachmentId !== audio.attachmentId ||
+    restored.sessionId !== sessionId
+  ) {
+    throw new Error("The restored recording did not match this meeting.");
   }
 }

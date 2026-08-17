@@ -8,6 +8,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 name = "mobile_bridge"
 
 [dependencies]
+anlg-attachment-sync-core = { workspace = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-execute = { workspace = true }
@@ -16,10 +17,15 @@ anlg-db-reactive = { workspace = true }
 anlg-db-sync = { workspace = true }
 anlg-e2ee = { workspace = true }
 
+serde = { workspace = true }
 serde_json = { workspace = true }
+sqlx = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
+tokio-util = { workspace = true }
 uniffi = { version = "0.31" }
+uuid = { workspace = true }
 
 [dev-dependencies]
+sha2 = { workspace = true }
 tempfile = { workspace = true }

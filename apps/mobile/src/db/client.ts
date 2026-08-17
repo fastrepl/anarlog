@@ -23,17 +23,62 @@ export type { E2eeRecoveryKeyIdentity } from "@/sync/replica-credentials";
 
 let bridge: MobileDbBridgeLike | null = null;
 
+function filePath(uri: string): string {
+  return decodeURIComponent(uri.replace(/^file:\/\//, ""));
+}
+
 function getBridge(): MobileDbBridgeLike {
   if (!bridge) {
     const databaseDirectory = new Directory(Paths.document, "SQLite");
     databaseDirectory.create({ intermediates: true, idempotent: true });
     const databaseUri = new File(databaseDirectory, "anarlog.db").uri;
-    const databasePath = decodeURIComponent(
-      databaseUri.replace(/^file:\/\//, ""),
-    );
+    const databasePath = filePath(databaseUri);
     bridge = MobileDbBridge.open(databasePath, "disabled");
+    bridge.configureAttachmentStorage(
+      filePath(Paths.document.uri),
+      filePath(Paths.cache.uri),
+    );
   }
   return bridge;
+}
+
+export async function restoreAttachment(
+  input: {
+    sessionId: string;
+    attachmentId: string;
+    objectId: string;
+    objectKey: string;
+    signedUrl: string;
+    supabaseUrl: string;
+    ciphertextSha256: string;
+    ciphertextSizeBytes: number;
+    formatVersion: number;
+  },
+  signal?: AbortSignal,
+): Promise<{
+  attachmentId: string;
+  sessionId: string;
+  relativePath: string;
+  sizeBytes: number;
+  sha256: string;
+}> {
+  try {
+    return JSON.parse(
+      await getBridge().restoreAttachment(
+        JSON.stringify(input),
+        signal ? { signal } : undefined,
+      ),
+    ) as {
+      attachmentId: string;
+      sessionId: string;
+      relativePath: string;
+      sizeBytes: number;
+      sha256: string;
+    };
+  } catch (error) {
+    captureOperationalError(error, { operation: "attachment_restore" });
+    throw error;
+  }
 }
 
 function errorMessage(error: unknown): string {

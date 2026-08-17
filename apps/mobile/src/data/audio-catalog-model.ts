@@ -8,6 +8,7 @@ export type SessionAudioRow = {
   created_at: string;
   available_locally: number;
   local_relative_path: string;
+  cloud_object_key: string;
 };
 
 export type SessionAudio = {
@@ -20,6 +21,7 @@ export type SessionAudio = {
   createdAt: string;
   availableLocally: boolean;
   localRelativePath: string | null;
+  cloudObjectKey: string | null;
 };
 
 export function mapSessionAudioRows(
@@ -39,5 +41,6 @@ export function mapSessionAudioRows(
     createdAt: row.created_at,
     availableLocally,
     localRelativePath: availableLocally ? row.local_relative_path : null,
+    cloudObjectKey: row.cloud_object_key || null,
   };
 }

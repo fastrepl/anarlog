@@ -11399,6 +11399,7 @@ dependencies = [
 name = "mobile-bridge"
 version = "0.1.0"
 dependencies = [
+ "attachment-sync-core",
  "db-app",
  "db-core",
  "db-execute",
@@ -11406,11 +11407,16 @@ dependencies = [
  "db-reactive",
  "db-sync",
  "e2ee",
+ "serde",
  "serde_json",
+ "sha2 0.11.0",
+ "sqlx",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-util",
  "uniffi 0.31.1",
+ "uuid",
 ]
 
 [[package]]

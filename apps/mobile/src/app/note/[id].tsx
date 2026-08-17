@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useSessionRecorder } from "@/audio/use-session-recorder";
+import { useAuth } from "@/auth/context";
 import { AudioChip } from "@/components/audio-chip";
 import { EditorAccessory } from "@/components/editor-accessory";
 import { HandoffCard } from "@/components/handoff-card";
@@ -26,7 +27,10 @@ import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
-import { restoreSessionAudioFromPicker } from "@/data/restore-session-audio";
+import {
+  restoreSessionAudioFromCloud,
+  restoreSessionAudioFromPicker,
+} from "@/data/restore-session-audio";
 import {
   deleteSession,
   saveSessionNote,
@@ -38,6 +42,7 @@ import { useSessionTranscripts } from "@/data/transcripts";
 import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 import { applyEditorFormat, type EditorFormat } from "@/lib/editor-format";
+import { env } from "@/lib/env";
 import { captureOperationalError } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
 
@@ -155,6 +160,7 @@ function BodyEditor({
 
 export default function NoteScreen() {
   const router = useRouter();
+  const auth = useAuth();
   const { id, listen } = useLocalSearchParams<{
     id: string;
     listen?: string;
@@ -170,6 +176,8 @@ export default function NoteScreen() {
   );
   const [restoringAudio, setRestoringAudio] = useState(false);
   const audioRestoreBusyRef = useRef(false);
+  const audioRestoreControllerRef = useRef<AbortController | null>(null);
+  const screenActiveRef = useRef(true);
   const localAudioFile = audio.data?.localRelativePath
     ? new File(Paths.document, "sessions", id, audio.data.localRelativePath)
     : null;
@@ -230,10 +238,15 @@ export default function NoteScreen() {
   };
 
   useMountEffect(() => {
+    screenActiveRef.current = true;
     captureAnalytics("note_opened", {
       entry_point: "mobile_note",
     });
-    return flush;
+    return () => {
+      screenActiveRef.current = false;
+      audioRestoreControllerRef.current?.abort();
+      flush();
+    };
   });
 
   const onEdit = (
@@ -302,6 +315,53 @@ export default function NoteScreen() {
     } finally {
       audioRestoreBusyRef.current = false;
       setRestoringAudio(false);
+    }
+  };
+
+  const handleDownloadRecording = async () => {
+    const accessToken = auth.session?.access_token;
+    if (
+      audioRestoreBusyRef.current ||
+      !audio.data?.cloudObjectKey ||
+      !accessToken ||
+      !env.supabaseUrl
+    ) {
+      return;
+    }
+    audioRestoreBusyRef.current = true;
+    const controller = new AbortController();
+    audioRestoreControllerRef.current = controller;
+    setRestoringAudio(true);
+    setAudioRestoreError(null);
+    try {
+      await restoreSessionAudioFromCloud(id, audio.data, {
+        accessToken,
+        apiBaseUrl: env.apiUrl,
+        supabaseUrl: env.supabaseUrl,
+        signal: controller.signal,
+      });
+      captureAnalytics("audio_restored", {
+        entry_point: "cloud_sync",
+        content_type: audio.data.contentType,
+        size_bytes: audio.data.sizeBytes,
+      });
+    } catch (error) {
+      if (!controller.signal.aborted && screenActiveRef.current) {
+        captureOperationalError(error, {
+          operation: "session_audio_cloud_restore",
+        });
+        setAudioRestoreError(
+          error instanceof Error
+            ? error.message
+            : "The recording could not be downloaded to this phone.",
+        );
+      }
+    } finally {
+      if (audioRestoreControllerRef.current === controller) {
+        audioRestoreControllerRef.current = null;
+      }
+      audioRestoreBusyRef.current = false;
+      if (screenActiveRef.current) setRestoringAudio(false);
     }
   };
 
@@ -379,8 +439,14 @@ export default function NoteScreen() {
           )}
           {audio.data && !localAudioAvailable && (
             <RemoteAudioCard
+              cloudAvailable={Boolean(
+                audio.data.cloudObjectKey &&
+                auth.session?.access_token &&
+                env.supabaseUrl,
+              )}
               errorMessage={audioRestoreError}
               loading={restoringAudio}
+              onDownloadRecording={() => void handleDownloadRecording()}
               onChooseRecording={() => void handleChooseRecording()}
             />
           )}

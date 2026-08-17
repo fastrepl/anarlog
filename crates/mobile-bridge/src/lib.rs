@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod attachment;
 mod db;
 mod error;
 mod listener;
@@ -34,6 +35,7 @@ struct BridgeState {
     e2ee_sync_hook: Arc<anlg_db_sync::E2eeSyncHook>,
     replica_sync: anlg_db_sync::ReplicaSyncTask,
     witness_watch: anlg_db_sync::WitnessWatchTask,
+    attachment_storage: Option<attachment::AttachmentStorage>,
 }
 
 #[derive(uniffi::Object)]
@@ -84,6 +86,7 @@ impl MobileDbBridge {
                 e2ee_sync_hook,
                 replica_sync,
                 witness_watch,
+                attachment_storage: None,
             })),
         })
     }
@@ -125,6 +128,45 @@ impl MobileDbBridge {
         let rows_affected =
             block_on(&runtime, executor.execute_transaction(statements)).map_err(execute_error)?;
         serde_json::to_string(&rows_affected).map_err(serialization_error)
+    }
+
+    pub fn configure_attachment_storage(
+        &self,
+        documents_path: String,
+        cache_path: String,
+    ) -> Result<(), BridgeError> {
+        let storage = attachment::AttachmentStorage::new(documents_path, cache_path)?;
+        self.with_state(|state| {
+            state.attachment_storage = Some(storage);
+            Ok(())
+        })
+    }
+
+    pub async fn restore_attachment(&self, request_json: String) -> Result<String, BridgeError> {
+        let (runtime, db, e2ee_sync_hook, storage) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.db),
+                Arc::clone(&state.e2ee_sync_hook),
+                state.attachment_storage.clone().ok_or_else(|| {
+                    error::attachment_error("attachment storage is not configured")
+                })?,
+            ))
+        })?;
+        let operation = attachment::RestoreOperation::new();
+        let handle = runtime.spawn(attachment::restore_attachment(
+            db,
+            e2ee_sync_hook,
+            storage,
+            request_json,
+            operation.clone(),
+        ));
+        let result = CancellableRuntimeTask {
+            handle: Box::pin(handle),
+            operation,
+        }
+        .await;
+        result.map_err(error::attachment_error)?
     }
 
     pub fn subscribe(
@@ -522,6 +564,30 @@ impl MobileDbBridge {
         block_on(&state.runtime, pool.close());
 
         Ok(())
+    }
+}
+
+struct CancellableRuntimeTask<T> {
+    handle: std::pin::Pin<Box<tokio::task::JoinHandle<T>>>,
+    operation: attachment::RestoreOperation,
+}
+
+impl<T> Future for CancellableRuntimeTask<T> {
+    type Output = Result<T, tokio::task::JoinError>;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        context: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        self.handle.as_mut().poll(context)
+    }
+}
+
+impl<T> Drop for CancellableRuntimeTask<T> {
+    fn drop(&mut self) {
+        if self.operation.cancel() {
+            self.handle.abort();
+        }
     }
 }
 

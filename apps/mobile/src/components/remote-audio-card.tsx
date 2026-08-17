@@ -8,30 +8,51 @@ import { Colors, Spacing, Typography } from "@/constants/theme";
 export function RemoteAudioCard({
   errorMessage,
   loading,
+  cloudAvailable,
+  onDownloadRecording,
   onChooseRecording,
 }: {
   errorMessage: string | null;
   loading: boolean;
+  cloudAvailable: boolean;
+  onDownloadRecording: () => void;
   onChooseRecording: () => void;
 }) {
   return (
     <Card style={styles.card} tone="muted">
-      <Ionicons name="cloud-offline-outline" size={17} color={Colors.muted} />
+      <Ionicons
+        name={
+          cloudAvailable ? "cloud-download-outline" : "cloud-offline-outline"
+        }
+        size={17}
+        color={Colors.muted}
+      />
       <View style={styles.copy}>
         <Text style={styles.title}>Recording not on this phone</Text>
         <Text style={styles.description}>
-          Anarlog has the meeting details, but this phone does not have the
-          audio file.
+          {cloudAvailable
+            ? "Download the encrypted recording from your Anarlog sync."
+            : "Anarlog has the meeting details, but the recording has not synced yet."}
         </Text>
         {errorMessage && <Text style={styles.error}>{errorMessage}</Text>}
         <Button
-          label="Choose recording"
+          label={cloudAvailable ? "Download recording" : "Choose recording"}
           loading={loading}
-          onPress={onChooseRecording}
+          onPress={cloudAvailable ? onDownloadRecording : onChooseRecording}
           size="small"
           style={styles.action}
-          variant="outline"
+          variant={cloudAvailable ? "primary" : "outline"}
         />
+        {cloudAvailable && (
+          <Button
+            label="Choose file instead"
+            disabled={loading}
+            onPress={onChooseRecording}
+            size="small"
+            style={styles.fallbackAction}
+            variant="ghost"
+          />
+        )}
       </View>
     </Card>
   );
@@ -66,5 +87,9 @@ const styles = StyleSheet.create({
   action: {
     alignSelf: "flex-start",
     marginTop: Spacing.md,
+  },
+  fallbackAction: {
+    alignSelf: "flex-start",
+    marginTop: Spacing.xs,
   },
 });

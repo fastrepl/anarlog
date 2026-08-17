@@ -34,6 +34,7 @@ import {
   destructorGuardSymbol,
   pointerLiteralSymbol,
   uniffiCreateFfiConverterString,
+  uniffiRustCallAsync,
   uniffiTraitInterfaceCall,
   uniffiTypeNameSymbol,
   variantOrdinalSymbol,
@@ -118,9 +119,11 @@ export enum BridgeError_Tags {
   InvalidCloudsyncConfigJson = "InvalidCloudsyncConfigJson",
   ParamsMustBeArray = "ParamsMustBeArray",
   InvalidTransactionStatementsJson = "InvalidTransactionStatementsJson",
+  InvalidAttachmentRequestJson = "InvalidAttachmentRequestJson",
   OpenFailed = "OpenFailed",
   QueryFailed = "QueryFailed",
   CloudsyncFailed = "CloudsyncFailed",
+  AttachmentTransferFailed = "AttachmentTransferFailed",
   SerializationFailed = "SerializationFailed",
 }
 export const BridgeError = (() => {
@@ -291,6 +294,44 @@ export const BridgeError = (() => {
     }
   }
 
+  type InvalidAttachmentRequestJson__interface = {
+    tag: BridgeError_Tags.InvalidAttachmentRequestJson;
+    inner: Readonly<{ reason: string }>;
+  };
+  class InvalidAttachmentRequestJson_
+    extends UniffiError
+    implements InvalidAttachmentRequestJson__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.InvalidAttachmentRequestJson;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "InvalidAttachmentRequestJson");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { reason: string }): InvalidAttachmentRequestJson_ {
+      return new InvalidAttachmentRequestJson_(inner);
+    }
+
+    static instanceOf(obj: any): obj is InvalidAttachmentRequestJson_ {
+      return obj.tag === BridgeError_Tags.InvalidAttachmentRequestJson;
+    }
+    static hasInner(obj: any): obj is InvalidAttachmentRequestJson_ {
+      return InvalidAttachmentRequestJson_.instanceOf(obj);
+    }
+
+    static getInner(
+      obj: InvalidAttachmentRequestJson_,
+    ): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
   type OpenFailed__interface = {
     tag: BridgeError_Tags.OpenFailed;
     inner: Readonly<{ reason: string }>;
@@ -393,6 +434,44 @@ export const BridgeError = (() => {
     }
   }
 
+  type AttachmentTransferFailed__interface = {
+    tag: BridgeError_Tags.AttachmentTransferFailed;
+    inner: Readonly<{ reason: string }>;
+  };
+  class AttachmentTransferFailed_
+    extends UniffiError
+    implements AttachmentTransferFailed__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "BridgeError";
+    readonly tag = BridgeError_Tags.AttachmentTransferFailed;
+    readonly inner: Readonly<{ reason: string }>;
+    constructor(inner: { reason: string }) {
+      super("BridgeError", "AttachmentTransferFailed");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { reason: string }): AttachmentTransferFailed_ {
+      return new AttachmentTransferFailed_(inner);
+    }
+
+    static instanceOf(obj: any): obj is AttachmentTransferFailed_ {
+      return obj.tag === BridgeError_Tags.AttachmentTransferFailed;
+    }
+    static hasInner(obj: any): obj is AttachmentTransferFailed_ {
+      return AttachmentTransferFailed_.instanceOf(obj);
+    }
+
+    static getInner(
+      obj: AttachmentTransferFailed_,
+    ): Readonly<{ reason: string }> {
+      return obj.inner;
+    }
+  }
+
   type SerializationFailed__interface = {
     tag: BridgeError_Tags.SerializationFailed;
     inner: Readonly<{ reason: string }>;
@@ -440,9 +519,11 @@ export const BridgeError = (() => {
     InvalidCloudsyncConfigJson: InvalidCloudsyncConfigJson_,
     ParamsMustBeArray: ParamsMustBeArray_,
     InvalidTransactionStatementsJson: InvalidTransactionStatementsJson_,
+    InvalidAttachmentRequestJson: InvalidAttachmentRequestJson_,
     OpenFailed: OpenFailed_,
     QueryFailed: QueryFailed_,
     CloudsyncFailed: CloudsyncFailed_,
+    AttachmentTransferFailed: AttachmentTransferFailed_,
     SerializationFailed: SerializationFailed_,
   });
 })();
@@ -453,9 +534,11 @@ export type BridgeError = InstanceType<
     | "InvalidCloudsyncConfigJson"
     | "ParamsMustBeArray"
     | "InvalidTransactionStatementsJson"
+    | "InvalidAttachmentRequestJson"
     | "OpenFailed"
     | "QueryFailed"
     | "CloudsyncFailed"
+    | "AttachmentTransferFailed"
     | "SerializationFailed"]
 >;
 
@@ -483,18 +566,26 @@ const FfiConverterTypeBridgeError = (() => {
             reason: FfiConverterString.read(from),
           });
         case 6:
-          return new BridgeError.OpenFailed({
+          return new BridgeError.InvalidAttachmentRequestJson({
             reason: FfiConverterString.read(from),
           });
         case 7:
-          return new BridgeError.QueryFailed({
+          return new BridgeError.OpenFailed({
             reason: FfiConverterString.read(from),
           });
         case 8:
-          return new BridgeError.CloudsyncFailed({
+          return new BridgeError.QueryFailed({
             reason: FfiConverterString.read(from),
           });
         case 9:
+          return new BridgeError.CloudsyncFailed({
+            reason: FfiConverterString.read(from),
+          });
+        case 10:
+          return new BridgeError.AttachmentTransferFailed({
+            reason: FfiConverterString.read(from),
+          });
+        case 11:
           return new BridgeError.SerializationFailed({
             reason: FfiConverterString.read(from),
           });
@@ -530,26 +621,38 @@ const FfiConverterTypeBridgeError = (() => {
           FfiConverterString.write(inner.reason, into);
           return;
         }
-        case BridgeError_Tags.OpenFailed: {
+        case BridgeError_Tags.InvalidAttachmentRequestJson: {
           ordinalConverter.write(6, into);
           const inner = value.inner;
           FfiConverterString.write(inner.reason, into);
           return;
         }
-        case BridgeError_Tags.QueryFailed: {
+        case BridgeError_Tags.OpenFailed: {
           ordinalConverter.write(7, into);
           const inner = value.inner;
           FfiConverterString.write(inner.reason, into);
           return;
         }
-        case BridgeError_Tags.CloudsyncFailed: {
+        case BridgeError_Tags.QueryFailed: {
           ordinalConverter.write(8, into);
           const inner = value.inner;
           FfiConverterString.write(inner.reason, into);
           return;
         }
-        case BridgeError_Tags.SerializationFailed: {
+        case BridgeError_Tags.CloudsyncFailed: {
           ordinalConverter.write(9, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.AttachmentTransferFailed: {
+          ordinalConverter.write(10, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.reason, into);
+          return;
+        }
+        case BridgeError_Tags.SerializationFailed: {
+          ordinalConverter.write(11, into);
           const inner = value.inner;
           FfiConverterString.write(inner.reason, into);
           return;
@@ -585,27 +688,39 @@ const FfiConverterTypeBridgeError = (() => {
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
         }
-        case BridgeError_Tags.OpenFailed: {
+        case BridgeError_Tags.InvalidAttachmentRequestJson: {
           const inner = value.inner;
           let size = ordinalConverter.allocationSize(6);
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
         }
-        case BridgeError_Tags.QueryFailed: {
+        case BridgeError_Tags.OpenFailed: {
           const inner = value.inner;
           let size = ordinalConverter.allocationSize(7);
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
         }
-        case BridgeError_Tags.CloudsyncFailed: {
+        case BridgeError_Tags.QueryFailed: {
           const inner = value.inner;
           let size = ordinalConverter.allocationSize(8);
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
         }
-        case BridgeError_Tags.SerializationFailed: {
+        case BridgeError_Tags.CloudsyncFailed: {
           const inner = value.inner;
           let size = ordinalConverter.allocationSize(9);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.AttachmentTransferFailed: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(10);
+          size += FfiConverterString.allocationSize(inner.reason);
+          return size;
+        }
+        case BridgeError_Tags.SerializationFailed: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(11);
           size += FfiConverterString.allocationSize(inner.reason);
           return size;
         }
@@ -829,6 +944,10 @@ export interface MobileDbBridgeLike {
   cloudsyncStatus() /*throws*/ : string;
   cloudsyncSyncNow() /*throws*/ : string;
   cloudsyncVersion() /*throws*/ : string;
+  configureAttachmentStorage(
+    documentsPath: string,
+    cachePath: string,
+  ) /*throws*/ : void;
   configureCloudsync(configJson: string) /*throws*/ : void;
   configureE2eeReplica(
     workspaceId: string,
@@ -845,6 +964,10 @@ export interface MobileDbBridgeLike {
   executeTransaction(statementsJson: string) /*throws*/ : string;
   generateE2eeRecoveryKey() /*throws*/ : string;
   inspectE2eeRecoveryKey(recoveryKeyCode: string) /*throws*/ : string;
+  restoreAttachment(
+    requestJson: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<string>;
   startCloudsync() /*throws*/ : void;
   stopCloudsync() /*throws*/ : void;
   subscribe(
@@ -1095,6 +1218,29 @@ export class MobileDbBridge
     );
   }
 
+  configureAttachmentStorage(
+    documentsPath: string,
+    cachePath: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
+        FfiConverterTypeBridgeError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_attachment_storage(
+          uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+          FfiConverterString.lower(
+            documentsPath,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterString.lower(cachePath, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    );
+  }
+
   configureCloudsync(configJson: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeBridgeError.lift.bind(
@@ -1291,6 +1437,51 @@ export class MobileDbBridge
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
     );
+  }
+
+  async restoreAttachment(
+    requestJson: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<string> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(
+              requestJson,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   startCloudsync(): void /*throws*/ {
@@ -1570,6 +1761,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_attachment_storage() !==
+    41853
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_attachment_storage",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync() !==
     6212
   ) {
@@ -1623,6 +1822,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment() !==
+    55088
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment",
     );
   }
   if (

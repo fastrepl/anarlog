@@ -107,7 +107,8 @@ SELECT
   COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') AS transcript_status,
   attachment.created_at,
   CASE WHEN local_state.availability = 'present' THEN 1 ELSE 0 END AS available_locally,
-  COALESCE(local_state.relative_path, '') AS local_relative_path
+  COALESCE(local_state.relative_path, '') AS local_relative_path,
+  attachment.cloud_object_key
 FROM session_attachments AS attachment
 LEFT JOIN attachment_local_state AS local_state
   ON local_state.attachment_id = attachment.id
