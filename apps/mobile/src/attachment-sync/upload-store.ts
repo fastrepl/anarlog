@@ -55,7 +55,7 @@ export async function reconcileMobileAttachmentUploads(): Promise<number> {
     JOIN attachment_local_state AS local
       ON local.attachment_id = attachment.id
       AND local.availability = 'present'
-    WHERE attachment.source_type = 'session_audio'
+    WHERE attachment.source_type IN ('session_audio', 'note_upload')
       AND attachment.deleted_at IS NULL
       AND attachment.cloud_sync_enabled = 1
       AND attachment.cloud_object_key = ''
@@ -222,7 +222,7 @@ export async function currentMobileAttachmentUploadVersion(
         WHERE attachment.id = ?
           AND attachment.session_id = ?
           AND attachment.workspace_id = ?
-          AND attachment.source_type = 'session_audio'
+          AND attachment.source_type IN ('session_audio', 'note_upload')
           AND attachment.sha256 = ?
           AND attachment.size_bytes = ?
           AND attachment.cloud_sync_enabled = 1
@@ -253,7 +253,7 @@ export async function completeMobileAttachmentUpload(
         WHERE id = ?
           AND session_id = ?
           AND workspace_id = ?
-          AND source_type = 'session_audio'
+          AND source_type IN ('session_audio', 'note_upload')
           AND sha256 = ?
           AND size_bytes = ?
           AND cloud_sync_enabled = 1

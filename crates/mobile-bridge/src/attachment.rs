@@ -107,7 +107,7 @@ impl AttachmentStorage {
 
     fn source(&self, attachment: &UploadRecord) -> Result<PathBuf, BridgeError> {
         validate_session_id(&attachment.session_id)?;
-        validate_audio_relative_path(&attachment.relative_path)?;
+        validate_upload_relative_path(attachment)?;
         let session_directory = self.session_directory(&attachment.session_id, false)?;
         let source = session_directory.join(&attachment.relative_path);
         if std::fs::canonicalize(&source).map_err(attachment_error)? != source {
@@ -212,6 +212,7 @@ struct UploadRecord {
     phase: String,
     relative_path: String,
     source_type: String,
+    source_id: String,
     attachment_sha256: String,
     attachment_size_bytes: i64,
     cloud_sync_enabled: i64,
@@ -658,6 +659,7 @@ async fn load_upload_record(
            job.phase,
            attachment.relative_path,
            attachment.source_type,
+           attachment.source_id,
            attachment.sha256 AS attachment_sha256,
            attachment.size_bytes AS attachment_size_bytes,
            attachment.cloud_sync_enabled
@@ -684,10 +686,9 @@ async fn load_upload_record(
 fn validate_upload_record(
     record: &UploadRecord,
 ) -> Result<AttachmentBlobPlaintextMetadata, BridgeError> {
+    validate_upload_relative_path(record)?;
     if record.job_id.is_empty()
-        || record.attachment_id != format!("session-audio:{}", record.session_id)
         || record.workspace_id.is_empty()
-        || record.source_type != "session_audio"
         || record.expected_sha256 != record.attachment_sha256
         || record.expected_size_bytes != record.attachment_size_bytes
         || record.cloud_sync_enabled != 1
@@ -696,13 +697,27 @@ fn validate_upload_record(
         return Err(attachment_error("attachment upload state is invalid"));
     }
     validate_session_id(&record.session_id)?;
-    validate_audio_relative_path(&record.relative_path)?;
     let size_bytes = u64::try_from(record.expected_size_bytes).map_err(attachment_error)?;
     if size_bytes == 0 || size_bytes > MAX_PLAINTEXT_BYTES {
         return Err(attachment_error("attachment upload size is invalid"));
     }
     AttachmentBlobPlaintextMetadata::from_hex(size_bytes, &record.expected_sha256)
         .map_err(attachment_error)
+}
+
+fn validate_upload_relative_path(record: &UploadRecord) -> Result<(), BridgeError> {
+    match record.source_type.as_str() {
+        "session_audio"
+            if record.attachment_id == format!("session-audio:{}", record.session_id) =>
+        {
+            validate_audio_relative_path(&record.relative_path)
+        }
+        "note_upload" => {
+            validate_uuid_v4(&record.attachment_id)?;
+            validate_note_attachment_relative_path(&record.relative_path, &record.source_id)
+        }
+        _ => Err(attachment_error("attachment upload state is invalid")),
+    }
 }
 
 fn workspace_key(
@@ -763,9 +778,13 @@ fn canonical_directory(value: String) -> Result<PathBuf, BridgeError> {
 }
 
 fn validate_session_id(value: &str) -> Result<(), BridgeError> {
+    validate_uuid_v4(value).map_err(|_| attachment_error("attachment session id is invalid"))
+}
+
+fn validate_uuid_v4(value: &str) -> Result<(), BridgeError> {
     let uuid = Uuid::parse_str(value).map_err(attachment_error)?;
     if uuid.to_string() != value || uuid.get_version() != Some(Version::Random) {
-        return Err(attachment_error("attachment session id is invalid"));
+        return Err(attachment_error("attachment identifier is invalid"));
     }
     Ok(())
 }
@@ -809,6 +828,20 @@ fn validate_audio_relative_path(value: &str) -> Result<(), BridgeError> {
     Ok(())
 }
 
+fn validate_note_attachment_relative_path(value: &str, source_id: &str) -> Result<(), BridgeError> {
+    if source_id.is_empty()
+        || source_id.len() > 1024
+        || source_id.trim() != source_id
+        || source_id.chars().any(char::is_control)
+        || source_id.contains(['/', '\\'])
+        || matches!(source_id, "." | "..")
+        || value != format!("attachments/{source_id}")
+    {
+        return Err(attachment_error("attachment relative path is invalid"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -827,6 +860,59 @@ mod tests {
         }
         assert!(validate_audio_relative_path("audio.wav").is_ok());
         assert!(validate_audio_relative_path("audio.m4a").is_ok());
+    }
+
+    #[test]
+    fn accepts_only_canonical_note_attachment_paths() {
+        assert!(
+            validate_note_attachment_relative_path(
+                "attachments/product brief.pdf",
+                "product brief.pdf",
+            )
+            .is_ok()
+        );
+        for (path, source_id) in [
+            ("product brief.pdf", "product brief.pdf"),
+            ("../product brief.pdf", "product brief.pdf"),
+            ("attachments/../product brief.pdf", "../product brief.pdf"),
+            ("attachments/product brief.pdf", "other.pdf"),
+        ] {
+            assert!(validate_note_attachment_relative_path(path, source_id).is_err());
+        }
+    }
+
+    #[test]
+    fn accepts_a_verified_note_attachment_upload_record() {
+        let checksum = "0".repeat(64);
+        let record = UploadRecord {
+            job_id: Uuid::new_v4().to_string(),
+            attachment_id: Uuid::new_v4().to_string(),
+            session_id: Uuid::new_v4().to_string(),
+            workspace_id: Uuid::new_v4().to_string(),
+            expected_sha256: checksum.clone(),
+            expected_size_bytes: 1,
+            ciphertext_sha256: String::new(),
+            ciphertext_size_bytes: 0,
+            remote_object_id: String::new(),
+            object_key: String::new(),
+            cache_id: String::new(),
+            phase: "preparing".to_string(),
+            relative_path: "attachments/product brief.pdf".to_string(),
+            source_type: "note_upload".to_string(),
+            source_id: "product brief.pdf".to_string(),
+            attachment_sha256: checksum,
+            attachment_size_bytes: 1,
+            cloud_sync_enabled: 1,
+        };
+
+        assert!(validate_upload_record(&record).is_ok());
+        assert!(
+            validate_upload_record(&UploadRecord {
+                relative_path: "attachments/other.pdf".to_string(),
+                ..record
+            })
+            .is_err()
+        );
     }
 
     #[test]
