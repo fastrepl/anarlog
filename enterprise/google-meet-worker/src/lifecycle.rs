@@ -220,17 +220,29 @@ impl WorkerLifecycle {
         &mut self,
         occurred_at: DateTime<Utc>,
     ) -> Result<Vec<CaptureEvent>, TransitionError> {
-        let stopping = self.transition(BotState::Stopping, None, occurred_at)?;
-        let completed = self.transition(
-            BotState::Completed,
-            Some(TerminalReason {
-                kind: TerminalReasonKind::StoppedByRequest,
-                message: None,
-                retryable: false,
-            }),
-            occurred_at,
-        )?;
-        Ok(vec![stopping, completed])
+        let reason = || TerminalReason {
+            kind: TerminalReasonKind::StoppedByRequest,
+            message: None,
+            retryable: false,
+        };
+        match self.state {
+            BotState::Queued => self
+                .transition(BotState::Canceled, Some(reason()), occurred_at)
+                .map(|event| vec![event]),
+            BotState::Launching
+            | BotState::WaitingForAdmission
+            | BotState::Joined
+            | BotState::Capturing => {
+                let stopping = self.transition(BotState::Stopping, None, occurred_at)?;
+                let completed =
+                    self.transition(BotState::Completed, Some(reason()), occurred_at)?;
+                Ok(vec![stopping, completed])
+            }
+            BotState::Stopping => self
+                .transition(BotState::Completed, Some(reason()), occurred_at)
+                .map(|event| vec![event]),
+            BotState::Completed | BotState::Failed | BotState::Canceled => Ok(Vec::new()),
+        }
     }
 
     pub fn transition(
@@ -369,6 +381,19 @@ mod tests {
     fn rejects_inconsistent_durable_sequence_origins() {
         assert!(WorkerLifecycle::resume("bot-1", BotState::Queued, 1).is_err());
         assert!(WorkerLifecycle::resume("bot-1", BotState::Launching, 0).is_err());
+    }
+
+    #[test]
+    fn stop_is_phase_aware_before_launch_and_during_cleanup() {
+        let mut queued = WorkerLifecycle::new("bot-queued");
+        let canceled = queued.stopped_by_request(now()).unwrap();
+        assert_eq!(canceled.len(), 1);
+        assert_eq!(queued.state(), BotState::Canceled);
+
+        let mut stopping = WorkerLifecycle::resume("bot-stopping", BotState::Stopping, 4).unwrap();
+        let completed = stopping.stopped_by_request(now()).unwrap();
+        assert_eq!(completed.len(), 1);
+        assert_eq!(stopping.state(), BotState::Completed);
     }
 
     #[test]

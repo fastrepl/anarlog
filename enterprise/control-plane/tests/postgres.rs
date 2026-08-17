@@ -1,19 +1,90 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
-use anarlog_enterprise_control_plane::{api::router, config::Config, configured_state};
+use anarlog_enterprise_control_plane::{api::router, config::Config, configured_state, serve};
+use anarlog_enterprise_google_meet_worker::{
+    CaptureJobRuntime, CaptureJobSupervisor, CaptureJobSupervisorConfig,
+    CaptureJobSupervisorOutcome, ControlPlaneEventSink, ControlPlaneEventSinkConfig,
+    WorkerLifecycle,
+};
 use anlg_meeting_capture::{
     BotState, CaptureEvent, CaptureEventPayload, Participant, RecordingChunk, Speaker,
     TerminalReason, TerminalReasonKind, TranscriptSegment,
 };
+use async_trait::async_trait;
 use axum::{
     body::{Body, to_bytes},
     http::{Method, Request, StatusCode, header},
 };
 use serde_json::Value;
+use tokio::{
+    net::TcpListener,
+    sync::{mpsc, oneshot, watch},
+};
 use tower::ServiceExt;
 
 const TEST_DATABASE_URL_ENV: &str = "ANARLOG_ENTERPRISE_TEST_DATABASE_URL";
 const TOKEN: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+#[derive(Debug, thiserror::Error)]
+#[error("test capture runtime failed")]
+struct TestRuntimeError;
+
+struct CompletingRuntime {
+    cleaned: Arc<AtomicBool>,
+}
+
+#[async_trait]
+impl CaptureJobRuntime for CompletingRuntime {
+    type Error = TestRuntimeError;
+
+    async fn run(
+        &mut self,
+        lifecycle: &mut WorkerLifecycle,
+        events: mpsc::Sender<CaptureEvent>,
+    ) -> Result<(), Self::Error> {
+        events
+            .send(lifecycle.launch_started(chrono::Utc::now()).unwrap())
+            .await
+            .unwrap();
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        events
+            .send(
+                lifecycle
+                    .transition(BotState::Joined, None, chrono::Utc::now())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        events
+            .send(
+                lifecycle
+                    .transition(
+                        BotState::Completed,
+                        Some(TerminalReason {
+                            kind: TerminalReasonKind::MeetingEnded,
+                            message: None,
+                            retryable: false,
+                        }),
+                        chrono::Utc::now(),
+                    )
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        Ok(())
+    }
+
+    async fn cleanup(&mut self) -> Result<(), Self::Error> {
+        self.cleaned.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+}
 
 #[tokio::test]
 async fn migrates_postgres_and_enforces_workspace_delivery() {
@@ -202,6 +273,106 @@ async fn concurrent_capture_claims_have_one_fenced_winner() {
         response_json(second).await
     };
     assert_eq!(winner["epoch"], 1);
+}
+
+#[tokio::test]
+async fn supervises_a_capture_job_over_real_http_and_postgres() {
+    let Ok(database_url) = std::env::var(TEST_DATABASE_URL_ENV) else {
+        return;
+    };
+    let suffix = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let workspace_id = format!("workspace-supervisor-{suffix}");
+    let job_id = format!("job-supervisor-{suffix}");
+    let config = Config::from_values(
+        database_url,
+        Some("127.0.0.1:0".into()),
+        Some("2".into()),
+        format!(r#"{{"{workspace_id}":"{TOKEN}"}}"#),
+    )
+    .unwrap();
+    let state = configured_state(&config).await.unwrap();
+    let create_path = format!("/v1/workspaces/{workspace_id}/capture-jobs/{job_id}");
+    let created = router(state.clone())
+        .oneshot(authorized_request(
+            Method::POST,
+            &create_path,
+            Body::from(
+                serde_json::json!({
+                    "botId": format!("bot-supervisor-{suffix}"),
+                    "ownerUserId": "owner-a",
+                    "requestingActorId": "actor-a",
+                    "sessionId": format!("session-supervisor-{suffix}"),
+                    "sessionTitle": "Supervisor contract",
+                    "provider": "anarlog",
+                    "meeting": {
+                        "platform": "google_meet",
+                        "url": "https://meet.google.com/abc-defg-hij"
+                    },
+                    "createdAt": "2026-08-17T00:00:00Z"
+                })
+                .to_string(),
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (server_shutdown_tx, server_shutdown_rx) = oneshot::channel();
+    let server = tokio::spawn(serve(listener, state, async move {
+        server_shutdown_rx.await.ok();
+    }));
+    let sink_config = || {
+        ControlPlaneEventSinkConfig::new(
+            reqwest::Url::parse(&format!("http://{address}")).unwrap(),
+            &workspace_id,
+            &job_id,
+            TOKEN,
+        )
+    };
+    let cleaned = Arc::new(AtomicBool::new(false));
+    let supervisor = CaptureJobSupervisor::new(
+        ControlPlaneEventSink::new(sink_config()).unwrap(),
+        CompletingRuntime {
+            cleaned: cleaned.clone(),
+        },
+        "worker-supervisor-a",
+        "lease-supervisor-a",
+        CaptureJobSupervisorConfig {
+            lease_renew_interval: Duration::from_millis(1),
+        },
+    )
+    .unwrap();
+    let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+
+    let outcome = supervisor.run(shutdown_rx).await.unwrap();
+
+    assert_eq!(
+        outcome,
+        CaptureJobSupervisorOutcome::Terminal(BotState::Completed)
+    );
+    assert!(cleaned.load(Ordering::SeqCst));
+    let checkpoint = ControlPlaneEventSink::new(sink_config())
+        .unwrap()
+        .read_checkpoint()
+        .await
+        .unwrap();
+    assert_eq!(checkpoint.state, BotState::Completed);
+    assert_eq!(checkpoint.next_sequence, 3);
+    server_shutdown_tx.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .expect("server did not stop")
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]

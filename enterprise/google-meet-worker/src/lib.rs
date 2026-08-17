@@ -10,6 +10,7 @@ mod lobby;
 mod runtime;
 mod runtime_monitor;
 mod session;
+mod supervisor;
 mod x11;
 
 pub use admission::*;
@@ -24,4 +25,5 @@ pub use lobby::*;
 pub use runtime::*;
 pub use runtime_monitor::*;
 pub use session::*;
+pub use supervisor::*;
 pub use x11::*;
