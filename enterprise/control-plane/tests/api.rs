@@ -3,7 +3,10 @@ use std::sync::Arc;
 use anarlog_enterprise_control_plane::{
     api::{AppState, router},
     auth::StaticTokenAuthenticator,
-    capture::{CaptureJob, CaptureJobCheckpoint, CaptureJobStatus, ProjectionPublication},
+    capture::{
+        CaptureJob, CaptureJobCheckpoint, CaptureJobLease, CaptureJobLeaseIdentity,
+        CaptureJobStatus, ProjectionPublication,
+    },
     serve,
     store::{ControlPlaneStore, StoreError},
 };
@@ -59,10 +62,42 @@ impl ControlPlaneStore for MemoryStore {
         })
     }
 
+    async fn claim_capture_job(
+        &self,
+        _workspace_id: &str,
+        _job_id: &str,
+        worker_id: &str,
+        lease_id: &str,
+        lease_duration: std::time::Duration,
+    ) -> Result<CaptureJobLease, StoreError> {
+        Ok(CaptureJobLease {
+            worker_id: worker_id.into(),
+            lease_id: lease_id.into(),
+            epoch: 1,
+            expires_at: chrono::Utc::now() + chrono::Duration::from_std(lease_duration).unwrap(),
+        })
+    }
+
+    async fn renew_capture_job_lease(
+        &self,
+        _workspace_id: &str,
+        _job_id: &str,
+        lease: &CaptureJobLeaseIdentity,
+        lease_duration: std::time::Duration,
+    ) -> Result<CaptureJobLease, StoreError> {
+        Ok(CaptureJobLease {
+            worker_id: lease.worker_id.clone(),
+            lease_id: lease.lease_id.clone(),
+            epoch: lease.epoch,
+            expires_at: chrono::Utc::now() + chrono::Duration::from_std(lease_duration).unwrap(),
+        })
+    }
+
     async fn append_capture_event(
         &self,
         _workspace_id: &str,
         _job_id: &str,
+        _lease: &CaptureJobLeaseIdentity,
         _event: &CaptureEvent,
     ) -> Result<ProjectionPublication, StoreError> {
         Err(StoreError::NotFound)
@@ -255,6 +290,63 @@ async fn reads_only_the_authorized_workspace_capture_checkpoint() {
 }
 
 #[tokio::test]
+async fn claims_and_renews_only_an_authorized_worker_lease() {
+    let app = router(state(true));
+    let claim_path = "/v1/workspaces/workspace-a/capture-jobs/job-a/claim";
+    let claim_body = serde_json::json!({
+        "workerId": "worker-a",
+        "leaseId": "lease-a"
+    });
+
+    let wrong_workspace = app
+        .clone()
+        .oneshot(json_request(
+            Method::POST,
+            claim_path,
+            Some(TOKEN_B),
+            &claim_body,
+        ))
+        .await
+        .unwrap();
+    let claimed = app
+        .clone()
+        .oneshot(json_request(
+            Method::POST,
+            claim_path,
+            Some(TOKEN_A),
+            &claim_body,
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
+    assert_eq!(claimed.status(), StatusCode::OK);
+    let claimed = response_json(claimed).await;
+    assert_eq!(claimed["workerId"], "worker-a");
+    assert_eq!(claimed["leaseId"], "lease-a");
+    assert_eq!(claimed["epoch"], 1);
+    assert!(claimed["expiresAt"].is_string());
+
+    let renewed = app
+        .oneshot(json_request(
+            Method::POST,
+            "/v1/workspaces/workspace-a/capture-jobs/job-a/lease",
+            Some(TOKEN_A),
+            &serde_json::json!({
+                "lease": {
+                    "workerId": "worker-a",
+                    "leaseId": "lease-a",
+                    "epoch": 1
+                }
+            }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(renewed.status(), StatusCode::OK);
+    assert_eq!(response_json(renewed).await["epoch"], 1);
+}
+
+#[tokio::test]
 async fn boots_on_a_real_listener_and_shuts_down_gracefully() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -277,7 +369,7 @@ async fn boots_on_a_real_listener_and_shuts_down_gracefully() {
 }
 
 #[tokio::test]
-async fn worker_reads_the_checkpoint_over_real_http() {
+async fn worker_reads_the_checkpoint_and_manages_its_lease_over_real_http() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -293,11 +385,17 @@ async fn worker_reads_the_checkpoint_over_real_http() {
     .unwrap();
 
     let checkpoint = sink.read_checkpoint().await.unwrap();
+    let lease = sink.claim("worker-a", "lease-a").await.unwrap();
+    let renewed = sink.renew_lease().await.unwrap();
 
     assert_eq!(checkpoint.job_id, "job-a");
     assert_eq!(checkpoint.bot_id, "bot-a");
     assert_eq!(checkpoint.state, BotState::Capturing);
     assert_eq!(checkpoint.next_sequence, 7);
+    assert_eq!(lease.worker_id, "worker-a");
+    assert_eq!(lease.lease_id, "lease-a");
+    assert_eq!(lease.epoch, 1);
+    assert_eq!(renewed.epoch, lease.epoch);
     shutdown_tx.send(()).unwrap();
     tokio::time::timeout(Duration::from_secs(2), server)
         .await

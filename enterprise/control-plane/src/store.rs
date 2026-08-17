@@ -9,7 +9,10 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 
 use crate::{
-    capture::{CaptureJob, CaptureJobCheckpoint, CaptureJobStatus, ProjectionPublication},
+    capture::{
+        CaptureJob, CaptureJobCheckpoint, CaptureJobLease, CaptureJobLeaseIdentity,
+        CaptureJobStatus, ProjectionPublication,
+    },
     projector,
 };
 
@@ -27,10 +30,28 @@ pub trait ControlPlaneStore: Send + Sync {
         job_id: &str,
     ) -> Result<CaptureJobCheckpoint, StoreError>;
 
+    async fn claim_capture_job(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+        worker_id: &str,
+        lease_id: &str,
+        lease_duration: Duration,
+    ) -> Result<CaptureJobLease, StoreError>;
+
+    async fn renew_capture_job_lease(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+        lease: &CaptureJobLeaseIdentity,
+        lease_duration: Duration,
+    ) -> Result<CaptureJobLease, StoreError>;
+
     async fn append_capture_event(
         &self,
         workspace_id: &str,
         job_id: &str,
+        lease: &CaptureJobLeaseIdentity,
         event: &CaptureEvent,
     ) -> Result<ProjectionPublication, StoreError>;
 
@@ -226,10 +247,131 @@ impl ControlPlaneStore for PostgresStore {
         })
     }
 
+    async fn claim_capture_job(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+        worker_id: &str,
+        lease_id: &str,
+        lease_duration: Duration,
+    ) -> Result<CaptureJobLease, StoreError> {
+        let lease_seconds = lease_seconds(lease_duration)?;
+        let mut transaction = self.pool.begin().await?;
+        let row = sqlx::query(
+            r#"
+            SELECT state, lease_owner, lease_id, lease_epoch, lease_expires_at
+            FROM capture_jobs
+            WHERE workspace_id = $1 AND job_id = $2
+            FOR UPDATE
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(job_id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+        let state: BotState = parse_enum(&row.try_get::<String, _>("state")?)?;
+        if state.is_terminal() {
+            return Err(StoreError::CaptureJobTerminal);
+        }
+
+        let current_owner = row.try_get::<Option<String>, _>("lease_owner")?;
+        let current_lease_id = row.try_get::<Option<String>, _>("lease_id")?;
+        let current_epoch = row.try_get::<i64, _>("lease_epoch")?;
+        let current_expires_at = row.try_get::<Option<DateTime<Utc>>, _>("lease_expires_at")?;
+        let now = sqlx::query_scalar::<_, DateTime<Utc>>("SELECT clock_timestamp()")
+            .fetch_one(&mut *transaction)
+            .await?;
+        let current_is_active = current_expires_at.is_some_and(|expires_at| expires_at > now);
+        if current_is_active
+            && (current_owner.as_deref() != Some(worker_id)
+                || current_lease_id.as_deref() != Some(lease_id))
+        {
+            return Err(StoreError::CaptureLeaseUnavailable);
+        }
+
+        let epoch = if current_is_active {
+            current_epoch
+        } else {
+            current_epoch
+                .checked_add(1)
+                .ok_or(StoreError::OutOfRange("capture lease epoch"))?
+        };
+        let row = sqlx::query(
+            r#"
+            UPDATE capture_jobs
+            SET
+                lease_owner = $3,
+                lease_id = $4,
+                lease_epoch = $5,
+                lease_expires_at = clock_timestamp() + $6 * INTERVAL '1 second'
+            WHERE workspace_id = $1 AND job_id = $2
+            RETURNING lease_expires_at
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(job_id)
+        .bind(worker_id)
+        .bind(lease_id)
+        .bind(epoch)
+        .bind(lease_seconds)
+        .fetch_one(&mut *transaction)
+        .await?;
+        let lease = CaptureJobLease {
+            worker_id: worker_id.to_string(),
+            lease_id: lease_id.to_string(),
+            epoch: from_i64(epoch, "capture lease epoch")?,
+            expires_at: row.try_get("lease_expires_at")?,
+        };
+        transaction.commit().await?;
+        Ok(lease)
+    }
+
+    async fn renew_capture_job_lease(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+        lease: &CaptureJobLeaseIdentity,
+        lease_duration: Duration,
+    ) -> Result<CaptureJobLease, StoreError> {
+        let lease_seconds = lease_seconds(lease_duration)?;
+        let epoch = to_i64(lease.epoch, "capture lease epoch")?;
+        let row = sqlx::query(
+            r#"
+            UPDATE capture_jobs
+            SET lease_expires_at = clock_timestamp() + $6 * INTERVAL '1 second'
+            WHERE workspace_id = $1
+              AND job_id = $2
+              AND lease_owner = $3
+              AND lease_id = $4
+              AND lease_epoch = $5
+              AND lease_expires_at > clock_timestamp()
+              AND state NOT IN ('completed', 'failed', 'canceled')
+            RETURNING lease_expires_at
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(job_id)
+        .bind(&lease.worker_id)
+        .bind(&lease.lease_id)
+        .bind(epoch)
+        .bind(lease_seconds)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(StoreError::CaptureLeaseLost)?;
+        Ok(CaptureJobLease {
+            worker_id: lease.worker_id.clone(),
+            lease_id: lease.lease_id.clone(),
+            epoch: lease.epoch,
+            expires_at: row.try_get("lease_expires_at")?,
+        })
+    }
+
     async fn append_capture_event(
         &self,
         workspace_id: &str,
         job_id: &str,
+        lease: &CaptureJobLeaseIdentity,
         event: &CaptureEvent,
     ) -> Result<ProjectionPublication, StoreError> {
         let mut transaction = self.pool.begin().await?;
@@ -246,7 +388,11 @@ impl ControlPlaneStore for PostgresStore {
                 provider,
                 meeting,
                 created_at,
-                last_sequence
+                last_sequence,
+                lease_owner,
+                lease_id,
+                lease_epoch,
+                lease_expires_at > clock_timestamp() AS lease_active
             FROM capture_jobs
             WHERE workspace_id = $1 AND job_id = $2
             FOR UPDATE
@@ -258,6 +404,10 @@ impl ControlPlaneStore for PostgresStore {
         .await?
         .ok_or(StoreError::NotFound)?;
         let last_sequence = job_row.try_get::<i64, _>("last_sequence")?;
+        let lease_owner = job_row.try_get::<Option<String>, _>("lease_owner")?;
+        let lease_id = job_row.try_get::<Option<String>, _>("lease_id")?;
+        let lease_epoch = job_row.try_get::<i64, _>("lease_epoch")?;
+        let lease_active = job_row.try_get::<Option<bool>, _>("lease_active")? == Some(true);
         let job = capture_job(job_row)?;
         if event.bot_id != job.bot_id {
             return Err(StoreError::InvalidCaptureEvent(
@@ -297,6 +447,14 @@ impl ControlPlaneStore for PostgresStore {
                 read_publication(&mut transaction, workspace_id, job_id, revision).await?;
             transaction.commit().await?;
             return Ok(publication);
+        }
+
+        let active_lease = lease_owner.as_deref() == Some(lease.worker_id.as_str())
+            && lease_id.as_deref() == Some(lease.lease_id.as_str())
+            && lease_epoch == to_i64(lease.epoch, "capture lease epoch")?
+            && lease_active;
+        if !active_lease {
+            return Err(StoreError::CaptureLeaseLost);
         }
 
         let expected = last_sequence
@@ -706,6 +864,13 @@ fn from_i64(value: i64, field: &'static str) -> Result<u64, StoreError> {
     u64::try_from(value).map_err(|_| StoreError::OutOfRange(field))
 }
 
+fn lease_seconds(duration: Duration) -> Result<i64, StoreError> {
+    i64::try_from(duration.as_secs())
+        .ok()
+        .filter(|seconds| *seconds > 0)
+        .ok_or(StoreError::OutOfRange("capture lease duration"))
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
     #[error("database operation failed")]
@@ -726,6 +891,12 @@ pub enum StoreError {
     CaptureEventConflict,
     #[error("capture event sequence conflict: expected {expected}, got {actual}")]
     CaptureSequenceConflict { expected: u64, actual: u64 },
+    #[error("capture job is already terminal")]
+    CaptureJobTerminal,
+    #[error("capture job already has an active lease")]
+    CaptureLeaseUnavailable,
+    #[error("capture job lease is no longer active")]
+    CaptureLeaseLost,
     #[error("capture event is invalid: {0}")]
     InvalidCaptureEvent(String),
     #[error("stored capture JSON is invalid")]

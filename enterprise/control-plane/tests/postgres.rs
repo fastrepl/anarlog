@@ -118,6 +118,93 @@ async fn migrates_postgres_and_enforces_workspace_delivery() {
 }
 
 #[tokio::test]
+async fn concurrent_capture_claims_have_one_fenced_winner() {
+    let Ok(database_url) = std::env::var(TEST_DATABASE_URL_ENV) else {
+        return;
+    };
+    let suffix = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let workspace_id = format!("workspace-claim-{suffix}");
+    let job_id = format!("job-claim-{suffix}");
+    let config = Config::from_values(
+        database_url,
+        Some("127.0.0.1:0".into()),
+        Some("2".into()),
+        format!(r#"{{"{workspace_id}":"{TOKEN}"}}"#),
+    )
+    .unwrap();
+    let app = router(configured_state(&config).await.unwrap());
+    let create_path = format!("/v1/workspaces/{workspace_id}/capture-jobs/{job_id}");
+    let created = app
+        .clone()
+        .oneshot(authorized_request(
+            Method::POST,
+            &create_path,
+            Body::from(
+                serde_json::json!({
+                    "botId": format!("bot-claim-{suffix}"),
+                    "ownerUserId": "owner-a",
+                    "requestingActorId": "actor-a",
+                    "sessionId": format!("session-claim-{suffix}"),
+                    "sessionTitle": "Concurrent claim",
+                    "provider": "anarlog",
+                    "meeting": {
+                        "platform": "google_meet",
+                        "url": "https://meet.google.com/abc-defg-hij"
+                    },
+                    "createdAt": "2026-08-17T00:00:00Z"
+                })
+                .to_string(),
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(created.status(), StatusCode::CREATED);
+
+    let claim_path = format!("{create_path}/claim");
+    let first = app.clone().oneshot(authorized_request(
+        Method::POST,
+        &claim_path,
+        Body::from(r#"{"workerId":"worker-a","leaseId":"lease-a"}"#),
+    ));
+    let second = app.oneshot(authorized_request(
+        Method::POST,
+        &claim_path,
+        Body::from(r#"{"workerId":"worker-b","leaseId":"lease-b"}"#),
+    ));
+    let (first, second) = tokio::join!(first, second);
+    let first = first.unwrap();
+    let second = second.unwrap();
+
+    assert_eq!(
+        [first.status(), second.status()]
+            .into_iter()
+            .filter(|status| *status == StatusCode::OK)
+            .count(),
+        1
+    );
+    assert_eq!(
+        [first.status(), second.status()]
+            .into_iter()
+            .filter(|status| *status == StatusCode::CONFLICT)
+            .count(),
+        1
+    );
+    let winner = if first.status() == StatusCode::OK {
+        response_json(first).await
+    } else {
+        response_json(second).await
+    };
+    assert_eq!(winner["epoch"], 1);
+}
+
+#[tokio::test]
 async fn persists_projects_and_replays_capture_events_idempotently() {
     let Ok(database_url) = std::env::var(TEST_DATABASE_URL_ENV) else {
         return;
@@ -180,6 +267,103 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
     assert_eq!(queued_checkpoint["state"], "queued");
     assert_eq!(queued_checkpoint["nextSequence"], 0);
 
+    let claim_path = format!("{create_path}/claim");
+    let first_lease = app
+        .clone()
+        .oneshot(authorized_request(
+            Method::POST,
+            &claim_path,
+            Body::from(
+                serde_json::json!({
+                    "workerId": "worker-a",
+                    "leaseId": "lease-a"
+                })
+                .to_string(),
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(first_lease.status(), StatusCode::OK);
+    let first_lease = response_json(first_lease).await;
+    assert_eq!(first_lease["epoch"], 1);
+
+    let replayed_claim = app
+        .clone()
+        .oneshot(authorized_request(
+            Method::POST,
+            &claim_path,
+            Body::from(
+                serde_json::json!({
+                    "workerId": "worker-a",
+                    "leaseId": "lease-a"
+                })
+                .to_string(),
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(replayed_claim.status(), StatusCode::OK);
+    assert_eq!(response_json(replayed_claim).await["epoch"], 1);
+
+    let competing_claim = app
+        .clone()
+        .oneshot(authorized_request(
+            Method::POST,
+            &claim_path,
+            Body::from(
+                serde_json::json!({
+                    "workerId": "worker-b",
+                    "leaseId": "lease-b"
+                })
+                .to_string(),
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(competing_claim.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        response_json(competing_claim).await["error"]["code"],
+        "capture_lease_unavailable"
+    );
+
+    let pool = sqlx::PgPool::connect(&database_url).await.unwrap();
+    sqlx::query(
+        "UPDATE capture_jobs SET lease_expires_at = now() - INTERVAL '1 second' WHERE workspace_id = $1 AND job_id = $2",
+    )
+    .bind(&workspace_id)
+    .bind(&job_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let second_lease = app
+        .clone()
+        .oneshot(authorized_request(
+            Method::POST,
+            &claim_path,
+            Body::from(
+                serde_json::json!({
+                    "workerId": "worker-b",
+                    "leaseId": "lease-b"
+                })
+                .to_string(),
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(second_lease.status(), StatusCode::OK);
+    let second_lease = response_json(second_lease).await;
+    assert_eq!(second_lease["epoch"], 2);
+    let first_lease_identity = serde_json::json!({
+        "workerId": first_lease["workerId"],
+        "leaseId": first_lease["leaseId"],
+        "epoch": first_lease["epoch"]
+    });
+    let second_lease_identity = serde_json::json!({
+        "workerId": second_lease["workerId"],
+        "leaseId": second_lease["leaseId"],
+        "epoch": second_lease["epoch"]
+    });
+
     let conflicting_job_path =
         format!("/v1/workspaces/{workspace_id}/capture-jobs/other-job-{suffix}");
     let bot_conflict = app
@@ -214,6 +398,26 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
 
     let events = capture_events(&bot_id);
     let event_path = format!("{create_path}/events");
+    let fenced = app
+        .clone()
+        .oneshot(authorized_request(
+            Method::POST,
+            &event_path,
+            Body::from(
+                serde_json::json!({
+                    "lease": first_lease_identity,
+                    "event": &events[0]
+                })
+                .to_string(),
+            ),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(fenced.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        response_json(fenced).await["error"]["code"],
+        "capture_lease_lost"
+    );
     let mut final_publication = Value::Null;
     for event in &events {
         let response = app
@@ -221,7 +425,13 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
             .oneshot(authorized_request(
                 Method::POST,
                 &event_path,
-                Body::from(serde_json::json!({ "event": event }).to_string()),
+                Body::from(
+                    serde_json::json!({
+                        "lease": second_lease_identity,
+                        "event": event
+                    })
+                    .to_string(),
+                ),
             ))
             .await
             .unwrap();
@@ -244,7 +454,13 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
         .oneshot(authorized_request(
             Method::POST,
             &event_path,
-            Body::from(serde_json::json!({ "event": events.last().unwrap() }).to_string()),
+            Body::from(
+                serde_json::json!({
+                    "lease": first_lease_identity,
+                    "event": events.last().unwrap()
+                })
+                .to_string(),
+            ),
         ))
         .await
         .unwrap();
@@ -258,7 +474,13 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
         .oneshot(authorized_request(
             Method::POST,
             &event_path,
-            Body::from(serde_json::json!({ "event": conflicting }).to_string()),
+            Body::from(
+                serde_json::json!({
+                    "lease": second_lease_identity,
+                    "event": conflicting
+                })
+                .to_string(),
+            ),
         ))
         .await
         .unwrap();
@@ -290,7 +512,6 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
     assert_eq!(session["contentHash"], final_publication["contentHash"]);
     assert_eq!(session["envelope"], final_publication["envelope"]);
 
-    let pool = sqlx::PgPool::connect(&database_url).await.unwrap();
     let event_count: i64 = sqlx::query_scalar(
         "SELECT count(*) FROM capture_events WHERE workspace_id = $1 AND job_id = $2",
     )

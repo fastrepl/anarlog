@@ -64,7 +64,7 @@ See the official [`infisical run` documentation](https://infisical.com/docs/cli/
 
 `GET /health/live` is process-only liveness. `GET /health/ready` checks PostgreSQL. Capture and delivery routes require `Authorization: Bearer <token>` and reject a token used against any workspace other than its configured workspace.
 
-Capture workers create a durable job with `POST /v1/workspaces/{workspace_id}/capture-jobs/{job_id}` and append normalized events with `POST /v1/workspaces/{workspace_id}/capture-jobs/{job_id}/events`. Event IDs and zero-based sequences are idempotency keys. Each accepted event atomically advances the PostgreSQL checkpoint and publishes a delivery revision; retries return the existing byte-equivalent revision, while conflicting IDs, sequences, or lifecycle transitions fail closed.
+Capture workers create a durable job with `POST /v1/workspaces/{workspace_id}/capture-jobs/{job_id}`, claim it through `/claim`, and renew the returned 60-second fencing lease through `/lease`. Every new event appended to `/events` must carry that lease identity. An expired lease can be reclaimed with a higher epoch, which prevents the prior worker from advancing the job; an identical already-persisted event remains safe to replay. Event IDs and zero-based sequences are idempotency keys. Each accepted event atomically advances the PostgreSQL checkpoint and publishes a delivery revision, while conflicting IDs, sequences, lifecycle transitions, or stale leases fail closed.
 
 The static token map is intended for the evaluation bundle and sits behind the `WorkspaceAuthenticator` interface. Production OIDC, SCIM, offline license enforcement, object storage, and meeting browser workers are outside this service.
 

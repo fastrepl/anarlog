@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use anlg_session_ingest::{AcknowledgeRequest, AcknowledgeResponse, DeliveryPage, SessionRead};
 use axum::{
@@ -14,8 +14,9 @@ use tower_http::trace::TraceLayer;
 use crate::{
     auth::{AuthenticationError, WorkspaceAuthenticator},
     capture::{
-        AppendCaptureEventRequest, CaptureJob, CaptureJobCheckpoint, CaptureJobStatus,
-        CreateCaptureJobRequest, ProjectionPublication,
+        AppendCaptureEventRequest, CaptureJob, CaptureJobCheckpoint, CaptureJobLease,
+        CaptureJobStatus, ClaimCaptureJobRequest, CreateCaptureJobRequest, ProjectionPublication,
+        RenewCaptureJobLeaseRequest,
     },
     store::{ControlPlaneStore, StoreError},
 };
@@ -23,6 +24,7 @@ use crate::{
 const MAX_REQUEST_BYTES: usize = 256 * 1024;
 const DEFAULT_PAGE_LIMIT: u16 = 10;
 const MAX_PAGE_LIMIT: u16 = 100;
+const CAPTURE_LEASE_DURATION: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub struct AppState {
@@ -53,6 +55,14 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/v1/workspaces/{workspace_id}/capture-jobs/{job_id}/events",
             post(append_capture_event),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/capture-jobs/{job_id}/claim",
+            post(claim_capture_job),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/capture-jobs/{job_id}/lease",
+            post(renew_capture_job_lease),
         )
         .route(
             "/v1/workspaces/{workspace_id}/session-envelopes",
@@ -130,6 +140,61 @@ async fn create_capture_job(
     Ok((response_status, Json(status)))
 }
 
+async fn claim_capture_job(
+    State(state): State<AppState>,
+    Path((workspace_id, job_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(request): Json<ClaimCaptureJobRequest>,
+) -> Result<Json<CaptureJobLease>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&job_id, "job_id")?;
+    validate_identifier(&request.worker_id, "worker_id")?;
+    validate_identifier(&request.lease_id, "lease_id")?;
+    let lease = state
+        .store
+        .claim_capture_job(
+            &workspace_id,
+            &job_id,
+            &request.worker_id,
+            &request.lease_id,
+            CAPTURE_LEASE_DURATION,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(lease))
+}
+
+async fn renew_capture_job_lease(
+    State(state): State<AppState>,
+    Path((workspace_id, job_id)): Path<(String, String)>,
+    headers: HeaderMap,
+    Json(request): Json<RenewCaptureJobLeaseRequest>,
+) -> Result<Json<CaptureJobLease>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&job_id, "job_id")?;
+    validate_identifier(&request.lease.worker_id, "worker_id")?;
+    validate_identifier(&request.lease.lease_id, "lease_id")?;
+    if request.lease.epoch == 0 {
+        return Err(ApiError::bad_request(
+            "invalid_lease_epoch",
+            "lease epoch must be greater than zero",
+        ));
+    }
+    let lease = state
+        .store
+        .renew_capture_job_lease(
+            &workspace_id,
+            &job_id,
+            &request.lease,
+            CAPTURE_LEASE_DURATION,
+        )
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(lease))
+}
+
 async fn append_capture_event(
     State(state): State<AppState>,
     Path((workspace_id, job_id)): Path<(String, String)>,
@@ -139,11 +204,19 @@ async fn append_capture_event(
     authorize(&state, &headers, &workspace_id)?;
     validate_identifier(&workspace_id, "workspace_id")?;
     validate_identifier(&job_id, "job_id")?;
+    validate_identifier(&request.lease.worker_id, "worker_id")?;
+    validate_identifier(&request.lease.lease_id, "lease_id")?;
+    if request.lease.epoch == 0 {
+        return Err(ApiError::bad_request(
+            "invalid_lease_epoch",
+            "lease epoch must be greater than zero",
+        ));
+    }
     validate_identifier(&request.event.id, "event_id")?;
     validate_identifier(&request.event.bot_id, "bot_id")?;
     let publication = state
         .store
-        .append_capture_event(&workspace_id, &job_id, &request.event)
+        .append_capture_event(&workspace_id, &job_id, &request.lease, &request.event)
         .await
         .map_err(ApiError::from_store)?;
     Ok(Json(publication))
@@ -286,6 +359,8 @@ fn validate_identifier(value: &str, field: &'static str) -> Result<(), ApiError>
             match field {
                 "consumerId" => "consumerId contains unsupported characters",
                 "job_id" => "job_id contains unsupported characters",
+                "worker_id" => "workerId contains unsupported characters",
+                "lease_id" => "leaseId contains unsupported characters",
                 _ => "workspace_id contains unsupported characters",
             },
         ));
@@ -386,6 +461,24 @@ impl ApiError {
                 status: StatusCode::UNPROCESSABLE_ENTITY,
                 code: "invalid_capture_event",
                 message: "capture event violates the normalized capture contract",
+                authenticate: false,
+            },
+            StoreError::CaptureJobTerminal => Self {
+                status: StatusCode::CONFLICT,
+                code: "capture_job_terminal",
+                message: "capture job is already terminal",
+                authenticate: false,
+            },
+            StoreError::CaptureLeaseUnavailable => Self {
+                status: StatusCode::CONFLICT,
+                code: "capture_lease_unavailable",
+                message: "capture job already has an active worker lease",
+                authenticate: false,
+            },
+            StoreError::CaptureLeaseLost => Self {
+                status: StatusCode::CONFLICT,
+                code: "capture_lease_lost",
+                message: "capture worker lease is expired or no longer current",
                 authenticate: false,
             },
             error => {

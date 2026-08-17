@@ -34,6 +34,23 @@ pub struct CaptureJobCheckpoint {
     pub next_sequence: u64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CaptureJobLease {
+    pub worker_id: String,
+    pub lease_id: String,
+    pub epoch: u64,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CaptureJobLeaseIdentity {
+    pub worker_id: String,
+    pub lease_id: String,
+    pub epoch: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectionPublication {
@@ -59,6 +76,20 @@ pub struct CreateCaptureJobRequest {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ClaimCaptureJobRequest {
+    pub worker_id: String,
+    pub lease_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RenewCaptureJobLeaseRequest {
+    pub lease: CaptureJobLeaseIdentity,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AppendCaptureEventRequest {
+    pub lease: CaptureJobLeaseIdentity,
     pub event: CaptureEvent,
 }

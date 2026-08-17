@@ -11,7 +11,7 @@ const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_MAX_ATTEMPTS: u8 = 4;
 const DEFAULT_INITIAL_RETRY_DELAY: Duration = Duration::from_millis(200);
 const DEFAULT_MAX_RETRY_DELAY: Duration = Duration::from_secs(2);
-const MAX_CHECKPOINT_RESPONSE_BYTES: usize = 64 * 1024;
+const MAX_CONTROL_PLANE_RESPONSE_BYTES: usize = 64 * 1024;
 
 #[async_trait]
 pub trait CaptureEventSink: Send + Sync {
@@ -82,10 +82,13 @@ pub struct ControlPlaneEventSink {
     client: reqwest::Client,
     job_endpoint: Url,
     event_endpoint: Url,
+    claim_endpoint: Url,
+    lease_endpoint: Url,
     workspace_id: String,
     job_id: String,
     bearer_token: String,
     retry: CaptureEventRetryConfig,
+    lease: tokio::sync::RwLock<Option<WorkerLease>>,
 }
 
 impl ControlPlaneEventSink {
@@ -126,6 +129,16 @@ impl ControlPlaneEventSink {
             .path_segments_mut()
             .map_err(|_| CaptureEventSinkConfigError::InvalidBaseUrl)?
             .push("events");
+        let mut claim_endpoint = job_endpoint.clone();
+        claim_endpoint
+            .path_segments_mut()
+            .map_err(|_| CaptureEventSinkConfigError::InvalidBaseUrl)?
+            .push("claim");
+        let mut lease_endpoint = job_endpoint.clone();
+        lease_endpoint
+            .path_segments_mut()
+            .map_err(|_| CaptureEventSinkConfigError::InvalidBaseUrl)?
+            .push("lease");
         let client = reqwest::Client::builder()
             .timeout(config.request_timeout)
             .redirect(reqwest::redirect::Policy::none())
@@ -135,10 +148,13 @@ impl ControlPlaneEventSink {
             client,
             job_endpoint,
             event_endpoint,
+            claim_endpoint,
+            lease_endpoint,
             workspace_id: config.workspace_id,
             job_id: config.job_id,
             bearer_token: config.bearer_token,
             retry: config.retry,
+            lease: tokio::sync::RwLock::new(None),
         })
     }
 
@@ -172,6 +188,97 @@ impl ControlPlaneEventSink {
         }
         unreachable!("validated retry configuration always performs at least one attempt")
     }
+
+    pub async fn claim(
+        &self,
+        worker_id: impl Into<String>,
+        lease_id: impl Into<String>,
+    ) -> Result<WorkerLease, CaptureEventSinkError> {
+        let worker_id = worker_id.into();
+        let lease_id = lease_id.into();
+        validate_identifier(&worker_id, "worker ID")
+            .map_err(|_| CaptureEventSinkError::InvalidLeaseIdentity("worker ID"))?;
+        validate_identifier(&lease_id, "lease ID")
+            .map_err(|_| CaptureEventSinkError::InvalidLeaseIdentity("lease ID"))?;
+        let request = ClaimCaptureJobRequest {
+            worker_id: &worker_id,
+            lease_id: &lease_id,
+        };
+        let lease = self
+            .send_lease_request(self.claim_endpoint.clone(), &request)
+            .await?;
+        validate_lease(&lease, &worker_id, &lease_id, None)?;
+        *self.lease.write().await = Some(lease.clone());
+        Ok(lease)
+    }
+
+    pub async fn renew_lease(&self) -> Result<WorkerLease, CaptureEventSinkError> {
+        let current = self
+            .lease
+            .read()
+            .await
+            .clone()
+            .ok_or(CaptureEventSinkError::LeaseRequired)?;
+        let identity = WorkerLeaseIdentity::from(&current);
+        let request = RenewCaptureJobLeaseRequest { lease: &identity };
+        let renewed = match self
+            .send_lease_request(self.lease_endpoint.clone(), &request)
+            .await
+        {
+            Ok(renewed) => renewed,
+            Err(error) => {
+                *self.lease.write().await = None;
+                return Err(error);
+            }
+        };
+        if let Err(error) = validate_lease(
+            &renewed,
+            &current.worker_id,
+            &current.lease_id,
+            Some(current.epoch),
+        ) {
+            *self.lease.write().await = None;
+            return Err(error);
+        }
+        *self.lease.write().await = Some(renewed.clone());
+        Ok(renewed)
+    }
+
+    async fn send_lease_request<T: Serialize + Sync>(
+        &self,
+        endpoint: Url,
+        request: &T,
+    ) -> Result<WorkerLease, CaptureEventSinkError> {
+        let mut retry_delay = self.retry.initial_delay;
+        for attempt in 1..=self.retry.max_attempts {
+            match self
+                .client
+                .post(endpoint.clone())
+                .bearer_auth(&self.bearer_token)
+                .json(request)
+                .send()
+                .await
+            {
+                Ok(response) if response.status().is_success() => {
+                    return decode_bounded_json(response).await;
+                }
+                Ok(response) => {
+                    let status = response.status();
+                    if attempt == self.retry.max_attempts || !retryable_status(status) {
+                        return Err(CaptureEventSinkError::ControlPlaneStatus(status));
+                    }
+                }
+                Err(error) => {
+                    if attempt == self.retry.max_attempts {
+                        return Err(CaptureEventSinkError::Request(error));
+                    }
+                }
+            }
+            tokio::time::sleep(retry_delay).await;
+            retry_delay = retry_delay.saturating_mul(2).min(self.retry.max_delay);
+        }
+        unreachable!("validated retry configuration always performs at least one attempt")
+    }
 }
 
 #[async_trait]
@@ -179,7 +286,17 @@ impl CaptureEventSink for ControlPlaneEventSink {
     type Error = CaptureEventSinkError;
 
     async fn append(&self, event: &CaptureEvent) -> Result<(), CaptureEventSinkError> {
-        let request = AppendCaptureEventRequest { event };
+        let lease = self
+            .lease
+            .read()
+            .await
+            .clone()
+            .ok_or(CaptureEventSinkError::LeaseRequired)?;
+        let identity = WorkerLeaseIdentity::from(&lease);
+        let request = AppendCaptureEventRequest {
+            lease: &identity,
+            event,
+        };
         let mut retry_delay = self.retry.initial_delay;
         for attempt in 1..=self.retry.max_attempts {
             match self
@@ -211,8 +328,49 @@ impl CaptureEventSink for ControlPlaneEventSink {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AppendCaptureEventRequest<'a> {
+    lease: &'a WorkerLeaseIdentity,
     event: &'a CaptureEvent,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ClaimCaptureJobRequest<'a> {
+    worker_id: &'a str,
+    lease_id: &'a str,
+}
+
+#[derive(Serialize)]
+struct RenewCaptureJobLeaseRequest<'a> {
+    lease: &'a WorkerLeaseIdentity,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkerLease {
+    pub worker_id: String,
+    pub lease_id: String,
+    pub epoch: u64,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkerLeaseIdentity {
+    worker_id: String,
+    lease_id: String,
+    epoch: u64,
+}
+
+impl From<&WorkerLease> for WorkerLeaseIdentity {
+    fn from(lease: &WorkerLease) -> Self {
+        Self {
+            worker_id: lease.worker_id.clone(),
+            lease_id: lease.lease_id.clone(),
+            epoch: lease.epoch,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -253,23 +411,7 @@ async fn decode_checkpoint(
     expected_workspace_id: &str,
     expected_job_id: &str,
 ) -> Result<WorkerCheckpoint, CaptureEventSinkError> {
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_CHECKPOINT_RESPONSE_BYTES as u64)
-    {
-        return Err(CaptureEventSinkError::CheckpointResponseTooLarge);
-    }
-    let mut body = Vec::new();
-    let mut stream = response.bytes_stream();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(CaptureEventSinkError::ResponseBody)?;
-        if body.len().saturating_add(chunk.len()) > MAX_CHECKPOINT_RESPONSE_BYTES {
-            return Err(CaptureEventSinkError::CheckpointResponseTooLarge);
-        }
-        body.extend_from_slice(&chunk);
-    }
-    let checkpoint: WireCaptureJobCheckpoint =
-        serde_json::from_slice(&body).map_err(CaptureEventSinkError::InvalidCheckpointResponse)?;
+    let checkpoint: WireCaptureJobCheckpoint = decode_bounded_json(response).await?;
     if checkpoint.job.workspace_id != expected_workspace_id {
         return Err(CaptureEventSinkError::InvalidCheckpoint("workspace ID"));
     }
@@ -298,6 +440,45 @@ async fn decode_checkpoint(
         state: checkpoint.state,
         next_sequence: checkpoint.next_sequence,
     })
+}
+
+async fn decode_bounded_json<T: serde::de::DeserializeOwned>(
+    response: reqwest::Response,
+) -> Result<T, CaptureEventSinkError> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_CONTROL_PLANE_RESPONSE_BYTES as u64)
+    {
+        return Err(CaptureEventSinkError::ControlPlaneResponseTooLarge);
+    }
+    let mut body = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(CaptureEventSinkError::ResponseBody)?;
+        if body.len().saturating_add(chunk.len()) > MAX_CONTROL_PLANE_RESPONSE_BYTES {
+            return Err(CaptureEventSinkError::ControlPlaneResponseTooLarge);
+        }
+        body.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&body).map_err(CaptureEventSinkError::InvalidControlPlaneResponse)
+}
+
+fn validate_lease(
+    lease: &WorkerLease,
+    expected_worker_id: &str,
+    expected_lease_id: &str,
+    expected_epoch: Option<u64>,
+) -> Result<(), CaptureEventSinkError> {
+    if lease.worker_id != expected_worker_id {
+        return Err(CaptureEventSinkError::InvalidLease("worker ID"));
+    }
+    if lease.lease_id != expected_lease_id {
+        return Err(CaptureEventSinkError::InvalidLease("lease ID"));
+    }
+    if lease.epoch == 0 || expected_epoch.is_some_and(|epoch| epoch != lease.epoch) {
+        return Err(CaptureEventSinkError::InvalidLease("epoch"));
+    }
+    Ok(())
 }
 
 pub struct CaptureEventPublisher<S> {
@@ -388,18 +569,24 @@ pub enum CaptureEventSinkConfigError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum CaptureEventSinkError {
-    #[error("capture event request failed")]
+    #[error("control-plane request failed")]
     Request(#[source] reqwest::Error),
-    #[error("control plane rejected capture event with HTTP {0}")]
+    #[error("control plane rejected the request with HTTP {0}")]
     ControlPlaneStatus(StatusCode),
-    #[error("failed to read control-plane checkpoint response")]
+    #[error("failed to read control-plane response")]
     ResponseBody(#[source] reqwest::Error),
-    #[error("control-plane checkpoint response exceeded 64 KiB")]
-    CheckpointResponseTooLarge,
-    #[error("control-plane checkpoint response is invalid")]
-    InvalidCheckpointResponse(#[source] serde_json::Error),
+    #[error("control-plane response exceeded 64 KiB")]
+    ControlPlaneResponseTooLarge,
+    #[error("control-plane response is invalid")]
+    InvalidControlPlaneResponse(#[source] serde_json::Error),
     #[error("control-plane checkpoint contains an invalid {0}")]
     InvalidCheckpoint(&'static str),
+    #[error("capture worker must hold a lease before publishing events")]
+    LeaseRequired,
+    #[error("capture lease contains an invalid {0}")]
+    InvalidLease(&'static str),
+    #[error("capture lease request contains an invalid {0}")]
+    InvalidLeaseIdentity(&'static str),
 }
 
 #[cfg(test)]
@@ -511,6 +698,45 @@ mod tests {
         )
     }
 
+    async fn json_server(bodies: Vec<String>) -> (Url, tokio::task::JoinHandle<Vec<String>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let mut requests = Vec::new();
+            for body in bodies {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut bytes = Vec::new();
+                loop {
+                    let mut chunk = [0; 4096];
+                    let count = stream.read(&mut chunk).await.unwrap();
+                    if count == 0 {
+                        break;
+                    }
+                    bytes.extend_from_slice(&chunk[..count]);
+                    if complete_request_length(&bytes).is_some_and(|length| bytes.len() >= length) {
+                        break;
+                    }
+                }
+                requests.push(String::from_utf8(bytes).unwrap());
+                stream
+                    .write_all(
+                        format!(
+                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                        .as_bytes(),
+                    )
+                    .await
+                    .unwrap();
+            }
+            requests
+        });
+        (
+            Url::parse(&format!("http://{address}/root/")).unwrap(),
+            task,
+        )
+    }
+
     fn complete_request_length(bytes: &[u8]) -> Option<usize> {
         let headers_end = bytes.windows(4).position(|window| window == b"\r\n\r\n")? + 4;
         let headers = std::str::from_utf8(&bytes[..headers_end]).ok()?;
@@ -539,10 +765,20 @@ mod tests {
         config
     }
 
+    async fn install_test_lease(sink: &ControlPlaneEventSink) {
+        *sink.lease.write().await = Some(WorkerLease {
+            worker_id: "worker-a".into(),
+            lease_id: "lease-a".into(),
+            epoch: 3,
+            expires_at: Utc::now() + chrono::Duration::minutes(1),
+        });
+    }
+
     #[tokio::test]
     async fn posts_the_normalized_event_with_workspace_credentials() {
         let (base_url, server) = server(vec![StatusCode::OK]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+        install_test_lease(&sink).await;
 
         sink.append(&event(1)).await.unwrap();
 
@@ -556,7 +792,87 @@ mod tests {
                 .to_ascii_lowercase()
                 .contains("authorization: bearer super-secret-token")
         );
+        assert!(
+            requests[0].contains(
+                "\"lease\":{\"workerId\":\"worker-a\",\"leaseId\":\"lease-a\",\"epoch\":3}"
+            )
+        );
         assert!(requests[0].contains("\"event\":{\"id\":\"capture-event-1\""));
+    }
+
+    #[tokio::test]
+    async fn requires_a_worker_lease_before_event_delivery() {
+        let sink = ControlPlaneEventSink::new(sink_config(
+            Url::parse("http://127.0.0.1:1/root/").unwrap(),
+        ))
+        .unwrap();
+
+        assert!(matches!(
+            sink.append(&event(1)).await,
+            Err(CaptureEventSinkError::LeaseRequired)
+        ));
+    }
+
+    #[tokio::test]
+    async fn claims_and_renews_the_fenced_worker_lease() {
+        let lease = serde_json::json!({
+            "workerId": "worker-a",
+            "leaseId": "lease-a",
+            "epoch": 3,
+            "expiresAt": "2026-08-17T00:01:00Z"
+        })
+        .to_string();
+        let renewed = serde_json::json!({
+            "workerId": "worker-a",
+            "leaseId": "lease-a",
+            "epoch": 3,
+            "expiresAt": "2026-08-17T00:02:00Z"
+        })
+        .to_string();
+        let (base_url, server) = json_server(vec![lease, renewed]).await;
+        let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+
+        let claimed = sink.claim("worker-a", "lease-a").await.unwrap();
+        let renewed = sink.renew_lease().await.unwrap();
+
+        assert_eq!(claimed.epoch, 3);
+        assert!(renewed.expires_at > claimed.expires_at);
+        let requests = server.await.unwrap();
+        assert!(
+            requests[0].starts_with(
+                "POST /root/v1/workspaces/workspace-a/capture-jobs/job-1/claim HTTP/1.1"
+            )
+        );
+        assert!(requests[0].contains("\"workerId\":\"worker-a\",\"leaseId\":\"lease-a\""));
+        assert!(
+            requests[1].starts_with(
+                "POST /root/v1/workspaces/workspace-a/capture-jobs/job-1/lease HTTP/1.1"
+            )
+        );
+        assert!(
+            requests[1].contains(
+                "\"lease\":{\"workerId\":\"worker-a\",\"leaseId\":\"lease-a\",\"epoch\":3}"
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn stops_event_delivery_after_lease_renewal_is_rejected() {
+        let (base_url, server) = server(vec![StatusCode::CONFLICT]).await;
+        let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+        install_test_lease(&sink).await;
+
+        assert!(matches!(
+            sink.renew_lease().await,
+            Err(CaptureEventSinkError::ControlPlaneStatus(
+                StatusCode::CONFLICT
+            ))
+        ));
+        assert!(matches!(
+            sink.append(&event(1)).await,
+            Err(CaptureEventSinkError::LeaseRequired)
+        ));
+        assert_eq!(server.await.unwrap().len(), 1);
     }
 
     #[tokio::test]
@@ -608,12 +924,12 @@ mod tests {
     #[tokio::test]
     async fn rejects_an_oversized_checkpoint_before_deserializing_it() {
         let (base_url, server) =
-            checkpoint_server("x".repeat(MAX_CHECKPOINT_RESPONSE_BYTES + 1)).await;
+            checkpoint_server("x".repeat(MAX_CONTROL_PLANE_RESPONSE_BYTES + 1)).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
 
         assert!(matches!(
             sink.read_checkpoint().await,
-            Err(CaptureEventSinkError::CheckpointResponseTooLarge)
+            Err(CaptureEventSinkError::ControlPlaneResponseTooLarge)
         ));
 
         server.await.unwrap();
@@ -624,6 +940,7 @@ mod tests {
         let (base_url, server) =
             server(vec![StatusCode::SERVICE_UNAVAILABLE, StatusCode::OK]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+        install_test_lease(&sink).await;
 
         sink.append(&event(1)).await.unwrap();
 
@@ -639,6 +956,7 @@ mod tests {
     async fn does_not_retry_a_sequence_conflict() {
         let (base_url, server) = server(vec![StatusCode::CONFLICT]).await;
         let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+        install_test_lease(&sink).await;
 
         assert!(matches!(
             sink.append(&event(1)).await,
