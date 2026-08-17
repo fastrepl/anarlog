@@ -6,6 +6,7 @@ import {
   buildSessionList,
   mapTimelineRows,
   nextTimelineRefreshAt,
+  type SessionListItem,
   type TimelineRow,
   type TimelineSession,
 } from "./timeline-model";
