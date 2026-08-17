@@ -28,7 +28,7 @@ import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
-import { insertNoteAttachmentMarkdown } from "@/data/note-attachment-model";
+import { insertCapturedNoteAttachmentMarkdown } from "@/data/note-attachment-model";
 import { pickAndCatalogNoteAttachment } from "@/data/note-attachments";
 import {
   restoreSessionAudioFromCloud,
@@ -112,6 +112,7 @@ function BodyEditor({
   };
 
   const handleFormat = (format: EditorFormat) => {
+    if (attaching) return;
     const formatted = applyEditorFormat(
       textRef.current,
       selectionRef.current,
@@ -137,7 +138,8 @@ function BodyEditor({
   const handleAttach = async () => {
     if (attachControllerRef.current) return;
     const controller = new AbortController();
-    const selection = { ...selectionRef.current };
+    const capturedText = textRef.current;
+    const capturedSelection = { ...selectionRef.current };
     attachControllerRef.current = controller;
     setAttaching(true);
     try {
@@ -149,11 +151,12 @@ function BodyEditor({
       ) {
         return;
       }
-      const inserted = insertNoteAttachmentMarkdown(
-        textRef.current,
-        selection,
-        attachment.markdown,
-      );
+      const inserted = insertCapturedNoteAttachmentMarkdown({
+        capturedText,
+        capturedSelection,
+        currentText: textRef.current,
+        markdown: attachment.markdown,
+      });
       textRef.current = inserted.text;
       bodyFormatRef.current = "markdown";
       selectionRef.current = inserted.selection;
@@ -178,7 +181,7 @@ function BodyEditor({
         ref={inputRef}
         style={styles.body}
         multiline
-        editable={editable}
+        editable={editable && !attaching}
         inputAccessoryViewID={Platform.OS === "ios" ? accessoryId : undefined}
         defaultValue={defaultValue}
         value={nativeOverride?.text}

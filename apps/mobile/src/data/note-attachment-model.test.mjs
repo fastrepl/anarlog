@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  insertCapturedNoteAttachmentMarkdown,
   insertNoteAttachmentMarkdown,
   portableNoteAttachmentMarkdown,
   requireNoteAttachmentFilename,
@@ -13,6 +14,25 @@ test("builds a portable attachment link with a safe label", () => {
   assert.equal(
     portableNoteAttachmentMarkdown(attachmentId, "plan [final].pdf"),
     `[plan (final).pdf](attachment://${attachmentId})`,
+  );
+});
+
+test("appends safely when the note changes during attachment import", () => {
+  const markdown = portableNoteAttachmentMarkdown(attachmentId, "plan.pdf");
+  assert.deepEqual(
+    insertCapturedNoteAttachmentMarkdown({
+      capturedText: "beforeafter",
+      capturedSelection: { start: 6, end: 6 },
+      currentText: "beforeafter changed",
+      markdown,
+    }),
+    {
+      text: `beforeafter changed\n${markdown}`,
+      selection: {
+        start: `beforeafter changed\n${markdown}`.length,
+        end: `beforeafter changed\n${markdown}`.length,
+      },
+    },
   );
 });
 

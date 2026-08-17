@@ -54,3 +54,20 @@ export function insertNoteAttachmentMarkdown(
     selection: { start: nextCursor, end: nextCursor },
   };
 }
+
+export function insertCapturedNoteAttachmentMarkdown(input: {
+  capturedText: string;
+  capturedSelection: { start: number; end: number };
+  currentText: string;
+  markdown: string;
+}): { text: string; selection: { start: number; end: number } } {
+  const selection =
+    input.currentText === input.capturedText
+      ? input.capturedSelection
+      : { start: input.currentText.length, end: input.currentText.length };
+  return insertNoteAttachmentMarkdown(
+    input.currentText,
+    selection,
+    input.markdown,
+  );
+}
