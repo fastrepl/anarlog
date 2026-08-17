@@ -25,6 +25,7 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_uniffi_mobile_bridge_fn_clone_mobiledbbridge(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_free_mobiledbbridge(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_close(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cloudsync_network_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
@@ -37,11 +38,14 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_attachment_storage(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_proxy(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute_transaction(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_generate_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_start_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_stop_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
@@ -100,6 +104,7 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_ffi_mobile_bridge_rust_future_cancel_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_free_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_ffi_mobile_bridge_rust_future_complete_void(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_network_init(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
@@ -112,11 +117,14 @@ class NativeMobileBridge : public jsi::HostObject {
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_attachment_storage(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_transaction(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
+    jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_start_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);
     jsi::Value cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_stop_cloudsync(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count);

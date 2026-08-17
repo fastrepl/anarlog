@@ -159,6 +159,12 @@ extern "C" {
         RustBuffer cloudsync_open_mode,
         RustCallStatus *uniffi_out_err
     );
+    /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(
+        /*handle*/ uint64_t ptr,
+        RustBuffer job_id,
+        uint32_t attempt_count,
+        RustBuffer cache_id
+    );
     void uniffi_mobile_bridge_fn_method_mobiledbbridge_close(
         /*handle*/ uint64_t ptr,
         RustCallStatus *uniffi_out_err
@@ -222,6 +228,11 @@ extern "C" {
         RustBuffer recovery_key_code,
         RustCallStatus *uniffi_out_err
     );
+    /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(
+        /*handle*/ uint64_t ptr,
+        RustBuffer job_id,
+        uint32_t attempt_count
+    );
     RustBuffer uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(
         /*handle*/ uint64_t ptr,
         RustBuffer sql,
@@ -248,6 +259,21 @@ extern "C" {
         /*handle*/ uint64_t ptr,
         RustBuffer recovery_key_code,
         RustCallStatus *uniffi_out_err
+    );
+    /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(
+        /*handle*/ uint64_t ptr,
+        RustBuffer job_id,
+        uint32_t attempt_count,
+        RustBuffer object_id,
+        RustBuffer object_key
+    );
+    /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(
+        /*handle*/ uint64_t ptr,
+        RustBuffer job_id,
+        uint32_t attempt_count,
+        RustBuffer cache_id,
+        uint32_t start,
+        uint32_t end
     );
     /*handle*/ uint64_t uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(
         /*handle*/ uint64_t ptr,
@@ -491,6 +517,8 @@ extern "C" {
         /*handle*/ uint64_t handle,
         RustCallStatus *uniffi_out_err
     );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(
+    );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_cloudsync_init(
@@ -515,6 +543,8 @@ extern "C" {
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(
     );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(
+    );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute_proxy(
@@ -524,6 +554,10 @@ extern "C" {
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_generate_e2ee_recovery_key(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(
+    );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(
+    );
+    uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(
     );
     uint16_t uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment(
     );
@@ -2567,6 +2601,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_fn_constructor_mobiledbbridge_open(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache"),
+        4,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_close"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_close"),
@@ -2663,6 +2705,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_configure_e2ee_replica(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload"),
+        3,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute"),
@@ -2701,6 +2751,22 @@ NativeMobileBridge::NativeMobileBridge(
         2,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_inspect_e2ee_recovery_key(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload"),
+        5,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range"),
+        6,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment"] = jsi::Function::createFromHostFunction(
@@ -3167,6 +3233,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_ffi_mobile_bridge_rust_future_complete_void(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close"),
@@ -3263,6 +3337,14 @@ NativeMobileBridge::NativeMobileBridge(
             return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_configure_e2ee_replica(rt, thisVal, args, count);
         }
     );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(rt, thisVal, args, count);
+        }
+    );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute"] = jsi::Function::createFromHostFunction(
         rt,
         jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute"),
@@ -3301,6 +3383,22 @@ NativeMobileBridge::NativeMobileBridge(
         0,
         [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(rt, thisVal, args, count);
+        }
+    );
+    props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range"] = jsi::Function::createFromHostFunction(
+        rt,
+        jsi::PropNameID::forAscii(rt, "ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range"),
+        0,
+        [this](jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(rt, thisVal, args, count);
         }
     );
     props["ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_restore_attachment"] = jsi::Function::createFromHostFunction(
@@ -3582,6 +3680,13 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_constructor_mobiledbb
 
         return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3])
+        );
+
+
+        return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_close(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
         uniffi_mobile_bridge_fn_method_mobiledbbridge_close(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]),
@@ -3702,6 +3807,13 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge
 
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2])
+        );
+
+
+        return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         RustCallStatus status = uniffi::mobile_bridge::Bridging<RustCallStatus>::rustSuccess(rt);
         auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_execute(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
@@ -3751,6 +3863,20 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge
 
 
         return uniffi::mobile_bridge::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4])
+        );
+
+
+        return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[4]), uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[5])
+        );
+
+
+        return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_fn_method_mobiledbbridge_restore_attachment(uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker, args[0]), uniffi::mobile_bridge::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1])
@@ -4228,6 +4354,13 @@ jsi::Value NativeMobileBridge::cpp_ffi_mobile_bridge_rust_future_complete_void(j
 
         return jsi::Value::undefined();
 }
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache(
+        );
+
+
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_close(
         );
@@ -4312,6 +4445,13 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledb
 
         return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload(
+        );
+
+
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute(
         );
@@ -4342,6 +4482,20 @@ jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledb
 }
 jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
         auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key(
+        );
+
+
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload(
+        );
+
+
+        return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeMobileBridge::cpp_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) {
+        auto value = uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range(
         );
 
 

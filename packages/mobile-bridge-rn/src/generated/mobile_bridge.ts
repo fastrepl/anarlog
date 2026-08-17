@@ -19,11 +19,14 @@ import {
   type UniffiReferenceHolder,
   type UniffiRustCallStatus,
   AbstractFfiConverterByteArray,
+  FfiConverterArrayBuffer,
+  FfiConverterBool,
   FfiConverterInt32,
   FfiConverterInt64,
   FfiConverterObject,
   FfiConverterObjectWithCallbacks,
   FfiConverterOptional,
+  FfiConverterUInt32,
   FfiConverterUInt8,
   RustBuffer,
   UniffiAbstractObject,
@@ -928,6 +931,12 @@ const uniffiCallbackInterfaceQueryEventListener: {
 };
 
 export interface MobileDbBridgeLike {
+  cleanupAttachmentUploadCache(
+    jobId: string,
+    attemptCount: number,
+    cacheId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<boolean>;
   close() /*throws*/ : void;
   cloudsyncInit(
     tableName: string,
@@ -955,6 +964,11 @@ export interface MobileDbBridgeLike {
     witnessAccessToken: string,
     recoveryKeyCode: string,
   ) /*throws*/ : string;
+  describeAttachmentUpload(
+    jobId: string,
+    attemptCount: number,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<string>;
   execute(sql: string, paramsJson: string) /*throws*/ : string;
   executeProxy(
     sql: string,
@@ -964,6 +978,21 @@ export interface MobileDbBridgeLike {
   executeTransaction(statementsJson: string) /*throws*/ : string;
   generateE2eeRecoveryKey() /*throws*/ : string;
   inspectE2eeRecoveryKey(recoveryKeyCode: string) /*throws*/ : string;
+  prepareAttachmentUpload(
+    jobId: string,
+    attemptCount: number,
+    objectId: string,
+    objectKey: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<string>;
+  readAttachmentUploadRange(
+    jobId: string,
+    attemptCount: number,
+    cacheId: string,
+    start: number,
+    end: number,
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<ArrayBuffer>;
   restoreAttachment(
     requestJson: string,
     asyncOpts_?: { signal: AbortSignal },
@@ -1019,6 +1048,53 @@ export class MobileDbBridge
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
     );
+  }
+
+  async cleanupAttachmentUploadCache(
+    jobId: string,
+    attemptCount: number,
+    cacheId: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<boolean> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_cleanup_attachment_upload_cache(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(jobId, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(
+              attemptCount,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(cacheId, nativeModule().rustbuffer_alloc),
+          );
+        },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_poll_i8,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_cancel_i8,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_complete_i8,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_mobile_bridge_rust_future_free_i8,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterBool.lift.bind(FfiConverterBool),
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   close(): void /*throws*/ {
@@ -1301,6 +1377,53 @@ export class MobileDbBridge
     );
   }
 
+  async describeAttachmentUpload(
+    jobId: string,
+    attemptCount: number,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<string> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_describe_attachment_upload(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(jobId, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(
+              attemptCount,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
   execute(sql: string, paramsJson: string): string /*throws*/ {
     return ((__rb: Uint8Array) => {
       try {
@@ -1437,6 +1560,115 @@ export class MobileDbBridge
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
       ),
     );
+  }
+
+  async prepareAttachmentUpload(
+    jobId: string,
+    attemptCount: number,
+    objectId: string,
+    objectKey: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<string> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_prepare_attachment_upload(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(jobId, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(
+              attemptCount,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(objectId, nativeModule().rustbuffer_alloc),
+            FfiConverterString.lower(
+              objectKey,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  async readAttachmentUploadRange(
+    jobId: string,
+    attemptCount: number,
+    cacheId: string,
+    start: number,
+    end: number,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<ArrayBuffer> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_mobile_bridge_fn_method_mobiledbbridge_read_attachment_upload_range(
+            uniffiTypeMobileDbBridgeObjectFactory.clonePointer(this),
+            FfiConverterString.lower(jobId, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(
+              attemptCount,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterString.lower(cacheId, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(start, nativeModule().rustbuffer_alloc),
+            FfiConverterUInt32.lower(end, nativeModule().rustbuffer_alloc),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_mobile_bridge_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        /*liftFunc:*/ FfiConverterArrayBuffer.lift.bind(
+          FfiConverterArrayBuffer,
+        ),
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeBridgeError.lift.bind(
+          FfiConverterTypeBridgeError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   async restoreAttachment(
@@ -1689,6 +1921,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache() !==
+    52166
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_cleanup_attachment_upload_cache",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_close() !==
     15884
   ) {
@@ -1785,6 +2025,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload() !==
+    11264
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_describe_attachment_upload",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_execute() !==
     59785
   ) {
@@ -1822,6 +2070,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_mobile_bridge_checksum_method_mobiledbbridge_inspect_e2ee_recovery_key",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload() !==
+    3525
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_prepare_attachment_upload",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range() !==
+    21328
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_mobile_bridge_checksum_method_mobiledbbridge_read_attachment_upload_range",
     );
   }
   if (

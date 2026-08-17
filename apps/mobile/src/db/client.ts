@@ -81,6 +81,157 @@ export async function restoreAttachment(
   }
 }
 
+export type AttachmentUploadDescriptor = {
+  attachmentRef: string;
+  versionRef: string;
+  ciphertextSizeBytes: number;
+  formatVersion: number;
+};
+
+export type PreparedAttachmentUpload = {
+  cacheId: string;
+  ciphertextSha256: string;
+  ciphertextSizeBytes: number;
+};
+
+export async function describeAttachmentUpload(
+  jobId: string,
+  attemptCount: number,
+  signal?: AbortSignal,
+): Promise<AttachmentUploadDescriptor> {
+  try {
+    const value: unknown = JSON.parse(
+      await getBridge().describeAttachmentUpload(
+        jobId,
+        attemptCount,
+        signal ? { signal } : undefined,
+      ),
+    );
+    if (!value || typeof value !== "object") {
+      throw new Error("Unexpected attachment upload descriptor");
+    }
+    const descriptor = value as Record<string, unknown>;
+    if (
+      !isBlindAttachmentRef(descriptor.attachmentRef) ||
+      !isBlindAttachmentRef(descriptor.versionRef) ||
+      !isPositiveSafeInteger(descriptor.ciphertextSizeBytes) ||
+      descriptor.formatVersion !== 1
+    ) {
+      throw new Error("Unexpected attachment upload descriptor");
+    }
+    return descriptor as AttachmentUploadDescriptor;
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "attachment_upload_describe",
+    });
+    throw error;
+  }
+}
+
+export async function prepareAttachmentUpload(
+  input: {
+    jobId: string;
+    attemptCount: number;
+    objectId: string;
+    objectKey: string;
+  },
+  signal?: AbortSignal,
+): Promise<PreparedAttachmentUpload> {
+  try {
+    const value: unknown = JSON.parse(
+      await getBridge().prepareAttachmentUpload(
+        input.jobId,
+        input.attemptCount,
+        input.objectId,
+        input.objectKey,
+        signal ? { signal } : undefined,
+      ),
+    );
+    if (!value || typeof value !== "object") {
+      throw new Error("Unexpected prepared attachment upload");
+    }
+    const prepared = value as Record<string, unknown>;
+    if (
+      typeof prepared.cacheId !== "string" ||
+      !isUuidV4(prepared.cacheId) ||
+      typeof prepared.ciphertextSha256 !== "string" ||
+      !/^[0-9a-f]{64}$/.test(prepared.ciphertextSha256) ||
+      !isPositiveSafeInteger(prepared.ciphertextSizeBytes)
+    ) {
+      throw new Error("Unexpected prepared attachment upload");
+    }
+    return prepared as PreparedAttachmentUpload;
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "attachment_upload_prepare",
+    });
+    throw error;
+  }
+}
+
+export async function readAttachmentUploadRange(
+  input: {
+    jobId: string;
+    attemptCount: number;
+    cacheId: string;
+    start: number;
+    end: number;
+  },
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
+  try {
+    return new Uint8Array(
+      await getBridge().readAttachmentUploadRange(
+        input.jobId,
+        input.attemptCount,
+        input.cacheId,
+        input.start,
+        input.end,
+        signal ? { signal } : undefined,
+      ),
+    );
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "attachment_upload_read",
+    });
+    throw error;
+  }
+}
+
+export async function cleanupAttachmentUploadCache(
+  input: { jobId: string; attemptCount: number; cacheId: string },
+  signal?: AbortSignal,
+): Promise<boolean> {
+  try {
+    return await getBridge().cleanupAttachmentUploadCache(
+      input.jobId,
+      input.attemptCount,
+      input.cacheId,
+      signal ? { signal } : undefined,
+    );
+  } catch (error) {
+    captureOperationalError(error, {
+      operation: "attachment_upload_cleanup",
+      level: "warning",
+    });
+    throw error;
+  }
+}
+
+function isBlindAttachmentRef(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{43}$/.test(value);
+}
+
+function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+function isUuidV4(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+    value,
+  );
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

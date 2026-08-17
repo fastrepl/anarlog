@@ -153,7 +153,7 @@ impl MobileDbBridge {
                 })?,
             ))
         })?;
-        let operation = attachment::RestoreOperation::new();
+        let operation = attachment::TransferOperation::new();
         let handle = runtime.spawn(attachment::restore_attachment(
             db,
             e2ee_sync_hook,
@@ -167,6 +167,142 @@ impl MobileDbBridge {
         }
         .await;
         result.map_err(error::attachment_error)?
+    }
+
+    pub async fn describe_attachment_upload(
+        &self,
+        job_id: String,
+        attempt_count: u32,
+    ) -> Result<String, BridgeError> {
+        let (runtime, db, e2ee_sync_hook) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.db),
+                Arc::clone(&state.e2ee_sync_hook),
+            ))
+        })?;
+        let operation = attachment::TransferOperation::new();
+        let handle = runtime.spawn(attachment::describe_upload(
+            db,
+            e2ee_sync_hook,
+            job_id,
+            attempt_count,
+            operation.clone(),
+        ));
+        CancellableRuntimeTask {
+            handle: Box::pin(handle),
+            operation,
+        }
+        .await
+        .map_err(error::attachment_error)?
+    }
+
+    pub async fn prepare_attachment_upload(
+        &self,
+        job_id: String,
+        attempt_count: u32,
+        object_id: String,
+        object_key: String,
+    ) -> Result<String, BridgeError> {
+        let (runtime, db, e2ee_sync_hook, storage) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.db),
+                Arc::clone(&state.e2ee_sync_hook),
+                state.attachment_storage.clone().ok_or_else(|| {
+                    error::attachment_error("attachment storage is not configured")
+                })?,
+            ))
+        })?;
+        let operation = attachment::TransferOperation::new();
+        let handle = runtime.spawn(attachment::prepare_upload(
+            db,
+            e2ee_sync_hook,
+            storage,
+            attachment::PrepareUploadRequest {
+                job_id,
+                attempt_count,
+                object_id,
+                object_key,
+            },
+            operation.clone(),
+        ));
+        CancellableRuntimeTask {
+            handle: Box::pin(handle),
+            operation,
+        }
+        .await
+        .map_err(error::attachment_error)?
+    }
+
+    pub async fn read_attachment_upload_range(
+        &self,
+        job_id: String,
+        attempt_count: u32,
+        cache_id: String,
+        start: u32,
+        end: u32,
+    ) -> Result<Vec<u8>, BridgeError> {
+        let (runtime, db, storage) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.db),
+                state.attachment_storage.clone().ok_or_else(|| {
+                    error::attachment_error("attachment storage is not configured")
+                })?,
+            ))
+        })?;
+        let operation = attachment::TransferOperation::new();
+        let handle = runtime.spawn(attachment::read_upload_range(
+            db,
+            storage,
+            attachment::UploadRangeRequest {
+                job_id,
+                attempt_count,
+                cache_id,
+                start,
+                end,
+            },
+            operation.clone(),
+        ));
+        CancellableRuntimeTask {
+            handle: Box::pin(handle),
+            operation,
+        }
+        .await
+        .map_err(error::attachment_error)?
+    }
+
+    pub async fn cleanup_attachment_upload_cache(
+        &self,
+        job_id: String,
+        attempt_count: u32,
+        cache_id: String,
+    ) -> Result<bool, BridgeError> {
+        let (runtime, db, storage) = self.with_state(|state| {
+            Ok((
+                Arc::clone(&state.runtime),
+                Arc::clone(&state.db),
+                state.attachment_storage.clone().ok_or_else(|| {
+                    error::attachment_error("attachment storage is not configured")
+                })?,
+            ))
+        })?;
+        let operation = attachment::TransferOperation::new();
+        let handle = runtime.spawn(attachment::cleanup_upload_cache(
+            db,
+            storage,
+            job_id,
+            attempt_count,
+            cache_id,
+            operation.clone(),
+        ));
+        CancellableRuntimeTask {
+            handle: Box::pin(handle),
+            operation,
+        }
+        .await
+        .map_err(error::attachment_error)?
     }
 
     pub fn subscribe(
@@ -569,7 +705,7 @@ impl MobileDbBridge {
 
 struct CancellableRuntimeTask<T> {
     handle: std::pin::Pin<Box<tokio::task::JoinHandle<T>>>,
-    operation: attachment::RestoreOperation,
+    operation: attachment::TransferOperation,
 }
 
 impl<T> Future for CancellableRuntimeTask<T> {
