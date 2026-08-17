@@ -7,7 +7,7 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
     throw signal.reason instanceof Error
       ? signal.reason
-      : new Error("Audio verification was cancelled");
+      : new Error("File verification was cancelled");
   }
 }
 
@@ -27,7 +27,7 @@ export async function hashFileSha256(
   try {
     const expectedSize = handle.size;
     if (expectedSize === null || expectedSize <= 0) {
-      throw new Error("Audio file is empty or unavailable");
+      throw new Error("File is empty or unavailable");
     }
 
     handle.offset = 0;
@@ -41,7 +41,7 @@ export async function hashFileSha256(
         Math.min(CHUNK_BYTES, expectedSize - sizeBytes),
       );
       if (bytes.length === 0) {
-        throw new Error("Audio file ended before its reported size");
+        throw new Error("File ended before its reported size");
       }
       digest.update(bytes);
       sizeBytes += bytes.length;
@@ -55,7 +55,7 @@ export async function hashFileSha256(
     }
 
     if (sizeBytes !== expectedSize) {
-      throw new Error("Audio file changed while it was being verified");
+      throw new Error("File changed while it was being verified");
     }
 
     return { sha256: digest.hex(), sizeBytes };

@@ -4,6 +4,7 @@ import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useRef, useState } from "react";
 import {
+  Alert,
   InputAccessoryView,
   Keyboard,
   Platform,
@@ -27,6 +28,8 @@ import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
+import { insertNoteAttachmentMarkdown } from "@/data/note-attachment-model";
+import { pickAndCatalogNoteAttachment } from "@/data/note-attachments";
 import {
   restoreSessionAudioFromCloud,
   restoreSessionAudioFromPicker,
@@ -51,16 +54,20 @@ function BodyEditor({
   defaultBodyFormat,
   defaultValue,
   editable,
+  onAttach,
   onChangeText,
+  onCommit,
 }: {
   accessoryId: string;
   defaultBodyFormat: "prosemirror_json" | "markdown";
   defaultValue: string;
   editable: boolean;
+  onAttach: (signal: AbortSignal) => Promise<{ markdown: string } | null>;
   onChangeText: (
     body: string,
     bodyFormat: "prosemirror_json" | "markdown",
   ) => void;
+  onCommit: () => void;
 }) {
   const inputRef = useRef<TextInput>(null);
   const textRef = useRef(defaultValue);
@@ -73,6 +80,17 @@ function BodyEditor({
     selection: { start: number; end: number };
   }>();
   const [androidKeyboardVisible, setAndroidKeyboardVisible] = useState(false);
+  const [attaching, setAttaching] = useState(false);
+  const attachControllerRef = useRef<AbortController | null>(null);
+  const editorActiveRef = useRef(true);
+
+  useMountEffect(() => {
+    editorActiveRef.current = true;
+    return () => {
+      editorActiveRef.current = false;
+      attachControllerRef.current?.abort();
+    };
+  });
 
   useMountEffect(() => {
     if (Platform.OS !== "android") return;
@@ -116,6 +134,44 @@ function BodyEditor({
     Keyboard.dismiss();
   };
 
+  const handleAttach = async () => {
+    if (attachControllerRef.current) return;
+    const controller = new AbortController();
+    const selection = { ...selectionRef.current };
+    attachControllerRef.current = controller;
+    setAttaching(true);
+    try {
+      const attachment = await onAttach(controller.signal);
+      if (
+        !attachment ||
+        controller.signal.aborted ||
+        !editorActiveRef.current
+      ) {
+        return;
+      }
+      const inserted = insertNoteAttachmentMarkdown(
+        textRef.current,
+        selection,
+        attachment.markdown,
+      );
+      textRef.current = inserted.text;
+      bodyFormatRef.current = "markdown";
+      selectionRef.current = inserted.selection;
+      setNativeOverride(inserted);
+      onChangeText(inserted.text, "markdown");
+      onCommit();
+      inputRef.current?.focus();
+      requestAnimationFrame(() => {
+        if (editorActiveRef.current) setNativeOverride(undefined);
+      });
+    } finally {
+      if (attachControllerRef.current === controller) {
+        attachControllerRef.current = null;
+      }
+      if (editorActiveRef.current) setAttaching(false);
+    }
+  };
+
   return (
     <>
       <TextInput
@@ -141,6 +197,8 @@ function BodyEditor({
           backgroundColor={Colors.background}
         >
           <EditorAccessory
+            attaching={attaching}
+            onAttach={() => void handleAttach()}
             onFormat={handleFormat}
             onDismiss={handleDismissKeyboard}
           />
@@ -149,6 +207,8 @@ function BodyEditor({
       {Platform.OS === "android" && editable && androidKeyboardVisible && (
         <View style={styles.androidAccessory}>
           <EditorAccessory
+            attaching={attaching}
+            onAttach={() => void handleAttach()}
             onFormat={handleFormat}
             onDismiss={handleDismissKeyboard}
           />
@@ -365,6 +425,32 @@ export default function NoteScreen() {
     }
   };
 
+  const handleAttachFile = async (
+    signal: AbortSignal,
+  ): Promise<{ markdown: string } | null> => {
+    try {
+      const result = await pickAndCatalogNoteAttachment(id, signal);
+      if (result.status === "cancelled") return null;
+      captureAnalytics("file_uploaded", {
+        entry_point: "mobile_note_attachment",
+        file_type: "attachment",
+      });
+      return { markdown: result.markdown };
+    } catch (error) {
+      if (signal.aborted) return null;
+      captureOperationalError(error, {
+        operation: "note_attachment_import",
+      });
+      Alert.alert(
+        "Couldn’t attach file",
+        error instanceof Error
+          ? error.message
+          : "The selected file could not be attached.",
+      );
+      return null;
+    }
+  };
+
   const handleDelete = async () => {
     const confirmed = await confirmDestructive(
       `Delete "${data?.title || "Untitled"}"?`,
@@ -499,7 +585,9 @@ export default function NoteScreen() {
             defaultBodyFormat={data.bodyFormat}
             defaultValue={data.noteText}
             editable={data.plainEditable}
+            onAttach={handleAttachFile}
             onChangeText={(body, bodyFormat) => onEdit({ body, bodyFormat })}
+            onCommit={flush}
           />
         </View>
       )}

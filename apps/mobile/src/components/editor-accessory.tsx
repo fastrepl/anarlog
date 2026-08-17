@@ -37,9 +37,13 @@ function FormatButton({
 }
 
 export function EditorAccessory({
+  attaching,
+  onAttach,
   onFormat,
   onDismiss,
 }: {
+  attaching: boolean;
+  onAttach: () => void;
   onFormat: (format: EditorFormat) => void;
   onDismiss: () => void;
 }) {
@@ -53,6 +57,20 @@ export function EditorAccessory({
           keyboardShouldPersistTaps="always"
           showsHorizontalScrollIndicator={false}
         >
+          <Pressable
+            accessibilityLabel="Attach file"
+            accessibilityRole="button"
+            disabled={attaching}
+            hitSlop={2}
+            onPress={onAttach}
+            style={({ pressed }) => [
+              styles.button,
+              attaching && styles.buttonDisabled,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Ionicons name="attach-outline" size={24} color={Colors.ink} />
+          </Pressable>
           <FormatButton
             accessibilityLabel="Heading"
             format="heading"
@@ -154,6 +172,9 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     backgroundColor: Colors.accentSurface,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
   },
   heading: {
     fontSize: 20,
