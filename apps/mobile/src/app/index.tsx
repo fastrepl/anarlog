@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useAuth } from "@/auth/context";
 import { ProfileSheet } from "@/components/profile-sheet";
 import { SessionCard } from "@/components/session-card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ function SearchAnalytics({ resultCount }: { resultCount: number }) {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const auth = useAuth();
   const { items, isLoading } = useTimelineSessions();
   const [profileOpen, setProfileOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -112,6 +114,7 @@ export default function HomeScreen() {
     try {
       const sessionId = await createSession({
         entryPoint: query.includes("listen=1") ? "start_listening" : "new_note",
+        ownerUserId: auth.session?.user.id,
       });
       router.push(`/note/${sessionId}${query}`);
     } catch (error) {
@@ -133,7 +136,7 @@ export default function HomeScreen() {
     busyRef.current = true;
     setImporting(true);
     try {
-      const sessionIds = await importVoiceMemos();
+      const sessionIds = await importVoiceMemos(auth.session?.user.id);
       if (sessionIds.length === 1) {
         router.push(`/note/${sessionIds[0]}`);
       }

@@ -139,7 +139,9 @@ async function importAsset(
   return sessionId;
 }
 
-export async function importVoiceMemos(): Promise<string[]> {
+export async function importVoiceMemos(
+  ownerUserId?: string,
+): Promise<string[]> {
   const result = await getDocumentAsync({
     type: ["audio/*"],
     multiple: true,
@@ -150,7 +152,9 @@ export async function importVoiceMemos(): Promise<string[]> {
   const created: string[] = [];
   for (const asset of result.assets) {
     try {
-      created.push(await importAsset(asset, "voice_memo_import"));
+      created.push(
+        await importAsset(asset, "voice_memo_import", { ownerUserId }),
+      );
     } catch (error) {
       captureOperationalError(error, {
         operation: "voice_memo_import",
