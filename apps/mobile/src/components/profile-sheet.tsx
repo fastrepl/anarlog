@@ -1,4 +1,16 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useState, useSyncExternalStore } from "react";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { useAuth } from "@/auth/context";
 import { Button } from "@/components/ui/button";
@@ -9,6 +21,86 @@ import {
   Spacing,
   Typography,
 } from "@/constants/theme";
+import type { MobileSyncPhase, MobileSyncSnapshot } from "@/sync/controller";
+import {
+  createMobileRecoveryKey,
+  getMobileSyncSnapshot,
+  importMobileRecoveryKey,
+  retryMobileSync,
+  subscribeMobileSync,
+  syncMobileNow,
+} from "@/sync/mobile-sync";
+
+type SheetMode = "status" | "choose" | "import" | "generated";
+
+const phaseCopy: Record<
+  MobileSyncPhase,
+  { title: string; description: string }
+> = {
+  inactive: {
+    title: "Cloud sync is off",
+    description: "Sign in with Anarlog Pro to sync this device.",
+  },
+  starting: {
+    title: "Connecting this device",
+    description: "Preparing your encrypted workspace…",
+  },
+  setup_required: {
+    title: "Protect cloud sync",
+    description:
+      "Create a recovery key, or use the one from another Anarlog device.",
+  },
+  ready: {
+    title: "Cloud sync is on",
+    description: "Your notes sync end-to-end encrypted across your devices.",
+  },
+  error: {
+    title: "Cloud sync needs attention",
+    description: "Your notes are safe on this device. Try connecting again.",
+  },
+  device_limit: {
+    title: "Device limit reached",
+    description: "Anarlog Pro supports cloud sync on up to five devices.",
+  },
+  identity_mismatch: {
+    title: "Use your existing recovery key",
+    description:
+      "This account already has encrypted notes. Use the same key as your other device.",
+  },
+  not_entitled: {
+    title: "Anarlog Pro required",
+    description: "Refresh your plan to continue syncing this device.",
+  },
+  reauth_required: {
+    title: "Sign in again",
+    description: "Your session expired before cloud sync could connect.",
+  },
+  account_mismatch: {
+    title: "This device belongs to another account",
+    description:
+      "Your local notes were created by a different account, so sync stays off to protect both workspaces.",
+  },
+};
+
+function relativeSyncTime(lastSyncAtMs: number | null): string | null {
+  if (!lastSyncAtMs) return null;
+  const elapsedMinutes = Math.max(
+    0,
+    Math.floor((Date.now() - lastSyncAtMs) / 60_000),
+  );
+  if (elapsedMinutes < 1) return "Synced just now";
+  if (elapsedMinutes < 60) return `Synced ${elapsedMinutes}m ago`;
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `Synced ${elapsedHours}h ago`;
+  return `Synced ${Math.floor(elapsedHours / 24)}d ago`;
+}
+
+function statusDetail(snapshot: MobileSyncSnapshot): string | null {
+  if (snapshot.phase !== "ready") return snapshot.errorMessage;
+  if (snapshot.syncingNow) return "Syncing now…";
+  if (snapshot.hasUnsentChanges) return "Changes waiting to sync";
+  return relativeSyncTime(snapshot.lastSyncAtMs);
+}
 
 export function ProfileSheet({
   visible,
@@ -18,6 +110,17 @@ export function ProfileSheet({
   onClose: () => void;
 }) {
   const auth = useAuth();
+  const sync = useSyncExternalStore(
+    subscribeMobileSync,
+    getMobileSyncSnapshot,
+    getMobileSyncSnapshot,
+  );
+  const [mode, setMode] = useState<SheetMode>("status");
+  const [recoveryKey, setRecoveryKey] = useState("");
+  const [generatedKey, setGeneratedKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const planLabel = auth.bypass
     ? "Local dev"
     : auth.billing.plan === "trial"
@@ -25,43 +128,310 @@ export function ProfileSheet({
       : auth.billing.plan === "pro"
         ? "Pro"
         : "Free";
+  const copy = phaseCopy[sync.phase];
+  const detail = statusDetail(sync);
+
+  const close = () => {
+    if (mode === "generated" || busy) return;
+    setMode("status");
+    setRecoveryKey("");
+    setActionError(null);
+    onClose();
+  };
+
+  const createRecoveryKey = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const key = await createMobileRecoveryKey();
+      setGeneratedKey(key);
+      setMode("generated");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Could not create the key.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const importRecoveryKey = async () => {
+    if (!recoveryKey.trim()) {
+      setActionError("Enter your recovery key.");
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      await importMobileRecoveryKey(recoveryKey);
+      setRecoveryKey("");
+      setMode("status");
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Could not use this key.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const shareRecoveryKey = async () => {
+    setActionError(null);
+    try {
+      await Share.share({
+        title: "Anarlog recovery key",
+        message: `Anarlog recovery key\n\n${generatedKey}`,
+      });
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Could not share the key.",
+      );
+    }
+  };
+
+  const finishRecoveryKey = () => {
+    setGeneratedKey("");
+    setMode("status");
+  };
+
+  const renderStatusActions = () => {
+    if (auth.bypass || sync.phase === "inactive") return null;
+    if (sync.phase === "identity_mismatch") {
+      return (
+        <View style={styles.actions}>
+          <Button
+            label="Use recovery key"
+            onPress={() => setMode("import")}
+            size="small"
+          />
+        </View>
+      );
+    }
+    if (sync.phase === "setup_required") {
+      return (
+        <View style={styles.actions}>
+          <Button
+            label="Set up sync"
+            onPress={() => setMode("choose")}
+            size="small"
+          />
+        </View>
+      );
+    }
+    if (sync.phase === "ready") {
+      return (
+        <View style={styles.actions}>
+          <Button
+            label="Sync now"
+            loading={sync.syncingNow}
+            onPress={() => void syncMobileNow()}
+            size="small"
+            variant="outline"
+          />
+        </View>
+      );
+    }
+    if (sync.phase === "not_entitled") {
+      return (
+        <View style={styles.actions}>
+          <Button
+            label="Refresh plan"
+            onPress={() => void auth.refreshBilling()}
+            size="small"
+            variant="outline"
+          />
+        </View>
+      );
+    }
+    if (sync.phase === "reauth_required") {
+      return (
+        <View style={styles.actions}>
+          <Button
+            label="Sign out"
+            onPress={() => {
+              close();
+              void auth.signOut();
+            }}
+            size="small"
+            variant="outline"
+          />
+        </View>
+      );
+    }
+    if (sync.phase === "error" || sync.phase === "device_limit") {
+      return (
+        <View style={styles.actions}>
+          <Button
+            label="Try again"
+            onPress={retryMobileSync}
+            size="small"
+            variant="outline"
+          />
+        </View>
+      );
+    }
+    return null;
+  };
 
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={close}
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.handle} />
-          <View style={styles.row}>
-            <Text style={styles.email} numberOfLines={1}>
-              {auth.bypass ? "Not signed in" : (auth.session?.user.email ?? "")}
-            </Text>
-            <View style={styles.planChip}>
-              <Text style={styles.planLabel}>{planLabel}</Text>
-            </View>
-          </View>
-          <Text style={styles.syncNote}>
-            Notes stay on this device for now. Cloud sync arrives with the
-            native sync bridge.
-          </Text>
-          {!auth.bypass && (
-            <Button
-              label="Sign out"
-              onPress={() => {
-                onClose();
-                void auth.signOut();
-              }}
-              size="small"
-              style={styles.signOut}
-              variant="ghost"
-            />
-          )}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.backdrop}
+      >
+        <Pressable style={styles.backdropPressable} onPress={close}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.handle} />
+            <ScrollView
+              contentContainerStyle={styles.content}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.row}>
+                <Text style={styles.email} numberOfLines={1}>
+                  {auth.bypass
+                    ? "Not signed in"
+                    : (auth.session?.user.email ?? "")}
+                </Text>
+                <View style={styles.planChip}>
+                  <Text style={styles.planLabel}>{planLabel}</Text>
+                </View>
+              </View>
+
+              {mode === "status" && (
+                <View style={styles.syncCard}>
+                  <View style={styles.statusHeading}>
+                    <View
+                      style={[
+                        styles.statusDot,
+                        sync.phase === "ready" && sync.running
+                          ? styles.statusDotReady
+                          : styles.statusDotQuiet,
+                      ]}
+                    />
+                    <Text style={styles.eyebrow}>Cloud sync</Text>
+                  </View>
+                  <Text style={styles.syncTitle}>{copy.title}</Text>
+                  <Text style={styles.syncDescription}>{copy.description}</Text>
+                  {detail && <Text style={styles.syncDetail}>{detail}</Text>}
+                  {renderStatusActions()}
+                </View>
+              )}
+
+              {mode === "choose" && (
+                <View style={styles.setup}>
+                  <Text style={styles.setupTitle}>Set up encrypted sync</Text>
+                  <Text style={styles.setupDescription}>
+                    Your recovery key protects every synced note. Anarlog cannot
+                    recover it for you.
+                  </Text>
+                  <Button
+                    label="Create a recovery key"
+                    loading={busy}
+                    onPress={() => void createRecoveryKey()}
+                  />
+                  <Button
+                    label="Use an existing key"
+                    disabled={busy}
+                    onPress={() => {
+                      setActionError(null);
+                      setMode("import");
+                    }}
+                    variant="outline"
+                  />
+                  <Button
+                    label="Back"
+                    disabled={busy}
+                    onPress={() => setMode("status")}
+                    size="small"
+                    variant="ghost"
+                  />
+                </View>
+              )}
+
+              {mode === "import" && (
+                <View style={styles.setup}>
+                  <Text style={styles.setupTitle}>Use a recovery key</Text>
+                  <Text style={styles.setupDescription}>
+                    Enter the key saved from Anarlog on another device.
+                  </Text>
+                  <TextInput
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!busy}
+                    multiline
+                    onChangeText={setRecoveryKey}
+                    placeholder="Paste recovery key"
+                    placeholderTextColor={Colors.muted}
+                    style={styles.keyInput}
+                    value={recoveryKey}
+                  />
+                  <Button
+                    label="Use this key"
+                    loading={busy}
+                    onPress={() => void importRecoveryKey()}
+                  />
+                  <Button
+                    label="Back"
+                    disabled={busy}
+                    onPress={() => {
+                      setActionError(null);
+                      setMode("choose");
+                    }}
+                    size="small"
+                    variant="ghost"
+                  />
+                </View>
+              )}
+
+              {mode === "generated" && (
+                <View style={styles.setup}>
+                  <Text style={styles.setupTitle}>Save your recovery key</Text>
+                  <Text style={styles.setupDescription}>
+                    Keep this in a password manager. You will need it to add
+                    another device or recover your synced notes.
+                  </Text>
+                  <View style={styles.generatedKeyBox}>
+                    <Text selectable style={styles.generatedKey}>
+                      {generatedKey}
+                    </Text>
+                  </View>
+                  <Button
+                    label="Save recovery key"
+                    onPress={() => void shareRecoveryKey()}
+                    variant="outline"
+                  />
+                  <Button label="I saved it" onPress={finishRecoveryKey} />
+                </View>
+              )}
+
+              {actionError && (
+                <Text accessibilityLiveRegion="polite" style={styles.error}>
+                  {actionError}
+                </Text>
+              )}
+
+              {!auth.bypass && mode === "status" && (
+                <Button
+                  label="Sign out"
+                  onPress={() => {
+                    close();
+                    void auth.signOut();
+                  }}
+                  size="small"
+                  style={styles.signOut}
+                  variant="ghost"
+                />
+              )}
+            </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -69,16 +439,23 @@ export function ProfileSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
+  },
+  backdropPressable: {
+    flex: 1,
     justifyContent: "flex-end",
     backgroundColor: Colors.scrim,
   },
   sheet: {
+    maxHeight: "88%",
     backgroundColor: Colors.surface,
     borderTopLeftRadius: Radius.sheet,
     borderTopRightRadius: Radius.sheet,
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.xl,
     paddingTop: Spacing.sm,
+  },
+  content: {
+    paddingBottom: Spacing.md,
   },
   handle: {
     alignSelf: "center",
@@ -113,10 +490,97 @@ const styles = StyleSheet.create({
     ...Typography.captionStrong,
     color: Colors.ink,
   },
-  syncNote: {
-    marginTop: Spacing.md,
+  syncCard: {
+    marginTop: Spacing.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.background,
+    padding: Spacing.md,
+  },
+  statusHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusDotReady: {
+    backgroundColor: Colors.primary,
+  },
+  statusDotQuiet: {
+    backgroundColor: Colors.border,
+  },
+  eyebrow: {
+    ...Typography.captionStrong,
+    color: Colors.muted,
+  },
+  syncTitle: {
+    ...Typography.section,
+    color: Colors.ink,
+  },
+  syncDescription: {
+    marginTop: Spacing.xs,
     ...Typography.body,
     color: Colors.muted,
+  },
+  syncDetail: {
+    marginTop: Spacing.sm,
+    ...Typography.caption,
+    color: Colors.muted,
+  },
+  actions: {
+    marginTop: Spacing.md,
+    flexDirection: "row",
+  },
+  setup: {
+    marginTop: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  setupTitle: {
+    ...Typography.title,
+    color: Colors.ink,
+  },
+  setupDescription: {
+    marginBottom: Spacing.sm,
+    ...Typography.body,
+    color: Colors.muted,
+  },
+  keyInput: {
+    minHeight: 108,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
+    borderRadius: Radius.control,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.background,
+    padding: Spacing.md,
+    ...Typography.body,
+    color: Colors.ink,
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
+    textAlignVertical: "top",
+  },
+  generatedKeyBox: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
+    borderRadius: Radius.control,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.background,
+    padding: Spacing.md,
+  },
+  generatedKey: {
+    ...Typography.body,
+    color: Colors.ink,
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
+  },
+  error: {
+    marginTop: Spacing.sm,
+    ...Typography.caption,
+    color: Colors.destructive,
   },
   signOut: {
     marginTop: Spacing.lg,

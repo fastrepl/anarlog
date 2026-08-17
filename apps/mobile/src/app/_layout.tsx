@@ -16,6 +16,7 @@ import {
   initializeErrorReporting,
 } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { MobileSyncLifecycle } from "@/sync/mobile-sync-lifecycle";
 import { initializeWatchConnectivity } from "@/watch-connectivity";
 
 initializeErrorReporting();
@@ -119,7 +120,19 @@ function Gate() {
     );
   }
 
-  return <Screens accountUserId={auth.session?.user.id ?? null} />;
+  const session = auth.session;
+  if (!session) return null;
+
+  return (
+    <>
+      <MobileSyncLifecycle
+        key={`${session.user.id}:${session.access_token}`}
+        accessToken={session.access_token}
+        accountUserId={session.user.id}
+      />
+      <Screens accountUserId={session.user.id} />
+    </>
+  );
 }
 
 function RouteError({

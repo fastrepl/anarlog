@@ -42,6 +42,7 @@
           "enableBackgroundRecording": true
         }
       ],
+      "expo-secure-store",
       "@sentry/react-native/expo"
     ],
     "experiments": {

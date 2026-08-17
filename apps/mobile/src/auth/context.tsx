@@ -36,6 +36,7 @@ import {
   captureOperationalError,
   setErrorReportingUser,
 } from "@/lib/error-reporting";
+import { suspendMobileSync } from "@/sync/mobile-sync";
 import { updateWatchAccount } from "@/watch-connectivity";
 
 export type AuthState = {
@@ -407,6 +408,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    suspendMobileSync();
     captureAnalytics("user_signed_out");
     const { error } = await supabase.auth
       .signOut({ scope: "local" })
