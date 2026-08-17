@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::time::Duration;
 
 use async_trait::async_trait;
 
@@ -32,5 +33,8 @@ pub trait AudioFrameSink: Send {
         frame: AudioFrame,
     ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error>;
 
-    async fn finish(&mut self) -> Result<Vec<AudioFrameSinkOutput>, Self::Error>;
+    async fn finish(
+        &mut self,
+        capture_duration: Duration,
+    ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error>;
 }

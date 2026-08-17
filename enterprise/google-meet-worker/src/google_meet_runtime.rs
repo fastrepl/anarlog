@@ -33,6 +33,8 @@ pub struct GoogleMeetRuntime<S> {
     capture: Option<BrowserCapture>,
     started: bool,
     sink_started: bool,
+    capture_started_at: Option<tokio::time::Instant>,
+    finalization_duration: Option<Duration>,
 }
 
 impl<S> GoogleMeetRuntime<S> {
@@ -55,6 +57,8 @@ impl<S> GoogleMeetRuntime<S> {
             capture: None,
             started: false,
             sink_started: false,
+            capture_started_at: None,
+            finalization_duration: None,
         })
     }
 }
@@ -108,6 +112,7 @@ where
         .await?;
         self.capture = Some(capture);
         self.sink_started = true;
+        self.capture_started_at = Some(tokio::time::Instant::now());
         send_event(&events, lifecycle.capture_started(Utc::now())?).await?;
 
         let mut probes = tokio::time::interval(self.runtime_monitor.poll_interval());
@@ -202,7 +207,12 @@ where
             }
         }
         if self.sink_started {
-            match self.audio_sink.finish().await {
+            let capture_duration = *self.finalization_duration.get_or_insert_with(|| {
+                self.capture_started_at
+                    .map(|started_at| started_at.elapsed())
+                    .unwrap_or_default()
+            });
+            match self.audio_sink.finish(capture_duration).await {
                 Ok(output) => {
                     self.sink_started = false;
                     payloads.extend(output);
@@ -346,7 +356,10 @@ mod tests {
             Ok(Vec::new())
         }
 
-        async fn finish(&mut self) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+        async fn finish(
+            &mut self,
+            _capture_duration: Duration,
+        ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
             Ok(Vec::new())
         }
     }
@@ -362,7 +375,10 @@ mod tests {
             Ok(Vec::new())
         }
 
-        async fn finish(&mut self) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+        async fn finish(
+            &mut self,
+            _capture_duration: Duration,
+        ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
             self.attempts += 1;
             if self.attempts == 1 {
                 return Err(UnusedSinkError);
