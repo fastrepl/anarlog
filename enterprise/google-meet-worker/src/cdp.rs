@@ -1,18 +1,33 @@
-use std::{net::IpAddr, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    net::IpAddr,
+    time::Duration,
+};
 
 use futures_util::{SinkExt, StreamExt};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use tokio::net::TcpStream;
+use tokio::{
+    net::TcpStream,
+    sync::{mpsc, mpsc::error::TrySendError, oneshot},
+    task::JoinHandle,
+};
 use tokio_tungstenite::{
-    MaybeTlsStream, WebSocketStream, connect_async,
-    tungstenite::{Error as WebSocketError, Message},
+    MaybeTlsStream, WebSocketStream, connect_async_with_config,
+    tungstenite::{Error as WebSocketError, Message, protocol::WebSocketConfig},
 };
 use url::Url;
+
+#[cfg(test)]
+use tokio_tungstenite::connect_async;
 
 use crate::{ADMISSION_PROBE_EXPRESSION, AdmissionSnapshot};
 
 const DEFAULT_COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
+const CDP_EVENT_CAPACITY: usize = 2048;
+const CDP_MAX_MESSAGE_BYTES: usize = 256 * 1024;
+
+type PageWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GoogleMeetUrl(Url);
@@ -45,8 +60,10 @@ impl GoogleMeetUrl {
 }
 
 pub struct CdpPage {
-    websocket: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    next_command_id: u64,
+    commands: mpsc::Sender<CdpRequest>,
+    binding_events: Option<mpsc::Receiver<Value>>,
+    bindings: HashSet<String>,
+    actor: JoinHandle<()>,
     command_timeout: Duration,
 }
 
@@ -75,14 +92,14 @@ impl CdpPage {
         let target: CdpTarget = response.json().await.map_err(CdpError::DiscoveryResponse)?;
         let page_url =
             validate_target_websocket_url(&target.web_socket_debugger_url, browser_port)?;
-        let (websocket, _) = connect_async(page_url.as_str())
-            .await
-            .map_err(CdpError::WebSocket)?;
-        Ok(Self {
-            websocket,
-            next_command_id: 1,
-            command_timeout: DEFAULT_COMMAND_TIMEOUT,
-        })
+        let websocket_config = WebSocketConfig::default()
+            .max_message_size(Some(CDP_MAX_MESSAGE_BYTES))
+            .max_frame_size(Some(CDP_MAX_MESSAGE_BYTES));
+        let (websocket, _) =
+            connect_async_with_config(page_url.as_str(), Some(websocket_config), false)
+                .await
+                .map_err(CdpError::WebSocket)?;
+        Ok(Self::from_websocket(websocket, DEFAULT_COMMAND_TIMEOUT))
     }
 
     pub async fn probe_admission(&mut self) -> Result<AdmissionSnapshot, CdpError> {
@@ -90,28 +107,19 @@ impl CdpPage {
     }
 
     pub async fn evaluate<T: DeserializeOwned>(&mut self, expression: &str) -> Result<T, CdpError> {
-        let command_id = self.next_command_id;
-        self.next_command_id = self.next_command_id.saturating_add(1);
-        let command = json!({
-            "id": command_id,
-            "method": "Runtime.evaluate",
-            "params": {
+        let result = self
+            .command(
+                "Runtime.evaluate",
+                json!({
                 "expression": expression,
                 "returnByValue": true,
                 "awaitPromise": true
-            }
-        });
-        self.websocket
-            .send(Message::Text(command.to_string().into()))
-            .await
-            .map_err(CdpError::WebSocket)?;
-
-        let result = tokio::time::timeout(
-            self.command_timeout,
-            receive_command_result(&mut self.websocket, command_id),
-        )
-        .await
-        .map_err(|_| CdpError::CommandTimeout(self.command_timeout))??;
+                }),
+            )
+            .await?;
+        if result.get("exceptionDetails").is_some() {
+            return Err(CdpError::EvaluationException(result));
+        }
         let value = result
             .pointer("/result/value")
             .cloned()
@@ -119,22 +127,128 @@ impl CdpPage {
         serde_json::from_value(value).map_err(CdpError::EvaluationValue)
     }
 
-    pub async fn close(mut self) -> Result<(), CdpError> {
-        self.websocket
-            .close(None)
+    pub async fn add_binding(&mut self, name: &str) -> Result<(), CdpError> {
+        if name.is_empty()
+            || !name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        {
+            return Err(CdpError::InvalidBindingName(name.into()));
+        }
+        if self.bindings.contains(name) {
+            return Ok(());
+        }
+        self.command("Runtime.addBinding", json!({ "name": name }))
+            .await?;
+        self.bindings.insert(name.into());
+        Ok(())
+    }
+
+    pub fn take_binding_events(&mut self) -> Result<CdpBindingEventStream, CdpError> {
+        self.binding_events
+            .take()
+            .map(|receiver| CdpBindingEventStream { receiver })
+            .ok_or(CdpError::BindingEventsAlreadyTaken)
+    }
+
+    pub fn ensure_binding_events_available(&self) -> Result<(), CdpError> {
+        self.binding_events
+            .is_some()
+            .then_some(())
+            .ok_or(CdpError::BindingEventsAlreadyTaken)
+    }
+
+    pub async fn close_binding_events(&mut self) -> Result<(), CdpError> {
+        self.binding_events.take();
+        let (response, result) = oneshot::channel();
+        self.commands
+            .send(CdpRequest::CloseBindingEvents { response })
             .await
-            .map_err(CdpError::WebSocket)
+            .map_err(|_| CdpError::ActorUnavailable)?;
+        tokio::time::timeout(self.command_timeout, result)
+            .await
+            .map_err(|_| CdpError::CommandTimeout(self.command_timeout))?
+            .map_err(|_| CdpError::ActorUnavailable)
+    }
+
+    pub async fn close(self) -> Result<(), CdpError> {
+        let Self {
+            commands,
+            binding_events,
+            bindings: _,
+            actor,
+            command_timeout,
+        } = self;
+        drop(binding_events);
+        let (response, result) = oneshot::channel();
+        commands
+            .send(CdpRequest::Close { response })
+            .await
+            .map_err(|_| CdpError::ActorUnavailable)?;
+        tokio::time::timeout(command_timeout, result)
+            .await
+            .map_err(|_| CdpError::CommandTimeout(command_timeout))?
+            .map_err(|_| CdpError::ActorUnavailable)??;
+        actor.await.map_err(CdpError::ActorJoin)?;
+        Ok(())
+    }
+
+    async fn command(&mut self, method: &'static str, params: Value) -> Result<Value, CdpError> {
+        let (response, result) = oneshot::channel();
+        self.commands
+            .send(CdpRequest::Command {
+                method,
+                params,
+                response,
+            })
+            .await
+            .map_err(|_| CdpError::ActorUnavailable)?;
+        tokio::time::timeout(self.command_timeout, result)
+            .await
+            .map_err(|_| CdpError::CommandTimeout(self.command_timeout))?
+            .map_err(|_| CdpError::ActorUnavailable)?
+            .map_err(Into::into)
+    }
+
+    fn from_websocket(websocket: PageWebSocket, command_timeout: Duration) -> Self {
+        let (commands, command_receiver) = mpsc::channel(32);
+        let (event_sender, binding_events) = mpsc::channel(CDP_EVENT_CAPACITY);
+        let actor = tokio::spawn(run_cdp_actor(websocket, command_receiver, event_sender));
+        Self {
+            commands,
+            binding_events: Some(binding_events),
+            bindings: HashSet::new(),
+            actor,
+            command_timeout,
+        }
     }
 
     #[cfg(test)]
-    pub(crate) fn from_test_websocket(
-        websocket: WebSocketStream<MaybeTlsStream<TcpStream>>,
-    ) -> Self {
-        Self {
-            websocket,
-            next_command_id: 1,
-            command_timeout: Duration::from_secs(1),
+    pub(crate) fn from_test_websocket(websocket: PageWebSocket) -> Self {
+        Self::from_websocket(websocket, Duration::from_secs(1))
+    }
+}
+
+pub struct CdpBindingEventStream {
+    receiver: mpsc::Receiver<Value>,
+}
+
+impl CdpBindingEventStream {
+    pub async fn next_payload(&mut self, binding_name: &str) -> Result<String, CdpError> {
+        while let Some(event) = self.receiver.recv().await {
+            let Some(params) = event.get("params") else {
+                continue;
+            };
+            if params.get("name").and_then(Value::as_str) != Some(binding_name) {
+                continue;
+            }
+            return params
+                .get("payload")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .ok_or(CdpError::InvalidBindingEvent);
         }
+        Err(CdpError::BindingEventStreamClosed)
     }
 }
 
@@ -144,49 +258,143 @@ struct CdpTarget {
     web_socket_debugger_url: String,
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct CdpEnvelope {
-    id: Option<u64>,
-    result: Option<Value>,
-    error: Option<CdpProtocolError>,
+enum CdpRequest {
+    Command {
+        method: &'static str,
+        params: Value,
+        response: oneshot::Sender<Result<Value, CdpActorError>>,
+    },
+    Close {
+        response: oneshot::Sender<Result<(), CdpActorError>>,
+    },
+    CloseBindingEvents {
+        response: oneshot::Sender<()>,
+    },
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct CdpProtocolError {
-    code: i64,
-    message: String,
-}
-
-async fn receive_command_result(
-    websocket: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
-    command_id: u64,
-) -> Result<Value, CdpError> {
-    while let Some(message) = websocket.next().await {
-        let message = message.map_err(CdpError::WebSocket)?;
-        let Message::Text(message) = message else {
-            if matches!(message, Message::Close(_)) {
-                return Err(CdpError::ConnectionClosed);
+async fn run_cdp_actor(
+    mut websocket: PageWebSocket,
+    mut commands: mpsc::Receiver<CdpRequest>,
+    binding_events: mpsc::Sender<Value>,
+) {
+    let mut binding_events = Some(binding_events);
+    let mut next_command_id = 1_u64;
+    let mut pending = HashMap::<u64, oneshot::Sender<Result<Value, CdpActorError>>>::new();
+    loop {
+        tokio::select! {
+            request = commands.recv() => {
+                match request {
+                    Some(CdpRequest::Command { method, params, response }) => {
+                        let command_id = next_command_id;
+                        next_command_id = next_command_id.saturating_add(1);
+                        let command = json!({ "id": command_id, "method": method, "params": params });
+                        if let Err(error) = websocket.send(Message::Text(command.to_string().into())).await {
+                            let error = CdpActorError::WebSocket(error.to_string());
+                            let _ = response.send(Err(error.clone()));
+                            fail_pending(&mut pending, error);
+                            return;
+                        }
+                        pending.insert(command_id, response);
+                    }
+                    Some(CdpRequest::Close { response }) => {
+                        let result = websocket
+                            .close(None)
+                            .await
+                            .map_err(|error| CdpActorError::WebSocket(error.to_string()));
+                        let _ = response.send(result);
+                        fail_pending(&mut pending, CdpActorError::ConnectionClosed);
+                        return;
+                    }
+                    Some(CdpRequest::CloseBindingEvents { response }) => {
+                        binding_events.take();
+                        let _ = response.send(());
+                    }
+                    None => {
+                        let _ = websocket.close(None).await;
+                        fail_pending(&mut pending, CdpActorError::ConnectionClosed);
+                        return;
+                    }
+                }
             }
-            continue;
-        };
-        let envelope: CdpEnvelope =
-            serde_json::from_str(message.as_ref()).map_err(CdpError::ProtocolMessage)?;
-        if envelope.id != Some(command_id) {
-            continue;
+            message = websocket.next() => {
+                let value = match message {
+                    Some(Ok(Message::Text(message))) => match serde_json::from_str::<Value>(message.as_ref()) {
+                        Ok(value) => value,
+                        Err(error) => {
+                            fail_pending(&mut pending, CdpActorError::InvalidMessage(error.to_string()));
+                            return;
+                        }
+                    },
+                    Some(Ok(Message::Close(_))) | None => {
+                        fail_pending(&mut pending, CdpActorError::ConnectionClosed);
+                        return;
+                    }
+                    Some(Ok(_)) => continue,
+                    Some(Err(error)) => {
+                        fail_pending(&mut pending, CdpActorError::WebSocket(error.to_string()));
+                        return;
+                    }
+                };
+                if let Some(command_id) = value.get("id").and_then(Value::as_u64) {
+                    let Some(response) = pending.remove(&command_id) else {
+                        continue;
+                    };
+                    let result = if let Some(error) = value.get("error") {
+                        Err(CdpActorError::Protocol {
+                            code: error.get("code").and_then(Value::as_i64).unwrap_or_default(),
+                            message: error
+                                .get("message")
+                                .and_then(Value::as_str)
+                                .unwrap_or("unknown protocol error")
+                                .to_owned(),
+                        })
+                    } else {
+                        value
+                            .get("result")
+                            .cloned()
+                            .ok_or(CdpActorError::MissingCommandResult)
+                    };
+                    let _ = response.send(result);
+                } else if value.get("method").and_then(Value::as_str)
+                    == Some("Runtime.bindingCalled")
+                    && let Some(binding_events) = binding_events.as_ref()
+                {
+                    match binding_events.try_send(value) {
+                        Ok(()) | Err(TrySendError::Closed(_)) => {}
+                        Err(TrySendError::Full(_)) => {
+                            fail_pending(&mut pending, CdpActorError::BindingEventOverflow);
+                            return;
+                        }
+                    }
+                }
+            }
         }
-        if let Some(error) = envelope.error {
-            return Err(CdpError::Protocol {
-                code: error.code,
-                message: error.message,
-            });
-        }
-        let result = envelope.result.ok_or(CdpError::MissingCommandResult)?;
-        if result.get("exceptionDetails").is_some() {
-            return Err(CdpError::EvaluationException(result));
-        }
-        return Ok(result);
     }
-    Err(CdpError::ConnectionClosed)
+}
+
+fn fail_pending(
+    pending: &mut HashMap<u64, oneshot::Sender<Result<Value, CdpActorError>>>,
+    error: CdpActorError,
+) {
+    for (_, response) in pending.drain() {
+        let _ = response.send(Err(error.clone()));
+    }
+}
+
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum CdpActorError {
+    #[error("Chromium DevTools WebSocket failed: {0}")]
+    WebSocket(String),
+    #[error("invalid Chromium DevTools protocol message: {0}")]
+    InvalidMessage(String),
+    #[error("Chromium DevTools protocol error {code}: {message}")]
+    Protocol { code: i64, message: String },
+    #[error("Chromium DevTools response did not include a result")]
+    MissingCommandResult,
+    #[error("Chromium DevTools connection closed")]
+    ConnectionClosed,
+    #[error("Chromium DevTools binding event buffer overflowed")]
+    BindingEventOverflow,
 }
 
 fn discovery_url(
@@ -271,22 +479,28 @@ pub enum CdpError {
     UnexpectedTargetPort { expected: u16, actual: Option<u16> },
     #[error("Chromium DevTools WebSocket failed")]
     WebSocket(#[source] WebSocketError),
-    #[error("invalid Chromium DevTools protocol message")]
-    ProtocolMessage(#[source] serde_json::Error),
-    #[error("Chromium DevTools protocol error {code}: {message}")]
-    Protocol { code: i64, message: String },
-    #[error("Chromium DevTools connection closed")]
-    ConnectionClosed,
+    #[error(transparent)]
+    Actor(#[from] CdpActorError),
+    #[error("Chromium DevTools actor is unavailable")]
+    ActorUnavailable,
+    #[error("Chromium DevTools actor task failed")]
+    ActorJoin(#[source] tokio::task::JoinError),
     #[error("Chromium DevTools command timed out after {0:?}")]
     CommandTimeout(Duration),
-    #[error("Chromium DevTools response did not include a result")]
-    MissingCommandResult,
     #[error("Chromium JavaScript evaluation failed: {0}")]
     EvaluationException(Value),
     #[error("Chromium JavaScript evaluation returned no value")]
     MissingEvaluationValue,
     #[error("Chromium JavaScript evaluation returned an unexpected value")]
     EvaluationValue(#[source] serde_json::Error),
+    #[error("Chromium binding name must contain only ASCII letters, numbers, and underscores: {0}")]
+    InvalidBindingName(String),
+    #[error("Chromium binding events were already taken")]
+    BindingEventsAlreadyTaken,
+    #[error("invalid Chromium binding event")]
+    InvalidBindingEvent,
+    #[error("Chromium binding event stream closed")]
+    BindingEventStreamClosed,
 }
 
 #[cfg(test)]
@@ -405,13 +619,155 @@ mod tests {
         });
 
         let (websocket, _) = connect_async(format!("ws://{address}")).await.unwrap();
-        let mut page = CdpPage {
-            websocket,
-            next_command_id: 1,
-            command_timeout: Duration::from_secs(1),
-        };
+        let mut page = CdpPage::from_test_websocket(websocket);
 
         assert!(page.probe_admission().await.unwrap().waiting_room_visible);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn routes_binding_events_without_blocking_commands() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut websocket = accept_async(stream).await.unwrap();
+            let Message::Text(command) = websocket.next().await.unwrap().unwrap() else {
+                panic!("expected text command")
+            };
+            let command: Value = serde_json::from_str(command.as_ref()).unwrap();
+            assert_eq!(command["method"], "Runtime.addBinding");
+            websocket
+                .send(Message::Text(
+                    json!({"id": command["id"], "result": {}})
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .unwrap();
+            websocket
+                .send(Message::Text(
+                    json!({
+                        "method": "Runtime.bindingCalled",
+                        "params": {"name": "anlgCapture", "payload": "frame-1"}
+                    })
+                    .to_string()
+                    .into(),
+                ))
+                .await
+                .unwrap();
+            assert!(matches!(
+                websocket.next().await,
+                Some(Ok(Message::Close(_)))
+            ));
+        });
+
+        let (websocket, _) = connect_async(format!("ws://{address}")).await.unwrap();
+        let mut page = CdpPage::from_test_websocket(websocket);
+        page.add_binding("anlgCapture").await.unwrap();
+        page.add_binding("anlgCapture").await.unwrap();
+        let mut events = page.take_binding_events().unwrap();
+
+        assert_eq!(events.next_payload("anlgCapture").await.unwrap(), "frame-1");
+        page.close().await.unwrap();
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejects_script_like_binding_names_before_devtools() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut websocket = accept_async(stream).await.unwrap();
+            assert!(matches!(
+                websocket.next().await,
+                Some(Ok(Message::Close(_)))
+            ));
+        });
+        let (websocket, _) = connect_async(format!("ws://{address}")).await.unwrap();
+        let mut page = CdpPage::from_test_websocket(websocket);
+
+        assert!(matches!(
+            page.add_binding("capture);alert(1)").await,
+            Err(CdpError::InvalidBindingName(_))
+        ));
+        page.close().await.unwrap();
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dropping_the_binding_consumer_keeps_page_commands_available() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut websocket = accept_async(stream).await.unwrap();
+
+            let Message::Text(binding) = websocket.next().await.unwrap().unwrap() else {
+                panic!("expected binding command")
+            };
+            let binding: Value = serde_json::from_str(binding.as_ref()).unwrap();
+            websocket
+                .send(Message::Text(
+                    json!({"id": binding["id"], "result": {}})
+                        .to_string()
+                        .into(),
+                ))
+                .await
+                .unwrap();
+            websocket
+                .send(Message::Text(
+                    json!({
+                        "method": "Runtime.bindingCalled",
+                        "params": {"name": "anlgCapture", "payload": "ignored"}
+                    })
+                    .to_string()
+                    .into(),
+                ))
+                .await
+                .unwrap();
+
+            let Message::Text(evaluate) = websocket.next().await.unwrap().unwrap() else {
+                panic!("expected evaluate command")
+            };
+            let evaluate: Value = serde_json::from_str(evaluate.as_ref()).unwrap();
+            websocket
+                .send(Message::Text(
+                    json!({
+                        "id": evaluate["id"],
+                        "result": {"result": {"value": {
+                            "waiting_room_visible": false,
+                            "consent_prompt_visible": false,
+                            "explicit_denial_indicator": null,
+                            "ambiguous_error_indicator": null,
+                            "visible_recaptcha_challenge": false,
+                            "participant_tile_labels": [],
+                            "self_name_nodes": 0,
+                            "visible_admission_controls": 0
+                        }}}
+                    })
+                    .to_string()
+                    .into(),
+                ))
+                .await
+                .unwrap();
+            assert!(matches!(
+                websocket.next().await,
+                Some(Ok(Message::Close(_)))
+            ));
+        });
+
+        let (websocket, _) = connect_async(format!("ws://{address}")).await.unwrap();
+        let mut page = CdpPage::from_test_websocket(websocket);
+        page.add_binding("anlgCapture").await.unwrap();
+        drop(page.take_binding_events().unwrap());
+
+        assert_eq!(
+            page.probe_admission().await.unwrap(),
+            AdmissionSnapshot::default()
+        );
+        page.close().await.unwrap();
         server.await.unwrap();
     }
 }

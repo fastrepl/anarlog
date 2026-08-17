@@ -1,6 +1,8 @@
 mod admission;
 mod admission_monitor;
 mod browser;
+mod capture;
+mod capture_protocol;
 mod cdp;
 mod lifecycle;
 mod lobby;
@@ -12,6 +14,8 @@ mod x11;
 pub use admission::*;
 pub use admission_monitor::*;
 pub use browser::*;
+pub use capture::*;
+pub use capture_protocol::*;
 pub use cdp::*;
 pub use lifecycle::*;
 pub use lobby::*;

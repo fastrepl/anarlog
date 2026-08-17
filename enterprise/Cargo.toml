@@ -17,6 +17,7 @@ anlg-session-ingest = { path = "../crates/session-ingest", package = "session-in
 anyhow = "1"
 async-trait = "0.1"
 axum = "0.8"
+base64 = "0.22"
 chrono = "0.4"
 futures-util = "0.3"
 http = "1"

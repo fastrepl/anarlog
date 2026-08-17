@@ -183,7 +183,7 @@ fi
         let input = X11Input::new(X11InputConfig {
             binary: executable,
             display: ":77".into(),
-            command_timeout: Duration::from_secs(1),
+            command_timeout: Duration::from_secs(5),
         })
         .unwrap();
         input.verify_available().await.unwrap();

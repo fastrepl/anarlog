@@ -29,6 +29,10 @@
   };
   const visibleCount = (selector) =>
     Array.from(document.querySelectorAll(selector)).filter(visible).length;
+  const participantTileLabel = (element) =>
+    (
+      element.getAttribute("aria-label") || (element.textContent || "").trim()
+    ).slice(0, 128);
 
   return {
     removal_indicator: visibleText([
@@ -50,11 +54,9 @@
     ]),
     participant_tile_labels: Array.from(
       document.querySelectorAll("[data-participant-id]"),
-    ).map(
-      (element) =>
-        element.getAttribute("aria-label") ||
-        (element.textContent || "").trim(),
-    ),
+    )
+      .slice(0, 128)
+      .map(participantTileLabel),
     self_name_nodes: document.querySelectorAll("[data-self-name]").length,
     visible_meeting_controls:
       visibleCount('button[aria-label*="leave call" i]') +

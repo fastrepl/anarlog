@@ -35,6 +35,10 @@
         return count;
       }
     }, 0);
+  const participantTileLabel = (element) =>
+    (
+      element.getAttribute("aria-label") || (element.textContent || "").trim()
+    ).slice(0, 128);
 
   const explicitDenial = visibleText([
     "denied your request",
@@ -90,10 +94,9 @@
   });
   const participantTileLabels = Array.from(
     document.querySelectorAll("[data-participant-id]"),
-  ).map(
-    (element) =>
-      element.getAttribute("aria-label") || (element.textContent || "").trim(),
-  );
+  )
+    .slice(0, 128)
+    .map(participantTileLabel);
 
   return {
     waiting_room_visible: waitingRoom,

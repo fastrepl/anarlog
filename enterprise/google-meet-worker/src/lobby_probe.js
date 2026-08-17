@@ -89,6 +89,9 @@
     join_cta: target(joinCta, "join_cta"),
     microphone_on: target(microphone, "microphone_on"),
     camera_on: target(camera, "camera_on"),
-    cta_candidates: buttons.map(buttonText).filter(Boolean),
+    cta_candidates: buttons
+      .slice(0, 64)
+      .map((button) => buttonText(button).slice(0, 64))
+      .filter(Boolean),
   };
 })();
