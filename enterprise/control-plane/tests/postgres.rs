@@ -10,7 +10,7 @@ use anarlog_enterprise_control_plane::{api::router, config::Config, configured_s
 use anarlog_enterprise_google_meet_worker::{
     CaptureJobRuntime, CaptureJobSupervisor, CaptureJobSupervisorConfig,
     CaptureJobSupervisorOutcome, ControlPlaneEventSink, ControlPlaneEventSinkConfig,
-    WorkerLifecycle,
+    WorkerCheckpoint, WorkerLifecycle,
 };
 use anlg_meeting_capture::{
     BotState, CaptureEvent, CaptureEventPayload, Participant, RecordingChunk, Speaker,
@@ -45,9 +45,11 @@ impl CaptureJobRuntime for CompletingRuntime {
 
     async fn run(
         &mut self,
+        checkpoint: &WorkerCheckpoint,
         lifecycle: &mut WorkerLifecycle,
         events: mpsc::Sender<CaptureEvent>,
     ) -> Result<(), Self::Error> {
+        assert!(checkpoint.job_id.starts_with("job-supervisor-"));
         events
             .send(lifecycle.launch_started(chrono::Utc::now()).unwrap())
             .await

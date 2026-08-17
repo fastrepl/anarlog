@@ -2,6 +2,7 @@ use std::{future::Future, time::Duration};
 
 use anlg_meeting_capture::{BotState, CaptureEvent, TransitionError};
 use chrono::Utc;
+use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use crate::{AdmissionSnapshot, CdpError, CdpPage, WorkerLifecycle};
@@ -59,6 +60,49 @@ impl AdmissionMonitor {
         self.wait_with_source(page, lifecycle).await
     }
 
+    pub async fn wait_streaming(
+        &self,
+        page: &mut CdpPage,
+        lifecycle: &mut WorkerLifecycle,
+        events: &mpsc::Sender<CaptureEvent>,
+    ) -> Result<(), AdmissionMonitorError> {
+        self.wait_streaming_with_source(page, lifecycle, events)
+            .await
+    }
+
+    async fn wait_streaming_with_source<S: AdmissionProbeSource>(
+        &self,
+        source: &mut S,
+        lifecycle: &mut WorkerLifecycle,
+        events: &mpsc::Sender<CaptureEvent>,
+    ) -> Result<(), AdmissionMonitorError> {
+        let started_at = Instant::now();
+        let deadline = started_at + self.config.timeout;
+        loop {
+            let snapshot = source.probe().await?;
+            let observed_at = Instant::now();
+            if let Some(event) =
+                lifecycle.observe_admission(&snapshot, observed_at.into_std(), Utc::now())?
+            {
+                events
+                    .send(event)
+                    .await
+                    .map_err(|_| AdmissionMonitorError::EventChannelClosed)?;
+            }
+            if matches!(lifecycle.state(), BotState::Joined | BotState::Failed) {
+                return Ok(());
+            }
+            if observed_at >= deadline {
+                events
+                    .send(lifecycle.admission_timed_out(Utc::now())?)
+                    .await
+                    .map_err(|_| AdmissionMonitorError::EventChannelClosed)?;
+                return Ok(());
+            }
+            tokio::time::sleep(self.config.poll_interval.min(deadline - observed_at)).await;
+        }
+    }
+
     async fn wait_with_source<S: AdmissionProbeSource>(
         &self,
         source: &mut S,
@@ -106,6 +150,8 @@ pub enum AdmissionMonitorError {
         timeout: Duration,
         poll_interval: Duration,
     },
+    #[error("capture supervisor stopped accepting admission events")]
+    EventChannelClosed,
     #[error(transparent)]
     Cdp(#[from] CdpError),
     #[error(transparent)]
@@ -156,6 +202,43 @@ mod tests {
 
         assert_eq!(events.len(), 2);
         assert_eq!(lifecycle.state(), BotState::Joined);
+    }
+
+    #[tokio::test]
+    async fn streams_waiting_before_admission_finishes() {
+        let mut source = Snapshots(VecDeque::from([
+            AdmissionSnapshot {
+                waiting_room_visible: true,
+                ..Default::default()
+            },
+            AdmissionSnapshot {
+                participant_tile_labels: vec!["Ada Lovelace".into()],
+                ..Default::default()
+            },
+        ]));
+        let mut lifecycle = WorkerLifecycle::new("bot-1");
+        lifecycle.launch_started(Utc::now()).unwrap();
+        let (events_tx, mut events_rx) = mpsc::channel(1);
+
+        let waiting = events_rx.recv();
+        let admission_monitor = monitor(Duration::from_secs(1), Duration::from_millis(1));
+        let monitoring =
+            admission_monitor.wait_streaming_with_source(&mut source, &mut lifecycle, &events_tx);
+        let (first, result) = tokio::join!(waiting, monitoring);
+
+        result.unwrap();
+        assert_eq!(
+            first.unwrap().payload,
+            anlg_meeting_capture::CaptureEventPayload::Lifecycle(
+                anlg_meeting_capture::LifecycleTransition {
+                    from: BotState::Launching,
+                    to: BotState::WaitingForAdmission,
+                    reason: None,
+                }
+            )
+        );
+        assert_eq!(lifecycle.state(), BotState::Joined);
+        assert!(events_rx.recv().await.is_some());
     }
 
     #[tokio::test]

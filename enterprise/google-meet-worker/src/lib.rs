@@ -1,10 +1,12 @@
 mod admission;
 mod admission_monitor;
+mod audio_sink;
 mod browser;
 mod capture;
 mod capture_protocol;
 mod cdp;
 mod event_sink;
+mod google_meet_runtime;
 mod lifecycle;
 mod lobby;
 mod runtime;
@@ -15,11 +17,13 @@ mod x11;
 
 pub use admission::*;
 pub use admission_monitor::*;
+pub use audio_sink::*;
 pub use browser::*;
 pub use capture::*;
 pub use capture_protocol::*;
 pub use cdp::*;
 pub use event_sink::*;
+pub use google_meet_runtime::*;
 pub use lifecycle::*;
 pub use lobby::*;
 pub use runtime::*;

@@ -51,6 +51,7 @@ pub trait CaptureJobRuntime: Send {
 
     async fn run(
         &mut self,
+        checkpoint: &WorkerCheckpoint,
         lifecycle: &mut WorkerLifecycle,
         events: mpsc::Sender<CaptureEvent>,
     ) -> Result<(), Self::Error>;
@@ -152,7 +153,7 @@ where
             ));
         }
         let mut lifecycle = WorkerLifecycle::resume(
-            checkpoint.bot_id,
+            checkpoint.bot_id.clone(),
             checkpoint.state,
             checkpoint.next_sequence,
         )?;
@@ -174,7 +175,7 @@ where
             tokio::time::Instant::now() + self.config.lease_renew_interval,
             self.config.lease_renew_interval,
         );
-        let mut runtime = Box::pin(self.runtime.run(&mut lifecycle, events_tx));
+        let mut runtime = Box::pin(self.runtime.run(&checkpoint, &mut lifecycle, events_tx));
         let mut events_closed = false;
         let mut deferred_terminal = None;
         let exit = loop {
@@ -415,9 +416,15 @@ mod tests {
 
         async fn run(
             &mut self,
+            checkpoint: &WorkerCheckpoint,
             lifecycle: &mut WorkerLifecycle,
             events: mpsc::Sender<CaptureEvent>,
         ) -> Result<(), Self::Error> {
+            assert_eq!(checkpoint.job_id, "job-a");
+            assert_eq!(
+                checkpoint.meeting_url.as_str(),
+                "https://meet.google.com/abc-defg-hij"
+            );
             events
                 .send(lifecycle.launch_started(now()).unwrap())
                 .await

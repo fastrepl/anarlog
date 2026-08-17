@@ -250,6 +250,30 @@ impl CdpBindingEventStream {
         }
         Err(CdpError::BindingEventStreamClosed)
     }
+
+    pub fn try_next_payload(&mut self, binding_name: &str) -> Result<Option<String>, CdpError> {
+        loop {
+            let event = match self.receiver.try_recv() {
+                Ok(event) => event,
+                Err(mpsc::error::TryRecvError::Empty) => return Ok(None),
+                Err(mpsc::error::TryRecvError::Disconnected) => {
+                    return Err(CdpError::BindingEventStreamClosed);
+                }
+            };
+            let Some(params) = event.get("params") else {
+                continue;
+            };
+            if params.get("name").and_then(Value::as_str) != Some(binding_name) {
+                continue;
+            }
+            return params
+                .get("payload")
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+                .map(Some)
+                .ok_or(CdpError::InvalidBindingEvent);
+        }
+    }
 }
 
 #[derive(Debug, serde::Deserialize)]

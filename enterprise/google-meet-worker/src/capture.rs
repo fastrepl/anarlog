@@ -34,22 +34,28 @@ impl BrowserCapture {
     pub async fn next_frame(&mut self) -> Result<AudioFrame, BrowserCaptureError> {
         loop {
             let payload = self.events.next_payload(CAPTURE_BINDING).await?;
-            if payload.len() <= 1024
-                && let Ok(signal) = serde_json::from_str::<CaptureSignal>(&payload)
-                && signal.version == 1
-            {
-                let scope = signal.scope.unwrap_or_else(|| "unknown".into());
-                let message = signal.message.unwrap_or_else(|| "unknown failure".into());
-                if signal.kind == "warning" {
-                    self.last_warning = Some(CaptureWarning { scope, message });
-                    continue;
-                }
-                if signal.kind == "error" {
-                    return Err(BrowserCaptureError::Script { scope, message });
-                }
+            if let Some(frame) = self.decode_payload(&payload)? {
+                return Ok(frame);
             }
-            return self.protocol.decode(&payload).map_err(Into::into);
         }
+    }
+
+    pub async fn stop_and_drain(
+        &mut self,
+        page: &mut CdpPage,
+    ) -> Result<Vec<AudioFrame>, BrowserCaptureError> {
+        let stopped = page.evaluate::<bool>(STOP_CAPTURE_EXPRESSION).await?;
+        if !stopped {
+            return Err(BrowserCaptureError::StopRejected);
+        }
+        let mut frames = Vec::new();
+        while let Some(payload) = self.events.try_next_payload(CAPTURE_BINDING)? {
+            if let Some(frame) = self.decode_payload(&payload)? {
+                frames.push(frame);
+            }
+        }
+        page.close_binding_events().await?;
+        Ok(frames)
     }
 
     pub async fn stop(page: &mut CdpPage) -> Result<(), BrowserCaptureError> {
@@ -64,6 +70,24 @@ impl BrowserCapture {
 
     pub fn take_last_warning(&mut self) -> Option<CaptureWarning> {
         self.last_warning.take()
+    }
+
+    fn decode_payload(&mut self, payload: &str) -> Result<Option<AudioFrame>, BrowserCaptureError> {
+        if payload.len() <= 1024
+            && let Ok(signal) = serde_json::from_str::<CaptureSignal>(payload)
+            && signal.version == 1
+        {
+            let scope = signal.scope.unwrap_or_else(|| "unknown".into());
+            let message = signal.message.unwrap_or_else(|| "unknown failure".into());
+            if signal.kind == "warning" {
+                self.last_warning = Some(CaptureWarning { scope, message });
+                return Ok(None);
+            }
+            if signal.kind == "error" {
+                return Err(BrowserCaptureError::Script { scope, message });
+            }
+        }
+        self.protocol.decode(payload).map(Some).map_err(Into::into)
     }
 }
 
@@ -322,6 +346,67 @@ mod tests {
                 CdpError::BindingEventsAlreadyTaken
             ))
         ));
+
+        page.close().await.unwrap();
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn drains_the_final_audio_frame_before_closing_capture_events() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut websocket = accept_async(stream).await.unwrap();
+
+            let binding = next_command(&mut websocket).await;
+            reply(&mut websocket, &binding, json!({})).await;
+            let install = next_command(&mut websocket).await;
+            reply(
+                &mut websocket,
+                &install,
+                json!({"result": {"value": {"streamCount": 1}}}),
+            )
+            .await;
+
+            let stop = next_command(&mut websocket).await;
+            websocket
+                .send(Message::Text(
+                    json!({
+                        "method": "Runtime.bindingCalled",
+                        "params": {
+                            "name": CAPTURE_BINDING,
+                            "payload": json!({
+                                "v": 1,
+                                "kind": "audio",
+                                "sequence": 1,
+                                "track_index": 0,
+                                "sample_rate": 16000,
+                                "start_ms": 0,
+                                "pcm_s16le": "AQA="
+                            }).to_string()
+                        }
+                    })
+                    .to_string()
+                    .into(),
+                ))
+                .await
+                .unwrap();
+            reply(&mut websocket, &stop, json!({"result": {"value": true}})).await;
+
+            assert!(matches!(
+                websocket.next().await,
+                Some(Ok(Message::Close(_)))
+            ));
+        });
+
+        let (websocket, _) = connect_async(format!("ws://{address}")).await.unwrap();
+        let mut page = CdpPage::from_test_websocket(websocket);
+        let (mut capture, _) = BrowserCapture::install(&mut page).await.unwrap();
+
+        let frames = capture.stop_and_drain(&mut page).await.unwrap();
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].samples, vec![1]);
 
         page.close().await.unwrap();
         server.await.unwrap();
