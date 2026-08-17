@@ -14,8 +14,8 @@ use tower_http::trace::TraceLayer;
 use crate::{
     auth::{AuthenticationError, WorkspaceAuthenticator},
     capture::{
-        AppendCaptureEventRequest, CaptureJob, CaptureJobStatus, CreateCaptureJobRequest,
-        ProjectionPublication,
+        AppendCaptureEventRequest, CaptureJob, CaptureJobCheckpoint, CaptureJobStatus,
+        CreateCaptureJobRequest, ProjectionPublication,
     },
     store::{ControlPlaneStore, StoreError},
 };
@@ -48,7 +48,7 @@ pub fn router(state: AppState) -> Router {
         .route("/health/ready", get(readiness))
         .route(
             "/v1/workspaces/{workspace_id}/capture-jobs/{job_id}",
-            post(create_capture_job),
+            post(create_capture_job).get(read_capture_checkpoint),
         )
         .route(
             "/v1/workspaces/{workspace_id}/capture-jobs/{job_id}/events",
@@ -69,6 +69,22 @@ pub fn router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::max(MAX_REQUEST_BYTES))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+async fn read_capture_checkpoint(
+    State(state): State<AppState>,
+    Path((workspace_id, job_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Json<CaptureJobCheckpoint>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    validate_identifier(&job_id, "job_id")?;
+    let checkpoint = state
+        .store
+        .read_capture_checkpoint(&workspace_id, &job_id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(checkpoint))
 }
 
 async fn create_capture_job(

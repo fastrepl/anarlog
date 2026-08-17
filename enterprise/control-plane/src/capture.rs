@@ -28,6 +28,14 @@ pub struct CaptureJobStatus {
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct CaptureJobCheckpoint {
+    pub job: CaptureJob,
+    pub state: BotState,
+    pub next_sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProjectionPublication {
     pub job_id: String,
     pub revision: u64,

@@ -3,10 +3,11 @@ use std::sync::Arc;
 use anarlog_enterprise_control_plane::{
     api::{AppState, router},
     auth::StaticTokenAuthenticator,
-    capture::{CaptureJob, CaptureJobStatus, ProjectionPublication},
+    capture::{CaptureJob, CaptureJobCheckpoint, CaptureJobStatus, ProjectionPublication},
     serve,
     store::{ControlPlaneStore, StoreError},
 };
+use anarlog_enterprise_google_meet_worker::{ControlPlaneEventSink, ControlPlaneEventSinkConfig};
 use anlg_meeting_capture::{BotState, CaptureEvent};
 use anlg_session_ingest::{AcknowledgeRequest, DeliveryPage, SessionRead};
 use async_trait::async_trait;
@@ -40,6 +41,21 @@ impl ControlPlaneStore for MemoryStore {
             job_id: job.job_id.clone(),
             created: true,
             state: BotState::Queued,
+        })
+    }
+
+    async fn read_capture_checkpoint(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+    ) -> Result<CaptureJobCheckpoint, StoreError> {
+        if workspace_id != "workspace-a" || job_id != "job-a" {
+            return Err(StoreError::NotFound);
+        }
+        Ok(CaptureJobCheckpoint {
+            job: capture_job(),
+            state: BotState::Capturing,
+            next_sequence: 7,
         })
     }
 
@@ -192,6 +208,53 @@ async fn authenticates_capture_job_creation_before_writing() {
 }
 
 #[tokio::test]
+async fn reads_only_the_authorized_workspace_capture_checkpoint() {
+    let app = router(state(true));
+    let path = "/v1/workspaces/workspace-a/capture-jobs/job-a";
+
+    let missing = app
+        .clone()
+        .oneshot(Request::get(path).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let wrong_workspace = app
+        .clone()
+        .oneshot(authorized_request(path, TOKEN_B))
+        .await
+        .unwrap();
+    let checkpoint = app
+        .oneshot(authorized_request(path, TOKEN_A))
+        .await
+        .unwrap();
+
+    assert_eq!(missing.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
+    assert_eq!(checkpoint.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(checkpoint).await,
+        serde_json::json!({
+            "job": {
+                "workspaceId": "workspace-a",
+                "jobId": "job-a",
+                "botId": "bot-a",
+                "ownerUserId": "owner-a",
+                "requestingActorId": "actor-a",
+                "sessionId": "session-a",
+                "sessionTitle": "Architecture review",
+                "provider": "anarlog",
+                "meeting": {
+                    "platform": "google_meet",
+                    "url": "https://meet.google.com/abc-defg-hij"
+                },
+                "createdAt": "2026-08-17T00:00:00Z"
+            },
+            "state": "capturing",
+            "nextSequence": 7
+        })
+    );
+}
+
+#[tokio::test]
 async fn boots_on_a_real_listener_and_shuts_down_gracefully() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -205,6 +268,36 @@ async fn boots_on_a_real_listener_and_shuts_down_gracefully() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
 
+    shutdown_tx.send(()).unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .expect("server did not stop")
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn worker_reads_the_checkpoint_over_real_http() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (shutdown_tx, shutdown_rx) = oneshot::channel();
+    let server = tokio::spawn(serve(listener, state(true), async move {
+        shutdown_rx.await.ok();
+    }));
+    let sink = ControlPlaneEventSink::new(ControlPlaneEventSinkConfig::new(
+        reqwest::Url::parse(&format!("http://{address}")).unwrap(),
+        "workspace-a",
+        "job-a",
+        TOKEN_A,
+    ))
+    .unwrap();
+
+    let checkpoint = sink.read_checkpoint().await.unwrap();
+
+    assert_eq!(checkpoint.job_id, "job-a");
+    assert_eq!(checkpoint.bot_id, "bot-a");
+    assert_eq!(checkpoint.state, BotState::Capturing);
+    assert_eq!(checkpoint.next_sequence, 7);
     shutdown_tx.send(()).unwrap();
     tokio::time::timeout(Duration::from_secs(2), server)
         .await
@@ -234,4 +327,26 @@ fn json_request(method: Method, path: &str, token: Option<&str>, body: &Value) -
 async fn response_json(response: axum::response::Response) -> Value {
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
     serde_json::from_slice(&body).unwrap()
+}
+
+fn capture_job() -> CaptureJob {
+    CaptureJob {
+        workspace_id: "workspace-a".into(),
+        job_id: "job-a".into(),
+        bot_id: "bot-a".into(),
+        owner_user_id: "owner-a".into(),
+        requesting_actor_id: "actor-a".into(),
+        session_id: "session-a".into(),
+        session_title: "Architecture review".into(),
+        provider: anlg_meeting_capture::CaptureProviderKind::Anarlog,
+        meeting: anlg_meeting_capture::MeetingReference {
+            platform: anlg_meeting_capture::MeetingPlatform::GoogleMeet,
+            url: "https://meet.google.com/abc-defg-hij".into(),
+            external_id: None,
+            calendar_event_id: None,
+        },
+        created_at: chrono::DateTime::parse_from_rfc3339("2026-08-17T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc),
+    }
 }

@@ -21,7 +21,7 @@ base64 = "0.22"
 chrono = "0.4"
 futures-util = "0.3"
 http = "1"
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "stream"] }
 serde = "1"
 serde_json = "1"
 sha2 = "0.11"

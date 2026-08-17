@@ -35,6 +35,26 @@ impl WorkerLifecycle {
         self.state
     }
 
+    pub fn resume(
+        bot_id: impl Into<String>,
+        state: BotState,
+        next_sequence: u64,
+    ) -> Result<Self, WorkerLifecycleResumeError> {
+        if (state == BotState::Queued) != (next_sequence == 0) {
+            return Err(WorkerLifecycleResumeError {
+                state,
+                next_sequence,
+            });
+        }
+        Ok(Self {
+            bot_id: bot_id.into(),
+            state,
+            next_sequence,
+            admission: AdmissionClassifier::default(),
+            runtime: RuntimeClassifier::default(),
+        })
+    }
+
     pub fn launch_started(
         &mut self,
         occurred_at: DateTime<Utc>,
@@ -111,6 +131,22 @@ impl WorkerLifecycle {
             Some(TerminalReason {
                 kind: TerminalReasonKind::AdmissionTimeout,
                 message: Some("Google Meet host did not admit the bot before the deadline".into()),
+                retryable: true,
+            }),
+            occurred_at,
+        )
+    }
+
+    pub fn worker_exited(
+        &mut self,
+        message: impl Into<String>,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<CaptureEvent, TransitionError> {
+        self.transition(
+            BotState::Failed,
+            Some(TerminalReason {
+                kind: TerminalReasonKind::WorkerExited,
+                message: Some(message.into()),
                 retryable: true,
             }),
             occurred_at,
@@ -226,6 +262,13 @@ impl WorkerLifecycle {
     }
 }
 
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[error("capture checkpoint state {state:?} is inconsistent with next sequence {next_sequence}")]
+pub struct WorkerLifecycleResumeError {
+    pub state: BotState,
+    pub next_sequence: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -301,6 +344,31 @@ mod tests {
                     .bytes()
                     .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
         );
+    }
+
+    #[test]
+    fn resumes_at_the_durable_sequence_and_can_terminalize_an_interrupted_worker() {
+        let mut lifecycle = WorkerLifecycle::resume("bot-1", BotState::Capturing, 7).unwrap();
+
+        let event = lifecycle.worker_exited("worker restarted", now()).unwrap();
+        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
+            panic!("expected lifecycle event")
+        };
+
+        assert_eq!(event.sequence, 7);
+        assert_eq!(event.id, "capture-event-7");
+        assert_eq!(transition.from, BotState::Capturing);
+        assert_eq!(transition.to, BotState::Failed);
+        assert_eq!(
+            transition.reason.unwrap().kind,
+            TerminalReasonKind::WorkerExited
+        );
+    }
+
+    #[test]
+    fn rejects_inconsistent_durable_sequence_origins() {
+        assert!(WorkerLifecycle::resume("bot-1", BotState::Queued, 1).is_err());
+        assert!(WorkerLifecycle::resume("bot-1", BotState::Launching, 0).is_err());
     }
 
     #[test]

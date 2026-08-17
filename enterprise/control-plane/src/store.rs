@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 
 use crate::{
-    capture::{CaptureJob, CaptureJobStatus, ProjectionPublication},
+    capture::{CaptureJob, CaptureJobCheckpoint, CaptureJobStatus, ProjectionPublication},
     projector,
 };
 
@@ -20,6 +20,12 @@ pub trait ControlPlaneStore: Send + Sync {
     async fn readiness(&self) -> Result<(), StoreError>;
 
     async fn create_capture_job(&self, job: &CaptureJob) -> Result<CaptureJobStatus, StoreError>;
+
+    async fn read_capture_checkpoint(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+    ) -> Result<CaptureJobCheckpoint, StoreError>;
 
     async fn append_capture_event(
         &self,
@@ -176,6 +182,47 @@ impl ControlPlaneStore for PostgresStore {
             job_id: job.job_id.clone(),
             created,
             state: parse_enum(&stored.try_get::<String, _>("state")?)?,
+        })
+    }
+
+    async fn read_capture_checkpoint(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+    ) -> Result<CaptureJobCheckpoint, StoreError> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                workspace_id,
+                job_id,
+                bot_id,
+                owner_user_id,
+                requesting_actor_id,
+                session_id,
+                session_title,
+                provider,
+                meeting,
+                state,
+                last_sequence,
+                created_at
+            FROM capture_jobs
+            WHERE workspace_id = $1 AND job_id = $2
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(job_id)
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+        let state = parse_enum(&row.try_get::<String, _>("state")?)?;
+        let next_sequence = row
+            .try_get::<i64, _>("last_sequence")?
+            .checked_add(1)
+            .ok_or(StoreError::OutOfRange("capture event sequence"))?;
+        Ok(CaptureJobCheckpoint {
+            job: capture_job(row)?,
+            state,
+            next_sequence: from_i64(next_sequence, "capture event sequence")?,
         })
     }
 

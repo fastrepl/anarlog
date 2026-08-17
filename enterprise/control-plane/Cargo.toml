@@ -24,6 +24,7 @@ tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
+anarlog-enterprise-google-meet-worker = { path = "../google-meet-worker" }
 anlg-agent-access.workspace = true
 anlg-db-app.workspace = true
 anlg-db-core.workspace = true

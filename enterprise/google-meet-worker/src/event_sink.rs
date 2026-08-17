@@ -1,15 +1,17 @@
 use std::{collections::VecDeque, time::Duration};
 
-use anlg_meeting_capture::CaptureEvent;
+use anlg_meeting_capture::{BotState, CaptureEvent, CaptureProviderKind, MeetingPlatform};
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use reqwest::StatusCode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 const DEFAULT_MAX_ATTEMPTS: u8 = 4;
 const DEFAULT_INITIAL_RETRY_DELAY: Duration = Duration::from_millis(200);
 const DEFAULT_MAX_RETRY_DELAY: Duration = Duration::from_secs(2);
+const MAX_CHECKPOINT_RESPONSE_BYTES: usize = 64 * 1024;
 
 #[async_trait]
 pub trait CaptureEventSink: Send + Sync {
@@ -78,7 +80,10 @@ impl Default for CaptureEventRetryConfig {
 
 pub struct ControlPlaneEventSink {
     client: reqwest::Client,
-    endpoint: Url,
+    job_endpoint: Url,
+    event_endpoint: Url,
+    workspace_id: String,
+    job_id: String,
     bearer_token: String,
     retry: CaptureEventRetryConfig,
 }
@@ -95,17 +100,17 @@ impl ControlPlaneEventSink {
         }
         validate_retry(config.retry)?;
 
-        let mut endpoint = config.base_url;
-        if !matches!(endpoint.scheme(), "http" | "https")
-            || endpoint.host_str().is_none()
-            || !endpoint.username().is_empty()
-            || endpoint.password().is_some()
-            || endpoint.query().is_some()
-            || endpoint.fragment().is_some()
+        let mut job_endpoint = config.base_url;
+        if !matches!(job_endpoint.scheme(), "http" | "https")
+            || job_endpoint.host_str().is_none()
+            || !job_endpoint.username().is_empty()
+            || job_endpoint.password().is_some()
+            || job_endpoint.query().is_some()
+            || job_endpoint.fragment().is_some()
         {
             return Err(CaptureEventSinkConfigError::InvalidBaseUrl);
         }
-        endpoint
+        job_endpoint
             .path_segments_mut()
             .map_err(|_| CaptureEventSinkConfigError::InvalidBaseUrl)?
             .pop_if_empty()
@@ -115,8 +120,12 @@ impl ControlPlaneEventSink {
                 &config.workspace_id,
                 "capture-jobs",
                 &config.job_id,
-                "events",
             ]);
+        let mut event_endpoint = job_endpoint.clone();
+        event_endpoint
+            .path_segments_mut()
+            .map_err(|_| CaptureEventSinkConfigError::InvalidBaseUrl)?
+            .push("events");
         let client = reqwest::Client::builder()
             .timeout(config.request_timeout)
             .redirect(reqwest::redirect::Policy::none())
@@ -124,10 +133,44 @@ impl ControlPlaneEventSink {
             .map_err(CaptureEventSinkConfigError::Client)?;
         Ok(Self {
             client,
-            endpoint,
+            job_endpoint,
+            event_endpoint,
+            workspace_id: config.workspace_id,
+            job_id: config.job_id,
             bearer_token: config.bearer_token,
             retry: config.retry,
         })
+    }
+
+    pub async fn read_checkpoint(&self) -> Result<WorkerCheckpoint, CaptureEventSinkError> {
+        let mut retry_delay = self.retry.initial_delay;
+        for attempt in 1..=self.retry.max_attempts {
+            match self
+                .client
+                .get(self.job_endpoint.clone())
+                .bearer_auth(&self.bearer_token)
+                .send()
+                .await
+            {
+                Ok(response) if response.status().is_success() => {
+                    return decode_checkpoint(response, &self.workspace_id, &self.job_id).await;
+                }
+                Ok(response) => {
+                    let status = response.status();
+                    if attempt == self.retry.max_attempts || !retryable_status(status) {
+                        return Err(CaptureEventSinkError::ControlPlaneStatus(status));
+                    }
+                }
+                Err(error) => {
+                    if attempt == self.retry.max_attempts {
+                        return Err(CaptureEventSinkError::Request(error));
+                    }
+                }
+            }
+            tokio::time::sleep(retry_delay).await;
+            retry_delay = retry_delay.saturating_mul(2).min(self.retry.max_delay);
+        }
+        unreachable!("validated retry configuration always performs at least one attempt")
     }
 }
 
@@ -141,7 +184,7 @@ impl CaptureEventSink for ControlPlaneEventSink {
         for attempt in 1..=self.retry.max_attempts {
             match self
                 .client
-                .post(self.endpoint.clone())
+                .post(self.event_endpoint.clone())
                 .bearer_auth(&self.bearer_token)
                 .json(&request)
                 .send()
@@ -170,6 +213,91 @@ impl CaptureEventSink for ControlPlaneEventSink {
 #[derive(Serialize)]
 struct AppendCaptureEventRequest<'a> {
     event: &'a CaptureEvent,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkerCheckpoint {
+    pub job_id: String,
+    pub bot_id: String,
+    pub meeting_url: crate::GoogleMeetUrl,
+    pub state: BotState,
+    pub next_sequence: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct WireCaptureJobCheckpoint {
+    job: WireCaptureJob,
+    state: BotState,
+    next_sequence: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WireCaptureJob {
+    workspace_id: String,
+    job_id: String,
+    bot_id: String,
+    provider: CaptureProviderKind,
+    meeting: WireMeetingReference,
+}
+
+#[derive(Deserialize)]
+struct WireMeetingReference {
+    platform: MeetingPlatform,
+    url: String,
+}
+
+async fn decode_checkpoint(
+    response: reqwest::Response,
+    expected_workspace_id: &str,
+    expected_job_id: &str,
+) -> Result<WorkerCheckpoint, CaptureEventSinkError> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_CHECKPOINT_RESPONSE_BYTES as u64)
+    {
+        return Err(CaptureEventSinkError::CheckpointResponseTooLarge);
+    }
+    let mut body = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(CaptureEventSinkError::ResponseBody)?;
+        if body.len().saturating_add(chunk.len()) > MAX_CHECKPOINT_RESPONSE_BYTES {
+            return Err(CaptureEventSinkError::CheckpointResponseTooLarge);
+        }
+        body.extend_from_slice(&chunk);
+    }
+    let checkpoint: WireCaptureJobCheckpoint =
+        serde_json::from_slice(&body).map_err(CaptureEventSinkError::InvalidCheckpointResponse)?;
+    if checkpoint.job.workspace_id != expected_workspace_id {
+        return Err(CaptureEventSinkError::InvalidCheckpoint("workspace ID"));
+    }
+    if checkpoint.job.job_id != expected_job_id {
+        return Err(CaptureEventSinkError::InvalidCheckpoint("job ID"));
+    }
+    validate_identifier(&checkpoint.job.bot_id, "checkpoint bot ID")
+        .map_err(|_| CaptureEventSinkError::InvalidCheckpoint("bot ID"))?;
+    if checkpoint.job.provider != CaptureProviderKind::Anarlog {
+        return Err(CaptureEventSinkError::InvalidCheckpoint("capture provider"));
+    }
+    if checkpoint.job.meeting.platform != MeetingPlatform::GoogleMeet {
+        return Err(CaptureEventSinkError::InvalidCheckpoint("meeting platform"));
+    }
+    if checkpoint.state == BotState::Queued && checkpoint.next_sequence != 0
+        || checkpoint.state != BotState::Queued && checkpoint.next_sequence == 0
+    {
+        return Err(CaptureEventSinkError::InvalidCheckpoint("next sequence"));
+    }
+    let meeting_url = crate::GoogleMeetUrl::parse(&checkpoint.job.meeting.url)
+        .map_err(|_| CaptureEventSinkError::InvalidCheckpoint("meeting URL"))?;
+    Ok(WorkerCheckpoint {
+        job_id: checkpoint.job.job_id,
+        bot_id: checkpoint.job.bot_id,
+        meeting_url,
+        state: checkpoint.state,
+        next_sequence: checkpoint.next_sequence,
+    })
 }
 
 pub struct CaptureEventPublisher<S> {
@@ -264,6 +392,14 @@ pub enum CaptureEventSinkError {
     Request(#[source] reqwest::Error),
     #[error("control plane rejected capture event with HTTP {0}")]
     ControlPlaneStatus(StatusCode),
+    #[error("failed to read control-plane checkpoint response")]
+    ResponseBody(#[source] reqwest::Error),
+    #[error("control-plane checkpoint response exceeded 64 KiB")]
+    CheckpointResponseTooLarge,
+    #[error("control-plane checkpoint response is invalid")]
+    InvalidCheckpointResponse(#[source] serde_json::Error),
+    #[error("control-plane checkpoint contains an invalid {0}")]
+    InvalidCheckpoint(&'static str),
 }
 
 #[cfg(test)]
@@ -340,6 +476,41 @@ mod tests {
         )
     }
 
+    async fn checkpoint_server(body: String) -> (Url, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut bytes = Vec::new();
+            loop {
+                let mut chunk = [0; 4096];
+                let count = stream.read(&mut chunk).await.unwrap();
+                if count == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&chunk[..count]);
+                if bytes.windows(4).any(|window| window == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .unwrap();
+            String::from_utf8(bytes).unwrap()
+        });
+        (
+            Url::parse(&format!("http://{address}/root/")).unwrap(),
+            task,
+        )
+    }
+
     fn complete_request_length(bytes: &[u8]) -> Option<usize> {
         let headers_end = bytes.windows(4).position(|window| window == b"\r\n\r\n")? + 4;
         let headers = std::str::from_utf8(&bytes[..headers_end]).ok()?;
@@ -386,6 +557,66 @@ mod tests {
                 .contains("authorization: bearer super-secret-token")
         );
         assert!(requests[0].contains("\"event\":{\"id\":\"capture-event-1\""));
+    }
+
+    #[tokio::test]
+    async fn reads_and_validates_the_durable_worker_checkpoint() {
+        let body = serde_json::json!({
+            "job": {
+                "workspaceId": "workspace-a",
+                "jobId": "job-1",
+                "botId": "bot-1",
+                "ownerUserId": "owner-a",
+                "requestingActorId": "actor-a",
+                "sessionId": "session-a",
+                "sessionTitle": "Architecture review",
+                "provider": "anarlog",
+                "meeting": {
+                    "platform": "google_meet",
+                    "url": "https://meet.google.com/abc-defg-hij"
+                },
+                "createdAt": "2026-08-17T00:00:00Z"
+            },
+            "state": "capturing",
+            "nextSequence": 7
+        })
+        .to_string();
+        let (base_url, server) = checkpoint_server(body).await;
+        let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+
+        let checkpoint = sink.read_checkpoint().await.unwrap();
+
+        assert_eq!(checkpoint.job_id, "job-1");
+        assert_eq!(checkpoint.bot_id, "bot-1");
+        assert_eq!(
+            checkpoint.meeting_url.as_str(),
+            "https://meet.google.com/abc-defg-hij"
+        );
+        assert_eq!(checkpoint.state, BotState::Capturing);
+        assert_eq!(checkpoint.next_sequence, 7);
+        let request = server.await.unwrap();
+        assert!(
+            request.starts_with("GET /root/v1/workspaces/workspace-a/capture-jobs/job-1 HTTP/1.1")
+        );
+        assert!(
+            request
+                .to_ascii_lowercase()
+                .contains("authorization: bearer super-secret-token")
+        );
+    }
+
+    #[tokio::test]
+    async fn rejects_an_oversized_checkpoint_before_deserializing_it() {
+        let (base_url, server) =
+            checkpoint_server("x".repeat(MAX_CHECKPOINT_RESPONSE_BYTES + 1)).await;
+        let sink = ControlPlaneEventSink::new(sink_config(base_url)).unwrap();
+
+        assert!(matches!(
+            sink.read_checkpoint().await,
+            Err(CaptureEventSinkError::CheckpointResponseTooLarge)
+        ));
+
+        server.await.unwrap();
     }
 
     #[tokio::test]

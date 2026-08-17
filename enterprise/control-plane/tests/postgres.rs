@@ -170,6 +170,16 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
         .unwrap();
     assert_eq!(created.status(), StatusCode::CREATED);
 
+    let queued_checkpoint = app
+        .clone()
+        .oneshot(authorized_request(Method::GET, &create_path, Body::empty()))
+        .await
+        .unwrap();
+    assert_eq!(queued_checkpoint.status(), StatusCode::OK);
+    let queued_checkpoint = response_json(queued_checkpoint).await;
+    assert_eq!(queued_checkpoint["state"], "queued");
+    assert_eq!(queued_checkpoint["nextSequence"], 0);
+
     let conflicting_job_path =
         format!("/v1/workspaces/{workspace_id}/capture-jobs/other-job-{suffix}");
     let bot_conflict = app
@@ -255,6 +265,16 @@ async fn persists_projects_and_replays_capture_events_idempotently() {
     assert_eq!(conflict.status(), StatusCode::CONFLICT);
 
     let restarted = router(configured_state(&config).await.unwrap());
+    let resumed_checkpoint = restarted
+        .clone()
+        .oneshot(authorized_request(Method::GET, &create_path, Body::empty()))
+        .await
+        .unwrap();
+    assert_eq!(resumed_checkpoint.status(), StatusCode::OK);
+    let resumed_checkpoint = response_json(resumed_checkpoint).await;
+    assert_eq!(resumed_checkpoint["state"], "completed");
+    assert_eq!(resumed_checkpoint["nextSequence"], 8);
+
     let session_path = format!("/v1/workspaces/{workspace_id}/sessions/{job_id}");
     let session = restarted
         .oneshot(authorized_request(
