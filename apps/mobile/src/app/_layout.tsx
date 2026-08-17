@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
+import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,17 @@ function AnalyticsLifecycle() {
   return null;
 }
 
-function Screens() {
+function Screens({ accountUserId }: { accountUserId: string | null }) {
+  useMountEffect(() => {
+    void recoverInterruptedRecordings(accountUserId).catch((error) => {
+      captureOperationalError(error, {
+        operation: "recording_recovery",
+        level: "warning",
+        tags: { stage: "candidate_query" },
+      });
+    });
+  });
+
   return (
     <Stack
       screenOptions={{
@@ -78,7 +89,7 @@ function Gate() {
     }
   };
 
-  if (auth.bypass) return <Screens />;
+  if (auth.bypass) return <Screens accountUserId={null} />;
 
   if (
     auth.status === "loading" ||
@@ -108,7 +119,7 @@ function Gate() {
     );
   }
 
-  return <Screens />;
+  return <Screens accountUserId={auth.session?.user.id ?? null} />;
 }
 
 function RouteError({
