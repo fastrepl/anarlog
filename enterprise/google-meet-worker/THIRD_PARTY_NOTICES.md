@@ -9,6 +9,9 @@ Reference modules:
 - `core/meetings/modules/remote-browser/src/args.ts`
 - `core/meetings/modules/join/src/browser-args.ts`
 - `core/meetings/modules/join/src/googlemeet/admission.ts`
+- `core/meetings/modules/join/src/googlemeet/humanized/humanizedInteraction.ts`
+- `core/meetings/modules/join/src/googlemeet/humanized/x11Input.ts`
+- `core/meetings/modules/join/src/googlemeet/join.ts`
 - `core/meetings/modules/join/src/googlemeet/selectors.ts`
 
 The Anarlog implementation was rewritten in Rust, reorganized around Anarlog's provider-neutral capture contract, and modified for direct Chromium DevTools ownership. Files carrying an adaptation notice have been changed by Fastrepl, Inc.

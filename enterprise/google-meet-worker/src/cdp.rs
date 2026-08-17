@@ -125,6 +125,17 @@ impl CdpPage {
             .await
             .map_err(CdpError::WebSocket)
     }
+
+    #[cfg(test)]
+    pub(crate) fn from_test_websocket(
+        websocket: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ) -> Self {
+        Self {
+            websocket,
+            next_command_id: 1,
+            command_timeout: Duration::from_secs(1),
+        }
+    }
 }
 
 #[derive(Debug, serde::Deserialize)]
