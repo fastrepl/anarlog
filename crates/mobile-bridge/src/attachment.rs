@@ -100,9 +100,17 @@ impl AttachmentStorage {
 
     fn destination(&self, attachment: &AttachmentRecord) -> Result<PathBuf, BridgeError> {
         validate_session_id(&attachment.session_id)?;
-        validate_audio_relative_path(&attachment.relative_path)?;
+        validate_restore_layout(attachment)?;
         let session_directory = self.session_directory(&attachment.session_id, true)?;
-        Ok(session_directory.join(&attachment.relative_path))
+        let destination = session_directory.join(&attachment.relative_path);
+        let parent = destination
+            .parent()
+            .ok_or_else(|| attachment_error("attachment destination is invalid"))?;
+        std::fs::create_dir_all(parent).map_err(attachment_error)?;
+        if std::fs::canonicalize(parent).map_err(attachment_error)? != parent {
+            return Err(attachment_error("attachment destination is invalid"));
+        }
+        Ok(destination)
     }
 
     fn source(&self, attachment: &UploadRecord) -> Result<PathBuf, BridgeError> {
@@ -159,6 +167,7 @@ struct AttachmentRecord {
     workspace_id: String,
     relative_path: String,
     source_type: String,
+    source_id: String,
     sha256: String,
     size_bytes: i64,
     cloud_object_key: String,
@@ -622,9 +631,10 @@ async fn load_attachment(
 ) -> Result<AttachmentRecord, BridgeError> {
     sqlx::query_as(
         "SELECT id AS attachment_id, session_id, workspace_id, relative_path,
-                source_type, sha256, size_bytes, cloud_object_key
+                source_type, source_id, sha256, size_bytes, cloud_object_key
          FROM session_attachments
-         WHERE id = ? AND session_id = ? AND source_type = 'session_audio'
+         WHERE id = ? AND session_id = ?
+           AND source_type IN ('session_audio', 'note_upload')
            AND deleted_at IS NULL",
     )
     .bind(&request.attachment_id)
@@ -741,10 +751,14 @@ fn validate_opaque_id(value: &str) -> Result<(), BridgeError> {
 
 fn validate_request(request: &RestoreAttachmentRequest) -> Result<(), BridgeError> {
     validate_session_id(&request.session_id)?;
-    if request.attachment_id != format!("session-audio:{}", request.session_id)
-        || request.format_version != FORMAT_VERSION
+    if request.format_version != FORMAT_VERSION
         || !valid_sha256(&request.ciphertext_sha256)
         || request.ciphertext_size_bytes == 0
+    {
+        return Err(attachment_error("attachment restore metadata is invalid"));
+    }
+    if request.attachment_id != format!("session-audio:{}", request.session_id)
+        && validate_uuid_v4(&request.attachment_id).is_err()
     {
         return Err(attachment_error("attachment restore metadata is invalid"));
     }
@@ -758,14 +772,29 @@ fn validate_attachment(
     if attachment.attachment_id != request.attachment_id
         || attachment.session_id != request.session_id
         || attachment.workspace_id.is_empty()
-        || attachment.source_type != "session_audio"
         || !valid_sha256(&attachment.sha256)
         || attachment.size_bytes <= 0
         || attachment.cloud_object_key != request.object_key
     {
         return Err(attachment_error("attachment restore state is invalid"));
     }
+    validate_restore_layout(attachment)?;
     Ok(())
+}
+
+fn validate_restore_layout(attachment: &AttachmentRecord) -> Result<(), BridgeError> {
+    match attachment.source_type.as_str() {
+        "session_audio"
+            if attachment.attachment_id == format!("session-audio:{}", attachment.session_id) =>
+        {
+            validate_audio_relative_path(&attachment.relative_path)
+        }
+        "note_upload" => {
+            validate_uuid_v4(&attachment.attachment_id)?;
+            validate_note_attachment_relative_path(&attachment.relative_path, &attachment.source_id)
+        }
+        _ => Err(attachment_error("attachment restore state is invalid")),
+    }
 }
 
 fn canonical_directory(value: String) -> Result<PathBuf, BridgeError> {
@@ -1260,5 +1289,151 @@ mod tests {
             local_state,
             ("present".to_string(), "audio.wav".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn restores_encrypted_note_attachment_and_commits_local_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let documents = directory.path().join("documents");
+        let cache = directory.path().join("cache");
+        std::fs::create_dir_all(&documents).unwrap();
+        std::fs::create_dir_all(&cache).unwrap();
+        let db = Arc::new(
+            crate::db::open_app_db(&directory.path().join("app.db"), false)
+                .await
+                .unwrap(),
+        );
+        let recovery_key = anlg_e2ee::RecoveryKey::generate().unwrap();
+        let workspace_id = Uuid::new_v4().to_string();
+        let session_id = Uuid::new_v4().to_string();
+        let attachment_id = Uuid::new_v4().to_string();
+        let source_id = Uuid::new_v4().to_string();
+        let relative_path = format!("attachments/{source_id}");
+        let owner_id = Uuid::new_v4();
+        let object_id = Uuid::new_v4();
+        let object_key = format!("{owner_id}/{object_id}.anb1");
+        let plaintext = b"mobile encrypted note attachment";
+        let plaintext_sha256 = hex_digest(Sha256::digest(plaintext).as_slice());
+        let source = directory.path().join("source.pdf");
+        let ciphertext = directory.path().join("ciphertext.anb1");
+        std::fs::write(&source, plaintext).unwrap();
+        let workspace_key = recovery_key.workspace_key(&workspace_id).unwrap();
+        let context = AttachmentBlobContext::new(
+            workspace_id.clone(),
+            attachment_id.clone(),
+            object_id.to_string(),
+        )
+        .unwrap();
+        let expected_plaintext =
+            AttachmentBlobPlaintextMetadata::from_hex(plaintext.len() as u64, &plaintext_sha256)
+                .unwrap();
+        let (blob, guard) = seal_attachment_to_cache(
+            workspace_key,
+            context,
+            source,
+            ciphertext.clone(),
+            expected_plaintext,
+        )
+        .await
+        .unwrap();
+        guard.disarm();
+
+        sqlx::query("INSERT INTO sessions (id, workspace_id) VALUES (?, ?)")
+            .bind(&session_id)
+            .bind(&workspace_id)
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO session_attachments (
+               id, workspace_id, session_id, filename, relative_path,
+               content_type, size_bytes, sha256, cloud_object_key, source_type, source_id
+             ) VALUES (?, ?, ?, 'product brief.pdf', ?, 'application/pdf', ?, ?, ?,
+                       'note_upload', ?)",
+        )
+        .bind(&attachment_id)
+        .bind(&workspace_id)
+        .bind(&session_id)
+        .bind(&relative_path)
+        .bind(i64::try_from(plaintext.len()).unwrap())
+        .bind(&plaintext_sha256)
+        .bind(&object_key)
+        .bind(&source_id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let body = std::fs::read(ciphertext).unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            )
+            .unwrap();
+            stream.write_all(&body).unwrap();
+        });
+
+        let hook = Arc::new(anlg_db_sync::E2eeSyncHook::default());
+        hook.set_personal_workspace(&workspace_id, &recovery_key)
+            .unwrap();
+        let request = serde_json::json!({
+            "sessionId": session_id,
+            "attachmentId": attachment_id,
+            "objectId": object_id.to_string(),
+            "objectKey": object_key,
+            "signedUrl": format!(
+                "http://{address}/storage/v1/object/sign/attachment-backups/{object_key}?token=test"
+            ),
+            "supabaseUrl": format!("http://{address}"),
+            "ciphertextSha256": blob.ciphertext.sha256_hex(),
+            "ciphertextSizeBytes": blob.ciphertext.size_bytes,
+            "formatVersion": blob.version,
+        });
+        let storage = AttachmentStorage::new(
+            documents.to_string_lossy().into_owned(),
+            cache.to_string_lossy().into_owned(),
+        )
+        .unwrap();
+
+        let restored: serde_json::Value = serde_json::from_str(
+            &restore_attachment(
+                Arc::clone(&db),
+                hook,
+                storage,
+                request.to_string(),
+                TransferOperation::new(),
+            )
+            .await
+            .unwrap(),
+        )
+        .unwrap();
+        server.join().unwrap();
+
+        assert_eq!(restored["attachmentId"], attachment_id);
+        assert_eq!(restored["relativePath"], relative_path);
+        assert_eq!(
+            std::fs::read(
+                documents
+                    .join("sessions")
+                    .join(&session_id)
+                    .join(&relative_path)
+            )
+            .unwrap(),
+            plaintext
+        );
+        let local_state: (String, String) = sqlx::query_as(
+            "SELECT availability, relative_path FROM attachment_local_state WHERE attachment_id = ?",
+        )
+        .bind(&attachment_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(local_state, ("present".to_string(), relative_path));
     }
 }
