@@ -8,11 +8,11 @@ use anlg_e2ee::{
     AttachmentBlobPlaintextMetadata, WorkspaceKey,
 };
 use sqlx::FromRow;
-use tauri::{Manager, Runtime};
+use tauri::Runtime;
 use uuid::Uuid;
 
 use super::cache::{
-    cleanup_shared_upload_path, file_matches, file_matches_cancellable,
+    cleanup_shared_upload_path, delete_guard_root, file_matches, file_matches_cancellable,
     file_matches_cancellable_async, sync_destination_directory, valid_cache_id, valid_sha256,
 };
 use super::{
@@ -930,15 +930,6 @@ fn unique_attachment_conflict_path(destination: &Path) -> Result<PathBuf> {
         .ok_or(Error::LocalAttachmentUnavailable)?
         .to_string_lossy();
     Ok(parent.join(format!("{filename}.anarlog-conflict-{}", Uuid::new_v4())))
-}
-
-fn delete_guard_root<R: Runtime>(app: &tauri::AppHandle<R>) -> Result<PathBuf> {
-    Ok(app
-        .path()
-        .app_data_dir()
-        .map_err(|_| Error::CacheUnavailable)?
-        .join("attachment-sync")
-        .join("delete-guards"))
 }
 
 pub(super) async fn create_delete_guard_root(path: &Path) -> Result<()> {

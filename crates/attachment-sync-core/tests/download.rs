@@ -1,4 +1,10 @@
-use super::*;
+use anlg_e2ee::{AttachmentBlobContext, AttachmentBlobPlaintextMetadata};
+use attachment_sync_core::{
+    DownloadObject, hex_digest, persist_staged_attachment, require_configured_supabase_url,
+    seal_attachment_to_cache, stage_attachment_restore, validate_signed_download_url,
+};
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 #[test]
 fn signed_urls_are_origin_and_path_bound() {
@@ -83,8 +89,8 @@ fn missing_or_empty_configured_origins_fail_closed() {
     );
 }
 
-#[test]
-fn restores_encrypted_attachment_atomically() {
+#[tokio::test]
+async fn seals_and_restores_encrypted_attachment_atomically() {
     let directory = tempfile::tempdir().unwrap();
     let source_path = directory.path().join("source.bin");
     let cache_path = directory.path().join("cache.anb1");
@@ -105,12 +111,16 @@ fn restores_encrypted_attachment_atomically() {
         &hex_digest(Sha256::digest(plaintext).as_slice()),
     )
     .unwrap();
-    let metadata = {
-        let mut source = std::fs::File::open(source_path).unwrap();
-        let mut cache = std::fs::File::create(&cache_path).unwrap();
-        key.seal_attachment_blob(&context, &mut source, &mut cache, &expected_plaintext)
-            .unwrap()
-    };
+    let (metadata, cache_guard) = seal_attachment_to_cache(
+        key.clone(),
+        context.clone(),
+        source_path,
+        cache_path.clone(),
+        expected_plaintext,
+    )
+    .await
+    .unwrap();
+    cache_guard.disarm();
 
     let staged = stage_attachment_restore(
         &key,

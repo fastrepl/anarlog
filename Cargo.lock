@@ -1592,6 +1592,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
+name = "attachment-sync-core"
+version = "0.1.0"
+dependencies = [
+ "e2ee",
+ "futures-util",
+ "reqwest 0.13.2",
+ "sha2 0.11.0",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "audacity"
 version = "0.1.0"
 
@@ -18203,10 +18220,9 @@ dependencies = [
 name = "tauri-plugin-attachment-sync"
 version = "0.1.0"
 dependencies = [
+ "attachment-sync-core",
  "e2ee",
  "fs-sync-core",
- "futures-util",
- "reqwest 0.13.2",
  "serde",
  "sha2 0.11.0",
  "specta",
@@ -18218,10 +18234,8 @@ dependencies = [
  "tauri-plugin-settings",
  "tauri-specta",
  "tempfile",
- "thiserror 2.0.18",
  "tokio",
  "tokio-util",
- "url",
  "uuid",
 ]
 

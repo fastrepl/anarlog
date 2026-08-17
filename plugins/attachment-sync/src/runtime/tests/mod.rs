@@ -1,7 +1,6 @@
 use super::*;
 
 mod delete_guard;
-mod download;
 mod transfer;
 
 fn shared_upload_attachment(source_type: &str) -> SharedUploadAttachment {

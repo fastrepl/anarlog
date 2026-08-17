@@ -4,6 +4,7 @@ use std::path::{Component, Path, PathBuf};
 #[cfg(test)]
 use std::time::{Duration, SystemTime};
 
+use anlg_attachment_sync_core::seal_attachment_to_cache;
 use anlg_e2ee::{
     AttachmentBlobCiphertextMetadata, AttachmentBlobContext, AttachmentBlobMetadata,
     AttachmentBlobPlaintextMetadata, WorkspaceKey,
@@ -56,7 +57,8 @@ use download::{
 const FORMAT_VERSION: i16 = 1;
 const MAX_PLAINTEXT_BYTES: u64 = anlg_e2ee::ATTACHMENT_BLOB_MAX_PLAINTEXT_BYTES;
 const MAX_CIPHERTEXT_BYTES: u64 = 545_259_520;
-pub(crate) const SHARED_PREVIEW_SCOPE_PREFIX: &str = "preview:";
+pub(crate) const SHARED_PREVIEW_SCOPE_PREFIX: &str =
+    anlg_attachment_sync_core::SHARED_PREVIEW_SCOPE_PREFIX;
 
 #[derive(Debug, Clone, FromRow)]
 struct TransferAttachment {
@@ -193,26 +195,8 @@ pub async fn prepare_upload<R: Runtime>(
         record.attachment_id.clone(),
         object_id.to_string(),
     )?;
-    let source_path_for_seal = source_path.clone();
-    let cache_path_for_seal = cache_path.clone();
-    let metadata = tokio::task::spawn_blocking(move || {
-        let mut source = std::fs::File::open(source_path_for_seal)?;
-        let mut destination = std::fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&cache_path_for_seal)?;
-        let cache_guard = CacheFileGuard::new(cache_path_for_seal);
-        let metadata =
-            key.seal_attachment_blob(&context, &mut source, &mut destination, &expected)?;
-        destination.sync_all()?;
-        Ok::<_, Error>((metadata, cache_guard))
-    })
-    .await
-    .map_err(|_| Error::CacheUnavailable)?;
-    let (metadata, cache_guard) = match metadata {
-        Ok(result) => result,
-        Err(error) => return Err(error),
-    };
+    let (metadata, cache_guard) =
+        seal_attachment_to_cache(key, context, source_path, cache_path, expected).await?;
 
     let ciphertext_sha256 = metadata.ciphertext.sha256_hex();
     let updated = sqlx::query(

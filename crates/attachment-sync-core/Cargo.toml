@@ -1,0 +1,21 @@
+[package]
+name = "attachment-sync-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anlg-e2ee = { workspace = true }
+
+futures-util = { workspace = true }
+reqwest = { workspace = true, features = ["stream"] }
+sha2 = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite"] }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "macros"] }
+tokio-util = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
