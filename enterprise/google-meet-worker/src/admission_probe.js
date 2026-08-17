@@ -14,7 +14,10 @@
   };
   const normalizedText = (element) =>
     (element.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
-  const visibleText = (copies, selectors = "button,div,p,span") => {
+  const visibleText = (
+    copies,
+    selectors = 'button,div,p,span,h1,h2,h3,[role="heading"]',
+  ) => {
     const lowered = copies.map((copy) => copy.toLowerCase());
     for (const element of document.querySelectorAll(selectors)) {
       if (!visible(element)) continue;
@@ -49,6 +52,9 @@
     "not allowed to join",
     "not admitted",
     "ask to join again",
+    "can't join this video call",
+    "can’t join this video call",
+    "cannot join this video call",
   ]);
   const ambiguousError = visibleText([
     "meeting not found",
@@ -71,7 +77,6 @@
       "please wait until a meeting host brings you into the call",
       "waiting for the host to let you in",
       "you're in the waiting room",
-      "return to home screen",
     ]) ||
     visibleSelectorCount([
       '[aria-label*="waiting room" i]',

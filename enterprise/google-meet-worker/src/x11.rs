@@ -43,14 +43,9 @@ impl X11Input {
     }
 
     pub async fn move_absolute(&self, x: i32, y: i32) -> Result<(), X11InputError> {
-        self.run([
-            "mousemove".to_owned(),
-            "--sync".to_owned(),
-            x.to_string(),
-            y.to_string(),
-        ])
-        .await
-        .map(|_| ())
+        self.run(["mousemove".to_owned(), x.to_string(), y.to_string()])
+            .await
+            .map(|_| ())
     }
 
     pub async fn button_down(&self) -> Result<(), X11InputError> {
@@ -198,7 +193,7 @@ fi
         );
 
         let calls = std::fs::read_to_string(log).unwrap();
-        assert!(calls.contains(":77|mousemove --sync 100 200"));
+        assert!(calls.contains(":77|mousemove 100 200"));
         assert!(calls.contains(":77|type --clearmodifiers --delay 60 -- A; $(safe)"));
         assert!(calls.contains(":77|getmouselocation --shell"));
     }

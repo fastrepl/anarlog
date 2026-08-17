@@ -18,6 +18,8 @@ const INSTALL_MOUSE_PROBE: &str = r#"(() => {
 })()"#;
 const LAST_MOUSE_POSITION: &str = "window.__anlgLastMouse || null";
 const TARGET_VERIFY_ATTEMPTS: usize = 3;
+const LOBBY_READY_TIMEOUT: Duration = Duration::from_secs(30);
+const LOBBY_READY_POLL_INTERVAL: Duration = Duration::from_millis(250);
 const POINTER_SETTLE: Duration = Duration::from_millis(120);
 const CLICK_HOLD: Duration = Duration::from_millis(70);
 const NAME_TYPING_DELAY: Duration = Duration::from_millis(75);
@@ -47,6 +49,8 @@ pub struct LobbySnapshot {
     pub microphone_on: Option<LobbyTarget>,
     pub camera_on: Option<LobbyTarget>,
     #[serde(default)]
+    pub device_error_dismissal: Option<LobbyTarget>,
+    #[serde(default)]
     pub cta_candidates: Vec<String>,
 }
 
@@ -63,6 +67,7 @@ enum LobbyTargetKind {
     JoinCta,
     MicrophoneOn,
     CameraOn,
+    DeviceErrorDismissal,
 }
 
 impl LobbyTargetKind {
@@ -72,6 +77,7 @@ impl LobbyTargetKind {
             Self::JoinCta => "join_cta",
             Self::MicrophoneOn => "microphone_on",
             Self::CameraOn => "camera_on",
+            Self::DeviceErrorDismissal => "device_error_dismissal",
         }
     }
 
@@ -81,6 +87,7 @@ impl LobbyTargetKind {
             Self::JoinCta => snapshot.join_cta,
             Self::MicrophoneOn => snapshot.microphone_on,
             Self::CameraOn => snapshot.camera_on,
+            Self::DeviceErrorDismissal => snapshot.device_error_dismissal,
         }
     }
 }
@@ -102,18 +109,70 @@ impl<'a> LobbyController<'a> {
 
     pub async fn join(&mut self, bot_name: &str, authenticated: bool) -> Result<(), LobbyError> {
         self.input.verify_available().await?;
-        let initial = self.probe().await?;
-        if authenticated && initial.signed_out_lobby {
-            return Err(LobbyError::AuthenticatedProfileSignedOut);
-        }
+        self.wait_until_ready(authenticated).await?;
         if !authenticated {
             X11Input::validate_text(bot_name, NAME_TYPING_DELAY)?;
             self.trusted_click(LobbyTargetKind::NameInput).await?;
             self.input.type_text(bot_name, NAME_TYPING_DELAY).await?;
         }
+        self.wait_until_joinable().await?;
         self.click_if_present(LobbyTargetKind::MicrophoneOn).await?;
         self.click_if_present(LobbyTargetKind::CameraOn).await?;
         self.trusted_click(LobbyTargetKind::JoinCta).await
+    }
+
+    async fn wait_until_ready(&mut self, authenticated: bool) -> Result<(), LobbyError> {
+        let deadline = tokio::time::Instant::now() + LOBBY_READY_TIMEOUT;
+        loop {
+            let snapshot = self.probe().await?;
+            if snapshot.device_error_dismissal.is_some() {
+                self.click_if_present(LobbyTargetKind::DeviceErrorDismissal)
+                    .await?;
+                continue;
+            }
+            if authenticated && snapshot.signed_out_lobby && snapshot.name_input.is_some() {
+                return Err(LobbyError::AuthenticatedProfileSignedOut);
+            }
+            let lobby_ready = if authenticated {
+                snapshot.join_cta.is_some()
+            } else {
+                snapshot.name_input.is_some()
+            };
+            if lobby_ready {
+                return Ok(());
+            }
+            let now = tokio::time::Instant::now();
+            if now >= deadline {
+                return Err(LobbyError::LobbyNotReady {
+                    timeout: LOBBY_READY_TIMEOUT,
+                    cta_candidates: snapshot.cta_candidates,
+                });
+            }
+            tokio::time::sleep(LOBBY_READY_POLL_INTERVAL.min(deadline - now)).await;
+        }
+    }
+
+    async fn wait_until_joinable(&mut self) -> Result<(), LobbyError> {
+        let deadline = tokio::time::Instant::now() + LOBBY_READY_TIMEOUT;
+        loop {
+            let snapshot = self.probe().await?;
+            if snapshot.device_error_dismissal.is_some() {
+                self.click_if_present(LobbyTargetKind::DeviceErrorDismissal)
+                    .await?;
+                continue;
+            }
+            if snapshot.join_cta.is_some() {
+                return Ok(());
+            }
+            let now = tokio::time::Instant::now();
+            if now >= deadline {
+                return Err(LobbyError::LobbyNotReady {
+                    timeout: LOBBY_READY_TIMEOUT,
+                    cta_candidates: snapshot.cta_candidates,
+                });
+            }
+            tokio::time::sleep(LOBBY_READY_POLL_INTERVAL.min(deadline - now)).await;
+        }
     }
 
     pub async fn probe(&mut self) -> Result<LobbySnapshot, LobbyError> {
@@ -124,7 +183,10 @@ impl<'a> LobbyController<'a> {
 
     async fn click_if_present(&mut self, kind: LobbyTargetKind) -> Result<(), LobbyError> {
         if kind.target_in(&self.probe().await?).is_some() {
-            self.trusted_click(kind).await?;
+            match self.trusted_click(kind).await {
+                Err(LobbyError::TargetMissing(marker)) if marker == kind.marker() => {}
+                result => result?,
+            }
         }
         Ok(())
     }
@@ -245,6 +307,13 @@ pub enum LobbyError {
     X11(#[from] X11InputError),
     #[error("authenticated Chromium profile is signed out")]
     AuthenticatedProfileSignedOut,
+    #[error(
+        "Google Meet lobby did not become ready within {timeout:?} (CTA candidates: {cta_candidates:?})"
+    )]
+    LobbyNotReady {
+        timeout: Duration,
+        cta_candidates: Vec<String>,
+    },
     #[error("Google Meet lobby target is not available: {0}")]
     TargetMissing(&'static str),
     #[error("browser window geometry is invalid")]
@@ -282,6 +351,7 @@ mod tests {
             join_cta: None,
             microphone_on: None,
             camera_on: None,
+            device_error_dismissal: None,
             cta_candidates: vec![],
         }
     }
@@ -322,23 +392,73 @@ mod tests {
         let server = tokio::spawn(async move {
             let (stream, _) = listener.accept().await.unwrap();
             let mut websocket = accept_async(stream).await.unwrap();
+            let mut lobby_probes = 0;
             while let Some(Ok(Message::Text(command))) = websocket.next().await {
                 let command: Value = serde_json::from_str(command.as_ref()).unwrap();
                 let expression = command["params"]["expression"].as_str().unwrap();
                 let value = if expression.contains("cta_candidates") {
-                    json!({
-                        "screen_x": 0.0,
-                        "screen_y": 0.0,
-                        "inner_width": 1000.0,
-                        "inner_height": 720.0,
-                        "device_pixel_ratio": 1.0,
-                        "signed_out_lobby": true,
-                        "name_input": {"center_x": 100.0, "center_y": 120.0},
-                        "join_cta": {"center_x": 800.0, "center_y": 600.0},
-                        "microphone_on": null,
-                        "camera_on": null,
-                        "cta_candidates": ["Ask to join"]
-                    })
+                    lobby_probes += 1;
+                    if lobby_probes == 1 {
+                        json!({
+                            "screen_x": 0.0,
+                            "screen_y": 0.0,
+                            "inner_width": 1000.0,
+                            "inner_height": 720.0,
+                            "device_pixel_ratio": 1.0,
+                            "signed_out_lobby": false,
+                            "name_input": null,
+                            "join_cta": null,
+                            "microphone_on": null,
+                            "camera_on": null,
+                            "cta_candidates": []
+                        })
+                    } else if lobby_probes <= 5 {
+                        json!({
+                            "screen_x": 0.0,
+                            "screen_y": 0.0,
+                            "inner_width": 1000.0,
+                            "inner_height": 720.0,
+                            "device_pixel_ratio": 1.0,
+                            "signed_out_lobby": false,
+                            "name_input": null,
+                            "join_cta": null,
+                            "microphone_on": null,
+                            "camera_on": null,
+                            "device_error_dismissal": {
+                                "center_x": 500.0,
+                                "center_y": 400.0
+                            },
+                            "cta_candidates": ["Close"]
+                        })
+                    } else if lobby_probes <= 7 {
+                        json!({
+                            "screen_x": 0.0,
+                            "screen_y": 0.0,
+                            "inner_width": 1000.0,
+                            "inner_height": 720.0,
+                            "device_pixel_ratio": 1.0,
+                            "signed_out_lobby": true,
+                            "name_input": {"center_x": 100.0, "center_y": 120.0},
+                            "join_cta": null,
+                            "microphone_on": null,
+                            "camera_on": null,
+                            "cta_candidates": []
+                        })
+                    } else {
+                        json!({
+                            "screen_x": 0.0,
+                            "screen_y": 0.0,
+                            "inner_width": 1000.0,
+                            "inner_height": 720.0,
+                            "device_pixel_ratio": 1.0,
+                            "signed_out_lobby": true,
+                            "name_input": {"center_x": 100.0, "center_y": 120.0},
+                            "join_cta": {"center_x": 800.0, "center_y": 600.0},
+                            "microphone_on": null,
+                            "camera_on": null,
+                            "cta_candidates": ["Ask to join"]
+                        })
+                    }
                 } else if expression == LAST_MOUSE_POSITION {
                     json!({"x": 350.0, "y": 288.0})
                 } else {
@@ -371,7 +491,7 @@ mod tests {
                 r#"#!/bin/sh
 printf '%s\n' "$*" >> "{}"
 if [ "$1" = "mousemove" ]; then
-  printf '%s %s\n' "$3" "$4" > "{}"
+  printf '%s %s\n' "$2" "$3" > "{}"
 elif [ "$1" = "getmouselocation" ]; then
   read x y < "{}"
   printf 'X=%s\nY=%s\nSCREEN=0\nWINDOW=1\n' "$x" "$y"
@@ -402,7 +522,7 @@ fi
 
         let calls = std::fs::read_to_string(calls).unwrap();
         assert!(calls.contains("type --clearmodifiers --delay 75 -- Anarlog Notes"));
-        assert_eq!(calls.matches("mousedown 1").count(), 2);
-        assert_eq!(calls.matches("mouseup 1").count(), 2);
+        assert_eq!(calls.matches("mousedown 1").count(), 3);
+        assert_eq!(calls.matches("mouseup 1").count(), 3);
     }
 }

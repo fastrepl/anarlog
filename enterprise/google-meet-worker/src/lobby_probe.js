@@ -64,6 +64,25 @@
     'button[aria-label*="Turn off microphone" i]',
   ]);
   const camera = firstVisible(['button[aria-label*="Turn off camera" i]']);
+  const deviceErrorCopies = [
+    "mic not found",
+    "speaker not found",
+    "camera not found",
+  ];
+  const deviceErrorDismissal = buttons.find((button) => {
+    if (
+      !["close", "dismiss", "got it"].includes(buttonText(button).toLowerCase())
+    ) {
+      return false;
+    }
+    let ancestor = button.parentElement;
+    for (let depth = 0; ancestor && depth < 8; depth += 1) {
+      const text = buttonText(ancestor).toLowerCase();
+      if (deviceErrorCopies.some((copy) => text.includes(copy))) return true;
+      ancestor = ancestor.parentElement;
+    }
+    return false;
+  });
 
   for (const element of document.querySelectorAll(`[${marker}]`)) {
     element.removeAttribute(marker);
@@ -89,6 +108,10 @@
     join_cta: target(joinCta, "join_cta"),
     microphone_on: target(microphone, "microphone_on"),
     camera_on: target(camera, "camera_on"),
+    device_error_dismissal: target(
+      deviceErrorDismissal,
+      "device_error_dismissal",
+    ),
     cta_candidates: buttons
       .slice(0, 64)
       .map((button) => buttonText(button).slice(0, 64))

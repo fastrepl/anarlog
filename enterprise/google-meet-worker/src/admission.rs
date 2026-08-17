@@ -157,6 +157,31 @@ mod tests {
     }
 
     #[test]
+    fn terminal_video_call_denial_wins_over_captcha_and_stale_waiting_copy() {
+        let mut classifier = AdmissionClassifier::default();
+        let outcome = classifier.classify(
+            &AdmissionSnapshot {
+                waiting_room_visible: true,
+                explicit_denial_indicator: Some("can't join this video call".into()),
+                ambiguous_error_indicator: Some("Try again".into()),
+                visible_recaptcha_challenge: true,
+                ..Default::default()
+            },
+            Instant::now(),
+        );
+
+        assert_eq!(
+            outcome,
+            AdmissionOutcome::Rejected(AdmissionRejection {
+                reason: AdmissionRejectionReason::HostDenied,
+                indicator: "can't join this video call".into(),
+            })
+        );
+        assert!(ADMISSION_PROBE_EXPRESSION.contains("can't join this video call"));
+        assert!(ADMISSION_PROBE_EXPRESSION.contains("h1,h2,h3"));
+    }
+
+    #[test]
     fn captcha_suppression_expires_instead_of_polling_forever() {
         let grace = Duration::from_secs(120);
         let mut classifier = AdmissionClassifier::new(grace);
