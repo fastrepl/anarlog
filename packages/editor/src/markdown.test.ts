@@ -758,6 +758,32 @@ describe("fileAttachment round-trip", () => {
     );
   });
 
+  test("round-trips a portable attachment id without a local URL", () => {
+    const attachmentId = "9cfb2f08-a02f-41cf-a13e-07f36b87ef2b";
+    const markdown = json2md({
+      type: "doc",
+      content: [
+        {
+          type: "fileAttachment",
+          attrs: { attachmentId, name: "report.pdf" },
+        },
+      ],
+    });
+
+    expect(markdown).toBe(`[report.pdf](attachment://${attachmentId})`);
+    const attachment = md2json(markdown).content?.[0];
+    expect(attachment?.type).toBe("fileAttachment");
+    expect(attachment?.attrs?.attachmentId).toBe(attachmentId);
+    expect(attachment?.attrs?.src).toBeNull();
+  });
+
+  test("does not accept a path as a portable attachment id", () => {
+    const parsed = md2json("[report.pdf](attachment://../report.pdf)");
+    expect(parsed.content?.some((node) => node.type === "fileAttachment")).toBe(
+      false,
+    );
+  });
+
   test("round-trips two file attachments without leaking URL tail", () => {
     const doc: JSONContent = {
       type: "doc",

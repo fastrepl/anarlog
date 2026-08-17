@@ -257,9 +257,14 @@ export function getSerializer(): MarkdownSerializer {
 
       fileAttachment(state, node) {
         const name = node.attrs.name || "file";
-        const src = (node.attrs.src || "")
-          .replace(/\(/g, "%28")
-          .replace(/\)/g, "%29");
+        const attachmentId = node.attrs.attachmentId || "";
+        const source =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+            attachmentId,
+          )
+            ? `attachment://${attachmentId}`
+            : node.attrs.src || "";
+        const src = source.replace(/\(/g, "%28").replace(/\)/g, "%29");
         state.write(`[${name}](${src})`);
         state.closeBlock(node);
       },

@@ -366,7 +366,6 @@ function fileAttachmentPlugin(md: MarkdownIt) {
       const max = state.eMarks[startLine];
       const line = state.src.slice(pos, max);
 
-      // [name](asset://localhost/...) with balanced parens in the URL
       if (!line.startsWith("[")) return false;
 
       const closeBracket = line.indexOf("](");
@@ -376,8 +375,11 @@ function fileAttachmentPlugin(md: MarkdownIt) {
       if (name.includes("]")) return false;
 
       const urlStart = closeBracket + 2;
-      const PREFIX = "asset://localhost/";
-      if (!line.startsWith(PREFIX, urlStart)) return false;
+      const assetPrefix = "asset://localhost/";
+      const portablePrefix = "attachment://";
+      const isAssetUrl = line.startsWith(assetPrefix, urlStart);
+      const isPortableUrl = line.startsWith(portablePrefix, urlStart);
+      if (!isAssetUrl && !isPortableUrl) return false;
 
       let depth = 1;
       let i = urlStart;
@@ -394,9 +396,21 @@ function fileAttachmentPlugin(md: MarkdownIt) {
       if (silent) return true;
 
       const url = line.slice(urlStart, i);
+      const attachmentId = isPortableUrl
+        ? url.slice(portablePrefix.length)
+        : null;
+      if (
+        attachmentId !== null &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+          attachmentId,
+        )
+      ) {
+        return false;
+      }
       const token = state.push("file_attachment", "", 0);
       token.attrSet("name", name);
-      token.attrSet("src", url);
+      if (attachmentId) token.attrSet("attachment-id", attachmentId);
+      else token.attrSet("src", url);
       token.map = [startLine, startLine + 1];
       token.content = line;
       state.line = startLine + 1;
@@ -586,7 +600,7 @@ export function getParser(): MarkdownParser {
     file_attachment: {
       node: "fileAttachment",
       getAttrs: (tok) => ({
-        attachmentId: null,
+        attachmentId: tok.attrGet("attachment-id"),
         name: tok.attrGet("name") ?? "",
         mimeType: "",
         src: tok.attrGet("src"),
