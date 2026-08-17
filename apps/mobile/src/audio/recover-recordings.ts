@@ -14,6 +14,11 @@ WHERE session.deleted_at IS NULL
   AND (
     ? IS NULL
     OR session.owner_user_id = ?
+    OR session.owner_user_id = (
+      SELECT json_extract(value_json, '$.workspace_id')
+      FROM app_settings
+      WHERE id = 'cloudsync_workspace_binding'
+    )
     OR session.owner_user_id IS NULL
     OR session.owner_user_id = '00000000-0000-0000-0000-000000000000'
   )
