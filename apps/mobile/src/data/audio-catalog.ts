@@ -99,8 +99,11 @@ export async function catalogSessionAudio(
 
 const SESSION_AUDIO_SQL = `
 SELECT
+  attachment.id,
   attachment.filename,
+  attachment.content_type,
   attachment.size_bytes,
+  attachment.sha256,
   COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') AS transcript_status,
   attachment.created_at,
   CASE WHEN local_state.availability = 'present' THEN 1 ELSE 0 END AS available_locally,

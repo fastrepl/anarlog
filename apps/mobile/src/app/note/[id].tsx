@@ -26,6 +26,7 @@ import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
+import { restoreSessionAudioFromPicker } from "@/data/restore-session-audio";
 import {
   deleteSession,
   saveSessionNote,
@@ -164,6 +165,11 @@ export default function NoteScreen() {
   const transcription = useTranscriptionState(id);
   const [listening, setListening] = useState(listen === "1");
   const recorder = useSessionRecorder(id, listening);
+  const [audioRestoreError, setAudioRestoreError] = useState<string | null>(
+    null,
+  );
+  const [restoringAudio, setRestoringAudio] = useState(false);
+  const audioRestoreBusyRef = useRef(false);
   const localAudioFile = audio.data?.localRelativePath
     ? new File(Paths.document, "sessions", id, audio.data.localRelativePath)
     : null;
@@ -269,6 +275,36 @@ export default function NoteScreen() {
     }
   };
 
+  const handleChooseRecording = async () => {
+    if (audioRestoreBusyRef.current || !audio.data) return;
+    audioRestoreBusyRef.current = true;
+    setRestoringAudio(true);
+    setAudioRestoreError(null);
+    try {
+      const result = await restoreSessionAudioFromPicker(id, audio.data);
+      if (result === "restored") {
+        captureAnalytics("file_uploaded", {
+          entry_point: "mobile_audio_restore",
+          file_type: "audio",
+          content_type: audio.data.contentType,
+          size_bytes: audio.data.sizeBytes,
+        });
+      }
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "session_audio_restore",
+      });
+      setAudioRestoreError(
+        error instanceof Error
+          ? error.message
+          : "The recording could not be added to this phone.",
+      );
+    } finally {
+      audioRestoreBusyRef.current = false;
+      setRestoringAudio(false);
+    }
+  };
+
   const handleDelete = async () => {
     const confirmed = await confirmDestructive(
       `Delete "${data?.title || "Untitled"}"?`,
@@ -341,7 +377,13 @@ export default function NoteScreen() {
               />
             </View>
           )}
-          {audio.data && !localAudioAvailable && <RemoteAudioCard />}
+          {audio.data && !localAudioAvailable && (
+            <RemoteAudioCard
+              errorMessage={audioRestoreError}
+              loading={restoringAudio}
+              onChooseRecording={() => void handleChooseRecording()}
+            />
+          )}
           {audio.data &&
             localAudioAvailable &&
             audio.data.transcriptStatus !== "complete" &&

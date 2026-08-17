@@ -4,8 +4,11 @@ import test from "node:test";
 import { mapSessionAudioRows } from "./audio-catalog-model.ts";
 
 const row = {
+  id: "session-audio:session-1",
   filename: "audio.wav",
+  content_type: "audio/wav",
   size_bytes: 42,
+  sha256: "a".repeat(64),
   transcript_status: "complete",
   created_at: "2026-08-17T00:00:00.000Z",
   available_locally: 1,
@@ -14,8 +17,11 @@ const row = {
 
 test("maps a device-local audio attachment to a playable file", () => {
   assert.deepEqual(mapSessionAudioRows([row]), {
+    attachmentId: "session-audio:session-1",
     filename: "audio.wav",
+    contentType: "audio/wav",
     sizeBytes: 42,
+    sha256: "a".repeat(64),
     transcriptStatus: "complete",
     createdAt: "2026-08-17T00:00:00.000Z",
     availableLocally: true,
@@ -29,8 +35,11 @@ test("does not treat synced metadata as a local audio file", () => {
       { ...row, available_locally: 0, local_relative_path: "" },
     ]),
     {
+      attachmentId: "session-audio:session-1",
       filename: "audio.wav",
+      contentType: "audio/wav",
       sizeBytes: 42,
+      sha256: "a".repeat(64),
       transcriptStatus: "complete",
       createdAt: "2026-08-17T00:00:00.000Z",
       availableLocally: false,

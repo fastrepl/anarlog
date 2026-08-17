@@ -71,10 +71,18 @@ export function useTranscriptionState(sessionId: string): TranscriptionState {
 }
 
 const PENDING_AUDIO_SQL = `
-SELECT filename, content_type, size_bytes
-FROM session_attachments
-WHERE session_id = ? AND source_type = 'session_audio' AND deleted_at IS NULL
-  AND COALESCE(json_extract(metadata_json, '$.transcript_status'), '') <> 'complete'
+SELECT
+  attachment.content_type,
+  attachment.size_bytes,
+  local_state.relative_path AS local_relative_path
+FROM session_attachments AS attachment
+JOIN attachment_local_state AS local_state
+  ON local_state.attachment_id = attachment.id
+ AND local_state.availability = 'present'
+WHERE attachment.session_id = ?
+  AND attachment.source_type = 'session_audio'
+  AND attachment.deleted_at IS NULL
+  AND COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') <> 'complete'
 LIMIT 1
 `;
 
@@ -348,14 +356,19 @@ async function requestTranscription(
 
 async function runTranscription(sessionId: string): Promise<void> {
   const rows = await execute<{
-    filename: string;
     content_type: string;
     size_bytes: number;
+    local_relative_path: string;
   }>(PENDING_AUDIO_SQL, [sessionId]);
   const audio = rows[0];
   if (!audio) return;
 
-  const file = new File(Paths.document, "sessions", sessionId, audio.filename);
+  const file = new File(
+    Paths.document,
+    "sessions",
+    sessionId,
+    audio.local_relative_path,
+  );
   if (!file.exists) {
     throw transcriptionFailure("Audio file missing", "load_audio", {
       code: "audio_missing",
