@@ -23,13 +23,22 @@ import { AudioChip } from "@/components/audio-chip";
 import { EditorAccessory } from "@/components/editor-accessory";
 import { HandoffCard } from "@/components/handoff-card";
 import { ListeningSheet } from "@/components/listening-sheet";
+import { NoteAttachmentCard } from "@/components/note-attachment-card";
 import { RemoteAudioCard } from "@/components/remote-audio-card";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
 import { useSessionAudio } from "@/data/audio-catalog";
+import {
+  type NoteAttachment,
+  useNoteAttachments,
+} from "@/data/note-attachment-catalog";
 import { insertCapturedNoteAttachmentMarkdown } from "@/data/note-attachment-model";
 import { pickAndCatalogNoteAttachment } from "@/data/note-attachments";
+import {
+  restoreNoteAttachmentFromCloud,
+  shareNoteAttachment,
+} from "@/data/restore-note-attachment";
 import {
   restoreSessionAudioFromCloud,
   restoreSessionAudioFromPicker,
@@ -230,6 +239,7 @@ export default function NoteScreen() {
   }>();
   const { data, isLoading } = useSessionDetail(id);
   const audio = useSessionAudio(id);
+  const noteAttachments = useNoteAttachments(id);
   const transcripts = useSessionTranscripts(id);
   const transcription = useTranscriptionState(id);
   const [listening, setListening] = useState(listen === "1");
@@ -240,12 +250,30 @@ export default function NoteScreen() {
   const [restoringAudio, setRestoringAudio] = useState(false);
   const audioRestoreBusyRef = useRef(false);
   const audioRestoreControllerRef = useRef<AbortController | null>(null);
+  const attachmentActionBusyRef = useRef(false);
+  const attachmentRestoreControllerRef = useRef<AbortController | null>(null);
+  const [attachmentActionId, setAttachmentActionId] = useState<string | null>(
+    null,
+  );
+  const [attachmentActionError, setAttachmentActionError] = useState<{
+    attachmentId: string;
+    message: string;
+  } | null>(null);
   const screenActiveRef = useRef(true);
   const localAudioFile = audio.data?.localRelativePath
     ? new File(Paths.document, "sessions", id, audio.data.localRelativePath)
     : null;
   const localAudioAvailable =
     audio.data?.availableLocally === true && localAudioFile?.exists === true;
+  const localNoteAttachments = noteAttachments.map((attachment) => {
+    const file = attachment.localRelativePath
+      ? new File(Paths.document, "sessions", id, attachment.localRelativePath)
+      : null;
+    return {
+      attachment,
+      file: file?.exists === true ? file : null,
+    };
+  });
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -308,6 +336,7 @@ export default function NoteScreen() {
     return () => {
       screenActiveRef.current = false;
       audioRestoreControllerRef.current?.abort();
+      attachmentRestoreControllerRef.current?.abort();
       flush();
     };
   });
@@ -454,6 +483,88 @@ export default function NoteScreen() {
     }
   };
 
+  const handleDownloadAttachment = async (attachment: NoteAttachment) => {
+    const accessToken = auth.session?.access_token;
+    if (
+      attachmentActionBusyRef.current ||
+      !attachment.cloudObjectKey ||
+      !accessToken ||
+      !env.supabaseUrl
+    ) {
+      return;
+    }
+    attachmentActionBusyRef.current = true;
+    const controller = new AbortController();
+    attachmentRestoreControllerRef.current = controller;
+    setAttachmentActionId(attachment.attachmentId);
+    setAttachmentActionError(null);
+    try {
+      await restoreNoteAttachmentFromCloud(id, attachment, {
+        accessToken,
+        apiBaseUrl: env.apiUrl,
+        supabaseUrl: env.supabaseUrl,
+        signal: controller.signal,
+      });
+      captureAnalytics("file_downloaded", {
+        entry_point: "mobile_note_attachment",
+        file_type: "attachment",
+        size_bytes: attachment.sizeBytes,
+      });
+    } catch (error) {
+      if (!controller.signal.aborted && screenActiveRef.current) {
+        captureOperationalError(error, {
+          operation: "note_attachment_cloud_restore",
+        });
+        setAttachmentActionError({
+          attachmentId: attachment.attachmentId,
+          message:
+            error instanceof Error
+              ? error.message
+              : "The file could not be downloaded to this phone.",
+        });
+      }
+    } finally {
+      if (attachmentRestoreControllerRef.current === controller) {
+        attachmentRestoreControllerRef.current = null;
+      }
+      attachmentActionBusyRef.current = false;
+      if (screenActiveRef.current) setAttachmentActionId(null);
+    }
+  };
+
+  const handleShareAttachment = async (
+    attachment: NoteAttachment,
+    uri: string,
+  ) => {
+    if (attachmentActionBusyRef.current) return;
+    attachmentActionBusyRef.current = true;
+    setAttachmentActionId(attachment.attachmentId);
+    setAttachmentActionError(null);
+    try {
+      await shareNoteAttachment(uri, attachment);
+      captureAnalytics("file_shared", {
+        entry_point: "mobile_note_attachment",
+        file_type: "attachment",
+      });
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "note_attachment_share",
+      });
+      if (screenActiveRef.current) {
+        setAttachmentActionError({
+          attachmentId: attachment.attachmentId,
+          message:
+            error instanceof Error
+              ? error.message
+              : "The file could not be shared.",
+        });
+      }
+    } finally {
+      attachmentActionBusyRef.current = false;
+      if (screenActiveRef.current) setAttachmentActionId(null);
+    }
+  };
+
   const handleDelete = async () => {
     const confirmed = await confirmDestructive(
       `Delete "${data?.title || "Untitled"}"?`,
@@ -569,6 +680,35 @@ export default function NoteScreen() {
                 ))}
               </ScrollView>
             </Card>
+          )}
+          {localNoteAttachments.length > 0 && (
+            <View style={styles.attachments}>
+              <Text style={styles.attachmentLabel}>Files</Text>
+              {localNoteAttachments.map(({ attachment, file }) => (
+                <NoteAttachmentCard
+                  key={attachment.attachmentId}
+                  availableLocally={file !== null}
+                  cloudAvailable={Boolean(
+                    attachment.cloudObjectKey &&
+                    auth.session?.access_token &&
+                    env.supabaseUrl,
+                  )}
+                  errorMessage={
+                    attachmentActionError?.attachmentId ===
+                    attachment.attachmentId
+                      ? attachmentActionError.message
+                      : null
+                  }
+                  filename={attachment.filename}
+                  loading={attachmentActionId === attachment.attachmentId}
+                  onDownload={() => void handleDownloadAttachment(attachment)}
+                  onShare={() => {
+                    if (file) void handleShareAttachment(attachment, file.uri);
+                  }}
+                  sizeBytes={attachment.sizeBytes}
+                />
+              ))}
+            </View>
           )}
           <Text style={styles.noteLabel}>Notes</Text>
           {!data.plainEditable && (
@@ -688,6 +828,15 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.ink,
     marginBottom: Spacing.sm,
+  },
+  attachments: {
+    gap: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+  },
+  attachmentLabel: {
+    ...Typography.captionStrong,
+    color: Colors.muted,
   },
   noteLabel: {
     marginHorizontal: Spacing.lg,
