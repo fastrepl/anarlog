@@ -1,6 +1,14 @@
 import { executeTransaction, useLiveQuery } from "@/db";
 import { nowIso } from "@/lib/ids";
 
+import {
+  mapSessionAudioRows,
+  type SessionAudio,
+  type SessionAudioRow,
+} from "./audio-catalog-model";
+
+export type { SessionAudio } from "./audio-catalog-model";
+
 const ATTACHMENT_UPSERT_SQL = `
 INSERT INTO session_attachments (
   id, workspace_id, session_id, filename, relative_path, content_type,
@@ -77,39 +85,20 @@ export async function catalogSessionAudio(
 
 const SESSION_AUDIO_SQL = `
 SELECT
-  filename,
-  size_bytes,
-  COALESCE(json_extract(metadata_json, '$.transcript_status'), '') AS transcript_status,
-  created_at
-FROM session_attachments
-WHERE session_id = ? AND source_type = 'session_audio' AND deleted_at IS NULL
+  attachment.filename,
+  attachment.size_bytes,
+  COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') AS transcript_status,
+  attachment.created_at,
+  CASE WHEN local_state.availability = 'present' THEN 1 ELSE 0 END AS available_locally,
+  COALESCE(local_state.relative_path, '') AS local_relative_path
+FROM session_attachments AS attachment
+LEFT JOIN attachment_local_state AS local_state
+  ON local_state.attachment_id = attachment.id
+WHERE attachment.session_id = ?
+  AND attachment.source_type = 'session_audio'
+  AND attachment.deleted_at IS NULL
 LIMIT 1
 `;
-
-type SessionAudioRow = {
-  filename: string;
-  size_bytes: number;
-  transcript_status: string;
-  created_at: string;
-};
-
-export type SessionAudio = {
-  filename: string;
-  sizeBytes: number;
-  transcriptStatus: string;
-  createdAt: string;
-};
-
-function mapSessionAudioRows(rows: SessionAudioRow[]): SessionAudio | null {
-  const row = rows[0];
-  if (!row) return null;
-  return {
-    filename: row.filename,
-    sizeBytes: row.size_bytes,
-    transcriptStatus: row.transcript_status,
-    createdAt: row.created_at,
-  };
-}
 
 export function useSessionAudio(sessionId: string): {
   data: SessionAudio | null;

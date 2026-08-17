@@ -21,6 +21,7 @@ import { AudioChip } from "@/components/audio-chip";
 import { EditorAccessory } from "@/components/editor-accessory";
 import { HandoffCard } from "@/components/handoff-card";
 import { ListeningSheet } from "@/components/listening-sheet";
+import { RemoteAudioCard } from "@/components/remote-audio-card";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
@@ -163,6 +164,11 @@ export default function NoteScreen() {
   const transcription = useTranscriptionState(id);
   const [listening, setListening] = useState(listen === "1");
   const recorder = useSessionRecorder(id, listening);
+  const localAudioFile = audio.data?.localRelativePath
+    ? new File(Paths.document, "sessions", id, audio.data.localRelativePath)
+    : null;
+  const localAudioAvailable =
+    audio.data?.availableLocally === true && localAudioFile?.exists === true;
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -322,26 +328,22 @@ export default function NoteScreen() {
               )}
             </Card>
           )}
-          {audio.data && (
+          {audio.data && localAudioAvailable && localAudioFile && (
             <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
               <AudioChip
-                uri={
-                  new File(Paths.document, "sessions", id, audio.data.filename)
-                    .uri
-                }
+                uri={localAudioFile.uri}
                 filename={audio.data.filename}
                 sizeBytes={audio.data.sizeBytes}
               />
               <HandoffCard
-                uri={
-                  new File(Paths.document, "sessions", id, audio.data.filename)
-                    .uri
-                }
+                uri={localAudioFile.uri}
                 filename={audio.data.filename}
               />
             </View>
           )}
+          {audio.data && !localAudioAvailable && <RemoteAudioCard />}
           {audio.data &&
+            localAudioAvailable &&
             audio.data.transcriptStatus !== "complete" &&
             transcripts.length === 0 &&
             (transcription === "running" ? (
