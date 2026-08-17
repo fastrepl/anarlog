@@ -1,4 +1,10 @@
-use std::{env, path::PathBuf, time::Duration};
+use std::{
+    env,
+    ffi::OsString,
+    io,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anarlog_enterprise_google_meet_worker::{
     AdmissionMonitorConfig, CaptureJobRuntime, ChromiumLaunchConfig, ChunkedRecordingConfig,
@@ -14,6 +20,10 @@ async fn captures_a_live_google_meet_and_cleans_up() -> Result<(), Box<dyn std::
     let meeting_url = GoogleMeetUrl::parse(&env::var("ANLG_LIVE_GOOGLE_MEET_URL")?)?;
     let run_timeout = Duration::from_secs(env_u64("ANLG_LIVE_RUN_SECONDS", 300)?);
     let directory = tempfile::tempdir()?;
+    let (chromium_profile, authenticated) = chromium_profile(
+        directory.path(),
+        env::var_os("ANLG_LIVE_CHROMIUM_PROFILE_DIR"),
+    )?;
     let recording_root = env::var_os("ANLG_LIVE_RECORDING_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| directory.path().join("recordings"));
@@ -30,9 +40,9 @@ async fn captures_a_live_google_meet_and_cleans_up() -> Result<(), Box<dyn std::
         GoogleMeetRuntimeConfig {
             chromium: ChromiumLaunchConfig {
                 binary: env_path("ANLG_LIVE_CHROMIUM_BINARY", "/usr/bin/chromium"),
-                user_data_dir: directory.path().join("chromium-profile"),
+                user_data_dir: chromium_profile,
                 locale: "en-US".into(),
-                authenticated: false,
+                authenticated,
                 headless: false,
                 disable_sandbox: true,
                 startup_timeout: Duration::from_secs(30),
@@ -116,4 +126,46 @@ fn env_path(name: &str, default: &str) -> PathBuf {
     env::var_os(name)
         .map(PathBuf::from)
         .unwrap_or_else(|| default.into())
+}
+
+fn chromium_profile(
+    temporary_root: &Path,
+    configured: Option<OsString>,
+) -> io::Result<(PathBuf, bool)> {
+    let Some(configured) = configured else {
+        return Ok((temporary_root.join("chromium-profile"), false));
+    };
+    let path = PathBuf::from(configured);
+    if !path.is_absolute() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "ANLG_LIVE_CHROMIUM_PROFILE_DIR must be an absolute path",
+        ));
+    }
+    Ok((path, true))
+}
+
+#[test]
+fn persistent_chromium_profile_enables_authenticated_mode() {
+    let temporary_root = tempfile::tempdir().unwrap();
+    assert_eq!(
+        chromium_profile(temporary_root.path(), None).unwrap(),
+        (temporary_root.path().join("chromium-profile"), false)
+    );
+
+    let persistent = temporary_root.path().join("persistent-profile");
+    assert_eq!(
+        chromium_profile(
+            temporary_root.path(),
+            Some(persistent.clone().into_os_string())
+        )
+        .unwrap(),
+        (persistent, true)
+    );
+    assert_eq!(
+        chromium_profile(temporary_root.path(), Some("relative-profile".into()))
+            .unwrap_err()
+            .kind(),
+        io::ErrorKind::InvalidInput
+    );
 }
