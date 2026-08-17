@@ -46,6 +46,12 @@ function getSignedTusEndpoint(supabaseUrl: string): string {
   return `${getTusEndpoint(supabaseUrl)}/sign`;
 }
 
+function blobFromBytes(bytes: Uint8Array): Blob {
+  const owned = new Uint8Array(bytes.byteLength);
+  owned.set(bytes);
+  return new Blob([owned.buffer]);
+}
+
 export function buildObjectName(userId: string, fileName: string): string {
   return `${userId}/${Date.now()}-${fileName}`;
 }
@@ -202,7 +208,7 @@ export function uploadPrivateAttachment(options: {
             }
 
             return {
-              value: new Blob([bytes]),
+              value: blobFromBytes(bytes),
               done: end === options.ciphertextSizeBytes,
             };
           },
@@ -355,7 +361,7 @@ export function uploadSharedAttachment(options: {
               throw new Error("shared attachment read was incomplete");
             }
             return {
-              value: new Blob([bytes]),
+              value: blobFromBytes(bytes),
               done: end === options.sizeBytes,
             };
           },

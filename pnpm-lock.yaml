@@ -445,6 +445,9 @@ importers:
       '@anlg/mobile-bridge':
         specifier: workspace:*
         version: link:../../packages/mobile-bridge-rn
+      '@anlg/supabase':
+        specifier: workspace:*
+        version: link:../../packages/supabase
       '@expo/ui':
         specifier: ~57.0.7
         version: 57.0.7(@babel/core@7.29.0)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(expo@57.0.8)(react-dom@19.2.3(react@19.2.3))(react-native-worklets@0.10.0(@babel/core@7.29.0)(@react-native/metro-config@0.86.0(@babel/core@7.29.0))(react-native@0.86.0(@babel/core@7.29.0)(@react-native/metro-config@0.86.0(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3))(react-native@0.86.0(@babel/core@7.29.0)(@react-native/metro-config@0.86.0(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))(react@19.2.3)

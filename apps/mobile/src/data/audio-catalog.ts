@@ -1,7 +1,8 @@
 import { File, FileMode, Paths } from "expo-file-system";
 
+import { requestMobileAttachmentUploads } from "@/attachment-sync/upload-runner";
 import { executeTransaction, useLiveQuery } from "@/db";
-import { nowIso } from "@/lib/ids";
+import { id, nowIso } from "@/lib/ids";
 
 import {
   mapSessionAudioRows,
@@ -16,10 +17,10 @@ const ATTACHMENT_UPSERT_SQL = `
 INSERT INTO session_attachments (
   id, workspace_id, session_id, filename, relative_path, content_type,
   size_bytes, sha256, storage_kind, cloud_object_key, source_type,
-  source_id, metadata_json, created_at, updated_at, deleted_at
+  source_id, metadata_json, cloud_sync_enabled, created_at, updated_at, deleted_at
 )
 SELECT ?, workspace_id, id, ?, ?, ?, ?, ?, 'local_file', '',
-  'session_audio', 'primary', '{"transcript_status":"processing"}', ?, ?, NULL
+  'session_audio', 'primary', '{"transcript_status":"processing"}', 1, ?, ?, NULL
 FROM sessions
 WHERE id = ? AND deleted_at IS NULL
 ON CONFLICT(id) DO UPDATE SET
@@ -30,6 +31,7 @@ ON CONFLICT(id) DO UPDATE SET
   sha256 = excluded.sha256,
   storage_kind = 'local_file',
   cloud_object_key = '',
+  cloud_sync_enabled = 1,
   metadata_json = excluded.metadata_json,
   updated_at = excluded.updated_at,
   deleted_at = NULL
@@ -61,6 +63,7 @@ export async function catalogSessionAudio(
   },
 ): Promise<void> {
   const attachmentId = `session-audio:${sessionId}`;
+  const transferJobId = id();
   const now = nowIso();
   const localFile = new File(
     Paths.document,
@@ -94,7 +97,24 @@ export async function catalogSessionAudio(
       sql: LOCAL_STATE_UPSERT_SQL,
       params: [attachmentId, sessionId, file.filename, now, attachmentId],
     },
+    {
+      sql: `
+        INSERT OR IGNORE INTO attachment_transfer_jobs (
+          id, attachment_id, session_id, workspace_id, direction,
+          expected_sha256, expected_size_bytes
+        )
+        SELECT ?, id, session_id, workspace_id, 'upload', sha256, size_bytes
+        FROM session_attachments
+        WHERE id = ? AND deleted_at IS NULL AND cloud_sync_enabled = 1
+          AND EXISTS (
+            SELECT 1 FROM attachment_local_state
+            WHERE attachment_id = ? AND availability = 'present'
+          )
+      `,
+      params: [transferJobId, attachmentId, attachmentId],
+    },
   ]);
+  requestMobileAttachmentUploads();
 }
 
 const SESSION_AUDIO_SQL = `
