@@ -269,11 +269,10 @@ export function useSessionRecorder(
       const writer = writerRef.current;
       if (!writer) throw new Error("Recording file is unavailable");
       const live = liveRef.current;
-      const file = writer.finalize();
+      writer.finalize();
       await catalogSessionAudio(sessionId, {
         filename: "audio.wav",
         contentType: "audio/wav",
-        sizeBytes: file.size,
       });
       const liveComplete = await (live?.stop() ?? Promise.resolve(false));
       let transcriptionMode = liveComplete ? "live" : "batch_fallback";

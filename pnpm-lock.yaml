@@ -517,6 +517,9 @@ importers:
       expo-web-browser:
         specifier: ~57.0.2
         version: 57.0.2(expo@57.0.8)(react-native@0.86.0(@babel/core@7.29.0)(@react-native/metro-config@0.86.0(@babel/core@7.29.0))(@types/react@19.2.14)(react@19.2.3))
+      js-sha256:
+        specifier: 0.10.1
+        version: 0.10.1
       react:
         specifier: 19.2.3
         version: 19.2.3

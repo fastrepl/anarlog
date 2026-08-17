@@ -1,3 +1,5 @@
+import { File, FileMode, Paths } from "expo-file-system";
+
 import { executeTransaction, useLiveQuery } from "@/db";
 import { nowIso } from "@/lib/ids";
 
@@ -6,6 +8,7 @@ import {
   type SessionAudio,
   type SessionAudioRow,
 } from "./audio-catalog-model";
+import { hashFileSha256 } from "./file-sha256";
 
 export type { SessionAudio } from "./audio-catalog-model";
 
@@ -54,12 +57,23 @@ export async function catalogSessionAudio(
   file: {
     filename: string;
     contentType: string;
-    sizeBytes: number;
-    sha256?: string;
+    signal?: AbortSignal;
   },
 ): Promise<void> {
   const attachmentId = `session-audio:${sessionId}`;
   const now = nowIso();
+  const localFile = new File(
+    Paths.document,
+    "sessions",
+    sessionId,
+    file.filename,
+  );
+  const verified = await hashFileSha256(
+    {
+      open: () => localFile.open(FileMode.ReadOnly),
+    },
+    file.signal,
+  );
 
   await executeTransaction([
     {
@@ -69,8 +83,8 @@ export async function catalogSessionAudio(
         file.filename,
         file.filename,
         file.contentType,
-        file.sizeBytes,
-        file.sha256 ?? "",
+        verified.sizeBytes,
+        verified.sha256,
         now,
         now,
         sessionId,

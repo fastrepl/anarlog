@@ -71,7 +71,6 @@ export async function recoverInterruptedRecordings(
       await catalogSessionAudio(session.id, {
         filename: "audio.wav",
         contentType: "audio/wav",
-        sizeBytes,
       });
       recoveredSessionIds.push(session.id);
     } catch (error) {

@@ -25,6 +25,7 @@ type AudioImportAsset = {
 };
 
 type AudioImportOptions = {
+  preserveSessionOnFailure?: boolean;
   sessionId?: string;
   ownerUserId?: string;
   signal?: AbortSignal;
@@ -84,12 +85,13 @@ async function importAsset(
   throwIfAborted(options?.signal);
 
   let cataloged = false;
+  let destination: File | null = null;
   try {
     const directory = new Directory(Paths.document, "sessions", sessionId);
     directory.create({ intermediates: true, idempotent: true });
 
     const filename = `audio.${extension}`;
-    const destination = new File(directory, filename);
+    destination = new File(directory, filename);
     if (options?.sessionId && destination.exists) {
       destination.delete();
     }
@@ -102,7 +104,7 @@ async function importAsset(
         asset.mimeType ??
         CONTENT_TYPES[extension] ??
         "application/octet-stream",
-      sizeBytes: asset.size ?? destination.size ?? 0,
+      signal: options?.signal,
     });
     cataloged = true;
     if (!options?.signal?.aborted) {
@@ -122,14 +124,25 @@ async function importAsset(
     }
   } catch (error) {
     if (!cataloged) {
-      // The session exists before the audio does, so a failed copy or catalog
-      // would otherwise strand an empty session on the timeline.
-      await deleteSession(sessionId).catch((cleanupError) => {
-        captureOperationalError(cleanupError, {
-          operation: "voice_memo_import_cleanup",
-          level: "warning",
+      if (options?.preserveSessionOnFailure) {
+        try {
+          if (destination?.exists) destination.delete();
+        } catch (cleanupError) {
+          captureOperationalError(cleanupError, {
+            operation: "voice_memo_import_cleanup",
+            level: "warning",
+          });
+        }
+      } else {
+        // The session exists before the audio does, so a failed copy or catalog
+        // would otherwise strand an empty session on the timeline.
+        await deleteSession(sessionId).catch((cleanupError) => {
+          captureOperationalError(cleanupError, {
+            operation: "voice_memo_import_cleanup",
+            level: "warning",
+          });
         });
-      });
+      }
     }
     throw error;
   }
@@ -228,6 +241,7 @@ export async function importWatchRecording(
     },
     "watch_recording",
     {
+      preserveSessionOnFailure: Boolean(existing),
       sessionId: recording.id,
       ownerUserId: recording.accountUserId,
       signal,
