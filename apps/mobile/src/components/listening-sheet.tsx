@@ -116,8 +116,8 @@ export function ListeningSheet({
           </Text>
         </View>
         <Text style={styles.detailHint}>
-          Leave your phone on the table and talk. Audio saves locally first;
-          transcription starts after you stop.
+          Leave your phone on the table and talk. Audio stays locally durable
+          while Anarlog listens.
         </Text>
       </Animated.View>
 

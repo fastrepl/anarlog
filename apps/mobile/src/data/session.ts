@@ -1,11 +1,13 @@
 import {
-  docToPlainText,
-  isPlainTextDoc,
   markdownWithTitle,
   plainTextToDoc,
   retitleBody,
-  stripMarkdownTitle,
 } from "@/data/note-doc";
+import {
+  mapSessionDetailRows,
+  type SessionDetail,
+  type SessionDetailRow,
+} from "@/data/session-detail";
 import { execute, executeTransaction, useLiveQuery } from "@/db";
 import { captureAnalytics } from "@/lib/analytics";
 import { DEFAULT_USER_ID, id, nowIso } from "@/lib/ids";
@@ -138,14 +140,7 @@ export async function createSession(options?: {
   return sessionId;
 }
 
-export type SessionDetail = {
-  id: string;
-  title: string;
-  createdAt: string;
-  noteText: string;
-  bodyFormat: "prosemirror_json" | "markdown";
-  plainEditable: boolean;
-};
+export type { SessionDetail } from "@/data/session-detail";
 
 const SESSION_DETAIL_SQL = `
 SELECT
@@ -153,37 +148,49 @@ SELECT
   sessions.title,
   sessions.created_at,
   COALESCE(note.body, '') AS raw_body,
-  COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format
+  COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format,
+  COALESCE(summary.id, '') AS summary_id,
+  COALESCE(summary.title, '') AS summary_title,
+  COALESCE(summary.body, '') AS summary_body,
+  COALESCE(summary.body_format, 'prosemirror_json') AS summary_body_format
 FROM sessions
 LEFT JOIN session_documents AS note
-  ON note.id = sessions.id AND note.kind = 'note' AND note.deleted_at IS NULL
+  ON note.id = COALESCE(
+    (
+      SELECT canonical.id
+      FROM session_documents AS canonical
+      WHERE canonical.id = sessions.id
+        AND canonical.session_id = sessions.id
+        AND canonical.kind = 'note'
+        AND canonical.deleted_at IS NULL
+      LIMIT 1
+    ),
+    (
+      SELECT fallback.id
+      FROM session_documents AS fallback
+      WHERE fallback.session_id = sessions.id
+        AND fallback.kind = 'note'
+        AND fallback.deleted_at IS NULL
+      ORDER BY fallback.created_at, fallback.id
+      LIMIT 1
+    )
+  )
+LEFT JOIN session_documents AS summary
+  ON summary.id = (
+    SELECT candidate.id
+    FROM session_documents AS candidate
+    WHERE candidate.session_id = sessions.id
+      AND candidate.kind IN ('summary', 'template_output')
+      AND candidate.deleted_at IS NULL
+    ORDER BY
+      CASE candidate.kind WHEN 'summary' THEN 0 ELSE 1 END,
+      candidate.sort_order,
+      candidate.created_at,
+      candidate.id
+    LIMIT 1
+  )
 WHERE sessions.id = ? AND sessions.deleted_at IS NULL
 `;
-
-type SessionDetailRow = {
-  id: string;
-  title: string;
-  created_at: string;
-  raw_body: string;
-  raw_body_format: string;
-};
-
-function mapSessionDetailRows(rows: SessionDetailRow[]): SessionDetail | null {
-  const row = rows[0];
-  if (!row) return null;
-  const isMarkdown = row.raw_body_format === "markdown";
-  const noteText = isMarkdown
-    ? stripMarkdownTitle(row.raw_body).text
-    : docToPlainText(row.raw_body).text;
-  return {
-    id: row.id,
-    title: row.title,
-    createdAt: row.created_at,
-    noteText,
-    bodyFormat: isMarkdown ? "markdown" : "prosemirror_json",
-    plainEditable: isMarkdown || isPlainTextDoc(row.raw_body),
-  };
-}
 
 export function useSessionDetail(sessionId: string): {
   data: SessionDetail | null;

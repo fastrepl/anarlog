@@ -309,6 +309,19 @@ export default function NoteScreen() {
             placeholderTextColor={Colors.muted}
             onChangeText={(title) => onEdit({ title })}
           />
+          {data.summary && (
+            <Card style={styles.summary} tone="muted">
+              <Text style={styles.summaryLabel}>Summary</Text>
+              {data.summary.title !== "Summary" && (
+                <Text style={styles.summaryTitle}>{data.summary.title}</Text>
+              )}
+              {data.summary.text !== "" && (
+                <ScrollView style={styles.summaryScroll} nestedScrollEnabled>
+                  <Text style={styles.summaryText}>{data.summary.text}</Text>
+                </ScrollView>
+              )}
+            </Card>
+          )}
           {audio.data && (
             <View key={`${audio.data.filename}:${audio.data.createdAt}`}>
               <AudioChip
@@ -358,6 +371,7 @@ export default function NoteScreen() {
               </ScrollView>
             </Card>
           )}
+          <Text style={styles.noteLabel}>Notes</Text>
           {!data.plainEditable && (
             <View style={styles.readOnlyChip}>
               <Ionicons
@@ -415,6 +429,28 @@ const styles = StyleSheet.create({
     ...Typography.title,
     color: Colors.ink,
   },
+  summary: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+  },
+  summaryLabel: {
+    ...Typography.captionStrong,
+    color: Colors.muted,
+  },
+  summaryTitle: {
+    marginTop: Spacing.xs,
+    ...Typography.section,
+    color: Colors.ink,
+  },
+  summaryScroll: {
+    maxHeight: 220,
+    marginTop: Spacing.sm,
+  },
+  summaryText: {
+    ...Typography.body,
+    color: Colors.ink,
+  },
   transcribeStatus: {
     marginHorizontal: Spacing.lg,
     marginTop: Spacing.xs,
@@ -449,6 +485,12 @@ const styles = StyleSheet.create({
     ...Typography.body,
     color: Colors.ink,
     marginBottom: Spacing.sm,
+  },
+  noteLabel: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    ...Typography.captionStrong,
+    color: Colors.muted,
   },
   readOnlyChip: {
     flexDirection: "row",

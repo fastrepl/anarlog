@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -30,6 +30,18 @@ import { useTimelineSessions, type TimelineSession } from "@/data/timeline";
 import { captureAnalytics } from "@/lib/analytics";
 import { confirmDestructive } from "@/lib/confirm";
 import { captureOperationalError } from "@/lib/error-reporting";
+import { useMountEffect } from "@/lib/use-mount-effect";
+
+function SearchAnalytics({ resultCount }: { resultCount: number }) {
+  useMountEffect(() => {
+    captureAnalytics("search_performed", {
+      entry_point: "mobile_home",
+      result_count: resultCount,
+      entity_types: ["note"],
+    });
+  });
+  return null;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -37,22 +49,46 @@ export default function HomeScreen() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState<string | null>(null);
+  const [settledSearchQuery, setSettledSearchQuery] = useState("");
   const searching = query !== null;
   const search = useSessionSearch(query ?? "");
   // Ref, not state: two taps in the same frame both pass a state check.
   const busyRef = useRef(false);
+  const searchAnalyticsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
-  useEffect(() => {
-    if (!searching || !query?.trim() || search.isLoading) return;
-    const timeout = setTimeout(() => {
-      captureAnalytics("search_performed", {
-        entry_point: "mobile_home",
-        result_count: search.results.length,
-        entity_types: ["note"],
-      });
+  useMountEffect(() => () => {
+    if (searchAnalyticsTimerRef.current) {
+      clearTimeout(searchAnalyticsTimerRef.current);
+    }
+  });
+
+  const handleSearchChange = (value: string) => {
+    setQuery(value);
+    if (searchAnalyticsTimerRef.current) {
+      clearTimeout(searchAnalyticsTimerRef.current);
+      searchAnalyticsTimerRef.current = null;
+    }
+    const term = value.trim();
+    if (term === "") {
+      setSettledSearchQuery("");
+      return;
+    }
+    searchAnalyticsTimerRef.current = setTimeout(() => {
+      searchAnalyticsTimerRef.current = null;
+      setSettledSearchQuery(term);
     }, 300);
-    return () => clearTimeout(timeout);
-  }, [query, search.isLoading, search.results.length, searching]);
+  };
+
+  const closeSearch = () => {
+    if (searchAnalyticsTimerRef.current) {
+      clearTimeout(searchAnalyticsTimerRef.current);
+      searchAnalyticsTimerRef.current = null;
+    }
+    setSettledSearchQuery("");
+    setQuery(null);
+  };
 
   const handleDelete = async (session: TimelineSession) => {
     const confirmed = await confirmDestructive(
@@ -120,14 +156,14 @@ export default function HomeScreen() {
               style={styles.searchInput}
               autoFocus
               value={query ?? ""}
-              onChangeText={setQuery}
-              placeholder="Search notes"
+              onChangeText={handleSearchChange}
+              placeholder="Search meetings"
               placeholderTextColor={Colors.muted}
             />
             <IconButton
               accessibilityLabel="Close search"
               icon="close"
-              onPress={() => setQuery(null)}
+              onPress={closeSearch}
             />
           </>
         ) : (
@@ -139,7 +175,7 @@ export default function HomeScreen() {
               variant="surface"
             />
             <IconButton
-              accessibilityLabel="Search notes"
+              accessibilityLabel="Search meetings"
               icon="search"
               onPress={() => setQuery("")}
             />
@@ -154,6 +190,14 @@ export default function HomeScreen() {
       >
         {searching ? (
           <>
+            {settledSearchQuery !== "" &&
+              settledSearchQuery === query.trim() &&
+              !search.isLoading && (
+                <SearchAnalytics
+                  key={settledSearchQuery}
+                  resultCount={search.results.length}
+                />
+              )}
             {query.trim() !== "" &&
               !search.isLoading &&
               search.results.length === 0 && (
@@ -180,26 +224,25 @@ export default function HomeScreen() {
           <>
             {!isLoading && items.length === 0 && (
               <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>No notes yet</Text>
+                <Text style={styles.emptyTitle}>No meetings yet</Text>
                 <Text style={styles.emptyBody}>
-                  Start listening, write a note, or import a voice memo.
+                  Start listening, create a meeting, or import a recording.
                 </Text>
               </View>
             )}
             {items.map((item) => {
+              if (item.type === "group") {
+                return (
+                  <Text key={item.key} style={styles.groupLabel}>
+                    {item.label}
+                  </Text>
+                );
+              }
               if (item.type === "header") {
                 return (
                   <Text key={item.key} style={styles.sectionLabel}>
                     {item.label}
                   </Text>
-                );
-              }
-              if (item.type === "now") {
-                return (
-                  <View key={item.key} style={styles.nowDivider}>
-                    <View style={styles.nowDot} />
-                    <View style={styles.nowLine} />
-                  </View>
                 );
               }
               return (
@@ -217,7 +260,7 @@ export default function HomeScreen() {
 
       <View style={styles.actions}>
         <Button
-          label="New note"
+          label="New meeting"
           onPress={() => void createAndOpen()}
           leading={
             <Ionicons name="create-outline" size={17} color={Colors.ink} />
@@ -226,7 +269,7 @@ export default function HomeScreen() {
           variant="outline"
         />
         <Button
-          label={importing ? "Importing…" : "Import memo"}
+          label={importing ? "Importing…" : "Import recording"}
           onPress={handleImport}
           disabled={importing}
           leading={
@@ -302,28 +345,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   sectionLabel: {
-    ...Typography.section,
-    color: Colors.ink,
-    marginTop: Spacing.md,
+    ...Typography.captionStrong,
+    color: Colors.muted,
+    marginTop: Spacing.xs,
     marginBottom: Spacing.sm,
   },
-  nowDivider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: Spacing.md,
-    marginLeft: -Spacing.lg,
-  },
-  nowDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.accent,
-  },
-  nowLine: {
-    flex: 1,
-    height: 2,
-    backgroundColor: Colors.accent,
+  groupLabel: {
+    ...Typography.title,
+    color: Colors.ink,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   actions: {
     flexDirection: "row",
