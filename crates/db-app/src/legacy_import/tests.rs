@@ -505,6 +505,74 @@ async fn divergent_nonempty_documents_remain_conflicted_and_unchanged() {
 }
 
 #[tokio::test]
+async fn run_outcome_and_migration_state_pointer_stay_consistent() {
+    let db = test_db().await;
+    begin_run_with_session(&db, "run-1").await;
+
+    let status = finish_legacy_import_run(db.pool(), "run-1").await.unwrap();
+    let (latest_run_id, parity_verified, last_error): (String, bool, String) = sqlx::query_as(
+        "SELECT latest_run_id, parity_verified, last_error
+         FROM storage_migration_state WHERE id = 'legacy_v1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(latest_run_id, "run-1");
+    assert_eq!(parity_verified, status == "completed");
+    let run_status: String =
+        sqlx::query_scalar("SELECT status FROM migration_import_runs WHERE id = 'run-1'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(run_status, status);
+    assert_eq!(last_error.is_empty(), status == "completed");
+
+    begin_legacy_import_run(db.pool(), "run-2", "/vault", false)
+        .await
+        .unwrap();
+    fail_legacy_import_run(db.pool(), "run-2", "disk full")
+        .await
+        .unwrap();
+    let (latest_run_id, last_error): (String, String) = sqlx::query_as(
+        "SELECT latest_run_id, last_error
+         FROM storage_migration_state WHERE id = 'legacy_v1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    let (run_status, run_error): (String, String) =
+        sqlx::query_as("SELECT status, error FROM migration_import_runs WHERE id = 'run-2'")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(latest_run_id, "run-2");
+    assert_eq!(run_status, "failed");
+    assert_eq!(last_error, run_error);
+    assert_eq!(last_error, "disk full");
+}
+
+#[tokio::test]
+async fn dry_runs_never_touch_migration_state() {
+    let db = test_db().await;
+    begin_legacy_import_run(db.pool(), "dry-run-1", "/legacy", true)
+        .await
+        .unwrap();
+    fail_legacy_import_run(db.pool(), "dry-run-1", "dry failure")
+        .await
+        .unwrap();
+
+    let (latest_run_id, last_error): (String, String) = sqlx::query_as(
+        "SELECT latest_run_id, last_error
+         FROM storage_migration_state WHERE id = 'legacy_v1'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(latest_run_id, "");
+    assert_eq!(last_error, "");
+}
+
+#[tokio::test]
 async fn transcript_reconciliation_only_fills_an_empty_payload() {
     let db = test_db().await;
     begin_run_with_session(&db, "run-1").await;
