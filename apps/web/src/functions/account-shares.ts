@@ -100,6 +100,20 @@ export const listMyManagedShares = createServerFn({ method: "GET" }).handler(
   },
 );
 
+export const deleteMyShare = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ shareId: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase.rpc("delete_session_share", {
+      p_share_id: data.shareId,
+    });
+
+    if (error) {
+      return { success: false as const, message: error.message };
+    }
+    return { success: true as const };
+  });
+
 export const restrictMyShare = createServerFn({ method: "POST" })
   .inputValidator(z.object({ shareId: z.string().uuid() }))
   .handler(async ({ data }) => {

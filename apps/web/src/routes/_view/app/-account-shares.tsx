@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 import {
+  deleteMyShare,
   listMyManagedShares,
   restrictMyShare,
 } from "@/functions/account-shares";
@@ -23,6 +25,9 @@ const sharesQueryKey = ["account-managed-shares"];
 
 export function SharedNotesSection() {
   const queryClient = useQueryClient();
+  const [confirmingShareId, setConfirmingShareId] = useState<string | null>(
+    null,
+  );
 
   const sharesQuery = useQuery({
     queryKey: sharesQueryKey,
@@ -46,6 +51,19 @@ export function SharedNotesSection() {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: sharesQueryKey });
+    },
+  });
+
+  const stopSharing = useMutation({
+    mutationFn: async (shareId: string) => {
+      const result = await deleteMyShare({ data: { shareId } });
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+    },
+    onSuccess: () => {
+      setConfirmingShareId(null);
       queryClient.invalidateQueries({ queryKey: sharesQueryKey });
     },
   });
@@ -99,13 +117,31 @@ export function SharedNotesSection() {
                   <button
                     onClick={() => restrict.mutate(share.shareId)}
                     disabled={restrict.isPending}
-                    className={accountPillDangerClassName}
+                    className={accountPillSecondaryClassName}
                   >
                     {restrict.isPending && restrict.variables === share.shareId
                       ? "Restricting..."
                       : "Restrict"}
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    if (confirmingShareId === share.shareId) {
+                      stopSharing.mutate(share.shareId);
+                    } else {
+                      setConfirmingShareId(share.shareId);
+                    }
+                  }}
+                  disabled={stopSharing.isPending}
+                  className={accountPillDangerClassName}
+                >
+                  {stopSharing.isPending &&
+                  stopSharing.variables === share.shareId
+                    ? "Stopping..."
+                    : confirmingShareId === share.shareId
+                      ? "You sure?"
+                      : "Stop sharing"}
+                </button>
               </div>
             </li>
           ))}
@@ -114,6 +150,11 @@ export function SharedNotesSection() {
       {restrict.isError && (
         <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
           {restrict.error?.message || "Failed to restrict shared note"}
+        </p>
+      )}
+      {stopSharing.isError && (
+        <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
+          {stopSharing.error?.message || "Failed to stop sharing this note"}
         </p>
       )}
     </div>
