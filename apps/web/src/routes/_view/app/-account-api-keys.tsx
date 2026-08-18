@@ -1,12 +1,19 @@
+import { Check, Copy } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
-import { listKeys, revokeKey } from "@anlg/api-client";
+import { createKey, listKeys, revokeKey } from "@anlg/api-client";
+import type { CreatedApiKey } from "@anlg/api-client";
+
+import { authInputClassName } from "@/components/auth-shell";
 
 import { getAuthorizedApiClient } from "./-account-api";
 import { useAccountSession } from "./-account-session";
 import {
   accountCardClassName,
   accountPillDangerClassName,
+  accountPillPrimaryClassName,
+  accountPillSecondaryClassName,
 } from "./-account-ui";
 
 const apiKeysQueryKey = ["account-api-keys"];
@@ -14,6 +21,10 @@ const apiKeysQueryKey = ["account-api-keys"];
 export function ApiKeysSection() {
   const queryClient = useQueryClient();
   const session = useAccountSession();
+  const [isCreating, setIsCreating] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
 
   const keysQuery = useQuery({
     queryKey: apiKeysQueryKey,
@@ -30,6 +41,40 @@ export function ApiKeysSection() {
     },
   });
 
+  const create = useMutation({
+    mutationFn: async (name: string) => {
+      const client = await getAuthorizedApiClient();
+      const { data, error } = await createKey({ client, body: { name } });
+      if (error || !data) {
+        throw new Error("Failed to create API key");
+      }
+      return data;
+    },
+    onSuccess: (data) => {
+      setCreatedKey(data);
+      setIsCreating(false);
+      setNewKeyName("");
+      queryClient.invalidateQueries({ queryKey: apiKeysQueryKey });
+    },
+  });
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newKeyName.trim();
+    if (name) {
+      create.mutate(name);
+    }
+  };
+
+  const handleCopyKey = async () => {
+    if (!createdKey) {
+      return;
+    }
+    await navigator.clipboard.writeText(createdKey.key);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2_000);
+  };
+
   const revoke = useMutation({
     mutationFn: async (keyId: string) => {
       const client = await getAuthorizedApiClient();
@@ -44,9 +89,102 @@ export function ApiKeysSection() {
   });
 
   const keys = keysQuery.data ?? [];
+  const isPro = session.data?.billing.isPro === true;
+  const showCreateControls =
+    isPro && !keysQuery.isPending && !session.isPending && !keysQuery.isError;
 
   return (
     <div className={accountCardClassName}>
+      {showCreateControls && (
+        <div className="border-b border-[#ede7dc] px-6 py-4 sm:px-8">
+          {isCreating ? (
+            <form
+              onSubmit={handleCreateSubmit}
+              className="flex flex-col gap-3 md:flex-row md:items-center"
+            >
+              <input
+                type="text"
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                placeholder="Key name, e.g. my-script"
+                maxLength={100}
+                className={authInputClassName}
+                autoFocus
+              />
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="submit"
+                  disabled={create.isPending || !newKeyName.trim()}
+                  className={accountPillPrimaryClassName}
+                >
+                  {create.isPending ? "Creating..." : "Create"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreating(false);
+                    setNewKeyName("");
+                    create.reset();
+                  }}
+                  disabled={create.isPending}
+                  className={accountPillSecondaryClassName}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-sm leading-6 text-[#756b5d]">
+                Keys let your own tools call the Anarlog Cloud API.
+              </p>
+              <button
+                onClick={() => {
+                  setCreatedKey(null);
+                  setIsCreating(true);
+                }}
+                className={accountPillSecondaryClassName}
+              >
+                Create key
+              </button>
+            </div>
+          )}
+          {create.isError && (
+            <p className="mt-3 text-sm text-red-600">
+              {create.error?.message || "Failed to create API key"}
+            </p>
+          )}
+        </div>
+      )}
+      {createdKey && (
+        <div className="border-b border-[#ede7dc] bg-[#fffaf0] px-6 py-4 sm:px-8">
+          <p className="text-sm font-medium text-[#181613]">
+            {createdKey.name} is ready. Copy the key now; it won't be shown
+            again.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <code className="max-w-full overflow-x-auto rounded-lg border border-[#ede7dc] bg-white px-3 py-2 font-mono text-sm text-[#181613]">
+              {createdKey.key}
+            </code>
+            <button
+              onClick={handleCopyKey}
+              className={accountPillSecondaryClassName}
+            >
+              {copiedKey ? (
+                <>
+                  <Check className="mr-2 size-4" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 size-4" />
+                  Copy key
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
       {keysQuery.isPending || session.isPending ? (
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
           Checking your API keys...
@@ -59,9 +197,9 @@ export function ApiKeysSection() {
         <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
           {/* Listing keys is not plan-gated, so an empty list is the only
               signal a free user gets; creating one is Pro-only. */}
-          {session.data?.billing.isPro
-            ? "No API keys yet. Create one from the desktop app to use the Cloud API."
-            : "Cloud API keys come with Pro. Create and use them from the desktop app."}
+          {isPro
+            ? "No API keys yet. Create one to use the Cloud API."
+            : "Cloud API keys come with Pro."}
         </p>
       ) : (
         <ul className="divide-y divide-[#ede7dc]">

@@ -200,7 +200,6 @@ function Component() {
               <DangerAreaSection />
             </div>
           </section>
-
         </div>
       </div>
     </main>

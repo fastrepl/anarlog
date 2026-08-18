@@ -21,7 +21,8 @@ export function useAccountSession() {
         return null;
       }
 
-      const metadata: Record<string, unknown> = session.user.user_metadata ?? {};
+      const metadata: Record<string, unknown> =
+        session.user.user_metadata ?? {};
       const metadataString = (key: string) => {
         const value = metadata[key];
         return typeof value === "string" && value.trim() ? value.trim() : null;

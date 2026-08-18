@@ -179,7 +179,10 @@ export function ProfileInfoSection({ email }: { email?: string }) {
 
         <div className="flex flex-col gap-4 border-t border-[#ede7dc] pt-4">
           {isEditingDetails ? (
-            <form onSubmit={handleDetailsSubmit} className="flex flex-col gap-4">
+            <form
+              onSubmit={handleDetailsSubmit}
+              className="flex flex-col gap-4"
+            >
               <DetailsField
                 label="Full name"
                 value={draftName}
