@@ -1,4 +1,4 @@
-const COMMANDS: &[&str] = &["read_text_file", "remove"];
+include!("src/manifest.rs");
 
 fn main() {
     tauri_plugin::Builder::new(COMMANDS).build();

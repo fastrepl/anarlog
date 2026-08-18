@@ -391,18 +391,6 @@
           "markdownDescription": "Denies the list_mic_using_applications command without any pre-configured scope."
         },
         {
-          "description": "Enables the reset_quit_handler command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-reset-quit-handler",
-          "markdownDescription": "Enables the reset_quit_handler command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the reset_quit_handler command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-reset-quit-handler",
-          "markdownDescription": "Denies the reset_quit_handler command without any pre-configured scope."
-        },
-        {
           "description": "Enables the send_meeting_chat_message command without any pre-configured scope.",
           "type": "string",
           "const": "allow-send-meeting-chat-message",
@@ -439,6 +427,18 @@
           "markdownDescription": "Denies the set_ignored_bundle_ids command without any pre-configured scope."
         },
         {
+          "description": "Enables the set_included_bundle_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-set-included-bundle-ids",
+          "markdownDescription": "Enables the set_included_bundle_ids command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_included_bundle_ids command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-set-included-bundle-ids",
+          "markdownDescription": "Denies the set_included_bundle_ids command without any pre-configured scope."
+        },
+        {
           "description": "Enables the set_mic_active_threshold command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-mic-active-threshold",
@@ -449,18 +449,6 @@
           "type": "string",
           "const": "deny-set-mic-active-threshold",
           "markdownDescription": "Denies the set_mic_active_threshold command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the set_quit_handler command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-set-quit-handler",
-          "markdownDescription": "Enables the set_quit_handler command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the set_quit_handler command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-set-quit-handler",
-          "markdownDescription": "Denies the set_quit_handler command without any pre-configured scope."
         },
         {
           "description": "Enables the set_respect_do_not_disturb command without any pre-configured scope.",
@@ -487,10 +475,10 @@
           "markdownDescription": "Denies the terminate_competing_applications command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-get-installed-application-icons`\n- `allow-terminate-competing-applications`\n- `allow-set-competing-application-termination-paused`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-capture-meeting-chat-messages`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-get-installed-application-icons`\n- `allow-terminate-competing-applications`\n- `allow-set-competing-application-termination-paused`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-capture-meeting-chat-messages`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-set-included-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-get-installed-application-icons`\n- `allow-terminate-competing-applications`\n- `allow-set-competing-application-termination-paused`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-capture-meeting-chat-messages`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-list-installed-applications`\n- `allow-get-installed-application-icons`\n- `allow-terminate-competing-applications`\n- `allow-set-competing-application-termination-paused`\n- `allow-list-mic-using-applications`\n- `allow-inspect-meeting-accessibility`\n- `allow-send-meeting-chat-message`\n- `allow-capture-meeting-chat-messages`\n- `allow-set-respect-do-not-disturb`\n- `allow-set-ignored-bundle-ids`\n- `allow-set-included-bundle-ids`\n- `allow-list-default-ignored-bundle-ids`\n- `allow-get-preferred-languages`\n- `allow-get-current-locale-identifier`\n- `allow-set-mic-active-threshold`"
         }
       ]
     }

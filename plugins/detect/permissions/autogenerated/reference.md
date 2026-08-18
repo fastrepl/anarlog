@@ -14,6 +14,7 @@ Default permissions for the plugin
 - `allow-capture-meeting-chat-messages`
 - `allow-set-respect-do-not-disturb`
 - `allow-set-ignored-bundle-ids`
+- `allow-set-included-bundle-ids`
 - `allow-list-default-ignored-bundle-ids`
 - `allow-get-preferred-languages`
 - `allow-get-current-locale-identifier`
@@ -239,32 +240,6 @@ Denies the list_mic_using_applications command without any pre-configured scope.
 <tr>
 <td>
 
-`detect:allow-reset-quit-handler`
-
-</td>
-<td>
-
-Enables the reset_quit_handler command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`detect:deny-reset-quit-handler`
-
-</td>
-<td>
-
-Denies the reset_quit_handler command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `detect:allow-send-meeting-chat-message`
 
 </td>
@@ -343,6 +318,32 @@ Denies the set_ignored_bundle_ids command without any pre-configured scope.
 <tr>
 <td>
 
+`detect:allow-set-included-bundle-ids`
+
+</td>
+<td>
+
+Enables the set_included_bundle_ids command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`detect:deny-set-included-bundle-ids`
+
+</td>
+<td>
+
+Denies the set_included_bundle_ids command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `detect:allow-set-mic-active-threshold`
 
 </td>
@@ -362,32 +363,6 @@ Enables the set_mic_active_threshold command without any pre-configured scope.
 <td>
 
 Denies the set_mic_active_threshold command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`detect:allow-set-quit-handler`
-
-</td>
-<td>
-
-Enables the set_quit_handler command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`detect:deny-set-quit-handler`
-
-</td>
-<td>
-
-Denies the set_quit_handler command without any pre-configured scope.
 
 </td>
 </tr>
