@@ -29,6 +29,17 @@ import { SettingsPageTitle } from "~/settings/page-title";
 import { DestructiveConfirmationDialog } from "~/shared/ui/destructive-confirmation-dialog";
 import { buildWebAppUrl } from "~/shared/utils";
 
+function tierActionLabel(action: NonNullable<TierAction>): string {
+  switch (action.kind) {
+    case "current":
+      return "Current plan";
+    case "startTrial":
+      return "Start free trial";
+    case "checkout":
+      return action.direction === "upgrade" ? "Get Pro" : "Switch to Pro";
+  }
+}
+
 export function SettingsAccount() {
   const { t } = useLingui();
   const auth = useAuth();
@@ -266,7 +277,7 @@ function PlanBillingSection({
   const renderAction = (action: TierAction, compact: boolean) => {
     if (action == null) return null;
 
-    if (action.style === "current") {
+    if (action.kind === "current") {
       if (needsPaymentMethod) {
         if (compact) {
           return (
@@ -295,24 +306,27 @@ function PlanBillingSection({
 
       if (compact) {
         return (
-          <span className="text-muted-foreground text-xs">{action.label}</span>
+          <span className="text-muted-foreground text-xs">
+            {tierActionLabel(action)}
+          </span>
         );
       }
 
       return (
         <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
-          {action.label}
+          {tierActionLabel(action)}
         </div>
       );
     }
 
-    const isUpgrade = action.style === "upgrade";
+    const isUpgrade =
+      action.kind === "startTrial" || action.direction === "upgrade";
 
     const handleClick = async () => {
-      if (action.label === "Start free trial") {
+      if (action.kind === "startTrial") {
         void analyticsCommands.event({
           event: "trial_checkout_started",
-          plan: "pro",
+          plan: action.plan,
           period: "monthly",
           source: "settings",
         });
@@ -326,19 +340,17 @@ function PlanBillingSection({
         );
         return;
       }
-      const targetPlan = action.targetPlan;
-      if (!targetPlan) return;
 
       void analyticsCommands.event({
         event: "upgrade_clicked",
-        plan: targetPlan,
+        plan: action.plan,
         period: "monthly",
         source: "settings",
       });
 
       await openBillingUrl(() =>
         buildWebAppUrl("/app/checkout", {
-          plan: targetPlan,
+          plan: action.plan,
           period: "monthly",
           source: "settings",
         }),
@@ -346,7 +358,7 @@ function PlanBillingSection({
     };
 
     const isBusy = actionPending;
-    const label = action.label;
+    const label = tierActionLabel(action);
 
     if (compact) {
       return (
@@ -423,21 +435,23 @@ function GuestPlanSection({ onSignIn }: { onSignIn: () => Promise<void> }) {
   const renderAction = (action: TierAction, compact: boolean) => {
     if (action == null) return null;
 
-    if (action.style === "current") {
+    if (action.kind === "current") {
       if (compact) {
         return (
-          <span className="text-muted-foreground text-xs">{action.label}</span>
+          <span className="text-muted-foreground text-xs">
+            {tierActionLabel(action)}
+          </span>
         );
       }
 
       return (
         <div className="border-border bg-muted text-muted-foreground flex h-8 w-full items-center justify-center rounded-full border text-xs">
-          {action.label}
+          {tierActionLabel(action)}
         </div>
       );
     }
 
-    const label = action.targetPlan === "pro" ? t`Sign in for Pro` : t`Sign in`;
+    const label = action.plan === "pro" ? t`Sign in for Pro` : t`Sign in`;
 
     if (compact) {
       return (
