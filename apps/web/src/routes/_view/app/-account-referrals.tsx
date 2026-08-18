@@ -136,7 +136,7 @@ export function ReferralSection({ ineligible }: { ineligible: boolean }) {
       <p className="border-t border-[#ede7dc] px-6 py-4 text-sm leading-6 text-[#756b5d] sm:px-8">
         {earnedRewards > 0
           ? `${earnedCredit} in referral credit earned.`
-          : "Your friend gets 30 days of Pro. You earn $15 after their first payment."}
+          : "You both get a month of Pro free. Your friend's starts right away, and yours kicks in after their first payment."}
       </p>
     </div>
   );

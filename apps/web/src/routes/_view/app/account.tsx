@@ -125,10 +125,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Profile
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              The email attached to your account, and how long you've been
-              around.
-            </p>
             <div className="mt-6">
               <ProfileInfoSection email={user?.email} />
             </div>
@@ -138,10 +134,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Refer friends
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Give a month of Anarlog Pro and get a month when your friend
-              becomes a subscriber.
-            </p>
             <div className="mt-6">
               <ReferralSection ineligible={search.referral === "ineligible"} />
             </div>
@@ -151,10 +143,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Your plan
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Billing runs through Stripe, and you can also manage it from the
-              desktop app.
-            </p>
             <div className="mt-6">
               <PlanSection />
             </div>
@@ -164,9 +152,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Integrations
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Calendars and tools connected to Anarlog.
-            </p>
             <div className="mt-6">
               <IntegrationsSection />
             </div>
@@ -176,9 +161,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Synced devices
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Anarlog syncs up to five devices. Remove one to free a slot.
-            </p>
             <div className="mt-6">
               <DevicesSection />
             </div>
@@ -188,10 +170,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Shared notes
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Notes you've shared with others. Restricting a note turns off link
-              and public access.
-            </p>
             <div className="mt-6">
               <SharedNotesSection />
             </div>
@@ -201,9 +179,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Cloud API keys
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Keys that let your own tools talk to the Anarlog Cloud API.
-            </p>
             <div className="mt-6">
               <ApiKeysSection />
             </div>
@@ -213,9 +188,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Session controls
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Sign out quickly whenever you need to.
-            </p>
             <div className="mt-6">
               <AccountAccessSection />
             </div>
@@ -225,10 +197,6 @@ function Component() {
             <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
               Danger area
             </h2>
-            <p className="mt-3 max-w-xl text-base leading-7 text-[#4f4940]">
-              Account deletion lives here, tucked behind an extra deliberate
-              step.
-            </p>
             <div className="mt-6">
               <DangerAreaSection />
             </div>

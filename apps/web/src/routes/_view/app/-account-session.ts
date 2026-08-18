@@ -21,11 +21,27 @@ export function useAccountSession() {
         return null;
       }
 
+      const metadata: Record<string, unknown> = session.user.user_metadata ?? {};
+      const metadataString = (key: string) => {
+        const value = metadata[key];
+        return typeof value === "string" && value.trim() ? value.trim() : null;
+      };
+
       return {
         billing: deriveBillingInfo(
           jwtDecode<SupabaseJwtPayload>(session.access_token),
         ),
         createdAt: session.user.created_at ?? null,
+        profile: {
+          // An explicit full_name (even cleared to null) wins; fall back to
+          // the OAuth-provided name only when the user never set one.
+          fullName:
+            "full_name" in metadata
+              ? metadataString("full_name")
+              : metadataString("name"),
+          linkedinUrl: metadataString("linkedin_url"),
+          xHandle: metadataString("x_handle"),
+        },
       };
     },
   });
