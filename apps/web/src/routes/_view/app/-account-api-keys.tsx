@@ -52,6 +52,7 @@ export function ApiKeysSection() {
     },
     onSuccess: (data) => {
       setCreatedKey(data);
+      setCopiedKey(false);
       setIsCreating(false);
       setNewKeyName("");
       queryClient.invalidateQueries({ queryKey: apiKeysQueryKey });
@@ -141,6 +142,7 @@ export function ApiKeysSection() {
               <button
                 onClick={() => {
                   setCreatedKey(null);
+                  setCopiedKey(false);
                   setIsCreating(true);
                 }}
                 className={accountPillSecondaryClassName}
