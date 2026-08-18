@@ -83,7 +83,9 @@ export function useContactSummary({
           signal,
         });
       } catch (error) {
-        console.error("[contacts] failed to generate contact summary", error);
+        if (!signal.aborted) {
+          console.error("[contacts] failed to generate contact summary", error);
+        }
         throw error;
       }
     },
@@ -157,20 +159,18 @@ export function getIncrementalUpdate(
 ): { facts: string[]; newSessions: HumanSessionRecord[] } | null {
   if (!saved || saved.sources.length === 0) return null;
 
-  const savedUpdatedAtById = new Map(
-    saved.sources.map((source) => [source.id, source.updatedAt]),
-  );
-  const newSessions = [];
-  for (const session of sessions) {
-    const savedUpdatedAt = savedUpdatedAtById.get(session.id);
-    if (savedUpdatedAt === undefined) {
-      newSessions.push(session);
-    } else if (savedUpdatedAt !== session.sourceUpdatedAt) {
-      // An already-summarized meeting changed; its facts may be stale.
-      return null;
-    }
+  // A summarized meeting that was edited or removed may invalidate old
+  // facts, so check saved sources against the full session list.
+  const sessionById = new Map(sessions.map((session) => [session.id, session]));
+  for (const source of saved.sources) {
+    const session = sessionById.get(source.id);
+    if (!session || session.sourceUpdatedAt !== source.updatedAt) return null;
   }
 
+  const savedIds = new Set(saved.sources.map((source) => source.id));
+  const newSessions = sessions
+    .slice(0, MAX_MEETINGS)
+    .filter((session) => !savedIds.has(session.id));
   return newSessions.length > 0 ? { facts: saved.facts, newSessions } : null;
 }
 
@@ -190,7 +190,7 @@ export async function generateAndSaveContactSummary({
   signal?: AbortSignal;
 }): Promise<ContactSummaryRecord | null> {
   const recentSessions = sessions.slice(0, MAX_MEETINGS);
-  const incremental = getIncrementalUpdate(human.summary, recentSessions);
+  const incremental = getIncrementalUpdate(human.summary, sessions);
   const snapshots = (
     await Promise.all(
       (incremental?.newSessions ?? recentSessions).map((session) =>
