@@ -1,7 +1,12 @@
+import { Icon } from "@iconify-icon/react";
+import { Plugs, PuzzlePiece } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 
 import { listConnections } from "@anlg/api-client";
+import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
+import { cn } from "@anlg/utils";
 
 import { getAuthorizedApiClient } from "./-account-api";
 import { useAccountSession } from "./-account-session";
@@ -18,6 +23,17 @@ const INTEGRATION_NAMES: Record<string, string> = {
   github: "GitHub",
   slack: "Slack",
   notion: "Notion",
+};
+
+const INTEGRATION_ICONS: Record<string, ReactNode> = {
+  "google-calendar": (
+    <Icon icon="logos:google-calendar" width="20" height="20" />
+  ),
+  outlook: <OutlookIcon size={20} />,
+  linear: <Icon icon="logos:linear-icon" width="20" height="20" />,
+  github: <Icon icon="logos:github-icon" width="20" height="20" />,
+  slack: <Icon icon="logos:slack-icon" width="20" height="20" />,
+  notion: <Icon icon="logos:notion-icon" width="20" height="20" />,
 };
 
 const connectionsQueryKey = ["account-integrations"];
@@ -69,17 +85,27 @@ export function IntegrationsSection() {
                 key={connection.connection_id}
                 className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
               >
-                <div>
-                  <p className="text-base font-medium text-[#181613]">
-                    {INTEGRATION_NAMES[connection.integration_id] ??
-                      connection.integration_id}
-                  </p>
-                  <p className="mt-1 text-sm leading-6 text-[#756b5d]">
-                    {hasError
-                      ? connection.last_error_description ||
-                        "Connection needs attention."
-                      : "Connected."}
-                  </p>
+                <div className="flex items-center gap-4">
+                  <span
+                    aria-hidden="true"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ede7dc] bg-[#fffaf0]"
+                  >
+                    {INTEGRATION_ICONS[connection.integration_id] ?? (
+                      <PuzzlePiece size={20} className="text-[#756b5d]" />
+                    )}
+                  </span>
+                  <div>
+                    <p className="text-base font-medium text-[#181613]">
+                      {INTEGRATION_NAMES[connection.integration_id] ??
+                        connection.integration_id}
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+                      {hasError
+                        ? connection.last_error_description ||
+                          "Connection needs attention."
+                        : "Connected."}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {hasError && (
@@ -104,9 +130,14 @@ export function IntegrationsSection() {
                       connection_id: connection.connection_id,
                       action: "disconnect",
                     }}
-                    className={accountPillDangerClassName}
+                    aria-label={`Disconnect ${
+                      INTEGRATION_NAMES[connection.integration_id] ??
+                      connection.integration_id
+                    }`}
+                    title="Disconnect"
+                    className={cn([accountPillDangerClassName, "w-9 px-0"])}
                   >
-                    Disconnect
+                    <Plugs size={16} aria-hidden="true" />
                   </Link>
                 </div>
               </li>
