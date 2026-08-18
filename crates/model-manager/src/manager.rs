@@ -10,11 +10,26 @@ pub(crate) struct ActiveModel<M> {
     pub(crate) model: Arc<M>,
 }
 
+// Single lock for both fields: `get()` and the inactivity monitor previously
+// acquired two separate mutexes in opposite orders, which could deadlock.
+pub(crate) struct ManagerState<M> {
+    pub(crate) active: Option<ActiveModel<M>>,
+    pub(crate) last_activity: Option<tokio::time::Instant>,
+}
+
+impl<M> Default for ManagerState<M> {
+    fn default() -> Self {
+        Self {
+            active: None,
+            last_activity: None,
+        }
+    }
+}
+
 pub struct ModelManager<M: ModelLoader> {
     pub(crate) registry: Arc<RwLock<HashMap<String, PathBuf>>>,
     pub(crate) default_model: Arc<RwLock<Option<String>>>,
-    pub(crate) active: Arc<Mutex<Option<ActiveModel<M>>>>,
-    pub(crate) last_activity: Arc<Mutex<Option<tokio::time::Instant>>>,
+    pub(crate) state: Arc<Mutex<ManagerState<M>>>,
     pub(crate) inactivity_timeout: Duration,
     pub(crate) _drop_guard: Arc<DropGuard>,
 }
@@ -24,8 +39,7 @@ impl<M: ModelLoader> Clone for ModelManager<M> {
         Self {
             registry: Arc::clone(&self.registry),
             default_model: Arc::clone(&self.default_model),
-            active: Arc::clone(&self.active),
-            last_activity: Arc::clone(&self.last_activity),
+            state: Arc::clone(&self.state),
             inactivity_timeout: self.inactivity_timeout,
             _drop_guard: Arc::clone(&self._drop_guard),
         }
@@ -60,9 +74,9 @@ impl<M: ModelLoader> ModelManager<M> {
         let mut reg = self.registry.write().await;
         reg.remove(name);
 
-        let mut active = self.active.lock().await;
-        if active.as_ref().is_some_and(|a| a.name == name) {
-            *active = None;
+        let mut state = self.state.lock().await;
+        if state.active.as_ref().is_some_and(|a| a.name == name) {
+            state.active = None;
         }
     }
 
@@ -91,22 +105,26 @@ impl<M: ModelLoader> ModelManager<M> {
             return Err(Error::ModelFileNotFound(path.display().to_string()));
         }
 
-        let mut active = self.active.lock().await;
-        let mut last_activity = self.last_activity.lock().await;
+        // Held across the load on purpose: concurrent gets for the same model
+        // must not load it twice.
+        let mut state = self.state.lock().await;
         let now = tokio::time::Instant::now();
 
-        if last_activity.is_some_and(|t| now.duration_since(t) > self.inactivity_timeout) {
-            *active = None;
+        if state
+            .last_activity
+            .is_some_and(|t| now.duration_since(t) > self.inactivity_timeout)
+        {
+            state.active = None;
         }
-        *last_activity = Some(now);
+        state.last_activity = Some(now);
 
-        if let Some(ref a) = *active
+        if let Some(ref a) = state.active
             && a.name == resolved
         {
             return Ok(Arc::clone(&a.model));
         }
 
-        *active = None;
+        state.active = None;
 
         let model = tokio::task::spawn_blocking(move || M::load(&path))
             .await
@@ -114,7 +132,7 @@ impl<M: ModelLoader> ModelManager<M> {
             .map_err(|e| Error::Load(Box::new(e)))?;
 
         let model = Arc::new(model);
-        *active = Some(ActiveModel {
+        state.active = Some(ActiveModel {
             name: resolved,
             model: Arc::clone(&model),
         });
@@ -127,7 +145,7 @@ impl<M: ModelLoader> ModelManager<M> {
     }
 
     async fn update_activity(&self) {
-        *self.last_activity.lock().await = Some(tokio::time::Instant::now());
+        self.state.lock().await.last_activity = Some(tokio::time::Instant::now());
     }
 
     pub(crate) fn spawn_monitor(
@@ -135,8 +153,7 @@ impl<M: ModelLoader> ModelManager<M> {
         check_interval: Duration,
         mut shutdown_rx: watch::Receiver<()>,
     ) {
-        let active = Arc::clone(&self.active);
-        let last_activity = Arc::clone(&self.last_activity);
+        let state = Arc::clone(&self.state);
         let inactivity_timeout = self.inactivity_timeout;
 
         tokio::spawn(async move {
@@ -147,11 +164,11 @@ impl<M: ModelLoader> ModelManager<M> {
                 tokio::select! {
                     _ = shutdown_rx.changed() => break,
                     _ = interval.tick() => {
-                        let last = last_activity.lock().await;
-                        if let Some(t) = *last
+                        let mut state = state.lock().await;
+                        if let Some(t) = state.last_activity
                             && t.elapsed() > inactivity_timeout
                         {
-                            *active.lock().await = None;
+                            state.active = None;
                         }
                     }
                 }
