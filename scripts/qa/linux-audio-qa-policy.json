@@ -1,0 +1,21 @@
+{
+  "$comment": "Single policy for the Linux audio QA scenario: the Python track verifier (scripts/qa/verify_linux_audio_tracks.py) produces analysis evidence with these thresholds and phase rules, and the release evidence verifier (scripts/verify-linux-audio-qa-evidence.mjs) enforces the same values, so producer and verifier cannot silently disagree.",
+  "policyVersion": 1,
+  "phaseSchemaVersion": 1,
+  "requiredPhases": ["both", "mic_only", "system_only"],
+  "minPhaseDurationSeconds": 5,
+  "thresholds": {
+    "duration_delta_seconds_max": 0.15,
+    "mic_active_rms_min": 0.0002,
+    "speaker_active_rms_min": 0.001,
+    "system_tone_amplitude_min": 0.0005,
+    "mic_pilot_amplitude_min": 0.0002,
+    "mic_isolation_db_min": 12.0,
+    "speaker_isolation_db_min": 15.0,
+    "system_tone_isolation_db_min": 18.0,
+    "mic_pilot_isolation_db_min": 6.0,
+    "cross_channel_isolation_db_min": 12.0,
+    "clipped_fraction_max": 0.001,
+    "recording_tail_tolerance_seconds": 0.5
+  }
+}
