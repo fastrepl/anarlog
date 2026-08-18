@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use anlg_session_ingest::{AcknowledgeRequest, AcknowledgeResponse, DeliveryPage, SessionRead};
 use axum::{
     Json, Router,
+    body::Bytes,
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
@@ -19,6 +20,7 @@ use crate::{
         RenewCaptureJobLeaseRequest,
     },
     store::{ControlPlaneStore, StoreError},
+    zoom::{ZoomDispatchError, ZoomWebhookError, ZoomWebhookOutcome, ZoomWebhookService},
 };
 
 const MAX_REQUEST_BYTES: usize = 256 * 1024;
@@ -30,6 +32,7 @@ const CAPTURE_LEASE_DURATION: Duration = Duration::from_secs(60);
 pub struct AppState {
     store: Arc<dyn ControlPlaneStore>,
     authenticator: Arc<dyn WorkspaceAuthenticator>,
+    zoom: Option<Arc<ZoomWebhookService>>,
 }
 
 impl AppState {
@@ -40,12 +43,18 @@ impl AppState {
         Self {
             store,
             authenticator,
+            zoom: None,
         }
+    }
+
+    pub fn with_zoom(mut self, zoom: Arc<ZoomWebhookService>) -> Self {
+        self.zoom = Some(zoom);
+        self
     }
 }
 
 pub fn router(state: AppState) -> Router {
-    Router::new()
+    let mut router = Router::new()
         .route("/health/live", get(liveness))
         .route("/health/ready", get(readiness))
         .route(
@@ -75,10 +84,48 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/v1/workspaces/{workspace_id}/sessions/{job_id}",
             get(read_session),
-        )
+        );
+    if state.zoom.is_some() {
+        router = router.route("/webhooks/zoom", post(zoom_webhook));
+    }
+    router
         .layer(DefaultBodyLimit::max(MAX_REQUEST_BYTES))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+async fn zoom_webhook(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Result<Response, ApiError> {
+    let service = state.zoom.as_ref().ok_or_else(ApiError::not_found)?;
+    let timestamp = headers
+        .get("x-zm-request-timestamp")
+        .and_then(|value| value.to_str().ok());
+    let signature = headers
+        .get("x-zm-signature")
+        .and_then(|value| value.to_str().ok());
+    match service
+        .handle(timestamp, signature, body.as_ref())
+        .await
+        .map_err(ApiError::from_zoom)?
+    {
+        ZoomWebhookOutcome::Validation(response) => Ok(Json(response).into_response()),
+        ZoomWebhookOutcome::Accepted(outcome) => Ok((
+            StatusCode::OK,
+            Json(ZoomWebhookAccepted {
+                status: if outcome.started {
+                    "started"
+                } else {
+                    "already_running"
+                },
+                job_id: outcome.job_id,
+            }),
+        )
+            .into_response()),
+        ZoomWebhookOutcome::Ignored => Ok(StatusCode::NO_CONTENT.into_response()),
+    }
 }
 
 async fn read_capture_checkpoint(
@@ -381,6 +428,13 @@ struct HealthResponse {
     status: &'static str,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ZoomWebhookAccepted {
+    status: &'static str,
+    job_id: String,
+}
+
 struct ApiError {
     status: StatusCode,
     code: &'static str,
@@ -425,6 +479,44 @@ impl ApiError {
         }
     }
 
+    fn not_found() -> Self {
+        Self {
+            status: StatusCode::NOT_FOUND,
+            code: "not_found",
+            message: "the requested route was not found",
+            authenticate: false,
+        }
+    }
+
+    fn from_zoom(error: ZoomWebhookError) -> Self {
+        match error {
+            ZoomWebhookError::MissingHeaders | ZoomWebhookError::Verification(_) => Self {
+                status: StatusCode::UNAUTHORIZED,
+                code: "invalid_zoom_signature",
+                message: "the Zoom webhook signature is invalid",
+                authenticate: false,
+            },
+            ZoomWebhookError::Protocol(_) => Self::bad_request(
+                "invalid_zoom_webhook",
+                "the Zoom webhook payload is invalid",
+            ),
+            ZoomWebhookError::Dispatch(ZoomDispatchError::NotFound) => Self::not_found(),
+            ZoomWebhookError::Dispatch(ZoomDispatchError::Unavailable(error)) => {
+                tracing::error!(error = %error, "Zoom webhook dispatch failed");
+                Self {
+                    status: StatusCode::SERVICE_UNAVAILABLE,
+                    code: "zoom_dispatch_unavailable",
+                    message: "the Zoom capture worker could not accept the event",
+                    authenticate: false,
+                }
+            }
+            ZoomWebhookError::InvalidSystemClock => {
+                tracing::error!("system clock is before Unix epoch");
+                Self::internal()
+            }
+        }
+    }
+
     fn from_store(error: StoreError) -> Self {
         match error {
             StoreError::NotFound => Self {
@@ -449,6 +541,12 @@ impl ApiError {
                 status: StatusCode::CONFLICT,
                 code: "capture_bot_conflict",
                 message: "capture bot is already assigned to a different job",
+                authenticate: false,
+            },
+            StoreError::CaptureExternalIdConflict => Self {
+                status: StatusCode::CONFLICT,
+                code: "capture_external_id_conflict",
+                message: "capture provider identity matches more than one queued job",
                 authenticate: false,
             },
             StoreError::CaptureEventConflict | StoreError::CaptureSequenceConflict { .. } => Self {

@@ -6,15 +6,22 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anarlog_enterprise_control_plane::{api::router, config::Config, configured_state, serve};
+use anarlog_enterprise_control_plane::{
+    api::router,
+    capture::{CaptureDispatch, CaptureJob},
+    config::Config,
+    configured_state, serve,
+    store::{ControlPlaneStore, PostgresStore, StoreError},
+};
 use anarlog_enterprise_google_meet_worker::{
     CaptureJobRuntime, CaptureJobSupervisor, CaptureJobSupervisorConfig,
     CaptureJobSupervisorOutcome, ControlPlaneEventSink, ControlPlaneEventSinkConfig,
     WorkerCheckpoint, WorkerLifecycle,
 };
 use anlg_meeting_capture::{
-    BotState, CaptureEvent, CaptureEventPayload, Participant, RecordingChunk, Speaker,
-    TerminalReason, TerminalReasonKind, TranscriptSegment,
+    BotState, CaptureEvent, CaptureEventPayload, CaptureProviderKind, MeetingPlatform,
+    MeetingReference, Participant, RecordingChunk, Speaker, TerminalReason, TerminalReasonKind,
+    TranscriptSegment,
 };
 use async_trait::async_trait;
 use axum::{
@@ -148,6 +155,16 @@ async fn migrates_postgres_and_enforces_workspace_delivery() {
     .unwrap();
 
     let app = router(state);
+    let zoom_disabled = app
+        .clone()
+        .oneshot(
+            Request::post("/webhooks/zoom")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(zoom_disabled.status(), StatusCode::NOT_FOUND);
     let list_path =
         format!("/v1/workspaces/{workspace_id}/session-envelopes?consumerId=device-a&after=0");
     let listed = app
@@ -188,6 +205,184 @@ async fn migrates_postgres_and_enforces_workspace_delivery() {
         .await
         .unwrap();
     assert_eq!(wrong_workspace.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn resolves_dispatchable_zoom_jobs_by_workspace_and_external_identity() {
+    let Ok(database_url) = std::env::var(TEST_DATABASE_URL_ENV) else {
+        return;
+    };
+    let suffix = format!(
+        "{}-{}",
+        std::process::id(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    let workspace_id = format!("workspace-zoom-{suffix}");
+    let job_id = format!("job-zoom-{suffix}");
+    let external_id = format!("meeting-{suffix}");
+    let store = PostgresStore::connect(&database_url, 2, Duration::from_secs(10))
+        .await
+        .unwrap();
+    store.migrate().await.unwrap();
+    store
+        .create_capture_job(&CaptureJob {
+            workspace_id: workspace_id.clone(),
+            job_id: job_id.clone(),
+            bot_id: format!("bot-zoom-{suffix}"),
+            owner_user_id: "owner-a".into(),
+            requesting_actor_id: "actor-a".into(),
+            session_id: format!("session-zoom-{suffix}"),
+            session_title: "Zoom dispatch".into(),
+            provider: CaptureProviderKind::ZoomRtms,
+            meeting: MeetingReference {
+                platform: MeetingPlatform::Zoom,
+                url: "https://zoom.us/j/123456789".into(),
+                external_id: Some(external_id.clone()),
+                calendar_event_id: None,
+            },
+            created_at: chrono::Utc::now(),
+        })
+        .await
+        .unwrap();
+
+    let checkpoint = store
+        .find_dispatchable_capture_checkpoint(
+            &workspace_id,
+            CaptureProviderKind::ZoomRtms,
+            &["unrelated-uuid".into(), external_id],
+        )
+        .await
+        .unwrap();
+    assert_eq!(checkpoint.job.job_id, job_id);
+    assert_eq!(checkpoint.state, BotState::Queued);
+    let stream_id = "s".repeat(512);
+    let mut dispatch = CaptureDispatch {
+        workspace_id: workspace_id.clone(),
+        job_id: job_id.clone(),
+        provider: CaptureProviderKind::ZoomRtms,
+        dispatch_id: stream_id.clone(),
+        payload: serde_json::json!({
+            "account_id": "account-a",
+            "meeting_uuid": "meeting-uuid",
+            "meeting_id": "123456789",
+            "stream_id": stream_id,
+            "signaling_url": "wss://rtms.zoom.us/signaling",
+            "event_timestamp_ms": 1
+        }),
+    };
+    store.save_capture_dispatch(&dispatch).await.unwrap();
+    store.save_capture_dispatch(&dispatch).await.unwrap();
+    assert_eq!(
+        store
+            .find_capture_dispatch(CaptureProviderKind::ZoomRtms, &stream_id)
+            .await
+            .unwrap(),
+        dispatch
+    );
+    dispatch.payload["signaling_url"] = serde_json::json!("wss://rtms2.zoom.us/signaling");
+    dispatch.payload["event_timestamp_ms"] = serde_json::json!(2);
+    store.save_capture_dispatch(&dispatch).await.unwrap();
+    assert_eq!(
+        store
+            .list_capture_dispatches(CaptureProviderKind::ZoomRtms)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|candidate| candidate.job_id == job_id),
+        Some(dispatch.clone())
+    );
+    let mut conflicting = dispatch.clone();
+    conflicting.dispatch_id.push_str("-other");
+    assert!(matches!(
+        store.save_capture_dispatch(&conflicting).await,
+        Err(StoreError::CaptureDispatchConflict)
+    ));
+    assert!(matches!(
+        store
+            .find_dispatchable_capture_checkpoint(
+                "another-workspace",
+                CaptureProviderKind::ZoomRtms,
+                &[checkpoint.job.meeting.external_id.clone().unwrap()],
+            )
+            .await,
+        Err(StoreError::NotFound)
+    ));
+    let lease = store
+        .claim_capture_job(
+            &workspace_id,
+            &job_id,
+            "worker-a",
+            "lease-a",
+            Duration::from_secs(60),
+        )
+        .await
+        .unwrap();
+    let lease_identity = anarlog_enterprise_control_plane::capture::CaptureJobLeaseIdentity {
+        worker_id: lease.worker_id,
+        lease_id: lease.lease_id,
+        epoch: lease.epoch,
+    };
+    store
+        .append_capture_event(
+            &workspace_id,
+            &job_id,
+            &lease_identity,
+            &CaptureEvent {
+                id: format!("event-transcript-{suffix}"),
+                bot_id: checkpoint.job.bot_id.clone(),
+                sequence: 0,
+                occurred_at: chrono::Utc::now(),
+                payload: CaptureEventPayload::Transcript(TranscriptSegment {
+                    id: format!("segment-{suffix}"),
+                    sequence: 41,
+                    start_ms: 0,
+                    end_ms: Some(1),
+                    text: "before reconnect".into(),
+                    speaker: None,
+                    is_final: true,
+                }),
+                metadata: Default::default(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        store
+            .next_capture_transcript_sequence(&workspace_id, &job_id)
+            .await
+            .unwrap(),
+        42
+    );
+    store
+        .append_capture_event(
+            &workspace_id,
+            &job_id,
+            &lease_identity,
+            &lifecycle(
+                &checkpoint.job.bot_id,
+                1,
+                BotState::Queued,
+                BotState::Failed,
+                Some(TerminalReason {
+                    kind: TerminalReasonKind::ProviderError,
+                    message: None,
+                    retryable: true,
+                }),
+            ),
+        )
+        .await
+        .unwrap();
+    assert!(
+        store
+            .list_capture_dispatches(CaptureProviderKind::ZoomRtms)
+            .await
+            .unwrap()
+            .into_iter()
+            .all(|candidate| candidate.job_id != job_id)
+    );
 }
 
 #[tokio::test]

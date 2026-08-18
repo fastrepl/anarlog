@@ -5,6 +5,7 @@ edition.workspace = true
 license-file.workspace = true
 
 [dependencies]
+anarlog-enterprise-zoom-rtms-worker = { path = "../zoom-rtms-worker" }
 anlg-meeting-capture.workspace = true
 anlg-session-ingest.workspace = true
 
@@ -29,5 +30,7 @@ anlg-agent-access.workspace = true
 anlg-db-app.workspace = true
 anlg-db-core.workspace = true
 anlg-session-ingest = { workspace = true, features = ["apply"] }
+hmac.workspace = true
 reqwest.workspace = true
+sha2-legacy = { package = "sha2", version = "0.10" }
 tower = { workspace = true, features = ["util"] }

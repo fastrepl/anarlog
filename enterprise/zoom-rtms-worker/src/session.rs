@@ -22,6 +22,7 @@ type ZoomWebSocket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 pub struct ZoomRtmsSessionConfig {
     pub handshake_timeout: Duration,
     pub max_message_bytes: usize,
+    pub initial_segment_sequence: u64,
 }
 
 impl Default for ZoomRtmsSessionConfig {
@@ -29,6 +30,7 @@ impl Default for ZoomRtmsSessionConfig {
         Self {
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             max_message_bytes: DEFAULT_MAX_MESSAGE_BYTES,
+            initial_segment_sequence: 0,
         }
     }
 }
@@ -120,7 +122,7 @@ impl ZoomRtmsSession {
             media,
             started,
             max_message_bytes: config.max_message_bytes,
-            next_segment_sequence: 0,
+            next_segment_sequence: config.initial_segment_sequence,
         })
     }
 
@@ -148,17 +150,17 @@ impl ZoomRtmsSession {
                             self.next_segment_sequence = self.next_segment_sequence
                                 .checked_add(1)
                                 .ok_or(ZoomRtmsSessionError::SequenceExhausted)?;
-                            transcripts
-                                .send(transcript.into_segment(self.started.event_timestamp_ms, sequence))
-                                .await
-                                .map_err(|_| ZoomRtmsSessionError::TranscriptReceiverClosed)?;
+                            enqueue_transcript(
+                                &transcripts,
+                                transcript.into_segment(self.started.event_timestamp_ms, sequence),
+                            )?;
                         }
                         MediaMessage::HandshakeAccepted | MediaMessage::Other { .. } => {}
                     }
                 }
                 changed = shutdown.changed() => {
                     if changed.is_err() || *shutdown.borrow() {
-                        self.close().await;
+                        self.shutdown().await;
                         return Ok(ZoomRtmsSessionOutcome::StoppedByRequest);
                     }
                 }
@@ -166,10 +168,22 @@ impl ZoomRtmsSession {
         }
     }
 
-    async fn close(&mut self) {
+    pub async fn shutdown(&mut self) {
         let _ = self.media.close(None).await;
         let _ = self.signaling.close(None).await;
     }
+}
+
+fn enqueue_transcript(
+    transcripts: &mpsc::Sender<TranscriptSegment>,
+    transcript: TranscriptSegment,
+) -> Result<(), ZoomRtmsSessionError> {
+    transcripts
+        .try_send(transcript)
+        .map_err(|error| match error {
+            mpsc::error::TrySendError::Full(_) => ZoomRtmsSessionError::TranscriptBackpressure,
+            mpsc::error::TrySendError::Closed(_) => ZoomRtmsSessionError::TranscriptReceiverClosed,
+        })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -233,6 +247,8 @@ pub enum ZoomRtmsSessionError {
     UnexpectedBinaryMessage,
     #[error("Zoom RTMS transcript receiver closed")]
     TranscriptReceiverClosed,
+    #[error("Zoom RTMS transcript persistence exceeded its bounded buffer")]
+    TranscriptBackpressure,
     #[error("Zoom RTMS transcript sequence was exhausted")]
     SequenceExhausted,
 }
@@ -240,6 +256,18 @@ pub enum ZoomRtmsSessionError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn transcript(sequence: u64) -> TranscriptSegment {
+        TranscriptSegment {
+            id: format!("segment-{sequence}"),
+            sequence,
+            start_ms: 0,
+            end_ms: Some(1),
+            text: "hello".into(),
+            speaker: None,
+            is_final: true,
+        }
+    }
 
     #[test]
     fn validates_session_limits() {
@@ -259,6 +287,17 @@ mod tests {
             }
             .validate(),
             Err(ZoomRtmsSessionConfigError::InvalidMaxMessageBytes)
+        ));
+    }
+
+    #[test]
+    fn fails_fast_when_transcript_persistence_falls_behind() {
+        let (transcripts, _receiver) = mpsc::channel(1);
+        enqueue_transcript(&transcripts, transcript(0)).unwrap();
+
+        assert!(matches!(
+            enqueue_transcript(&transcripts, transcript(1)),
+            Err(ZoomRtmsSessionError::TranscriptBackpressure)
         ));
     }
 }

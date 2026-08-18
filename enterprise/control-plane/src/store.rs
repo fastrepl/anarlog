@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use anlg_meeting_capture::{BotState, CaptureEvent, CaptureEventPayload};
+use anlg_meeting_capture::{BotState, CaptureEvent, CaptureEventPayload, CaptureProviderKind};
 use anlg_session_ingest::{
     AcknowledgeRequest, DeliveryItem, DeliveryPage, SessionIngestEnvelope, SessionRead,
 };
@@ -10,8 +10,8 @@ use sqlx::{PgPool, Row, postgres::PgPoolOptions};
 
 use crate::{
     capture::{
-        CaptureJob, CaptureJobCheckpoint, CaptureJobLease, CaptureJobLeaseIdentity,
-        CaptureJobStatus, ProjectionPublication,
+        CaptureDispatch, CaptureJob, CaptureJobCheckpoint, CaptureJobLease,
+        CaptureJobLeaseIdentity, CaptureJobStatus, ProjectionPublication,
     },
     projector,
 };
@@ -29,6 +29,32 @@ pub trait ControlPlaneStore: Send + Sync {
         workspace_id: &str,
         job_id: &str,
     ) -> Result<CaptureJobCheckpoint, StoreError>;
+
+    async fn find_dispatchable_capture_checkpoint(
+        &self,
+        workspace_id: &str,
+        provider: CaptureProviderKind,
+        external_ids: &[String],
+    ) -> Result<CaptureJobCheckpoint, StoreError>;
+
+    async fn save_capture_dispatch(&self, dispatch: &CaptureDispatch) -> Result<(), StoreError>;
+
+    async fn list_capture_dispatches(
+        &self,
+        provider: CaptureProviderKind,
+    ) -> Result<Vec<CaptureDispatch>, StoreError>;
+
+    async fn find_capture_dispatch(
+        &self,
+        provider: CaptureProviderKind,
+        dispatch_id: &str,
+    ) -> Result<CaptureDispatch, StoreError>;
+
+    async fn next_capture_transcript_sequence(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+    ) -> Result<u64, StoreError>;
 
     async fn claim_capture_job(
         &self,
@@ -235,16 +261,220 @@ impl ControlPlaneStore for PostgresStore {
         .fetch_optional(&self.pool)
         .await?
         .ok_or(StoreError::NotFound)?;
-        let state = parse_enum(&row.try_get::<String, _>("state")?)?;
-        let next_sequence = row
-            .try_get::<i64, _>("last_sequence")?
-            .checked_add(1)
-            .ok_or(StoreError::OutOfRange("capture event sequence"))?;
-        Ok(CaptureJobCheckpoint {
-            job: capture_job(row)?,
-            state,
-            next_sequence: from_i64(next_sequence, "capture event sequence")?,
-        })
+        capture_checkpoint(row)
+    }
+
+    async fn find_dispatchable_capture_checkpoint(
+        &self,
+        workspace_id: &str,
+        provider: CaptureProviderKind,
+        external_ids: &[String],
+    ) -> Result<CaptureJobCheckpoint, StoreError> {
+        if external_ids.is_empty() {
+            return Err(StoreError::NotFound);
+        }
+        let rows = sqlx::query(
+            r#"
+            SELECT
+                workspace_id,
+                job_id,
+                bot_id,
+                owner_user_id,
+                requesting_actor_id,
+                session_id,
+                session_title,
+                provider,
+                meeting,
+                state,
+                last_sequence,
+                created_at
+            FROM capture_jobs
+            WHERE workspace_id = $1
+              AND provider = $2
+              AND state = 'queued'
+              AND meeting->>'external_id' = ANY($3)
+            ORDER BY created_at ASC, job_id ASC
+            LIMIT 2
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(enum_name(provider)?)
+        .bind(external_ids)
+        .fetch_all(&self.pool)
+        .await?;
+        match rows.len() {
+            0 => Err(StoreError::NotFound),
+            1 => capture_checkpoint(rows.into_iter().next().expect("row exists")),
+            _ => Err(StoreError::CaptureExternalIdConflict),
+        }
+    }
+
+    async fn save_capture_dispatch(&self, dispatch: &CaptureDispatch) -> Result<(), StoreError> {
+        let provider = enum_name(dispatch.provider)?;
+        let mut transaction = self.pool.begin().await?;
+        let row = sqlx::query(
+            r#"
+            SELECT provider, state, dispatch_id, dispatch_payload
+            FROM capture_jobs
+            WHERE workspace_id = $1 AND job_id = $2
+            FOR UPDATE
+            "#,
+        )
+        .bind(&dispatch.workspace_id)
+        .bind(&dispatch.job_id)
+        .fetch_optional(&mut *transaction)
+        .await?
+        .ok_or(StoreError::NotFound)?;
+        if parse_enum::<BotState>(&row.try_get::<String, _>("state")?)?.is_terminal() {
+            return Err(StoreError::CaptureJobTerminal);
+        }
+        if row.try_get::<String, _>("provider")? != provider {
+            return Err(StoreError::InvalidCaptureEvent(
+                "capture dispatch belongs to a different provider".into(),
+            ));
+        }
+        let current_id = row.try_get::<Option<String>, _>("dispatch_id")?;
+        let current_payload = row.try_get::<Option<serde_json::Value>, _>("dispatch_payload")?;
+        if current_id.as_deref() == Some(dispatch.dispatch_id.as_str()) {
+            if current_payload.as_ref() != Some(&dispatch.payload) {
+                sqlx::query(
+                    r#"
+                    UPDATE capture_jobs
+                    SET
+                        dispatch_payload = $3,
+                        dispatch_accepted_at = clock_timestamp()
+                    WHERE workspace_id = $1 AND job_id = $2
+                    "#,
+                )
+                .bind(&dispatch.workspace_id)
+                .bind(&dispatch.job_id)
+                .bind(&dispatch.payload)
+                .execute(&mut *transaction)
+                .await?;
+            }
+            transaction.commit().await?;
+            return Ok(());
+        }
+        if current_id.is_some() || current_payload.is_some() {
+            return Err(StoreError::CaptureDispatchConflict);
+        }
+        sqlx::query(
+            r#"
+            UPDATE capture_jobs
+            SET
+                dispatch_id = $3,
+                dispatch_payload = $4,
+                dispatch_accepted_at = clock_timestamp()
+            WHERE workspace_id = $1 AND job_id = $2
+            "#,
+        )
+        .bind(&dispatch.workspace_id)
+        .bind(&dispatch.job_id)
+        .bind(&dispatch.dispatch_id)
+        .bind(&dispatch.payload)
+        .execute(&mut *transaction)
+        .await?;
+        transaction.commit().await?;
+        Ok(())
+    }
+
+    async fn list_capture_dispatches(
+        &self,
+        provider: CaptureProviderKind,
+    ) -> Result<Vec<CaptureDispatch>, StoreError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT workspace_id, job_id, provider, dispatch_id, dispatch_payload
+            FROM capture_jobs
+            WHERE provider = $1
+              AND dispatch_id IS NOT NULL
+              AND state NOT IN ('completed', 'failed', 'canceled')
+            ORDER BY dispatch_accepted_at ASC, workspace_id ASC, job_id ASC
+            "#,
+        )
+        .bind(enum_name(provider)?)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter()
+            .map(|row| {
+                Ok(CaptureDispatch {
+                    workspace_id: row.try_get("workspace_id")?,
+                    job_id: row.try_get("job_id")?,
+                    provider: parse_enum(&row.try_get::<String, _>("provider")?)?,
+                    dispatch_id: row.try_get("dispatch_id")?,
+                    payload: row.try_get("dispatch_payload")?,
+                })
+            })
+            .collect()
+    }
+
+    async fn find_capture_dispatch(
+        &self,
+        provider: CaptureProviderKind,
+        dispatch_id: &str,
+    ) -> Result<CaptureDispatch, StoreError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT workspace_id, job_id, provider, dispatch_id, dispatch_payload
+            FROM capture_jobs
+            WHERE provider = $1
+              AND dispatch_id = $2
+              AND state NOT IN ('completed', 'failed', 'canceled')
+            ORDER BY dispatch_accepted_at ASC, workspace_id ASC, job_id ASC
+            LIMIT 2
+            "#,
+        )
+        .bind(enum_name(provider)?)
+        .bind(dispatch_id)
+        .fetch_all(&self.pool)
+        .await?;
+        match rows.len() {
+            0 => Err(StoreError::NotFound),
+            1 => {
+                let row = rows.into_iter().next().expect("row exists");
+                Ok(CaptureDispatch {
+                    workspace_id: row.try_get("workspace_id")?,
+                    job_id: row.try_get("job_id")?,
+                    provider: parse_enum(&row.try_get::<String, _>("provider")?)?,
+                    dispatch_id: row.try_get("dispatch_id")?,
+                    payload: row.try_get("dispatch_payload")?,
+                })
+            }
+            _ => Err(StoreError::CaptureDispatchConflict),
+        }
+    }
+
+    async fn next_capture_transcript_sequence(
+        &self,
+        workspace_id: &str,
+        job_id: &str,
+    ) -> Result<u64, StoreError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT event
+            FROM capture_events
+            WHERE workspace_id = $1
+              AND job_id = $2
+              AND event->'payload'->>'type' = 'transcript'
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(job_id)
+        .fetch_all(&self.pool)
+        .await?;
+        let mut next_sequence = 0;
+        for row in rows {
+            let event = serde_json::from_value::<CaptureEvent>(row.try_get("event")?)?;
+            if let CaptureEventPayload::Transcript(transcript) = event.payload {
+                next_sequence = next_sequence.max(
+                    transcript
+                        .sequence
+                        .checked_add(1)
+                        .ok_or(StoreError::OutOfRange("transcript sequence"))?,
+                );
+            }
+        }
+        Ok(next_sequence)
     }
 
     async fn claim_capture_job(
@@ -567,7 +797,19 @@ impl ControlPlaneStore for PostgresStore {
                 state = $3,
                 terminal_reason = $4,
                 last_sequence = $5,
-                updated_at = $6
+                updated_at = $6,
+                dispatch_id = CASE
+                    WHEN $3 IN ('completed', 'failed', 'canceled') THEN NULL
+                    ELSE dispatch_id
+                END,
+                dispatch_payload = CASE
+                    WHEN $3 IN ('completed', 'failed', 'canceled') THEN NULL
+                    ELSE dispatch_payload
+                END,
+                dispatch_accepted_at = CASE
+                    WHEN $3 IN ('completed', 'failed', 'canceled') THEN NULL
+                    ELSE dispatch_accepted_at
+                END
             WHERE workspace_id = $1 AND job_id = $2
             "#,
         )
@@ -799,6 +1041,19 @@ fn capture_job(row: sqlx::postgres::PgRow) -> Result<CaptureJob, StoreError> {
     })
 }
 
+fn capture_checkpoint(row: sqlx::postgres::PgRow) -> Result<CaptureJobCheckpoint, StoreError> {
+    let state = parse_enum(&row.try_get::<String, _>("state")?)?;
+    let next_sequence = row
+        .try_get::<i64, _>("last_sequence")?
+        .checked_add(1)
+        .ok_or(StoreError::OutOfRange("capture event sequence"))?;
+    Ok(CaptureJobCheckpoint {
+        job: capture_job(row)?,
+        state,
+        next_sequence: from_i64(next_sequence, "capture event sequence")?,
+    })
+}
+
 async fn read_publication(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     workspace_id: &str,
@@ -887,8 +1142,12 @@ pub enum StoreError {
     CaptureJobConflict,
     #[error("capture bot is already assigned to a different job")]
     CaptureBotConflict,
+    #[error("capture provider identity matches more than one dispatchable job")]
+    CaptureExternalIdConflict,
     #[error("capture event id or sequence already exists with different content")]
     CaptureEventConflict,
+    #[error("capture job already has a different durable dispatch")]
+    CaptureDispatchConflict,
     #[error("capture event sequence conflict: expected {expected}, got {actual}")]
     CaptureSequenceConflict { expected: u64, actual: u64 },
     #[error("capture job is already terminal")]

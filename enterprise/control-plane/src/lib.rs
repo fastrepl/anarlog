@@ -6,6 +6,7 @@ pub mod capture;
 pub mod config;
 pub mod projector;
 pub mod store;
+pub mod zoom;
 
 use std::{future::Future, sync::Arc};
 
@@ -14,6 +15,7 @@ use auth::StaticTokenAuthenticator;
 use config::Config;
 use store::PostgresStore;
 use tokio::net::TcpListener;
+use zoom::{ZoomCaptureDispatcher, ZoomWebhookService};
 
 pub async fn run(config: Config) -> anyhow::Result<()> {
     let state = configured_state(&config).await?;
@@ -45,10 +47,21 @@ pub async fn configured_state(config: &Config) -> anyhow::Result<api::AppState> 
         .migrate()
         .await
         .context("failed to apply database migrations")?;
-    Ok(api::AppState::new(
-        store.into_shared(),
-        Arc::new(authenticator),
-    ))
+    let store = store.into_shared();
+    let mut state = api::AppState::new(store.clone(), Arc::new(authenticator));
+    if let Some(zoom) = &config.zoom {
+        let dispatcher = Arc::new(ZoomCaptureDispatcher::new(
+            store,
+            zoom.credentials().clone(),
+        ));
+        dispatcher
+            .recover_pending()
+            .await
+            .context("failed to recover durable Zoom dispatches")?;
+        dispatcher.clone().spawn_recovery();
+        state = state.with_zoom(Arc::new(ZoomWebhookService::new(zoom.clone(), dispatcher)));
+    }
+    Ok(state)
 }
 
 pub async fn serve(

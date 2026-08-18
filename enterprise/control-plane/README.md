@@ -60,9 +60,15 @@ See the official [`infisical run` documentation](https://infisical.com/docs/cli/
 | `ANARLOG_ENTERPRISE_WORKSPACE_TOKENS` | Yes | JSON object mapping workspace IDs to bearer tokens. At least one unique token of 32–512 bytes is required. |
 | `ANARLOG_ENTERPRISE_BIND_ADDRESS` | No | Listener address. Defaults to `0.0.0.0:8080`; the image sets the same value. |
 | `ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS` | No | PostgreSQL pool size from 1–100. Defaults to `10`. |
+| `ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID` | Together | Zoom RTMS app client ID. |
+| `ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET` | Together | Zoom RTMS app client secret. |
+| `ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET` | Together | Zoom webhook secret used to verify signed request bodies. |
+| `ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES` | Together | JSON object mapping signed Zoom account IDs to configured workspace IDs. |
 | `RUST_LOG` | No | Standard tracing filter. Defaults to request and service information. No telemetry is exported. |
 
 `GET /health/live` is process-only liveness. `GET /health/ready` checks PostgreSQL. Capture and delivery routes require `Authorization: Bearer <token>` and reject a token used against any workspace other than its configured workspace.
+
+The four Zoom variables are optional as a group. When all are absent, `/webhooks/zoom` is not mounted and the control plane boots with its minimal database and workspace-auth configuration. If any Zoom variable is set, all four must be valid or startup fails. `ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES` may reference only workspaces present in `ANARLOG_ENTERPRISE_WORKSPACE_TOKENS`. Infisical should inject these values at process start; the service does not fetch, persist, or log provider credentials.
 
 Capture workers create a durable job with `POST /v1/workspaces/{workspace_id}/capture-jobs/{job_id}`, claim it through `/claim`, and renew the returned 60-second fencing lease through `/lease`. Every new event appended to `/events` must carry that lease identity. An expired lease can be reclaimed with a higher epoch, which prevents the prior worker from advancing the job; an identical already-persisted event remains safe to replay. Event IDs and zero-based sequences are idempotency keys. Each accepted event atomically advances the PostgreSQL checkpoint and publishes a delivery revision, while conflicting IDs, sequences, lifecycle transitions, or stale leases fail closed.
 

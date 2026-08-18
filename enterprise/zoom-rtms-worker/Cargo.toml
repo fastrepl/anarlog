@@ -15,4 +15,4 @@ sha2 = "0.10"
 thiserror.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "rt", "sync", "time"] }
 tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
-url.workspace = true
+url = { workspace = true, features = ["serde"] }

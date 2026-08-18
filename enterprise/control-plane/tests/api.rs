@@ -4,21 +4,30 @@ use anarlog_enterprise_control_plane::{
     api::{AppState, router},
     auth::StaticTokenAuthenticator,
     capture::{
-        CaptureJob, CaptureJobCheckpoint, CaptureJobLease, CaptureJobLeaseIdentity,
-        CaptureJobStatus, ProjectionPublication,
+        CaptureDispatch, CaptureJob, CaptureJobCheckpoint, CaptureJobLease,
+        CaptureJobLeaseIdentity, CaptureJobStatus, ProjectionPublication,
     },
+    config::{Config, ZoomConfigValues},
     serve,
     store::{ControlPlaneStore, StoreError},
+    zoom::{
+        ZoomDispatchError, ZoomDispatchOutcome, ZoomStopReason, ZoomWebhookDispatcher,
+        ZoomWebhookService,
+    },
 };
 use anarlog_enterprise_google_meet_worker::{ControlPlaneEventSink, ControlPlaneEventSinkConfig};
-use anlg_meeting_capture::{BotState, CaptureEvent};
+use anarlog_enterprise_zoom_rtms_worker::{ZoomRtmsStarted, ZoomRtmsTerminal};
+use anlg_meeting_capture::{BotState, CaptureEvent, CaptureProviderKind};
 use anlg_session_ingest::{AcknowledgeRequest, DeliveryPage, SessionRead};
 use async_trait::async_trait;
 use axum::{
     body::{Body, to_bytes},
     http::{Method, Request, StatusCode, header},
 };
+use hmac::{Hmac, Mac};
 use serde_json::Value;
+use sha2_legacy::Sha256;
+use std::sync::Mutex;
 use tokio::{net::TcpListener, sync::oneshot, time::Duration};
 use tower::ServiceExt;
 
@@ -27,6 +36,38 @@ const TOKEN_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 struct MemoryStore {
     ready: bool,
+}
+
+#[derive(Default)]
+struct RecordingZoomDispatcher {
+    starts: Mutex<Vec<(String, ZoomRtmsStarted)>>,
+    stops: Mutex<Vec<(ZoomRtmsTerminal, ZoomStopReason)>>,
+}
+
+#[async_trait]
+impl ZoomWebhookDispatcher for RecordingZoomDispatcher {
+    async fn start(
+        &self,
+        workspace_id: &str,
+        started: ZoomRtmsStarted,
+    ) -> Result<ZoomDispatchOutcome, ZoomDispatchError> {
+        let mut starts = self.starts.lock().unwrap();
+        let first_delivery = starts.is_empty();
+        starts.push((workspace_id.into(), started));
+        Ok(ZoomDispatchOutcome {
+            job_id: "job-zoom-a".into(),
+            started: first_delivery,
+        })
+    }
+
+    async fn stop(
+        &self,
+        terminal: &ZoomRtmsTerminal,
+        reason: ZoomStopReason,
+    ) -> Result<(), ZoomDispatchError> {
+        self.stops.lock().unwrap().push((terminal.clone(), reason));
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -60,6 +101,42 @@ impl ControlPlaneStore for MemoryStore {
             state: BotState::Capturing,
             next_sequence: 7,
         })
+    }
+
+    async fn find_dispatchable_capture_checkpoint(
+        &self,
+        _workspace_id: &str,
+        _provider: CaptureProviderKind,
+        _external_ids: &[String],
+    ) -> Result<CaptureJobCheckpoint, StoreError> {
+        Err(StoreError::NotFound)
+    }
+
+    async fn save_capture_dispatch(&self, _dispatch: &CaptureDispatch) -> Result<(), StoreError> {
+        Ok(())
+    }
+
+    async fn list_capture_dispatches(
+        &self,
+        _provider: CaptureProviderKind,
+    ) -> Result<Vec<CaptureDispatch>, StoreError> {
+        Ok(Vec::new())
+    }
+
+    async fn find_capture_dispatch(
+        &self,
+        _provider: CaptureProviderKind,
+        _dispatch_id: &str,
+    ) -> Result<CaptureDispatch, StoreError> {
+        Err(StoreError::NotFound)
+    }
+
+    async fn next_capture_transcript_sequence(
+        &self,
+        _workspace_id: &str,
+        _job_id: &str,
+    ) -> Result<u64, StoreError> {
+        Ok(0)
     }
 
     async fn claim_capture_job(
@@ -144,6 +221,26 @@ fn state(ready: bool) -> AppState {
     AppState::new(Arc::new(MemoryStore { ready }), Arc::new(authenticator))
 }
 
+fn state_with_zoom(dispatcher: Arc<RecordingZoomDispatcher>) -> AppState {
+    let config = Config::from_values_with_zoom(
+        "postgres://localhost/anarlog".into(),
+        None,
+        None,
+        format!(r#"{{"workspace-a":"{TOKEN_A}","workspace-b":"{TOKEN_B}"}}"#),
+        ZoomConfigValues {
+            client_id: Some("zoom-client".into()),
+            client_secret: Some("zoom-client-secret".into()),
+            webhook_secret: Some("zoom-webhook-secret".into()),
+            account_workspaces: Some(r#"{"account-a":"workspace-a"}"#.into()),
+        },
+    )
+    .unwrap();
+    state(true).with_zoom(Arc::new(ZoomWebhookService::new(
+        config.zoom.unwrap(),
+        dispatcher,
+    )))
+}
+
 #[tokio::test]
 async fn exposes_database_independent_liveness_and_fail_closed_readiness() {
     let app = router(state(false));
@@ -160,6 +257,115 @@ async fn exposes_database_independent_liveness_and_fail_closed_readiness() {
 
     assert_eq!(live.status(), StatusCode::OK);
     assert_eq!(ready.status(), StatusCode::SERVICE_UNAVAILABLE);
+}
+
+#[tokio::test]
+async fn mounts_zoom_webhooks_only_when_complete_configuration_is_present() {
+    let body = zoom_started_body("account-a");
+    let disabled = router(state(true))
+        .oneshot(zoom_request(&body, true))
+        .await
+        .unwrap();
+    assert_eq!(disabled.status(), StatusCode::NOT_FOUND);
+
+    let dispatcher = Arc::new(RecordingZoomDispatcher::default());
+    let enabled = router(state_with_zoom(dispatcher.clone()));
+    let missing_signature = enabled
+        .clone()
+        .oneshot(
+            Request::post("/webhooks/zoom")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.clone()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let invalid_signature = enabled
+        .clone()
+        .oneshot(zoom_request(&body, false))
+        .await
+        .unwrap();
+    let accepted = enabled
+        .clone()
+        .oneshot(zoom_request(&body, true))
+        .await
+        .unwrap();
+    let retried = enabled.oneshot(zoom_request(&body, true)).await.unwrap();
+
+    assert_eq!(missing_signature.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(invalid_signature.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(accepted.status(), StatusCode::OK);
+    assert_eq!(retried.status(), StatusCode::OK);
+    assert_eq!(
+        response_json(accepted).await,
+        serde_json::json!({
+            "status": "started",
+            "jobId": "job-zoom-a"
+        })
+    );
+    assert_eq!(
+        response_json(retried).await,
+        serde_json::json!({
+            "status": "already_running",
+            "jobId": "job-zoom-a"
+        })
+    );
+    let starts = dispatcher.starts.lock().unwrap();
+    assert_eq!(starts.len(), 2);
+    assert_eq!(starts[0].0, "workspace-a");
+    assert_eq!(starts[0].1.account_id, "account-a");
+    assert_eq!(starts[0].1.meeting_id, "123456789");
+}
+
+#[tokio::test]
+async fn validates_zoom_challenges_and_ignores_unregistered_accounts() {
+    let dispatcher = Arc::new(RecordingZoomDispatcher::default());
+    let app = router(state_with_zoom(dispatcher.clone()));
+    let validation_body = serde_json::json!({
+        "event": "endpoint.url_validation",
+        "event_ts": 1,
+        "payload": { "plainToken": "plain-token" }
+    })
+    .to_string();
+    let validation = app
+        .clone()
+        .oneshot(zoom_request(&validation_body, true))
+        .await
+        .unwrap();
+    assert_eq!(validation.status(), StatusCode::OK);
+    let validation = response_json(validation).await;
+    assert_eq!(validation["plainToken"], "plain-token");
+    assert_eq!(validation["encryptedToken"].as_str().unwrap().len(), 64);
+
+    let ignored = app
+        .oneshot(zoom_request(&zoom_started_body("account-b"), true))
+        .await
+        .unwrap();
+    assert_eq!(ignored.status(), StatusCode::NO_CONTENT);
+    assert!(dispatcher.starts.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn hands_signed_zoom_terminal_events_to_the_running_worker_registry() {
+    let dispatcher = Arc::new(RecordingZoomDispatcher::default());
+    let app = router(state_with_zoom(dispatcher.clone()));
+    let body = serde_json::json!({
+        "event": "meeting.rtms_interrupted",
+        "event_ts": 1,
+        "payload": {
+            "meeting_uuid": "meeting-uuid",
+            "rtms_stream_id": "stream-id"
+        }
+    })
+    .to_string();
+
+    let response = app.oneshot(zoom_request(&body, true)).await.unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    let stops = dispatcher.stops.lock().unwrap();
+    assert_eq!(stops.len(), 1);
+    assert_eq!(stops[0].0.stream_id, "stream-id");
+    assert_eq!(stops[0].1, ZoomStopReason::Interrupted);
 }
 
 #[tokio::test]
@@ -425,6 +631,49 @@ fn json_request(method: Method, path: &str, token: Option<&str>, body: &Value) -
 async fn response_json(response: axum::response::Response) -> Value {
     let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
     serde_json::from_slice(&body).unwrap()
+}
+
+fn zoom_started_body(account_id: &str) -> String {
+    serde_json::json!({
+        "event": "meeting.rtms_started",
+        "event_ts": 1,
+        "payload": {
+            "account_id": account_id,
+            "meeting_uuid": "meeting-uuid",
+            "meeting_id": 123456789,
+            "rtms_stream_id": "stream-id",
+            "server_urls": "wss://rtms.zoom.us/signaling"
+        }
+    })
+    .to_string()
+}
+
+fn zoom_request(body: &str, valid_signature: bool) -> Request<Body> {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        .to_string();
+    let mut mac = Hmac::<Sha256>::new_from_slice(if valid_signature {
+        b"zoom-webhook-secret"
+    } else {
+        b"wrong-webhook-secret"
+    })
+    .unwrap();
+    mac.update(format!("v0:{timestamp}:").as_bytes());
+    mac.update(body.as_bytes());
+    let signature = mac
+        .finalize()
+        .into_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect::<String>();
+    Request::post("/webhooks/zoom")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-zm-request-timestamp", timestamp)
+        .header("x-zm-signature", format!("v0={signature}"))
+        .body(Body::from(body.to_string()))
+        .unwrap()
 }
 
 fn capture_job() -> CaptureJob {

@@ -2,6 +2,7 @@ use anlg_meeting_capture::{BotState, CaptureEvent, CaptureProviderKind, MeetingR
 use anlg_session_ingest::SessionIngestEnvelope;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -32,6 +33,15 @@ pub struct CaptureJobCheckpoint {
     pub job: CaptureJob,
     pub state: BotState,
     pub next_sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaptureDispatch {
+    pub workspace_id: String,
+    pub job_id: String,
+    pub provider: CaptureProviderKind,
+    pub dispatch_id: String,
+    pub payload: Value,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

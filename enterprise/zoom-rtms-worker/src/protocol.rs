@@ -20,6 +20,7 @@ pub const RTMS_PROTOCOL_VERSION: u8 = 1;
 
 type HmacSha256 = Hmac<Sha256>;
 
+#[derive(Clone)]
 pub struct ZoomRtmsCredentials {
     client_id: String,
     client_secret: String,
@@ -81,17 +82,26 @@ pub enum ZoomRtmsConfigError {
 pub enum ZoomRtmsWebhookEvent {
     UrlValidation { plain_token: String },
     Started(ZoomRtmsStarted),
-    Stopped { meeting_uuid: String },
-    Interrupted { meeting_uuid: String },
+    Stopped(ZoomRtmsTerminal),
+    Interrupted(ZoomRtmsTerminal),
     Other { event: String },
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ZoomRtmsStarted {
+    pub account_id: String,
     pub meeting_uuid: String,
     pub meeting_id: String,
     pub stream_id: String,
     pub signaling_url: Url,
+    pub event_timestamp_ms: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ZoomRtmsTerminal {
+    pub meeting_uuid: String,
+    pub stream_id: String,
     pub event_timestamp_ms: u64,
 }
 
@@ -109,11 +119,13 @@ impl ZoomRtmsWebhookEvent {
             "meeting.rtms_started" => {
                 let payload: StartedPayload = serde_json::from_value(webhook.payload)?;
                 let meeting_id = payload.meeting_id.into_string();
+                validate_token(&payload.account_id, "account ID")?;
                 validate_token(&payload.meeting_uuid, "meeting UUID")?;
                 validate_token(&meeting_id, "meeting ID")?;
                 validate_token(&payload.rtms_stream_id, "RTMS stream ID")?;
                 let signaling_url = validate_websocket_url(&payload.server_urls)?;
                 Ok(Self::Started(ZoomRtmsStarted {
+                    account_id: payload.account_id,
                     meeting_uuid: payload.meeting_uuid,
                     meeting_id,
                     stream_id: payload.rtms_stream_id,
@@ -124,14 +136,16 @@ impl ZoomRtmsWebhookEvent {
             "meeting.rtms_stopped" | "meeting.rtms_interrupted" => {
                 let payload: TerminalPayload = serde_json::from_value(webhook.payload)?;
                 validate_token(&payload.meeting_uuid, "meeting UUID")?;
+                validate_token(&payload.rtms_stream_id, "RTMS stream ID")?;
+                let terminal = ZoomRtmsTerminal {
+                    meeting_uuid: payload.meeting_uuid,
+                    stream_id: payload.rtms_stream_id,
+                    event_timestamp_ms: webhook.event_ts,
+                };
                 if webhook.event == "meeting.rtms_stopped" {
-                    Ok(Self::Stopped {
-                        meeting_uuid: payload.meeting_uuid,
-                    })
+                    Ok(Self::Stopped(terminal))
                 } else {
-                    Ok(Self::Interrupted {
-                        meeting_uuid: payload.meeting_uuid,
-                    })
+                    Ok(Self::Interrupted(terminal))
                 }
             }
             _ => Ok(Self::Other {
@@ -150,6 +164,7 @@ struct WebhookEnvelope {
 
 #[derive(Deserialize)]
 struct StartedPayload {
+    account_id: String,
     meeting_uuid: String,
     meeting_id: StringOrU64,
     rtms_stream_id: String,
@@ -181,8 +196,10 @@ impl StringOrU64 {
 #[derive(Deserialize)]
 struct TerminalPayload {
     meeting_uuid: String,
+    rtms_stream_id: String,
 }
 
+#[derive(Clone)]
 pub struct ZoomWebhookVerifier {
     secret: String,
     max_age: Duration,
@@ -591,6 +608,7 @@ mod tests {
             "event": "meeting.rtms_started",
             "event_ts": 1_727_384_100_000_u64,
             "payload": {
+                "account_id": "account-id",
                 "meeting_uuid": "meeting-uuid",
                 "meeting_id": meeting_id,
                 "rtms_stream_id": "stream-id",
@@ -690,6 +708,7 @@ mod tests {
             panic!("expected started event")
         };
         assert_eq!(started.meeting_id, "123456789");
+        assert_eq!(started.account_id, "account-id");
         let credentials = ZoomRtmsCredentials::new("client-id", "client-secret").unwrap();
         let signaling =
             serde_json::to_value(SignalingHandshake::new(&started, &credentials)).unwrap();

@@ -55,18 +55,21 @@ version = "0.1.0"
 dependencies = [
  "agent-access",
  "anarlog-enterprise-google-meet-worker",
+ "anarlog-enterprise-zoom-rtms-worker",
  "anyhow",
  "async-trait",
  "axum",
  "chrono",
  "db-app",
  "db-core",
+ "hmac",
  "http",
  "meeting-capture",
  "reqwest",
  "serde",
  "serde_json",
  "session-ingest",
+ "sha2 0.10.9",
  "sha2 0.11.0",
  "sqlx",
  "thiserror",
@@ -3170,6 +3173,7 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
+ "serde_derive",
 ]
 
 [[package]]
