@@ -11,7 +11,6 @@ import type { ToastType } from "./types";
 import { useDismissedToasts } from "./useDismissedToasts";
 
 import { useAuth } from "~/auth";
-import { useCloudsyncInitialSyncProgress } from "~/auth/cloudsync-progress";
 import { useNotifications } from "~/contexts/notifications";
 import { useDesktopUpdateControl } from "~/main/update-banner";
 import { useConfigValues } from "~/shared/config";
@@ -28,7 +27,6 @@ import { useListener } from "~/stt/contexts";
 
 export function ToastNotifications() {
   const auth = useAuth();
-  const cloudsyncProgress = useCloudsyncInitialSyncProgress();
   const { dismissToast, isDismissed } = useDismissedToasts();
   const [sessionDismissedToastIds, setSessionDismissedToastIds] = useState(
     () => new Set<string>(),
@@ -149,10 +147,6 @@ export function ToastNotifications() {
         isAiIntelligenceTabActive,
         isBatchTranscribingInActiveTranscriptTab,
         isLiveMeetingActive,
-        cloudsyncInitialSyncToastId:
-          cloudsyncProgress.state === "syncing"
-            ? cloudsyncProgress.toastId
-            : null,
         hasActiveDownload,
         downloadingModel,
         activeDownloads,
@@ -174,7 +168,6 @@ export function ToastNotifications() {
       isAiIntelligenceTabActive,
       isBatchTranscribingInActiveTranscriptTab,
       isLiveMeetingActive,
-      cloudsyncProgress,
       hasActiveDownload,
       downloadingModel,
       activeDownloads,

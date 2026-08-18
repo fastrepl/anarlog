@@ -1,4 +1,3 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -19,7 +18,6 @@ vi.mock("@anlg/plugin-notification", () => ({
 import {
   startCloudsyncInitialSyncProgress,
   stopCloudsyncInitialSyncProgress,
-  useCloudsyncInitialSyncProgress,
 } from "./cloudsync-progress";
 
 function cloudsyncStatus(lastSyncAtMs: number | null) {
@@ -59,28 +57,22 @@ describe("CloudSync initial sync progress", () => {
 
   afterEach(() => {
     stopCloudsyncInitialSyncProgress();
-    cleanup();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
 
-  it("shows progress and sends a notification when initial sync completes", async () => {
+  it("sends a notification when initial sync completes", async () => {
     mocks.getCloudsyncStatus
       .mockResolvedValueOnce(cloudsyncStatus(null))
       .mockResolvedValueOnce(cloudsyncStatus(123));
-    const progress = renderHook(() => useCloudsyncInitialSyncProgress());
 
-    act(() => startCloudsyncInitialSyncProgress("user-1"));
+    startCloudsyncInitialSyncProgress("user-1");
 
-    expect(progress.result.current).toEqual({
-      state: "syncing",
-      toastId: "cloudsync-initial-sync-user-1",
-      userId: "user-1",
-    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mocks.showNotification).not.toHaveBeenCalled();
 
-    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    await vi.advanceTimersByTimeAsync(2_000);
 
-    expect(progress.result.current).toEqual({ state: "idle" });
     expect(
       localStorage.getItem("anarlog:cloudsync_initial_sync_completed:user-1"),
     ).toBe("1");
@@ -93,16 +85,15 @@ describe("CloudSync initial sync progress", () => {
     );
   });
 
-  it("does not restart progress after completion was persisted", () => {
+  it("does not restart monitoring after completion was persisted", () => {
     localStorage.setItem(
       "anarlog:cloudsync_initial_sync_completed:user-1",
       "1",
     );
-    const progress = renderHook(() => useCloudsyncInitialSyncProgress());
 
-    act(() => startCloudsyncInitialSyncProgress("user-1"));
+    startCloudsyncInitialSyncProgress("user-1");
 
-    expect(progress.result.current).toEqual({ state: "idle" });
     expect(mocks.getCloudsyncStatus).not.toHaveBeenCalled();
+    expect(mocks.showNotification).not.toHaveBeenCalled();
   });
 });

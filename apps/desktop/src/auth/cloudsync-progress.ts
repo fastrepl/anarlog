@@ -1,18 +1,11 @@
-import { useSyncExternalStore } from "react";
-
 import { getCloudsyncStatus } from "@anlg/plugin-db";
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
 const POLL_INTERVAL_MS = 2_000;
 const COMPLETED_KEY_PREFIX = "anarlog:cloudsync_initial_sync_completed:";
 
-type CloudsyncInitialSyncProgress =
-  | { state: "idle" }
-  | { state: "syncing"; toastId: string; userId: string };
-
 let monitorGeneration = 0;
-let snapshot: CloudsyncInitialSyncProgress = { state: "idle" };
-const listeners = new Set<() => void>();
+let monitoredUserId: string | null = null;
 
 function completionKey(userId: string) {
   return `${COMPLETED_KEY_PREFIX}${userId}`;
@@ -32,16 +25,6 @@ function markCompleted(userId: string) {
   } catch {
     // The completion notification may repeat after restart if storage is unavailable.
   }
-}
-
-function setSnapshot(next: CloudsyncInitialSyncProgress) {
-  snapshot = next;
-  listeners.forEach((listener) => listener());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
 }
 
 function sleep(ms: number) {
@@ -87,7 +70,7 @@ async function monitorInitialSync(userId: string, activeGeneration: number) {
 
       if (status.last_sync_at_ms !== null) {
         markCompleted(userId);
-        setSnapshot({ state: "idle" });
+        monitoredUserId = null;
         await showCompletionNotification(userId);
         return;
       }
@@ -97,7 +80,7 @@ async function monitorInitialSync(userId: string, activeGeneration: number) {
         !status.running &&
         status.last_error_kind !== null
       ) {
-        setSnapshot({ state: "idle" });
+        monitoredUserId = null;
         return;
       }
     } catch {
@@ -113,30 +96,16 @@ export function startCloudsyncInitialSyncProgress(userId: string) {
     return;
   }
 
-  if (snapshot.state === "syncing" && snapshot.userId === userId) {
+  if (monitoredUserId === userId) {
     return;
   }
 
   const activeGeneration = ++monitorGeneration;
-  setSnapshot({
-    state: "syncing",
-    toastId: `cloudsync-initial-sync-${userId}`,
-    userId,
-  });
+  monitoredUserId = userId;
   void monitorInitialSync(userId, activeGeneration);
 }
 
 export function stopCloudsyncInitialSyncProgress() {
   monitorGeneration += 1;
-  if (snapshot.state !== "idle") {
-    setSnapshot({ state: "idle" });
-  }
-}
-
-export function useCloudsyncInitialSyncProgress() {
-  return useSyncExternalStore(
-    subscribe,
-    () => snapshot,
-    () => snapshot,
-  );
+  monitoredUserId = null;
 }

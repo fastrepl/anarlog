@@ -17,7 +17,6 @@ const baseParams = {
   isAiIntelligenceTabActive: false,
   isBatchTranscribingInActiveTranscriptTab: false,
   isLiveMeetingActive: false,
-  cloudsyncInitialSyncToastId: null,
   hasActiveDownload: false,
   downloadingModel: null,
   activeDownloads: [],
@@ -161,21 +160,6 @@ describe("sidebar toast registry", () => {
 
     expect(toast?.id).toBe("local-stt-loading");
     expect(toast?.description).toBe("Starting transcription...");
-  });
-
-  it("keeps initial cloud sync condition-bound", () => {
-    const toast = getToastToShow(
-      createToastRegistry({
-        ...baseParams,
-        cloudsyncInitialSyncToastId: "cloudsync-initial-sync-user-1",
-      }),
-      () => false,
-    );
-
-    expect(toast?.id).toBe("cloudsync-initial-sync-user-1");
-    expect(toast?.description).toBe("Syncing your data in the background...");
-    expect(toast?.lifecycle).toEqual({ type: "condition-bound" });
-    expect(toast?.loading).toBe(true);
   });
 
   it("renders the pro upgrade toast without an icon", () => {
