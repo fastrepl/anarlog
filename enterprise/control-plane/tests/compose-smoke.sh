@@ -57,6 +57,22 @@ create_status=$(curl \
     "$base_url/v1/workspaces/workspace-a/capture-jobs/job-a")
 test "$create_status" = 201
 
+# Appending events requires an active worker lease, so claim the job first
+# and thread the returned lease identity through the append payload.
+claim_response=$(curl \
+    --connect-timeout 3 \
+    --max-time 10 \
+    --fail \
+    --silent \
+    --show-error \
+    --request POST \
+    --header "Authorization: Bearer $token" \
+    --header 'Content-Type: application/json' \
+    --data '{"workerId":"worker-a","leaseId":"lease-a"}' \
+    "$base_url/v1/workspaces/workspace-a/capture-jobs/job-a/claim")
+lease_epoch=$(printf '%s' "$claim_response" | sed -n 's/.*"epoch":\([0-9][0-9]*\).*/\1/p')
+test -n "$lease_epoch"
+
 append_status=$(curl \
     --connect-timeout 3 \
     --max-time 10 \
@@ -66,7 +82,7 @@ append_status=$(curl \
     --request POST \
     --header "Authorization: Bearer $token" \
     --header 'Content-Type: application/json' \
-    --data '{"event":{"id":"event-0","bot_id":"bot-a","sequence":0,"occurred_at":"2026-08-17T00:00:01Z","payload":{"type":"lifecycle","data":{"from":"queued","to":"launching"}},"metadata":{}}}' \
+    --data '{"lease":{"workerId":"worker-a","leaseId":"lease-a","epoch":'"$lease_epoch"'},"event":{"id":"event-0","bot_id":"bot-a","sequence":0,"occurred_at":"2026-08-17T00:00:01Z","payload":{"type":"lifecycle","data":{"from":"queued","to":"launching"}},"metadata":{}}}' \
     "$base_url/v1/workspaces/workspace-a/capture-jobs/job-a/events")
 test "$append_status" = 200
 
