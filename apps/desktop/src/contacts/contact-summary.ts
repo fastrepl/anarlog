@@ -21,6 +21,9 @@ const MAX_FACTS = 5;
 const MAX_MEETINGS = 24;
 const MAX_MEETING_SOURCE_LENGTH = 6_000;
 const MAX_TOTAL_SOURCE_LENGTH = 48_000;
+// Reasoning models spend thinking tokens from this budget before emitting
+// JSON; a tight cap truncates the output and fails every generation.
+const MAX_OUTPUT_TOKENS = 4_096;
 const GENERATION_TIMEOUT_MS = 45_000;
 const SPACE_REGEX = /\s+/g;
 
@@ -63,19 +66,24 @@ export function useContactSummary({
 
   const query = useQuery({
     queryKey: ["contact-summary", human?.id ?? "", sourceHash],
-    queryFn: ({ signal }) => {
+    queryFn: async ({ signal }) => {
       if (!human || !model) {
         throw new Error("Language model needed");
       }
 
-      return generateAndSaveContactSummary({
-        human,
-        organizationName,
-        sessions,
-        sourceHash,
-        model,
-        signal,
-      });
+      try {
+        return await generateAndSaveContactSummary({
+          human,
+          organizationName,
+          sessions,
+          sourceHash,
+          model,
+          signal,
+        });
+      } catch (error) {
+        console.error("[contacts] failed to generate contact summary", error);
+        throw error;
+      }
     },
     enabled: Boolean(model && needsGeneration),
     retry: 1,
@@ -181,7 +189,7 @@ export async function generateAndSaveContactSummary({
     }),
     output: Output.object({ schema: contactSummarySchema }),
     maxRetries: 2,
-    maxOutputTokens: 600,
+    maxOutputTokens: MAX_OUTPUT_TOKENS,
     timeout: { totalMs: GENERATION_TIMEOUT_MS },
     abortSignal: signal,
   });

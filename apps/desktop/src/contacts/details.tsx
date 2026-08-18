@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
+import { cn } from "@anlg/utils";
 
 import {
   AvatarUploadButton,
@@ -301,10 +302,22 @@ function ContactSummarySection({
             ))}
           </ul>
         ) : summary.isGenerating ? (
-          <div aria-hidden="true" className="space-y-3 py-1">
-            <div className="bg-muted-foreground/15 h-3 w-11/12 animate-pulse rounded" />
-            <div className="bg-muted-foreground/15 h-3 w-4/5 animate-pulse rounded" />
-            <div className="bg-muted-foreground/15 h-3 w-10/12 animate-pulse rounded" />
+          <div aria-hidden="true" className="space-y-2.5 py-1">
+            {["w-4/5", "w-2/3", "w-3/5"].map((width, index) => (
+              <div key={width} className="flex items-center gap-2.5">
+                <div
+                  className="bg-muted-foreground/20 size-1 shrink-0 animate-pulse rounded-full"
+                  style={{ animationDelay: `${index * 150}ms` }}
+                />
+                <div
+                  className={cn([
+                    "bg-muted-foreground/10 h-3 animate-pulse rounded-full",
+                    width,
+                  ])}
+                  style={{ animationDelay: `${index * 150}ms` }}
+                />
+              </div>
+            ))}
           </div>
         ) : summary.error ? (
           <div className="flex items-center justify-between gap-3">

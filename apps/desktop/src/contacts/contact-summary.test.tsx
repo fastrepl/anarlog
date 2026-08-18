@@ -121,7 +121,7 @@ describe("contact summary", () => {
     );
 
     expect(mocks.generateText.mock.calls[0]?.[0]).toMatchObject({
-      maxOutputTokens: 600,
+      maxOutputTokens: 4_096,
       timeout: { totalMs: 45_000 },
     });
     expect(mocks.generateText.mock.calls[0]?.[0].system).toContain(
