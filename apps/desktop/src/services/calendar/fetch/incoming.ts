@@ -59,8 +59,7 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
     ) {
       continue;
     }
-    const { event, eventParticipants } =
-      await normalizeCalendarEvent(calendarEvent);
+    const { event, eventParticipants } = normalizeCalendarEvent(calendarEvent);
     events.push(event);
     participants.set(event.tracking_id_event, eventParticipants);
   }
@@ -68,17 +67,12 @@ export async function fetchIncomingEvents(ctx: Ctx): Promise<{
   return { events, participants };
 }
 
-async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
+// Meeting links are fully resolved on the Rust side during provider
+// conversion, so no per-event parse IPC happens here.
+function normalizeCalendarEvent(calendarEvent: CalendarEvent): {
   event: IncomingEvent;
   eventParticipants: EventParticipant[];
-}> {
-  const meetingLink =
-    calendarEvent.meeting_link ??
-    (await extractMeetingLink(
-      calendarEvent.location,
-      calendarEvent.description,
-    ));
-
+} {
   const eventParticipants: EventParticipant[] = [];
 
   if (calendarEvent.organizer) {
@@ -112,7 +106,7 @@ async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
       started_at: calendarEvent.started_at,
       ended_at: calendarEvent.ended_at,
       location: calendarEvent.location ?? undefined,
-      meeting_link: meetingLink ?? undefined,
+      meeting_link: calendarEvent.meeting_link ?? undefined,
       description: calendarEvent.description ?? undefined,
       recurrence_series_id: calendarEvent.recurring_event_id ?? undefined,
       has_recurrence_rules: calendarEvent.has_recurrence_rules,
@@ -120,15 +114,4 @@ async function normalizeCalendarEvent(calendarEvent: CalendarEvent): Promise<{
     },
     eventParticipants,
   };
-}
-
-async function extractMeetingLink(
-  ...texts: (string | undefined | null)[]
-): Promise<string | undefined> {
-  for (const text of texts) {
-    if (!text) continue;
-    const result = await calendarCommands.parseMeetingLink(text);
-    if (result) return result;
-  }
-  return undefined;
 }

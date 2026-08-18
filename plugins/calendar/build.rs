@@ -6,7 +6,6 @@ const COMMANDS: &[&str] = &[
     "list_events",
     "open_calendar",
     "create_event",
-    "parse_meeting_link",
 ];
 
 fn main() {
