@@ -18230,6 +18230,7 @@ dependencies = [
  "e2ee",
  "fs-sync-core",
  "serde",
+ "serde_json",
  "sha2 0.11.0",
  "specta",
  "specta-typescript",

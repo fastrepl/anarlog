@@ -554,7 +554,7 @@ async function runDelete(
     await store.completeCancelledDelete(job);
     return;
   }
-  if (!guard.shouldDelete) {
+  if (guard.outcome.kind === "skip") {
     await dependencies.client.cancelDelete(request, signal);
     await store.deferDeleteForPreservation(job);
     return;
@@ -573,7 +573,7 @@ async function runDelete(
   await native.commitDeleteGuard(
     job.id,
     job.attemptCount,
-    guard.guardId,
+    guard.outcome.kind === "deleteWithGuard" ? guard.outcome.guardId : null,
     signal,
   );
 }

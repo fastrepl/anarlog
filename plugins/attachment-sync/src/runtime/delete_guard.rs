@@ -22,7 +22,7 @@ use super::{
 };
 use crate::control::DownloadOperation;
 use crate::error::{Error, Result};
-use crate::models::PreparedDeleteGuard;
+use crate::models::{DeleteGuardOutcome, PreparedDeleteGuard};
 
 pub(super) const DELETE_GUARD_ORPHAN_GRACE: Duration = Duration::from_secs(15 * 60);
 const DELETE_PREFLIGHT_SELECT: &str = "SELECT
@@ -145,19 +145,18 @@ pub async fn prepare_delete_guard<R: Runtime>(
     let key = workspace_key(state, &record.workspace_id)?;
     let (attachment_ref, version_ref) =
         attachment_backup_refs(&key, &record.workspace_id, &record.attachment_id, &expected)?;
-    let prepared = |should_delete, guard_id| PreparedDeleteGuard {
-        should_delete,
-        guard_id,
+    let prepared = |outcome| PreparedDeleteGuard {
         attachment_ref: attachment_ref.clone(),
         version_ref: version_ref.clone(),
+        outcome,
     };
     if !create_guard {
-        return Ok(prepared(false, String::new()));
+        return Ok(prepared(DeleteGuardOutcome::Skip));
     }
     let Some(attachment) = delete_source_attachment(&record)? else {
         clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record).await?;
         cleanup_linked_delete_guard(app, &record.cache_id).await;
-        return Ok(prepared(true, String::new()));
+        return Ok(prepared(DeleteGuardOutcome::DeleteDirectly));
     };
 
     let object_id = private_object_id(&record.object_key)?;
@@ -180,7 +179,9 @@ pub async fn prepare_delete_guard<R: Runtime>(
         .await?
         {
             operation.ensure_active()?;
-            return Ok(prepared(true, record.cache_id));
+            return Ok(prepared(DeleteGuardOutcome::DeleteWithGuard {
+                guard_id: record.cache_id,
+            }));
         }
     }
 
@@ -190,7 +191,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
             clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record)
                 .await?;
             cleanup_linked_delete_guard(app, &record.cache_id).await;
-            return Ok(prepared(false, String::new()));
+            return Ok(prepared(DeleteGuardOutcome::Skip));
         }
         Err(error) => return Err(error),
     };
@@ -204,7 +205,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
     {
         clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record).await?;
         cleanup_linked_delete_guard(app, &record.cache_id).await;
-        return Ok(prepared(false, String::new()));
+        return Ok(prepared(DeleteGuardOutcome::Skip));
     }
     operation.ensure_active()?;
 
@@ -230,7 +231,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
             clear_delete_guard_link(state.pool(), operation, job_id, attempt_count, &record)
                 .await?;
             cleanup_linked_delete_guard(app, &record.cache_id).await;
-            return Ok(prepared(false, String::new()));
+            return Ok(prepared(DeleteGuardOutcome::Skip));
         }
         Err(error) => return Err(error),
     };
@@ -288,7 +289,7 @@ pub async fn prepare_delete_guard<R: Runtime>(
     }
     guard.disarm();
     cleanup_linked_delete_guard(app, &record.cache_id).await;
-    Ok(prepared(true, guard_id))
+    Ok(prepared(DeleteGuardOutcome::DeleteWithGuard { guard_id }))
 }
 
 pub async fn commit_delete_guard<R: Runtime>(
@@ -297,11 +298,20 @@ pub async fn commit_delete_guard<R: Runtime>(
     operation: &DownloadOperation,
     job_id: &str,
     attempt_count: i64,
-    guard_id: &str,
+    guard_id: Option<&str>,
 ) -> Result<()> {
     operation.ensure_active()?;
     validate_opaque_id(job_id)?;
-    if attempt_count <= 0 || (!guard_id.is_empty() && !valid_cache_id(guard_id)) {
+    // The transfer-job row stores "no guard" as an empty cache_id, so a
+    // guardless commit maps onto that encoding for the comparisons below. A
+    // present but malformed guard id is rejected instead of being treated as
+    // guardless.
+    let guard_id = match guard_id {
+        Some(id) if valid_cache_id(id) => id,
+        Some(_) => return Err(Error::InvalidTransferState),
+        None => "",
+    };
+    if attempt_count <= 0 {
         return Err(Error::InvalidTransferState);
     }
     let record = sqlx::query_as::<_, DeleteSourcePreflight>(DELETE_PREFLIGHT_SELECT)
