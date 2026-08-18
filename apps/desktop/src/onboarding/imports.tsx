@@ -15,6 +15,7 @@ export function ImportSection({
     <MeetingImportScreen
       compact
       onContinue={onContinue}
+      onNoSourcesDetected={onSkip}
       secondaryAction={
         <OnboardingButton
           variant="secondary"

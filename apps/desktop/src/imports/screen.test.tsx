@@ -83,7 +83,11 @@ import { MEETING_IMPORT_PROVIDERS } from "./providers";
 import { MeetingImportScreen } from "./screen";
 
 function renderImports(
-  props: { compact?: boolean; secondaryAction?: ReactNode } = {},
+  props: {
+    compact?: boolean;
+    onNoSourcesDetected?: () => void;
+    secondaryAction?: ReactNode;
+  } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -267,5 +271,38 @@ describe("MeetingImportScreen", () => {
     renderImports();
 
     expect(await screen.findByText("No apps found.")).toBeTruthy();
+  });
+
+  it("reports when detection finishes without finding any apps", async () => {
+    const onNoSourcesDetected = vi.fn();
+    mockDetected([]);
+
+    renderImports({ onNoSourcesDetected });
+
+    await waitFor(() => {
+      expect(onNoSourcesDetected).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("does not report an empty result while detection is pending", async () => {
+    const onNoSourcesDetected = vi.fn();
+    mocks.detectImportSources.mockReturnValue(new Promise(() => {}));
+
+    renderImports({ onNoSourcesDetected });
+
+    expect(
+      await screen.findByText("Checking installed meeting assistants…"),
+    ).toBeTruthy();
+    expect(onNoSourcesDetected).not.toHaveBeenCalled();
+  });
+
+  it("does not report an empty result when detection fails", async () => {
+    const onNoSourcesDetected = vi.fn();
+    mocks.detectImportSources.mockRejectedValue(new Error("Detection failed"));
+
+    renderImports({ onNoSourcesDetected });
+
+    expect(await screen.findByText("Detection failed")).toBeTruthy();
+    expect(onNoSourcesDetected).not.toHaveBeenCalled();
   });
 });

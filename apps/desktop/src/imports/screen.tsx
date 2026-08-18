@@ -13,7 +13,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { open as selectFiles } from "@tauri-apps/plugin-dialog";
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -85,10 +85,12 @@ function ProviderIcon({
 export function MeetingImportScreen({
   compact = false,
   onContinue,
+  onNoSourcesDetected,
   secondaryAction,
 }: {
   compact?: boolean;
   onContinue?: () => void;
+  onNoSourcesDetected?: () => void;
   secondaryAction?: ReactNode;
 }) {
   const { t } = useLingui();
@@ -113,6 +115,24 @@ export function MeetingImportScreen({
     .sort((left, right) => left.name.localeCompare(right.name));
   const displayedProviders = [...directProviders, ...fileProviders];
   const detectionSettled = !detectionQuery.isLoading && !detectionQuery.error;
+
+  useEffect(() => {
+    if (
+      detectionQuery.isFetching ||
+      detectionQuery.error ||
+      detectionQuery.data?.length !== 0
+    ) {
+      return;
+    }
+
+    onNoSourcesDetected?.();
+  }, [
+    detectionQuery.data,
+    detectionQuery.error,
+    detectionQuery.isFetching,
+    onNoSourcesDetected,
+  ]);
+
   const connectedProviders = directProviders;
   const credentialQueries = useQueries({
     queries: connectedProviders.map((provider) =>
