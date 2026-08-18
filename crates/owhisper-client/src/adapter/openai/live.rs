@@ -1,8 +1,7 @@
 use anlg_ws_client::client::Message;
 use openai_transcription::realtime::{
-    AudioConfig, AudioFormat, AudioFormatType, AudioInputConfig, ClientEventType,
-    InputAudioBufferAppendEvent, InputAudioBufferCommitEvent, ServerEvent, SessionConfig,
-    SessionInclude, SessionType, SessionUpdateEvent, TranscriptionConfig, TurnDetectionConfig,
+    AudioConfig, AudioFormat, AudioFormatType, AudioInputConfig, ClientEvent, ServerEvent,
+    SessionConfig, SessionInclude, SessionType, TranscriptionConfig, TurnDetectionConfig,
     TurnDetectionType,
 };
 use owhisper_interface::ListenParams;
@@ -85,9 +84,8 @@ impl RealtimeSttAdapter for OpenAIAdapter {
             input_sample_rate,
             crate::providers::Provider::OpenAI.default_live_sample_rate(),
         );
-        let event = InputAudioBufferAppendEvent {
+        let event = ClientEvent::InputAudioBufferAppend {
             event_id: None,
-            event_type: ClientEventType::InputAudioBufferAppend,
             audio: base64::engine::general_purpose::STANDARD.encode(audio),
         };
         Message::Text(serde_json::to_string(&event).unwrap().into())
@@ -118,9 +116,8 @@ impl RealtimeSttAdapter for OpenAIAdapter {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .input_sample_rate = params.sample_rate;
 
-        let event = SessionUpdateEvent {
+        let event = ClientEvent::SessionUpdate {
             event_id: None,
-            event_type: ClientEventType::SessionUpdate,
             session: SessionConfig {
                 session_type: SessionType::Transcription,
                 audio: Some(AudioConfig {
@@ -167,10 +164,7 @@ impl RealtimeSttAdapter for OpenAIAdapter {
     }
 
     fn finalize_message(&self) -> Message {
-        let event = InputAudioBufferCommitEvent {
-            event_id: None,
-            event_type: ClientEventType::InputAudioBufferCommit,
-        };
+        let event = ClientEvent::InputAudioBufferCommit { event_id: None };
         Message::Text(serde_json::to_string(&event).unwrap().into())
     }
 

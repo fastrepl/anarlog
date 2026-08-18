@@ -1,13 +1,34 @@
 use crate::batch::{TranscriptionLogprob, TranscriptionUsage};
 use serde::{Deserialize, Serialize};
 
+// Every outbound event variant owns its payload, so a caller cannot pair a
+// valid wire type with the wrong body. The serde tag reproduces the exact
+// OpenAI realtime `type` strings.
 #[derive(Debug, Clone, Serialize)]
-pub struct SessionUpdateEvent {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<String>,
-    #[serde(rename = "type")]
-    pub event_type: ClientEventType,
-    pub session: SessionConfig,
+#[serde(tag = "type")]
+pub enum ClientEvent {
+    #[serde(rename = "session.update")]
+    SessionUpdate {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        event_id: Option<String>,
+        session: SessionConfig,
+    },
+    #[serde(rename = "input_audio_buffer.append")]
+    InputAudioBufferAppend {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        event_id: Option<String>,
+        audio: String,
+    },
+    #[serde(rename = "input_audio_buffer.commit")]
+    InputAudioBufferCommit {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        event_id: Option<String>,
+    },
+    #[serde(rename = "input_audio_buffer.clear")]
+    InputAudioBufferClear {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        event_id: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -83,43 +104,6 @@ pub struct TurnDetectionConfig {
     pub prefix_padding_ms: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub silence_duration_ms: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InputAudioBufferAppendEvent {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<String>,
-    #[serde(rename = "type")]
-    pub event_type: ClientEventType,
-    pub audio: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InputAudioBufferCommitEvent {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<String>,
-    #[serde(rename = "type")]
-    pub event_type: ClientEventType,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct InputAudioBufferClearEvent {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_id: Option<String>,
-    #[serde(rename = "type")]
-    pub event_type: ClientEventType,
-}
-
-#[derive(Debug, Clone, Copy, Serialize)]
-pub enum ClientEventType {
-    #[serde(rename = "session.update")]
-    SessionUpdate,
-    #[serde(rename = "input_audio_buffer.append")]
-    InputAudioBufferAppend,
-    #[serde(rename = "input_audio_buffer.commit")]
-    InputAudioBufferCommit,
-    #[serde(rename = "input_audio_buffer.clear")]
-    InputAudioBufferClear,
 }
 
 #[derive(Debug, Clone, Copy, Serialize)]
@@ -273,9 +257,8 @@ mod tests {
 
     #[test]
     fn session_update_serializes_expected_shape() {
-        let json = serde_json::to_value(SessionUpdateEvent {
+        let json = serde_json::to_value(ClientEvent::SessionUpdate {
             event_id: Some("event-123".to_string()),
-            event_type: ClientEventType::SessionUpdate,
             session: SessionConfig {
                 session_type: SessionType::Transcription,
                 audio: Some(AudioConfig {
@@ -330,6 +313,35 @@ mod tests {
         assert_eq!(
             json["session"]["audio"]["input"]["turn_detection"]["idle_timeout_ms"],
             5_000
+        );
+    }
+
+    #[test]
+    fn audio_buffer_events_serialize_expected_wire_shapes() {
+        assert_eq!(
+            serde_json::to_value(ClientEvent::InputAudioBufferAppend {
+                event_id: None,
+                audio: "cGNtMTY=".to_string(),
+            })
+            .unwrap(),
+            serde_json::json!({
+                "type": "input_audio_buffer.append",
+                "audio": "cGNtMTY=",
+            })
+        );
+        assert_eq!(
+            serde_json::to_value(ClientEvent::InputAudioBufferCommit { event_id: None }).unwrap(),
+            serde_json::json!({ "type": "input_audio_buffer.commit" })
+        );
+        assert_eq!(
+            serde_json::to_value(ClientEvent::InputAudioBufferClear {
+                event_id: Some("event-9".to_string()),
+            })
+            .unwrap(),
+            serde_json::json!({
+                "type": "input_audio_buffer.clear",
+                "event_id": "event-9",
+            })
         );
     }
 
