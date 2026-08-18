@@ -14,10 +14,6 @@ inputs:
   channel:
     description: Channel input for the workflow
     required: true
-  publish:
-    description: Legacy desktop CD compatibility input
-    required: false
-    default: "false"
   version:
     description: "Explicit stable version"
     required: false
@@ -41,7 +37,6 @@ runs:
       env:
         CHANNEL: ${{ inputs.channel }}
         GH_TOKEN: ${{ inputs.token }}
-        PUBLISH: ${{ inputs.publish }}
         REF: ${{ inputs.ref }}
         REPO: ${{ inputs.repo }}
         SHA: ${{ inputs.sha }}
@@ -55,7 +50,6 @@ runs:
           -f "ref=$REF"
           -f "inputs[channel]=$CHANNEL"
           -f "inputs[candidate_sha]=$SHA"
-          -F "inputs[publish]=$PUBLISH"
           -F "return_run_details=true"
         )
         if [[ -n "$VERSION" ]]; then

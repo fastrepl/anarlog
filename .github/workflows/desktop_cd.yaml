@@ -14,10 +14,6 @@ on:
         required: false
         type: string
         default: ""
-      publish:
-        description: "Legacy compatibility input; stable publication must use desktop_publish"
-        type: boolean
-        default: false
       include_linux:
         description: "Build and include Linux beta artifacts"
         type: boolean
@@ -58,11 +54,6 @@ jobs:
           git fetch --tags --force
       - if: ${{ inputs.channel == 'stable' }}
         run: |
-          if [[ "${{ inputs.publish }}" == "true" ]]; then
-            echo "::error::desktop_cd only builds stable candidates; publish through desktop_publish after QA"
-            exit 1
-          fi
-
           git fetch origin main --no-tags
 
           TARGET=$(git rev-parse HEAD)

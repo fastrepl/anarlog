@@ -4,10 +4,6 @@ on:
       channel:
         required: true
         type: string
-      publish:
-        required: false
-        type: boolean
-        default: false
       version:
         required: true
         type: string
@@ -73,7 +69,6 @@ jobs:
           ref: ${{ steps.resolve.outputs.branch }}
           sha: ${{ steps.resolve.outputs.target_sha }}
           channel: ${{ inputs.channel }}
-          publish: ${{ inputs.publish }}
           version: ${{ inputs.version }}
           token: ${{ secrets.GITHUB_TOKEN }}
           repo: ${{ github.repository }}

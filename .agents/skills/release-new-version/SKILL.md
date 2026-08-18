@@ -147,7 +147,6 @@ After the changelog merge and QA Gate pass on the same `main` SHA, verify
 gh workflow run desktop_cd.yaml \
   --ref main \
   -f channel=stable \
-  -f publish=false \
   -f version=<version>
 ```
 
