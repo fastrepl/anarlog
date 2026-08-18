@@ -101,6 +101,7 @@ describe("contact SQLite queries", () => {
           facts: ["Fact one", "Fact two", "Fact three"],
           sourceHash: "source-1",
           generatedAt: "2026-08-12T12:00:00.000Z",
+          sources: [],
         },
       },
     ]);
@@ -315,6 +316,7 @@ describe("contact SQLite queries", () => {
       facts: ["Fact one", "Fact two", "Fact three"],
       sourceHash: "source-1",
       generatedAt: "2026-08-12T12:00:00.000Z",
+      sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
     });
 
     const statement = mocks.executeTransaction.mock.calls[0][0][0];
@@ -325,6 +327,7 @@ describe("contact SQLite queries", () => {
       facts: ["Fact one", "Fact two", "Fact three"],
       sourceHash: "source-1",
       generatedAt: "2026-08-12T12:00:00.000Z",
+      sources: [{ id: "session-1", updatedAt: "2026-08-12T11:00:00.000Z" }],
     });
     expect(statement.params[statement.params.length - 1]).toBe("human-1");
   });

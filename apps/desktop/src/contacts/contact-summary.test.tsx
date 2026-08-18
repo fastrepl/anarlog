@@ -129,8 +129,82 @@ describe("contact summary", () => {
     );
     expect(mocks.updateHumanContactSummary).toHaveBeenCalledWith(
       "human-1",
-      expect.objectContaining({ sourceHash: "source-1" }),
+      expect.objectContaining({
+        sourceHash: "source-1",
+        sources: [{ id: "session-1", updatedAt: "2026-08-11T12:00:00.000Z" }],
+      }),
     );
+  });
+
+  it("extends an existing summary with only the new meetings", async () => {
+    const human = {
+      ...makeHuman(),
+      summary: {
+        facts: ["Fact one.", "Fact two.", "Fact three."],
+        sourceHash: "source-old",
+        generatedAt: "2026-08-11T12:00:00.000Z",
+        sources: [{ id: "session-1", updatedAt: "2026-08-11T12:00:00.000Z" }],
+      },
+    };
+    const sessions: HumanSessionRecord[] = [
+      {
+        id: "session-2",
+        title: "Follow-up",
+        createdAt: "2026-08-15T12:00:00.000Z",
+        sourceUpdatedAt: "2026-08-15T13:00:00.000Z",
+      },
+      ...makeSessions(),
+    ];
+
+    await generateAndSaveContactSummary({
+      human,
+      organizationName: "Fastrepl",
+      sessions,
+      sourceHash: "source-2",
+      model: { id: "model-1" } as never,
+    });
+
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(1);
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledWith("session-2");
+    const prompt = JSON.parse(mocks.generateText.mock.calls[0]?.[0].prompt);
+    expect(prompt.existing_facts).toEqual([
+      "Fact one.",
+      "Fact two.",
+      "Fact three.",
+    ]);
+  });
+
+  it("rebuilds from scratch when an already-summarized meeting changed", async () => {
+    const human = {
+      ...makeHuman(),
+      summary: {
+        facts: ["Fact one.", "Fact two.", "Fact three."],
+        sourceHash: "source-old",
+        generatedAt: "2026-08-11T12:00:00.000Z",
+        sources: [{ id: "session-1", updatedAt: "2026-08-01T12:00:00.000Z" }],
+      },
+    };
+    const sessions: HumanSessionRecord[] = [
+      {
+        id: "session-2",
+        title: "Follow-up",
+        createdAt: "2026-08-15T12:00:00.000Z",
+        sourceUpdatedAt: "2026-08-15T13:00:00.000Z",
+      },
+      ...makeSessions(),
+    ];
+
+    await generateAndSaveContactSummary({
+      human,
+      organizationName: "Fastrepl",
+      sessions,
+      sourceHash: "source-2",
+      model: { id: "model-1" } as never,
+    });
+
+    expect(mocks.loadSessionContentSnapshot).toHaveBeenCalledTimes(2);
+    const prompt = JSON.parse(mocks.generateText.mock.calls[0]?.[0].prompt);
+    expect(prompt.existing_facts).toBeUndefined();
   });
 
   it("automatically generates a stale summary when the contact is viewed", async () => {

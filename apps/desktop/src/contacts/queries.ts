@@ -24,6 +24,7 @@ export type ContactSummaryRecord = {
   facts: string[];
   sourceHash: string;
   generatedAt: string;
+  sources: Array<{ id: string; updatedAt: string }>;
 };
 
 export type HumanRecord = {
@@ -814,10 +815,19 @@ function parseContactSummary(value: string | null | undefined) {
       return null;
     }
 
+    const sources = Array.isArray(parsed.sources)
+      ? parsed.sources.filter(
+          (source) =>
+            typeof source?.id === "string" &&
+            typeof source?.updatedAt === "string",
+        )
+      : [];
+
     return {
       facts,
       sourceHash: parsed.sourceHash,
       generatedAt: parsed.generatedAt,
+      sources,
     };
   } catch {
     return null;
