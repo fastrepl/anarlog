@@ -43,45 +43,71 @@ pub struct SessionConfigUpdate {
     pub self_human_id: Option<String>,
 }
 
+// The single requested-to-effective transcription mode policy: every capture
+// path (plugin capture, listener root, direct listener users) resolves
+// through this function, so provider/model/language/platform decisions cannot
+// diverge between layers.
+pub fn resolve_transcription_mode(
+    requested: TranscriptionMode,
+    base_url: &str,
+    model: &str,
+    languages: &[anlg_language::Language],
+) -> TranscriptionMode {
+    use owhisper_client::{AdapterKind, Provider};
+
+    if requested == TranscriptionMode::Batch {
+        return TranscriptionMode::Batch;
+    }
+
+    if let Some(model) = anlg_transcribe_soniqo::local_model_from_request(base_url, model) {
+        return if model.supports_live_on_current_platform() && model.supports_languages(languages) {
+            TranscriptionMode::Live
+        } else {
+            TranscriptionMode::Batch
+        };
+    }
+
+    if anlg_transcribe_soniqo::is_local_base_url(base_url) {
+        return TranscriptionMode::Batch;
+    }
+
+    if let Some(model) = anlg_transcribe_speechanalyzer::local_model_from_request(base_url, model) {
+        return if model.supports_live_on_current_platform() && model.supports_languages(languages) {
+            TranscriptionMode::Live
+        } else {
+            TranscriptionMode::Batch
+        };
+    }
+
+    if anlg_transcribe_speechanalyzer::is_local_base_url(base_url) {
+        return TranscriptionMode::Batch;
+    }
+
+    let adapter_kind = AdapterKind::from_url_and_languages(base_url, languages, Some(model));
+
+    if adapter_kind == AdapterKind::OpenAI && model != Provider::OpenAI.default_live_model() {
+        return TranscriptionMode::Batch;
+    }
+
+    if !adapter_kind.has_live_mode() {
+        return TranscriptionMode::Batch;
+    }
+
+    if adapter_kind.is_supported_languages_live(languages, Some(model)) {
+        TranscriptionMode::Live
+    } else {
+        TranscriptionMode::Batch
+    }
+}
+
 impl SessionParams {
     pub fn effective_transcription_mode(&self) -> TranscriptionMode {
-        if self.transcription_mode == TranscriptionMode::Batch {
-            return TranscriptionMode::Batch;
-        }
-
-        if let Some(model) =
-            anlg_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
-        {
-            return if model.supports_live_on_current_platform()
-                && model.supports_languages(&self.languages)
-            {
-                TranscriptionMode::Live
-            } else {
-                TranscriptionMode::Batch
-            };
-        }
-
-        if anlg_transcribe_soniqo::is_local_base_url(&self.base_url) {
-            return TranscriptionMode::Batch;
-        }
-
-        if let Some(model) =
-            anlg_transcribe_speechanalyzer::local_model_from_request(&self.base_url, &self.model)
-        {
-            return if model.supports_live_on_current_platform()
-                && model.supports_languages(&self.languages)
-            {
-                TranscriptionMode::Live
-            } else {
-                TranscriptionMode::Batch
-            };
-        }
-
-        if anlg_transcribe_speechanalyzer::is_local_base_url(&self.base_url) {
-            return TranscriptionMode::Batch;
-        }
-
-        TranscriptionMode::Live
+        resolve_transcription_mode(
+            self.transcription_mode,
+            &self.base_url,
+            &self.model,
+            &self.languages,
+        )
     }
 
     pub fn uses_local_soniqo_live_model(&self) -> bool {
@@ -186,6 +212,62 @@ mod tests {
         assert_eq!(
             params.effective_transcription_mode(),
             TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_uses_live_for_openai_live_model() {
+        let params = session_params(
+            "https://api.openai.com/v1",
+            "gpt-live-transcribe",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Live
+        );
+    }
+
+    #[test]
+    fn effective_mode_forces_openai_batch_models_to_batch() {
+        let params = session_params(
+            "https://api.openai.com/v1",
+            "whisper-1",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_forces_batch_for_adapters_without_live_mode() {
+        let params = session_params(
+            "https://api.groq.com/openai/v1",
+            "whisper-large-v3",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Batch
+        );
+    }
+
+    #[test]
+    fn effective_mode_keeps_realtime_providers_live() {
+        let params = session_params(
+            "https://api.deepgram.com/v1",
+            "nova-3-general",
+            TranscriptionMode::Live,
+        );
+
+        assert_eq!(
+            params.effective_transcription_mode(),
+            TranscriptionMode::Live
         );
     }
 
