@@ -211,6 +211,166 @@ describe("buildPastSessionNotes", () => {
   });
 });
 
+describe("past note relationship indexing", () => {
+  function session(_id: string, createdAt: string) {
+    return {
+      title: "Weekly Product Sync",
+      created_at: createdAt,
+      event_json: "",
+      raw_md: "",
+    };
+  }
+
+  it("keeps duplicate participant rows and names deduplicated", () => {
+    const data = makeData({
+      sessions: {
+        current: session("current", "2026-06-03T10:00:00.000Z"),
+        previous: session("previous", "2026-05-28T10:00:00.000Z"),
+      },
+      mapping_session_participant: {
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+          name: "Alex",
+        },
+        current_alex_again: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "manual",
+          name: "Alex Kim",
+        },
+        previous_alex: {
+          session_id: "previous",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+          name: "",
+        },
+      },
+      enhanced_notes: {
+        previous_summary: {
+          session_id: "previous",
+          content: "Alex committed to send pricing by Friday.",
+          position: 0,
+        },
+      },
+    });
+
+    const result = buildPastSessionNotes(data, "current", "self");
+
+    expect(result.notes).toHaveLength(1);
+    // The last non-empty name for a human wins, exactly once.
+    expect(result.notes[0]?.participantNames).toEqual(["Alex Kim"]);
+  });
+
+  it("skips candidates with no participants or notes without failing", () => {
+    const data = makeData({
+      sessions: {
+        current: session("current", "2026-06-03T10:00:00.000Z"),
+        no_relations: session("no_relations", "2026-05-28T10:00:00.000Z"),
+      },
+    });
+
+    const result = buildPastSessionNotes(data, "current", "self");
+
+    expect(result.notes).toEqual([]);
+    expect(result.requests).toEqual([]);
+  });
+
+  it("keeps insertion order for recency ties", () => {
+    const data = makeData({
+      sessions: {
+        current: session("current", "2026-06-03T10:00:00.000Z"),
+        tie_a: session("tie_a", "2026-05-28T10:00:00.000Z"),
+        tie_b: session("tie_b", "2026-05-28T10:00:00.000Z"),
+      },
+      enhanced_notes: {
+        a: { session_id: "tie_a", content: "Summary A", position: 0 },
+        b: { session_id: "tie_b", content: "Summary B", position: 0 },
+      },
+    });
+
+    const result = buildPastSessionNotes(data, "current", "self");
+
+    expect(result.notes.map((note) => note.sessionId)).toEqual([
+      "tie_a",
+      "tie_b",
+    ]);
+  });
+
+  it("visits each participant and note row a bounded number of times", () => {
+    const sessions: Record<string, ReturnType<typeof session>> = {
+      current: session("current", "2026-06-03T10:00:00.000Z"),
+    };
+    const participants: Record<string, Record<string, unknown>> = {
+      current_p: {
+        session_id: "current",
+        human_id: "human-0",
+        user_id: "self",
+        source: "auto",
+        name: "Human 0",
+      },
+    };
+    const notes: Record<string, Record<string, unknown>> = {};
+    for (let index = 0; index < 200; index += 1) {
+      const id = `past-${index}`;
+      sessions[id] = session(
+        id,
+        `2026-05-${String((index % 27) + 1).padStart(2, "0")}T10:00:00.000Z`,
+      );
+      participants[`${id}_p`] = {
+        session_id: id,
+        human_id: `human-${index % 20}`,
+        user_id: "self",
+        source: "auto",
+        name: `Human ${index % 20}`,
+      };
+      notes[`${id}_n`] = {
+        session_id: id,
+        content: `Summary ${index}`,
+        position: 0,
+      };
+    }
+
+    const data = makeData({
+      sessions,
+      mapping_session_participant: participants,
+      enhanced_notes: notes,
+    });
+    let participantVisits = 0;
+    let noteVisits = 0;
+    const countingRows = <T>(rows: T[], count: () => void): T[] =>
+      new Proxy(rows, {
+        get(target, property, receiver) {
+          if (typeof property === "string" && /^\d+$/.test(property)) {
+            count();
+          }
+          return Reflect.get(target, property, receiver);
+        },
+      });
+    const counted: PastSessionNotesData = {
+      ...data,
+      participants: countingRows(data.participants, () => {
+        participantVisits += 1;
+      }),
+      enhancedNotes: countingRows(data.enhancedNotes, () => {
+        noteVisits += 1;
+      }),
+    };
+
+    const result = buildPastSessionNotes(counted, "current", "self");
+
+    expect(result.notes).toHaveLength(8);
+    // One indexing pass (plus small constant-factor iteration overhead)
+    // instead of a rescan per candidate session.
+    expect(participantVisits).toBeLessThanOrEqual(data.participants.length * 4);
+    expect(noteVisits).toBeLessThanOrEqual(data.enhancedNotes.length * 4);
+  });
+});
+
 describe("buildSessionKeyFactsStatements", () => {
   it("copies workspace ownership from the parent session", () => {
     const statements = buildSessionKeyFactsStatements(

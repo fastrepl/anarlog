@@ -318,11 +318,20 @@ export function buildPastSessionNotes(
     return { notes: [], missing: [], requests: [] };
   }
 
-  const currentParticipantIds = getSessionParticipantIds(
-    data.participants,
-    sessionId,
-    userId,
-  );
+  // One indexing pass over the collections; the candidate loop below then
+  // performs direct lookups instead of rescanning every row per session.
+  const participantsBySession = groupBySession(data.participants);
+  const notesBySession = groupBySession(data.enhancedNotes);
+  const namesByHumanId = new Map<string, string>();
+  for (const participant of data.participants) {
+    if (participant.name.trim()) {
+      namesByHumanId.set(participant.human_id, participant.name.trim());
+    }
+  }
+  const participantIdsFor = (id: string) =>
+    getSessionParticipantIds(participantsBySession.get(id) ?? [], userId);
+
+  const currentParticipantIds = participantIdsFor(sessionId);
   const currentEvent = getSessionEvent(currentSession);
   const currentSeriesId = getRecurrenceSeriesId(currentEvent);
   const currentTitleKey = getSessionTitleKey(currentSession);
@@ -353,11 +362,7 @@ export function buildPastSessionNotes(
     }
 
     const candidateEvent = getSessionEvent(candidateSession);
-    const candidateParticipantIds = getSessionParticipantIds(
-      data.participants,
-      candidateSessionId,
-      userId,
-    );
+    const candidateParticipantIds = participantIdsFor(candidateSessionId);
     if (
       !isRelatedPastSession({
         currentParticipantIds,
@@ -372,8 +377,7 @@ export function buildPastSessionNotes(
     }
 
     const source = getSessionKeyFactsSource(
-      data.enhancedNotes,
-      candidateSessionId,
+      notesBySession.get(candidateSessionId) ?? [],
     );
     if (!source) {
       continue;
@@ -389,7 +393,7 @@ export function buildPastSessionNotes(
     );
     const ownerUserId = getSessionUserId(candidateSession, userId);
     const participantNames = getSessionParticipantNames(
-      data.participants,
+      namesByHumanId,
       new Set([...currentParticipantIds, ...candidateParticipantIds]),
     );
     const request = {
@@ -619,13 +623,25 @@ function getSavedKeyFacts(
   return row.content.trim();
 }
 
+function groupBySession<T extends { session_id: string }>(
+  rows: T[],
+): Map<string, T[]> {
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const group = groups.get(row.session_id);
+    if (group) {
+      group.push(row);
+    } else {
+      groups.set(row.session_id, [row]);
+    }
+  }
+  return groups;
+}
+
 function getSessionKeyFactsSource(
   enhancedNotes: PastEnhancedNoteRow[],
-  sessionId: string,
 ): string | null {
-  const summaries = enhancedNotes.filter(
-    (note) => note.session_id === sessionId && note.content.trim(),
-  );
+  const summaries = enhancedNotes.filter((note) => note.content.trim());
 
   summaries.sort((a, b) => a.position - b.position);
   const summaryText = cleanSourceText(
@@ -657,17 +673,12 @@ function truncateAtWord(text: string, maxLength: number): string {
 
 function getSessionParticipantIds(
   participants: PastParticipantRow[],
-  sessionId: string,
   userId: string | null,
 ): Set<string> {
   const participantIds = new Set<string>();
 
   for (const mapping of participants) {
-    if (
-      mapping.session_id !== sessionId ||
-      mapping.source === "excluded" ||
-      !mapping.human_id
-    ) {
+    if (mapping.source === "excluded" || !mapping.human_id) {
       continue;
     }
 
@@ -687,15 +698,9 @@ function getSessionParticipantIds(
 }
 
 function getSessionParticipantNames(
-  participants: PastParticipantRow[],
+  namesByHumanId: Map<string, string>,
   participantIds: Set<string>,
 ): string[] {
-  const namesByHumanId = new Map<string, string>();
-  for (const participant of participants) {
-    if (participant.name.trim()) {
-      namesByHumanId.set(participant.human_id, participant.name.trim());
-    }
-  }
   const seen = new Set<string>();
   const names: string[] = [];
 
