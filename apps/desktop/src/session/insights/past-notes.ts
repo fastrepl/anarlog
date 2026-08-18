@@ -271,7 +271,7 @@ function usePastSessionNotesData(enabled: boolean): PastSessionNotesData {
         body AS content,
         sort_order AS position
       FROM session_documents
-      WHERE kind = 'enhanced_note' AND deleted_at IS NULL
+      WHERE kind IN ('summary', 'template_output') AND deleted_at IS NULL
       ORDER BY session_id, sort_order, created_at, id
     `,
     enabled,
