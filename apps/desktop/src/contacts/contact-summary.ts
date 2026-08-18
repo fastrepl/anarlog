@@ -18,7 +18,7 @@ import {
 
 const CONTACT_SUMMARY_VERSION = 1;
 const MAX_FACTS = 5;
-const MAX_MEETINGS = 24;
+const MAX_MEETINGS = 8;
 const MAX_MEETING_SOURCE_LENGTH = 6_000;
 const MAX_TOTAL_SOURCE_LENGTH = 48_000;
 // Reasoning models spend thinking tokens from this budget before emitting
