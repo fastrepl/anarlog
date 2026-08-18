@@ -38,6 +38,39 @@ struct OpenRouterResponse {
     pub usage: Option<UsageInfo>,
 }
 
+fn parse_sse_data_line(line: &str, accumulator: &mut StreamAccumulator) {
+    let Some(data) = line.strip_prefix("data: ") else {
+        return;
+    };
+
+    if data.trim() == "[DONE]" {
+        return;
+    }
+
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) else {
+        return;
+    };
+
+    if accumulator.generation_id.is_none() {
+        accumulator.generation_id = parsed.get("id").and_then(|v| v.as_str()).map(String::from);
+    }
+
+    if accumulator.model.is_none() {
+        accumulator.model = parsed
+            .get("model")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+    }
+
+    if let Some(usage) = parsed
+        .get("usage")
+        .and_then(|u| serde_json::from_value::<UsageInfo>(u.clone()).ok())
+    {
+        accumulator.input_tokens = usage.input_tokens();
+        accumulator.output_tokens = usage.output_tokens();
+    }
+}
+
 impl Provider for OpenRouterProvider {
     fn name(&self) -> &str {
         "openrouter"
@@ -92,42 +125,19 @@ impl Provider for OpenRouterProvider {
     }
 
     fn parse_stream_chunk(&self, chunk: &[u8], accumulator: &mut StreamAccumulator) {
-        let Ok(text) = std::str::from_utf8(chunk) else {
-            return;
-        };
-
-        for line in text.lines() {
-            let Some(data) = line.strip_prefix("data: ") else {
-                continue;
-            };
-
-            if data.trim() == "[DONE]" {
-                continue;
+        accumulator.buffer_bytes(chunk);
+        while let Some(line) = accumulator.next_complete_line() {
+            if let Ok(line) = std::str::from_utf8(&line) {
+                parse_sse_data_line(line, accumulator);
             }
+        }
+        accumulator.drop_oversized_pending();
+    }
 
-            let Ok(parsed) = serde_json::from_str::<serde_json::Value>(data) else {
-                continue;
-            };
-
-            if accumulator.generation_id.is_none() {
-                accumulator.generation_id =
-                    parsed.get("id").and_then(|v| v.as_str()).map(String::from);
-            }
-
-            if accumulator.model.is_none() {
-                accumulator.model = parsed
-                    .get("model")
-                    .and_then(|v| v.as_str())
-                    .map(String::from);
-            }
-
-            if let Some(usage) = parsed
-                .get("usage")
-                .and_then(|u| serde_json::from_value::<UsageInfo>(u.clone()).ok())
-            {
-                accumulator.input_tokens = usage.input_tokens();
-                accumulator.output_tokens = usage.output_tokens();
-            }
+    fn finish_stream(&self, accumulator: &mut StreamAccumulator) {
+        let line = accumulator.take_pending_line();
+        if let Ok(line) = std::str::from_utf8(&line) {
+            parse_sse_data_line(line, accumulator);
         }
     }
 
@@ -182,6 +192,81 @@ impl Provider for OpenRouterProvider {
 mod tests {
     use super::*;
     use crate::types::{ChatMessage, Role};
+
+    const STREAM_FIXTURE: &str = concat!(
+        ": OPENROUTER PROCESSING\n\n",
+        "data: {\"id\":\"gen-1\",\"model\":\"provider/モデル-1\"}\n\n",
+        "data: {\"id\":\"gen-ignored\",\"choices\":[{\"delta\":{\"content\":\"héllo\"}}]}\n\n",
+        "data: {\"id\":\"gen-1\",\"usage\":{\"prompt_tokens\":11,\"completion_tokens\":42}}\n\n",
+        "data: [DONE]\n\n",
+    );
+
+    fn assert_fixture_result(accumulator: &StreamAccumulator) {
+        assert_eq!(accumulator.generation_id.as_deref(), Some("gen-1"));
+        assert_eq!(accumulator.model.as_deref(), Some("provider/モデル-1"));
+        assert_eq!(accumulator.input_tokens, 11);
+        assert_eq!(accumulator.output_tokens, 42);
+    }
+
+    #[test]
+    fn stream_parsing_handles_whole_payload_in_one_chunk() {
+        let provider = OpenRouterProvider::default();
+        let mut accumulator = StreamAccumulator::new();
+        provider.parse_stream_chunk(STREAM_FIXTURE.as_bytes(), &mut accumulator);
+        provider.finish_stream(&mut accumulator);
+        assert_fixture_result(&accumulator);
+    }
+
+    // Feeding one byte at a time exercises every possible chunk boundary,
+    // including splits inside multibyte UTF-8 characters and JSON tokens.
+    #[test]
+    fn stream_parsing_is_invariant_to_chunk_boundaries() {
+        let provider = OpenRouterProvider::default();
+        let mut accumulator = StreamAccumulator::new();
+        for byte in STREAM_FIXTURE.as_bytes() {
+            provider.parse_stream_chunk(std::slice::from_ref(byte), &mut accumulator);
+        }
+        provider.finish_stream(&mut accumulator);
+        assert_fixture_result(&accumulator);
+    }
+
+    #[test]
+    fn stream_parsing_is_invariant_to_every_two_chunk_split() {
+        let provider = OpenRouterProvider::default();
+        let bytes = STREAM_FIXTURE.as_bytes();
+        for split in 0..=bytes.len() {
+            let mut accumulator = StreamAccumulator::new();
+            provider.parse_stream_chunk(&bytes[..split], &mut accumulator);
+            provider.parse_stream_chunk(&bytes[split..], &mut accumulator);
+            provider.finish_stream(&mut accumulator);
+            assert_fixture_result(&accumulator);
+        }
+    }
+
+    #[test]
+    fn stream_parsing_flushes_final_frame_without_trailing_newline() {
+        let provider = OpenRouterProvider::default();
+        let mut accumulator = StreamAccumulator::new();
+        provider.parse_stream_chunk(
+            b"data: {\"id\":\"gen-9\",\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":7}}",
+            &mut accumulator,
+        );
+        assert!(accumulator.generation_id.is_none());
+        provider.finish_stream(&mut accumulator);
+        assert_eq!(accumulator.generation_id.as_deref(), Some("gen-9"));
+        assert_eq!(accumulator.input_tokens, 3);
+        assert_eq!(accumulator.output_tokens, 7);
+    }
+
+    #[test]
+    fn stream_parsing_handles_crlf_lines_split_across_chunks() {
+        let provider = OpenRouterProvider::default();
+        let mut accumulator = StreamAccumulator::new();
+        provider.parse_stream_chunk(b"data: {\"id\":\"gen-2\"}\r", &mut accumulator);
+        provider.parse_stream_chunk(b"\ndata: [DONE]\r\n", &mut accumulator);
+        provider.finish_stream(&mut accumulator);
+        assert_eq!(accumulator.generation_id.as_deref(), Some("gen-2"));
+    }
 
     #[test]
     fn build_request_replaces_model_with_openrouter_models() {
