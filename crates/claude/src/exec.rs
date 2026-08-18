@@ -2,19 +2,13 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use tokio::io::BufReader;
 use tokio::process::Command;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
 use tokio_util::sync::CancellationToken;
 
-use anlg_cli_process::{
-    MAX_PROCESS_STDOUT_BYTES, MAX_PROCESS_STDOUT_LINE_BYTES, collect_stderr, read_line_with_limit,
-    read_text_with_limit, spawn_stderr_reader, spawn_with_retry,
-};
+use anlg_cli_process::{StreamProcess, run_to_string, spawn_streaming_lines, spawn_with_retry};
 
 use crate::error::Error;
-use crate::events::{ClaudeEvent, EventStream};
+use crate::events::ClaudeEvent;
 use crate::options::{PermissionMode, SettingSource};
 
 #[derive(Debug, Clone)]
@@ -57,10 +51,7 @@ enum OutputFormat {
     StreamJson,
 }
 
-pub(crate) struct ClaudeExecStream {
-    pub events: EventStream,
-    pub shutdown: CancellationToken,
-}
+pub(crate) type ClaudeExecStream = StreamProcess<ClaudeEvent, Error>;
 
 impl ClaudeExec {
     pub(crate) fn new(
@@ -87,61 +78,8 @@ impl ClaudeExec {
         }
 
         let mut command = self.build_command(&args, OutputFormat::Json)?;
-        let mut child = spawn_with_retry(&mut command).map_err(Error::Spawn)?;
-        let stdout = child.stdout.take().ok_or(Error::MissingStdout)?;
-        let stderr = child.stderr.take();
-        let cancellation_token = args.cancellation_token;
-        let stderr_task = stderr.map(spawn_stderr_reader);
-        let read_stdout = async {
-            read_text_with_limit(stdout, MAX_PROCESS_STDOUT_BYTES)
-                .await
-                .map_err(Error::StdoutRead)
-        };
-
-        let stdout_result = match cancellation_token.as_ref() {
-            Some(token) => tokio::select! {
-                _ = token.cancelled() => {
-                    kill_child(&mut child).await?;
-                    let _ = collect_stderr(stderr_task).await;
-                    return Err(Error::Cancelled);
-                }
-                result = read_stdout => {
-                    result
-                }
-            },
-            None => read_stdout.await,
-        };
-        let stdout_text = match stdout_result {
-            Ok(output) => output,
-            Err(error) => {
-                kill_child(&mut child).await?;
-                let _ = collect_stderr(stderr_task).await;
-                return Err(error);
-            }
-        };
-
-        let status = match cancellation_token.as_ref() {
-            Some(token) => tokio::select! {
-                _ = token.cancelled() => {
-                    kill_child(&mut child).await?;
-                    let _ = collect_stderr(stderr_task).await;
-                    return Err(Error::Cancelled);
-                }
-                status = child.wait() => status.map_err(Error::Wait)?,
-            },
-            None => child.wait().await.map_err(Error::Wait)?,
-        };
-
-        let stderr_output = collect_stderr(stderr_task).await;
-        if !status.success() {
-            let detail = if let Some(code) = status.code() {
-                format!("code {code}: {}", stderr_output.trim())
-            } else {
-                stderr_output.trim().to_string()
-            };
-            return Err(Error::ProcessFailed { detail });
-        }
-
+        let child = spawn_with_retry(&mut command).map_err(Error::Spawn)?;
+        let stdout_text = run_to_string(child, args.cancellation_token).await?;
         Ok(serde_json::from_str(stdout_text.trim())?)
     }
 
@@ -155,104 +93,10 @@ impl ClaudeExec {
         }
 
         let mut command = self.build_command(&args, OutputFormat::StreamJson)?;
-        let mut child = spawn_with_retry(&mut command).map_err(Error::Spawn)?;
-        let stdout = child.stdout.take().ok_or(Error::MissingStdout)?;
-        let stderr = child.stderr.take();
-        let cancellation_token = args.cancellation_token;
-        let shutdown = CancellationToken::new();
-        let task_shutdown = shutdown.clone();
-        let stderr_task = stderr.map(spawn_stderr_reader);
-        let (tx, rx) = mpsc::channel(64);
-
-        tokio::spawn(async move {
-            let result = async {
-                let mut lines = BufReader::new(stdout);
-                loop {
-                    let next_line = async {
-                        read_line_with_limit(&mut lines, MAX_PROCESS_STDOUT_LINE_BYTES)
-                            .await
-                            .map_err(Error::StdoutRead)
-                    };
-                    let line = match cancellation_token.as_ref() {
-                        Some(token) => tokio::select! {
-                            _ = token.cancelled() => {
-                                kill_child(&mut child).await?;
-                                let _ = collect_stderr(stderr_task).await;
-                                return Err(Error::Cancelled);
-                            }
-                            _ = task_shutdown.cancelled() => {
-                                kill_child(&mut child).await?;
-                                let _ = collect_stderr(stderr_task).await;
-                                return Ok(());
-                            }
-                            line = next_line => match line {
-                                Ok(line) => line,
-                                Err(error) => {
-                                    kill_child(&mut child).await?;
-                                    let _ = collect_stderr(stderr_task).await;
-                                    return Err(error);
-                                }
-                            },
-                        },
-                        None => tokio::select! {
-                            _ = task_shutdown.cancelled() => {
-                                kill_child(&mut child).await?;
-                                let _ = collect_stderr(stderr_task).await;
-                                return Ok(());
-                            }
-                            line = next_line => match line {
-                                Ok(line) => line,
-                                Err(error) => {
-                                    kill_child(&mut child).await?;
-                                    let _ = collect_stderr(stderr_task).await;
-                                    return Err(error);
-                                }
-                            },
-                        },
-                    };
-
-                    let Some(line) = line else {
-                        break;
-                    };
-
-                    let event = match serde_json::from_str(&line) {
-                        Ok(value) => ClaudeEvent::from_value(value),
-                        Err(error) => {
-                            kill_child(&mut child).await?;
-                            let _ = collect_stderr(stderr_task).await;
-                            return Err(error.into());
-                        }
-                    };
-                    if tx.send(Ok(event)).await.is_err() {
-                        kill_child(&mut child).await?;
-                        let _ = collect_stderr(stderr_task).await;
-                        return Ok(());
-                    }
-                }
-
-                let status = child.wait().await.map_err(Error::Wait)?;
-                let stderr_output = collect_stderr(stderr_task).await;
-                if !status.success() {
-                    let detail = if let Some(code) = status.code() {
-                        format!("code {code}: {}", stderr_output.trim())
-                    } else {
-                        stderr_output.trim().to_string()
-                    };
-                    return Err(Error::ProcessFailed { detail });
-                }
-
-                Ok(())
-            }
-            .await;
-
-            if let Err(error) = result {
-                let _ = tx.send(Err(error)).await;
-            }
-        });
-
-        Ok(ClaudeExecStream {
-            events: Box::pin(ReceiverStream::new(rx)),
-            shutdown,
+        let child = spawn_with_retry(&mut command).map_err(Error::Spawn)?;
+        spawn_streaming_lines(child, None, args.cancellation_token, |line| {
+            let value = serde_json::from_str(&line)?;
+            Ok(ClaudeEvent::from_value(value))
         })
     }
 
@@ -409,21 +253,6 @@ fn serde_variant<T: serde::Serialize>(value: &T) -> String {
         .ok()
         .and_then(|value| value.as_str().map(ToOwned::to_owned))
         .unwrap_or_default()
-}
-
-async fn kill_child(child: &mut tokio::process::Child) -> Result<(), Error> {
-    if child.try_wait().map_err(Error::Wait)?.is_some() {
-        return Ok(());
-    }
-
-    match child.kill().await {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::InvalidInput => {}
-        Err(error) => return Err(Error::Kill(error)),
-    }
-
-    child.wait().await.map_err(Error::Wait)?;
-    Ok(())
 }
 
 #[cfg(test)]

@@ -9,7 +9,6 @@ use crate::events::{
 };
 use crate::exec::{ClaudeExec, ClaudeExecArgs, SessionMode};
 use crate::options::{ClaudeOptions, SessionOptions, TurnOptions};
-use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone)]
 pub struct Claude {
@@ -85,9 +84,8 @@ impl Session {
             .run_streamed(self.exec_args(prompt.into(), turn_options))?;
         Ok(RunStreamedResult {
             events: Box::pin(ManagedEventStream {
-                inner: stream.events,
+                inner: stream,
                 session_id: self.id.clone(),
-                shutdown: stream.shutdown,
             }),
         })
     }
@@ -147,10 +145,11 @@ impl Session {
     }
 }
 
+// Dropping the inner StreamProcess shuts the child down, so no explicit Drop
+// is needed here.
 struct ManagedEventStream {
-    inner: crate::events::EventStream,
+    inner: crate::exec::ClaudeExecStream,
     session_id: Arc<Mutex<Option<String>>>,
-    shutdown: CancellationToken,
 }
 
 impl Stream for ManagedEventStream {
@@ -160,7 +159,7 @@ impl Stream for ManagedEventStream {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        match self.inner.as_mut().poll_next(cx) {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
             Poll::Ready(Some(Ok(event))) => {
                 if let Some(session_id) = event.session_id.clone() {
                     if let Ok(mut guard) = self.session_id.lock() {
@@ -171,12 +170,6 @@ impl Stream for ManagedEventStream {
             }
             other => other,
         }
-    }
-}
-
-impl Drop for ManagedEventStream {
-    fn drop(&mut self) {
-        self.shutdown.cancel();
     }
 }
 

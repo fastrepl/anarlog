@@ -2,12 +2,12 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use anlg_cli_process::{spawn_streaming_lines, spawn_with_retry};
+use anlg_cli_process::{StreamProcess, spawn_streaming_lines, spawn_with_retry};
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 use crate::error::Error;
-use crate::events::{EventStream, NormalizedInput, ThreadEvent};
+use crate::events::{NormalizedInput, ThreadEvent};
 use crate::options::AmpMode;
 #[derive(Debug, Clone)]
 pub(crate) struct AmpExec {
@@ -15,10 +15,7 @@ pub(crate) struct AmpExec {
     env_override: Option<BTreeMap<String, String>>,
 }
 
-pub(crate) struct AmpExecRun {
-    pub events: EventStream,
-    pub shutdown: CancellationToken,
-}
+pub(crate) type AmpExecRun = StreamProcess<ThreadEvent, Error>;
 
 pub(crate) struct AmpExecArgs {
     pub input: NormalizedInput,
@@ -79,14 +76,9 @@ impl AmpExec {
             NormalizedInput::Text(text) => text,
             NormalizedInput::StreamJson(text) => text,
         };
-        let stream = spawn_streaming_lines(child, Some(prompt), args.cancellation_token, |line| {
+        spawn_streaming_lines(child, Some(prompt), args.cancellation_token, |line| {
             let value = serde_json::from_str::<serde_json::Value>(&line)?;
-            Ok(ThreadEvent::try_from(value)?)
-        })?;
-
-        Ok(AmpExecRun {
-            events: stream.events,
-            shutdown: stream.shutdown,
+            ThreadEvent::try_from(value).map_err(Error::from)
         })
     }
 

@@ -3,7 +3,6 @@ use std::task::{Context, Poll};
 
 use futures_util::Stream;
 use futures_util::StreamExt;
-use tokio_util::sync::CancellationToken;
 
 use crate::error::Error;
 use crate::events::{Input, RunStreamedResult, ThreadEvent, Turn};
@@ -98,10 +97,9 @@ impl Thread {
 
         Ok(RunStreamedResult {
             events: Box::pin(ManagedEventStream {
-                inner: stream.events,
+                inner: stream,
                 _settings_file: settings_file,
                 thread_id: self.id.clone(),
-                shutdown: stream.shutdown,
             }),
         })
     }
@@ -151,11 +149,12 @@ impl Thread {
     }
 }
 
+// Dropping the inner StreamProcess shuts the child down, so no explicit Drop
+// is needed here.
 struct ManagedEventStream {
-    inner: crate::events::EventStream,
+    inner: crate::exec::AmpExecRun,
     _settings_file: Option<SettingsFile>,
     thread_id: Arc<Mutex<Option<String>>>,
-    shutdown: CancellationToken,
 }
 
 impl Stream for ManagedEventStream {
@@ -165,12 +164,12 @@ impl Stream for ManagedEventStream {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        match self.inner.as_mut().poll_next(cx) {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
             Poll::Ready(Some(Ok(event))) => {
-                if let Some(thread_id) = event.session_id().map(ToOwned::to_owned) {
-                    if let Ok(mut guard) = self.thread_id.lock() {
-                        *guard = Some(thread_id);
-                    }
+                if let Some(thread_id) = event.session_id().map(ToOwned::to_owned)
+                    && let Ok(mut guard) = self.thread_id.lock()
+                {
+                    *guard = Some(thread_id);
                 }
                 Poll::Ready(Some(Ok(event)))
             }
@@ -179,25 +178,18 @@ impl Stream for ManagedEventStream {
     }
 }
 
-impl Drop for ManagedEventStream {
-    fn drop(&mut self) {
-        self.shutdown.cancel();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
     use std::fs;
     use std::path::PathBuf;
-    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     use futures_util::StreamExt;
     use tokio::runtime::Builder;
     use tokio_util::sync::CancellationToken;
 
-    use super::{Amp, ManagedEventStream};
+    use super::Amp;
     use crate::error::Error;
     use crate::options::{AmpMode, AmpOptions, ThreadOptions, TurnOptions};
 
@@ -266,17 +258,40 @@ printf '%s\n' '{"type":"result","subtype":"success","session_id":"T-99","is_erro
     }
 
     #[test]
-    fn dropping_managed_event_stream_cancels_shutdown_token() {
-        let shutdown = CancellationToken::new();
-        let stream = ManagedEventStream {
-            inner: Box::pin(futures_util::stream::empty()),
-            _settings_file: None,
-            thread_id: Arc::new(Mutex::new(None)),
-            shutdown: shutdown.clone(),
-        };
+    fn dropping_the_event_stream_kills_the_child() {
+        let runtime = runtime();
+        let temp_dir = tempfile::tempdir().expect("tempdir");
+        let pid_file = temp_dir.path().join("pid.txt");
+        let script = write_fake_amp_script(
+            &temp_dir,
+            r#"
+printf '%s' "$$" > "$PID_FILE"
+printf '%s\n' '{"type":"system","subtype":"init","cwd":"/tmp","session_id":"T-drop","tools":[],"mcp_servers":[]}'
+while :; do sleep 1; done
+"#,
+        );
 
-        drop(stream);
-        assert!(shutdown.is_cancelled());
+        let thread = test_amp(script, env_map([("PID_FILE", pid_file.clone())])).start_thread(
+            ThreadOptions {
+                mode: Some(AmpMode::Rush),
+                working_directory: None,
+            },
+        );
+
+        let streamed = runtime
+            .block_on(thread.run_streamed("hello", TurnOptions::default()))
+            .expect("stream");
+        let mut events = streamed.events;
+        let first = runtime.block_on(async { events.next().await.expect("first event") });
+        assert!(first.is_ok());
+
+        runtime.block_on(async {
+            drop(events);
+            tokio::time::sleep(Duration::from_millis(300)).await;
+        });
+
+        let pid = fs::read_to_string(pid_file).expect("pid file");
+        assert!(!process_exists(pid.trim()));
     }
 
     #[test]

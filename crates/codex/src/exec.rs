@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use anlg_cli_process::{spawn_streaming_lines, spawn_with_retry};
+use anlg_cli_process::{StreamProcess, spawn_streaming_lines, spawn_with_retry};
 use serde::Serialize;
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 use crate::error::Error;
-use crate::events::{EventStream, ThreadEvent};
+use crate::events::ThreadEvent;
 use crate::options::{ApprovalMode, ModelReasoningEffort, SandboxMode, WebSearchMode};
 
 const INTERNAL_ORIGINATOR_ENV: &str = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
@@ -41,10 +41,7 @@ pub(crate) struct CodexExecArgs {
     pub cancellation_token: Option<CancellationToken>,
 }
 
-pub(crate) struct CodexExecRun {
-    pub events: EventStream,
-    pub shutdown: CancellationToken,
-}
+pub(crate) type CodexExecRun = StreamProcess<ThreadEvent, Error>;
 
 impl CodexExec {
     pub(crate) fn new(
@@ -91,13 +88,8 @@ impl CodexExec {
 
         let child = spawn_with_retry(&mut command).map_err(Error::Spawn)?;
         let prompt = args.input;
-        let stream = spawn_streaming_lines(child, Some(prompt), args.cancellation_token, |line| {
+        spawn_streaming_lines(child, Some(prompt), args.cancellation_token, |line| {
             Ok(serde_json::from_str::<ThreadEvent>(&line)?)
-        })?;
-
-        Ok(CodexExecRun {
-            events: stream.events,
-            shutdown: stream.shutdown,
         })
     }
 
