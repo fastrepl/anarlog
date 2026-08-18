@@ -22,25 +22,35 @@ pub const PARAKEET_TDT_V3_LANGUAGE_CODES: &[&str] = &[
 pub struct Language {
     #[schemars(
         with = "String",
-        regex(pattern = "^[a-zA-Z]{2}(-[a-zA-Z]{2,4})?(-[a-zA-Z]{2})?$")
+        regex(
+            pattern = "^[a-zA-Z]{2}(-[a-zA-Z]{4})?(-([a-zA-Z]{2}|[0-9]{3}))?(-[a-zA-Z0-9]{4,8})*$"
+        )
     )]
     iso639: ISO639,
     #[schemars(skip)]
+    script: Option<String>,
+    #[schemars(skip)]
     region: Option<String>,
+    #[schemars(skip)]
+    variants: Vec<String>,
 }
 
 impl Language {
     pub fn new(iso639: ISO639) -> Self {
         Self {
             iso639,
+            script: None,
             region: None,
+            variants: Vec::new(),
         }
     }
 
     pub fn with_region(iso639: ISO639, region: impl Into<String>) -> Self {
         Self {
             iso639,
+            script: None,
             region: Some(region.into()),
+            variants: Vec::new(),
         }
     }
 
@@ -52,36 +62,65 @@ impl Language {
         self.iso639.code()
     }
 
+    pub fn script(&self) -> Option<&str> {
+        self.script.as_deref()
+    }
+
     pub fn region(&self) -> Option<&str> {
         self.region.as_deref()
     }
 
-    pub fn bcp47_code(&self) -> String {
-        match &self.region {
-            Some(region) => format!("{}-{}", self.iso639.code(), region),
-            None => self.iso639.code().to_string(),
-        }
+    pub fn variants(&self) -> &[String] {
+        &self.variants
     }
 
+    pub fn bcp47_code(&self) -> String {
+        let mut code = self.iso639.code().to_string();
+        if let Some(script) = &self.script {
+            code.push('-');
+            code.push_str(script);
+        }
+        if let Some(region) = &self.region {
+            code.push('-');
+            code.push_str(region);
+        }
+        for variant in &self.variants {
+            code.push('-');
+            code.push_str(variant);
+        }
+        code
+    }
+
+    // Fallbacks derive less specific codes instead of mutating the canonical
+    // tag. An alpha region intentionally blocks the language-only fallback
+    // ("en-US" does not match ["en"]), matching the pre-script-aware behavior
+    // where only region-less tags fell back to the bare language code.
     pub fn matches_any_code(&self, supported: &[&str]) -> bool {
         let bcp47 = self.bcp47_code();
         if supported.contains(&bcp47.as_str()) {
             return true;
         }
-        if self.region().is_none() {
-            return supported.contains(&self.iso639.code());
+        match &self.region {
+            Some(region) if region.chars().all(|c| c.is_ascii_alphabetic()) => {
+                let language_region = format!("{}-{}", self.iso639.code(), region);
+                language_region != bcp47 && supported.contains(&language_region.as_str())
+            }
+            _ => supported.contains(&self.iso639.code()),
         }
-        false
     }
 }
 
-fn extract_region(parts: &[&str]) -> Option<String> {
-    for part in parts.iter().skip(1) {
-        if part.len() == 2 && part.chars().all(|c| c.is_ascii_alphabetic()) {
-            return Some(part.to_uppercase());
-        }
+fn is_ascii_alpha(part: &str) -> bool {
+    part.chars().all(|c| c.is_ascii_alphabetic())
+}
+
+fn titlecase(part: &str) -> String {
+    let lower = part.to_lowercase();
+    let mut chars = lower.chars();
+    match chars.next() {
+        Some(first) => first.to_ascii_uppercase().to_string() + chars.as_str(),
+        None => lower,
     }
-    None
 }
 
 impl specta::Type for Language {
@@ -92,19 +131,13 @@ impl specta::Type for Language {
 
 impl Default for Language {
     fn default() -> Self {
-        Self {
-            iso639: ISO639::En,
-            region: None,
-        }
+        Self::new(ISO639::En)
     }
 }
 
 impl From<ISO639> for Language {
     fn from(language: ISO639) -> Self {
-        Self {
-            iso639: language,
-            region: None,
-        }
+        Self::new(language)
     }
 }
 
@@ -130,9 +163,40 @@ impl FromStr for Language {
         let iso639 =
             ISO639::from_str(&lang_part).map_err(|_| Error::InvalidLanguageCode(s.to_string()))?;
 
-        let region = extract_region(&parts);
+        let mut script = None;
+        let mut region = None;
+        let mut variants = Vec::new();
 
-        Ok(Self { iso639, region })
+        for part in &parts[1..] {
+            // A singleton starts extension/private-use subtags, which are not
+            // retained.
+            if part.len() == 1 {
+                break;
+            }
+
+            let script_candidate = part.len() == 4 && is_ascii_alpha(part);
+            let region_candidate = (part.len() == 2 && is_ascii_alpha(part))
+                || (part.len() == 3 && part.chars().all(|c| c.is_ascii_digit()));
+            let variant_candidate = part.chars().all(|c| c.is_ascii_alphanumeric())
+                && ((5..=8).contains(&part.len())
+                    || (part.len() == 4
+                        && part.chars().next().is_some_and(|c| c.is_ascii_digit())));
+
+            if script.is_none() && region.is_none() && variants.is_empty() && script_candidate {
+                script = Some(titlecase(part));
+            } else if region.is_none() && variants.is_empty() && region_candidate {
+                region = Some(part.to_uppercase());
+            } else if variant_candidate {
+                variants.push(part.to_lowercase());
+            }
+        }
+
+        Ok(Self {
+            iso639,
+            script,
+            region,
+            variants,
+        })
     }
 }
 
@@ -304,8 +368,92 @@ mod tests {
     fn test_parse_with_script() {
         let lang: Language = "zh-Hans-CN".parse().unwrap();
         assert_eq!(lang.iso639(), ISO639::Zh);
+        assert_eq!(lang.script(), Some("Hans"));
         assert_eq!(lang.region(), Some("CN"));
-        assert_eq!(lang.bcp47_code(), "zh-CN");
+        assert_eq!(lang.bcp47_code(), "zh-Hans-CN");
+    }
+
+    #[test]
+    fn test_parse_script_only() {
+        let lang: Language = "zh-Hant".parse().unwrap();
+        assert_eq!(lang.iso639(), ISO639::Zh);
+        assert_eq!(lang.script(), Some("Hant"));
+        assert_eq!(lang.region(), None);
+        assert_eq!(lang.bcp47_code(), "zh-Hant");
+    }
+
+    #[test]
+    fn test_parse_numeric_region() {
+        let lang: Language = "es-419".parse().unwrap();
+        assert_eq!(lang.iso639(), ISO639::Es);
+        assert_eq!(lang.script(), None);
+        assert_eq!(lang.region(), Some("419"));
+        assert_eq!(lang.bcp47_code(), "es-419");
+    }
+
+    #[test]
+    fn test_parse_normalizes_casing() {
+        let lang: Language = "ZH_hans_cn".parse().unwrap();
+        assert_eq!(lang.script(), Some("Hans"));
+        assert_eq!(lang.region(), Some("CN"));
+        assert_eq!(lang.bcp47_code(), "zh-Hans-CN");
+    }
+
+    #[test]
+    fn test_parse_retains_variants() {
+        let lang: Language = "de-DE-1996".parse().unwrap();
+        assert_eq!(lang.region(), Some("DE"));
+        assert_eq!(lang.variants(), ["1996"]);
+        assert_eq!(lang.bcp47_code(), "de-DE-1996");
+    }
+
+    #[test]
+    fn test_parse_drops_extension_subtags() {
+        let lang: Language = "en-US-x-private".parse().unwrap();
+        assert_eq!(lang.region(), Some("US"));
+        assert!(lang.variants().is_empty());
+        assert_eq!(lang.bcp47_code(), "en-US");
+    }
+
+    #[test]
+    fn test_parse_rejects_unsupported_tags() {
+        assert!("".parse::<Language>().is_err());
+        assert!("xx".parse::<Language>().is_err());
+        assert!("419".parse::<Language>().is_err());
+    }
+
+    #[test]
+    fn test_serde_round_trips_full_tags() {
+        for tag in ["zh-Hans-CN", "zh-Hant", "es-419", "de-DE-1996", "ko-US"] {
+            let lang: Language = tag.parse().unwrap();
+            let json = serde_json::to_string(&lang).unwrap();
+            assert_eq!(json, format!("\"{tag}\""));
+            let parsed: Language = serde_json::from_str(&json).unwrap();
+            assert_eq!(parsed, lang);
+        }
+    }
+
+    #[test]
+    fn test_matches_any_code_fallbacks() {
+        let zh_hans_cn: Language = "zh-Hans-CN".parse().unwrap();
+        assert!(zh_hans_cn.matches_any_code(&["zh-Hans-CN"]));
+        assert!(zh_hans_cn.matches_any_code(&["zh-CN"]));
+        assert!(!zh_hans_cn.matches_any_code(&["zh"]));
+
+        let zh_hans: Language = "zh-Hans".parse().unwrap();
+        assert!(zh_hans.matches_any_code(&["zh"]));
+
+        let es_419: Language = "es-419".parse().unwrap();
+        assert!(es_419.matches_any_code(&["es-419"]));
+        assert!(es_419.matches_any_code(&["es"]));
+
+        let en_us: Language = "en-US".parse().unwrap();
+        assert!(en_us.matches_any_code(&["en-US"]));
+        assert!(!en_us.matches_any_code(&["en"]));
+
+        let en: Language = "en".parse().unwrap();
+        assert!(en.matches_any_code(&["en"]));
+        assert!(!en.matches_any_code(&["fr", "de"]));
     }
 
     #[test]
