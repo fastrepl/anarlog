@@ -6,9 +6,11 @@ import test from "node:test";
 
 import {
   createManifest,
+  releasePlatformPlan,
   verifyDesktopPlatformSets,
   verifyLocalAssets,
   verifyManifest,
+  verifyWorkflowPlatformCoverage,
 } from "./desktop-release-provenance.mjs";
 
 const candidateSha = "0123456789abcdef0123456789abcdef01234567";
@@ -158,6 +160,112 @@ test("rejects an opaque desktop release asset", () => {
     () => verifyDesktopPlatformSets(release),
     /must map to a public or update platform/,
   );
+});
+
+test("rejects an unsigned updater asset", () => {
+  const release = createDesktopRelease();
+  const updater = release.assets.find((asset) => asset.updatePlatform !== null);
+  updater.signature = null;
+
+  assert.throws(
+    () => verifyDesktopPlatformSets(release),
+    /updater asset must carry a signature/,
+  );
+});
+
+function workflowFixtures({ publicPlatforms } = {}) {
+  const platforms =
+    publicPlatforms ??
+    Object.values(releasePlatformPlan)
+      .filter((group) => typeof group === "object" && group.publicPlatforms)
+      .flatMap((group) => group.publicPlatforms);
+  const publishWorkflow = platforms
+    .map(
+      (platform) =>
+        `      - uses: ./.github/actions/cn_download\n        with:\n          platform: ${platform}\n`,
+    )
+    .join("");
+  const cdWorkflow = Object.values(releasePlatformPlan)
+    .filter((group) => typeof group === "object" && group.buildTargets)
+    .flatMap((group) => group.buildTargets)
+    .map((target) => `          - target: ${target}\n`)
+    .join("");
+  return { publishWorkflow, cdWorkflow };
+}
+
+test("accepts workflows that cover the complete release plan", () => {
+  verifyWorkflowPlatformCoverage(workflowFixtures());
+});
+
+test("rejects a publish workflow that omits a planned platform", () => {
+  const { publishWorkflow, cdWorkflow } = workflowFixtures();
+  assert.throws(
+    () =>
+      verifyWorkflowPlatformCoverage({
+        publishWorkflow: publishWorkflow.replace(
+          /^.*platform: nsis-x86_64.*\n/m,
+          "",
+        ),
+        cdWorkflow,
+      }),
+    /do not match the release plan/,
+  );
+});
+
+test("allows a planned platform to be downloaded by more than one job", () => {
+  const { publishWorkflow, cdWorkflow } = workflowFixtures();
+  verifyWorkflowPlatformCoverage({
+    publishWorkflow: `${publishWorkflow}          platform: dmg-aarch64\n`,
+    cdWorkflow,
+  });
+});
+
+test("rejects a publish workflow with an unknown platform download", () => {
+  const { publishWorkflow, cdWorkflow } = workflowFixtures();
+  assert.throws(
+    () =>
+      verifyWorkflowPlatformCoverage({
+        publishWorkflow: `${publishWorkflow}          platform: msi-x86_64\n`,
+        cdWorkflow,
+      }),
+    /do not match the release plan/,
+  );
+});
+
+test("rejects a publish workflow with a renamed platform download", () => {
+  const { publishWorkflow, cdWorkflow } = workflowFixtures();
+  assert.throws(
+    () =>
+      verifyWorkflowPlatformCoverage({
+        publishWorkflow: publishWorkflow.replace(
+          "platform: debian-x86_64",
+          "platform: deb-x86_64",
+        ),
+        cdWorkflow,
+      }),
+    /do not match the release plan/,
+  );
+});
+
+test("rejects a release workflow that drops a planned build target", () => {
+  const { publishWorkflow, cdWorkflow } = workflowFixtures();
+  assert.throws(
+    () =>
+      verifyWorkflowPlatformCoverage({
+        publishWorkflow,
+        cdWorkflow: cdWorkflow.replace("x86_64-pc-windows-msvc", ""),
+      }),
+    /does not build the planned target x86_64-pc-windows-msvc/,
+  );
+});
+
+test("repository release workflows match the authored release plan", async () => {
+  const [publishWorkflow, cdWorkflow] = await Promise.all([
+    readFile(".github/workflows/desktop_publish.yaml", "utf8"),
+    readFile(".github/workflows/desktop_cd.yaml", "utf8"),
+  ]);
+
+  verifyWorkflowPlatformCoverage({ publishWorkflow, cdWorkflow });
 });
 
 test("binds every release asset to a candidate run and detects replacement", async () => {

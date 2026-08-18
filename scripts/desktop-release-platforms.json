@@ -1,0 +1,31 @@
+{
+  "$comment": "Single source of truth for desktop release platform coverage. Provenance verification (scripts/desktop-release-provenance.mjs) reads this plan directly, and its tests validate the desktop_cd/desktop_publish workflows against it, so any drift fails CI before publishing. Linux and Windows are optional release modes selected at publish time.",
+  "macos": {
+    "optional": false,
+    "publicPlatforms": ["dmg-aarch64", "dmg-x86_64"],
+    "updatePlatforms": ["darwin-aarch64", "darwin-x86_64"],
+    "buildTargets": ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+  },
+  "linux": {
+    "optional": true,
+    "publicPlatforms": [
+      "appimage-aarch64",
+      "appimage-x86_64",
+      "debian-aarch64",
+      "debian-x86_64"
+    ],
+    "updatePlatforms": [
+      "linux-aarch64-appimage",
+      "linux-aarch64-deb",
+      "linux-x86_64-appimage",
+      "linux-x86_64-deb"
+    ],
+    "buildTargets": ["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"]
+  },
+  "windows": {
+    "optional": true,
+    "publicPlatforms": ["nsis-x86_64"],
+    "updatePlatforms": ["windows-x86_64-nsis"],
+    "buildTargets": ["x86_64-pc-windows-msvc"]
+  }
+}
