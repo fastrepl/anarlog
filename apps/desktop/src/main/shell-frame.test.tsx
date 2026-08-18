@@ -3,9 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
+  platform: "macos" as "macos" | "windows",
   leftsidebar: {
     expanded: true,
   },
+}));
+
+vi.mock("@tauri-apps/plugin-os", () => ({
+  platform: () => mocks.platform,
 }));
 
 vi.mock("./body", () => ({
@@ -14,6 +19,10 @@ vi.mock("./body", () => ({
       {showSyncStatus ? <div data-testid="sync-status-indicator" /> : null}
     </div>
   ),
+}));
+
+vi.mock("./windows-title-bar", () => ({
+  WindowsTitleBar: () => <div data-testid="windows-title-bar" />,
 }));
 
 vi.mock("~/shared/main", () => ({
@@ -64,7 +73,22 @@ describe("ClassicMainShellFrame", () => {
 
   beforeEach(() => {
     mocks.currentTab = { type: "empty" };
+    mocks.platform = "macos";
     mocks.leftsidebar.expanded = true;
+  });
+
+  it("places the custom title bar above the shell on Windows", () => {
+    mocks.platform = "windows";
+
+    render(<ClassicMainShellFrame />);
+
+    const titleBar = screen.getByTestId("windows-title-bar");
+    const scaffold = screen.getByTestId("main-shell-scaffold");
+
+    expect(titleBar.compareDocumentPosition(scaffold)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(titleBar.parentElement?.className).toContain("flex-col");
   });
 
   it("uses left-edge main surface chrome while the sidebar timeline is expanded", () => {

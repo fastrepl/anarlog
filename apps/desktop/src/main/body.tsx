@@ -1,3 +1,4 @@
+import { platform } from "@tauri-apps/plugin-os";
 import {
   type CSSProperties,
   type WheelEvent as ReactWheelEvent,
@@ -79,6 +80,7 @@ export function ClassicMainBody({
     useState(false);
   const [noteFilter, setNoteFilter] = useState<SidebarNoteFilter>("mine");
   const showWindowControlsGutter = useWindowControlsGutter();
+  const showSidebarToggleInBody = getRuntimePlatform() !== "windows";
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
 
   const isOnboarding = currentTab?.type === "onboarding";
@@ -406,6 +408,7 @@ export function ClassicMainBody({
           currentSessionId={currentSessionId}
           noteFilter={noteFilter}
           sidebarExpanded
+          showSidebarToggle={showSidebarToggleInBody}
           showIgnoredTimelineEvents={showIgnoredTimelineEvents}
           onNewNote={createNewNote}
           onNoteFilterChange={setNoteFilter}
@@ -444,6 +447,7 @@ export function ClassicMainBody({
               currentSessionId={currentSessionId}
               noteFilter={noteFilter}
               sidebarExpanded={false}
+              showSidebarToggle={showSidebarToggleInBody}
               showIgnoredTimelineEvents={showIgnoredTimelineEvents}
               onNewNote={createNewNote}
               onNoteFilterChange={setNoteFilter}
@@ -567,4 +571,12 @@ export function ClassicMainBody({
       </ResizablePanelGroup>
     </div>
   );
+}
+
+function getRuntimePlatform() {
+  try {
+    return platform();
+  } catch {
+    return null;
+  }
 }

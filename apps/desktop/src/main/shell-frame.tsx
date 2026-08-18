@@ -1,7 +1,9 @@
+import { platform } from "@tauri-apps/plugin-os";
 import { memo } from "react";
 
 import { ClassicMainBody } from "./body";
 import { resolveMainSurfaceChrome } from "./main-surface-chrome";
+import { WindowsTitleBar } from "./windows-title-bar";
 
 import { useShell } from "~/contexts/shell";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
@@ -33,7 +35,7 @@ export function ClassicMainShellFrame() {
     showSidebarTimelineChrome,
   });
 
-  return (
+  const shell = (
     <MainShellScaffold
       edgeToEdge={isOnboarding}
       mainSurfaceChrome={isOnboarding ? undefined : mainSurfaceChrome}
@@ -41,6 +43,17 @@ export function ClassicMainShellFrame() {
       <ClassicMainBodyHost showSyncStatus={showSyncStatus} />
       <ToastNotifications />
     </MainShellScaffold>
+  );
+
+  if (platform() !== "windows") {
+    return shell;
+  }
+
+  return (
+    <div className="bg-background flex h-full min-h-0 flex-col">
+      <WindowsTitleBar />
+      <div className="min-h-0 flex-1">{shell}</div>
+    </div>
   );
 }
 

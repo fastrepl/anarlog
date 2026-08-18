@@ -21,6 +21,7 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
     onSearch,
     onToggleSidebar,
     sidebarExpanded,
+    showSidebarToggle = true,
     showIgnoredTimelineEvents,
   }: {
     currentSessionId?: string;
@@ -30,6 +31,7 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
     onSearch: () => void;
     onToggleSidebar: () => void;
     sidebarExpanded: boolean;
+    showSidebarToggle?: boolean;
     showIgnoredTimelineEvents: boolean;
   }) {
     const upcomingMeetingStatus = useSidebarUpcomingMeetingStatus({
@@ -49,6 +51,7 @@ export const SidebarTimelineChromeWithUpcomingMeeting = memo(
         onSearch={onSearch}
         onToggleSidebar={onToggleSidebar}
         sidebarExpanded={sidebarExpanded}
+        showSidebarToggle={showSidebarToggle}
       />
     );
   },
@@ -62,6 +65,7 @@ function SidebarTimelineChrome({
   onSearch,
   onToggleSidebar,
   sidebarExpanded,
+  showSidebarToggle,
 }: {
   hasUpcomingMeeting: boolean;
   noteFilter: SidebarNoteFilter;
@@ -70,6 +74,7 @@ function SidebarTimelineChrome({
   onSearch: () => void;
   onToggleSidebar: () => void;
   sidebarExpanded: boolean;
+  showSidebarToggle: boolean;
 }) {
   const collapsedBadge = !sidebarExpanded
     ? hasUpcomingMeeting
@@ -80,17 +85,25 @@ function SidebarTimelineChrome({
   return (
     <div data-tauri-drag-region className="flex w-full items-center">
       <div data-tauri-drag-region className="flex items-center gap-0">
-        <LeftSurfaceChromeButton
-          ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
-          badge={collapsedBadge}
-          onClick={onToggleSidebar}
-        >
-          {sidebarExpanded ? (
-            <SidebarSimple size={16} />
-          ) : (
-            <Sidebar size={16} />
-          )}
-        </LeftSurfaceChromeButton>
+        {showSidebarToggle ? (
+          <LeftSurfaceChromeButton
+            ariaLabel={sidebarExpanded ? "Hide sidebar" : "Show sidebar"}
+            badge={collapsedBadge}
+            onClick={onToggleSidebar}
+          >
+            {sidebarExpanded ? (
+              <SidebarSimple size={16} />
+            ) : (
+              <Sidebar size={16} />
+            )}
+          </LeftSurfaceChromeButton>
+        ) : (
+          <span
+            aria-hidden="true"
+            data-tauri-drag-region
+            className="size-7 shrink-0"
+          />
+        )}
         {sidebarExpanded ? (
           <>
             <LeftSurfaceChromeButton ariaLabel="Search" onClick={onSearch}>

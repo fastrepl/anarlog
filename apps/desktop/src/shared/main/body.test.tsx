@@ -375,37 +375,19 @@ describe("ClassicMainBody", () => {
   it.each([
     {
       expanded: true,
-      platform: "windows",
-      platformName: "Windows",
       sidebarState: "expanded",
       toggleLabel: "Hide sidebar",
     },
     {
       expanded: false,
-      platform: "windows",
-      platformName: "Windows",
-      sidebarState: "collapsed",
-      toggleLabel: "Show sidebar",
-    },
-    {
-      expanded: true,
-      platform: "linux",
-      platformName: "Linux",
-      sidebarState: "expanded",
-      toggleLabel: "Hide sidebar",
-    },
-    {
-      expanded: false,
-      platform: "linux",
-      platformName: "Linux",
       sidebarState: "collapsed",
       toggleLabel: "Show sidebar",
     },
   ] as const)(
-    "uses the 8px fallback gutter on $platformName with the sidebar $sidebarState",
-    async ({ expanded, platform, toggleLabel }) => {
+    "uses the 8px fallback gutter on Linux with the sidebar $sidebarState",
+    async ({ expanded, toggleLabel }) => {
       mocks.leftSidebarExpanded = expanded;
-      mocks.platform = platform;
+      mocks.platform = "linux";
 
       render(<ClassicMainBody />);
 
@@ -417,6 +399,37 @@ describe("ClassicMainBody", () => {
       await waitFor(() => {
         expect(chromeFrame?.className).toContain("pl-2");
       });
+      expect(chromeFrame?.className).not.toContain("pl-[76px]");
+      expect(mocks.isFullscreen).not.toHaveBeenCalled();
+      expect(mocks.resizeListeners).toHaveLength(0);
+    },
+  );
+
+  it.each([
+    ["expanded", true],
+    ["collapsed", false],
+  ])(
+    "leaves the sidebar toggle to the Windows title bar while %s",
+    async (_state, expanded) => {
+      mocks.leftSidebarExpanded = expanded;
+      mocks.platform = "windows";
+
+      render(<ClassicMainBody />);
+
+      const chromeFrame = expanded
+        ? document.querySelector<HTMLElement>("[data-sidebar-timeline-header]")
+        : document.querySelector<HTMLElement>(
+            "[data-left-sidebar-chrome] > div",
+          );
+
+      await waitFor(() => {
+        expect(chromeFrame?.className).toContain("pl-2");
+      });
+      expect(
+        screen.queryByRole("button", {
+          name: expanded ? "Hide sidebar" : "Show sidebar",
+        }),
+      ).toBeNull();
       expect(chromeFrame?.className).not.toContain("pl-[76px]");
       expect(mocks.isFullscreen).not.toHaveBeenCalled();
       expect(mocks.resizeListeners).toHaveLength(0);

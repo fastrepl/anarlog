@@ -206,7 +206,12 @@ impl AppWindow {
                 .title_bar_style(tauri::TitleBarStyle::Overlay);
         }
 
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        #[cfg(target_os = "windows")]
+        {
+            builder = builder.decorations(!matches!(self, Self::Main));
+        }
+
+        #[cfg(target_os = "linux")]
         {
             builder = builder.decorations(true);
         }
@@ -268,7 +273,10 @@ impl WindowImpl for AppWindow {
             }
         };
 
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        #[cfg(target_os = "windows")]
+        window.set_decorations(!matches!(self, Self::Main))?;
+
+        #[cfg(target_os = "linux")]
         window.set_decorations(true)?;
 
         Ok(window)
