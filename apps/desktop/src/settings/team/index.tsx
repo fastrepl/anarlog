@@ -3,6 +3,8 @@ import {
   CircleNotch,
   Crown,
   LockSimple,
+  PaperPlaneTilt,
+  PencilSimple,
   Plus,
   Trash,
   UserPlus,
@@ -139,48 +141,28 @@ export function SettingsTeam() {
       {workspaces.isPending ? (
         <TeamSkeleton />
       ) : workspaces.data && workspaces.data.length > 0 ? (
-        <>
-          {workspaces.data.length > 1 && (
-            <Select
-              value={activeId ?? undefined}
-              onValueChange={(value) => setSelectedId(value)}
-            >
-              <SelectTrigger className="bg-card h-9 w-64 shadow-none">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {workspaces.data.map((workspace) => (
-                  <SelectItem
-                    key={workspace.workspaceId}
-                    value={workspace.workspaceId}
-                  >
-                    {workspace.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {activeId && (
-            <WorkspacePanel
-              key={activeId}
-              workspaceId={activeId}
-              workspaceName={activeWorkspace?.name ?? ""}
-              workspaceRole={activeWorkspace?.role ?? "member"}
-              hasProAccess={billing.isPro}
-              onWorkspaceRenamed={() => {
-                void queryClient.invalidateQueries({
-                  queryKey: [MY_WORKSPACES_QUERY_KEY],
-                });
-              }}
-              onWorkspaceLeft={() => {
-                setSelectedId(null);
-                void queryClient.invalidateQueries({
-                  queryKey: [MY_WORKSPACES_QUERY_KEY],
-                });
-              }}
-            />
-          )}
-        </>
+        activeId && (
+          <WorkspacePanel
+            key={activeId}
+            workspaceId={activeId}
+            workspaceName={activeWorkspace?.name ?? ""}
+            workspaceRole={activeWorkspace?.role ?? "member"}
+            workspaces={workspaces.data}
+            hasProAccess={billing.isPro}
+            onSelectWorkspace={setSelectedId}
+            onWorkspaceRenamed={() => {
+              void queryClient.invalidateQueries({
+                queryKey: [MY_WORKSPACES_QUERY_KEY],
+              });
+            }}
+            onWorkspaceLeft={() => {
+              setSelectedId(null);
+              void queryClient.invalidateQueries({
+                queryKey: [MY_WORKSPACES_QUERY_KEY],
+              });
+            }}
+          />
+        )
       ) : (
         <CreateWorkspaceForm
           onCreate={(name) => create.mutate(name)}
@@ -250,14 +232,18 @@ function WorkspacePanel({
   workspaceId,
   workspaceName,
   workspaceRole,
+  workspaces,
   hasProAccess,
+  onSelectWorkspace,
   onWorkspaceRenamed,
   onWorkspaceLeft,
 }: {
   workspaceId: string;
   workspaceName: string;
   workspaceRole: WorkspaceRole;
+  workspaces: { workspaceId: string; name: string }[];
   hasProAccess: boolean;
+  onSelectWorkspace: (workspaceId: string) => void;
   // Renaming keeps the panel where it is; leaving or deleting must drop the
   // selection because the workspace is gone.
   onWorkspaceRenamed: () => void;
@@ -267,6 +253,7 @@ function WorkspacePanel({
   const { t } = useLingui();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
+  const [isRenaming, setIsRenaming] = useState(false);
 
   // The roster, invitation, and seat RPCs are manager-only, so a plain member
   // gets a permission error rather than data. Retrying cannot fix that.
@@ -327,6 +314,16 @@ function WorkspacePanel({
       revokeInvitation(requireTeamContext(auth), invitationId),
     onSuccess: refresh,
   });
+  // The create RPC returns the existing invitation untouched while it is still
+  // valid, so resending must revoke first to get a fresh token and expiry.
+  const resendInvite = useMutation({
+    mutationFn: async (invitation: { invitationId: string; email: string }) => {
+      const context = requireTeamContext(auth);
+      await revokeInvitation(context, invitation.invitationId);
+      await inviteMember(context, workspaceId, invitation.email);
+    },
+    onSuccess: refresh,
+  });
   const transfer = useMutation({
     mutationFn: (userId: string) =>
       transferOwnership(requireTeamContext(auth), workspaceId, userId),
@@ -356,129 +353,200 @@ function WorkspacePanel({
     changeRole.error?.message ??
     remove.error?.message ??
     cancelInvite.error?.message ??
+    resendInvite.error?.message ??
     transfer.error?.message ??
     rename.error?.message ??
     leave.error?.message ??
     destroy.error?.message;
 
+  const submitRename = (value: string) => {
+    setIsRenaming(false);
+    const next = value.trim();
+    if (next && next !== workspaceName) rename.mutate(next);
+  };
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-baseline justify-between gap-4">
-        <div className="min-w-0">
-          {canManage ? (
+    <div className="flex flex-col gap-6">
+      <div>
+        <div className="flex items-center gap-1">
+          {isRenaming ? (
             <Input
+              autoFocus
               defaultValue={workspaceName}
               maxLength={120}
               aria-label={t`Workspace name`}
-              className="bg-card h-8 max-w-xs px-2 text-sm font-medium shadow-none"
-              onBlur={(event) => {
-                const next = event.target.value.trim();
-                if (next && next !== workspaceName) rename.mutate(next);
+              className="bg-card h-9 w-64 shadow-none"
+              onBlur={(event) => submitRename(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  submitRename(event.currentTarget.value);
+                } else if (event.key === "Escape") {
+                  setIsRenaming(false);
+                }
               }}
             />
           ) : (
-            <h3 className="truncate text-sm font-medium">{workspaceName}</h3>
-          )}
-          {seats.data && (
-            <p className="text-muted-foreground mt-1 text-xs">
-              {seats.data.seatLimit === null ? (
-                <Trans>{seats.data.usedSeats} in this workspace</Trans>
-              ) : (
-                <Trans>
-                  {seats.data.usedSeats} of {seats.data.seatLimit} seats used
-                </Trans>
-              )}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {canManage && (
-        <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (trimmedEmail) invite.mutate(trimmedEmail);
-          }}
-        >
-          <Input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder={t`teammate@company.com`}
-            className="bg-card h-9 max-w-xs shadow-none"
-          />
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            disabled={!trimmedEmail || invite.isPending}
-          >
-            {invite.isPending ? (
-              <CircleNotch className="size-4 animate-spin" />
-            ) : (
-              <UserPlus className="size-4" />
-            )}
-            <Trans>Invite</Trans>
-          </Button>
-        </form>
-      )}
-
-      {actionError && <p className="text-destructive text-xs">{actionError}</p>}
-
-      {members.isPending ? (
-        <TeamSkeleton />
-      ) : members.isError ? (
-        <p className="text-muted-foreground border-border rounded-lg border p-4 text-sm">
-          <Trans>
-            Only workspace admins can see who has access. You are a member of
-            this workspace.
-          </Trans>
-        </p>
-      ) : (
-        <ul className="border-border divide-border divide-y rounded-lg border">
-          {members.data?.map((member) => (
-            <MemberRow
-              key={member.userId}
-              member={member}
-              isViewer={member.userId === viewerId}
-              viewerRole={canManage ? viewerRole : undefined}
-              onRoleChange={(role) =>
-                changeRole.mutate({ userId: member.userId, role })
-              }
-              onRemove={() => remove.mutate(member.userId)}
-              onTransfer={() => transfer.mutate(member.userId)}
-            />
-          ))}
-          {invitations.data?.map((invitation) => (
-            <li
-              key={invitation.invitationId}
-              className="flex items-center justify-between gap-3 px-3 py-2.5"
-            >
-              <div className="min-w-0">
-                <p className="text-muted-foreground truncate text-sm">
-                  {invitation.email}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  <Trans>Invitation pending</Trans>
-                </p>
-              </div>
+            <>
+              <Select value={workspaceId} onValueChange={onSelectWorkspace}>
+                <SelectTrigger className="bg-card h-9 w-64 shadow-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {workspaces.map((workspace) => (
+                    <SelectItem
+                      key={workspace.workspaceId}
+                      value={workspace.workspaceId}
+                    >
+                      {workspace.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {canManage && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => cancelInvite.mutate(invitation.invitationId)}
-                  disabled={cancelInvite.isPending}
+                  title={t`Rename workspace`}
+                  onClick={() => setIsRenaming(true)}
                 >
-                  <Trash className="size-4" />
+                  {rename.isPending ? (
+                    <CircleNotch className="size-4 animate-spin" />
+                  ) : (
+                    <PencilSimple className="size-4" />
+                  )}
                 </Button>
               )}
-            </li>
-          ))}
-        </ul>
-      )}
+            </>
+          )}
+        </div>
+        {seats.data && (
+          <p className="text-muted-foreground mt-2 text-xs">
+            {seats.data.seatLimit === null ? (
+              <Trans>{seats.data.usedSeats} in this workspace</Trans>
+            ) : (
+              <Trans>
+                {seats.data.usedSeats} of {seats.data.seatLimit} seats used
+              </Trans>
+            )}
+          </p>
+        )}
+      </div>
 
-      <div className="border-border flex items-center justify-between gap-4 border-t pt-4">
+      <div className="flex flex-col gap-3">
+        {canManage && (
+          <form
+            className="flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (trimmedEmail) invite.mutate(trimmedEmail);
+            }}
+          >
+            <Input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder={t`teammate@company.com`}
+              className="bg-card h-9 max-w-xs shadow-none"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              disabled={!trimmedEmail || invite.isPending}
+            >
+              {invite.isPending ? (
+                <CircleNotch className="size-4 animate-spin" />
+              ) : (
+                <UserPlus className="size-4" />
+              )}
+              <Trans>Invite</Trans>
+            </Button>
+          </form>
+        )}
+
+        {actionError && (
+          <p className="text-destructive text-xs">{actionError}</p>
+        )}
+
+        {members.isPending ? (
+          <TeamSkeleton />
+        ) : members.isError ? (
+          <p className="text-muted-foreground border-border rounded-lg border p-4 text-sm">
+            <Trans>
+              Only workspace admins can see who has access. You are a member of
+              this workspace.
+            </Trans>
+          </p>
+        ) : (
+          <ul className="border-border divide-border divide-y rounded-lg border">
+            {members.data?.map((member) => (
+              <MemberRow
+                key={member.userId}
+                member={member}
+                isViewer={member.userId === viewerId}
+                viewerRole={canManage ? viewerRole : undefined}
+                onRoleChange={(role) =>
+                  changeRole.mutate({ userId: member.userId, role })
+                }
+                onRemove={() => remove.mutate(member.userId)}
+                onTransfer={() => transfer.mutate(member.userId)}
+              />
+            ))}
+            {invitations.data?.map((invitation) => (
+              <li
+                key={invitation.invitationId}
+                className="flex items-center justify-between gap-3 px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="text-muted-foreground truncate text-sm">
+                    {invitation.email}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    <Trans>Invitation pending</Trans>
+                  </p>
+                </div>
+                {canManage && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title={t`Resend invitation`}
+                      onClick={() =>
+                        resendInvite.mutate({
+                          invitationId: invitation.invitationId,
+                          email: invitation.email,
+                        })
+                      }
+                      disabled={resendInvite.isPending}
+                    >
+                      {resendInvite.isPending &&
+                      resendInvite.variables?.invitationId ===
+                        invitation.invitationId ? (
+                        <CircleNotch className="size-4 animate-spin" />
+                      ) : (
+                        <PaperPlaneTilt className="size-4" />
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title={t`Cancel invitation`}
+                      onClick={() =>
+                        cancelInvite.mutate(invitation.invitationId)
+                      }
+                      disabled={cancelInvite.isPending}
+                    >
+                      <Trash className="size-4" />
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-4">
         <p className="text-muted-foreground text-xs">
           {viewerRole === "owner" ? (
             <Trans>

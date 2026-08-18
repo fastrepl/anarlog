@@ -526,6 +526,10 @@ msgstr "Cancel"
 msgid "Cancel date edit"
 msgstr "Cancel date edit"
 
+#: src/settings/team/index.tsx
+msgid "Cancel invitation"
+msgstr "Cancel invitation"
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Capture meeting chat in Memos"
 msgstr "Capture meeting chat in Memos"
@@ -2519,6 +2523,10 @@ msgstr "Remove photo"
 msgid "Remove repository"
 msgstr "Remove repository"
 
+#: src/settings/team/index.tsx
+msgid "Rename workspace"
+msgstr "Rename workspace"
+
 #: src/automations/starters.tsx
 msgid "Render canonical Markdown"
 msgstr "Render canonical Markdown"
@@ -2574,6 +2582,10 @@ msgstr "Request {0}"
 #: src/settings/general/permissions.tsx
 msgid "Request {0} permission"
 msgstr "Request {0} permission"
+
+#: src/settings/team/index.tsx
+msgid "Resend invitation"
+msgstr "Resend invitation"
 
 #: src/calendar/components/apple/permission.tsx
 msgid "Reset"
