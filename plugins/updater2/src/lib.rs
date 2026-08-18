@@ -19,9 +19,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
         .commands(tauri_specta::collect_commands![
             commands::check::<tauri::Wry>,
             commands::download::<tauri::Wry>,
-            commands::install::<tauri::Wry>,
+            commands::install_and_relaunch::<tauri::Wry>,
             commands::is_downloaded::<tauri::Wry>,
-            commands::postinstall::<tauri::Wry>,
             commands::set_automatic_updates_enabled::<tauri::Wry>,
             commands::set_meeting_active::<tauri::Wry>,
             commands::maybe_emit_updated::<tauri::Wry>,
@@ -113,16 +112,8 @@ async fn check_and_download<R: tauri::Runtime>(
     }
 
     if install_cached_update && updater2.has_cached_update(&version) {
-        let result = match updater2.install(&version).await {
-            Ok(result) => result,
-            Err(e) => {
-                tracing::error!("cached_update_install_failed: {}", e);
-                return false;
-            }
-        };
-
-        if let Err(e) = updater2.postinstall(result).await {
-            tracing::error!("cached_update_relaunch_failed: {}", e);
+        if let Err(e) = updater2.install_and_relaunch(&version).await {
+            tracing::error!("cached_update_install_failed: {}", e);
         }
         return false;
     }

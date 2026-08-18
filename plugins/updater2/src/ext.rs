@@ -15,12 +15,6 @@ static DOWNLOAD_MUTEX: LazyLock<tokio::sync::Mutex<()>> =
 
 static MEETING_ACTIVE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum InstallResult {
-    RelaunchCurrent,
-}
-
 pub struct Updater2<'a, R: tauri::Runtime, M: tauri::Manager<R>> {
     manager: &'a M,
     _runtime: std::marker::PhantomData<fn() -> R>,
@@ -217,7 +211,10 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         Ok(())
     }
 
-    pub async fn install(&self, version: &str) -> Result<InstallResult, crate::Error> {
+    // Install and relaunch are one operation so no caller can install without
+    // completing the required restart. The restart only happens after a
+    // successful install; any earlier failure returns without restarting.
+    pub async fn install_and_relaunch(&self, version: &str) -> Result<(), crate::Error> {
         let bytes = self.get_cached_update_bytes(version)?;
 
         let updater = self.manager.updater()?;
@@ -236,15 +233,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
         let _ = self.manager.store2().save();
 
         update.install(&bytes)?;
-        Ok(InstallResult::RelaunchCurrent)
-    }
-
-    pub async fn postinstall(&self, result: InstallResult) -> Result<(), crate::Error> {
-        match result {
-            InstallResult::RelaunchCurrent => {
-                self.manager.app_handle().restart();
-            }
-        }
+        self.manager.app_handle().restart();
     }
 }
 

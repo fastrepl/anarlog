@@ -1,4 +1,4 @@
-use crate::{InstallResult, Updater2PluginExt};
+use crate::Updater2PluginExt;
 
 #[tauri::command]
 #[specta::specta]
@@ -22,12 +22,12 @@ pub(crate) async fn download<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
-pub(crate) async fn install<R: tauri::Runtime>(
+pub(crate) async fn install_and_relaunch<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     version: String,
-) -> Result<InstallResult, String> {
+) -> Result<(), String> {
     app.updater2()
-        .install(&version)
+        .install_and_relaunch(&version)
         .await
         .map_err(|e| e.to_string())
 }
@@ -39,18 +39,6 @@ pub(crate) fn is_downloaded<R: tauri::Runtime>(
     version: String,
 ) -> Result<bool, String> {
     Ok(app.updater2().has_cached_update(&version))
-}
-
-#[tauri::command]
-#[specta::specta]
-pub(crate) async fn postinstall<R: tauri::Runtime>(
-    app: tauri::AppHandle<R>,
-    result: InstallResult,
-) -> Result<(), String> {
-    app.updater2()
-        .postinstall(result)
-        .await
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]

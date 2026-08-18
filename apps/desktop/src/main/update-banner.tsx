@@ -231,8 +231,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
 
   const { mutate: installUpdate, isPending: installing } = useMutation({
     mutationFn: async (version: string) => {
-      const result = unwrapResult(await updaterCommands.install(version));
-      unwrapResult(await updaterCommands.postinstall(result));
+      unwrapResult(await updaterCommands.installAndRelaunch(version));
     },
     onError: (error, version) => {
       setEventState({

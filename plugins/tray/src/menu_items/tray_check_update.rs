@@ -61,21 +61,11 @@ impl TrayCheckUpdate {
     }
 
     async fn apply_update(app: AppHandle<tauri::Wry>, version: String) {
-        match app.updater2().install(&version).await {
-            Ok(result) => {
-                if let Err(e) = app.updater2().postinstall(result).await {
-                    app.dialog()
-                        .message(format!("Failed to apply update: {}", e))
-                        .title("Update Failed")
-                        .show(|_| {});
-                }
-            }
-            Err(e) => {
-                app.dialog()
-                    .message(format!("Failed to install update: {}", e))
-                    .title("Update Failed")
-                    .show(|_| {});
-            }
+        if let Err(e) = app.updater2().install_and_relaunch(&version).await {
+            app.dialog()
+                .message(format!("Failed to install update: {}", e))
+                .title("Update Failed")
+                .show(|_| {});
         }
     }
 }
