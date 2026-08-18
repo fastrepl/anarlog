@@ -488,6 +488,16 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
       type: data.type,
     });
 
+    // Secure email change: the first of the two confirmations is accepted
+    // without a session; only the second one completes the change.
+    if (!error && !authData.session && data.type === "email_change") {
+      return {
+        success: false,
+        pendingEmailChange: true,
+        error: "Waiting for the confirmation from your other email address.",
+      };
+    }
+
     if (error || !authData.session) {
       return { success: false, error: error?.message || "Unknown error" };
     }

@@ -49,6 +49,7 @@ function Component() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState("");
+  const [noticeMessage, setNoticeMessage] = useState("");
   const context = resolveAuthFlowContext({
     flow: search.flow,
     scheme: search.scheme,
@@ -67,6 +68,12 @@ function Component() {
       }),
     onSuccess: (result) => {
       if (!result.success) {
+        if ("pendingEmailChange" in result && result.pendingEmailChange) {
+          setNoticeMessage(
+            "This link is confirmed. To finish changing your email, click the link in the email sent to your other address.",
+          );
+          return;
+        }
         setErrorMessage(result.error);
         return;
       }
@@ -123,17 +130,25 @@ function Component() {
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={() => {
-            setErrorMessage("");
-            confirmMutation.mutate();
-          }}
-          disabled={confirmMutation.isPending}
-          className={authPrimaryButtonClassName}
-        >
-          {confirmMutation.isPending ? "Confirming..." : "Continue"}
-        </button>
+        {noticeMessage && (
+          <p className="text-center text-sm leading-6 text-[#756b5d]">
+            {noticeMessage}
+          </p>
+        )}
+
+        {!noticeMessage && (
+          <button
+            type="button"
+            onClick={() => {
+              setErrorMessage("");
+              confirmMutation.mutate();
+            }}
+            disabled={confirmMutation.isPending}
+            className={authPrimaryButtonClassName}
+          >
+            {confirmMutation.isPending ? "Confirming..." : "Continue"}
+          </button>
+        )}
 
         <Link
           to="/auth/"
