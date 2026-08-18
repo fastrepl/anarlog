@@ -12,6 +12,7 @@ import Stripe from "stripe";
 import { parseArgs } from "util";
 
 import { STRIPE_API_VERSION } from "../integration/stripe";
+import { applyEntitlementSnapshot } from "./entitlement-snapshot";
 
 const { values } = parseArgs({
   args: Bun.argv.slice(2),
@@ -140,130 +141,30 @@ const fetchCustomerEntitlements = (customerId: string) =>
     catch: (error) => error,
   }).pipe(Effect.retry(retryPolicy));
 
-const deleteAllEntitlements = (customerId: string) =>
+// One transaction per customer: stale deletion, upserts, and last_synced_at
+// commit together, so a failure cannot leave a partially applied snapshot.
+const applySnapshot = (
+  customerId: string,
+  entitlements: Stripe.Entitlements.ActiveEntitlement[],
+) =>
   Effect.tryPromise({
-    try: () =>
-      pool.query(`DELETE FROM stripe.active_entitlements WHERE customer = $1`, [
-        customerId,
-      ]),
+    try: () => applyEntitlementSnapshot(pool, customerId, entitlements),
     catch: (e) => new DbError(e instanceof Error ? e.message : String(e)),
   }).pipe(
-    Effect.map((result) => ({
-      updated: 0,
-      deleted: result.rowCount ?? 0,
-      hasError: false,
-    })),
     Effect.catchAll((e) =>
       Effect.gen(function* () {
         yield* Effect.logError(
-          `Failed to delete entitlements for ${customerId}: ${e.message}`,
+          `Failed to apply entitlement snapshot for ${customerId}: ${e.message}`,
         );
         return { updated: 0, deleted: 0, hasError: true };
       }),
     ),
   );
 
-const syncEntitlements = (
-  customerId: string,
-  entitlements: Stripe.Entitlements.ActiveEntitlement[],
-) =>
-  Effect.gen(function* () {
-    const activeLookupKeys = entitlements.map((e) => e.lookup_key);
-
-    const deleteResult = yield* Effect.tryPromise({
-      try: () =>
-        pool.query(
-          `DELETE FROM stripe.active_entitlements WHERE customer = $1 AND lookup_key != ALL($2)`,
-          [customerId, activeLookupKeys],
-        ),
-      catch: (e) => new DbError(e instanceof Error ? e.message : String(e)),
-    }).pipe(
-      Effect.catchAll((e) =>
-        Effect.gen(function* () {
-          yield* Effect.logError(
-            `Failed to delete stale entitlements for ${customerId}: ${e.message}`,
-          );
-          return null;
-        }),
-      ),
-    );
-
-    if (deleteResult === null) {
-      return { updated: 0, deleted: 0, hasError: true };
-    }
-
-    const deleteCount = deleteResult.rowCount ?? 0;
-
-    for (const entitlement of entitlements) {
-      const upsertResult = yield* Effect.tryPromise({
-        try: () =>
-          pool.query(
-            `INSERT INTO stripe.active_entitlements (id, object, livemode, feature, customer, lookup_key, last_synced_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             ON CONFLICT (customer, lookup_key) DO UPDATE SET
-               id = EXCLUDED.id,
-               object = EXCLUDED.object,
-               livemode = EXCLUDED.livemode,
-               feature = EXCLUDED.feature,
-               last_synced_at = EXCLUDED.last_synced_at`,
-            [
-              entitlement.id,
-              entitlement.object,
-              entitlement.livemode,
-              entitlement.feature,
-              customerId,
-              entitlement.lookup_key,
-              new Date().toISOString(),
-            ],
-          ),
-        catch: (e) => new DbError(e instanceof Error ? e.message : String(e)),
-      }).pipe(
-        Effect.catchAll((e) =>
-          Effect.gen(function* () {
-            yield* Effect.logError(
-              `Failed to upsert entitlement for ${customerId}: ${e.message}`,
-            );
-            return null;
-          }),
-        ),
-      );
-
-      if (upsertResult === null) {
-        return { updated: 0, deleted: deleteCount, hasError: true };
-      }
-    }
-
-    return {
-      updated: entitlements.length,
-      deleted: deleteCount,
-      hasError: false,
-    };
-  });
-
-const updateCustomerLastSyncedAt = (customerId: string) =>
-  Effect.tryPromise({
-    try: () =>
-      pool.query(
-        `UPDATE stripe.customers SET last_synced_at = $1 WHERE id = $2`,
-        [new Date().toISOString(), customerId],
-      ),
-    catch: (e) => new DbError(e instanceof Error ? e.message : String(e)),
-  }).pipe(Effect.catchAll(() => Effect.void));
-
 const processCustomer = (customerId: string) =>
   Effect.gen(function* () {
     const entitlements = yield* fetchCustomerEntitlements(customerId);
-
-    const result =
-      entitlements.length === 0
-        ? yield* deleteAllEntitlements(customerId)
-        : yield* syncEntitlements(customerId, entitlements);
-
-    if (!result.hasError) {
-      yield* updateCustomerLastSyncedAt(customerId);
-    }
-
-    return result;
+    return yield* applySnapshot(customerId, entitlements);
   }).pipe(
     Effect.catchAll((error) =>
       Effect.gen(function* () {
