@@ -4,6 +4,11 @@ import { useCallback, useRef, useState } from "react";
 
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+} from "@anlg/ui/components/ui/popover";
 import { cn, safeParseDate } from "@anlg/utils";
 
 import { TranscriptEditButton } from "../note-input/transcript";
@@ -349,89 +354,98 @@ function HeaderMeetingActionPill({
     !audioExists;
 
   return (
-    <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
-      <div
-        className={cn([
-          "flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border",
-          isJoinAction
-            ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
-            : "border-border bg-card text-foreground",
-        ])}
-      >
-        <button
-          type="button"
-          data-tauri-drag-region="false"
-          aria-label={action.label}
-          title={action.title}
-          disabled={disabled}
-          onClick={action.onClick}
-          className={cn([
-            "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-1.5",
-            "text-sm font-medium",
-            "transition-colors",
-            !disabled &&
-              (isJoinAction
-                ? "hover:bg-primary/90 dark:hover:bg-white/90"
-                : "hover:bg-accent"),
-            disabled && "cursor-default opacity-60",
-          ])}
-        >
-          {action.icon}
-          <span className="truncate @max-[480px]:sr-only">{action.label}</span>
-        </button>
-        <MetadataButton
-          sessionId={sessionId}
-          renderTrigger={({ open, label: metadataLabel }) => (
+    <Popover open={showWelcomeDemoPrompt}>
+      <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
+        <PopoverAnchor asChild>
+          <div
+            className={cn([
+              "flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border",
+              isJoinAction
+                ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
+                : "border-border bg-card text-foreground",
+            ])}
+          >
             <button
               type="button"
               data-tauri-drag-region="false"
-              aria-label={metadataLabel}
-              title={metadataLabel}
+              aria-label={action.label}
+              title={action.title}
+              disabled={disabled}
+              onClick={action.onClick}
               className={cn([
-                "flex h-full w-5 shrink-0 items-center justify-center transition-colors",
-                isJoinAction
-                  ? "text-primary-foreground/70 hover:bg-primary-foreground/14 hover:text-primary-foreground dark:text-black/70 dark:hover:bg-black/8 dark:hover:text-black"
-                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                open &&
+                "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-1.5",
+                "text-sm font-medium",
+                "transition-colors",
+                !disabled &&
                   (isJoinAction
-                    ? "bg-primary-foreground/14 text-primary-foreground dark:bg-black/8 dark:text-black"
-                    : "bg-accent text-foreground"),
+                    ? "hover:bg-primary/90 dark:hover:bg-white/90"
+                    : "hover:bg-accent"),
+                disabled && "cursor-default opacity-60",
               ])}
             >
-              <CaretDown size={14} />
+              {action.icon}
+              <span className="truncate @max-[480px]:sr-only">
+                {action.label}
+              </span>
             </button>
-          )}
-        />
+            <MetadataButton
+              sessionId={sessionId}
+              renderTrigger={({ open, label: metadataLabel }) => (
+                <button
+                  type="button"
+                  data-tauri-drag-region="false"
+                  aria-label={metadataLabel}
+                  title={metadataLabel}
+                  className={cn([
+                    "flex h-full w-5 shrink-0 items-center justify-center transition-colors",
+                    isJoinAction
+                      ? "text-primary-foreground/70 hover:bg-primary-foreground/14 hover:text-primary-foreground dark:text-black/70 dark:hover:bg-black/8 dark:hover:text-black"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                    open &&
+                      (isJoinAction
+                        ? "bg-primary-foreground/14 text-primary-foreground dark:bg-black/8 dark:text-black"
+                        : "bg-accent text-foreground"),
+                  ])}
+                >
+                  <CaretDown size={14} />
+                </button>
+              )}
+            />
+          </div>
+        </PopoverAnchor>
+        {showWelcomeDemoPrompt ? (
+          <PopoverContent
+            data-welcome-demo-prompt
+            side="bottom"
+            sideOffset={8}
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            className="border-border bg-popover text-popover-foreground pointer-events-none w-72 max-w-[calc(100vw-1rem)] rounded-md border px-3 py-2.5 text-sm shadow-sm"
+          >
+            <span
+              data-welcome-demo-prompt-tail
+              aria-hidden="true"
+              className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
+            />
+            <span className="relative block font-medium">{t`Try the demo`}</span>
+            <span className="text-muted-foreground relative mt-0.5 block leading-snug">
+              {t`This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action.`}
+            </span>
+          </PopoverContent>
+        ) : showCountdown ? (
+          <div
+            data-header-meeting-countdown
+            className="border-border bg-popover text-popover-foreground pointer-events-none absolute top-full left-1/2 z-20 mt-2 -translate-x-1/2 rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm"
+          >
+            <span
+              data-header-meeting-countdown-tail
+              aria-hidden="true"
+              className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
+            />
+            <span className="relative">{countdown.label}</span>
+          </div>
+        ) : null}
       </div>
-      {showWelcomeDemoPrompt ? (
-        <div
-          data-welcome-demo-prompt
-          className="border-border bg-popover text-popover-foreground pointer-events-none absolute top-full left-1/2 z-20 mt-2 w-72 -translate-x-1/2 rounded-md border px-3 py-2.5 text-sm shadow-sm"
-        >
-          <span
-            data-welcome-demo-prompt-tail
-            aria-hidden="true"
-            className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
-          />
-          <span className="relative block font-medium">{t`Try the demo`}</span>
-          <span className="text-muted-foreground relative mt-0.5 block leading-snug">
-            {t`This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action.`}
-          </span>
-        </div>
-      ) : showCountdown ? (
-        <div
-          data-header-meeting-countdown
-          className="border-border bg-popover text-popover-foreground pointer-events-none absolute top-full left-1/2 z-20 mt-2 -translate-x-1/2 rounded-md border px-2.5 py-1 font-mono text-xs whitespace-nowrap tabular-nums shadow-sm"
-        >
-          <span
-            data-header-meeting-countdown-tail
-            aria-hidden="true"
-            className="border-border bg-popover absolute -top-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-t border-l"
-          />
-          <span className="relative">{countdown.label}</span>
-        </div>
-      ) : null}
-    </div>
+    </Popover>
   );
 }
 

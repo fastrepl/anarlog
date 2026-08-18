@@ -582,6 +582,7 @@ describe("OuterHeader", () => {
     expect(
       prompt?.querySelector("[data-welcome-demo-prompt-tail]"),
     ).not.toBeNull();
+    expect(prompt?.parentElement?.parentElement).toBe(document.body);
   });
 
   it("does not prompt users who have already recorded the welcome demo", () => {
