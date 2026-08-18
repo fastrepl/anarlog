@@ -27,24 +27,60 @@ export type DesktopUpdateControl = {
   installUpdate: () => void;
 };
 
-type UpdateEventState = {
-  status: UpdateBannerStatus;
-  version: string;
-  downloadedBytes: number;
-  contentLength: number | null;
-  errorMessage: string | null;
-};
+// One discriminated state with only variant-valid fields: updater events,
+// mutations, and the periodic check all reduce into it, and the visible
+// control is derived from it in a single precedence pass.
+export type UpdateState =
+  | { kind: "none" }
+  | { kind: "available"; version: string }
+  | {
+      kind: "downloading";
+      version: string;
+      downloadedBytes: number;
+      contentLength: number | null;
+    }
+  | { kind: "ready"; version: string }
+  | { kind: "failed"; version: string; errorMessage: string };
+
+type UpdateEvent = Exclude<UpdateState, { kind: "none" }>;
 
 type UpdateCheckState = {
   version: string;
   ready: boolean;
 } | null;
 
+export function resolveUpdateState(
+  event: UpdateEvent | null,
+  check: UpdateCheckState,
+  acknowledgedVersion: string | null,
+): UpdateState {
+  const checked = check && check.version !== acknowledgedVersion ? check : null;
+
+  if (event) {
+    if (
+      event.kind === "available" &&
+      checked?.version === event.version &&
+      checked.ready
+    ) {
+      return { kind: "ready", version: event.version };
+    }
+    return event;
+  }
+
+  if (checked) {
+    return checked.ready
+      ? { kind: "ready", version: checked.version }
+      : { kind: "available", version: checked.version };
+  }
+
+  return { kind: "none" };
+}
+
 const UPDATE_CHECK_QUERY_KEY = ["updater2", "check"] as const;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
 
 export function useDesktopUpdateControl(): DesktopUpdateControl {
-  const [eventState, setEventState] = useState<UpdateEventState | null>(null);
+  const [eventState, setEventState] = useState<UpdateEvent | null>(null);
   const [acknowledgedVersion, setAcknowledgedVersion] = useState<string | null>(
     null,
   );
@@ -71,60 +107,42 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
       ] = await Promise.all([
         updaterEvents.updateAvailableEvent.listen(({ payload }) => {
           setEventState((current) =>
-            current?.version === payload.version &&
-            (current.status === "downloading" ||
-              current.status === "ready" ||
-              current.status === "failed")
+            current?.version === payload.version && current.kind !== "available"
               ? current
-              : {
-                  status: "available",
-                  version: payload.version,
-                  downloadedBytes: 0,
-                  contentLength: null,
-                  errorMessage: null,
-                },
+              : { kind: "available", version: payload.version },
           );
         }),
         updaterEvents.updateDownloadingEvent.listen(({ payload }) => {
           setEventState({
-            status: "downloading",
+            kind: "downloading",
             version: payload.version,
             downloadedBytes: 0,
             contentLength: null,
-            errorMessage: null,
           });
         }),
         updaterEvents.updateDownloadProgressEvent.listen(({ payload }) => {
           setEventState((current) => {
             const downloadedBytes =
-              current?.version === payload.version
+              current?.kind === "downloading" &&
+              current.version === payload.version
                 ? current.downloadedBytes + payload.chunk_length
                 : payload.chunk_length;
 
             return {
-              status: "downloading",
+              kind: "downloading",
               version: payload.version,
               downloadedBytes,
               contentLength: payload.content_length,
-              errorMessage: null,
             };
           });
         }),
         updaterEvents.updateReadyEvent.listen(({ payload }) => {
-          setEventState({
-            status: "ready",
-            version: payload.version,
-            downloadedBytes: 0,
-            contentLength: null,
-            errorMessage: null,
-          });
+          setEventState({ kind: "ready", version: payload.version });
         }),
         updaterEvents.updateDownloadFailedEvent.listen(({ payload }) => {
           setEventState({
-            status: "failed",
+            kind: "failed",
             version: payload.version,
-            downloadedBytes: 0,
-            contentLength: null,
             errorMessage: "Failed to download update.",
           });
         }),
@@ -170,7 +188,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
 
       if (!version) {
         setEventState((current) =>
-          current?.status === "available" ? null : current,
+          current?.kind === "available" ? null : current,
         );
         return null;
       }
@@ -181,7 +199,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
       };
 
       setEventState((current) =>
-        current?.status === "available" && current.version !== version
+        current?.kind === "available" && current.version !== version
           ? null
           : current,
       );
@@ -198,33 +216,22 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
       unwrapResult(await updaterCommands.download(version)),
     onMutate: (version) => {
       setEventState({
-        status: "downloading",
+        kind: "downloading",
         version,
         downloadedBytes: 0,
         contentLength: null,
-        errorMessage: null,
       });
     },
     onError: (error, version) => {
       setEventState({
-        status: "failed",
+        kind: "failed",
         version,
-        downloadedBytes: 0,
-        contentLength: null,
         errorMessage: readErrorMessage(error),
       });
     },
     onSuccess: (_data, version) => {
       setEventState((current) =>
-        current?.status === "ready"
-          ? current
-          : {
-              status: "ready",
-              version,
-              downloadedBytes: 0,
-              contentLength: null,
-              errorMessage: null,
-            },
+        current?.kind === "ready" ? current : { kind: "ready", version },
       );
     },
   });
@@ -236,47 +243,29 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
     },
     onError: (error, version) => {
       setEventState({
-        status: "failed",
+        kind: "failed",
         version,
-        downloadedBytes: 0,
-        contentLength: null,
         errorMessage: readErrorMessage(error),
       });
     },
   });
 
-  const checkedUpdate =
-    updateCheck.data && updateCheck.data.version !== acknowledgedVersion
-      ? updateCheck.data
+  const state = useMemo(
+    () =>
+      resolveUpdateState(
+        eventState,
+        updateCheck.data ?? null,
+        acknowledgedVersion,
+      ),
+    [eventState, updateCheck.data, acknowledgedVersion],
+  );
+  const status = state.kind === "none" ? null : state.kind;
+  const version = state.kind === "none" ? null : state.version;
+  const progress =
+    state.kind === "downloading" && state.contentLength
+      ? Math.max(0, Math.min(1, state.downloadedBytes / state.contentLength))
       : null;
-  const version = eventState?.version ?? checkedUpdate?.version ?? null;
-  const eventStatus =
-    eventState?.status === "available" &&
-    checkedUpdate?.version === eventState.version &&
-    checkedUpdate.ready
-      ? "ready"
-      : eventState?.status;
-  const status: UpdateBannerStatus | null = eventStatus
-    ? eventStatus
-    : checkedUpdate
-      ? checkedUpdate.ready
-        ? "ready"
-        : "available"
-      : null;
-  const progress = useMemo(() => {
-    if (
-      !eventState ||
-      eventState.status !== "downloading" ||
-      !eventState.contentLength
-    ) {
-      return null;
-    }
-
-    return Math.max(
-      0,
-      Math.min(1, eventState.downloadedBytes / eventState.contentLength),
-    );
-  }, [eventState]);
+  const errorMessage = state.kind === "failed" ? state.errorMessage : null;
 
   const handleDownload = useCallback(() => {
     if (!version) {
@@ -320,7 +309,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
     status,
     version,
     progress,
-    errorMessage: eventState?.errorMessage ?? null,
+    errorMessage,
     downloadStarting,
     installing,
     downloadUpdate: handleDownload,
