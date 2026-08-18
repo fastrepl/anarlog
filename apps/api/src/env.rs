@@ -84,114 +84,160 @@ pub struct Env {
     pub stt: anlg_transcribe_proxy::Env,
 }
 
-impl Env {
-    pub(crate) fn nango(&self) -> Result<Option<anlg_api_env::NangoEnv>, String> {
-        let configured = self.nango.nango_api_base.is_some()
-            || self.nango.nango_api_key.is_some()
-            || self.nango.nango_webhook_signing_key.is_some();
-        if !configured {
-            return Ok(None);
+// Raw environment resolved exactly once at startup: every optional integration
+// group is either absent or completely validated, so router/state construction
+// can consume the concrete groups without re-deriving or re-validating them.
+pub struct RuntimeConfig {
+    env: Env,
+    pub nango: Option<anlg_api_env::NangoEnv>,
+    pub subscription: Option<(anlg_api_env::StripeEnv, anlg_api_env::LoopsEnv)>,
+    pub pyannote: Option<anlg_api_env::PyannoteEnv>,
+    pub research: Option<anlg_api_research::ResearchConfig>,
+}
+
+impl std::ops::Deref for RuntimeConfig {
+    type Target = Env;
+
+    fn deref(&self) -> &Self::Target {
+        &self.env
+    }
+}
+
+impl RuntimeConfig {
+    pub(crate) fn resolve(env: Env) -> Result<Self, String> {
+        validate_supabase_env(&env.supabase)?;
+        let nango = resolve_nango(&env.nango)?;
+        let subscription = resolve_subscription(&env.stripe, &env.loops)?;
+        let pyannote = resolve_pyannote(&env.pyannote)?;
+        let research = resolve_research(&env.exa_api_key, &env.jina_api_key)?;
+
+        if !cfg!(debug_assertions)
+            && subscription
+                .as_ref()
+                .is_some_and(|(stripe, _)| is_stripe_test_key(&stripe.stripe_secret_key))
+        {
+            return Err("STRIPE_SECRET_KEY must be a live key in production".to_string());
+        }
+        if env.anarlog_attachment_backup_gc_enabled && subscription.is_none() {
+            return Err(
+                "Stripe and Loops configuration is required when ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED is true"
+                    .to_string(),
+            );
         }
 
-        Ok(Some(anlg_api_env::NangoEnv {
-            nango_api_base: self.nango.nango_api_base.clone(),
-            nango_api_key: required_integration_value(
-                &self.nango.nango_api_key,
-                "NANGO_API_KEY",
-                "Nango is configured",
-            )?,
-            nango_webhook_signing_key: required_integration_value(
-                &self.nango.nango_webhook_signing_key,
-                "NANGO_WEBHOOK_SIGNING_KEY",
-                "Nango is configured",
-            )?,
-        }))
+        Ok(Self {
+            env,
+            nango,
+            subscription,
+            pyannote,
+            research,
+        })
+    }
+}
+
+fn resolve_nango(nango: &OptionalNangoEnv) -> Result<Option<anlg_api_env::NangoEnv>, String> {
+    let configured = nango.nango_api_base.is_some()
+        || nango.nango_api_key.is_some()
+        || nango.nango_webhook_signing_key.is_some();
+    if !configured {
+        return Ok(None);
     }
 
-    pub(crate) fn subscription(
-        &self,
-    ) -> Result<Option<(anlg_api_env::StripeEnv, anlg_api_env::LoopsEnv)>, String> {
-        let stripe_configured = self.stripe.stripe_secret_key.is_some()
-            || self.stripe.stripe_monthly_price_id.is_some()
-            || self.stripe.stripe_yearly_price_id.is_some();
-        let stripe = stripe_configured
-            .then(|| -> Result<_, String> {
-                Ok(anlg_api_env::StripeEnv {
-                    stripe_secret_key: required_integration_value(
-                        &self.stripe.stripe_secret_key,
-                        "STRIPE_SECRET_KEY",
-                        "subscriptions are configured",
-                    )?,
-                    stripe_monthly_price_id: required_integration_value(
-                        &self.stripe.stripe_monthly_price_id,
-                        "STRIPE_MONTHLY_PRICE_ID",
-                        "subscriptions are configured",
-                    )?,
-                    stripe_yearly_price_id: required_integration_value(
-                        &self.stripe.stripe_yearly_price_id,
-                        "STRIPE_YEARLY_PRICE_ID",
-                        "subscriptions are configured",
-                    )?,
-                })
+    Ok(Some(anlg_api_env::NangoEnv {
+        nango_api_base: nango.nango_api_base.clone(),
+        nango_api_key: required_integration_value(
+            &nango.nango_api_key,
+            "NANGO_API_KEY",
+            "Nango is configured",
+        )?,
+        nango_webhook_signing_key: required_integration_value(
+            &nango.nango_webhook_signing_key,
+            "NANGO_WEBHOOK_SIGNING_KEY",
+            "Nango is configured",
+        )?,
+    }))
+}
+
+fn resolve_subscription(
+    stripe: &OptionalStripeEnv,
+    loops: &OptionalLoopsEnv,
+) -> Result<Option<(anlg_api_env::StripeEnv, anlg_api_env::LoopsEnv)>, String> {
+    let stripe_configured = stripe.stripe_secret_key.is_some()
+        || stripe.stripe_monthly_price_id.is_some()
+        || stripe.stripe_yearly_price_id.is_some();
+    let stripe = stripe_configured
+        .then(|| -> Result<_, String> {
+            Ok(anlg_api_env::StripeEnv {
+                stripe_secret_key: required_integration_value(
+                    &stripe.stripe_secret_key,
+                    "STRIPE_SECRET_KEY",
+                    "subscriptions are configured",
+                )?,
+                stripe_monthly_price_id: required_integration_value(
+                    &stripe.stripe_monthly_price_id,
+                    "STRIPE_MONTHLY_PRICE_ID",
+                    "subscriptions are configured",
+                )?,
+                stripe_yearly_price_id: required_integration_value(
+                    &stripe.stripe_yearly_price_id,
+                    "STRIPE_YEARLY_PRICE_ID",
+                    "subscriptions are configured",
+                )?,
             })
-            .transpose()?;
-        let loops = self
-            .loops
-            .loops_key
-            .as_ref()
-            .map(|loops_key| anlg_api_env::LoopsEnv {
-                loops_key: loops_key.clone(),
-            });
+        })
+        .transpose()?;
+    let loops = loops
+        .loops_key
+        .as_ref()
+        .map(|loops_key| anlg_api_env::LoopsEnv {
+            loops_key: loops_key.clone(),
+        });
 
-        match (stripe, loops) {
-            (None, None) => Ok(None),
-            (Some(stripe), Some(loops)) => Ok(Some((stripe, loops))),
-            (Some(_), None) => {
-                Err("LOOPS_KEY is required when subscriptions are configured".to_string())
-            }
-            (None, Some(_)) => Err(
-                "Stripe configuration is required when subscriptions are configured".to_string(),
-            ),
+    match (stripe, loops) {
+        (None, None) => Ok(None),
+        (Some(stripe), Some(loops)) => Ok(Some((stripe, loops))),
+        (Some(_), None) => {
+            Err("LOOPS_KEY is required when subscriptions are configured".to_string())
+        }
+        (None, Some(_)) => {
+            Err("Stripe configuration is required when subscriptions are configured".to_string())
         }
     }
+}
 
-    pub(crate) fn pyannote(&self) -> Result<Option<anlg_api_env::PyannoteEnv>, String> {
-        let configured =
-            self.pyannote.pyannote_api_key.is_some() || self.pyannote.pyannote_api_base.is_some();
-        if !configured {
-            return Ok(None);
-        }
-
-        Ok(Some(anlg_api_env::PyannoteEnv {
-            pyannote_api_key: required_integration_value(
-                &self.pyannote.pyannote_api_key,
-                "PYANNOTE_API_KEY",
-                "pyannote is configured",
-            )?,
-            pyannote_api_base: self
-                .pyannote
-                .pyannote_api_base
-                .clone()
-                .unwrap_or_else(|| "https://api.pyannote.ai".to_string()),
-        }))
+fn resolve_pyannote(
+    pyannote: &OptionalPyannoteEnv,
+) -> Result<Option<anlg_api_env::PyannoteEnv>, String> {
+    let configured = pyannote.pyannote_api_key.is_some() || pyannote.pyannote_api_base.is_some();
+    if !configured {
+        return Ok(None);
     }
 
-    pub(crate) fn research(&self) -> Result<Option<anlg_api_research::ResearchConfig>, String> {
-        match (&self.exa_api_key, &self.jina_api_key) {
-            (None, None) => Ok(None),
-            (Some(exa_api_key), Some(jina_api_key)) => {
-                Ok(Some(anlg_api_research::ResearchConfig {
-                    exa_api_key: exa_api_key.clone(),
-                    jina_api_key: jina_api_key.clone(),
-                }))
-            }
-            (Some(_), None) => {
-                Err("JINA_API_KEY is required when research is configured".to_string())
-            }
-            (None, Some(_)) => {
-                Err("EXA_API_KEY is required when research is configured".to_string())
-            }
-        }
+    Ok(Some(anlg_api_env::PyannoteEnv {
+        pyannote_api_key: required_integration_value(
+            &pyannote.pyannote_api_key,
+            "PYANNOTE_API_KEY",
+            "pyannote is configured",
+        )?,
+        pyannote_api_base: pyannote
+            .pyannote_api_base
+            .clone()
+            .unwrap_or_else(|| "https://api.pyannote.ai".to_string()),
+    }))
+}
+
+fn resolve_research(
+    exa_api_key: &Option<String>,
+    jina_api_key: &Option<String>,
+) -> Result<Option<anlg_api_research::ResearchConfig>, String> {
+    match (exa_api_key, jina_api_key) {
+        (None, None) => Ok(None),
+        (Some(exa_api_key), Some(jina_api_key)) => Ok(Some(anlg_api_research::ResearchConfig {
+            exa_api_key: exa_api_key.clone(),
+            jina_api_key: jina_api_key.clone(),
+        })),
+        (Some(_), None) => Err("JINA_API_KEY is required when research is configured".to_string()),
+        (None, Some(_)) => Err("EXA_API_KEY is required when research is configured".to_string()),
     }
 }
 
@@ -205,9 +251,9 @@ fn required_integration_value(
         .ok_or_else(|| format!("{variable} is required when {condition}"))
 }
 
-static ENV: OnceLock<Env> = OnceLock::new();
+static ENV: OnceLock<RuntimeConfig> = OnceLock::new();
 
-pub fn env() -> &'static Env {
+pub fn env() -> &'static RuntimeConfig {
     ENV.get_or_init(|| {
         let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
         let repo_root = manifest_dir
@@ -219,33 +265,9 @@ pub fn env() -> &'static Env {
         let _ = dotenvy::from_path(manifest_dir.join(".env"));
         let env: Env =
             envy::from_env().unwrap_or_else(|error| panic!("{}", format_env_error(error)));
-        validate_env(&env).unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
-        env
+        RuntimeConfig::resolve(env)
+            .unwrap_or_else(|error| panic!("Failed to load environment: {error}"))
     })
-}
-
-pub(crate) fn validate_env(env: &Env) -> Result<(), String> {
-    validate_supabase_env(&env.supabase)?;
-    env.nango()?;
-    let subscription = env.subscription()?;
-    env.pyannote()?;
-    env.research()?;
-
-    if !cfg!(debug_assertions)
-        && subscription
-            .as_ref()
-            .is_some_and(|(stripe, _)| is_stripe_test_key(&stripe.stripe_secret_key))
-    {
-        return Err("STRIPE_SECRET_KEY must be a live key in production".to_string());
-    }
-    if env.anarlog_attachment_backup_gc_enabled && subscription.is_none() {
-        return Err(
-            "Stripe and Loops configuration is required when ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED is true"
-                .to_string(),
-        );
-    }
-
-    Ok(())
 }
 
 fn validate_supabase_env(env: &anlg_api_env::SupabaseEnv) -> Result<(), String> {
@@ -354,6 +376,140 @@ mod tests {
                 EnvyError::MissingValue(field) if field == missing.to_lowercase()
             ));
         }
+    }
+
+    fn some(value: &str) -> Option<String> {
+        Some(value.to_string())
+    }
+
+    #[test]
+    fn nango_group_is_all_or_nothing() {
+        let cases: Vec<(OptionalNangoEnv, Result<bool, &str>)> = vec![
+            (OptionalNangoEnv::default(), Ok(false)),
+            (
+                OptionalNangoEnv {
+                    nango_api_base: None,
+                    nango_api_key: some("key"),
+                    nango_webhook_signing_key: some("signing"),
+                },
+                Ok(true),
+            ),
+            (
+                OptionalNangoEnv {
+                    nango_api_base: some("https://nango.example"),
+                    nango_api_key: some("key"),
+                    nango_webhook_signing_key: some("signing"),
+                },
+                Ok(true),
+            ),
+            (
+                OptionalNangoEnv {
+                    nango_api_base: some("https://nango.example"),
+                    nango_api_key: None,
+                    nango_webhook_signing_key: some("signing"),
+                },
+                Err("NANGO_API_KEY is required when Nango is configured"),
+            ),
+            (
+                OptionalNangoEnv {
+                    nango_api_base: None,
+                    nango_api_key: some("key"),
+                    nango_webhook_signing_key: None,
+                },
+                Err("NANGO_WEBHOOK_SIGNING_KEY is required when Nango is configured"),
+            ),
+        ];
+
+        for (nango, expected) in cases {
+            assert_eq!(
+                resolve_nango(&nango).map(|resolved| resolved.is_some()),
+                expected.map_err(str::to_string)
+            );
+        }
+    }
+
+    #[test]
+    fn subscription_group_requires_complete_stripe_and_loops() {
+        let complete_stripe = OptionalStripeEnv {
+            stripe_secret_key: some("sk_live_1"),
+            stripe_monthly_price_id: some("price_m"),
+            stripe_yearly_price_id: some("price_y"),
+        };
+        let loops = OptionalLoopsEnv {
+            loops_key: some("loops"),
+        };
+        let resolved = |stripe: &OptionalStripeEnv, loops: &OptionalLoopsEnv| {
+            resolve_subscription(stripe, loops).map(|resolved| resolved.is_some())
+        };
+
+        assert_eq!(
+            resolved(&OptionalStripeEnv::default(), &OptionalLoopsEnv::default()),
+            Ok(false)
+        );
+        assert_eq!(resolved(&complete_stripe, &loops), Ok(true));
+        assert_eq!(
+            resolved(
+                &OptionalStripeEnv {
+                    stripe_secret_key: some("sk_live_1"),
+                    stripe_monthly_price_id: None,
+                    stripe_yearly_price_id: some("price_y"),
+                },
+                &loops,
+            ),
+            Err(
+                "STRIPE_MONTHLY_PRICE_ID is required when subscriptions are configured".to_string()
+            )
+        );
+        assert_eq!(
+            resolved(&complete_stripe, &OptionalLoopsEnv::default()),
+            Err("LOOPS_KEY is required when subscriptions are configured".to_string())
+        );
+        assert_eq!(
+            resolved(&OptionalStripeEnv::default(), &loops),
+            Err("Stripe configuration is required when subscriptions are configured".to_string())
+        );
+    }
+
+    #[test]
+    fn pyannote_group_requires_key_and_defaults_base() {
+        let resolved_base = |pyannote: &OptionalPyannoteEnv| {
+            resolve_pyannote(pyannote)
+                .map(|resolved| resolved.map(|pyannote| pyannote.pyannote_api_base))
+        };
+
+        assert_eq!(resolved_base(&OptionalPyannoteEnv::default()), Ok(None));
+        assert_eq!(
+            resolved_base(&OptionalPyannoteEnv {
+                pyannote_api_key: some("key"),
+                pyannote_api_base: None,
+            }),
+            Ok(some("https://api.pyannote.ai"))
+        );
+        assert_eq!(
+            resolved_base(&OptionalPyannoteEnv {
+                pyannote_api_key: None,
+                pyannote_api_base: some("https://pyannote.example"),
+            }),
+            Err("PYANNOTE_API_KEY is required when pyannote is configured".to_string())
+        );
+    }
+
+    #[test]
+    fn research_group_requires_both_keys() {
+        let resolved = |exa: &Option<String>, jina: &Option<String>| {
+            resolve_research(exa, jina).map(|resolved| resolved.is_some())
+        };
+
+        assert_eq!(resolved(&None, &None), Ok(false));
+        assert_eq!(resolved(&some("exa"), &some("jina")), Ok(true));
+        assert_eq!(
+            resolved(&some("exa"), &None),
+            Err("JINA_API_KEY is required when research is configured".to_string())
+        );
+        assert_eq!(
+            resolved(&None, &some("jina")),
+            Err("EXA_API_KEY is required when research is configured".to_string())
+        );
     }
 
     #[test]
