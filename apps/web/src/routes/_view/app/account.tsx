@@ -1,4 +1,3 @@
-import { ArrowRight } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { jwtDecode } from "jwt-decode";
@@ -202,32 +201,6 @@ function Component() {
             </div>
           </section>
 
-          <section>
-            <article
-              className="overflow-hidden rounded-[3px] border border-[#eadfce] bg-[#fffaf0] px-7 py-9 shadow-[0_18px_50px_rgba(68,54,36,0.12)] sm:px-10 sm:py-12"
-              style={{
-                backgroundImage:
-                  "linear-gradient(115deg, rgba(255, 250, 240, 0.9), rgba(246, 236, 218, 0.82)), url('/textures/crumpled-paper.webp')",
-                backgroundPosition: "center",
-                backgroundSize: "cover",
-              }}
-            >
-              <h2 className="font-hand text-3xl leading-none font-semibold text-[#363029]">
-                Anarlog lives on your desktop
-              </h2>
-              <p className="mt-4 max-w-xl text-base leading-7 text-[#363029]">
-                Notes, transcripts, and integrations all live in the app, on
-                your device. Grab it if you haven't already.
-              </p>
-              <Link
-                to="/download/"
-                className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
-              >
-                <span>Download for free</span>
-                <ArrowRight size={16} weight="bold" aria-hidden="true" />
-              </Link>
-            </article>
-          </section>
         </div>
       </div>
     </main>
