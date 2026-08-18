@@ -39,7 +39,6 @@ tauri-plugin-dialog = { workspace = true }
 tauri-plugin-dictation = { workspace = true }
 tauri-plugin-dock = { workspace = true }
 tauri-plugin-export = { workspace = true }
-tauri-plugin-flag = { workspace = true }
 tauri-plugin-fs-sync = { workspace = true }
 tauri-plugin-fs2 = { workspace = true }
 tauri-plugin-git = { workspace = true }

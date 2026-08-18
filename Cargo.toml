@@ -238,7 +238,6 @@ tauri-plugin-detect = { path = "plugins/detect" }
 tauri-plugin-dictation = { path = "plugins/dictation" }
 tauri-plugin-dock = { path = "plugins/dock" }
 tauri-plugin-export = { path = "plugins/export" }
-tauri-plugin-flag = { path = "plugins/flag" }
 tauri-plugin-fs-sync = { path = "plugins/fs-sync" }
 tauri-plugin-fs2 = { path = "plugins/fs2" }
 tauri-plugin-git = { path = "plugins/git" }

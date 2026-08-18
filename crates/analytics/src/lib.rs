@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 
 mod error;
 
 pub use error::*;
 
 use posthog_rs::{ClientOptions, Event};
-
-pub use posthog_rs::FlagValue;
 
 #[derive(Clone)]
 pub struct DeviceFingerprint(pub String);
@@ -18,25 +15,17 @@ pub struct AuthenticatedUserId(pub String);
 
 struct PosthogState {
     client: posthog_rs::Client,
-    local_eval: Option<LocalEvalState>,
-}
-
-struct LocalEvalState {
-    evaluator: posthog_rs::LocalEvaluator,
-    _poller: posthog_rs::AsyncFlagPoller,
 }
 
 struct LazyPosthogClient {
     api_key: String,
-    personal_api_key: Option<String>,
     state: tokio::sync::OnceCell<PosthogState>,
 }
 
 impl LazyPosthogClient {
-    fn new(api_key: String, personal_api_key: Option<String>) -> Self {
+    fn new(api_key: String) -> Self {
         Self {
             api_key,
-            personal_api_key,
             state: tokio::sync::OnceCell::new(),
         }
     }
@@ -45,32 +34,9 @@ impl LazyPosthogClient {
         self.state
             .get_or_init(|| {
                 let key = self.api_key.clone();
-                let personal_key = self.personal_api_key.clone();
                 async move {
                     let client = posthog_rs::client(ClientOptions::from(key.as_str())).await;
-
-                    let local_eval = if let Some(personal_key) = personal_key {
-                        let cache = posthog_rs::FlagCache::new();
-                        let config = posthog_rs::LocalEvaluationConfig {
-                            personal_api_key: personal_key,
-                            project_api_key: key,
-                            api_host: "https://us.i.posthog.com".to_string(),
-                            poll_interval: Duration::from_secs(30),
-                            request_timeout: Duration::from_secs(10),
-                        };
-                        let mut poller = posthog_rs::AsyncFlagPoller::new(config, cache.clone());
-                        let _ = poller.load_flags().await;
-                        poller.start().await;
-                        let evaluator = posthog_rs::LocalEvaluator::new(cache);
-                        Some(LocalEvalState {
-                            evaluator,
-                            _poller: poller,
-                        })
-                    } else {
-                        None
-                    };
-
-                    PosthogState { client, local_eval }
+                    PosthogState { client }
                 }
             })
             .await
@@ -85,7 +51,6 @@ pub struct AnalyticsClient {
 #[derive(Default)]
 pub struct AnalyticsClientBuilder {
     posthog_key: Option<String>,
-    posthog_personal_key: Option<String>,
 }
 
 impl AnalyticsClientBuilder {
@@ -94,15 +59,10 @@ impl AnalyticsClientBuilder {
         self
     }
 
-    pub fn with_local_evaluation(mut self, personal_api_key: impl Into<String>) -> Self {
-        self.posthog_personal_key = Some(personal_api_key.into());
-        self
-    }
-
     pub fn build(self) -> AnalyticsClient {
         let posthog = self
             .posthog_key
-            .map(|key| Arc::new(LazyPosthogClient::new(key, self.posthog_personal_key)));
+            .map(|key| Arc::new(LazyPosthogClient::new(key)));
         AnalyticsClient { posthog }
     }
 }
@@ -160,88 +120,6 @@ impl AnalyticsClient {
         }
 
         Ok(())
-    }
-
-    pub async fn is_feature_enabled(
-        &self,
-        flag_key: &str,
-        distinct_id: &str,
-    ) -> Result<bool, Error> {
-        if let Some(lazy) = &self.posthog {
-            let state = lazy.get().await;
-
-            if let Some(local) = &state.local_eval {
-                match local
-                    .evaluator
-                    .evaluate_flag(flag_key, distinct_id, &HashMap::new())
-                {
-                    Ok(Some(FlagValue::Boolean(v))) => return Ok(v),
-                    Ok(Some(FlagValue::String(_))) => return Ok(true),
-                    Ok(None) | Err(_) => {}
-                }
-            }
-
-            Ok(state
-                .client
-                .is_feature_enabled(flag_key, distinct_id, None, None, None)
-                .await
-                .unwrap_or(false))
-        } else {
-            tracing::info!("is_feature_enabled: {} (no client)", flag_key);
-            Ok(false)
-        }
-    }
-
-    pub async fn get_feature_flag(
-        &self,
-        flag_key: &str,
-        distinct_id: &str,
-        person_properties: Option<HashMap<String, serde_json::Value>>,
-        group_properties: Option<HashMap<String, HashMap<String, serde_json::Value>>>,
-    ) -> Result<Option<FlagValue>, Error> {
-        if let Some(lazy) = &self.posthog {
-            let state = lazy.get().await;
-
-            if let Some(local) = &state.local_eval {
-                let props = person_properties.as_ref().cloned().unwrap_or_default();
-                if let Ok(Some(value)) =
-                    local.evaluator.evaluate_flag(flag_key, distinct_id, &props)
-                {
-                    return Ok(Some(value));
-                }
-            }
-
-            Ok(state
-                .client
-                .get_feature_flag(
-                    flag_key,
-                    distinct_id,
-                    None,
-                    person_properties,
-                    group_properties,
-                )
-                .await?)
-        } else {
-            tracing::info!("get_feature_flag: {} (no client)", flag_key);
-            Ok(None)
-        }
-    }
-
-    pub async fn get_feature_flag_payload(
-        &self,
-        flag_key: &str,
-        distinct_id: &str,
-    ) -> Result<Option<serde_json::Value>, Error> {
-        if let Some(lazy) = &self.posthog {
-            let state = lazy.get().await;
-            Ok(state
-                .client
-                .get_feature_flag_payload(flag_key, distinct_id)
-                .await?)
-        } else {
-            tracing::info!("get_feature_flag_payload: {} (no client)", flag_key);
-            Ok(None)
-        }
     }
 
     pub async fn identify(

@@ -1530,12 +1530,6 @@ importers:
         specifier: ^2.10.1
         version: 2.10.1
 
-  plugins/flag:
-    dependencies:
-      '@tauri-apps/api':
-        specifier: ^2.10.1
-        version: 2.10.1
-
   plugins/fs-sync:
     dependencies:
       '@tauri-apps/api':
