@@ -1,221 +1,190 @@
 use crate::{Error, ISO639, Language};
+use anlg_whisper::Language as WL;
 
-impl TryInto<anlg_whisper::Language> for Language {
+// Single source of truth for Whisper language support: both conversion
+// directions and `whisper_multilingual()` derive from this table.
+// ISO 639-1 `jv` intentionally maps to Whisper's legacy `jw` code.
+pub(crate) const WHISPER_LANGUAGES: &[(ISO639, WL)] = &[
+    (ISO639::Af, WL::Af),
+    (ISO639::Am, WL::Am),
+    (ISO639::Ar, WL::Ar),
+    (ISO639::As, WL::As),
+    (ISO639::Az, WL::Az),
+    (ISO639::Ba, WL::Ba),
+    (ISO639::Be, WL::Be),
+    (ISO639::Bg, WL::Bg),
+    (ISO639::Bn, WL::Bn),
+    (ISO639::Bo, WL::Bo),
+    (ISO639::Br, WL::Br),
+    (ISO639::Bs, WL::Bs),
+    (ISO639::Ca, WL::Ca),
+    (ISO639::Cs, WL::Cs),
+    (ISO639::Cy, WL::Cy),
+    (ISO639::Da, WL::Da),
+    (ISO639::De, WL::De),
+    (ISO639::El, WL::El),
+    (ISO639::En, WL::En),
+    (ISO639::Es, WL::Es),
+    (ISO639::Et, WL::Et),
+    (ISO639::Eu, WL::Eu),
+    (ISO639::Fa, WL::Fa),
+    (ISO639::Fi, WL::Fi),
+    (ISO639::Fo, WL::Fo),
+    (ISO639::Fr, WL::Fr),
+    (ISO639::Gl, WL::Gl),
+    (ISO639::Gu, WL::Gu),
+    (ISO639::Ha, WL::Ha),
+    (ISO639::He, WL::He),
+    (ISO639::Hi, WL::Hi),
+    (ISO639::Hr, WL::Hr),
+    (ISO639::Ht, WL::Ht),
+    (ISO639::Hu, WL::Hu),
+    (ISO639::Hy, WL::Hy),
+    (ISO639::Id, WL::Id),
+    (ISO639::Is, WL::Is),
+    (ISO639::It, WL::It),
+    (ISO639::Ja, WL::Ja),
+    (ISO639::Jv, WL::Jw),
+    (ISO639::Ka, WL::Ka),
+    (ISO639::Kk, WL::Kk),
+    (ISO639::Km, WL::Km),
+    (ISO639::Kn, WL::Kn),
+    (ISO639::Ko, WL::Ko),
+    (ISO639::La, WL::La),
+    (ISO639::Lb, WL::Lb),
+    (ISO639::Lo, WL::Lo),
+    (ISO639::Lt, WL::Lt),
+    (ISO639::Lv, WL::Lv),
+    (ISO639::Mg, WL::Mg),
+    (ISO639::Mi, WL::Mi),
+    (ISO639::Mk, WL::Mk),
+    (ISO639::Ml, WL::Ml),
+    (ISO639::Mn, WL::Mn),
+    (ISO639::Mr, WL::Mr),
+    (ISO639::Ms, WL::Ms),
+    (ISO639::Mt, WL::Mt),
+    (ISO639::My, WL::My),
+    (ISO639::Ne, WL::Ne),
+    (ISO639::Nl, WL::Nl),
+    (ISO639::Nn, WL::Nn),
+    (ISO639::No, WL::No),
+    (ISO639::Oc, WL::Oc),
+    (ISO639::Pa, WL::Pa),
+    (ISO639::Pl, WL::Pl),
+    (ISO639::Ps, WL::Ps),
+    (ISO639::Pt, WL::Pt),
+    (ISO639::Ro, WL::Ro),
+    (ISO639::Ru, WL::Ru),
+    (ISO639::Sa, WL::Sa),
+    (ISO639::Sd, WL::Sd),
+    (ISO639::Si, WL::Si),
+    (ISO639::Sk, WL::Sk),
+    (ISO639::Sl, WL::Sl),
+    (ISO639::Sn, WL::Sn),
+    (ISO639::So, WL::So),
+    (ISO639::Sq, WL::Sq),
+    (ISO639::Sr, WL::Sr),
+    (ISO639::Su, WL::Su),
+    (ISO639::Sv, WL::Sv),
+    (ISO639::Sw, WL::Sw),
+    (ISO639::Ta, WL::Ta),
+    (ISO639::Te, WL::Te),
+    (ISO639::Tg, WL::Tg),
+    (ISO639::Th, WL::Th),
+    (ISO639::Tk, WL::Tk),
+    (ISO639::Tl, WL::Tl),
+    (ISO639::Tr, WL::Tr),
+    (ISO639::Tt, WL::Tt),
+    (ISO639::Uk, WL::Uk),
+    (ISO639::Ur, WL::Ur),
+    (ISO639::Uz, WL::Uz),
+    (ISO639::Vi, WL::Vi),
+    (ISO639::Yi, WL::Yi),
+    (ISO639::Yo, WL::Yo),
+    (ISO639::Zh, WL::Zh),
+];
+
+impl TryInto<WL> for Language {
     type Error = Error;
 
-    fn try_into(self) -> Result<anlg_whisper::Language, Self::Error> {
-        use anlg_whisper::Language as WL;
-
-        match self.iso639 {
-            ISO639::Af => Ok(WL::Af),
-            ISO639::Am => Ok(WL::Am),
-            ISO639::Ar => Ok(WL::Ar),
-            ISO639::As => Ok(WL::As),
-            ISO639::Az => Ok(WL::Az),
-            ISO639::Ba => Ok(WL::Ba),
-            ISO639::Be => Ok(WL::Be),
-            ISO639::Bg => Ok(WL::Bg),
-            ISO639::Bn => Ok(WL::Bn),
-            ISO639::Bo => Ok(WL::Bo),
-            ISO639::Br => Ok(WL::Br),
-            ISO639::Bs => Ok(WL::Bs),
-            ISO639::Ca => Ok(WL::Ca),
-            ISO639::Cs => Ok(WL::Cs),
-            ISO639::Cy => Ok(WL::Cy),
-            ISO639::Da => Ok(WL::Da),
-            ISO639::De => Ok(WL::De),
-            ISO639::El => Ok(WL::El),
-            ISO639::En => Ok(WL::En),
-            ISO639::Es => Ok(WL::Es),
-            ISO639::Et => Ok(WL::Et),
-            ISO639::Eu => Ok(WL::Eu),
-            ISO639::Fa => Ok(WL::Fa),
-            ISO639::Fi => Ok(WL::Fi),
-            ISO639::Fo => Ok(WL::Fo),
-            ISO639::Fr => Ok(WL::Fr),
-            ISO639::Gl => Ok(WL::Gl),
-            ISO639::Gu => Ok(WL::Gu),
-            ISO639::Ha => Ok(WL::Ha),
-            ISO639::He => Ok(WL::He),
-            ISO639::Hi => Ok(WL::Hi),
-            ISO639::Hr => Ok(WL::Hr),
-            ISO639::Ht => Ok(WL::Ht),
-            ISO639::Hu => Ok(WL::Hu),
-            ISO639::Hy => Ok(WL::Hy),
-            ISO639::Id => Ok(WL::Id),
-            ISO639::Is => Ok(WL::Is),
-            ISO639::It => Ok(WL::It),
-            ISO639::Ja => Ok(WL::Ja),
-            ISO639::Jv => Ok(WL::Jw),
-            ISO639::Ka => Ok(WL::Ka),
-            ISO639::Kk => Ok(WL::Kk),
-            ISO639::Km => Ok(WL::Km),
-            ISO639::Kn => Ok(WL::Kn),
-            ISO639::Ko => Ok(WL::Ko),
-            ISO639::La => Ok(WL::La),
-            ISO639::Lb => Ok(WL::Lb),
-            ISO639::Lo => Ok(WL::Lo),
-            ISO639::Lt => Ok(WL::Lt),
-            ISO639::Lv => Ok(WL::Lv),
-            ISO639::Mg => Ok(WL::Mg),
-            ISO639::Mi => Ok(WL::Mi),
-            ISO639::Mk => Ok(WL::Mk),
-            ISO639::Ml => Ok(WL::Ml),
-            ISO639::Mn => Ok(WL::Mn),
-            ISO639::Mr => Ok(WL::Mr),
-            ISO639::Ms => Ok(WL::Ms),
-            ISO639::Mt => Ok(WL::Mt),
-            ISO639::My => Ok(WL::My),
-            ISO639::Ne => Ok(WL::Ne),
-            ISO639::Nl => Ok(WL::Nl),
-            ISO639::Nn => Ok(WL::Nn),
-            ISO639::No => Ok(WL::No),
-            ISO639::Oc => Ok(WL::Oc),
-            ISO639::Pa => Ok(WL::Pa),
-            ISO639::Pl => Ok(WL::Pl),
-            ISO639::Ps => Ok(WL::Ps),
-            ISO639::Pt => Ok(WL::Pt),
-            ISO639::Ro => Ok(WL::Ro),
-            ISO639::Ru => Ok(WL::Ru),
-            ISO639::Sa => Ok(WL::Sa),
-            ISO639::Sd => Ok(WL::Sd),
-            ISO639::Si => Ok(WL::Si),
-            ISO639::Sk => Ok(WL::Sk),
-            ISO639::Sl => Ok(WL::Sl),
-            ISO639::Sn => Ok(WL::Sn),
-            ISO639::So => Ok(WL::So),
-            ISO639::Sq => Ok(WL::Sq),
-            ISO639::Sr => Ok(WL::Sr),
-            ISO639::Su => Ok(WL::Su),
-            ISO639::Sv => Ok(WL::Sv),
-            ISO639::Sw => Ok(WL::Sw),
-            ISO639::Ta => Ok(WL::Ta),
-            ISO639::Te => Ok(WL::Te),
-            ISO639::Tg => Ok(WL::Tg),
-            ISO639::Th => Ok(WL::Th),
-            ISO639::Tk => Ok(WL::Tk),
-            ISO639::Tl => Ok(WL::Tl),
-            ISO639::Tr => Ok(WL::Tr),
-            ISO639::Tt => Ok(WL::Tt),
-            ISO639::Uk => Ok(WL::Uk),
-            ISO639::Ur => Ok(WL::Ur),
-            ISO639::Uz => Ok(WL::Uz),
-            ISO639::Vi => Ok(WL::Vi),
-            ISO639::Yi => Ok(WL::Yi),
-            ISO639::Yo => Ok(WL::Yo),
-            ISO639::Zh => Ok(WL::Zh),
-            _ => Err(Error::NotSupportedLanguage(self.to_string())),
-        }
+    fn try_into(self) -> Result<WL, Self::Error> {
+        WHISPER_LANGUAGES
+            .iter()
+            .find(|(iso, _)| *iso == self.iso639)
+            .map(|(_, wl)| *wl)
+            .ok_or_else(|| Error::NotSupportedLanguage(self.to_string()))
     }
 }
 
-impl TryInto<Language> for anlg_whisper::Language {
+impl TryInto<Language> for WL {
     type Error = Error;
 
     fn try_into(self) -> Result<Language, Self::Error> {
-        use anlg_whisper::Language as WL;
+        WHISPER_LANGUAGES
+            .iter()
+            .find(|(_, wl)| wl.whisper_index() == self.whisper_index())
+            .map(|(iso, _)| Language::new(*iso))
+            .ok_or_else(|| Error::NotSupportedLanguage(self.to_string()))
+    }
+}
 
-        let iso639 = match self {
-            WL::Af => ISO639::Af,
-            WL::Am => ISO639::Am,
-            WL::Ar => ISO639::Ar,
-            WL::As => ISO639::As,
-            WL::Az => ISO639::Az,
-            WL::Ba => ISO639::Ba,
-            WL::Be => ISO639::Be,
-            WL::Bg => ISO639::Bg,
-            WL::Bn => ISO639::Bn,
-            WL::Bo => ISO639::Bo,
-            WL::Br => ISO639::Br,
-            WL::Bs => ISO639::Bs,
-            WL::Ca => ISO639::Ca,
-            WL::Cs => ISO639::Cs,
-            WL::Cy => ISO639::Cy,
-            WL::Da => ISO639::Da,
-            WL::De => ISO639::De,
-            WL::El => ISO639::El,
-            WL::En => ISO639::En,
-            WL::Es => ISO639::Es,
-            WL::Et => ISO639::Et,
-            WL::Eu => ISO639::Eu,
-            WL::Fa => ISO639::Fa,
-            WL::Fi => ISO639::Fi,
-            WL::Fo => ISO639::Fo,
-            WL::Fr => ISO639::Fr,
-            WL::Gl => ISO639::Gl,
-            WL::Gu => ISO639::Gu,
-            WL::Ha => ISO639::Ha,
-            WL::He => ISO639::He,
-            WL::Hi => ISO639::Hi,
-            WL::Hr => ISO639::Hr,
-            WL::Ht => ISO639::Ht,
-            WL::Hu => ISO639::Hu,
-            WL::Hy => ISO639::Hy,
-            WL::Id => ISO639::Id,
-            WL::Is => ISO639::Is,
-            WL::It => ISO639::It,
-            WL::Ja => ISO639::Ja,
-            WL::Jw => ISO639::Jv,
-            WL::Ka => ISO639::Ka,
-            WL::Kk => ISO639::Kk,
-            WL::Km => ISO639::Km,
-            WL::Kn => ISO639::Kn,
-            WL::Ko => ISO639::Ko,
-            WL::La => ISO639::La,
-            WL::Lb => ISO639::Lb,
-            WL::Lo => ISO639::Lo,
-            WL::Lt => ISO639::Lt,
-            WL::Lv => ISO639::Lv,
-            WL::Mg => ISO639::Mg,
-            WL::Mi => ISO639::Mi,
-            WL::Mk => ISO639::Mk,
-            WL::Ml => ISO639::Ml,
-            WL::Mn => ISO639::Mn,
-            WL::Mr => ISO639::Mr,
-            WL::Ms => ISO639::Ms,
-            WL::Mt => ISO639::Mt,
-            WL::My => ISO639::My,
-            WL::Ne => ISO639::Ne,
-            WL::Nl => ISO639::Nl,
-            WL::Nn => ISO639::Nn,
-            WL::No => ISO639::No,
-            WL::Oc => ISO639::Oc,
-            WL::Pa => ISO639::Pa,
-            WL::Pl => ISO639::Pl,
-            WL::Ps => ISO639::Ps,
-            WL::Pt => ISO639::Pt,
-            WL::Ro => ISO639::Ro,
-            WL::Ru => ISO639::Ru,
-            WL::Sa => ISO639::Sa,
-            WL::Sd => ISO639::Sd,
-            WL::Si => ISO639::Si,
-            WL::Sk => ISO639::Sk,
-            WL::Sl => ISO639::Sl,
-            WL::Sn => ISO639::Sn,
-            WL::So => ISO639::So,
-            WL::Sq => ISO639::Sq,
-            WL::Sr => ISO639::Sr,
-            WL::Su => ISO639::Su,
-            WL::Sv => ISO639::Sv,
-            WL::Sw => ISO639::Sw,
-            WL::Ta => ISO639::Ta,
-            WL::Te => ISO639::Te,
-            WL::Tg => ISO639::Tg,
-            WL::Th => ISO639::Th,
-            WL::Tk => ISO639::Tk,
-            WL::Tl => ISO639::Tl,
-            WL::Tr => ISO639::Tr,
-            WL::Tt => ISO639::Tt,
-            WL::Uk => ISO639::Uk,
-            WL::Ur => ISO639::Ur,
-            WL::Uz => ISO639::Uz,
-            WL::Vi => ISO639::Vi,
-            WL::Yi => ISO639::Yi,
-            WL::Yo => ISO639::Yo,
-            WL::Zh => ISO639::Zh,
-            _ => return Err(Error::NotSupportedLanguage(self.to_string())),
-        };
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
 
-        Ok(Language::new(iso639))
+    #[test]
+    fn test_table_is_bijective() {
+        let iso_codes: HashSet<_> = WHISPER_LANGUAGES.iter().map(|(iso, _)| *iso).collect();
+        let whisper_codes: HashSet<_> = WHISPER_LANGUAGES
+            .iter()
+            .map(|(_, wl)| wl.whisper_index())
+            .collect();
+
+        assert_eq!(iso_codes.len(), WHISPER_LANGUAGES.len());
+        assert_eq!(whisper_codes.len(), WHISPER_LANGUAGES.len());
+    }
+
+    #[test]
+    fn test_round_trip_all_entries() {
+        for (iso, wl) in WHISPER_LANGUAGES {
+            let forward: WL = Language::new(*iso).try_into().unwrap();
+            assert_eq!(forward.whisper_index(), wl.whisper_index());
+
+            let reverse: Language = (*wl).try_into().unwrap();
+            assert_eq!(reverse.iso639(), *iso);
+        }
+    }
+
+    #[test]
+    fn test_javanese_alias() {
+        let forward: WL = Language::new(ISO639::Jv).try_into().unwrap();
+        assert_eq!(forward.whisper_index(), WL::Jw.whisper_index());
+
+        let reverse: Language = WL::Jw.try_into().unwrap();
+        assert_eq!(reverse.iso639(), ISO639::Jv);
+    }
+
+    #[test]
+    fn test_unsupported_codes() {
+        let unsupported_iso: Result<WL, _> = Language::new(ISO639::Ln).try_into();
+        assert!(unsupported_iso.is_err());
+
+        for wl in [WL::Haw, WL::Ln, WL::Yue] {
+            let unsupported_wl: Result<Language, _> = wl.try_into();
+            assert!(unsupported_wl.is_err());
+        }
+    }
+
+    #[test]
+    fn test_multilingual_list_matches_table() {
+        let list = crate::whisper_multilingual();
+        assert_eq!(list.len(), WHISPER_LANGUAGES.len());
+        assert_eq!(list.len(), 97);
+
+        for (language, (iso, _)) in list.iter().zip(WHISPER_LANGUAGES) {
+            assert_eq!(language.iso639(), *iso);
+            assert_eq!(language.region(), None);
+        }
     }
 }

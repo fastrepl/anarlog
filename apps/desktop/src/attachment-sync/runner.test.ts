@@ -105,10 +105,9 @@ function dependencies() {
     }),
     readUploadRange: vi.fn(),
     prepareDeleteGuard: vi.fn().mockResolvedValue({
-      shouldDelete: true,
-      guardId: "guard-1",
       attachmentRef: "attachment-ref",
       versionRef: "version-ref",
+      outcome: { kind: "deleteWithGuard", guardId: "guard-1" },
     }),
     commitDeleteGuard: vi.fn(),
     reconcileDeleteGuards: vi.fn().mockResolvedValue(0),
@@ -445,10 +444,9 @@ describe("attachment transfer runner", () => {
       async (_jobId: string, _attemptCount: number, createGuard: boolean) => {
         if (createGuard) throw new Error("unexpected guard hashing");
         return {
-          shouldDelete: false,
-          guardId: "",
           attachmentRef: "attachment-ref",
           versionRef: "version-ref",
+          outcome: { kind: "skip" as const },
         };
       },
     );
@@ -825,10 +823,9 @@ describe("attachment transfer runner", () => {
       cloudSyncEnabled: false,
     };
     deps.native.prepareDeleteGuard.mockResolvedValueOnce({
-      shouldDelete: false,
-      guardId: "",
       attachmentRef: "attachment-ref",
       versionRef: "version-ref",
+      outcome: { kind: "skip" },
     });
 
     await runAttachmentTransferJob(
@@ -850,6 +847,36 @@ describe("attachment transfer runner", () => {
     );
     expect(deps.client.scheduleDelete).not.toHaveBeenCalled();
     expect(deps.native.commitDeleteGuard).not.toHaveBeenCalled();
+  });
+
+  it("commits without a guard id when no local source needs preserving", async () => {
+    const deps = dependencies();
+    const deleteJob = {
+      ...job,
+      direction: "delete" as const,
+      objectKey: "owner/object.anb1",
+      currentObjectKey: "owner/object.anb1",
+      cloudSyncEnabled: false,
+    };
+    deps.native.prepareDeleteGuard.mockResolvedValueOnce({
+      attachmentRef: "attachment-ref",
+      versionRef: "version-ref",
+      outcome: { kind: "deleteDirectly" },
+    });
+
+    await runAttachmentTransferJob(
+      { ...deps, supabaseUrl: "https://project.supabase.co" } as any,
+      deleteJob,
+    );
+
+    expect(deps.client.scheduleDelete).toHaveBeenCalled();
+    expect(deps.native.commitDeleteGuard).toHaveBeenCalledWith(
+      deleteJob.id,
+      deleteJob.attemptCount,
+      null,
+      undefined,
+    );
+    expect(deps.store.deferDeleteForPreservation).not.toHaveBeenCalled();
   });
 
   it("moves transient failures to durable retry wait", async () => {

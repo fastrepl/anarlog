@@ -9,7 +9,6 @@ use crate::events::{Input, RunStreamedResult, ThreadEvent, Turn};
 use crate::exec::{CodexExec, CodexExecArgs};
 use crate::options::{CodexOptions, ThreadOptions, TurnOptions};
 use crate::output_schema::{OutputSchemaFile, create_output_schema_file};
-use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Clone)]
 pub struct Codex {
@@ -109,10 +108,9 @@ impl Thread {
         })?;
         Ok(RunStreamedResult {
             events: Box::pin(ManagedEventStream {
-                inner: stream.events,
+                inner: stream,
                 _output_schema: output_schema,
                 thread_id: self.id.clone(),
-                shutdown: stream.shutdown,
             }),
         })
     }
@@ -165,11 +163,12 @@ impl Thread {
     }
 }
 
+// Dropping the inner StreamProcess shuts the child down, so no explicit Drop
+// is needed here.
 struct ManagedEventStream {
-    inner: crate::events::EventStream,
+    inner: crate::exec::CodexExecRun,
     _output_schema: Option<OutputSchemaFile>,
     thread_id: Arc<Mutex<Option<String>>>,
-    shutdown: CancellationToken,
 }
 
 impl Stream for ManagedEventStream {
@@ -179,7 +178,7 @@ impl Stream for ManagedEventStream {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        match self.inner.as_mut().poll_next(cx) {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
             Poll::Ready(Some(Ok(ThreadEvent::ThreadStarted { thread_id }))) => {
                 let thread_id = thread_id.clone();
                 if let Ok(mut guard) = self.thread_id.lock() {
@@ -189,12 +188,6 @@ impl Stream for ManagedEventStream {
             }
             other => other,
         }
-    }
-}
-
-impl Drop for ManagedEventStream {
-    fn drop(&mut self) {
-        self.shutdown.cancel();
     }
 }
 

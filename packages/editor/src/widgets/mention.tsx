@@ -73,11 +73,48 @@ export function findMention(
 }
 
 // ---------------------------------------------------------------------------
+// Mention search state
+// ---------------------------------------------------------------------------
+// Exported for tests: a slow older search must never overwrite the results of
+// a newer one, repopulate a dismissed popup, or update after unmount.
+export function useMentionSearch(
+  active: boolean,
+  query: string | undefined,
+  handleSearch: (query: string) => Promise<MentionItem[]>,
+) {
+  const [items, setItems] = useState<MentionItem[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    if (!active || query === undefined) {
+      setItems([]);
+      setSelectedIndex(0);
+      return;
+    }
+
+    let stale = false;
+    handleSearch(query)
+      .then((results) => {
+        if (stale) return;
+        setItems(results.slice(0, 5));
+        setSelectedIndex(0);
+      })
+      .catch(() => {
+        if (stale) return;
+        setItems([]);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [active, query, handleSearch]);
+
+  return { items, selectedIndex, setSelectedIndex };
+}
+
+// ---------------------------------------------------------------------------
 // Mention popup
 // ---------------------------------------------------------------------------
 export function MentionSuggestion({ config }: { config: MentionConfig }) {
-  const [items, setItems] = useState<MentionItem[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
   const [dismissedFrom, setDismissedFrom] = useState<number | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -90,6 +127,12 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
   const dismissed =
     mentionState !== null && dismissedFrom === mentionState.from;
   const active = mentionState !== null && !dismissed;
+
+  const { items, selectedIndex, setSelectedIndex } = useMentionSearch(
+    active,
+    mentionState?.query,
+    config.handleSearch,
+  );
 
   if (!active && selectedIndex !== 0) {
     setSelectedIndex(0);
@@ -184,24 +227,6 @@ export function MentionSuggestion({ config }: { config: MentionConfig }) {
     cleanupRef.current = autoUpdate(referenceEl, popup, update);
     update();
   });
-
-  useEffect(() => {
-    if (!active) {
-      setItems([]);
-      setSelectedIndex(0);
-      return;
-    }
-
-    config
-      .handleSearch(mentionState!.query)
-      .then((results) => {
-        setItems(results.slice(0, 5));
-        setSelectedIndex(0);
-      })
-      .catch(() => {
-        setItems([]);
-      });
-  }, [active, mentionState?.query, config]);
 
   if (!active || items.length === 0) return null;
 

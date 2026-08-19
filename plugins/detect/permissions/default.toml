@@ -11,6 +11,7 @@ permissions = [
     "allow-capture-meeting-chat-messages",
     "allow-set-respect-do-not-disturb",
     "allow-set-ignored-bundle-ids",
+    "allow-set-included-bundle-ids",
     "allow-list-default-ignored-bundle-ids",
     "allow-get-preferred-languages",
     "allow-get-current-locale-identifier",

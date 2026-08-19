@@ -2,12 +2,12 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use anlg_cli_process::spawn_streaming_lines;
+use anlg_cli_process::{StreamProcess, spawn_streaming_lines};
 use tokio::process::Command;
 use tokio_util::sync::CancellationToken;
 
 use crate::error::Error;
-use crate::events::{Event, EventStream};
+use crate::events::Event;
 
 #[derive(Debug, Clone)]
 pub(crate) struct OpencodeExec {
@@ -30,10 +30,7 @@ pub(crate) struct OpencodeExecArgs {
     pub cancellation_token: Option<CancellationToken>,
 }
 
-pub(crate) struct OpencodeExecRun {
-    pub events: EventStream,
-    pub shutdown: CancellationToken,
-}
+pub(crate) type OpencodeExecRun = StreamProcess<Event, Error>;
 
 impl OpencodeExec {
     pub(crate) fn new(
@@ -68,13 +65,8 @@ impl OpencodeExec {
         }
 
         let child = command.spawn().map_err(Error::Spawn)?;
-        let stream = spawn_streaming_lines(child, None, args.cancellation_token, |line| {
+        spawn_streaming_lines(child, None, args.cancellation_token, |line| {
             Ok(serde_json::from_str::<Event>(&line)?)
-        })?;
-
-        Ok(OpencodeExecRun {
-            events: stream.events,
-            shutdown: stream.shutdown,
         })
     }
 

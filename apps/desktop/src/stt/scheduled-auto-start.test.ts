@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  getScheduledAutoStartAction,
   hasPendingAutoStart,
   SCHEDULED_AUTO_START_GRACE_MS,
   type ScheduledMeetingRow,
@@ -119,5 +120,19 @@ describe("hasPendingAutoStart", () => {
     expect(
       hasPendingAutoStart([{ ...sessionTab("inactive", true), active: false }]),
     ).toBe(false);
+  });
+});
+
+describe("getScheduledAutoStartAction", () => {
+  test("starts when no live session is active", () => {
+    expect(getScheduledAutoStartAction("inactive")).toBe("start");
+  });
+
+  test("retries while a live session is finalizing", () => {
+    expect(getScheduledAutoStartAction("finalizing")).toBe("retry");
+  });
+
+  test("skips when a live session is active", () => {
+    expect(getScheduledAutoStartAction("active")).toBe("skip");
   });
 });

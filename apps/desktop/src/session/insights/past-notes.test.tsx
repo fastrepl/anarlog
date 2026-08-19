@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
   data: null as ReturnType<typeof makeData> | null,
+  documents: null as Array<{
+    session_id: string;
+    kind: string;
+    body: string;
+    sort_order: number;
+    deleted_at: string | null;
+  }> | null,
   executeTransaction: vi.fn(
     (_statements: Array<{ sql: string; params: unknown[] }>) =>
       Promise.resolve([1]),
@@ -48,12 +55,28 @@ vi.mock("~/db", () => ({
       enhancedNotes: [],
       keyFacts: {},
     };
+    // Mirrors the canonical enhanced-document predicate so fixture rows with
+    // other kinds or a deleted_at exercise the same filtering as SQLite.
+    const enhancedRows = () =>
+      hoisted.documents
+        ? hoisted.documents
+            .filter(
+              (row) =>
+                ["summary", "template_output"].includes(row.kind) &&
+                row.deleted_at === null,
+            )
+            .map((row) => ({
+              session_id: row.session_id,
+              content: row.body,
+              position: row.sort_order,
+            }))
+        : data.enhancedNotes;
     const rows = options.sql.includes("FROM sessions")
       ? Object.values(data.sessions)
       : options.sql.includes("FROM session_participants")
         ? data.participants
-        : options.sql.includes("kind = 'enhanced_note'")
-          ? data.enhancedNotes
+        : options.sql.includes("kind IN ('summary', 'template_output')")
+          ? enhancedRows()
           : Object.values(data.keyFacts);
     return { data: options.mapRows(rows) };
   },
@@ -72,6 +95,7 @@ import {
 
 beforeEach(() => {
   hoisted.data = null;
+  hoisted.documents = null;
   hoisted.executeTransaction.mockClear();
   hoisted.generateText.mockReset();
   hoisted.toastError.mockReset();
@@ -255,6 +279,89 @@ describe("insights regeneration", () => {
     expect(statements[1].sql).toContain("INSERT INTO session_documents");
     expect(statements[1].sql).toContain("ON CONFLICT(id) DO UPDATE");
     consoleError.mockRestore();
+  });
+
+  it("feeds insights only from live summary and template_output documents", async () => {
+    hoisted.data = makeData({
+      sessions: {
+        current: {
+          title: "Weekly Product Sync",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: "",
+        },
+        previous: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-28T10:00:00.000Z",
+          event_json: "",
+        },
+      },
+      mapping_session_participant: {
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        previous_alex: {
+          session_id: "previous",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+      },
+    });
+    hoisted.documents = [
+      {
+        session_id: "previous",
+        kind: "note",
+        body: "Raw note text must not feed insights.",
+        sort_order: 0,
+        deleted_at: null,
+      },
+      {
+        session_id: "previous",
+        kind: "summary",
+        body: "Deleted summary must not feed insights.",
+        sort_order: 1,
+        deleted_at: "2026-06-01T00:00:00.000Z",
+      },
+    ];
+    const queryClient = new QueryClient();
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+
+    const { result, rerender } = renderHook(
+      () => usePastSessionNotes("current", { enabled: true }),
+      { wrapper },
+    );
+    expect(result.current.hasPastNotes).toBe(false);
+
+    hoisted.documents = [
+      ...hoisted.documents,
+      {
+        session_id: "previous",
+        kind: "summary",
+        body: "Alex committed to send pricing by Friday.",
+        sort_order: 2,
+        deleted_at: null,
+      },
+      {
+        session_id: "previous",
+        kind: "template_output",
+        body: "Follow-up template output.",
+        sort_order: 3,
+        deleted_at: null,
+      },
+    ];
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.hasPastNotes).toBe(true);
+    });
+    expect(result.current.notes.map((note) => note.sessionId)).toEqual([
+      "previous",
+    ]);
   });
 });
 

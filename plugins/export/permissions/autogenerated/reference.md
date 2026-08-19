@@ -40,30 +40,4 @@ Denies the export command without any pre-configured scope.
 
 </td>
 </tr>
-
-<tr>
-<td>
-
-`export:allow-export-text`
-
-</td>
-<td>
-
-Enables the export_text command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`export:deny-export-text`
-
-</td>
-<td>
-
-Denies the export_text command without any pre-configured scope.
-
-</td>
-</tr>
 </table>

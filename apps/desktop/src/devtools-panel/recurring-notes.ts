@@ -276,7 +276,7 @@ function buildSessionStatements({
     buildDocumentStatement({
       id: `${sessionId}:summary`,
       sessionId,
-      kind: "enhanced_note",
+      kind: "summary",
       title: "Summary",
       body: rawMd,
       ownerUserId,
@@ -367,7 +367,7 @@ function buildDocumentStatement({
 }: {
   id: string;
   sessionId: string;
-  kind: "note" | "enhanced_note";
+  kind: "note" | "summary";
   title: string;
   body: string;
   ownerUserId: string;

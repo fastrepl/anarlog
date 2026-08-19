@@ -35,9 +35,35 @@ pub enum ProcessError {
     Cancelled,
 }
 
+// One handle owns the spawned child and its event stream: polling yields the
+// parsed events, cancel() requests shutdown explicitly, and dropping the
+// handle also shuts the child down, so the child can never be orphaned.
 pub struct StreamProcess<T, E> {
-    pub events: EventStream<T, E>,
-    pub shutdown: CancellationToken,
+    events: EventStream<T, E>,
+    shutdown: CancellationToken,
+}
+
+impl<T, E> StreamProcess<T, E> {
+    pub fn cancel(&self) {
+        self.shutdown.cancel();
+    }
+}
+
+impl<T, E> Stream for StreamProcess<T, E> {
+    type Item = Result<T, E>;
+
+    fn poll_next(
+        self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.get_mut().events.as_mut().poll_next(cx)
+    }
+}
+
+impl<T, E> Drop for StreamProcess<T, E> {
+    fn drop(&mut self) {
+        self.shutdown.cancel();
+    }
 }
 
 pub fn spawn_with_retry(command: &mut tokio::process::Command) -> std::io::Result<Child> {
@@ -473,6 +499,73 @@ mod tests {
         let result =
             spawn_streaming_lines::<String, ProcessError, _>(child, None, Some(cancellation), Ok);
         assert!(matches!(result, Err(ProcessError::Cancelled)));
+        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+        assert!(!marker.exists());
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn streams_complete_on_eof_and_drain_all_output() {
+        let mut command = tokio::process::Command::new("sh");
+        command
+            .args(["-c", "printf 'one\ntwo\nthree\n'"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let child = command.spawn().unwrap();
+
+        let stream =
+            spawn_streaming_lines::<String, ProcessError, _>(child, None, None, Ok).unwrap();
+        let lines: Vec<_> = futures_util::StreamExt::collect::<Vec<_>>(stream)
+            .await
+            .into_iter()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(lines, ["one", "two", "three"]);
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn dropping_the_stream_handle_kills_the_child() {
+        let marker = std::env::temp_dir().join(format!(
+            "cli-process-drop-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let child = delayed_marker_child(&marker);
+
+        let stream =
+            spawn_streaming_lines::<String, ProcessError, _>(child, None, None, Ok).unwrap();
+        drop(stream);
+        tokio::time::sleep(std::time::Duration::from_millis(350)).await;
+        assert!(!marker.exists());
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn explicit_cancel_kills_the_child_and_ends_the_stream() {
+        let marker = std::env::temp_dir().join(format!(
+            "cli-process-explicit-cancel-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let child = delayed_marker_child(&marker);
+
+        let mut stream =
+            spawn_streaming_lines::<String, ProcessError, _>(child, None, None, Ok).unwrap();
+        stream.cancel();
+        // Explicit shutdown ends the stream without an error event.
+        while futures_util::StreamExt::next(&mut stream)
+            .await
+            .transpose()
+            .unwrap()
+            .is_some()
+        {}
         tokio::time::sleep(std::time::Duration::from_millis(350)).await;
         assert!(!marker.exists());
     }

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rename, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rename, writeFile, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { verifyLinuxAudioQaEvidence } from "./verify-linux-audio-qa-evidence.mjs";
+import {
+  linuxAudioQaPolicy,
+  verifyLinuxAudioQaEvidence,
+} from "./verify-linux-audio-qa-evidence.mjs";
 
 const version = "1.4.0";
 const candidateSha = "0123456789abcdef0123456789abcdef01234567";
@@ -28,20 +31,7 @@ const architectures = {
     assetId: "asset-arm64",
   },
 };
-const thresholds = {
-  duration_delta_seconds_max: 0.15,
-  mic_active_rms_min: 0.0002,
-  speaker_active_rms_min: 0.001,
-  system_tone_amplitude_min: 0.0005,
-  mic_pilot_amplitude_min: 0.0002,
-  mic_isolation_db_min: 12,
-  speaker_isolation_db_min: 15,
-  system_tone_isolation_db_min: 18,
-  mic_pilot_isolation_db_min: 6,
-  cross_channel_isolation_db_min: 12,
-  clipped_fraction_max: 0.001,
-  recording_tail_tolerance_seconds: 0.5,
-};
+const thresholds = linuxAudioQaPolicy.thresholds;
 const metricNames = [
   "mic_duration_seconds",
   "speaker_duration_seconds",
@@ -292,6 +282,68 @@ test("rejects a basename decoy outside the exact evidence path", async () => {
       audioQaRunId,
     }),
     /x64 evidence is missing .*provenance\.json/,
+  );
+});
+
+test("python producer and node verifier read the same policy artifact", async () => {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const pythonPolicy = JSON.parse(
+    (
+      await promisify(execFile)("python3", [
+        "-c",
+        [
+          "import importlib.util, json",
+          "spec = importlib.util.spec_from_file_location('v', 'scripts/qa/verify_linux_audio_tracks.py')",
+          "module = importlib.util.module_from_spec(spec)",
+          "spec.loader.exec_module(module)",
+          "print(json.dumps({'thresholds': module.THRESHOLDS, 'requiredPhases': sorted(module.REQUIRED_PHASES), 'minPhaseDurationSeconds': module.MIN_PHASE_DURATION_SECONDS, 'phaseSchemaVersion': module.PHASE_SCHEMA_VERSION}))",
+        ].join("\n"),
+      ])
+    ).stdout,
+  );
+
+  assert.deepEqual(pythonPolicy.thresholds, linuxAudioQaPolicy.thresholds);
+  assert.deepEqual(
+    pythonPolicy.requiredPhases,
+    [...linuxAudioQaPolicy.requiredPhases].sort(),
+  );
+  assert.equal(
+    pythonPolicy.minPhaseDurationSeconds,
+    linuxAudioQaPolicy.minPhaseDurationSeconds,
+  );
+  assert.equal(
+    pythonPolicy.phaseSchemaVersion,
+    linuxAudioQaPolicy.phaseSchemaVersion,
+  );
+});
+
+test("rejects analysis thresholds that deviate from the shared policy", async () => {
+  const fixture = await createFixture();
+  const root = path.join(
+    fixture.evidenceDir,
+    "x64",
+    "qa-artifacts",
+    "linux-x64",
+  );
+  const analysis = JSON.parse(
+    await readFile(path.join(root, "analysis.json"), "utf8"),
+  );
+  analysis.thresholds = {
+    ...analysis.thresholds,
+    mic_isolation_db_min: analysis.thresholds.mic_isolation_db_min - 1,
+  };
+  await writeFile(path.join(root, "analysis.json"), JSON.stringify(analysis));
+
+  await assert.rejects(
+    verifyLinuxAudioQaEvidence({
+      ...fixture,
+      version,
+      candidateSha,
+      dryRunId,
+      audioQaRunId,
+    }),
+    /audio analysis did not pass/,
   );
 });
 

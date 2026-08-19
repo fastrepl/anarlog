@@ -319,16 +319,16 @@
           "markdownDescription": "Denies the download command without any pre-configured scope."
         },
         {
-          "description": "Enables the install command without any pre-configured scope.",
+          "description": "Enables the install_and_relaunch command without any pre-configured scope.",
           "type": "string",
-          "const": "allow-install",
-          "markdownDescription": "Enables the install command without any pre-configured scope."
+          "const": "allow-install-and-relaunch",
+          "markdownDescription": "Enables the install_and_relaunch command without any pre-configured scope."
         },
         {
-          "description": "Denies the install command without any pre-configured scope.",
+          "description": "Denies the install_and_relaunch command without any pre-configured scope.",
           "type": "string",
-          "const": "deny-install",
-          "markdownDescription": "Denies the install command without any pre-configured scope."
+          "const": "deny-install-and-relaunch",
+          "markdownDescription": "Denies the install_and_relaunch command without any pre-configured scope."
         },
         {
           "description": "Enables the is_downloaded command without any pre-configured scope.",
@@ -355,18 +355,6 @@
           "markdownDescription": "Denies the maybe_emit_updated command without any pre-configured scope."
         },
         {
-          "description": "Enables the postinstall command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-postinstall",
-          "markdownDescription": "Enables the postinstall command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the postinstall command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-postinstall",
-          "markdownDescription": "Denies the postinstall command without any pre-configured scope."
-        },
-        {
           "description": "Enables the set_automatic_updates_enabled command without any pre-configured scope.",
           "type": "string",
           "const": "allow-set-automatic-updates-enabled",
@@ -391,10 +379,10 @@
           "markdownDescription": "Denies the set_meeting_active command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`\n- `allow-set-automatic-updates-enabled`\n- `allow-set-meeting-active`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install-and-relaunch`\n- `allow-is-downloaded`\n- `allow-maybe-emit-updated`\n- `allow-set-automatic-updates-enabled`\n- `allow-set-meeting-active`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install`\n- `allow-is-downloaded`\n- `allow-postinstall`\n- `allow-maybe-emit-updated`\n- `allow-set-automatic-updates-enabled`\n- `allow-set-meeting-active`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-check`\n- `allow-download`\n- `allow-install-and-relaunch`\n- `allow-is-downloaded`\n- `allow-maybe-emit-updated`\n- `allow-set-automatic-updates-enabled`\n- `allow-set-meeting-active`"
         }
       ]
     }

@@ -1,27 +1,20 @@
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { createReadStream, readFileSync } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 const DEFAULT_ASSET_BASE_URL = "https://cdn.crabnebula.app/asset";
 const SOURCE_WORKFLOW = ".github/workflows/desktop_cd.yaml";
-const MACOS_PUBLIC_PLATFORMS = ["dmg-aarch64", "dmg-x86_64"];
-const LINUX_PUBLIC_PLATFORMS = [
-  "appimage-aarch64",
-  "appimage-x86_64",
-  "debian-aarch64",
-  "debian-x86_64",
-];
-const WINDOWS_PUBLIC_PLATFORMS = ["nsis-x86_64"];
-const MACOS_UPDATE_PLATFORMS = ["darwin-aarch64", "darwin-x86_64"];
-const LINUX_UPDATE_PLATFORMS = [
-  "linux-aarch64-appimage",
-  "linux-aarch64-deb",
-  "linux-x86_64-appimage",
-  "linux-x86_64-deb",
-];
-const WINDOWS_UPDATE_PLATFORMS = ["windows-x86_64-nsis"];
+
+// The authored plan is the single source for supported release platforms;
+// workflow matrices are validated against it in the provenance tests.
+export const releasePlatformPlan = JSON.parse(
+  readFileSync(
+    new URL("./desktop-release-platforms.json", import.meta.url),
+    "utf8",
+  ),
+);
 
 function invariant(condition, message) {
   if (!condition) {
@@ -148,26 +141,41 @@ function normalizeAssets(release) {
   return assets;
 }
 
+function plannedPlatforms(kind, { includeLinux, includeWindows }) {
+  return [
+    ...releasePlatformPlan.macos[kind],
+    ...(includeLinux ? releasePlatformPlan.linux[kind] : []),
+    ...(includeWindows ? releasePlatformPlan.windows[kind] : []),
+  ].sort();
+}
+
 export function verifyDesktopPlatformSets(
   release,
   { includeLinux = true, includeWindows = true } = {},
 ) {
   const assets = normalizeAssets(release);
-  const expectedPublicPlatforms = [
-    ...MACOS_PUBLIC_PLATFORMS,
-    ...(includeLinux ? LINUX_PUBLIC_PLATFORMS : []),
-    ...(includeWindows ? WINDOWS_PUBLIC_PLATFORMS : []),
-  ].sort();
-  const expectedUpdatePlatforms = [
-    ...MACOS_UPDATE_PLATFORMS,
-    ...(includeLinux ? LINUX_UPDATE_PLATFORMS : []),
-    ...(includeWindows ? WINDOWS_UPDATE_PLATFORMS : []),
-  ].sort();
+  const selection = { includeLinux, includeWindows };
+  const expectedPublicPlatforms = plannedPlatforms(
+    "publicPlatforms",
+    selection,
+  );
+  const expectedUpdatePlatforms = plannedPlatforms(
+    "updatePlatforms",
+    selection,
+  );
   invariant(
     assets.every(
       (asset) => asset.publicPlatform !== null || asset.updatePlatform !== null,
     ),
     "Every release asset must map to a public or update platform",
+  );
+  invariant(
+    assets.every(
+      (asset) =>
+        asset.updatePlatform === null ||
+        (typeof asset.signature === "string" && asset.signature.length > 0),
+    ),
+    "Every updater asset must carry a signature",
   );
 
   const publicPlatforms = assets
@@ -176,7 +184,7 @@ export function verifyDesktopPlatformSets(
     .sort();
   invariant(
     JSON.stringify(publicPlatforms) === JSON.stringify(expectedPublicPlatforms),
-    "Release public platforms do not match the selected desktop platforms",
+    `Release public platforms do not match the release plan (expected [${expectedPublicPlatforms}], got [${publicPlatforms}])`,
   );
 
   const updatePlatforms = assets
@@ -185,8 +193,46 @@ export function verifyDesktopPlatformSets(
     .sort();
   invariant(
     JSON.stringify(updatePlatforms) === JSON.stringify(expectedUpdatePlatforms),
-    "Release update platforms do not match the selected desktop platforms",
+    `Release update platforms do not match the release plan (expected [${expectedUpdatePlatforms}], got [${updatePlatforms}])`,
   );
+}
+
+// Validates workflow files against the authored release plan instead of
+// letting each workflow repeat its own expected platform sets. The publish
+// workflow must download exactly the planned public platforms, and the CD
+// workflow must build every planned target triple.
+export function verifyWorkflowPlatformCoverage({
+  publishWorkflow,
+  cdWorkflow,
+  plan = releasePlatformPlan,
+}) {
+  const plannedPublic = Object.values(plan)
+    .filter((group) => typeof group === "object" && group.publicPlatforms)
+    .flatMap((group) => group.publicPlatforms)
+    .sort();
+  // A platform may be downloaded by more than one job (e.g. the Windows
+  // signature check), so compare unique platform names.
+  const downloadPlatforms = [
+    ...new Set(
+      [
+        ...publishWorkflow.matchAll(/^\s*platform:\s*([A-Za-z0-9._-]+)\s*$/gm),
+      ].map((match) => match[1]),
+    ),
+  ].sort();
+  invariant(
+    JSON.stringify(downloadPlatforms) === JSON.stringify(plannedPublic),
+    `Publish workflow downloads [${downloadPlatforms}] do not match the release plan [${plannedPublic}]`,
+  );
+
+  const plannedTargets = Object.values(plan)
+    .filter((group) => typeof group === "object" && group.buildTargets)
+    .flatMap((group) => group.buildTargets);
+  for (const target of plannedTargets) {
+    invariant(
+      cdWorkflow.includes(target),
+      `Release workflow does not build the planned target ${target}`,
+    );
+  }
 }
 
 async function hashStream(stream) {

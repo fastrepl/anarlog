@@ -3,7 +3,6 @@ use std::task::{Context, Poll};
 
 use futures_util::Stream;
 use futures_util::StreamExt;
-use tokio_util::sync::CancellationToken;
 
 use crate::error::Error;
 use crate::events::{Event, Input, RunStreamedResult, SessionTurn};
@@ -105,9 +104,8 @@ impl Session {
 
         Ok(RunStreamedResult {
             events: Box::pin(ManagedEventStream {
-                inner: stream.events,
+                inner: stream,
                 session_id: self.id.clone(),
-                shutdown: stream.shutdown,
             }),
         })
     }
@@ -128,10 +126,11 @@ impl Session {
     }
 }
 
+// Dropping the inner StreamProcess shuts the child down, so no explicit Drop
+// is needed here.
 struct ManagedEventStream {
-    inner: crate::events::EventStream,
+    inner: crate::exec::OpencodeExecRun,
     session_id: Arc<Mutex<Option<String>>>,
-    shutdown: CancellationToken,
 }
 
 impl Stream for ManagedEventStream {
@@ -141,22 +140,16 @@ impl Stream for ManagedEventStream {
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        match self.inner.as_mut().poll_next(cx) {
+        match std::pin::Pin::new(&mut self.inner).poll_next(cx) {
             Poll::Ready(Some(Ok(event))) => {
-                if let Some(session_id) = event.session_id() {
-                    if let Ok(mut guard) = self.session_id.lock() {
-                        *guard = Some(session_id.to_string());
-                    }
+                if let Some(session_id) = event.session_id()
+                    && let Ok(mut guard) = self.session_id.lock()
+                {
+                    *guard = Some(session_id.to_string());
                 }
                 Poll::Ready(Some(Ok(event)))
             }
             other => other,
         }
-    }
-}
-
-impl Drop for ManagedEventStream {
-    fn drop(&mut self) {
-        self.shutdown.cancel();
     }
 }

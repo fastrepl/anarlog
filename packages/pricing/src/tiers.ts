@@ -5,13 +5,12 @@ export type PlanFeature = {
   tooltip?: string;
 };
 
+// Behavioral variants only: consumers render their own (translated) labels,
+// so no navigation or analytics decision can depend on display copy.
 export type TierAction =
-  | {
-      label: string;
-      style: "current" | "upgrade" | "downgrade";
-      targetPlan: "pro";
-    }
-  | { label: string; style: "current"; targetPlan?: undefined }
+  | { kind: "current" }
+  | { kind: "startTrial"; plan: "pro" }
+  | { kind: "checkout"; plan: "pro"; direction: "upgrade" | "downgrade" }
   | null;
 
 export interface PlanTierData {
@@ -135,25 +134,14 @@ export function getActionForTier(
   canStartTrial: boolean,
 ): TierAction {
   if (tierId === currentPlan) {
-    return { label: "Current plan", style: "current" };
+    return { kind: "current" };
   }
-
-  const direction =
-    TIER_ORDER[tierId] > TIER_ORDER[currentPlan] ? "upgrade" : "downgrade";
 
   if (currentPlan === "free") {
     if (tierId === "pro" && canStartTrial) {
-      return {
-        label: "Start free trial",
-        style: "upgrade",
-        targetPlan: "pro",
-      };
+      return { kind: "startTrial", plan: "pro" };
     }
-    return {
-      label: "Get Pro",
-      style: "upgrade",
-      targetPlan: "pro",
-    };
+    return { kind: "checkout", plan: "pro", direction: "upgrade" };
   }
 
   if (tierId === "free") {
@@ -161,8 +149,9 @@ export function getActionForTier(
   }
 
   return {
-    label: direction === "upgrade" ? "Upgrade to Pro" : "Switch to Pro",
-    style: direction,
-    targetPlan: tierId,
+    kind: "checkout",
+    plan: tierId,
+    direction:
+      TIER_ORDER[tierId] > TIER_ORDER[currentPlan] ? "upgrade" : "downgrade",
   };
 }

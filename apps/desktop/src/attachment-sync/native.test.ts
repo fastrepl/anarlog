@@ -52,10 +52,9 @@ describe("native attachment operation cancellation", () => {
     mocks.prepareDeleteGuard.mockResolvedValue({
       status: "ok",
       data: {
-        shouldDelete: true,
-        guardId: "guard-1",
         attachmentRef: "attachment-ref",
         versionRef: "version-ref",
+        outcome: { kind: "deleteWithGuard", guardId: "guard-1" },
       },
     });
     mocks.commitDeleteGuard.mockResolvedValue({
@@ -72,10 +71,9 @@ describe("native attachment operation cancellation", () => {
     await expect(
       attachmentTransferNative.prepareDeleteGuard("job-1", 7, true),
     ).resolves.toEqual({
-      shouldDelete: true,
-      guardId: "guard-1",
       attachmentRef: "attachment-ref",
       versionRef: "version-ref",
+      outcome: { kind: "deleteWithGuard", guardId: "guard-1" },
     });
 
     const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
@@ -84,6 +82,20 @@ describe("native attachment operation cancellation", () => {
       "job-1",
       7,
       true,
+    );
+  });
+
+  it("commits a guardless delete with a null guard id", async () => {
+    await expect(
+      attachmentTransferNative.commitDeleteGuard("job-1", 7, null),
+    ).resolves.toBeNull();
+
+    const operationId = mocks.beginSharedUploadOperation.mock.calls[0]?.[0];
+    expect(mocks.commitDeleteGuard).toHaveBeenCalledWith(
+      operationId,
+      "job-1",
+      7,
+      null,
     );
   });
 

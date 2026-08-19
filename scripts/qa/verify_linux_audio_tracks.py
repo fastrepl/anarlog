@@ -20,20 +20,15 @@ class WavTrack:
         return len(self.samples) / self.sample_rate
 
 
-THRESHOLDS = {
-    "duration_delta_seconds_max": 0.15,
-    "mic_active_rms_min": 0.0002,
-    "speaker_active_rms_min": 0.001,
-    "system_tone_amplitude_min": 0.0005,
-    "mic_pilot_amplitude_min": 0.0002,
-    "mic_isolation_db_min": 12.0,
-    "speaker_isolation_db_min": 15.0,
-    "system_tone_isolation_db_min": 18.0,
-    "mic_pilot_isolation_db_min": 6.0,
-    "cross_channel_isolation_db_min": 12.0,
-    "clipped_fraction_max": 0.001,
-    "recording_tail_tolerance_seconds": 0.5,
-}
+# Shared with scripts/verify-linux-audio-qa-evidence.mjs so the producer and
+# release verifier apply identical thresholds and phase rules.
+POLICY = json.loads(
+    (Path(__file__).with_name("linux-audio-qa-policy.json")).read_text()
+)
+THRESHOLDS = POLICY["thresholds"]
+REQUIRED_PHASES = frozenset(POLICY["requiredPhases"])
+MIN_PHASE_DURATION_SECONDS = float(POLICY["minPhaseDurationSeconds"])
+PHASE_SCHEMA_VERSION = POLICY["phaseSchemaVersion"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -139,7 +134,7 @@ def decode_samples(data: bytes, audio_format: int, bits_per_sample: int) -> list
 
 def load_phases(path: Path) -> tuple[dict[str, dict[str, float]], float]:
     payload = json.loads(path.read_text())
-    if payload.get("schema_version") != 1:
+    if payload.get("schema_version") != PHASE_SCHEMA_VERSION:
         raise ValueError("unsupported phase schema")
     if payload.get("no_aec") is not True:
         raise ValueError("phase evidence must declare no_aec=true")
@@ -147,15 +142,15 @@ def load_phases(path: Path) -> tuple[dict[str, dict[str, float]], float]:
     phases: dict[str, dict[str, float]] = {}
     for phase in payload.get("phases", []):
         name = phase.get("name")
-        if name not in {"mic_only", "system_only", "both"}:
+        if name not in REQUIRED_PHASES:
             continue
         start = float(phase["start_seconds"])
         end = float(phase["end_seconds"])
-        if end - start < 5.0:
+        if end - start < MIN_PHASE_DURATION_SECONDS:
             raise ValueError(f"{name} phase is too short for deterministic analysis")
         phases[name] = {"start": start, "end": end}
 
-    missing = {"mic_only", "system_only", "both"} - phases.keys()
+    missing = REQUIRED_PHASES - phases.keys()
     if missing:
         raise ValueError(f"missing phase evidence: {', '.join(sorted(missing))}")
 

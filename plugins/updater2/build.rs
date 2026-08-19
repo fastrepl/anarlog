@@ -1,10 +1,9 @@
 const COMMANDS: &[&str] = &[
     "check",
     "download",
-    "install",
+    "install_and_relaunch",
     "is_downloaded",
     "maybe_emit_updated",
-    "postinstall",
     "set_automatic_updates_enabled",
     "set_meeting_active",
 ];

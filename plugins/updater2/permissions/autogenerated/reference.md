@@ -6,9 +6,8 @@ Default permissions for the plugin
 
 - `allow-check`
 - `allow-download`
-- `allow-install`
+- `allow-install-and-relaunch`
 - `allow-is-downloaded`
-- `allow-postinstall`
 - `allow-maybe-emit-updated`
 - `allow-set-automatic-updates-enabled`
 - `allow-set-meeting-active`
@@ -77,12 +76,12 @@ Denies the download command without any pre-configured scope.
 <tr>
 <td>
 
-`updater2:allow-install`
+`updater2:allow-install-and-relaunch`
 
 </td>
 <td>
 
-Enables the install command without any pre-configured scope.
+Enables the install_and_relaunch command without any pre-configured scope.
 
 </td>
 </tr>
@@ -90,12 +89,12 @@ Enables the install command without any pre-configured scope.
 <tr>
 <td>
 
-`updater2:deny-install`
+`updater2:deny-install-and-relaunch`
 
 </td>
 <td>
 
-Denies the install command without any pre-configured scope.
+Denies the install_and_relaunch command without any pre-configured scope.
 
 </td>
 </tr>
@@ -148,32 +147,6 @@ Enables the maybe_emit_updated command without any pre-configured scope.
 <td>
 
 Denies the maybe_emit_updated command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`updater2:allow-postinstall`
-
-</td>
-<td>
-
-Enables the postinstall command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`updater2:deny-postinstall`
-
-</td>
-<td>
-
-Denies the postinstall command without any pre-configured scope.
 
 </td>
 </tr>

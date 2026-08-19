@@ -156,10 +156,14 @@ fn convert_google_event(event: GoogleEvent, calendar_id: &str) -> CalendarEvent 
         .map(convert_google_attendee)
         .collect();
 
-    let meeting_link = event
-        .hangout_link
-        .clone()
-        .or_else(|| extract_video_entry_point(&event));
+    let meeting_link = resolve_meeting_link(
+        event
+            .hangout_link
+            .clone()
+            .or_else(|| extract_video_entry_point(&event)),
+        event.location.as_deref(),
+        event.description.as_deref(),
+    );
 
     let has_recurrence_rules = event.recurring_event_id.is_some()
         || event.recurrence.as_ref().is_some_and(|r| !r.is_empty());
@@ -225,12 +229,18 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
         .map(convert_outlook_attendee)
         .collect();
 
-    let meeting_link = event.online_meeting_url.clone().or_else(|| {
-        event
-            .online_meeting
-            .as_ref()
-            .and_then(|meeting| meeting.join_url.clone())
-    });
+    let description = event.body.and_then(|body| body.content);
+    let location = event.location.and_then(|location| location.display_name);
+    let meeting_link = resolve_meeting_link(
+        event.online_meeting_url.clone().or_else(|| {
+            event
+                .online_meeting
+                .as_ref()
+                .and_then(|meeting| meeting.join_url.clone())
+        }),
+        location.as_deref(),
+        description.as_deref(),
+    );
 
     CalendarEvent {
         id: event.id,
@@ -238,8 +248,8 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
         provider: CalendarProviderType::Outlook,
         external_id: event.ical_uid.unwrap_or_default(),
         title: event.subject.unwrap_or_default(),
-        description: event.body.and_then(|body| body.content),
-        location: event.location.and_then(|location| location.display_name),
+        description,
+        location,
         url: event.web_link,
         meeting_link,
         started_at,
@@ -281,6 +291,9 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
         None
     };
 
+    let meeting_link =
+        resolve_meeting_link(None, event.location.as_deref(), event.notes.as_deref());
+
     CalendarEvent {
         id,
         calendar_id: event.calendar.id,
@@ -290,7 +303,7 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
         description: event.notes,
         location: event.location,
         url: event.url,
-        meeting_link: None,
+        meeting_link,
         started_at: event.start_date.to_rfc3339(),
         ended_at: event.end_date.to_rfc3339(),
         timezone: event.time_zone,
@@ -472,4 +485,105 @@ fn local_date_string(date: &chrono::DateTime<chrono::Utc>, event_tz: Option<&str
     date.with_timezone(&chrono::Local)
         .format("%Y-%m-%d")
         .to_string()
+}
+
+// Provider-native links win; otherwise fall back to a link parsed from the
+// location, then from the description, so every event crosses the Tauri
+// bridge with its final meeting link already resolved.
+fn resolve_meeting_link(
+    provider_link: Option<String>,
+    location: Option<&str>,
+    description: Option<&str>,
+) -> Option<String> {
+    provider_link
+        .or_else(|| location.and_then(crate::parse_meeting_link))
+        .or_else(|| description.and_then(crate::parse_meeting_link))
+}
+
+#[cfg(test)]
+mod meeting_link_tests {
+    use super::*;
+
+    const MEET_LINK: &str = "https://meet.google.com/abc-defg-hij";
+    const CAL_LINK: &str = "https://app.cal.com/video/abc123";
+
+    #[test]
+    fn provider_link_wins_over_parsed_fields() {
+        assert_eq!(
+            resolve_meeting_link(
+                Some("https://provider.example/join".to_string()),
+                Some(MEET_LINK),
+                Some(CAL_LINK),
+            ),
+            Some("https://provider.example/join".to_string())
+        );
+    }
+
+    #[test]
+    fn location_link_wins_over_description_link() {
+        assert_eq!(
+            resolve_meeting_link(None, Some(MEET_LINK), Some(CAL_LINK)),
+            Some(MEET_LINK.to_string())
+        );
+    }
+
+    #[test]
+    fn description_link_is_the_last_fallback() {
+        assert_eq!(
+            resolve_meeting_link(None, Some("Conference room 4"), Some(CAL_LINK)),
+            Some(CAL_LINK.to_string())
+        );
+    }
+
+    #[test]
+    fn no_link_stays_absent() {
+        assert_eq!(
+            resolve_meeting_link(None, Some("Conference room 4"), Some("Agenda")),
+            None
+        );
+        assert_eq!(resolve_meeting_link(None, None, None), None);
+    }
+
+    #[test]
+    fn google_events_cross_the_bridge_with_a_final_link() {
+        let event: GoogleEvent = serde_json::from_value(serde_json::json!({
+            "id": "evt-1",
+            "summary": "Weekly sync",
+            "location": "Conference room 4",
+            "description": format!("Join here: {MEET_LINK}"),
+        }))
+        .unwrap();
+
+        let converted = convert_google_events(vec![event], "cal-1");
+        assert_eq!(converted[0].meeting_link.as_deref(), Some(MEET_LINK));
+    }
+
+    #[test]
+    fn google_provider_link_beats_description_parsing() {
+        let event: GoogleEvent = serde_json::from_value(serde_json::json!({
+            "id": "evt-1",
+            "hangoutLink": "https://meet.google.com/xyz-abcd-efg",
+            "description": format!("Old link: {MEET_LINK}"),
+        }))
+        .unwrap();
+
+        let converted = convert_google_events(vec![event], "cal-1");
+        assert_eq!(
+            converted[0].meeting_link.as_deref(),
+            Some("https://meet.google.com/xyz-abcd-efg")
+        );
+    }
+
+    #[test]
+    fn outlook_events_parse_links_from_the_body() {
+        let event: OutlookEvent = serde_json::from_value(serde_json::json!({
+            "id": "evt-2",
+            "subject": "Design review",
+            "body": { "content": format!("Agenda + {CAL_LINK}") },
+        }))
+        .unwrap();
+
+        let converted = convert_outlook_events(vec![event], "cal-2");
+        assert_eq!(converted[0].meeting_link.as_deref(), Some(CAL_LINK));
+    }
 }

@@ -8,3 +8,6 @@ ractor = { workspace = true, features = ["async-trait"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

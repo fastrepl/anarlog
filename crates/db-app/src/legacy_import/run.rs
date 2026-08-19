@@ -152,6 +152,9 @@ pub async fn finish_legacy_import_run(
     pool: &SqlitePool,
     run_id: &str,
 ) -> Result<String, sqlx::Error> {
+    // One transaction: the run outcome and the migration-state control
+    // pointer must never diverge if the process dies between the writes.
+    let mut transaction = pool.begin().await?;
     let aggregate = sqlx::query(
         "SELECT
            COALESCE(SUM(discovered_count), 0) AS discovered_count,
@@ -164,7 +167,7 @@ pub async fn finish_legacy_import_run(
          WHERE run_id = ?",
     )
     .bind(run_id)
-    .fetch_one(pool)
+    .fetch_one(&mut *transaction)
     .await?;
 
     let skipped_count = aggregate.get::<i64, _>("skipped_count");
@@ -198,7 +201,7 @@ pub async fn finish_legacy_import_run(
     .bind(conflict_count)
     .bind(error_count)
     .bind(run_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
 
     sqlx::query(
@@ -219,8 +222,10 @@ pub async fn finish_legacy_import_run(
     .bind(status)
     .bind(status)
     .bind(run_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+
+    transaction.commit().await?;
 
     Ok(status.to_string())
 }
@@ -230,6 +235,8 @@ pub async fn fail_legacy_import_run(
     run_id: &str,
     error: &str,
 ) -> Result<(), sqlx::Error> {
+    // One transaction, for the same reason as finish_legacy_import_run.
+    let mut transaction = pool.begin().await?;
     sqlx::query(
         "UPDATE migration_import_runs
          SET status = 'failed', error = ?, completed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -237,7 +244,7 @@ pub async fn fail_legacy_import_run(
     )
     .bind(error)
     .bind(run_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
 
     sqlx::query(
@@ -251,8 +258,10 @@ pub async fn fail_legacy_import_run(
     .bind(run_id)
     .bind(error)
     .bind(run_id)
-    .execute(pool)
+    .execute(&mut *transaction)
     .await?;
+
+    transaction.commit().await?;
 
     Ok(())
 }

@@ -21,17 +21,6 @@ msgstr ""
 msgid "(Unavailable — using current default)"
 msgstr ""
 
-#. placeholder {0}: seats.data.usedSeats
-#: src/settings/team/index.tsx
-msgid "{0} in this workspace"
-msgstr ""
-
-#. placeholder {0}: seats.data.usedSeats
-#. placeholder {1}: seats.data.seatLimit
-#: src/settings/team/index.tsx
-msgid "{0} of {1} seats used"
-msgstr ""
-
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"

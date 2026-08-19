@@ -26,7 +26,6 @@ import { cn } from "@anlg/utils";
 import {
   createWorkspace,
   deleteWorkspace,
-  getSeatUsage,
   inviteMember,
   leaveWorkspace,
   listWorkspaceInvitations,
@@ -268,11 +267,6 @@ function WorkspacePanel({
       listWorkspaceInvitations(requireTeamContext(auth), workspaceId),
     retry: false,
   });
-  const seats = useQuery({
-    queryKey: ["team-seats", workspaceId],
-    queryFn: () => getSeatUsage(requireTeamContext(auth), workspaceId),
-    retry: false,
-  });
 
   const refresh = () => {
     void queryClient.invalidateQueries({
@@ -280,9 +274,6 @@ function WorkspacePanel({
     });
     void queryClient.invalidateQueries({
       queryKey: ["team-invitations", workspaceId],
-    });
-    void queryClient.invalidateQueries({
-      queryKey: ["team-seats", workspaceId],
     });
   };
 
@@ -419,23 +410,12 @@ function WorkspacePanel({
             </>
           )}
         </div>
-        {seats.data && (
-          <p className="text-muted-foreground mt-2 text-xs">
-            {seats.data.seatLimit === null ? (
-              <Trans>{seats.data.usedSeats} in this workspace</Trans>
-            ) : (
-              <Trans>
-                {seats.data.usedSeats} of {seats.data.seatLimit} seats used
-              </Trans>
-            )}
-          </p>
-        )}
       </div>
 
       <div className="flex flex-col gap-3">
         {canManage && (
           <form
-            className="flex gap-2"
+            className="relative max-w-xs"
             onSubmit={(event) => {
               event.preventDefault();
               if (trimmedEmail) invite.mutate(trimmedEmail);
@@ -446,12 +426,13 @@ function WorkspacePanel({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder={t`teammate@company.com`}
-              className="bg-card h-9 max-w-xs shadow-none"
+              className="bg-card h-9 rounded-full pr-24 pl-4 shadow-none"
             />
             <Button
               type="submit"
               size="sm"
               variant="outline"
+              className="absolute top-1 right-1"
               disabled={!trimmedEmail || invite.isPending}
             >
               {invite.isPending ? (
@@ -546,7 +527,7 @@ function WorkspacePanel({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-4">
+      <div className="border-destructive/30 bg-destructive/5 flex items-center justify-between gap-4 rounded-lg border px-4 py-3">
         <p className="text-muted-foreground text-xs">
           {viewerRole === "owner" ? (
             <Trans>
@@ -560,8 +541,8 @@ function WorkspacePanel({
         {viewerRole === "owner" ? (
           <Button
             size="sm"
-            variant="ghost"
-            className="text-destructive shrink-0"
+            variant="destructive"
+            className="shrink-0"
             disabled={destroy.isPending}
             onClick={() => {
               if (confirm(t`Delete ${workspaceName} for everyone?`)) {
@@ -574,8 +555,8 @@ function WorkspacePanel({
         ) : (
           <Button
             size="sm"
-            variant="ghost"
-            className="text-destructive shrink-0"
+            variant="destructive"
+            className="shrink-0"
             disabled={leave.isPending}
             onClick={() => {
               if (confirm(t`Leave ${workspaceName}?`)) leave.mutate();

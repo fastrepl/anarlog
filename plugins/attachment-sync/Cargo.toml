@@ -11,6 +11,7 @@ description = ""
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
+serde_json = { workspace = true }
 sha2 = { workspace = true }
 specta-typescript = { workspace = true }
 tempfile = { workspace = true }

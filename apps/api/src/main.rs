@@ -153,7 +153,7 @@ async fn app() -> Router {
     app_with_env(env).await
 }
 
-async fn app_with_env(env: &'static Env) -> Router {
+async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
     let analytics = build_analytics_client(env);
 
     let llm_config =
@@ -238,30 +238,21 @@ async fn app_with_env(env: &'static Env) -> Router {
     );
     let auth_state_basic = auth_state.clone();
 
-    let nango_config = env
-        .nango()
-        .expect("environment integrations were validated")
-        .map(|nango| {
-            anlg_api_nango::NangoConfig::new(
-                &nango,
-                &env.supabase,
-                Some(env.supabase.supabase_service_role_key.clone()),
-            )
-        });
-    let subscription_config = env
-        .subscription()
-        .expect("environment integrations were validated")
-        .map(|(stripe, loops)| {
-            anlg_api_subscription::SubscriptionConfig::new(&env.supabase, &stripe, &loops)
-                .with_analytics(analytics.clone())
-                .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled)
-        });
-    let research_config = env
-        .research()
-        .expect("environment integrations were validated");
+    let nango_config = env.nango.as_ref().map(|nango| {
+        anlg_api_nango::NangoConfig::new(
+            nango,
+            &env.supabase,
+            Some(env.supabase.supabase_service_role_key.clone()),
+        )
+    });
+    let subscription_config = env.subscription.as_ref().map(|(stripe, loops)| {
+        anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops)
+            .with_analytics(analytics.clone())
+            .with_durable_cleanup_enabled(env.anarlog_attachment_backup_gc_enabled)
+    });
+    let research_config = env.research.clone();
     let pyannote_config = env
-        .pyannote()
-        .expect("environment integrations were validated")
+        .pyannote
         .as_ref()
         .map(anlg_api_pyannote::PyannoteConfig::new);
     let sync_config = anlg_api_sync::SyncConfig::from_env(
@@ -691,8 +682,8 @@ fn main() -> std::io::Result<()> {
             let cancellation = CancellationToken::new();
             let worker_task = env.anarlog_attachment_backup_gc_enabled.then(|| {
                 let (stripe, loops) = env
-                    .subscription()
-                    .expect("environment integrations were validated")
+                    .subscription
+                    .as_ref()
                     .expect("cleanup requires Stripe and Loops configuration");
                 let cloudsync_cleanup = anlg_api_subscription::CloudsyncCleanupConfig::new(
                     env.sync
@@ -713,7 +704,7 @@ fn main() -> std::io::Result<()> {
                 )
                 .unwrap_or_else(|error| panic!("Failed to load environment: {error}"));
                 let config =
-                    anlg_api_subscription::SubscriptionConfig::new(&env.supabase, &stripe, &loops)
+                    anlg_api_subscription::SubscriptionConfig::new(&env.supabase, stripe, loops)
                         .with_cloudsync_cleanup(cloudsync_cleanup);
                 let worker = anlg_api_subscription::CleanupWorker::new(&config);
                 let worker_cancellation = cancellation.clone();

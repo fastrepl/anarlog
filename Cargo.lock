@@ -4936,7 +4936,6 @@ dependencies = [
  "tauri-plugin-dictation",
  "tauri-plugin-dock",
  "tauri-plugin-export",
- "tauri-plugin-flag",
  "tauri-plugin-fs-sync",
  "tauri-plugin-fs2",
  "tauri-plugin-git",
@@ -18230,6 +18229,7 @@ dependencies = [
  "e2ee",
  "fs-sync-core",
  "serde",
+ "serde_json",
  "sha2 0.11.0",
  "specta",
  "specta-typescript",
@@ -18534,23 +18534,6 @@ dependencies = [
  "serde",
  "specta",
  "specta-typescript",
- "tauri",
- "tauri-plugin",
- "tauri-specta",
- "thiserror 2.0.18",
- "tokio",
-]
-
-[[package]]
-name = "tauri-plugin-flag"
-version = "0.1.0"
-dependencies = [
- "analytics",
- "host",
- "serde",
- "specta",
- "specta-typescript",
- "strum 0.28.0",
  "tauri",
  "tauri-plugin",
  "tauri-specta",
@@ -19439,6 +19422,7 @@ dependencies = [
 name = "tauri-plugin-updater2"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "specta",
  "specta-typescript",
@@ -19448,6 +19432,7 @@ dependencies = [
  "tauri-plugin-store2",
  "tauri-plugin-updater",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",

@@ -32,11 +32,25 @@ pub struct GoogleMeetRuntime<S> {
     runtime_monitor: RuntimeMonitor,
     audio_sink: S,
     session: Option<MeetingSession>,
-    capture: Option<BrowserCapture>,
     started: bool,
-    sink_started: bool,
-    capture_started_at: Option<tokio::time::Instant>,
-    finalization_duration: Option<Duration>,
+    media: MediaState,
+}
+
+// Media lifecycle as one tagged state: retry artifacts (the frozen capture
+// duration) exist only in the variant that can use them, so field
+// combinations that do not describe a valid lifecycle are unrepresentable.
+enum MediaState {
+    Idle,
+    Open {
+        capture: BrowserCapture,
+        started_at: tokio::time::Instant,
+    },
+    // Sink finalization failed retryably; the duration is frozen from the
+    // first attempt so retries stay idempotent.
+    Finalizing {
+        capture_duration: Duration,
+    },
+    Finalized,
 }
 
 impl<S> GoogleMeetRuntime<S> {
@@ -56,11 +70,8 @@ impl<S> GoogleMeetRuntime<S> {
             runtime_monitor,
             audio_sink,
             session: None,
-            capture: None,
             started: false,
-            sink_started: false,
-            capture_started_at: None,
-            finalization_duration: None,
+            media: MediaState::Idle,
         })
     }
 }
@@ -116,9 +127,10 @@ where
                 .page_mut(),
         )
         .await?;
-        self.capture = Some(capture);
-        self.sink_started = true;
-        self.capture_started_at = Some(tokio::time::Instant::now());
+        self.media = MediaState::Open {
+            capture,
+            started_at: tokio::time::Instant::now(),
+        };
         send_event(&events, lifecycle.capture_started(Utc::now())?).await?;
 
         let mut probes = tokio::time::interval(self.runtime_monitor.poll_interval());
@@ -139,7 +151,7 @@ where
                         break outcome;
                     }
                 }
-                frame = self.capture.as_mut().expect("capture was installed").next_frame() => {
+                frame = next_open_frame(&mut self.media) => {
                     let payloads = self.audio_sink
                         .write_frame(frame?)
                         .await
@@ -201,21 +213,34 @@ impl<S> GoogleMeetRuntime<S>
 where
     S: AudioFrameSink,
 {
-    async fn stop_capture(&mut self) -> Result<Vec<crate::AudioFrame>, BrowserCaptureError> {
-        let Some(mut capture) = self.capture.take() else {
-            return Ok(Vec::new());
-        };
-        let Some(session) = self.session.as_mut() else {
-            return Ok(Vec::new());
-        };
-        capture.stop_and_drain(session.page_mut()).await
-    }
-
     async fn finalize_media(&mut self) -> MediaFinalization<S::Error> {
-        let (capture_error, trailing_frames) = match self.stop_capture().await {
-            Ok(frames) => (None, frames),
-            Err(error) => (Some(error), Vec::new()),
-        };
+        let (capture_error, trailing_frames, capture_duration) =
+            match std::mem::replace(&mut self.media, MediaState::Finalized) {
+                state @ (MediaState::Idle | MediaState::Finalized) => {
+                    self.media = state;
+                    return MediaFinalization {
+                        payloads: Vec::new(),
+                        capture_error: None,
+                        sink_error: None,
+                    };
+                }
+                MediaState::Open {
+                    mut capture,
+                    started_at,
+                } => {
+                    let capture_duration = started_at.elapsed();
+                    let stopped = match self.session.as_mut() {
+                        Some(session) => capture.stop_and_drain(session.page_mut()).await,
+                        None => Ok(Vec::new()),
+                    };
+                    match stopped {
+                        Ok(frames) => (None, frames, capture_duration),
+                        Err(error) => (Some(error), Vec::new(), capture_duration),
+                    }
+                }
+                MediaState::Finalizing { capture_duration } => (None, Vec::new(), capture_duration),
+            };
+
         let mut payloads = Vec::new();
         let mut sink_error = None;
         for frame in trailing_frames {
@@ -227,19 +252,13 @@ where
                 }
             }
         }
-        if self.sink_started {
-            let capture_duration = *self.finalization_duration.get_or_insert_with(|| {
-                self.capture_started_at
-                    .map(|started_at| started_at.elapsed())
-                    .unwrap_or_default()
-            });
-            match self.audio_sink.finish(capture_duration).await {
-                Ok(output) => {
-                    self.sink_started = false;
-                    payloads.extend(output);
+        match self.audio_sink.finish(capture_duration).await {
+            Ok(output) => payloads.extend(output),
+            Err(error) => {
+                self.media = MediaState::Finalizing { capture_duration };
+                if sink_error.is_none() {
+                    sink_error = Some(error);
                 }
-                Err(error) if sink_error.is_none() => sink_error = Some(error),
-                Err(_) => {}
             }
         }
         MediaFinalization {
@@ -247,6 +266,13 @@ where
             capture_error,
             sink_error,
         }
+    }
+}
+
+async fn next_open_frame(media: &mut MediaState) -> Result<crate::AudioFrame, BrowserCaptureError> {
+    match media {
+        MediaState::Open { capture, .. } => capture.next_frame().await,
+        _ => unreachable!("the capture loop only runs while media is open"),
     }
 }
 
@@ -370,6 +396,36 @@ mod tests {
 
     struct RetryingFinishSink {
         attempts: usize,
+    }
+
+    struct DurationRecordingSink {
+        fail_attempts: usize,
+        attempts: usize,
+        durations: Vec<Duration>,
+    }
+
+    #[async_trait]
+    impl AudioFrameSink for DurationRecordingSink {
+        type Error = UnusedSinkError;
+
+        async fn write_frame(
+            &mut self,
+            _frame: crate::AudioFrame,
+        ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+            Ok(Vec::new())
+        }
+
+        async fn finish(
+            &mut self,
+            capture_duration: Duration,
+        ) -> Result<Vec<AudioFrameSinkOutput>, Self::Error> {
+            self.attempts += 1;
+            self.durations.push(capture_duration);
+            if self.attempts <= self.fail_attempts {
+                return Err(UnusedSinkError);
+            }
+            Ok(Vec::new())
+        }
     }
 
     #[async_trait]
@@ -538,15 +594,60 @@ mod tests {
         let mut runtime =
             GoogleMeetRuntime::new(config("Anarlog Notes"), RetryingFinishSink { attempts: 0 })
                 .unwrap();
-        runtime.sink_started = true;
+        let frozen = Duration::from_secs(42);
+        runtime.media = MediaState::Finalizing {
+            capture_duration: frozen,
+        };
 
         let first = runtime.finalize_media().await;
         assert!(first.sink_error.is_some());
-        assert!(runtime.sink_started);
+        assert!(matches!(
+            runtime.media,
+            MediaState::Finalizing { capture_duration } if capture_duration == frozen
+        ));
 
         let second = runtime.finalize_media().await;
         assert!(second.sink_error.is_none());
         assert_eq!(second.payloads, vec![transcript_output()]);
-        assert!(!runtime.sink_started);
+        assert!(matches!(runtime.media, MediaState::Finalized));
+    }
+
+    #[tokio::test]
+    async fn finalize_is_a_no_op_before_capture_and_after_completion() {
+        let mut runtime = GoogleMeetRuntime::new(config("Anarlog Notes"), UnusedSink).unwrap();
+
+        let idle = runtime.finalize_media().await;
+        assert!(idle.payloads.is_empty());
+        assert!(idle.capture_error.is_none() && idle.sink_error.is_none());
+        assert!(matches!(runtime.media, MediaState::Idle));
+
+        runtime.media = MediaState::Finalized;
+        let done = runtime.finalize_media().await;
+        assert!(done.payloads.is_empty());
+        assert!(done.capture_error.is_none() && done.sink_error.is_none());
+        assert!(matches!(runtime.media, MediaState::Finalized));
+    }
+
+    #[tokio::test]
+    async fn repeated_finalize_retries_reuse_the_frozen_duration() {
+        let mut runtime = GoogleMeetRuntime::new(
+            config("Anarlog Notes"),
+            DurationRecordingSink {
+                fail_attempts: 2,
+                attempts: 0,
+                durations: Vec::new(),
+            },
+        )
+        .unwrap();
+        let frozen = Duration::from_millis(1_234);
+        runtime.media = MediaState::Finalizing {
+            capture_duration: frozen,
+        };
+
+        assert!(runtime.finalize_media().await.sink_error.is_some());
+        assert!(runtime.finalize_media().await.sink_error.is_some());
+        assert!(runtime.finalize_media().await.sink_error.is_none());
+        assert!(matches!(runtime.media, MediaState::Finalized));
+        assert_eq!(runtime.audio_sink.durations, vec![frozen, frozen, frozen]);
     }
 }

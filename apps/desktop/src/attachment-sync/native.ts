@@ -195,7 +195,7 @@ export const attachmentTransferNative = {
   commitDeleteGuard(
     jobId: string,
     attemptCount: number,
-    guardId: string,
+    guardId: string | null,
     signal?: AbortSignal,
   ) {
     return runCancellableNative(

@@ -1,12 +1,17 @@
 use std::{collections::VecDeque, time::Duration};
 
-use anlg_meeting_capture::{
-    BotState, CaptureEvent, CaptureProviderKind, CaptureWorkerCheckpoint, MeetingReference,
+use anlg_meeting_capture::{CaptureEvent, CaptureWorkerCheckpoint};
+// The exact capture wire contract is owned by the shared MIT-layer module;
+// this sink only adds HTTP, retries, and validation on top of it.
+pub use anlg_meeting_capture::wire::CaptureJobLease as WorkerLease;
+use anlg_meeting_capture::wire::{
+    AppendCaptureEventRequest, CaptureJobCheckpoint, CaptureJobLeaseIdentity,
+    ClaimCaptureJobRequest, RenewCaptureJobLeaseRequest,
 };
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use reqwest::StatusCode;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use url::Url;
 
 const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -203,8 +208,8 @@ impl ControlPlaneEventSink {
         validate_identifier(&lease_id, "lease ID")
             .map_err(|_| CaptureEventSinkError::InvalidLeaseIdentity("lease ID"))?;
         let request = ClaimCaptureJobRequest {
-            worker_id: &worker_id,
-            lease_id: &lease_id,
+            worker_id: worker_id.clone(),
+            lease_id: lease_id.clone(),
         };
         let lease = self
             .send_lease_request(self.claim_endpoint.clone(), &request)
@@ -221,8 +226,9 @@ impl ControlPlaneEventSink {
             .await
             .clone()
             .ok_or(CaptureEventSinkError::LeaseRequired)?;
-        let identity = WorkerLeaseIdentity::from(&current);
-        let request = RenewCaptureJobLeaseRequest { lease: &identity };
+        let request = RenewCaptureJobLeaseRequest {
+            lease: CaptureJobLeaseIdentity::from(&current),
+        };
         let renewed = match self
             .send_lease_request(self.lease_endpoint.clone(), &request)
             .await
@@ -294,10 +300,9 @@ impl CaptureEventSink for ControlPlaneEventSink {
             .await
             .clone()
             .ok_or(CaptureEventSinkError::LeaseRequired)?;
-        let identity = WorkerLeaseIdentity::from(&lease);
         let request = AppendCaptureEventRequest {
-            lease: &identity,
-            event,
+            lease: CaptureJobLeaseIdentity::from(&lease),
+            event: event.clone(),
         };
         let mut retry_delay = self.retry.initial_delay;
         for attempt in 1..=self.retry.max_attempts {
@@ -329,78 +334,14 @@ impl CaptureEventSink for ControlPlaneEventSink {
     }
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct AppendCaptureEventRequest<'a> {
-    lease: &'a WorkerLeaseIdentity,
-    event: &'a CaptureEvent,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ClaimCaptureJobRequest<'a> {
-    worker_id: &'a str,
-    lease_id: &'a str,
-}
-
-#[derive(Serialize)]
-struct RenewCaptureJobLeaseRequest<'a> {
-    lease: &'a WorkerLeaseIdentity,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct WorkerLease {
-    pub worker_id: String,
-    pub lease_id: String,
-    pub epoch: u64,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
-}
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct WorkerLeaseIdentity {
-    worker_id: String,
-    lease_id: String,
-    epoch: u64,
-}
-
-impl From<&WorkerLease> for WorkerLeaseIdentity {
-    fn from(lease: &WorkerLease) -> Self {
-        Self {
-            worker_id: lease.worker_id.clone(),
-            lease_id: lease.lease_id.clone(),
-            epoch: lease.epoch,
-        }
-    }
-}
-
 pub type WorkerCheckpoint = CaptureWorkerCheckpoint;
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct WireCaptureJobCheckpoint {
-    job: WireCaptureJob,
-    state: BotState,
-    next_sequence: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WireCaptureJob {
-    workspace_id: String,
-    job_id: String,
-    bot_id: String,
-    provider: CaptureProviderKind,
-    meeting: MeetingReference,
-}
 
 async fn decode_checkpoint(
     response: reqwest::Response,
     expected_workspace_id: &str,
     expected_job_id: &str,
 ) -> Result<WorkerCheckpoint, CaptureEventSinkError> {
-    let checkpoint: WireCaptureJobCheckpoint = decode_bounded_json(response).await?;
+    let checkpoint: CaptureJobCheckpoint = decode_bounded_json(response).await?;
     if checkpoint.job.workspace_id != expected_workspace_id {
         return Err(CaptureEventSinkError::InvalidCheckpoint("workspace ID"));
     }
@@ -582,6 +523,7 @@ mod tests {
     };
 
     use super::*;
+    use anlg_meeting_capture::BotState;
 
     fn event(sequence: u64) -> CaptureEvent {
         CaptureEvent {

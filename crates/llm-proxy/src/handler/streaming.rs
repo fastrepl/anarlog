@@ -68,6 +68,10 @@ pub(super) async fn handle_stream_response(
             }
         }
 
+        if analytics.is_some() {
+            provider.finish_stream(&mut accumulator);
+        }
+
         if let Some(generation_id) = accumulator.generation_id {
                 stream_span.record("gen_ai.response.id", generation_id.as_str());
                 if let Some(model) = accumulator.model.as_deref() {

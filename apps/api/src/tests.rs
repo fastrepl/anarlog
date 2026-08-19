@@ -108,7 +108,7 @@ fn deserialize_api_env(
     .unwrap()
 }
 
-fn api_env(with_hosted_integrations: bool) -> &'static Env {
+fn api_env(with_hosted_integrations: bool) -> &'static crate::env::RuntimeConfig {
     let mut integration_values = Vec::new();
     if with_hosted_integrations {
         integration_values.extend([
@@ -125,8 +125,9 @@ fn api_env(with_hosted_integrations: bool) -> &'static Env {
     }
 
     let env = deserialize_api_env(integration_values);
-    crate::env::validate_env(&env).unwrap();
-    Box::leak(Box::new(env))
+    let config = crate::env::RuntimeConfig::resolve(env)
+        .unwrap_or_else(|error| panic!("environment should validate: {error}"));
+    Box::leak(Box::new(config))
 }
 
 async fn request_status(app: &Router, method: Method, path: &str) -> StatusCode {
@@ -259,7 +260,10 @@ fn partial_optional_integration_configuration_fails_closed() {
     ] {
         let env = deserialize_api_env(values);
 
-        assert_eq!(crate::env::validate_env(&env), Err(expected.to_string()));
+        assert_eq!(
+            crate::env::RuntimeConfig::resolve(env).err(),
+            Some(expected.to_string())
+        );
     }
 }
 

@@ -1,4 +1,4 @@
-const COMMANDS: &[&str] = &["export", "export_text"];
+include!("src/manifest.rs");
 
 fn main() {
     tauri_plugin::Builder::new(COMMANDS).build();

@@ -103,12 +103,6 @@ pub fn create_event<R: tauri::Runtime>(
     anlg_calendar::create_event(provider, input).map_err(Into::into)
 }
 
-#[tauri::command]
-#[specta::specta]
-pub fn parse_meeting_link(text: String) -> Option<String> {
-    anlg_calendar::parse_meeting_link(&text)
-}
-
 fn access_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> Result<Option<String>, Error> {
     app.access_token()
         .map(|token| token.filter(|token| !token.is_empty()))

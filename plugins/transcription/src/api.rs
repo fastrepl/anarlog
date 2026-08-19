@@ -1,5 +1,4 @@
 use anlg_transcription_core::{listener, listener2};
-use owhisper_client::{AdapterKind, Provider};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -50,65 +49,6 @@ pub struct CaptureConfigUpdate {
     pub participant_human_ids: Vec<String>,
     #[serde(default)]
     pub self_human_id: Option<String>,
-}
-
-impl CaptureParams {
-    fn default_transcription_mode(&self) -> listener::TranscriptionMode {
-        if self.transcription_mode == Some(listener::TranscriptionMode::Batch) {
-            return listener::TranscriptionMode::Batch;
-        }
-
-        if let Some(model) =
-            anlg_transcribe_soniqo::local_model_from_request(&self.base_url, &self.model)
-        {
-            return if model.supports_live_on_current_platform()
-                && model.supports_languages(&self.languages)
-            {
-                listener::TranscriptionMode::Live
-            } else {
-                listener::TranscriptionMode::Batch
-            };
-        }
-
-        if anlg_transcribe_soniqo::is_local_base_url(&self.base_url) {
-            return listener::TranscriptionMode::Batch;
-        }
-
-        if let Some(model) =
-            anlg_transcribe_speechanalyzer::local_model_from_request(&self.base_url, &self.model)
-        {
-            return if model.supports_live_on_current_platform()
-                && model.supports_languages(&self.languages)
-            {
-                listener::TranscriptionMode::Live
-            } else {
-                listener::TranscriptionMode::Batch
-            };
-        }
-
-        if anlg_transcribe_speechanalyzer::is_local_base_url(&self.base_url) {
-            return listener::TranscriptionMode::Batch;
-        }
-
-        let adapter_kind =
-            AdapterKind::from_url_and_languages(&self.base_url, &self.languages, Some(&self.model));
-
-        if adapter_kind == AdapterKind::OpenAI
-            && self.model != Provider::OpenAI.default_live_model()
-        {
-            return listener::TranscriptionMode::Batch;
-        }
-
-        if !adapter_kind.has_live_mode() {
-            return listener::TranscriptionMode::Batch;
-        }
-
-        if adapter_kind.is_supported_languages_live(&self.languages, Some(&self.model)) {
-            listener::TranscriptionMode::Live
-        } else {
-            listener::TranscriptionMode::Batch
-        }
-    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, specta::Type, tauri_specta::Event)]
@@ -242,7 +182,11 @@ pub enum TranscriptionEvent {
 
 impl From<CaptureParams> for listener::actors::SessionParams {
     fn from(value: CaptureParams) -> Self {
-        let transcription_mode = value.default_transcription_mode();
+        // Pass the requested mode only; the listener root resolves the
+        // effective mode through the shared policy in listener-core.
+        let transcription_mode = value
+            .transcription_mode
+            .unwrap_or(listener::TranscriptionMode::Live);
 
         Self {
             session_id: value.session_id,
@@ -388,6 +332,15 @@ mod tests {
     use anlg_language::ISO639;
     use anlg_transcription_core::listener::TranscriptionMode;
 
+    fn resolved(params: &CaptureParams) -> TranscriptionMode {
+        anlg_transcription_core::listener::actors::resolve_transcription_mode(
+            params.transcription_mode.unwrap_or(TranscriptionMode::Live),
+            &params.base_url,
+            &params.model,
+            &params.languages,
+        )
+    }
+
     fn capture_params(base_url: &str, model: &str) -> CaptureParams {
         capture_params_with_languages(base_url, model, vec![])
     }
@@ -416,7 +369,7 @@ mod tests {
     fn defaults_realtime_provider_to_live_mode() {
         let params = capture_params("https://api.deepgram.com/v1", "nova-3-general");
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
@@ -433,14 +386,14 @@ mod tests {
     fn defaults_cloudflare_workers_ai_capture_to_live_mode() {
         let params = capture_params("https://example.workers.dev", "nova-3");
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
     fn defaults_soniox_capture_to_live_mode_without_languages() {
         let params = capture_params("https://api.soniox.com", "stt-rt-v5");
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
@@ -451,7 +404,7 @@ mod tests {
             vec![ISO639::Ko.into()],
         );
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
@@ -462,65 +415,56 @@ mod tests {
             vec![ISO639::En.into(), ISO639::Ko.into()],
         );
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
     fn defaults_assemblyai_capture_to_live_mode_without_languages() {
         let params = capture_params("https://api.assemblyai.com/v2", "");
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
     fn defaults_gladia_capture_to_live_mode_without_languages() {
         let params = capture_params("https://api.gladia.io/v2", "");
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
     fn defaults_elevenlabs_capture_to_live_mode_without_languages() {
         let params = capture_params("https://api.elevenlabs.io", "");
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
     fn defaults_openai_capture_to_batch_mode() {
         let params = capture_params("https://api.openai.com/v1", "gpt-4o-transcribe");
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
     fn defaults_openai_live_capture_to_live_mode() {
         let params = capture_params("https://api.openai.com/v1", "gpt-live-transcribe");
 
-        assert_eq!(params.default_transcription_mode(), TranscriptionMode::Live);
+        assert_eq!(resolved(&params), TranscriptionMode::Live);
     }
 
     #[test]
     fn defaults_pyannote_capture_to_batch_mode() {
         let params = capture_params("https://api.pyannote.ai", "parakeet-tdt-0.6b-v3");
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
     fn defaults_local_argmax_capture_to_batch_mode() {
         let params = capture_params("http://localhost:50060/v1", "parakeet-tdt-0.6b-v3");
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
@@ -532,7 +476,7 @@ mod tests {
             TranscriptionMode::Batch
         };
 
-        assert_eq!(params.default_transcription_mode(), expected);
+        assert_eq!(resolved(&params), expected);
     }
 
     #[test]
@@ -544,7 +488,7 @@ mod tests {
             TranscriptionMode::Batch
         };
 
-        assert_eq!(params.default_transcription_mode(), expected);
+        assert_eq!(resolved(&params), expected);
     }
 
     #[test]
@@ -555,20 +499,14 @@ mod tests {
             vec![ISO639::Ko.into()],
         );
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
     fn defaults_soniqo_batch_capture_to_batch_mode() {
         let params = capture_params("soniqo://local", "soniqo-parakeet-batch");
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
@@ -576,10 +514,7 @@ mod tests {
         let mut params = capture_params("soniqo://local", "soniqo-parakeet-streaming");
         params.transcription_mode = Some(TranscriptionMode::Batch);
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
@@ -587,30 +522,21 @@ mod tests {
         let mut params = capture_params("soniqo://local", "soniqo-parakeet-batch");
         params.transcription_mode = Some(TranscriptionMode::Live);
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
     fn defaults_soniqo_model_on_non_soniqo_provider_from_provider_mode() {
         let params = capture_params("https://api.openai.com/v1", "soniqo-parakeet-streaming");
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 
     #[test]
     fn defaults_invalid_soniqo_local_model_to_batch_mode() {
         let params = capture_params("soniqo://local", "nova-3");
 
-        assert_eq!(
-            params.default_transcription_mode(),
-            TranscriptionMode::Batch
-        );
+        assert_eq!(resolved(&params), TranscriptionMode::Batch);
     }
 }
 

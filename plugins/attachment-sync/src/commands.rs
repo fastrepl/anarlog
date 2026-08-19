@@ -242,7 +242,7 @@ pub(crate) async fn commit_delete_guard<R: tauri::Runtime>(
     operation_id: String,
     job_id: String,
     attempt_count: i64,
-    guard_id: String,
+    guard_id: Option<String>,
 ) -> Result<(), String> {
     let operation = control
         .start(&operation_id, None)
@@ -253,7 +253,7 @@ pub(crate) async fn commit_delete_guard<R: tauri::Runtime>(
         &operation,
         &job_id,
         attempt_count,
-        &guard_id,
+        guard_id.as_deref(),
     )
     .await
     .map_err(|error| error.to_string())

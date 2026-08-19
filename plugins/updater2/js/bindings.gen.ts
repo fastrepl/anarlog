@@ -22,9 +22,9 @@ async download(version: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async install(version: string) : Promise<Result<InstallResult, string>> {
+async installAndRelaunch(version: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|install", { version }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|install_and_relaunch", { version }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -33,14 +33,6 @@ async install(version: string) : Promise<Result<InstallResult, string>> {
 async isDownloaded(version: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|is_downloaded", { version }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async postinstall(result: InstallResult) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:updater2|postinstall", { result }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -87,7 +79,6 @@ updatedEvent: "plugin:updater2:updated-event"
 
 /** user-defined types **/
 
-export type InstallResult = { kind: "relaunch_current" }
 export type UpdateAvailableEvent = { version: string }
 export type UpdateDownloadFailedEvent = { version: string }
 export type UpdateDownloadProgressEvent = { version: string; chunk_length: number; content_length: number | null }

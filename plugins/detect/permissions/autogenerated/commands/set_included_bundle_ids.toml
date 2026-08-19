@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-set-included-bundle-ids"
+description = "Enables the set_included_bundle_ids command without any pre-configured scope."
+commands.allow = ["set_included_bundle_ids"]
+
+[[permission]]
+identifier = "deny-set-included-bundle-ids"
+description = "Denies the set_included_bundle_ids command without any pre-configured scope."
+commands.deny = ["set_included_bundle_ids"]

@@ -1,6 +1,16 @@
+import { readFileSync } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+
+// Shared with scripts/qa/verify_linux_audio_tracks.py so the producer and
+// release verifier apply identical thresholds and phase rules.
+export const linuxAudioQaPolicy = JSON.parse(
+  readFileSync(
+    new URL("./qa/linux-audio-qa-policy.json", import.meta.url),
+    "utf8",
+  ),
+);
 
 const APPLICATION = "fastrepl/hyprnote2";
 const SOURCE_WORKFLOW = ".github/workflows/desktop_cd.yaml";
@@ -18,20 +28,7 @@ const ARCHITECTURES = [
 ];
 const ANALYSIS_SCOPE =
   "Virtual microphone/system routing, capture, separation, and persistence with NO_AEC=1. This result makes no AEC claim.";
-const ANALYSIS_THRESHOLDS = {
-  duration_delta_seconds_max: 0.15,
-  mic_active_rms_min: 0.0002,
-  speaker_active_rms_min: 0.001,
-  system_tone_amplitude_min: 0.0005,
-  mic_pilot_amplitude_min: 0.0002,
-  mic_isolation_db_min: 12,
-  speaker_isolation_db_min: 15,
-  system_tone_isolation_db_min: 18,
-  mic_pilot_isolation_db_min: 6,
-  cross_channel_isolation_db_min: 12,
-  clipped_fraction_max: 0.001,
-  recording_tail_tolerance_seconds: 0.5,
-};
+const ANALYSIS_THRESHOLDS = linuxAudioQaPolicy.thresholds;
 const ANALYSIS_METRICS = [
   "mic_duration_seconds",
   "speaker_duration_seconds",
@@ -330,20 +327,21 @@ async function verifyArchitecture({
       Number.isFinite(phase.start_seconds) &&
       typeof phase?.end_seconds === "number" &&
       Number.isFinite(phase.end_seconds) &&
-      phase.end_seconds - phase.start_seconds >= 5,
+      phase.end_seconds - phase.start_seconds >=
+        linuxAudioQaPolicy.minPhaseDurationSeconds,
   );
   const latestPhaseEnd = Math.max(
     ...phaseList.map((phase) => phase?.end_seconds ?? Number.POSITIVE_INFINITY),
   );
   invariant(
-    phases.schema_version === 1 &&
+    phases.schema_version === linuxAudioQaPolicy.phaseSchemaVersion &&
       phases.no_aec === true &&
       typeof phases.recording_stop_seconds === "number" &&
       Number.isFinite(phases.recording_stop_seconds) &&
       validIntervals &&
       phases.recording_stop_seconds > latestPhaseEnd &&
       JSON.stringify(phaseNames) ===
-        JSON.stringify(["both", "mic_only", "system_only"]),
+        JSON.stringify([...linuxAudioQaPolicy.requiredPhases].sort()),
     `Linux ${architecture.artifactArch} phase evidence is invalid`,
   );
 

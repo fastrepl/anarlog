@@ -19,11 +19,12 @@ fn cloudsync_receive_requires_reconciliation(
     })
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum E2eeTransport {
-    None = 0,
-    Cloudsync = 1,
-    Replica = 2,
+    #[default]
+    None,
+    Cloudsync,
+    Replica,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -66,11 +67,18 @@ fn ordered_witness_workspace_ids(
     Ok(workspace_ids)
 }
 
+// Keys, witnesses, and transport are replaced together under one lock so a
+// sync operation can never observe a mixed-generation configuration.
+#[derive(Clone, Default)]
+struct E2eeRuntimeConfig {
+    keys: HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+    witnesses: HashMap<String, E2eeWitnessClient>,
+    transport: E2eeTransport,
+}
+
 #[derive(Default)]
 pub struct E2eeSyncHook {
-    keys: std::sync::RwLock<HashMap<String, anlg_e2ee::WorkspaceKeyring>>,
-    witnesses: std::sync::RwLock<HashMap<String, E2eeWitnessClient>>,
-    transport: std::sync::atomic::AtomicU8,
+    config: std::sync::RwLock<E2eeRuntimeConfig>,
     pub witness_changed: tokio::sync::Notify,
     pub replica_sync_requested: tokio::sync::Notify,
     replica_status: std::sync::Mutex<ReplicaSyncStatus>,
@@ -109,7 +117,7 @@ impl E2eeSyncHook {
         recovery_key: &anlg_e2ee::RecoveryKey,
     ) -> std::result::Result<(), anlg_e2ee::Error> {
         let key = recovery_key.workspace_key(workspace_id)?;
-        *self.keys.write().unwrap() = HashMap::from([(
+        self.config.write().unwrap().keys = HashMap::from([(
             workspace_id.to_string(),
             anlg_e2ee::WorkspaceKeyring::new(key),
         )]);
@@ -127,31 +135,27 @@ impl E2eeSyncHook {
             personal_workspace_id.to_string(),
             anlg_e2ee::WorkspaceKeyring::new(recovery_key.workspace_key(personal_workspace_id)?),
         );
-        *self.keys.write().unwrap() = shared_keyrings;
+        self.config.write().unwrap().keys = shared_keyrings;
         self.request_reconciliation();
         Ok(())
     }
 
     pub fn has_workspace(&self, workspace_id: &str) -> bool {
-        self.keys.read().unwrap().contains_key(workspace_id)
+        self.config.read().unwrap().keys.contains_key(workspace_id)
     }
 
     pub fn workspace_key(&self, workspace_id: &str) -> Option<anlg_e2ee::WorkspaceKey> {
-        self.keys
+        self.config
             .read()
             .unwrap()
+            .keys
             .get(workspace_id)
             .map(|keyring| keyring.active().clone())
     }
 
     pub fn clear(&self) {
         self.cancel_active_sync();
-        self.keys.write().unwrap().clear();
-        self.witnesses.write().unwrap().clear();
-        self.transport.store(
-            E2eeTransport::None as u8,
-            std::sync::atomic::Ordering::Release,
-        );
+        *self.config.write().unwrap() = E2eeRuntimeConfig::default();
         self.witness_changed.notify_waiters();
         self.replica_sync_requested.notify_waiters();
         *self.replica_status.lock().unwrap() = ReplicaSyncStatus::default();
@@ -170,7 +174,11 @@ impl E2eeSyncHook {
     }
 
     pub fn snapshot(&self) -> HashMap<String, anlg_e2ee::WorkspaceKeyring> {
-        self.keys.read().unwrap().clone()
+        self.config.read().unwrap().keys.clone()
+    }
+
+    fn config_snapshot(&self) -> E2eeRuntimeConfig {
+        self.config.read().unwrap().clone()
     }
 
     pub fn set_witness(&self, witness: E2eeWitnessClient) {
@@ -198,19 +206,21 @@ impl E2eeSyncHook {
         transport: E2eeTransport,
     ) {
         self.cancel_active_sync();
-        *self.witnesses.write().unwrap() = witnesses;
-        self.transport
-            .store(transport as u8, std::sync::atomic::Ordering::Release);
+        {
+            let mut config = self.config.write().unwrap();
+            config.witnesses = witnesses;
+            config.transport = transport;
+        }
         self.witness_changed.notify_waiters();
         self.request_reconciliation();
     }
 
     pub fn replica_transport_configured(&self) -> bool {
-        self.transport.load(std::sync::atomic::Ordering::Acquire) == E2eeTransport::Replica as u8
+        self.config.read().unwrap().transport == E2eeTransport::Replica
     }
 
     fn transport_configured(&self) -> bool {
-        self.transport.load(std::sync::atomic::Ordering::Acquire) != E2eeTransport::None as u8
+        self.config.read().unwrap().transport != E2eeTransport::None
     }
 
     pub fn request_replica_sync(&self) {
@@ -248,18 +258,23 @@ impl E2eeSyncHook {
     }
 
     pub fn witness(&self) -> Option<E2eeWitnessClient> {
-        let witnesses = self.witnesses.read().unwrap();
-        (witnesses.len() == 1)
-            .then(|| witnesses.values().next().cloned())
+        let config = self.config.read().unwrap();
+        (config.witnesses.len() == 1)
+            .then(|| config.witnesses.values().next().cloned())
             .flatten()
     }
 
     pub fn witness_for_workspace(&self, workspace_id: &str) -> Option<E2eeWitnessClient> {
-        self.witnesses.read().unwrap().get(workspace_id).cloned()
+        self.config
+            .read()
+            .unwrap()
+            .witnesses
+            .get(workspace_id)
+            .cloned()
     }
 
     pub fn witnesses(&self) -> HashMap<String, E2eeWitnessClient> {
-        self.witnesses.read().unwrap().clone()
+        self.config.read().unwrap().witnesses.clone()
     }
 
     pub fn begin_activity(&self, activity: String, key: String) {
@@ -405,11 +420,14 @@ impl E2eeSyncHook {
         &self,
         pool: &sqlx::SqlitePool,
     ) -> std::io::Result<ReplicaSyncOutcome> {
-        if !self.replica_transport_configured() {
+        let config = self.config_snapshot();
+        if config.transport != E2eeTransport::Replica {
             return Ok(ReplicaSyncOutcome::Settled);
         }
-        let keys = self.snapshot();
-        let witness = self.witness();
+        let keys = config.keys;
+        let witness = (config.witnesses.len() == 1)
+            .then(|| config.witnesses.into_values().next())
+            .flatten();
         let active_sync = self.begin_sync();
         let cancellation = active_sync.cancellation.clone();
         let operation = async {
@@ -508,11 +526,12 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
         &'a self,
         pool: &'a sqlx::SqlitePool,
     ) -> anlg_db_core::CloudsyncBeforeHookFuture<'a> {
-        if !self.transport_configured() {
+        let config = self.config_snapshot();
+        if config.transport == E2eeTransport::None {
             return Box::pin(async { Ok(anlg_db_core::CloudsyncSyncDirective::default()) });
         }
-        let keys = self.snapshot();
-        let witnesses = self.witnesses();
+        let keys = config.keys;
+        let witnesses = config.witnesses;
         Box::pin(async move {
             let active_sync = self.begin_sync();
             let cancellation = active_sync.cancellation.clone();
@@ -596,14 +615,15 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
         pool: &'a sqlx::SqlitePool,
         result: &'a anlg_db_core::CloudsyncNetworkResult,
     ) -> anlg_db_core::CloudsyncHookFuture<'a> {
-        if !self.transport_configured() {
+        let config = self.config_snapshot();
+        if config.transport == E2eeTransport::None {
             return Box::pin(async { Ok(anlg_db_core::CloudsyncHookOutcome::default()) });
         }
         if cloudsync_receive_requires_reconciliation(result) {
             self.request_reconciliation();
         }
-        let keys = self.snapshot();
-        let witnesses = self.witnesses();
+        let keys = config.keys;
+        let witnesses = config.witnesses;
         Box::pin(async move {
             let active_sync = self.begin_sync();
             let cancellation = active_sync.cancellation.clone();
@@ -705,9 +725,110 @@ impl anlg_db_core::CloudsyncSyncHook for E2eeSyncHook {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use anlg_db_core::CloudsyncSyncHook;
 
-    use super::E2eeSyncHook;
+    use super::{E2eeSyncHook, E2eeTransport};
+    use crate::witness::{E2eeWitnessClient, E2eeWitnessConfig};
+
+    const TEST_RECOVERY_KEY: &str = "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc";
+
+    fn test_witness(workspace_id: &str) -> E2eeWitnessClient {
+        E2eeWitnessClient::new(
+            E2eeWitnessConfig {
+                endpoint: format!("http://127.0.0.1:9/sync/e2ee/witness/{workspace_id}"),
+                access_token: "access-token".to_string(),
+            },
+            workspace_id,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn clear_resets_the_whole_configuration() {
+        let hook = E2eeSyncHook::default();
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(TEST_RECOVERY_KEY).unwrap();
+        hook.set_personal_workspace("workspace-1", &recovery_key)
+            .unwrap();
+        hook.set_witness(test_witness("workspace-1"));
+        assert!(hook.has_workspace("workspace-1"));
+        assert!(hook.witness().is_some());
+        assert!(hook.reconciliation_requested());
+
+        hook.clear();
+
+        let config = hook.config_snapshot();
+        assert!(config.keys.is_empty());
+        assert!(config.witnesses.is_empty());
+        assert_eq!(config.transport, E2eeTransport::None);
+        assert!(!hook.reconciliation_requested());
+    }
+
+    // Under the previous layout witnesses and transport lived in separate
+    // primitives, so a reader could observe a fresh witness map with a stale
+    // transport flag. One lock makes that unrepresentable.
+    #[test]
+    fn reconfiguration_keeps_witnesses_and_transport_coherent() {
+        let hook = std::sync::Arc::new(E2eeSyncHook::default());
+        let start = std::sync::Arc::new(std::sync::Barrier::new(2));
+
+        let writer = {
+            let hook = std::sync::Arc::clone(&hook);
+            let start = std::sync::Arc::clone(&start);
+            std::thread::spawn(move || {
+                start.wait();
+                for _ in 0..500 {
+                    hook.set_witnesses(HashMap::from([(
+                        "cloudsync-ws".to_string(),
+                        test_witness("cloudsync-ws"),
+                    )]));
+                    hook.set_replica_witness(test_witness("replica-ws"));
+                }
+            })
+        };
+
+        start.wait();
+        for _ in 0..2000 {
+            let config = hook.config_snapshot();
+            match config.transport {
+                E2eeTransport::None => assert!(config.witnesses.is_empty()),
+                E2eeTransport::Cloudsync => {
+                    assert!(config.witnesses.contains_key("cloudsync-ws"));
+                }
+                E2eeTransport::Replica => {
+                    assert!(config.witnesses.contains_key("replica-ws"));
+                }
+            }
+        }
+        writer.join().unwrap();
+    }
+
+    #[tokio::test]
+    async fn mismatched_keys_and_witnesses_fail_before_sync() {
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        let hook = E2eeSyncHook::default();
+        let recovery_key = anlg_e2ee::RecoveryKey::parse(TEST_RECOVERY_KEY).unwrap();
+        hook.set_workspaces(
+            "workspace-1",
+            &recovery_key,
+            HashMap::from([(
+                "workspace-2".to_string(),
+                anlg_e2ee::WorkspaceKeyring::new(
+                    recovery_key.workspace_key("workspace-2").unwrap(),
+                ),
+            )]),
+        )
+        .unwrap();
+        hook.set_witness(test_witness("workspace-1"));
+
+        let error = hook.before_sync(&pool).await.unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("witnesses do not match configured workspaces")
+        );
+    }
 
     #[tokio::test]
     async fn unconfigured_hook_is_transparent_to_cloudsync() {

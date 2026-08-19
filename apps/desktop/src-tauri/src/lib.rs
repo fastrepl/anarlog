@@ -312,7 +312,6 @@ pub async fn main() {
         .plugin(tauri_plugin_dictation::init())
         .plugin(tauri_plugin_windows::init())
         .plugin(tauri_plugin_js::init())
-        .plugin(tauri_plugin_flag::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .skip_initial_state("main")

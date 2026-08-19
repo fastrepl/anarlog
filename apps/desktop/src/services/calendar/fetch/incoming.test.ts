@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const calendarCommands = vi.hoisted(() => ({
   listEvents: vi.fn(),
-  parseMeetingLink: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-calendar", () => ({
@@ -24,7 +23,6 @@ const ctx: Ctx = {
 describe("fetchIncomingEvents", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    calendarCommands.parseMeetingLink.mockResolvedValue(undefined);
   });
 
   test("records an empty participant list so stale auto mappings are removed", async () => {
@@ -52,9 +50,8 @@ describe("fetchIncomingEvents", () => {
     expect(result.participants.get("event-1")).toEqual([]);
   });
 
-  test("prefers the location meeting link over links in the description", async () => {
+  test("passes through the meeting link resolved during provider conversion", async () => {
     const meetingLink = "https://meet.google.com/abc-defg-hij";
-    calendarCommands.parseMeetingLink.mockImplementation(async (text) => text);
     calendarCommands.listEvents.mockResolvedValue({
       status: "success",
       data: [
@@ -63,7 +60,8 @@ describe("fetchIncomingEvents", () => {
           calendar_id: "primary",
           title: "Customer call",
           description: "https://cal.com/customer-call/reschedule",
-          location: meetingLink,
+          location: "Conference room 4",
+          meeting_link: meetingLink,
           started_at: "2026-06-01T10:00:00.000Z",
           ended_at: "2026-06-01T11:00:00.000Z",
           attendees: [],
@@ -77,7 +75,5 @@ describe("fetchIncomingEvents", () => {
     const result = await fetchIncomingEvents(ctx);
 
     expect(result.events[0]?.meeting_link).toBe(meetingLink);
-    expect(calendarCommands.parseMeetingLink).toHaveBeenCalledOnce();
-    expect(calendarCommands.parseMeetingLink).toHaveBeenCalledWith(meetingLink);
   });
 });

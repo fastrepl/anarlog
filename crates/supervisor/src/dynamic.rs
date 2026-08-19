@@ -103,6 +103,7 @@ pub enum DynamicSupervisorMsg {
     },
     ScheduledRestart {
         spec: DynChildSpec,
+        generation: u64,
     },
 }
 
@@ -116,9 +117,10 @@ impl std::fmt::Debug for DynamicSupervisorMsg {
                 .debug_struct("TerminateChild")
                 .field("child_id", child_id)
                 .finish(),
-            Self::ScheduledRestart { spec } => f
+            Self::ScheduledRestart { spec, generation } => f
                 .debug_struct("ScheduledRestart")
                 .field("id", &spec.id)
+                .field("generation", generation)
                 .finish(),
         }
     }
@@ -148,6 +150,10 @@ pub struct DynamicSupervisorState {
     active_children: HashMap<String, ActiveChild>,
     child_failure_state: HashMap<String, ChildFailureState>,
     restart_log: Vec<RestartLogEntry>,
+    // Incremented on every external SpawnChild/TerminateChild for an id, so
+    // scheduled restarts carrying an older generation are dropped instead of
+    // resurrecting a child that was terminated or replaced during backoff.
+    child_generations: HashMap<String, u64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -251,6 +257,22 @@ impl DynamicSupervisorState {
         entry.restart_count += 1;
         entry.last_fail = now;
     }
+
+    fn generation_of(&self, child_id: &str) -> u64 {
+        self.child_generations.get(child_id).copied().unwrap_or(0)
+    }
+
+    // A successful external SpawnChild or a TerminateChild starts a new
+    // lifecycle for the id: stale scheduled restarts are dropped via the
+    // generation, and the failure history is cleared so backoff cannot carry
+    // over from the old lifecycle.
+    fn begin_new_generation(&mut self, child_id: &str) {
+        *self
+            .child_generations
+            .entry(child_id.to_string())
+            .or_insert(0) += 1;
+        self.child_failure_state.remove(child_id);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -273,6 +295,7 @@ impl Actor for DynamicSupervisor {
             active_children: HashMap::new(),
             child_failure_state: HashMap::new(),
             restart_log: Vec::new(),
+            child_generations: HashMap::new(),
         })
     }
 
@@ -284,8 +307,13 @@ impl Actor for DynamicSupervisor {
     ) -> Result<(), ActorProcessingErr> {
         match msg {
             DynamicSupervisorMsg::SpawnChild { spec, reply } => {
-                let result =
-                    handle_spawn_child(&spec, reply.is_some(), state, myself.clone()).await;
+                let result = handle_spawn_child(&spec, true, state, myself.clone()).await;
+                // Only a successful spawn begins a new lifecycle: a failed
+                // replacement must not cancel the previous lifecycle's
+                // pending restart or discard its backoff history.
+                if result.is_ok() {
+                    state.begin_new_generation(&spec.id);
+                }
                 if let Some(reply) = reply {
                     reply.send(result)?;
                     Ok(())
@@ -300,7 +328,10 @@ impl Actor for DynamicSupervisor {
                 }
                 Ok(())
             }
-            DynamicSupervisorMsg::ScheduledRestart { spec } => {
+            DynamicSupervisorMsg::ScheduledRestart { spec, generation } => {
+                if generation != state.generation_of(&spec.id) {
+                    return Ok(());
+                }
                 handle_spawn_child(&spec, false, state, myself).await
             }
         }
@@ -381,6 +412,9 @@ fn handle_terminate_child(
     state: &mut DynamicSupervisorState,
     myself: &ActorRef<DynamicSupervisorMsg>,
 ) {
+    // Bump even when the child is not active: it may have failed and be
+    // waiting in backoff, and termination must invalidate that restart.
+    state.begin_new_generation(child_id);
     if let Some(child) = state.active_children.remove(child_id) {
         child.cell.unlink(myself.get_cell());
         child.cell.kill();
@@ -424,13 +458,17 @@ fn handle_child_restart(
     });
 
     let spec = child.spec.clone();
+    let generation = state.generation_of(&child_id);
     match delay {
         Some(d) => {
             let dur = ractor::concurrency::Duration::from_millis(d.as_millis() as u64);
-            myself.send_after(dur, move || DynamicSupervisorMsg::ScheduledRestart { spec });
+            myself.send_after(dur, move || DynamicSupervisorMsg::ScheduledRestart {
+                spec,
+                generation,
+            });
         }
         None => {
-            myself.send_message(DynamicSupervisorMsg::ScheduledRestart { spec })?;
+            myself.send_message(DynamicSupervisorMsg::ScheduledRestart { spec, generation })?;
         }
     }
 
@@ -755,6 +793,254 @@ mod tests {
                 .iter()
                 .any(|c| c.get_status() == ActorStatus::Running)
         );
+
+        sup_ref.stop(None);
+        let _ = sup_handle.await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn terminate_during_backoff_does_not_resurrect() {
+        let sup_name = unique_name("dyn_term_backoff_sup");
+        let child_name = unique_name("dyn_term_backoff_child");
+        let counter = Arc::new(AtomicU32::new(0));
+
+        let mut spec = make_spec(
+            &child_name,
+            RestartPolicy::Permanent,
+            ChildBehavior::DelayedFail { ms: 20 },
+            counter.clone(),
+        );
+        spec.backoff_fn = Some(ChildBackoffFn::new(|_id, _count, _last, _reset| {
+            Some(Duration::from_millis(200))
+        }));
+
+        let (sup_ref, sup_handle) = DynamicSupervisor::spawn(sup_name, options(5))
+            .await
+            .expect("failed to spawn dynamic supervisor");
+        DynamicSupervisor::spawn_child(sup_ref.clone(), spec)
+            .await
+            .expect("failed to spawn child");
+
+        // Child fails at ~20ms; its restart is pending until ~220ms.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        DynamicSupervisor::terminate_child(sup_ref.clone(), child_name)
+            .await
+            .expect("failed to terminate child");
+
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert_eq!(
+            counter.load(Ordering::SeqCst),
+            1,
+            "terminated child was resurrected by a stale scheduled restart"
+        );
+        assert_eq!(sup_ref.get_status(), ActorStatus::Running);
+        assert!(
+            !sup_ref
+                .get_children()
+                .iter()
+                .any(|c| c.get_status() == ActorStatus::Running)
+        );
+
+        sup_ref.stop(None);
+        let _ = sup_handle.await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn replace_before_restart_keeps_replacement() {
+        let sup_name = unique_name("dyn_replace_sup");
+        let child_name = unique_name("dyn_replace_child");
+        let fail_counter = Arc::new(AtomicU32::new(0));
+        let healthy_counter = Arc::new(AtomicU32::new(0));
+
+        let mut failing_spec = make_spec(
+            &child_name,
+            RestartPolicy::Permanent,
+            ChildBehavior::DelayedFail { ms: 20 },
+            fail_counter.clone(),
+        );
+        failing_spec.backoff_fn = Some(ChildBackoffFn::new(|_id, _count, _last, _reset| {
+            Some(Duration::from_millis(200))
+        }));
+
+        let (sup_ref, sup_handle) = DynamicSupervisor::spawn(sup_name, options(5))
+            .await
+            .expect("failed to spawn dynamic supervisor");
+        DynamicSupervisor::spawn_child(sup_ref.clone(), failing_spec)
+            .await
+            .expect("failed to spawn failing child");
+
+        // Replace the child under the same id while its restart is pending.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        let replacement = make_spec(
+            &child_name,
+            RestartPolicy::Permanent,
+            ChildBehavior::Healthy,
+            healthy_counter.clone(),
+        );
+        DynamicSupervisor::spawn_child(sup_ref.clone(), replacement)
+            .await
+            .expect("failed to spawn replacement child");
+
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert_eq!(
+            fail_counter.load(Ordering::SeqCst),
+            1,
+            "stale scheduled restart clobbered the deliberate replacement"
+        );
+        assert_eq!(healthy_counter.load(Ordering::SeqCst), 1);
+        assert_eq!(sup_ref.get_status(), ActorStatus::Running);
+        assert_eq!(
+            sup_ref
+                .get_children()
+                .iter()
+                .filter(|c| c.get_status() == ActorStatus::Running)
+                .count(),
+            1
+        );
+
+        sup_ref.stop(None);
+        let _ = sup_handle.await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn failed_replacement_spawn_keeps_pending_restart() {
+        let sup_name = unique_name("dyn_failed_replace_sup");
+        let child_name = unique_name("dyn_failed_replace_child");
+        let counter = Arc::new(AtomicU32::new(0));
+
+        let mut spec = make_spec(
+            &child_name,
+            RestartPolicy::Permanent,
+            ChildBehavior::DelayedFail { ms: 20 },
+            counter.clone(),
+        );
+        spec.backoff_fn = Some(ChildBackoffFn::new(|_id, _count, _last, _reset| {
+            Some(Duration::from_millis(200))
+        }));
+
+        let (sup_ref, sup_handle) = DynamicSupervisor::spawn(sup_name, options(10))
+            .await
+            .expect("failed to spawn dynamic supervisor");
+        DynamicSupervisor::spawn_child(sup_ref.clone(), spec.clone())
+            .await
+            .expect("failed to spawn child");
+
+        // Child fails at ~20ms; its restart is pending until ~220ms.
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(counter.load(Ordering::SeqCst), 1);
+
+        let mut broken_spec = spec;
+        broken_spec.spawn_fn = DynSpawnFn::new(|_sup_cell, _child_id| async {
+            Err(ractor::SpawnErr::StartupFailed(
+                "injected spawn failure".into(),
+            ))
+        });
+        DynamicSupervisor::spawn_child(sup_ref.clone(), broken_spec)
+            .await
+            .expect_err("broken replacement spawn should fail");
+
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        assert!(
+            counter.load(Ordering::SeqCst) >= 2,
+            "failed replacement spawn cancelled the pending scheduled restart"
+        );
+        assert_eq!(sup_ref.get_status(), ActorStatus::Running);
+
+        sup_ref.stop(None);
+        let _ = sup_handle.await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn respawn_after_terminate_starts_with_fresh_backoff_history() {
+        let sup_name = unique_name("dyn_fresh_backoff_sup");
+        let child_name = unique_name("dyn_fresh_backoff_child");
+        let counter = Arc::new(AtomicU32::new(0));
+        let observed_counts = Arc::new(std::sync::Mutex::new(Vec::new()));
+
+        let spec = |counts: Arc<std::sync::Mutex<Vec<usize>>>, counter: Arc<AtomicU32>| {
+            let mut spec = make_spec(
+                &child_name,
+                RestartPolicy::Permanent,
+                ChildBehavior::DelayedFail { ms: 20 },
+                counter,
+            );
+            spec.backoff_fn = Some(ChildBackoffFn::new(move |_id, count, _last, _reset| {
+                counts.lock().unwrap().push(count);
+                Some(Duration::from_millis(200))
+            }));
+            spec
+        };
+
+        let (sup_ref, sup_handle) = DynamicSupervisor::spawn(sup_name, options(10))
+            .await
+            .expect("failed to spawn dynamic supervisor");
+        DynamicSupervisor::spawn_child(
+            sup_ref.clone(),
+            spec(observed_counts.clone(), counter.clone()),
+        )
+        .await
+        .expect("failed to spawn child");
+
+        // Let the child fail twice so its per-child failure count escalates.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(observed_counts.lock().unwrap().len() >= 2);
+
+        DynamicSupervisor::terminate_child(sup_ref.clone(), child_name.clone())
+            .await
+            .expect("failed to terminate child");
+        observed_counts.lock().unwrap().clear();
+
+        DynamicSupervisor::spawn_child(
+            sup_ref.clone(),
+            spec(observed_counts.clone(), counter.clone()),
+        )
+        .await
+        .expect("failed to respawn child");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // The new lifecycle's first failure must not inherit the old count.
+        assert_eq!(
+            observed_counts.lock().unwrap().first().copied(),
+            Some(1),
+            "backoff saw stale failure history from the previous lifecycle"
+        );
+
+        sup_ref.stop(None);
+        let _ = sup_handle.await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn repeated_failure_still_restarts_with_generations() {
+        let sup_name = unique_name("dyn_repeat_fail_sup");
+        let child_name = unique_name("dyn_repeat_fail_child");
+        let counter = Arc::new(AtomicU32::new(0));
+
+        let mut spec = make_spec(
+            &child_name,
+            RestartPolicy::Permanent,
+            ChildBehavior::DelayedFail { ms: 20 },
+            counter.clone(),
+        );
+        spec.backoff_fn = Some(ChildBackoffFn::new(|_id, _count, _last, _reset| {
+            Some(Duration::from_millis(50))
+        }));
+
+        let (sup_ref, sup_handle) = DynamicSupervisor::spawn(sup_name, options(10))
+            .await
+            .expect("failed to spawn dynamic supervisor");
+        DynamicSupervisor::spawn_child(sup_ref.clone(), spec)
+            .await
+            .expect("failed to spawn child");
+
+        tokio::time::sleep(Duration::from_millis(320)).await;
+        assert!(
+            counter.load(Ordering::SeqCst) >= 3,
+            "restarts within one generation should keep working, got {}",
+            counter.load(Ordering::SeqCst)
+        );
+        assert_eq!(sup_ref.get_status(), ActorStatus::Running);
 
         sup_ref.stop(None);
         let _ = sup_handle.await;

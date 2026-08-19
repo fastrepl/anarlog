@@ -25,6 +25,9 @@ const mocks = vi.hoisted(() => ({
     plan: "free",
     trialDaysRemaining: null as number | null,
   },
+  session: { user: { email: "john@example.com" } } as {
+    user: { email: string };
+  } | null,
 }));
 
 vi.mock("@anlg/plugin-analytics", () => ({
@@ -46,7 +49,7 @@ vi.mock("~/auth", () => ({
   useAuth: () => ({
     isRefreshingSession: false,
     refreshSession: vi.fn(),
-    session: { user: { email: "john@example.com" } },
+    session: mocks.session,
     signIn: mocks.signIn,
     signOut: mocks.signOut,
   }),
@@ -80,6 +83,7 @@ const renderAccount = () => {
 describe("SettingsAccount", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.session = { user: { email: "john@example.com" } };
     mocks.billing = {
       canStartTrial: { data: false, isPending: false },
       hasPaymentMethod: false,
@@ -163,6 +167,72 @@ describe("SettingsAccount", () => {
       days_remaining: 3,
       source: "settings",
     });
+  });
+
+  it("starts a cardless trial from the behavioral action variant", async () => {
+    mocks.billing = {
+      canStartTrial: { data: true, isPending: false },
+      hasPaymentMethod: false,
+      isPaid: false,
+      isTrialing: false,
+      plan: "free",
+      trialDaysRemaining: null,
+    };
+
+    renderAccount();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start free trial" }));
+
+    await waitFor(() =>
+      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/checkout", {
+        period: "monthly",
+        trial: "true",
+        source: "settings",
+      }),
+    );
+    expect(mocks.analyticsEvent).toHaveBeenCalledWith({
+      event: "trial_checkout_started",
+      plan: "pro",
+      period: "monthly",
+      source: "settings",
+    });
+  });
+
+  it("opens checkout for an upgrade when no trial is available", async () => {
+    renderAccount();
+
+    fireEvent.click(screen.getByRole("button", { name: "Get Pro" }));
+
+    await waitFor(() =>
+      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/checkout", {
+        plan: "pro",
+        period: "monthly",
+        source: "settings",
+      }),
+    );
+    expect(mocks.analyticsEvent).toHaveBeenCalledWith({
+      event: "upgrade_clicked",
+      plan: "pro",
+      period: "monthly",
+      source: "settings",
+    });
+  });
+
+  it("asks guests to sign in instead of opening checkout", async () => {
+    mocks.session = null;
+
+    renderAccount();
+
+    expect(screen.queryByRole("button", { name: "Get Pro" })).toBeNull();
+    expect(screen.getByText("Current plan")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign in for Pro" }));
+
+    await waitFor(() => expect(mocks.signIn).toHaveBeenCalled());
+    expect(mocks.buildWebAppUrl).not.toHaveBeenCalledWith(
+      "/app/checkout",
+      expect.anything(),
+    );
   });
 
   it("renders the current plan as status once the trial has a payment method", () => {

@@ -3,6 +3,7 @@ mod lifecycle;
 mod metadata;
 mod model;
 mod provider;
+pub mod wire;
 mod worker;
 
 pub use adapter::*;

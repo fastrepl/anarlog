@@ -134,6 +134,7 @@ jobs:
           awk 'NR > 1 && $0 == "---" { found = 1; exit } END { if (!found) exit 1 }' skills/anarlog/SKILL.md
           test "$(readlink docs/.mintlify/skills)" = "../../skills"
           test -f docs/.mintlify/skills/anarlog/SKILL.md
+          node scripts/publish-anarlog-skill.mjs --check
           skill_list="$(npx --yes skills@1.5.16 add . --list)"
           echo "$skill_list"
           grep -q 'anarlog' <<<"$skill_list"
