@@ -4,6 +4,12 @@ import { useState } from "react";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
+export function usesWindowsStyleTitleBar() {
+  const runtimePlatform = getRuntimePlatform();
+
+  return runtimePlatform === "windows" || runtimePlatform === "linux";
+}
+
 export function useWindowControlsGutter() {
   const [visible, setVisible] = useState(() => {
     const runtimePlatform = getRuntimePlatform();

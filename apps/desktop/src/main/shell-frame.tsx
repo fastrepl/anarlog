@@ -1,4 +1,3 @@
-import { platform } from "@tauri-apps/plugin-os";
 import { memo } from "react";
 
 import { ClassicMainBody } from "./body";
@@ -6,6 +5,7 @@ import { resolveMainSurfaceChrome } from "./main-surface-chrome";
 import { WindowsTitleBar } from "./windows-title-bar";
 
 import { useShell } from "~/contexts/shell";
+import { usesWindowsStyleTitleBar } from "~/shared/hooks/useWindowControlsGutter";
 import { MainShellBodyFrame, MainShellScaffold } from "~/shared/main";
 import { ToastNotifications } from "~/sidebar/toast";
 import {
@@ -45,7 +45,7 @@ export function ClassicMainShellFrame() {
     </MainShellScaffold>
   );
 
-  if (platform() !== "windows") {
+  if (!usesWindowsStyleTitleBar()) {
     return shell;
   }
 

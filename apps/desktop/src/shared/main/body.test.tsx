@@ -373,46 +373,15 @@ describe("ClassicMainBody", () => {
   );
 
   it.each([
-    {
-      expanded: true,
-      sidebarState: "expanded",
-      toggleLabel: "Hide sidebar",
-    },
-    {
-      expanded: false,
-      sidebarState: "collapsed",
-      toggleLabel: "Show sidebar",
-    },
+    ["windows", "expanded", true],
+    ["windows", "collapsed", false],
+    ["linux", "expanded", true],
+    ["linux", "collapsed", false],
   ] as const)(
-    "uses the 8px fallback gutter on Linux with the sidebar $sidebarState",
-    async ({ expanded, toggleLabel }) => {
+    "leaves the sidebar toggle to the title bar on %s while %s",
+    async (runtimePlatform, _state, expanded) => {
       mocks.leftSidebarExpanded = expanded;
-      mocks.platform = "linux";
-
-      render(<ClassicMainBody />);
-
-      const sidebarToggle = screen.getByRole("button", { name: toggleLabel });
-      const chromeFrame = expanded
-        ? document.querySelector<HTMLElement>("[data-sidebar-timeline-header]")
-        : sidebarToggle.parentElement?.parentElement?.parentElement;
-
-      await waitFor(() => {
-        expect(chromeFrame?.className).toContain("pl-2");
-      });
-      expect(chromeFrame?.className).not.toContain("pl-[76px]");
-      expect(mocks.isFullscreen).not.toHaveBeenCalled();
-      expect(mocks.resizeListeners).toHaveLength(0);
-    },
-  );
-
-  it.each([
-    ["expanded", true],
-    ["collapsed", false],
-  ])(
-    "leaves the sidebar toggle to the Windows title bar while %s",
-    async (_state, expanded) => {
-      mocks.leftSidebarExpanded = expanded;
-      mocks.platform = "windows";
+      mocks.platform = runtimePlatform;
 
       render(<ClassicMainBody />);
 

@@ -1,4 +1,3 @@
-import { platform } from "@tauri-apps/plugin-os";
 import {
   type CSSProperties,
   type WheelEvent as ReactWheelEvent,
@@ -37,7 +36,10 @@ import { useClassicMainShortcuts } from "./useShortcuts";
 import { useShell } from "~/contexts/shell";
 import { scrollElementByWheel } from "~/shared/dom/scroll-wheel";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
+import {
+  usesWindowsStyleTitleBar,
+  useWindowControlsGutter,
+} from "~/shared/hooks/useWindowControlsGutter";
 import { getMainContentMinWidth } from "~/shared/main/layout-widths";
 import { useOpenNoteDialog } from "~/shared/open-note-dialog";
 import { useNewNote } from "~/shared/useNewNote";
@@ -80,7 +82,7 @@ export function ClassicMainBody({
     useState(false);
   const [noteFilter, setNoteFilter] = useState<SidebarNoteFilter>("mine");
   const showWindowControlsGutter = useWindowControlsGutter();
-  const showSidebarToggleInBody = getRuntimePlatform() !== "windows";
+  const showSidebarToggleInBody = !usesWindowsStyleTitleBar();
   leftSidebarPanelConstraintsRef.current = leftSidebarPanelConstraints;
 
   const isOnboarding = currentTab?.type === "onboarding";
@@ -571,12 +573,4 @@ export function ClassicMainBody({
       </ResizablePanelGroup>
     </div>
   );
-}
-
-function getRuntimePlatform() {
-  try {
-    return platform();
-  } catch {
-    return null;
-  }
 }

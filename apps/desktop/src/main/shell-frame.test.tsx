@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   currentTab: { type: "empty" } as { type: string } | null,
-  platform: "macos" as "macos" | "windows",
+  platform: "macos" as "linux" | "macos" | "windows",
   leftsidebar: {
     expanded: true,
   },
@@ -77,18 +77,28 @@ describe("ClassicMainShellFrame", () => {
     mocks.leftsidebar.expanded = true;
   });
 
-  it("places the custom title bar above the shell on Windows", () => {
-    mocks.platform = "windows";
+  it.each(["windows", "linux"] as const)(
+    "places the custom title bar above the shell on %s",
+    (runtimePlatform) => {
+      mocks.platform = runtimePlatform;
 
+      render(<ClassicMainShellFrame />);
+
+      const titleBar = screen.getByTestId("windows-title-bar");
+      const scaffold = screen.getByTestId("main-shell-scaffold");
+
+      expect(titleBar.compareDocumentPosition(scaffold)).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      expect(titleBar.parentElement?.className).toContain("flex-col");
+    },
+  );
+
+  it("keeps native macOS chrome without the custom title bar", () => {
     render(<ClassicMainShellFrame />);
 
-    const titleBar = screen.getByTestId("windows-title-bar");
-    const scaffold = screen.getByTestId("main-shell-scaffold");
-
-    expect(titleBar.compareDocumentPosition(scaffold)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-    expect(titleBar.parentElement?.className).toContain("flex-col");
+    expect(screen.queryByTestId("windows-title-bar")).toBeNull();
+    expect(screen.getByTestId("main-shell-scaffold")).toBeTruthy();
   });
 
   it("uses left-edge main surface chrome while the sidebar timeline is expanded", () => {

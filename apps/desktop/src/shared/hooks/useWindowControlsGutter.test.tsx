@@ -16,7 +16,10 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: mocks.platform,
 }));
 
-import { useWindowControlsGutter } from "./useWindowControlsGutter";
+import {
+  usesWindowsStyleTitleBar,
+  useWindowControlsGutter,
+} from "./useWindowControlsGutter";
 
 describe("useWindowControlsGutter", () => {
   beforeEach(() => {
@@ -39,6 +42,7 @@ describe("useWindowControlsGutter", () => {
       const { result } = renderHook(() => useWindowControlsGutter());
 
       expect(result.current).toBe(false);
+      expect(usesWindowsStyleTitleBar()).toBe(true);
       expect(mocks.getCurrentWindow).not.toHaveBeenCalled();
     },
   );
@@ -51,6 +55,7 @@ describe("useWindowControlsGutter", () => {
     const { result } = renderHook(() => useWindowControlsGutter());
 
     expect(result.current).toBe(true);
+    expect(usesWindowsStyleTitleBar()).toBe(false);
     expect(mocks.getCurrentWindow).not.toHaveBeenCalled();
   });
 
@@ -60,6 +65,7 @@ describe("useWindowControlsGutter", () => {
     const { result } = renderHook(() => useWindowControlsGutter());
 
     expect(result.current).toBe(true);
+    expect(usesWindowsStyleTitleBar()).toBe(false);
     await waitFor(() => expect(mocks.isFullscreen).toHaveBeenCalledOnce());
     expect(result.current).toBe(true);
   });
