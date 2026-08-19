@@ -140,9 +140,8 @@ export function UndoDeleteToast() {
 function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
   const restoreGroup = useRestoreGroup();
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
-  const title = group.isBatch
-    ? null
-    : pendingDeletions[group.sessionIds[0]]?.data.session.title || t`Untitled`;
+  const title =
+    pendingDeletions[group.sessionIds[0]]?.data.session.title || t`Untitled`;
   const noteLabel = group.sessionIds.length === 1 ? t`note` : t`notes`;
   const label = group.isBatch
     ? t`${group.sessionIds.length} ${noteLabel} deleted`

@@ -143,6 +143,7 @@ function SearchField({
   onChange: (value: string) => void;
   placeholder: string;
 }) {
+  const { t } = useLingui();
   return (
     <div className="border-border flex h-12 items-center gap-2 border-b px-4">
       <MagnifyingGlass className="text-muted-foreground size-4 shrink-0" />
