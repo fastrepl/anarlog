@@ -104,7 +104,7 @@ export function AppIconSelector() {
               className={cn([
                 "group text-foreground focus-visible:ring-ring focus-visible:ring-offset-background relative flex cursor-pointer items-center justify-center rounded-[22px] border bg-transparent p-0.5 transition-[border-color,scale] duration-150 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:cursor-wait",
                 selected
-                  ? "border-blue-500"
+                  ? "border-transparent"
                   : "border-border hover:border-foreground/30",
               ])}
               onClick={() => {
@@ -117,7 +117,22 @@ export function AppIconSelector() {
                 setAppIcon(option);
               }}
             >
-              <span className="flex size-16 overflow-hidden rounded-[18px]">
+              <span
+                aria-hidden
+                className={cn([
+                  "pointer-events-none absolute inset-x-2.5 bottom-0 h-2 rounded-full",
+                  "bg-black/35 blur-[6px] dark:bg-white/25",
+                  "transition-opacity duration-150",
+                  selected ? "opacity-100" : "opacity-0",
+                ])}
+              />
+              <span
+                className={cn([
+                  "flex size-16 overflow-hidden rounded-[18px]",
+                  "transition-transform duration-150",
+                  selected && "-translate-y-1",
+                ])}
+              >
                 {theme === "system" && hasDarkVariant ? (
                   <picture>
                     <source
