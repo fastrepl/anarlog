@@ -1,4 +1,8 @@
-use crate::{AppExt, embedded_cli::EmbeddedCliStatus};
+use crate::{
+    AppExt,
+    agent_skills::{SkillAgent, SkillAgentStatus},
+    embedded_cli::EmbeddedCliStatus,
+};
 
 const STAGING_BUNDLE_ID: &str = "com.hyprnote.staging";
 
@@ -132,6 +136,18 @@ pub async fn install_embedded_cli<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<EmbeddedCliStatus, String> {
     crate::embedded_cli::install(&app)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_skill_agents() -> Result<Vec<SkillAgentStatus>, String> {
+    crate::agent_skills::list()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn install_agent_skill(agent: SkillAgent) -> Result<SkillAgentStatus, String> {
+    crate::agent_skills::install(agent)
 }
 
 #[cfg(test)]

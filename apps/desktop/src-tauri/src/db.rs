@@ -51,7 +51,6 @@ pub fn is_newer_schema_error(error: &impl std::fmt::Display) -> bool {
         .to_string()
         .contains("created by a newer version of Anarlog")
 }
-
 pub fn cloudsync_runtime_config_from_env()
 -> Result<Option<anlg_db_core::CloudsyncRuntimeConfig>, String> {
     cloudsync_runtime_config(|key| std::env::var(key).ok())

@@ -1,6 +1,6 @@
 ---
 name: qa-critical-ux
-description: QA-test the critical desktop user experience before a release. Use before cutting a stable release, after changes to STT, enhance, calendar, billing, auth, or CloudSync flows, or when asked to QA the app.
+description: QA the critical Pro user journey before a desktop release — onboards from scratch, launches without hanging, captures microphone and system audio, and produces an automated summary. Use before cutting a stable release or when asked to QA the app.
 ---
 
 # QA: Critical User Experience

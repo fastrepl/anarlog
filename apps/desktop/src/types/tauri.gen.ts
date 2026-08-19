@@ -118,6 +118,22 @@ async installEmbeddedCli() : Promise<Result<EmbeddedCliStatus, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async listSkillAgents() : Promise<Result<SkillAgentStatus[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_skill_agents") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async installAgentSkill(agent: SkillAgent) : Promise<Result<SkillAgentStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_agent_skill", { agent }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -133,6 +149,8 @@ async installEmbeddedCli() : Promise<Result<EmbeddedCliStatus, string>> {
 
 export type EmbeddedCliState = "installed" | "missing" | "conflict" | "unsupported" | "resource_missing"
 export type EmbeddedCliStatus = { supported: boolean; commandName: string; installPath: string; state: EmbeddedCliState; details: string | null }
+export type SkillAgent = "claude_code" | "codex" | "cursor" | "opencode"
+export type SkillAgentStatus = { agent: SkillAgent; displayName: string; detected: boolean; installed: boolean; skillPath: string }
 
 /** tauri-specta globals **/
 
