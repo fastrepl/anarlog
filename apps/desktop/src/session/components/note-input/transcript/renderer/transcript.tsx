@@ -321,7 +321,7 @@ const SegmentsList = memo(
       <div
         ref={virtual.listRef}
         data-transcript-virtual-total={segments.length}
-        className="relative"
+        className="relative w-full min-w-0 overflow-x-clip"
         style={{ height: virtual.totalHeight }}
       >
         {virtual.virtualItems.map(({ index, key, top }) => {

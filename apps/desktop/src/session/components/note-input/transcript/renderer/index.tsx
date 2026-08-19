@@ -290,7 +290,7 @@ export function TranscriptViewer({
         onClickCapture={handleSegmentSelection}
         onContextMenu={handleContextMenu}
         className={cn([
-          "flex h-full flex-col gap-8 overflow-x-hidden overflow-y-auto",
+          "flex h-full min-h-0 min-w-0 flex-col gap-8 overflow-x-clip overflow-y-auto",
           "scrollbar-hide",
           "scroll-pb-[calc(8rem+env(safe-area-inset-bottom))]",
           "pb-[calc(4rem+env(safe-area-inset-bottom))]",

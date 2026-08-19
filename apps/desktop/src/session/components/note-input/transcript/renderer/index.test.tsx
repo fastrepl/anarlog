@@ -127,6 +127,21 @@ describe("TranscriptViewer", () => {
     ).toBe("false");
   });
 
+  it("clips horizontal overflow so speaker labels stay aligned with text", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1"]}
+        liveSegments={[]}
+        currentActive={false}
+        scrollRef={createRef()}
+      />,
+    );
+
+    const container = document.querySelector("[data-transcript-container]");
+    expect(container?.className).toContain("overflow-x-clip");
+    expect(container?.className).toContain("min-w-0");
+  });
+
   it("keeps active transcript sessions pinned to the bottom", () => {
     render(
       <TranscriptViewer

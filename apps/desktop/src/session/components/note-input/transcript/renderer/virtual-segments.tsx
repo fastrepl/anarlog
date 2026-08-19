@@ -19,13 +19,28 @@ import {
 
 import type { Segment } from "~/stt/live-segment";
 
-const ESTIMATED_LINE_HEIGHT = 24;
+const ESTIMATED_LINE_HEIGHT = 22;
 const ESTIMATED_ROW_CHARS = 90;
-const ESTIMATED_ROW_CHROME = 64;
-const MINIMUM_ROW_HEIGHT = 88;
+const ESTIMATED_ROW_CHROME = 36;
 const SEGMENT_GAP = 16;
 const OVERSCAN_PX = 800;
 const FALLBACK_VIEWPORT_HEIGHT = 800;
+
+export function estimateTranscriptRowHeight(segment: Segment, index: number) {
+  const characterCount = segment.words.reduce(
+    (total, word) => total + word.text.length + 1,
+    0,
+  );
+  const lineCount =
+    characterCount === 0
+      ? 0
+      : Math.max(1, Math.ceil(characterCount / ESTIMATED_ROW_CHARS));
+  return (
+    ESTIMATED_ROW_CHROME +
+    lineCount * ESTIMATED_LINE_HEIGHT +
+    (index > 0 ? SEGMENT_GAP : 0)
+  );
+}
 
 export function useVirtualSegments({
   segments,
@@ -57,20 +72,9 @@ export function useVirtualSegments({
 
   const estimatedHeights = useMemo(
     () =>
-      segments.map((segment, index) => {
-        const characterCount = segment.words.reduce(
-          (total, word) => total + word.text.length + 1,
-          0,
-        );
-        const contentHeight =
-          ESTIMATED_ROW_CHROME +
-          Math.ceil(characterCount / ESTIMATED_ROW_CHARS) *
-            ESTIMATED_LINE_HEIGHT;
-        return (
-          Math.max(MINIMUM_ROW_HEIGHT, contentHeight) +
-          (index > 0 ? SEGMENT_GAP : 0)
-        );
-      }),
+      segments.map((segment, index) =>
+        estimateTranscriptRowHeight(segment, index),
+      ),
     [segments],
   );
   const offsets = useMemo(() => {
@@ -80,7 +84,7 @@ export function useVirtualSegments({
         values[index] +
           (measuredHeights.get(key) ??
             estimatedHeights[index] ??
-            MINIMUM_ROW_HEIGHT),
+            ESTIMATED_ROW_CHROME),
       );
     }
     return values;
@@ -321,8 +325,7 @@ export function VirtualSegmentRow({
       observerRef.current = null;
       if (!node) return;
 
-      const measure = () =>
-        onMeasure(rowKey, node.getBoundingClientRect().height);
+      const measure = () => onMeasure(rowKey, node.offsetHeight);
       measure();
       if (typeof ResizeObserver !== "undefined") {
         observerRef.current = new ResizeObserver(measure);
@@ -335,9 +338,8 @@ export function VirtualSegmentRow({
     () => ({
       left: 0,
       position: "absolute",
-      right: 0,
-      top: 0,
-      transform: `translateY(${top}px)`,
+      top,
+      width: "100%",
     }),
     [top],
   );

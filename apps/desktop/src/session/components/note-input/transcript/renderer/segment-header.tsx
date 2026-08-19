@@ -18,8 +18,7 @@ export function SegmentHeader({
 }) {
   const colorVars = useSegmentColorVars(segment.key);
   const headerClassName = cn([
-    "bg-card sticky top-0 z-20",
-    "-mx-3 px-3 py-1",
+    "relative py-1",
     "text-xs font-light",
     "flex items-center gap-3",
     "[--segment-color:var(--segment-color-light)]",

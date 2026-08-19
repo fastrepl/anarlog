@@ -30,6 +30,22 @@ describe("SegmentHeader", () => {
     expect(screen.queryByText("00:12 - 00:18")).toBeNull();
   });
 
+  it("keeps speaker labels in document flow with their text", () => {
+    const view = render(
+      <SegmentHeader
+        transcriptId="transcript-1"
+        sessionId="session-1"
+        label="J"
+        segment={createRemoteSegment(0)}
+      />,
+    );
+
+    const header = view.container.firstElementChild;
+    expect(header?.className).not.toContain("sticky");
+    expect(header?.className).not.toContain("-mx-3");
+    expect(header?.className).not.toContain("z-20");
+  });
+
   it("labels remote live segments as the unique other participant", () => {
     render(
       <SegmentHeader

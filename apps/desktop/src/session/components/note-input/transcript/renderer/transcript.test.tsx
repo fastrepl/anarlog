@@ -97,7 +97,7 @@ describe("RenderTranscript", () => {
       />,
     );
 
-    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(20);
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(30);
     expect(
       document
         .querySelector("[data-transcript-virtual-total]")
@@ -259,7 +259,7 @@ describe("RenderTranscript", () => {
 
     renderTranscript();
 
-    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(20);
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(30);
     expect(
       document
         .querySelector("[data-transcript-virtual-total]")
@@ -308,7 +308,7 @@ describe("RenderTranscript", () => {
         "section[data-transcript-segment-id='segment-999']",
       ),
     ).toBeTruthy();
-    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(21);
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(30);
   });
 
   it("preserves visible segment nodes when incremental updates append", () => {
@@ -347,7 +347,7 @@ describe("RenderTranscript", () => {
     expect(
       document.querySelector("section[data-transcript-segment-id='segment-0']"),
     ).toBe(first);
-    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(20);
+    expect(document.querySelectorAll("section").length).toBeLessThanOrEqual(30);
   });
 });
 

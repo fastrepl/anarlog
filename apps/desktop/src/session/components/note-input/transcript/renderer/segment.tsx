@@ -102,7 +102,7 @@ export const SegmentRenderer = memo(
         data-segment-speaker-human-id={segment.key.speaker_human_id ?? ""}
         data-transcript-offset-ms={offsetMs}
         className={cn([
-          "-mx-2 rounded-lg px-2 transition-colors",
+          "rounded-lg px-2 transition-colors",
           "data-[transcript-selected=true]:bg-primary/10 data-[transcript-selected=true]:ring-primary/30 data-[transcript-selected=true]:ring-1",
         ])}
       >
