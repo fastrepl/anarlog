@@ -65,7 +65,9 @@ export function LongLoadGate({ children }: { children: ReactNode }) {
   if (!showSplash) {
     return null;
   }
-  return <BrandLoadingView />;
+  return (
+    <BrandLoadingView detail="Updating your data. This may take a few minutes." />
+  );
 }
 
 function StartupErrorView({ error }: { error: Error }) {

@@ -2,7 +2,7 @@ import { cn } from "@anlg/utils";
 
 import { AnarlogMark } from "./anarlog-mark";
 
-export function BrandLoadingView() {
+export function BrandLoadingView({ detail }: { detail?: string }) {
   return (
     <div
       role="status"
@@ -37,9 +37,11 @@ export function BrandLoadingView() {
             <AnarlogMark className="w-full" />
           </div>
         </div>
-        <p className="text-muted-foreground mt-5 max-w-64 text-center text-xs">
-          Updating your data. This may take a few minutes.
-        </p>
+        {detail ? (
+          <p className="text-muted-foreground mt-5 max-w-64 text-center text-xs">
+            {detail}
+          </p>
+        ) : null}
       </div>
     </div>
   );

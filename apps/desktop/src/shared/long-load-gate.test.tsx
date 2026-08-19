@@ -37,9 +37,9 @@ describe("LongLoadGate", () => {
 
     await waitFor(() => {
       expect(screen.getByText("app")).toBeTruthy();
+      expect(document.getElementById("boot-splash")).toBeNull();
     });
     expect(screen.queryByRole("status", { name: "Loading" })).toBeNull();
-    expect(document.getElementById("boot-splash")).toBeNull();
   });
 
   it("shows the branded splash after the delay while startup is still running", async () => {
@@ -65,6 +65,9 @@ describe("LongLoadGate", () => {
     });
 
     expect(screen.getByRole("status", { name: "Loading" })).toBeTruthy();
+    expect(
+      screen.getByText("Updating your data. This may take a few minutes."),
+    ).toBeTruthy();
 
     await act(async () => {
       resolveReady();
