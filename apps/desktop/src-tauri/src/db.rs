@@ -125,7 +125,7 @@ fn parse_env_flag(value: String) -> Result<bool, String> {
     }
 }
 
-fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
+pub(crate) fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
     let data_dir = dirs::data_dir()?;
     let default_dir = anlg_storage::global::compute_default_base(identifier)?;
     let identifier_dir = data_dir.join(identifier);

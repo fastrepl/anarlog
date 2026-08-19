@@ -5,6 +5,7 @@ mod db;
 mod embedded_cli;
 mod ext;
 mod search_index;
+mod startup;
 mod store;
 mod supervisor;
 
@@ -142,16 +143,34 @@ pub async fn main() {
     let context = tauri::generate_context!();
     let identifier = context.config().identifier.clone();
 
+    // The single-instance plugin only starts with the builder, which is too
+    // late to keep a second launch from racing an in-flight startup migration.
+    let launch_lock = match startup::acquire_launch_lock(&identifier) {
+        startup::LaunchLockState::Acquired(lock) => Some(lock),
+        startup::LaunchLockState::HeldByAnotherProcess => {
+            startup::exit_for_already_running_instance()
+        }
+        startup::LaunchLockState::Unavailable(reason) => {
+            eprintln!("starting without the launch lock: {reason}");
+            None
+        }
+    };
+
     let (root_supervisor_ctx, root_supervisor_handle) =
         match supervisor::spawn_root_supervisor().await {
             Some((ctx, handle)) => (Some(ctx), Some(handle)),
             None => (None, None),
         };
 
+    let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
     let db = match open_desktop_db(&identifier).await {
         Ok(db) => db,
-        Err(error) => exit_after_startup_failure(&identifier, &error),
+        Err(error) => {
+            startup_indicator.dismiss();
+            exit_after_startup_failure(&identifier, &error)
+        }
     };
+    startup_indicator.dismiss();
     let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
 
     let sentry_client = {
@@ -418,6 +437,9 @@ pub async fn main() {
         Ok(app) => app,
         Err(error) => exit_after_startup_failure(&identifier, &error),
     };
+
+    // The single-instance plugin took over when the builder finished.
+    drop(launch_lock);
 
     match get_onboarding_flag() {
         None => {}
