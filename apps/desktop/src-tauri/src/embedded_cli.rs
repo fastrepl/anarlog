@@ -94,6 +94,30 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
     }
 }
 
+// Missing also covers a symlink left behind by a previous app version, so this
+// keeps the installed CLI current across updates. Conflict is left alone: the
+// user put something else at the install path and a background task must not
+// replace it.
+pub fn spawn_auto_install<R: tauri::Runtime>(app_handle: tauri::AppHandle<R>) {
+    tauri::async_runtime::spawn_blocking(move || {
+        if check(&app_handle).state != EmbeddedCliState::Missing {
+            return;
+        }
+
+        match install(&app_handle) {
+            Ok(status) if status.state == EmbeddedCliState::Installed => {
+                tracing::info!(install_path = %status.install_path, "auto_installed_embedded_cli");
+            }
+            Ok(status) => {
+                tracing::warn!(state = ?status.state, "embedded_cli_auto_install_incomplete");
+            }
+            Err(error) => {
+                tracing::warn!(%error, "embedded_cli_auto_install_failed");
+            }
+        }
+    });
+}
+
 pub fn install<R: tauri::Runtime, T: tauri::Manager<R>>(
     manager: &T,
 ) -> Result<EmbeddedCliStatus, String> {

@@ -428,7 +428,9 @@ pub async fn main() {
                 }
             }
 
-            search_index::spawn(app_handle, db.clone());
+            search_index::spawn(app_handle.clone(), db.clone());
+
+            embedded_cli::spawn_auto_install(app_handle);
 
             Ok(())
         })
