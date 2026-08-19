@@ -193,6 +193,19 @@ function HeaderMeetingControl({
     );
   }
 
+  if (
+    !isRecording &&
+    sessionMode === "inactive" &&
+    sessionEvent &&
+    (hasTranscript || audioExists)
+  ) {
+    return (
+      <div className="shrink-0">
+        <MetadataButton sessionId={sessionId} />
+      </div>
+    );
+  }
+
   if (ended && !isRecording) {
     return (
       <div className="shrink-0">

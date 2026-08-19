@@ -975,6 +975,31 @@ describe("OuterHeader", () => {
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
+  it("shows only the calendar metadata button when the session is recorded but ended_at is missing", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.hasTranscriptBySession = { "session-1": true };
+    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+    expect(mocks.startListening).not.toHaveBeenCalled();
+  });
+
   it("shows transcript editing in the meeting-action slot after an ad hoc meeting", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
     const onTranscriptEditModeChange = vi.fn();
