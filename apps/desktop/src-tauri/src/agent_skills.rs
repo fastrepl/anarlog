@@ -62,9 +62,20 @@ impl SkillAgent {
             Self::ClaudeCode => home.join(".claude"),
             Self::Codex => home.join(".codex"),
             Self::Cursor => home.join(".cursor"),
-            Self::Opencode => home.join(".config").join("opencode"),
+            Self::Opencode => {
+                opencode_config_dir(home, std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from))
+            }
         }
     }
+}
+
+// OpenCode resolves its config root from XDG_CONFIG_HOME before falling back
+// to ~/.config; a relative value is ignored per the XDG spec.
+fn opencode_config_dir(home: &Path, xdg_config_home: Option<PathBuf>) -> PathBuf {
+    xdg_config_home
+        .filter(|path| path.is_absolute())
+        .unwrap_or_else(|| home.join(".config"))
+        .join("opencode")
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -170,6 +181,24 @@ mod tests {
         assert_ne!(
             std::fs::read_to_string(skill_dir.join("SKILL.md")).unwrap(),
             "outdated"
+        );
+    }
+
+    #[test]
+    fn opencode_config_dir_honors_xdg_config_home() {
+        let home = Path::new("/home/user");
+
+        assert_eq!(
+            opencode_config_dir(home, None),
+            Path::new("/home/user/.config/opencode")
+        );
+        assert_eq!(
+            opencode_config_dir(home, Some(PathBuf::from("/custom/config"))),
+            Path::new("/custom/config/opencode")
+        );
+        assert_eq!(
+            opencode_config_dir(home, Some(PathBuf::from("relative/config"))),
+            Path::new("/home/user/.config/opencode")
         );
     }
 
