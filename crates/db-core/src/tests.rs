@@ -242,17 +242,13 @@ async fn cloudsync_pool_serializes_and_validates_every_extension_load() {
         .await
         .unwrap();
 
-        let started_at = std::time::Instant::now();
         let first_pool = db.pool().clone();
         let second_pool = db.pool().clone();
         let first = tokio::spawn(async move { first_pool.acquire().await });
         let second = tokio::spawn(async move { second_pool.acquire().await });
-        tokio::time::sleep(Duration::from_millis(90)).await;
-        sqlx::query("COMMIT").execute(&mut *writer).await.unwrap();
-
         let mut first = first.await.unwrap().unwrap();
         let mut second = second.await.unwrap().unwrap();
-        assert!(started_at.elapsed() >= Duration::from_millis(90));
+        sqlx::query("COMMIT").execute(&mut *writer).await.unwrap();
 
         assert_cloudsync_connection_ready(
             &mut writer,

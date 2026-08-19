@@ -8,7 +8,10 @@ use sqlx::{Executor, Sqlite, SqliteConnection};
 
 use crate::error::Error;
 
-const EXTENSION_LOAD_BUSY_RETRIES: usize = 4;
+// PRAGMA busy_timeout = 50 keeps SQLite's C busy-handler short so after_connect
+// does not park a Tokio worker. Retry SQLITE_BUSY asynchronously for the same
+// 5s budget used by the rest of the app instead of failing the pool connect.
+const EXTENSION_LOAD_BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 type ExtensionLoadLock = tokio::sync::Mutex<()>;
 
 static EXTENSION_LOAD_LOCKS: OnceLock<std::sync::Mutex<HashMap<PathBuf, Weak<ExtensionLoadLock>>>> =
@@ -107,56 +110,40 @@ async fn load_and_validate_extension(
     connection: &mut SqliteConnection,
     extension_path: &Path,
 ) -> Result<(), Error> {
+    // Loading the extension is per-connection and does not need a reserved
+    // lock. BEGIN IMMEDIATE here fights in-flight writers and makes sqlx log
+    // after_connect SQLITE_BUSY while the pool grows.
     sqlx::query("PRAGMA busy_timeout = 50")
         .execute(&mut *connection)
         .await?;
 
-    let begin_result = begin_extension_load(connection).await;
-    if let Err(error) = begin_result {
-        restore_busy_timeout(connection).await?;
-        return Err(error);
-    }
-
-    let load_result = async {
-        load_extension(connection, extension_path).await?;
-        validate_extension(connection).await
-    }
-    .await;
-    let finish_result = if load_result.is_ok() {
-        sqlx::query("COMMIT").execute(&mut *connection).await
-    } else {
-        sqlx::query("ROLLBACK").execute(&mut *connection).await
+    let deadline = tokio::time::Instant::now() + EXTENSION_LOAD_BUSY_TIMEOUT;
+    let mut attempt = 0u32;
+    let result = loop {
+        match load_extension_and_validate(connection, extension_path).await {
+            Ok(()) => break Ok(()),
+            Err(error) if is_busy_error(&error) => {
+                let now = tokio::time::Instant::now();
+                if now >= deadline {
+                    break Err(error);
+                }
+                let delay = Duration::from_millis(10_u64 << attempt.min(5));
+                tokio::time::sleep(delay.min(deadline - now)).await;
+                attempt = attempt.saturating_add(1);
+            }
+            Err(error) => break Err(error),
+        }
     };
-    let restore_result = restore_busy_timeout(connection).await;
-
-    load_result?;
-    finish_result?;
-    restore_result?;
-    Ok(())
+    restore_busy_timeout(connection).await?;
+    result
 }
 
-async fn begin_extension_load(connection: &mut SqliteConnection) -> Result<(), Error> {
-    let mut last_error = None;
-    for attempt in 0..EXTENSION_LOAD_BUSY_RETRIES {
-        match sqlx::query("BEGIN IMMEDIATE")
-            .execute(&mut *connection)
-            .await
-        {
-            Ok(_) => return Ok(()),
-            Err(error) if is_sqlite_busy(&error) => {
-                last_error = Some(error);
-                if attempt + 1 < EXTENSION_LOAD_BUSY_RETRIES {
-                    let delay_ms = 10_u64 << attempt;
-                    tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                }
-            }
-            Err(error) => return Err(error.into()),
-        }
-    }
-
-    Err(last_error
-        .expect("extension load retry loop must capture the final SQLITE_BUSY error")
-        .into())
+async fn load_extension_and_validate(
+    connection: &mut SqliteConnection,
+    extension_path: &Path,
+) -> Result<(), Error> {
+    load_extension(connection, extension_path).await?;
+    validate_extension(connection).await
 }
 
 fn is_sqlite_busy(error: &sqlx::Error) -> bool {
@@ -166,6 +153,19 @@ fn is_sqlite_busy(error: &sqlx::Error) -> bool {
             message.contains("database is locked") || message.contains("database table is locked")
         }
     })
+}
+
+fn is_busy_error(error: &Error) -> bool {
+    match error {
+        Error::Sqlx(error) => is_sqlite_busy(error),
+        error => {
+            let message = error.to_string().to_ascii_lowercase();
+            message.contains("database is locked")
+                || message.contains("database table is locked")
+                || message.contains("sqlite error 5")
+                || message.contains("sqlite error 6")
+        }
+    }
 }
 
 async fn restore_busy_timeout(connection: &mut SqliteConnection) -> Result<(), Error> {
@@ -496,4 +496,19 @@ where
         .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sqlite_busy_messages_are_retried() {
+        assert!(is_busy_error(&Error::ExtensionInitialization(
+            "failed to load sqlite-sync (sqlite error 5): database is locked".to_string(),
+        )));
+        assert!(!is_busy_error(&Error::ExtensionInitialization(
+            "expected sqlite-sync 1.1.2, loaded 1.0.0".to_string(),
+        )));
+    }
 }
