@@ -53,12 +53,9 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
             let handle = app.clone();
             tauri::async_runtime::spawn(async move {
-                let mut install_cached_update = true;
+                let mut install_at_open = true;
                 loop {
-                    let deferred = check_and_download(&handle, install_cached_update).await;
-                    if !deferred {
-                        install_cached_update = false;
-                    }
+                    install_at_open = check_and_download(&handle, install_at_open).await;
                     tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
                 }
             });
@@ -68,11 +65,13 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
-// Returns true when deferred because a meeting is active, so the caller keeps
-// the cached-install intent for the next tick.
+// Takes the install-at-open intent and returns it for the next tick. A
+// completed pass installs (which restarts the app) and consumes the intent;
+// a meeting deferral or a transient check/download failure (e.g. network not
+// up yet at login) preserves it so a later tick can still install.
 async fn check_and_download<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
-    install_cached_update: bool,
+    install_at_open: bool,
 ) -> bool {
     if cfg!(debug_assertions) {
         return false;
@@ -93,7 +92,7 @@ async fn check_and_download<R: tauri::Runtime>(
     // being recorded; the next 30-minute tick retries after the meeting.
     if updater2.meeting_active() {
         tracing::info!("automatic_update_deferred_meeting_active");
-        return true;
+        return install_at_open;
     }
 
     let version = match updater2.check().await {
@@ -101,17 +100,17 @@ async fn check_and_download<R: tauri::Runtime>(
         Ok(None) => return false,
         Err(e) => {
             tracing::error!("update_check_failed: {}", e);
-            return false;
+            return install_at_open;
         }
     };
 
     // A meeting may have started while the check was in flight.
     if updater2.meeting_active() {
         tracing::info!("automatic_update_deferred_meeting_active");
-        return true;
+        return install_at_open;
     }
 
-    if install_cached_update && updater2.has_cached_update(&version) {
+    if install_at_open && updater2.has_cached_update(&version) {
         if let Err(e) = updater2.install_and_relaunch(&version).await {
             tracing::error!("cached_update_install_failed: {}", e);
         }
@@ -120,7 +119,23 @@ async fn check_and_download<R: tauri::Runtime>(
 
     if let Err(e) = updater2.download(&version).await {
         tracing::error!("update_download_failed: {}", e);
+        return install_at_open;
     }
+
+    // With frequent releases the cached version is rarely still the latest by
+    // the next open, so deferring the install to the next session would
+    // re-download forever and never install anything. Install as soon as the
+    // at-open download completes instead.
+    if install_at_open {
+        if updater2.meeting_active() {
+            tracing::info!("automatic_update_deferred_meeting_active");
+            return true;
+        }
+        if let Err(e) = updater2.install_and_relaunch(&version).await {
+            tracing::error!("downloaded_update_install_failed: {}", e);
+        }
+    }
+
     false
 }
 
