@@ -430,6 +430,22 @@ pub(crate) async fn audio_path<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) async fn audio_copy<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    source_session_id: String,
+    target_session_id: String,
+) -> Result<bool, String> {
+    if source_session_id == target_session_id {
+        return Err("audio_copy_same_session".into());
+    }
+
+    let source_dir = resolve_session_dir(&app, &source_session_id)?;
+    let target_dir = resolve_session_dir(&app, &target_session_id)?;
+    spawn_blocking!({ crate::audio::copy(&source_dir, &target_dir).map_err(|e| e.to_string()) })
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn session_dir<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     session_id: String,

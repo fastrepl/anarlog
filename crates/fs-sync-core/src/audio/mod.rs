@@ -51,6 +51,33 @@ pub fn delete(session_dir: &Path) -> std::io::Result<bool> {
     delete_with(session_dir, |path| std::fs::remove_file(path))
 }
 
+pub fn copy(source_dir: &Path, target_dir: &Path) -> std::io::Result<bool> {
+    let Some(source_path) = path(source_dir) else {
+        return Ok(false);
+    };
+    if exists(target_dir)? {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "audio_target_exists",
+        ));
+    }
+
+    std::fs::create_dir_all(target_dir)?;
+    let Some(filename) = source_path.file_name() else {
+        return Err(std::io::Error::other("audio_source_filename_missing"));
+    };
+    let target_path = target_dir.join(filename);
+    if source_path == target_path {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "audio_copy_same_path",
+        ));
+    }
+
+    std::fs::copy(&source_path, &target_path)?;
+    Ok(true)
+}
+
 pub fn path(session_dir: &Path) -> Option<PathBuf> {
     AUDIO_FORMATS
         .iter()
@@ -336,6 +363,50 @@ mod tests {
 
     fn write_audio(path: &Path) {
         std::fs::write(path, b"audio").unwrap();
+    }
+
+    #[test]
+    fn copy_duplicates_primary_audio_without_artifacts() {
+        let temp = TempDir::new().unwrap();
+        let source_dir = temp.path().join("source");
+        let target_dir = temp.path().join("target");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        write_audio(&source_dir.join("audio.wav"));
+        write_audio(&source_dir.join("audio_mic.wav"));
+
+        assert!(copy(&source_dir, &target_dir).unwrap());
+        assert_eq!(
+            std::fs::read(source_dir.join("audio.wav")).unwrap(),
+            std::fs::read(target_dir.join("audio.wav")).unwrap()
+        );
+        assert!(!target_dir.join("audio_mic.wav").exists());
+        assert!(source_dir.join("audio.wav").exists());
+    }
+
+    #[test]
+    fn copy_without_source_audio_returns_false() {
+        let temp = TempDir::new().unwrap();
+        let source_dir = temp.path().join("source");
+        let target_dir = temp.path().join("target");
+        std::fs::create_dir_all(&source_dir).unwrap();
+
+        assert!(!copy(&source_dir, &target_dir).unwrap());
+        assert!(!target_dir.exists() || path(&target_dir).is_none());
+    }
+
+    #[test]
+    fn copy_refuses_when_target_already_has_audio() {
+        let temp = TempDir::new().unwrap();
+        let source_dir = temp.path().join("source");
+        let target_dir = temp.path().join("target");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::create_dir_all(&target_dir).unwrap();
+        write_audio(&source_dir.join("audio.mp3"));
+        write_audio(&target_dir.join("audio.wav"));
+
+        let error = copy(&source_dir, &target_dir).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(error.to_string(), "audio_target_exists");
     }
 
     #[test]

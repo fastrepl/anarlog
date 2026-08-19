@@ -28,6 +28,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::audio_import_data::<tauri::Wry>,
             commands::audio_source_metadata,
             commands::audio_path::<tauri::Wry>,
+            commands::audio_copy::<tauri::Wry>,
             commands::session_dir::<tauri::Wry>,
             commands::load_session_content::<tauri::Wry>,
             commands::delete_session_folder::<tauri::Wry>,

@@ -21,6 +21,7 @@ Default permissions for the fs-sync plugin
 - `allow-audio-import-data`
 - `allow-audio-source-metadata`
 - `allow-audio-path`
+- `allow-audio-copy`
 - `allow-session-dir`
 - `allow-load-session-content`
 - `allow-delete-session-folder`
@@ -323,6 +324,32 @@ Enables the audio_path command without any pre-configured scope.
 <td>
 
 Denies the audio_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:allow-audio-copy`
+
+</td>
+<td>
+
+Enables the audio_copy command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`fs-sync:deny-audio-copy`
+
+</td>
+<td>
+
+Denies the audio_copy command without any pre-configured scope.
 
 </td>
 </tr>

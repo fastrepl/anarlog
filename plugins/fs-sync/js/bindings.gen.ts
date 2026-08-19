@@ -250,6 +250,23 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async audioCopy(
+    sourceSessionId: string,
+    targetSessionId: string,
+  ): Promise<Result<boolean, string>> {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:fs-sync|audio_copy", {
+          sourceSessionId,
+          targetSessionId,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async sessionDir(sessionId: string): Promise<Result<string, string>> {
     try {
       return {

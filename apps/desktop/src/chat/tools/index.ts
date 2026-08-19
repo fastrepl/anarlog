@@ -17,6 +17,7 @@ import {
   buildGetRecurringMeetingHistoryTool,
   buildListMeetingsTool,
 } from "./meetings";
+import { buildMoveMeetingContentsTool } from "./move-meeting-contents";
 import {
   buildFindRelatedMeetingsTool,
   buildSearchMeetingContentTool,
@@ -106,6 +107,10 @@ export const buildChatTools = (deps: ToolDependencies) => ({
   apply_session_correction: withToolLogging(
     "apply_session_correction",
     buildApplySessionCorrectionTool(deps),
+  ),
+  move_meeting_contents: withToolLogging(
+    "move_meeting_contents",
+    buildMoveMeetingContentsTool(deps),
   ),
 });
 
@@ -251,6 +256,27 @@ type LocalTools = {
       }>;
       dictionaryChanges?: {
         addedTerms: string[];
+      };
+    };
+  };
+  move_meeting_contents: {
+    input: {
+      sourceMeetingId?: string;
+      targetMeetingId: string;
+    };
+    output: {
+      status: string;
+      message?: string;
+      sourceMeetingId?: string;
+      targetMeetingId?: string;
+      sourceTitle?: string;
+      targetTitle?: string;
+      moved?: {
+        recording: boolean;
+        transcripts: number;
+        summaries: number;
+        notes: boolean;
+        actionItems: number;
       };
     };
   };

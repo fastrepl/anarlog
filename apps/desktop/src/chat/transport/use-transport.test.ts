@@ -23,6 +23,8 @@ describe("chat transport prompt guidance", () => {
     expect(prompt).toContain(
       "Use apply_session_correction for narrow exact old-to-new corrections and edit_summary for broader summary rewrites",
     );
+    expect(prompt).toContain("call move_meeting_contents");
+    expect(prompt).toContain("Do not guess IDs");
     expect(prompt).toContain(
       "Use edit_summary only for existing generated post-meeting summaries",
     );

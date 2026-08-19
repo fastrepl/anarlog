@@ -18,6 +18,7 @@ permissions = [
     "allow-audio-import-data",
     "allow-audio-source-metadata",
     "allow-audio-path",
+    "allow-audio-copy",
     "allow-session-dir",
     "allow-load-session-content",
     "allow-delete-session-folder",

@@ -16,6 +16,7 @@ const COMMANDS: &[&str] = &[
     "audio_import_data",
     "audio_source_metadata",
     "audio_path",
+    "audio_copy",
     "session_dir",
     "load_session_content",
     "delete_session_folder",
