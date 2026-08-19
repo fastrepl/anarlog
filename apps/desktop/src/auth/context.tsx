@@ -218,7 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       sonnerToast.error(
         t`The notes on this device are linked to another Anarlog account. Sign in with the account previously used here.`,
-        { id: ACCOUNT_MISMATCH_TOAST_ID, duration: Infinity },
+        { id: ACCOUNT_MISMATCH_TOAST_ID },
       );
       await rejectAuthChange(transition, true);
     },

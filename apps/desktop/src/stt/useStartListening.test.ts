@@ -2595,7 +2595,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not save part of the live transcript.",
-      { id: "live-transcript-persist-failed", duration: Infinity },
+      { id: "live-transcript-persist-failed" },
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(queueAutoEnhanceMock).not.toHaveBeenCalled();
@@ -2645,7 +2645,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
-      { id: "post-capture-transcript-incomplete", duration: Infinity },
+      { id: "post-capture-transcript-incomplete" },
     );
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
@@ -2684,7 +2684,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Post-meeting transcription failed. The recording was kept so you can try again.",
-      { id: "post-capture-batch-failed", duration: Infinity },
+      { id: "post-capture-batch-failed" },
     );
     expect(markSessionAudioTranscriptionCompleteMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
@@ -2764,7 +2764,7 @@ describe("useStartListening", () => {
 
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "Anarlog could not finish saving the transcript. The recording was kept so you can try again.",
-      { id: "post-capture-transcript-incomplete", duration: Infinity },
+      { id: "post-capture-transcript-incomplete" },
     );
     expect(queueAutoEnhanceIfSummaryEmptyMock).not.toHaveBeenCalled();
     expect(deleteProcessedAudioForRetentionMock).not.toHaveBeenCalled();
@@ -3008,7 +3008,7 @@ describe("useStartListening", () => {
     expect(queueAutoEnhanceIfSummaryEmptyMock).toHaveBeenCalledOnce();
     expect(sonnerToastErrorMock).toHaveBeenCalledWith(
       "The transcript was saved, but Anarlog could not start the summary. Try generating it again.",
-      { id: "post-capture-summary-failed", duration: Infinity },
+      { id: "post-capture-summary-failed" },
     );
     expect(clearCaptureLifecycleMarkerMock).not.toHaveBeenCalled();
     expect(saveCaptureLifecycleMarkerMock).toHaveBeenCalledWith(

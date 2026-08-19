@@ -19,6 +19,20 @@ function withDefaultDuration(
   return { duration, ...options };
 }
 
+function withAutoDismissDuration(
+  duration: number,
+  options?: ExternalToast,
+): ExternalToast {
+  const requested = options?.duration;
+  return {
+    ...options,
+    duration:
+      requested === undefined || !Number.isFinite(requested)
+        ? duration
+        : requested,
+  };
+}
+
 export const sonnerToast: typeof rawSonnerToast = Object.assign(
   (message: Parameters<typeof rawSonnerToast>[0], options?: ExternalToast) =>
     rawSonnerToast(message, withDefaultDuration(TOAST_DURATIONS.info, options)),
@@ -54,7 +68,7 @@ export const sonnerToast: typeof rawSonnerToast = Object.assign(
     ) =>
       rawSonnerToast.error(
         message,
-        withDefaultDuration(TOAST_DURATIONS.error, options),
+        withAutoDismissDuration(TOAST_DURATIONS.error, options),
       ),
     message: (
       message: Parameters<typeof rawSonnerToast.message>[0],

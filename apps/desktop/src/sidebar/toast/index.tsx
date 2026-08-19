@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { sonnerToast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
 
 import {
   createDevtoolsToastPreview,
@@ -292,7 +292,7 @@ function SonnerNotification({
     const dismissible = toast.lifecycle.type === "persistent";
     const options = {
       id: toast.id,
-      duration: Infinity,
+      duration: toast.variant === "error" ? TOAST_DURATIONS.error : Infinity,
       closeButton: dismissible,
       dismissible,
       icon: toast.icon,

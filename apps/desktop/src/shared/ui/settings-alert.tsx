@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react";
 
-import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { sonnerToast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
 
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
@@ -56,7 +56,7 @@ function SettingsAlertToastLifecycle({
     const dismissible = lifecycle === "persistent";
     const options = {
       id,
-      duration: Infinity,
+      duration: variant === "error" ? TOAST_DURATIONS.error : Infinity,
       dismissible,
       closeButton: dismissible,
       ...(action

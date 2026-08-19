@@ -359,7 +359,7 @@ export function useCaptureLifecycle(sessionId: string) {
         sonnerToast.dismiss("meeting-disclosure-send-failed");
         const notifyFailure = (message: string, id: string) => {
           if (requestRecoveryOnFailure) {
-            sonnerToast.error(message, { id, duration: Infinity });
+            sonnerToast.error(message, { id });
           }
         };
         const requestRecovery = async () => {

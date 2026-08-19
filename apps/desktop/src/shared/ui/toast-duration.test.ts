@@ -73,4 +73,18 @@ describe("toast durations", () => {
     });
     expect(mocks.loading).toHaveBeenCalledWith("Working", { id: "loading" });
   });
+
+  it("auto-dismisses error toasts even when callers request Infinity", () => {
+    sonnerToast.error("Try again", { duration: Infinity, id: "error" });
+    sonnerToast.error("Custom window", { duration: 12_000, id: "custom" });
+
+    expect(mocks.error).toHaveBeenCalledWith("Try again", {
+      duration: TOAST_DURATIONS.error,
+      id: "error",
+    });
+    expect(mocks.error).toHaveBeenCalledWith("Custom window", {
+      duration: 12_000,
+      id: "custom",
+    });
+  });
 });

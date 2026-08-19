@@ -1486,7 +1486,7 @@ describe("AuthProvider", () => {
     );
     expect(mocks.toastError).toHaveBeenCalledWith(
       "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here.",
-      { id: "auth-account-mismatch", duration: Infinity },
+      { id: "auth-account-mismatch" },
     );
   });
 

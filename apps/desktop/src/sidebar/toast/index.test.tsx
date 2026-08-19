@@ -55,15 +55,20 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
-    message: mocks.message,
-    error: mocks.error,
-    warning: mocks.warning,
-    loading: mocks.loading,
-    dismiss: mocks.dismiss,
-  },
-}));
+vi.mock("@anlg/ui/components/ui/toast", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@anlg/ui/components/ui/toast")>();
+  return {
+    ...actual,
+    sonnerToast: {
+      message: mocks.message,
+      error: mocks.error,
+      warning: mocks.warning,
+      loading: mocks.loading,
+      dismiss: mocks.dismiss,
+    },
+  };
+});
 
 vi.mock("~/auth", () => ({
   useAuth: () => ({ session: null, signIn: mocks.signIn }),
@@ -136,6 +141,8 @@ vi.mock("./useDismissedToasts", () => ({
     isDismissed: (id: string) => mocks.dismissedToastIds.has(id),
   }),
 }));
+
+import { TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
 
 import { ToastNotifications } from "./index";
 
@@ -370,7 +377,10 @@ describe("ToastNotifications", () => {
 
     expect(mocks.error).toHaveBeenCalledWith(
       "The update download failed",
-      expect.objectContaining({ id: "desktop-update:1.0.34:failed" }),
+      expect.objectContaining({
+        id: "desktop-update:1.0.34:failed",
+        duration: TOAST_DURATIONS.error,
+      }),
     );
   });
 

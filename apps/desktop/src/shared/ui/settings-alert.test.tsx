@@ -8,14 +8,21 @@ const mocks = vi.hoisted(() => ({
   dismiss: vi.fn(),
 }));
 
-vi.mock("@anlg/ui/components/ui/toast", () => ({
-  sonnerToast: {
-    message: mocks.message,
-    error: mocks.error,
-    warning: mocks.warning,
-    dismiss: mocks.dismiss,
-  },
-}));
+vi.mock("@anlg/ui/components/ui/toast", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@anlg/ui/components/ui/toast")>();
+  return {
+    ...actual,
+    sonnerToast: {
+      message: mocks.message,
+      error: mocks.error,
+      warning: mocks.warning,
+      dismiss: mocks.dismiss,
+    },
+  };
+});
+
+import { TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
 
 import { SettingsAlertToast } from "./settings-alert";
 
@@ -43,7 +50,7 @@ describe("SettingsAlertToast", () => {
 
     expect(mocks.error).toHaveBeenCalledWith("Provider not configured.", {
       id: "settings-alert",
-      duration: Infinity,
+      duration: TOAST_DURATIONS.error,
       dismissible: true,
       closeButton: true,
     });
@@ -63,7 +70,7 @@ describe("SettingsAlertToast", () => {
     expect(mocks.dismiss).toHaveBeenCalledWith("settings-alert");
   });
 
-  it("keeps required settings actions persistent", () => {
+  it("auto-dismisses error settings alerts while keeping actions available", () => {
     const onClick = vi.fn();
 
     render(
@@ -80,7 +87,7 @@ describe("SettingsAlertToast", () => {
       "Repair Keychain access.",
       expect.objectContaining({
         id: "keychain-alert",
-        duration: Infinity,
+        duration: TOAST_DURATIONS.error,
         dismissible: false,
         closeButton: false,
         action: expect.objectContaining({ label: "Repair" }),
