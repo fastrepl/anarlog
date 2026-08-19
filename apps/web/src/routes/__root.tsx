@@ -13,6 +13,7 @@ import { Toaster } from "@anlg/ui/components/ui/toast";
 import { WebProviders } from "@/components/web-providers";
 import { isTelemetryPrivateLocation } from "@/lib/auth-route-privacy";
 import {
+  ANARLOG_SITE_NAME,
   ANARLOG_SITE_URL,
   DEFAULT_OG_IMAGE_URL,
   ROOT_DESCRIPTION,
@@ -46,6 +47,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { name: "apple-mobile-web-app-title", content: "Anarlog" },
       { name: "theme-color", content: "#ffe09d" },
       { property: "og:type", content: "website" },
+      { property: "og:site_name", content: ANARLOG_SITE_NAME },
       { property: "og:title", content: ROOT_TITLE },
       { property: "og:description", content: ROOT_DESCRIPTION },
       { property: "og:url", content: getCanonicalUrl() },

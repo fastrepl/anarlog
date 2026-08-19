@@ -52,6 +52,14 @@ test("authorized link previews receive note-specific social metadata", () => {
     head.meta.some(
       (meta) =>
         "property" in meta &&
+        meta.property === "og:site_name" &&
+        meta.content === "anarlog",
+    ),
+  );
+  assert.ok(
+    head.meta.some(
+      (meta) =>
+        "property" in meta &&
         meta.property === "og:image" &&
         meta.content ===
           `https://anarlog.so/api/og/share/link/${shareId}?preview=${previewToken}`,
@@ -88,6 +96,14 @@ test("short links receive note-specific social metadata without a query token", 
         "property" in meta &&
         meta.property === "og:image" &&
         meta.content === `https://anarlog.so/api/og/share/t/${linkId}`,
+    ),
+  );
+  assert.ok(
+    head.meta.some(
+      (meta) =>
+        "property" in meta &&
+        meta.property === "og:site_name" &&
+        meta.content === "anarlog",
     ),
   );
 });
@@ -148,6 +164,11 @@ test("available public notes receive canonical indexable metadata", () => {
         meta.property === "og:image" &&
         meta.content ===
           "https://anarlog.so/api/og/share/public/s_0123456789abcdef0123456789abcdef",
+    ),
+  );
+  assert.ok(
+    head.meta.some(
+      (meta) => meta.property === "og:site_name" && meta.content === "anarlog",
     ),
   );
   assert.ok(

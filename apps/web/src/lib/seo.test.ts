@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ANARLOG_SITE_NAME,
   getBlogPostingJsonLd,
   getCanonicalUrl,
   getSoftwareApplicationJsonLd,
 } from "./seo.ts";
 
 test("builds canonical urls with a trailing slash", () => {
+  assert.equal(ANARLOG_SITE_NAME, "anarlog");
   assert.equal(getCanonicalUrl(), "https://anarlog.so/");
   assert.equal(getCanonicalUrl("/blog"), "https://anarlog.so/blog/");
   assert.equal(

@@ -1,4 +1,5 @@
 export const ANARLOG_SITE_URL = "https://anarlog.so";
+export const ANARLOG_SITE_NAME = "anarlog";
 export const DEFAULT_OG_IMAGE_URL = `${ANARLOG_SITE_URL}/og.jpg`;
 
 /**
