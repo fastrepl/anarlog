@@ -57,41 +57,6 @@ impl std::str::FromStr for AppWindow {
 }
 
 impl AppWindow {
-    pub fn center_on_primary(
-        &self,
-        app: &tauri::AppHandle<tauri::Wry>,
-        window: &tauri::WebviewWindow<tauri::Wry>,
-    ) -> Result<(), crate::Error> {
-        if !matches!(self, Self::Main) {
-            return Ok(());
-        }
-
-        use tauri::PhysicalPosition;
-
-        let Some(monitor) = app.primary_monitor()? else {
-            return Ok(());
-        };
-        let window_scale_factor = window.scale_factor()?;
-        let window_size = window
-            .outer_size()?
-            .to_logical::<f64>(window_scale_factor)
-            .to_physical::<u32>(monitor.scale_factor());
-        let work_area = monitor.work_area();
-        let window_frame = WindowFrame::new(
-            0.0,
-            0.0,
-            f64::from(window_size.width),
-            f64::from(window_size.height),
-        );
-        let work_area = WindowFrame::from_physical(work_area.position, work_area.size);
-        let (x, y) = centered_window_position(window_frame, work_area);
-
-        window.set_position(PhysicalPosition::new(x, y))?;
-        tracing::info!("main_window_centered_on_primary");
-
-        Ok(())
-    }
-
     pub(crate) fn ensure_visible(
         &self,
         app: &tauri::AppHandle<tauri::Wry>,
