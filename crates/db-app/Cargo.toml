@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anlg-cloudsync = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-migrate = { workspace = true }
 anlg-e2ee = { workspace = true }
@@ -21,4 +22,5 @@ default = []
 cli = []
 
 [dev-dependencies]
+tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt", "macros", "time"] }

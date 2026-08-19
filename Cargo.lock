@@ -4542,6 +4542,7 @@ name = "db-app"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "cloudsync",
  "db-core",
  "db-migrate",
  "e2ee",
@@ -4549,6 +4550,7 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "sqlx",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "uuid",
