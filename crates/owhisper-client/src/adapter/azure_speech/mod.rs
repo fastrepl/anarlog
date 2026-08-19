@@ -11,6 +11,10 @@ use crate::adapter::{
 };
 use crate::error::Error;
 
+const AZURE_MIN_SPEAKERS: u32 = 2;
+const AZURE_MAX_SPEAKERS: u32 = 35;
+const AZURE_DEFAULT_MAX_SPEAKERS: u32 = 8;
+
 #[derive(Clone, Default)]
 pub struct AzureSpeechAdapter;
 
@@ -61,16 +65,7 @@ async fn do_transcribe_file(
         ));
     }
 
-    let locales = params
-        .languages
-        .iter()
-        .map(anlg_language::Language::bcp47_code)
-        .collect::<Vec<_>>();
-    let definition = if locales.is_empty() {
-        serde_json::json!({})
-    } else {
-        serde_json::json!({ "locales": locales })
-    };
+    let definition = transcription_definition(params);
     let form = Form::new()
         .text("definition", definition.to_string())
         .part("audio", streaming_file_part(&file_path).await?);
@@ -90,6 +85,34 @@ async fn do_transcribe_file(
     let payload: AzureSpeechResponse = ensure_success(response).await?.json().await?;
 
     Ok(convert_response(payload))
+}
+
+fn transcription_definition(params: &ListenParams) -> serde_json::Value {
+    let locales = params
+        .languages
+        .iter()
+        .map(anlg_language::Language::bcp47_code)
+        .collect::<Vec<_>>();
+    let mut definition = if locales.is_empty() {
+        serde_json::json!({})
+    } else {
+        serde_json::json!({ "locales": locales })
+    };
+    // Fast transcription leaves diarization off unless the definition asks for it,
+    // which collapses every meeting participant onto a single speaker label.
+    definition["diarization"] = serde_json::json!({
+        "enabled": true,
+        "maxSpeakers": azure_max_speakers(params),
+    });
+    definition
+}
+
+fn azure_max_speakers(params: &ListenParams) -> u32 {
+    params
+        .max_speakers
+        .or(params.num_speakers)
+        .unwrap_or(AZURE_DEFAULT_MAX_SPEAKERS)
+        .clamp(AZURE_MIN_SPEAKERS, AZURE_MAX_SPEAKERS)
 }
 
 #[derive(serde::Deserialize)]
@@ -220,5 +243,99 @@ mod tests {
         assert_eq!(alternative.transcript, "Weather");
         assert_eq!(alternative.words[0].start, 0.04);
         assert_eq!(alternative.words[0].speaker, Some(1));
+    }
+
+    #[test]
+    fn converts_diarized_phrases_to_per_word_speakers() {
+        let payload: AzureSpeechResponse = serde_json::from_value(serde_json::json!({
+            "durationMilliseconds": 1800,
+            "combinedPhrases": [{ "text": "Hello there" }],
+            "phrases": [
+                {
+                    "confidence": 0.9,
+                    "speaker": 0,
+                    "words": [{
+                        "text": "Hello",
+                        "offsetMilliseconds": 0,
+                        "durationMilliseconds": 400
+                    }]
+                },
+                {
+                    "confidence": 0.8,
+                    "speaker": 1,
+                    "words": [{
+                        "text": "there",
+                        "offsetMilliseconds": 500,
+                        "durationMilliseconds": 300
+                    }]
+                }
+            ]
+        }))
+        .unwrap();
+
+        let words = &convert_response(payload).results.channels[0].alternatives[0].words;
+        assert_eq!(words[0].speaker, Some(0));
+        assert_eq!(words[1].speaker, Some(1));
+    }
+
+    #[test]
+    fn definition_enables_diarization_by_default() {
+        let definition = transcription_definition(&ListenParams::default());
+
+        assert_eq!(
+            definition,
+            serde_json::json!({
+                "diarization": {
+                    "enabled": true,
+                    "maxSpeakers": AZURE_DEFAULT_MAX_SPEAKERS
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn definition_uses_speaker_hint_and_locales() {
+        let definition = transcription_definition(&ListenParams {
+            languages: vec![anlg_language::ISO639::En.into()],
+            num_speakers: Some(3),
+            max_speakers: Some(5),
+            ..ListenParams::default()
+        });
+
+        assert_eq!(
+            definition,
+            serde_json::json!({
+                "locales": ["en"],
+                "diarization": {
+                    "enabled": true,
+                    "maxSpeakers": 5
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn max_speakers_clamps_to_azure_range() {
+        assert_eq!(
+            azure_max_speakers(&ListenParams {
+                num_speakers: Some(1),
+                ..ListenParams::default()
+            }),
+            AZURE_MIN_SPEAKERS
+        );
+        assert_eq!(
+            azure_max_speakers(&ListenParams {
+                max_speakers: Some(100),
+                ..ListenParams::default()
+            }),
+            AZURE_MAX_SPEAKERS
+        );
+        assert_eq!(
+            azure_max_speakers(&ListenParams {
+                num_speakers: Some(4),
+                ..ListenParams::default()
+            }),
+            4
+        );
     }
 }
