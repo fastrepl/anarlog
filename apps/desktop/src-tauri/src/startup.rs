@@ -72,10 +72,11 @@ pub fn exit_for_already_running_instance() -> ! {
     std::process::exit(0);
 }
 
-// Database migrations run before the webview or dock icon exists, so a long
-// migration makes the app look dead. After a short delay this shows a native
-// alert (spawned osascript, matching the startup-failure alerts) that is
-// killed as soon as the database is ready.
+// Database open and plugin setup can still take a few seconds before the
+// webview exists. After a short delay this shows a native alert (spawned
+// osascript, matching the startup-failure alerts) that is killed as soon as
+// the database file is open. Longer schema and legacy-import work then runs
+// with the main window visible.
 pub struct SlowStartupIndicator {
     state: Arc<Mutex<IndicatorState>>,
 }

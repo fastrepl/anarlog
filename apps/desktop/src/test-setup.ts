@@ -100,6 +100,7 @@ vi.mock("@anlg/plugin-db", () => ({
   getRecurringMeetingHistory: vi.fn(),
   listMeetings: vi.fn(),
   subscribe: vi.fn().mockResolvedValue(() => Promise.resolve()),
+  waitUntilReady: vi.fn().mockResolvedValue(undefined),
   suspendCloudsync: vi.fn().mockResolvedValue(undefined),
   suspendCloudsyncAfterAuthLoss: vi.fn().mockResolvedValue(undefined),
   suspendCloudsyncForSignOut: vi.fn().mockResolvedValue(undefined),

@@ -34,6 +34,7 @@ const COMMANDS: &[&str] = &[
     "sync_cloudsync_now",
     "begin_cloudsync_activity",
     "end_cloudsync_activity",
+    "wait_until_ready",
 ];
 
 fn main() {

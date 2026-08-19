@@ -18391,7 +18391,6 @@ dependencies = [
  "tauri-plugin",
  "tauri-plugin-store2",
  "tauri-specta",
- "tauri-utils 0.1.0",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",

@@ -5,7 +5,7 @@ mod import;
 mod runtime;
 
 pub use error::{Error, Result};
-pub use runtime::open_app_db;
+pub use runtime::{open_app_db, open_app_db_unmigrated};
 use tauri::Manager;
 
 const PLUGIN_NAME: &str = "db";
@@ -331,8 +331,48 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::sync_cloudsync_now,
             commands::begin_cloudsync_activity,
             commands::end_cloudsync_activity,
+            commands::wait_until_ready,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
+}
+
+async fn bootstrap_app_database<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    db: std::sync::Arc<anlg_db_core::Db>,
+    runtime: &runtime::PluginDbRuntime,
+    startup_config: Option<anlg_db_core::CloudsyncRuntimeConfig>,
+) -> std::result::Result<(), String> {
+    runtime
+        .ensure_app_schema()
+        .await
+        .map_err(|error| error.to_string())?;
+    import::import_legacy_data(&app, db.pool())
+        .await
+        .map_err(|error| error.to_string())?;
+    if let Some(config) = startup_config {
+        let migration_ready = import::legacy_migration_ready(db.pool())
+            .await
+            .map_err(|error| error.to_string())?;
+        if !migration_ready {
+            tracing::warn!(
+                "startup CloudSync configuration skipped until legacy migration is ready"
+            );
+        } else if let Err(error) = db.cloudsync_configure(config).await {
+            tracing::warn!(%error, "failed to configure startup cloudsync");
+        } else {
+            let sync_db = std::sync::Arc::clone(&db);
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = sync_db.cloudsync_start().await {
+                    tracing::warn!(%error, "failed to start cloudsync");
+                    return;
+                }
+                if let Err(error) = sync_db.cloudsync_trigger_sync().await {
+                    tracing::warn!(%error, "initial cloudsync failed");
+                }
+            });
+        }
+    }
+    Ok(())
 }
 
 pub fn init<R: tauri::Runtime>(
@@ -350,33 +390,23 @@ pub fn init_with_cloudsync<R: tauri::Runtime>(
     tauri::plugin::Builder::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app, _| {
-            anlg_tauri_utils::block_on(anlg_db_app::prepare_schema(db.as_ref()))?;
-            anlg_tauri_utils::block_on(import::import_legacy_data(app.app_handle(), db.pool()))?;
-            if let Some(config) = startup_config.clone() {
-                let migration_ready =
-                    anlg_tauri_utils::block_on(import::legacy_migration_ready(db.pool()))?;
-                if !migration_ready {
-                    tracing::warn!(
-                        "startup CloudSync configuration skipped until legacy migration is ready"
-                    );
-                } else if let Err(error) =
-                    anlg_tauri_utils::block_on(db.cloudsync_configure(config))
-                {
-                    tracing::warn!(%error, "failed to configure startup cloudsync");
-                } else {
-                    let sync_db = std::sync::Arc::clone(&db);
-                    tauri::async_runtime::spawn(async move {
-                        if let Err(error) = sync_db.cloudsync_start().await {
-                            tracing::warn!(%error, "failed to start cloudsync");
-                            return;
-                        }
-                        if let Err(error) = sync_db.cloudsync_trigger_sync().await {
-                            tracing::warn!(%error, "initial cloudsync failed");
-                        }
-                    });
-                }
-            }
-            app.manage(std::sync::Arc::new(runtime::PluginDbRuntime::new(db)));
+            let runtime =
+                std::sync::Arc::new(runtime::PluginDbRuntime::new(std::sync::Arc::clone(&db)));
+            let startup_db = std::sync::Arc::clone(&db);
+            let startup_runtime = std::sync::Arc::clone(&runtime);
+            let startup_app = app.app_handle().clone();
+            let startup_config = startup_config.clone();
+            tauri::async_runtime::spawn(async move {
+                let result = bootstrap_app_database(
+                    startup_app,
+                    startup_db,
+                    &startup_runtime,
+                    startup_config,
+                )
+                .await;
+                startup_runtime.finish_startup(result);
+            });
+            app.manage(runtime);
             Ok(())
         })
         .on_event(|app, event| {

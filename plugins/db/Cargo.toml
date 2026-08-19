@@ -19,7 +19,6 @@ anlg-e2ee = { workspace = true }
 anlg-fs-sync-core = { workspace = true }
 anlg-session-ingest = { workspace = true }
 anlg-storage = { workspace = true }
-anlg-tauri-utils = { workspace = true }
 
 futures-util = { workspace = true }
 reqwest = { workspace = true, features = ["json", "query", "stream"] }

@@ -31,4 +31,5 @@ permissions = [
   "allow-suspend-cloudsync-for-sign-out",
   "allow-suspend-cloudsync-after-auth-loss",
   "allow-get-cloudsync-status",
+  "allow-wait-until-ready",
 ]

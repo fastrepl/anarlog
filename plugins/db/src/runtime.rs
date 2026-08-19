@@ -18,9 +18,9 @@ mod witness_watch;
 
 use e2ee_sync::E2eeSyncHook;
 pub(crate) use e2ee_sync::{CloudsyncTokenConfiguration, E2eeWorkspaceKeyConfiguration};
-pub use open::open_app_db;
 #[cfg(test)]
 use open::{app_db_open_options, database_uses_cloudsync_schema, open_app_db_without_cloudsync};
+pub use open::{open_app_db, open_app_db_unmigrated};
 #[cfg(test)]
 use recovery::{
     CLOUDSYNC_FULL_RESYNC_PROGRESS_INTERVAL, CLOUDSYNC_FULL_RESYNC_RETRY_INTERVAL,
@@ -134,6 +134,7 @@ impl Drop for ExplicitRollbackTransaction {
 pub struct PluginDbRuntime {
     db: std::sync::Arc<Db>,
     schema_ready: tokio::sync::OnceCell<()>,
+    startup_tx: tokio::sync::watch::Sender<Option<std::result::Result<(), String>>>,
     synced_write_barrier: tokio::sync::RwLock<()>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
@@ -198,9 +199,11 @@ impl PluginDbRuntime {
             std::sync::Arc::clone(&db),
             std::sync::Arc::clone(&e2ee_sync_hook),
         );
+        let (startup_tx, _) = tokio::sync::watch::channel(None);
         Self {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
+            startup_tx,
             synced_write_barrier: tokio::sync::RwLock::new(()),
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
@@ -435,11 +438,29 @@ impl PluginDbRuntime {
         self.request_active_sync();
     }
 
-    async fn ensure_app_schema(&self) -> Result<()> {
+    pub(crate) async fn ensure_app_schema(&self) -> Result<()> {
         self.schema_ready
             .get_or_try_init(|| async { anlg_db_app::prepare_schema(self.db.as_ref()).await })
             .await?;
         Ok(())
+    }
+
+    pub(crate) fn finish_startup(&self, result: std::result::Result<(), String>) {
+        self.startup_tx.send_replace(Some(result));
+    }
+
+    pub async fn wait_until_ready(&self) -> Result<()> {
+        let mut rx = self.startup_tx.subscribe();
+        let outcome = rx
+            .wait_for(|value| value.is_some())
+            .await
+            .map_err(|_| std::io::Error::other("database startup was interrupted"))?
+            .clone();
+        match outcome {
+            Some(Ok(())) => Ok(()),
+            Some(Err(message)) => Err(std::io::Error::other(message).into()),
+            None => unreachable!("waited until startup reported a result"),
+        }
     }
 
     async fn ensure_legacy_migration_ready(&self) -> Result<()> {

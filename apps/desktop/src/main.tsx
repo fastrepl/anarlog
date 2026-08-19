@@ -3,7 +3,7 @@ import "./styles/cursor.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
-import { StrictMode, useMemo } from "react";
+import { StrictMode, useEffect, useMemo } from "react";
 import ReactDOM from "react-dom/client";
 
 import "@anlg/ui/globals.css";
@@ -40,6 +40,7 @@ import { initializeApplicationSettings } from "./settings/queries";
 import { initializeAppExitFlush } from "./shared/app-exit";
 import { useConfigValue } from "./shared/config";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
+import { LongLoadGate } from "./shared/long-load-gate";
 import { startInteractionProfiler } from "./shared/perf/interaction-profiler";
 import { bootstrapThemeFromSettings } from "./shared/theme/apply";
 import { AppThemeProvider } from "./shared/theme/provider";
@@ -87,23 +88,35 @@ function App() {
 initializeErrorReporting();
 
 function AppRoot() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <LongLoadGate>
+        <ReadyApp />
+      </LongLoadGate>
+    </QueryClientProvider>
+  );
+}
+
+function ReadyApp() {
   const scheduler = useMemo(() => createTaskScheduler().start(), []);
   const theme = useConfigValue("theme") as ThemePreference;
   useRemoteSessionDeletionUndoListener(isMainWindow);
 
+  useEffect(() => {
+    runMainWindowStartupTasks();
+  }, []);
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <TaskSchedulerProvider scheduler={scheduler}>
-        <App />
-        {isMainWindow ? <TaskManager /> : null}
-        {isMainWindow ? <FloatingMeetingWindowHost /> : null}
-        {isMainWindow ? <EventListeners /> : null}
-        {isMainWindow ? <TrayScheduleSync /> : null}
-        {isMainWindow ? <TrayRecordingSync /> : null}
-        {isMainWindow ? <UpdaterMeetingSync /> : null}
-        <Toaster position="bottom-right" theme={theme} />
-      </TaskSchedulerProvider>
-    </QueryClientProvider>
+    <TaskSchedulerProvider scheduler={scheduler}>
+      <App />
+      {isMainWindow ? <TaskManager /> : null}
+      {isMainWindow ? <FloatingMeetingWindowHost /> : null}
+      {isMainWindow ? <EventListeners /> : null}
+      {isMainWindow ? <TrayScheduleSync /> : null}
+      {isMainWindow ? <TrayRecordingSync /> : null}
+      {isMainWindow ? <UpdaterMeetingSync /> : null}
+      <Toaster position="bottom-right" theme={theme} />
+    </TaskSchedulerProvider>
   );
 }
 
@@ -154,7 +167,6 @@ async function renderApp() {
       <AppRoot />
     </StrictMode>,
   );
-  runMainWindowStartupTasks();
 }
 
 if (!rootElement.innerHTML) {

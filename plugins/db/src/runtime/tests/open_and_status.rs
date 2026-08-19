@@ -31,6 +31,7 @@ async fn cloudsync_open_failure_falls_back_for_uninitialized_database() {
         DbStorage::Local(&db_path),
         unavailable_extension_error(),
         failed_extension_probe_error(),
+        true,
     )
     .await
     .unwrap();
@@ -76,6 +77,7 @@ async fn extension_open_without_initialized_tables_allows_plain_fallback() {
         DbStorage::Local(&db_path),
         unavailable_extension_error(),
         failed_extension_probe_error(),
+        true,
     )
     .await
     .unwrap();
@@ -123,6 +125,7 @@ async fn cloudsync_open_failure_does_not_migrate_initialized_replica_plainly() {
         DbStorage::Local(&db_path),
         unavailable_extension_error(),
         failed_extension_probe_error(),
+        true,
     )
     .await
     .unwrap_err();
@@ -163,6 +166,7 @@ async fn cloudsync_open_fallback_propagates_schema_errors() {
         DbStorage::Local(&db_path),
         unavailable_extension_error(),
         failed_extension_probe_error(),
+        true,
     )
     .await
     .unwrap_err();

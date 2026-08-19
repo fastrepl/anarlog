@@ -20,7 +20,7 @@ pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
     // whole startup on a transient lock.
     let mut attempts = 0u32;
     let db = loop {
-        match tauri_plugin_db::open_app_db(Some(&db_path)).await {
+        match tauri_plugin_db::open_app_db_unmigrated(Some(&db_path)).await {
             Ok(db) => break db,
             Err(error) if attempts < DB_OPEN_LOCK_RETRIES && is_transient_lock_error(&error) => {
                 attempts += 1;

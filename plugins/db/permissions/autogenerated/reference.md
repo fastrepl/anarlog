@@ -34,6 +34,7 @@ Default permissions for the plugin
 - `allow-suspend-cloudsync-for-sign-out`
 - `allow-suspend-cloudsync-after-auth-loss`
 - `allow-get-cloudsync-status`
+- `allow-wait-until-ready`
 
 ## Permission Table
 
@@ -950,6 +951,32 @@ Enables the unsubscribe command without any pre-configured scope.
 <td>
 
 Denies the unsubscribe command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-wait-until-ready`
+
+</td>
+<td>
+
+Enables the wait_until_ready command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-wait-until-ready`
+
+</td>
+<td>
+
+Denies the wait_until_ready command without any pre-configured scope.
 
 </td>
 </tr>

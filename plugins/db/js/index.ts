@@ -358,6 +358,10 @@ export async function getCloudsyncStatus(): Promise<CloudsyncStatus> {
   return invoke("plugin:db|get_cloudsync_status");
 }
 
+export async function waitUntilReady(): Promise<void> {
+  return invoke("plugin:db|wait_until_ready");
+}
+
 export async function beginCloudsyncActivity(
   activity: string,
   key: string,

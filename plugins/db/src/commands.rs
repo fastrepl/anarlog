@@ -790,6 +790,15 @@ pub(crate) async fn end_cloudsync_activity(
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+#[specta::specta]
+pub(crate) async fn wait_until_ready(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
+    state
+        .wait_until_ready()
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

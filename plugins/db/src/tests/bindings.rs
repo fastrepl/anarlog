@@ -65,3 +65,10 @@ fn default_permissions_include_session_ingest() {
 
     assert!(permissions.contains("allow-apply-session-ingest"));
 }
+
+#[test]
+fn default_permissions_include_startup_ready() {
+    let permissions = include_str!("../../permissions/default.toml");
+
+    assert!(permissions.contains("allow-wait-until-ready"));
+}
