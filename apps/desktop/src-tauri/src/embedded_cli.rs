@@ -94,6 +94,51 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
     }
 }
 
+// Missing also covers a symlink left behind by a previous app version, so this
+// keeps the installed CLI current across updates. Conflict is left alone: the
+// user put something else at the install path and a background task must not
+// replace it.
+pub fn spawn_auto_install<R: tauri::Runtime>(app_handle: tauri::AppHandle<R>) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let status = check(&app_handle);
+        if status.state != EmbeddedCliState::Missing {
+            return;
+        }
+
+        // On Windows, Missing also covers a binary that is present but absent
+        // from the user PATH. Rewriting the binary on every launch would churn
+        // it forever when the PATH registry write keeps failing, so only the
+        // PATH entry is repaired.
+        #[cfg(target_os = "windows")]
+        {
+            let install_path = PathBuf::from(&status.install_path);
+            if std::fs::symlink_metadata(&install_path).is_ok_and(|metadata| metadata.is_file()) {
+                match add_windows_cli_to_path(&install_path) {
+                    Ok(()) => {
+                        tracing::info!(install_path = %status.install_path, "auto_repaired_embedded_cli_path");
+                    }
+                    Err(error) => {
+                        tracing::warn!(%error, "embedded_cli_auto_path_repair_failed");
+                    }
+                }
+                return;
+            }
+        }
+
+        match install(&app_handle) {
+            Ok(status) if status.state == EmbeddedCliState::Installed => {
+                tracing::info!(install_path = %status.install_path, "auto_installed_embedded_cli");
+            }
+            Ok(status) => {
+                tracing::warn!(state = ?status.state, "embedded_cli_auto_install_incomplete");
+            }
+            Err(error) => {
+                tracing::warn!(%error, "embedded_cli_auto_install_failed");
+            }
+        }
+    });
+}
+
 pub fn install<R: tauri::Runtime, T: tauri::Manager<R>>(
     manager: &T,
 ) -> Result<EmbeddedCliStatus, String> {

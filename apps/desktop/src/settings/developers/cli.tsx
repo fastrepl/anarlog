@@ -5,6 +5,8 @@ import { Button } from "@anlg/ui/components/ui/button";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { cn } from "@anlg/utils";
 
+import { SkillsRow } from "./skills";
+
 import { commands, type EmbeddedCliStatus } from "~/types/tauri.gen";
 
 const CLI_STATUS_QUERY_KEY = ["embedded-cli-status"] as const;
@@ -154,6 +156,7 @@ function CliSection({
           </div>
         </div>
         <McpRow status={status} />
+        <SkillsRow />
       </div>
     </section>
   );

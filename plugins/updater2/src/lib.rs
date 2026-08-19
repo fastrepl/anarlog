@@ -67,8 +67,8 @@ pub fn init<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
 
 // Takes the install-at-open intent and returns it for the next tick. A
 // completed pass installs (which restarts the app) and consumes the intent;
-// a meeting deferral or a transient check/download failure (e.g. network not
-// up yet at login) preserves it so a later tick can still install.
+// a meeting deferral or a transient check/download/install failure (e.g.
+// network not up yet at login) preserves it so a later tick can still install.
 async fn check_and_download<R: tauri::Runtime>(
     app: &tauri::AppHandle<R>,
     install_at_open: bool,
@@ -110,9 +110,13 @@ async fn check_and_download<R: tauri::Runtime>(
         return install_at_open;
     }
 
+    // install_and_relaunch re-checks the release feed before applying the bin,
+    // so it can fail transiently just like check/download; keep the intent so
+    // a later tick retries instead of disabling auto-install for the session.
     if install_at_open && updater2.has_cached_update(&version) {
         if let Err(e) = updater2.install_and_relaunch(&version).await {
             tracing::error!("cached_update_install_failed: {}", e);
+            return true;
         }
         return false;
     }
@@ -133,6 +137,7 @@ async fn check_and_download<R: tauri::Runtime>(
         }
         if let Err(e) = updater2.install_and_relaunch(&version).await {
             tracing::error!("downloaded_update_install_failed: {}", e);
+            return true;
         }
     }
 
