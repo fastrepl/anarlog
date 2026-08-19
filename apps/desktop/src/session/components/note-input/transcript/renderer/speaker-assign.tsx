@@ -93,6 +93,7 @@ export function SpeakerAssignPopover({
         <button
           ref={triggerRef}
           type="button"
+          data-transcript-speaker-assign
           className={cn([
             "-my-0.5 cursor-pointer rounded-full py-0.5 pr-2",
             "underline-offset-2 hover:underline focus-visible:underline",

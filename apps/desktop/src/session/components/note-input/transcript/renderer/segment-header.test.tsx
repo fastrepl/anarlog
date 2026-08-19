@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SegmentHeader } from "./segment-header";
+import { TranscriptSelectionProvider } from "./selection-context";
 
 import type { Segment } from "~/stt/live-segment";
 
@@ -16,6 +17,27 @@ beforeEach(() => {
 });
 
 describe("SegmentHeader", () => {
+  it("shows a selection marker in select mode", () => {
+    render(
+      <TranscriptSelectionProvider
+        selectMode
+        selectedKeys={new Set()}
+        registerSource={() => () => {}}
+      >
+        <SegmentHeader
+          transcriptId="transcript-1"
+          sessionId="session-1"
+          label="Speaker 3"
+          segment={createRemoteSegment(2)}
+        />
+      </TranscriptSelectionProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Speaker 3" })).toBeTruthy();
+    expect(document.querySelector("[aria-hidden='true']")?.className).toContain(
+      "rounded-full",
+    );
+  });
   it("keeps the speaker label visible without exposing timestamps", () => {
     render(
       <SegmentHeader

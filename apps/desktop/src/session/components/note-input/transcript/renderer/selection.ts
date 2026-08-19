@@ -1,4 +1,4 @@
-import type { SegmentKey } from "~/stt/live-segment";
+import type { Segment, SegmentKey } from "~/stt/live-segment";
 
 export type TranscriptWordSelectionGroup = {
   transcriptId: string;
@@ -148,6 +148,66 @@ export function getTranscriptContextSelection({
   range.selectNodeContents(segmentContent);
   const selection = getTranscriptSelectionFromRange(range, container);
   return selection ? { range, selection } : null;
+}
+
+export function getTranscriptSegmentDomId(
+  transcriptId: string,
+  segment: Pick<Segment, "id" | "start_ms" | "end_ms" | "words">,
+) {
+  return (
+    segment.id ||
+    `${transcriptId}:${segment.words[0]?.id ?? segment.start_ms}:${segment.words[segment.words.length - 1]?.id ?? segment.end_ms}`
+  );
+}
+
+export function getTranscriptSectionKey(
+  transcriptId: string,
+  segmentId: string,
+) {
+  return `${transcriptId}:${segmentId}`;
+}
+
+export function getTranscriptSectionKeyFromElement(section: HTMLElement) {
+  const transcriptId = section.dataset.transcriptId;
+  const segmentId = section.dataset.transcriptSegmentId;
+  return transcriptId && segmentId
+    ? getTranscriptSectionKey(transcriptId, segmentId)
+    : null;
+}
+
+export function getTranscriptSelectionFromSegment({
+  transcriptId,
+  sessionId,
+  offsetMs,
+  segment,
+}: {
+  transcriptId: string;
+  sessionId?: string;
+  offsetMs: number;
+  segment: Pick<Segment, "key" | "text" | "words">;
+}): TranscriptWordSelection | null {
+  const wordIds = segment.words
+    .map((word) => word.id)
+    .filter(
+      (wordId): wordId is string =>
+        typeof wordId === "string" && wordId.length > 0,
+    );
+  if (wordIds.length === 0) {
+    return null;
+  }
+
+  return {
+    sessionId,
+    text: segment.text.trim(),
+    startMs: offsetMs + (segment.words[0]?.start_ms ?? 0),
+    groups: [
+      {
+        transcriptId,
+        segmentKey: segment.key,
+        wordIds,
+      },
+    ],
+  };
 }
 
 export function getTranscriptSectionSelection(

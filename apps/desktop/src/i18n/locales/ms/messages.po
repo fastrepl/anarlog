@@ -54,6 +54,7 @@ msgstr ""
 msgid "{absDays} days ago"
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "{entryCount} selected"
 msgstr ""
@@ -693,6 +694,7 @@ msgstr ""
 msgid "Change photo"
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Change speaker"
 msgstr ""
@@ -857,6 +859,10 @@ msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Cleaning up..."
+msgstr ""
+
+#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
+msgid "Clear"
 msgstr ""
 
 #: src/contacts/related-notes.tsx
@@ -1568,6 +1574,7 @@ msgstr ""
 msgid "Don't save"
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 #: src/settings/sync/index.tsx
 msgid "Done"
 msgstr ""
@@ -3515,6 +3522,10 @@ msgstr ""
 msgid "See all templates"
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
+msgid "Select"
+msgstr ""
+
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Select a model"
@@ -3530,6 +3541,7 @@ msgid "Select a provider"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
+#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 msgid "Select All"
 msgstr ""
 

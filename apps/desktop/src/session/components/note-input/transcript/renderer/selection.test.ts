@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   getTranscriptContextSelection,
   getTranscriptSelectionFromRange,
+  getTranscriptSelectionFromSegment,
   mergeTranscriptSelections,
 } from "./selection";
 
@@ -113,6 +114,57 @@ describe("transcript word selection", () => {
         },
       ])?.groups[0]?.wordIds,
     ).toEqual(["word-1", "word-3"]);
+  });
+
+  it("builds a selection from segment data without reading the DOM", () => {
+    expect(
+      getTranscriptSelectionFromSegment({
+        transcriptId: "transcript-1",
+        sessionId: "session-1",
+        offsetMs: 1000,
+        segment: {
+          key: {
+            channel: "RemoteParty",
+            speaker_index: 1,
+            speaker_human_id: null,
+          },
+          text: "One Two",
+          words: [
+            {
+              id: "word-1",
+              text: "One",
+              start_ms: 100,
+              end_ms: 160,
+              channel: "RemoteParty",
+              is_final: true,
+            },
+            {
+              id: "word-2",
+              text: "Two",
+              start_ms: 180,
+              end_ms: 240,
+              channel: "RemoteParty",
+              is_final: true,
+            },
+          ],
+        },
+      }),
+    ).toEqual({
+      sessionId: "session-1",
+      text: "One Two",
+      startMs: 1100,
+      groups: [
+        {
+          transcriptId: "transcript-1",
+          segmentKey: {
+            channel: "RemoteParty",
+            speaker_index: 1,
+            speaker_human_id: null,
+          },
+          wordIds: ["word-1", "word-2"],
+        },
+      ],
+    });
   });
 });
 

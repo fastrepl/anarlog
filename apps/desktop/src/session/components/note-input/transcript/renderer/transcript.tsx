@@ -1,4 +1,11 @@
-import { memo, useCallback, useLayoutEffect, useMemo } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import type { RenderTranscriptRequest } from "@anlg/plugin-transcription";
 import { cn } from "@anlg/utils";
@@ -18,6 +25,13 @@ import {
   segmentsShallowEqual,
   useStableSegments,
 } from "./segment-hooks";
+import {
+  getTranscriptSectionKey,
+  getTranscriptSegmentDomId,
+  getTranscriptSelectionFromSegment,
+  type TranscriptWordSelection,
+} from "./selection";
+import { useRegisterTranscriptSelectionSource } from "./selection-context";
 import { useVirtualSegments, VirtualSegmentRow } from "./virtual-segments";
 
 import {
@@ -293,6 +307,7 @@ const SegmentsList = memo(
       currentMs,
       offsetMs,
     });
+    useRegisterTranscriptSegments(transcriptId, sessionId, offsetMs, segments);
 
     const seekAndPlay = useCallback(
       (word: SegmentWord) => {
@@ -377,3 +392,40 @@ const SegmentsList = memo(
     );
   },
 );
+
+function useRegisterTranscriptSegments(
+  transcriptId: string,
+  sessionId: string | undefined,
+  offsetMs: number,
+  segments: Segment[],
+) {
+  const registerSource = useRegisterTranscriptSelectionSource();
+  const getEntriesRef = useRef<() => Array<[string, TranscriptWordSelection]>>(
+    () => [],
+  );
+  getEntriesRef.current = () =>
+    segments.flatMap((segment) => {
+      const selection = getTranscriptSelectionFromSegment({
+        transcriptId,
+        sessionId,
+        offsetMs,
+        segment,
+      });
+      if (!selection) {
+        return [];
+      }
+      return [
+        [
+          getTranscriptSectionKey(
+            transcriptId,
+            getTranscriptSegmentDomId(transcriptId, segment),
+          ),
+          selection,
+        ] as const,
+      ];
+    });
+
+  useEffect(() => {
+    return registerSource(transcriptId, () => getEntriesRef.current());
+  }, [registerSource, transcriptId]);
+}

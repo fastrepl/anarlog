@@ -4,6 +4,11 @@ import { cn } from "@anlg/utils";
 
 import { SegmentHeader } from "./segment-header";
 import {
+  getTranscriptSectionKey,
+  getTranscriptSegmentDomId,
+} from "./selection";
+import { useTranscriptSelectionState } from "./selection-context";
+import {
   getActiveLineIndex,
   groupWordsIntoLines,
   type HighlightSegment,
@@ -68,6 +73,11 @@ export const SegmentRenderer = memo(
       () => groupWordsIntoLines(segment.words),
       [segment.words],
     );
+    const { selectMode, isSelected } = useTranscriptSelectionState();
+    const segmentId = getTranscriptSegmentDomId(transcriptId, segment);
+    const selected = isSelected(
+      getTranscriptSectionKey(transcriptId, segmentId),
+    );
     const highlightSegmentsByWord = useMemo(() => {
       if (!search.query) {
         return null;
@@ -92,17 +102,16 @@ export const SegmentRenderer = memo(
     return (
       <section
         data-transcript-id={transcriptId}
-        data-transcript-segment-id={
-          segment.id ??
-          `${transcriptId}:${segment.words[0]?.id ?? segment.start_ms}:${segment.words[segment.words.length - 1]?.id ?? segment.end_ms}`
-        }
+        data-transcript-segment-id={segmentId}
         data-session-id={sessionId}
         data-segment-channel={segment.key.channel}
         data-segment-speaker-index={segment.key.speaker_index ?? ""}
         data-segment-speaker-human-id={segment.key.speaker_human_id ?? ""}
         data-transcript-offset-ms={offsetMs}
+        data-transcript-selected={selected ? "true" : undefined}
         className={cn([
           "rounded-lg px-2 transition-colors",
+          selectMode ? "cursor-pointer" : null,
           "data-[transcript-selected=true]:bg-primary/10 data-[transcript-selected=true]:ring-primary/30 data-[transcript-selected=true]:ring-1",
         ])}
       >
@@ -111,6 +120,7 @@ export const SegmentRenderer = memo(
           transcriptId={transcriptId}
           sessionId={sessionId}
           label={speakerLabel}
+          selected={selected}
         />
 
         {editMode ? (
@@ -120,7 +130,7 @@ export const SegmentRenderer = memo(
             data-transcript-segment-content
             className={cn([
               "overflow-wrap-anywhere mt-1.5 text-sm leading-relaxed wrap-break-word",
-              "select-text-deep",
+              selectMode ? "select-none" : "select-text-deep",
             ])}
           >
             {lines.map((line, lineIdx) => {

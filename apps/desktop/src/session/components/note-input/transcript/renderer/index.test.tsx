@@ -36,6 +36,38 @@ vi.mock("~/audio-player/provider", () => ({
   useAudioTime: () => ({ current: 0 }),
 }));
 
+vi.mock("./select-toolbar", () => ({
+  TranscriptSelectButton: ({
+    selectMode,
+    onSelectModeChange,
+  }: {
+    selectMode: boolean;
+    onSelectModeChange: (selectMode: boolean) => void;
+  }) => (
+    <button
+      type="button"
+      aria-pressed={selectMode}
+      onClick={() => onSelectModeChange(!selectMode)}
+    >
+      {selectMode ? "Done" : "Select"}
+    </button>
+  ),
+  TranscriptSelectToolbar: ({
+    entryCount,
+    onDone,
+  }: {
+    entryCount: number;
+    onDone: () => void;
+  }) => (
+    <div data-testid="select-toolbar">
+      <span>{entryCount}</span>
+      <button type="button" onClick={onDone}>
+        Done
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("./selection-menu", () => ({
   SelectionMenu: () => null,
   MultiSelectionBar: ({ entryCount }: { entryCount: number }) => (
@@ -255,6 +287,38 @@ describe("TranscriptViewer", () => {
     });
 
     expect(screen.getByTestId("multi-selection-bar").textContent).toBe("2");
+  });
+
+  it("enters select mode so entries can be chosen without modifier keys", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1", "transcript-2"]}
+        liveSegments={[]}
+        currentActive={false}
+        scrollRef={createRef()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }));
+    fireEvent.click(screen.getByTestId("segment-transcript-1"));
+    fireEvent.click(screen.getByTestId("segment-transcript-2"));
+
+    expect(screen.getByTestId("select-toolbar").textContent).toContain("2");
+    expect(screen.queryByTestId("multi-selection-bar")).toBeNull();
+  });
+
+  it("hides the select control while writing transcript text", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        scrollRef={createRef()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Select" })).toBeNull();
   });
 
   it("does not show scroll controls when the transcript cannot scroll", () => {

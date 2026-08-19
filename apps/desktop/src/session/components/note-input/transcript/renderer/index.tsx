@@ -5,6 +5,7 @@ import {
   type RefObject,
   useCallback,
   useDeferredValue,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -14,11 +15,20 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { cn } from "@anlg/utils";
 
 import {
+  TranscriptSelectButton,
+  TranscriptSelectToolbar,
+} from "./select-toolbar";
+import {
   getTranscriptContextSelection,
+  getTranscriptSectionKeyFromElement,
   getTranscriptSectionSelection,
   mergeTranscriptSelections,
   type TranscriptWordSelection,
 } from "./selection";
+import {
+  TranscriptSelectionProvider,
+  useTranscriptSelectionSources,
+} from "./selection-context";
 import { MultiSelectionBar, SelectionMenu } from "./selection-menu";
 import type { TranscriptContextMenuRequest } from "./selection-menu";
 import { TranscriptSeparator } from "./separator";
@@ -59,10 +69,16 @@ export function TranscriptViewer({
   );
   const [contextRequest, setContextRequest] =
     useState<TranscriptContextMenuRequest | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<
     Map<string, TranscriptWordSelection>
   >(() => new Map());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+  const selectedKeys = useMemo(
+    () => new Set(selectedEntries.keys()),
+    [selectedEntries],
+  );
+  const { registerSource, collectEntries } = useTranscriptSelectionSources();
   const multiSelection = useMemo(
     () => mergeTranscriptSelections([...selectedEntries.values()]),
     [selectedEntries],
@@ -97,6 +113,7 @@ export function TranscriptViewer({
   const time = useAudioTime();
   const deferredCurrentMs = useDeferredValue(time.current * 1000);
   const isPlaying = playerState === "playing";
+  const canSelect = !editMode;
 
   useHotkeys(
     "space",
@@ -110,7 +127,7 @@ export function TranscriptViewer({
         start();
       }
     },
-    { enableOnFormTags: false },
+    { enableOnFormTags: false, enabled: !selectMode },
   );
 
   usePlaybackAutoScroll(containerRef, deferredCurrentMs, isPlaying);
@@ -127,6 +144,8 @@ export function TranscriptViewer({
       : liveSegments.length > 0
         ? [LIVE_TRANSCRIPT_PLACEHOLDER_ID]
         : [];
+  const visibleTranscriptIdsRef = useRef(visibleTranscriptIds);
+  visibleTranscriptIdsRef.current = visibleTranscriptIds;
 
   const handleSelectionAction = useCallback(
     (action: "copy" | "play", selection: TranscriptWordSelection) => {
@@ -170,6 +189,9 @@ export function TranscriptViewer({
   );
   const handleContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
+      if (selectMode) {
+        return;
+      }
       const nativeSelection = window.getSelection();
       const activeRange =
         nativeSelection && nativeSelection.rangeCount > 0
@@ -194,18 +216,40 @@ export function TranscriptViewer({
         y: event.clientY,
       });
     },
-    [],
+    [selectMode],
   );
   const handleContextClose = useCallback(() => {
     setContextRequest(null);
   }, []);
   const clearSelectedEntries = useCallback(() => {
-    containerRef.current
-      ?.querySelectorAll<HTMLElement>("[data-transcript-selected='true']")
-      .forEach((element) => delete element.dataset.transcriptSelected);
     setSelectedEntries(new Map());
     setSelectionAnchor(null);
   }, []);
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedEntries(new Map());
+    setSelectionAnchor(null);
+  }, []);
+  const selectAllEntries = useCallback(() => {
+    const { entries } = collectEntries(visibleTranscriptIdsRef.current);
+    setSelectedEntries(new Map(entries));
+  }, [collectEntries]);
+
+  useEffect(() => {
+    if (editMode && selectMode) {
+      exitSelectMode();
+    }
+  }, [editMode, exitSelectMode, selectMode]);
+
+  useHotkeys(
+    "esc",
+    (event) => {
+      event.preventDefault();
+      exitSelectMode();
+    },
+    { enabled: selectMode },
+  );
+
   const handleSegmentSelection = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       const target = event.target;
@@ -216,10 +260,18 @@ export function TranscriptViewer({
       if (!section || !event.currentTarget.contains(section)) {
         return;
       }
+      if (
+        target instanceof Element &&
+        target.closest(
+          "button, a, input, textarea, [data-transcript-speaker-assign]",
+        )
+      ) {
+        return;
+      }
 
       const hasSelectionModifier =
         event.metaKey || event.ctrlKey || event.shiftKey;
-      if (!hasSelectionModifier) {
+      if (!selectMode && !hasSelectionModifier) {
         if (selectedEntries.size > 0) {
           clearSelectedEntries();
         }
@@ -230,35 +282,25 @@ export function TranscriptViewer({
       event.stopPropagation();
       window.getSelection()?.removeAllRanges();
       const container = event.currentTarget;
-      const sections = [
-        ...container.querySelectorAll<HTMLElement>(
-          "section[data-transcript-segment-id]",
-        ),
-      ];
-      const targetKey = getTranscriptSectionKey(section);
+      const targetKey = getTranscriptSectionKeyFromElement(section);
       if (!targetKey) {
         return;
       }
+      const { order, entries } = collectEntries(
+        visibleTranscriptIdsRef.current,
+      );
 
       setSelectedEntries((current) => {
         const next = new Map(current);
         if (event.shiftKey && selectionAnchor) {
-          const anchorIndex = sections.findIndex(
-            (candidate) =>
-              getTranscriptSectionKey(candidate) === selectionAnchor,
-          );
-          const targetIndex = sections.indexOf(section);
+          const anchorIndex = order.indexOf(selectionAnchor);
+          const targetIndex = order.indexOf(targetKey);
           if (anchorIndex !== -1 && targetIndex !== -1) {
             const start = Math.min(anchorIndex, targetIndex);
             const end = Math.max(anchorIndex, targetIndex);
-            for (const candidate of sections.slice(start, end + 1)) {
-              const key = getTranscriptSectionKey(candidate);
-              const selection = getTranscriptSectionSelection(
-                candidate,
-                container,
-              );
-              if (key && selection) {
-                candidate.dataset.transcriptSelected = "true";
+            for (const key of order.slice(start, end + 1)) {
+              const selection = entries.get(key);
+              if (selection) {
                 next.set(key, selection);
               }
             }
@@ -267,12 +309,12 @@ export function TranscriptViewer({
         }
 
         if (next.has(targetKey)) {
-          delete section.dataset.transcriptSelected;
           next.delete(targetKey);
         } else {
-          const selection = getTranscriptSectionSelection(section, container);
+          const selection =
+            entries.get(targetKey) ??
+            getTranscriptSectionSelection(section, container);
           if (selection) {
-            section.dataset.transcriptSelected = "true";
             next.set(targetKey, selection);
           }
         }
@@ -280,113 +322,141 @@ export function TranscriptViewer({
       });
       setSelectionAnchor(targetKey);
     },
-    [clearSelectedEntries, selectedEntries.size, selectionAnchor],
+    [
+      clearSelectedEntries,
+      collectEntries,
+      selectMode,
+      selectedEntries.size,
+      selectionAnchor,
+    ],
   );
 
   return (
-    <div className="relative h-full">
-      <div
-        ref={handleContainerRef}
-        data-transcript-container
-        onClickCapture={handleSegmentSelection}
-        onContextMenu={handleContextMenu}
-        className={cn([
-          "flex h-full min-h-0 min-w-0 flex-col gap-8 overflow-x-clip overflow-y-auto",
-          "scrollbar-hide",
-          "scroll-pb-[calc(8rem+env(safe-area-inset-bottom))]",
-          "pb-[calc(4rem+env(safe-area-inset-bottom))]",
-        ])}
-      >
-        {visibleTranscriptIds.map((transcriptId, index) => {
-          const isLastTranscript = index === visibleTranscriptIds.length - 1;
-          const isActiveTranscript = currentActive && isLastTranscript;
-
-          return (
-            <div key={transcriptId} className="flex flex-col gap-8">
-              <RenderTranscript
-                scrollElement={scrollElement}
-                isLastTranscript={isLastTranscript}
-                shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
-                transcriptId={transcriptId}
-                currentActive={isActiveTranscript}
-                captureGeneration={isActiveTranscript ? captureGeneration : 0}
-                liveSegments={isActiveTranscript ? liveSegments : []}
-                currentMs={deferredCurrentMs}
-                seek={seek}
-                startPlayback={start}
-                audioExists={audioExists}
-                editMode={editMode}
+    <TranscriptSelectionProvider
+      selectMode={selectMode}
+      selectedKeys={selectedKeys}
+      registerSource={registerSource}
+    >
+      <div className="relative flex h-full flex-col">
+        {canSelect && (
+          <div className="flex shrink-0 items-center gap-2 px-1 pb-2">
+            {selectMode ? (
+              <TranscriptSelectToolbar
+                selection={multiSelection}
+                entryCount={selectedEntries.size}
+                onSelectAll={selectAllEntries}
+                onClear={clearSelectedEntries}
+                onDone={exitSelectMode}
+                onAssignSpeaker={handleAssignSpeaker}
               />
-              {!isLastTranscript && <TranscriptSeparator />}
-            </div>
-          );
-        })}
-
-        <SelectionMenu
-          containerRef={containerRef}
-          contextRequest={contextRequest}
-          audioExists={audioExists}
-          onContextClose={handleContextClose}
-          onAction={handleSelectionAction}
-          onAssignSpeaker={handleAssignSpeaker}
-        />
-      </div>
-
-      {multiSelection && (
-        <MultiSelectionBar
-          selection={multiSelection}
-          entryCount={selectedEntries.size}
-          onClear={clearSelectedEntries}
-          onAssignSpeaker={handleAssignSpeaker}
-        />
-      )}
-
-      {canScroll && (
+            ) : (
+              <div className="ml-auto">
+                <TranscriptSelectButton
+                  selectMode={false}
+                  onSelectModeChange={setSelectMode}
+                />
+              </div>
+            )}
+          </div>
+        )}
         <div
-          data-transcript-scroll-controls
+          ref={handleContainerRef}
+          data-transcript-container
+          data-transcript-select-mode={selectMode ? "true" : undefined}
+          onClickCapture={handleSegmentSelection}
+          onContextMenu={handleContextMenu}
           className={cn([
-            "group/scroll-controls absolute top-1/2 right-1 z-40 flex -translate-y-1/2 flex-col overflow-hidden",
-            "text-muted-foreground/45 rounded-full border border-transparent bg-transparent",
-            "transition-[background-color,border-color,color,box-shadow,backdrop-filter] duration-150",
-            "hover:border-border/50 hover:bg-background/65 hover:text-foreground hover:shadow-sm hover:backdrop-blur-md",
-            "focus-within:border-border/50 focus-within:bg-background/65 focus-within:text-foreground focus-within:shadow-sm focus-within:backdrop-blur-md",
+            "flex min-h-0 min-w-0 flex-1 flex-col gap-8 overflow-x-clip overflow-y-auto",
+            "scrollbar-hide",
+            "scroll-pb-[calc(8rem+env(safe-area-inset-bottom))]",
+            "pb-[calc(4rem+env(safe-area-inset-bottom))]",
           ])}
         >
-          <button
-            type="button"
-            aria-label={t`Scroll to top`}
-            onClick={scrollToTop}
-            disabled={isAtTop}
-            className={cn([
-              "flex size-8 items-center justify-center",
-              "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
-              "disabled:pointer-events-none disabled:opacity-30",
-            ])}
-          >
-            <ArrowUp aria-hidden="true" className="size-3.5" />
-          </button>
-          <div className="bg-border/20 group-hover/scroll-controls:bg-border/60 group-focus-within/scroll-controls:bg-border/60 h-px w-full transition-colors" />
-          <button
-            type="button"
-            aria-label={t`Scroll to bottom`}
-            onClick={scrollToBottom}
-            disabled={isAtBottom}
-            className={cn([
-              "flex size-8 items-center justify-center",
-              "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
-              "disabled:pointer-events-none disabled:opacity-30",
-            ])}
-          >
-            <ArrowDown aria-hidden="true" className="size-3.5" />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+          {visibleTranscriptIds.map((transcriptId, index) => {
+            const isLastTranscript = index === visibleTranscriptIds.length - 1;
+            const isActiveTranscript = currentActive && isLastTranscript;
 
-function getTranscriptSectionKey(section: HTMLElement) {
-  const transcriptId = section.dataset.transcriptId;
-  const segmentId = section.dataset.transcriptSegmentId;
-  return transcriptId && segmentId ? `${transcriptId}:${segmentId}` : null;
+            return (
+              <div key={transcriptId} className="flex flex-col gap-8">
+                <RenderTranscript
+                  scrollElement={scrollElement}
+                  isLastTranscript={isLastTranscript}
+                  shouldScrollToEnd={shouldScrollLastTranscriptToEnd}
+                  transcriptId={transcriptId}
+                  currentActive={isActiveTranscript}
+                  captureGeneration={isActiveTranscript ? captureGeneration : 0}
+                  liveSegments={isActiveTranscript ? liveSegments : []}
+                  currentMs={deferredCurrentMs}
+                  seek={seek}
+                  startPlayback={start}
+                  audioExists={audioExists}
+                  editMode={editMode}
+                />
+                {!isLastTranscript && <TranscriptSeparator />}
+              </div>
+            );
+          })}
+
+          <SelectionMenu
+            containerRef={containerRef}
+            contextRequest={contextRequest}
+            audioExists={audioExists}
+            onContextClose={handleContextClose}
+            onAction={handleSelectionAction}
+            onAssignSpeaker={handleAssignSpeaker}
+          />
+        </div>
+
+        {!selectMode && multiSelection && (
+          <MultiSelectionBar
+            selection={multiSelection}
+            entryCount={selectedEntries.size}
+            onClear={clearSelectedEntries}
+            onAssignSpeaker={handleAssignSpeaker}
+          />
+        )}
+
+        {canScroll && (
+          <div
+            data-transcript-scroll-controls
+            className={cn([
+              "group/scroll-controls absolute top-1/2 right-1 z-40 flex -translate-y-1/2 flex-col overflow-hidden",
+              "text-muted-foreground/45 rounded-full border border-transparent bg-transparent",
+              "transition-[background-color,border-color,color,box-shadow,backdrop-filter] duration-150",
+              "hover:border-border/50 hover:bg-background/65 hover:text-foreground hover:shadow-sm hover:backdrop-blur-md",
+              "focus-within:border-border/50 focus-within:bg-background/65 focus-within:text-foreground focus-within:shadow-sm focus-within:backdrop-blur-md",
+            ])}
+          >
+            <button
+              type="button"
+              aria-label={t`Scroll to top`}
+              onClick={scrollToTop}
+              disabled={isAtTop}
+              className={cn([
+                "flex size-8 items-center justify-center",
+                "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
+                "disabled:pointer-events-none disabled:opacity-30",
+              ])}
+            >
+              <ArrowUp aria-hidden="true" className="size-3.5" />
+            </button>
+            <div className="bg-border/20 group-hover/scroll-controls:bg-border/60 group-focus-within/scroll-controls:bg-border/60 h-px w-full transition-colors" />
+            <button
+              type="button"
+              aria-label={t`Scroll to bottom`}
+              onClick={scrollToBottom}
+              disabled={isAtBottom}
+              className={cn([
+                "flex size-8 items-center justify-center",
+                "hover:bg-muted/55 active:bg-muted/70 focus-visible:bg-muted/55 focus-visible:outline-none",
+                "disabled:pointer-events-none disabled:opacity-30",
+              ])}
+            >
+              <ArrowDown aria-hidden="true" className="size-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </TranscriptSelectionProvider>
+  );
 }
