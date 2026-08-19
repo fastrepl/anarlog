@@ -24,23 +24,23 @@ for both:
 - the run-scoped staging artifact whose Actions head SHA exactly matches the
   Dev manifest's `git_head_sha`
 
-Before QA, check Linear. While `ANLG-98` is not completed, AEC quality is
-explicitly non-blocking. While `ANLG-222` is not completed, automatic speaker
-identification is explicitly non-blocking. Do not delay a release, patch the
-candidate, or run dedicated fixture/provider matrices for those deferred
-areas. Core recording, audio capture, transcript and note persistence, manual
-speaker correction, crash/hang safety, and the remaining critical checklist
-still require PASS. Each deferred gate resumes only when its issue is
-completed.
+The QA gate is the Pro user journey only: launch without hanging, capture
+microphone and system audio, and produce an automated summary. AEC quality
+(`ANLG-98`), automatic speaker identification (`ANLG-222`), real-world capture
+(`ANLG-284`), and the deferred QA lanes (`ANLG-285`–`ANLG-288`) are explicitly
+non-blocking; record incidental failures against their tickets and do not
+delay a release, patch the candidate, or run dedicated fixtures or matrices
+for them. AEC and speaker identification resume as gates only when their
+issues are completed.
 
 The manifest's `git_head_sha` is the exact final `main` commit, including the
 changelog, not a synthetic GitButler workspace HEAD. The report must include
 that Dev SHA, staging run URL and head SHA, staging artifact SHA-256, and the
 applicable critical checklist results. Any applicable failure, missing
 evidence, SHA mismatch, rebuild, or later source change blocks stable unless
-the user explicitly waives that specific gate. The temporary `ANLG-98` and
-`ANLG-222` exclusions above are already authorized policy, not missing
-evidence.
+the user explicitly waives that specific gate. The non-gate exclusions above
+(`ANLG-98`, `ANLG-222`, `ANLG-284`–`ANLG-288`) are already authorized policy,
+not missing evidence.
 
 This release path approves macOS, Windows, and Linux. Mobile remains closed.
 The patched CloudSync vendor bundle is rebuilt from source and
