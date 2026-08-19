@@ -62,12 +62,15 @@ concurrency:
 
 jobs:
   cli-ci:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
           fetch-depth: 0
+      - run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell 2> /dev/null || true
+          df -h /
       - uses: actions/setup-node@v4
         with:
           node-version: "22"

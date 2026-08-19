@@ -16,6 +16,8 @@ runs:
     - if: ${{ runner.os == 'Linux' }}
       shell: bash
       run: |
+        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell 2> /dev/null || true
+        df -h /
         if [[ -f /etc/apt/sources.list.d/ubuntu.sources ]]; then
           sudo sed -i \
             's|http://us-east-1.ec2.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' \

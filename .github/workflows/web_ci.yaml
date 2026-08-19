@@ -15,7 +15,7 @@ on:
       - packages/**
 jobs:
   ci:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/pnpm_install

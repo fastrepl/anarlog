@@ -22,9 +22,12 @@ on:
 jobs:
   pro-transcription:
     name: Pro transcription API
-    runs-on: depot-ubuntu-24.04-8
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell 2> /dev/null || true
+          df -h /
       - uses: ./.github/actions/rust_install
         with:
           platform: linux
@@ -42,9 +45,12 @@ jobs:
 
   pro-intelligence:
     name: Pro intelligence API
-    runs-on: depot-ubuntu-24.04-8
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell 2> /dev/null || true
+          df -h /
       - uses: ./.github/actions/rust_install
         with:
           platform: linux

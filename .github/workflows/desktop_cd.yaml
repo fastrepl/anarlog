@@ -343,14 +343,14 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - runner: depot-ubuntu-24.04-8
+          - runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             rust_platform: linux-x86_64
             artifact_name: x64
             debian_arch: amd64
             file_arch: x86-64
             docker_arch: amd64
-          - runner: depot-ubuntu-24.04-arm-8
+          - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             rust_platform: linux-aarch64
             artifact_name: arm64

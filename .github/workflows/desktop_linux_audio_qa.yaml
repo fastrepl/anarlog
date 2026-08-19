@@ -119,11 +119,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: depot-ubuntu-24.04-8
+          - runner: ubuntu-24.04
             artifact_arch: x64
             public_platform: debian-x86_64
             debian_arch: amd64
-          - runner: depot-ubuntu-24.04-arm-8
+          - runner: ubuntu-24.04-arm
             artifact_arch: arm64
             public_platform: debian-aarch64
             debian_arch: arm64

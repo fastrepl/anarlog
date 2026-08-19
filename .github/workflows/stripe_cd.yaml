@@ -21,7 +21,7 @@ jobs:
 
   deploy:
     needs: compute-version
-    runs-on: depot-ubuntu-24.04-8
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     concurrency: stripe-fly-deploy
     permissions:
