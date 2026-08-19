@@ -1,3 +1,4 @@
+mod agent_skills;
 mod agents;
 mod appearance;
 mod commands;
@@ -610,6 +611,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_crash_reporting_enabled,
             commands::check_embedded_cli::<tauri::Wry>,
             commands::install_embedded_cli::<tauri::Wry>,
+            commands::list_skill_agents,
+            commands::install_agent_skill,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
 }
