@@ -10,6 +10,7 @@ import { getOrCreateSessionForEventId } from "~/session/queries";
 import { useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
+import type { LiveSessionStatus } from "~/store/zustand/listener/general-shared";
 import { listenerStore } from "~/store/zustand/listener/instance";
 import { type Tab, useTabs } from "~/store/zustand/tabs";
 import { hasScheduledAutoStartInFlight } from "~/stt/scheduled-auto-start-state";
@@ -86,6 +87,14 @@ export function hasPendingAutoStart(tabs: readonly Tab[]): boolean {
     (tab) =>
       tab.type === "sessions" && tab.active && Boolean(tab.state.autoStart),
   );
+}
+
+export function getScheduledAutoStartAction(
+  status: LiveSessionStatus,
+): "start" | "retry" | "skip" {
+  if (status === "active") return "skip";
+  if (status === "finalizing") return "retry";
+  return "start";
 }
 
 async function startScheduledMeeting(
@@ -220,8 +229,19 @@ export function ScheduledMeetingAutoStart() {
         return;
       }
 
-      if (listenerStore.getState().live.status !== "inactive") {
+      const liveStatus = listenerStore.getState().live.status;
+      const action = getScheduledAutoStartAction(liveStatus);
+      if (action === "retry") {
         scheduleAfterTransientBlock();
+        return;
+      }
+
+      if (action === "skip") {
+        // Do not let an overlapping meeting start after the active recording ends.
+        for (const row of due) {
+          firedEventIds.add(row.id);
+        }
+        scheduleNextStart();
         return;
       }
 
