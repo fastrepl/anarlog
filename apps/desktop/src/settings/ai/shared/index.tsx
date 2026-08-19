@@ -1,6 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowSquareOut } from "@phosphor-icons/react";
+import { ArrowSquareOut, CircleNotch } from "@phosphor-icons/react";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
@@ -39,8 +39,10 @@ import {
   repairKeychainAccess,
   useAiProviders,
   useAiProvidersState,
+  useClearAiProvider,
   useSetAiProvider,
 } from "~/settings/providers";
+import { setSettingValues } from "~/settings/queries";
 import { SettingsAlertToast } from "~/shared/ui/settings-alert";
 
 export * from "./anarlog-cloud-button";
@@ -249,6 +251,7 @@ export function NonAnarlogProviderCard({
     providerType,
     config.id,
   );
+  const clearProvider = useClearAiProvider(providerType, config.id);
   const [hasUnresolvedKeychainError, setHasUnresolvedKeychainError] =
     useState(false);
   const [isKeychainRecoveryInProgress, setIsKeychainRecoveryInProgress] =
@@ -326,6 +329,40 @@ export function NonAnarlogProviderCard({
     ? t`Unlock your login Keychain in the macOS prompt. Anarlog will retry saving this API key automatically.`
     : (repairMutation.error?.message ??
       t`macOS cannot access your login Keychain. Repairing briefly locks it and asks for your Mac password before Anarlog retries this API key.`);
+  const hasStoredConfig =
+    Boolean(provider?.api_key?.trim()) ||
+    Boolean(
+      provider?.base_url?.trim() &&
+      provider.base_url.trim() !== (config.baseUrl ?? "").trim(),
+    );
+
+  const handleReset = async () => {
+    if (clearProvider.isPending) {
+      return;
+    }
+
+    try {
+      await clearProvider.mutateAsync();
+
+      if (currentProvider === config.id) {
+        await setSettingValues(
+          providerType === "llm"
+            ? { current_llm_provider: "", current_llm_model: "" }
+            : { current_stt_provider: "", current_stt_model: "" },
+        );
+      }
+
+      form.reset({
+        type: providerType,
+        base_url: config.baseUrl ?? "",
+        api_key: "",
+      });
+      setHasUnresolvedKeychainError(false);
+      providerMutation.reset();
+    } catch {
+      return;
+    }
+  };
 
   return (
     <AccordionItem
@@ -463,6 +500,31 @@ export function NonAnarlogProviderCard({
                 </div>
               </details>
             )}
+          {hasStoredConfig ? (
+            <button
+              type="button"
+              onClick={() => void handleReset()}
+              disabled={clearProvider.isPending}
+              className={cn([
+                "inline-flex cursor-pointer items-center gap-1 self-start text-xs",
+                "text-muted-foreground hover:text-foreground transition-colors",
+                "disabled:cursor-not-allowed disabled:opacity-50",
+              ])}
+            >
+              {clearProvider.isPending ? (
+                <CircleNotch
+                  className="size-3 animate-spin"
+                  aria-hidden="true"
+                />
+              ) : null}
+              <Trans>Reset</Trans>
+            </button>
+          ) : null}
+          {clearProvider.error && (
+            <p className="text-destructive text-xs">
+              {clearProvider.error.message}
+            </p>
+          )}
           {providerMutation.error &&
             !isKeychainAccessError(providerMutation.error) && (
               <p className="text-destructive text-xs">

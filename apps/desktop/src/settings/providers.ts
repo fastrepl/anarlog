@@ -207,6 +207,85 @@ export function useSetAiProvider(type: AiProviderType, providerId: string) {
   });
 }
 
+export function clearAiProvider(
+  type: AiProviderType,
+  providerId: string,
+): Promise<void> {
+  const storageId = providerStorageId(type, providerId);
+  return enqueueDatabaseWrite(storageId, async () => {
+    const previousApiKey = await getProviderApiKey(type, providerId);
+
+    try {
+      await setProviderApiKey(type, providerId, "");
+
+      const rows = await liveQueryClient.execute<AppSettingRow>(
+        `
+          SELECT id, value_json
+          FROM app_settings
+          WHERE id IN (?, ?)
+        `,
+        [storageId, LEGACY_SETTINGS_ID],
+      );
+      const direct = rows.find((row) => row.id === storageId);
+      const legacyRow = rows.find((row) => row.id === LEGACY_SETTINGS_ID);
+      const now = new Date().toISOString();
+      const statements: Array<{ sql: string; params: unknown[] }> = [];
+
+      if (direct) {
+        statements.push({
+          sql: `
+            DELETE FROM app_settings
+            WHERE id = ? AND value_json = ?
+          `,
+          params: [storageId, direct.value_json],
+        });
+      }
+
+      const clearedLegacy = removeLegacyProvider(
+        legacyRow?.value_json,
+        type,
+        providerId,
+      );
+      if (legacyRow && clearedLegacy) {
+        statements.push({
+          sql: `
+            UPDATE app_settings
+            SET value_json = ?, updated_at = ?
+            WHERE id = ?
+          `,
+          params: [clearedLegacy, now, LEGACY_SETTINGS_ID],
+        });
+      }
+
+      if (statements.length > 0) {
+        await executeTransaction(statements);
+      }
+    } catch (error) {
+      await setProviderApiKey(type, providerId, previousApiKey ?? "");
+      throw error;
+    }
+  });
+}
+
+export function useClearAiProvider(type: AiProviderType, providerId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["clear-ai-provider", type, providerId],
+    mutationFn: () => clearAiProvider(type, providerId),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ["ai-provider-api-keys", type],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ["default-ai-selection", type],
+        }),
+      ]);
+    },
+  });
+}
+
 export async function loadSecureAiProviderApiKeys(
   providerRowIds: string[],
   type: AiProviderType,
@@ -462,6 +541,28 @@ function redactLegacyProviderApiKey(
     }
 
     provider.api_key = "";
+    return JSON.stringify(document);
+  } catch {
+    return null;
+  }
+}
+
+function removeLegacyProvider(
+  valueJson: string | undefined,
+  type: AiProviderType,
+  providerId: string,
+): string | null {
+  if (!valueJson) return null;
+
+  try {
+    const document = JSON.parse(valueJson) as Record<string, unknown>;
+    const ai = parseObjectValue(document.ai);
+    const providers = parseObjectValue(ai[type]);
+    if (!(providerId in providers)) {
+      return null;
+    }
+
+    delete providers[providerId];
     return JSON.stringify(document);
   } catch {
     return null;

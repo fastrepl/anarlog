@@ -44,6 +44,7 @@ vi.mock("~/db/write-queue", () => ({
 }));
 
 import {
+  clearAiProvider,
   getStoredAiProvider,
   isKeychainAccessError,
   loadSecureAiProviderApiKeys,
@@ -179,6 +180,53 @@ describe("SQLite AI providers", () => {
       "stt:deepgram",
       "new-key",
     );
+  });
+
+  it("clears stored provider credentials and deletes the SQLite row", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        id: "ai_provider:llm:google",
+        value_json: JSON.stringify({
+          type: "llm",
+          base_url: "https://generativelanguage.googleapis.com/v1beta",
+          api_key: "",
+        }),
+      },
+      {
+        id: "legacy_settings_document",
+        value_json: JSON.stringify({
+          ai: {
+            llm: {
+              google: {
+                base_url: "https://generativelanguage.googleapis.com/v1beta",
+                api_key: "legacy-key",
+              },
+            },
+          },
+        }),
+      },
+    ]);
+    mocks.getSecret.mockResolvedValueOnce({
+      status: "ok",
+      data: "gemini-key",
+    });
+
+    await clearAiProvider("llm", "google");
+
+    expect(mocks.deleteSecret).toHaveBeenCalledWith(
+      "ai-provider-api-keys",
+      "llm:google",
+    );
+    const deleteStatement = mocks.executeTransaction.mock.calls[0][0].find(
+      (candidate: { sql: string }) =>
+        candidate.sql.includes("DELETE FROM app_settings"),
+    )!;
+    expect(deleteStatement.params[0]).toBe("ai_provider:llm:google");
+    const legacyUpdate = mocks.executeTransaction.mock.calls[0][0].find(
+      (candidate: { params: unknown[] }) =>
+        candidate.params.includes("legacy_settings_document"),
+    )!;
+    expect(String(legacyUpdate.params[0])).not.toContain("google");
   });
 
   it("retries partial writes without dropping a concurrent field", async () => {
