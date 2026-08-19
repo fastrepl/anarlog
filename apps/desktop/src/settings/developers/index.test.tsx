@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   checkEmbeddedCli: vi.fn(),
   installEmbeddedCli: vi.fn(),
+  listSkillAgents: vi.fn(),
+  installAgentSkill: vi.fn(),
   showDevtool: vi.fn(),
   devtoolsPanelShow: vi.fn(),
   toastError: vi.fn(),
@@ -37,8 +39,34 @@ vi.mock("~/types/tauri.gen", () => ({
   commands: {
     checkEmbeddedCli: mocks.checkEmbeddedCli,
     installEmbeddedCli: mocks.installEmbeddedCli,
+    listSkillAgents: mocks.listSkillAgents,
+    installAgentSkill: mocks.installAgentSkill,
     showDevtool: mocks.showDevtool,
   },
+}));
+
+vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  AppFloatingPanel: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" {...props}>
+      {children}
+    </button>
+  ),
+  DropdownMenuSeparator: () => <hr />,
+  DropdownMenuTrigger: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
 }));
 
 vi.mock("@anlg/plugin-windows", () => ({
@@ -130,6 +158,9 @@ describe("SettingsDevelopers", () => {
   beforeEach(() => {
     mocks.checkEmbeddedCli.mockReset();
     mocks.installEmbeddedCli.mockReset();
+    mocks.listSkillAgents.mockReset();
+    mocks.listSkillAgents.mockResolvedValue({ status: "ok", data: [] });
+    mocks.installAgentSkill.mockReset();
     mocks.showDevtool.mockReset();
     mocks.showDevtool.mockResolvedValue(false);
     mocks.devtoolsPanelShow.mockReset();
@@ -409,6 +440,152 @@ describe("SettingsDevelopers", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upgrade to Pro" }));
 
     expect(mocks.billing.upgradeToPro).toHaveBeenCalledOnce();
+  });
+
+  it("installs the skill into every detected agent from one action", async () => {
+    mocks.checkEmbeddedCli.mockResolvedValue({
+      status: "ok",
+      data: {
+        supported: false,
+        commandName: "anarlog",
+        installPath: "/Users/test/.local/bin/anarlog",
+        state: "unsupported",
+        details: "Unavailable.",
+      },
+    });
+    mocks.listSkillAgents.mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          agent: "claude_code",
+          displayName: "Claude Code",
+          detected: true,
+          installed: true,
+          skillPath: "/Users/test/.claude/skills/anarlog",
+        },
+        {
+          agent: "codex",
+          displayName: "Codex",
+          detected: true,
+          installed: false,
+          skillPath: "/Users/test/.codex/skills/anarlog",
+        },
+        {
+          agent: "cursor",
+          displayName: "Cursor",
+          detected: false,
+          installed: false,
+          skillPath: "/Users/test/.cursor/skills/anarlog",
+        },
+        {
+          agent: "opencode",
+          displayName: "OpenCode",
+          detected: true,
+          installed: false,
+          skillPath: "/Users/test/.config/opencode/skills/anarlog",
+        },
+      ],
+    });
+    mocks.installAgentSkill.mockImplementation((agent: string) =>
+      Promise.resolve({
+        status: "ok",
+        data: {
+          agent,
+          displayName: agent,
+          detected: true,
+          installed: true,
+          skillPath: `/Users/test/${agent}`,
+        },
+      }),
+    );
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDevelopers />
+      </QueryClientProvider>,
+    );
+
+    const cursorItem = await screen.findByRole("button", { name: "Cursor" });
+    expect(cursorItem.hasAttribute("disabled")).toBe(true);
+    const installedIcon = screen.getByLabelText("Skill installed");
+    expect(installedIcon.closest("button")?.textContent).toContain(
+      "Claude Code",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Install to all agents" }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.installAgentSkill).toHaveBeenCalledTimes(3),
+    );
+    expect(mocks.installAgentSkill).toHaveBeenCalledWith("claude_code");
+    expect(mocks.installAgentSkill).toHaveBeenCalledWith("codex");
+    expect(mocks.installAgentSkill).toHaveBeenCalledWith("opencode");
+    expect(mocks.installAgentSkill).not.toHaveBeenCalledWith("cursor");
+    await waitFor(() =>
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(
+        "Anarlog skill added to 3 agents",
+      ),
+    );
+  });
+
+  it("reports a single-agent skill install by agent name", async () => {
+    mocks.checkEmbeddedCli.mockResolvedValue({
+      status: "ok",
+      data: {
+        supported: false,
+        commandName: "anarlog",
+        installPath: "/Users/test/.local/bin/anarlog",
+        state: "unsupported",
+        details: "Unavailable.",
+      },
+    });
+    mocks.listSkillAgents.mockResolvedValue({
+      status: "ok",
+      data: [
+        {
+          agent: "codex",
+          displayName: "Codex",
+          detected: true,
+          installed: false,
+          skillPath: "/Users/test/.codex/skills/anarlog",
+        },
+      ],
+    });
+    mocks.installAgentSkill.mockResolvedValue({
+      status: "ok",
+      data: {
+        agent: "codex",
+        displayName: "Codex",
+        detected: true,
+        installed: true,
+        skillPath: "/Users/test/.codex/skills/anarlog",
+      },
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <SettingsDevelopers />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Codex" }));
+
+    await waitFor(() =>
+      expect(mocks.installAgentSkill).toHaveBeenCalledWith("codex"),
+    );
+    await waitFor(() =>
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(
+        "Anarlog skill added to Codex",
+      ),
+    );
   });
 
   it("hides the devtools section when devtools are disabled", async () => {

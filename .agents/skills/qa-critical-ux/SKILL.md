@@ -1,486 +1,191 @@
 ---
 name: qa-critical-ux
-description: Select and run risk-based desktop QA for a branch, commit, diff, or reported regression. Use the complete auth, CloudSync, calendar, note, recording, speaker, chat, summary, and provider matrix only for an explicit release gate or full-app QA request.
+description: QA the critical Pro user journey before a desktop release — onboards from scratch, launches without hanging, captures microphone and system audio, and produces an automated summary. Use before cutting a stable release or when asked to QA the app.
 ---
 
 # QA: Critical User Experience
 
-Default to the smallest faithful QA scope for the change. The complete
-checklist remains the release gate, but it is not the default for ordinary
-branch or regression validation.
+The release gate is one thing: **the Pro user journey works, starting from
+onboarding**.
 
-## Temporary non-blocking audio policy
+1. The app launches and never hangs.
+2. Onboarding completes from scratch: permissions, sign-in, provider setup.
+3. A recording captures both microphone and system audio.
+4. Stopping the recording produces an automated summary.
 
-Before release-gate or full-app QA, check the current Linear status of
-`ANLG-98` and `ANLG-222`.
+Everything else is explicitly not a gate. Do not expand the run because more
+checks are imaginable.
 
-- While `ANLG-98` is not completed, AEC quality is not a release gate. Do not
-  run dedicated speaker-playback, residual-echo metric, double-talk, or AEC
-  provider-matrix work solely for a release. If an AEC failure is encountered
-  incidentally, record it as informational against `ANLG-98`; do not patch the
-  release candidate or block publication. Basic microphone/system capture,
-  recording start/stop, audio persistence, and freedom from crashes or hangs
-  remain gates.
-- While `ANLG-222` is not completed, automatic speaker identification is not a
-  release gate. Do not require automatic Lex Fridman / George Hotz naming or
-  run a provider identity matrix solely for a release. Generic speaker labels
-  are acceptable. Transcript integrity, provider diarization output, manual
-  speaker correction, persistence, and freedom from silent data loss remain
-  gates.
-- If a candidate explicitly implements either ticket, use targeted regression
-  mode for that ticket. Otherwise do not investigate, mitigate, or expand QA
-  around the deferred area.
-- Restore each gate only after its corresponding Linear issue is completed.
-  A release-specific observation does not override this policy.
+## Not a gate — tracked in Linear instead
 
-## Choose the scope first
+If you hit a failure in one of these areas incidentally, record it as an
+informational note against the ticket and keep going. Do not patch the release
+candidate, block publication, or run dedicated fixtures/matrices for them.
 
-Before building or launching anything:
+- AEC quality (echo leakage, residual-echo metrics, double-talk): `ANLG-98`
+- Automatic speaker identification / voiceprints: `ANLG-222`
+- Real-world capture across devices, rooms, and live participants: `ANLG-284`
+- Auth callback handoff and sign-out edge cases: `ANLG-285`
+- Calendar connect, events, notifications: `ANLG-286`
+- CloudSync activity deferral, leases, transcript-integrity hashes: `ANLG-287`
+- On-device STT/LLM provider matrix: `ANLG-288`
 
-1. Inspect the exact candidate and its base. In a GitButler workspace, use
-   `but status` and `but show <commit-or-branch>`; do not treat the synthetic
-   workspace `HEAD` or every applied branch as the candidate.
-2. Trace changed files to user-visible behavior and failure boundaries. Find
-   the original reproduction in the current or past Codex task, linked issue,
-   PR, support report, or regression test when available.
-3. Write a short risk map with:
-   - behavior directly changed;
-   - plausible adjacent failures caused by the changed boundary;
-   - lifecycle or persistence transitions affected;
-   - checklist areas that are unrelated and will be skipped.
-4. State the selected live checks before running them. Do not expand the run
-   because a broad checklist is available.
+AEC and speaker identification return to being gates only when their issues
+are completed; real-device and real-participant evaluation belongs to
+`ANLG-284`, not to this checklist.
 
-### Targeted regression mode (default)
+## Setup
 
-Use this mode for a branch, commit, diff, bug fix, or change isolated to one
-product area. Run only:
+Build and launch an authenticated native Dev bundle:
 
-- the closest automated tests required by the affected packages and CI paths;
-- the original user reproduction and the expected fixed outcome;
-- one bounded adjacent smoke check for each credible cross-cutting failure;
-- restart or persistence checks only when startup, durable state, migrations,
-  cleanup, or recovery behavior changed;
-- provider, account, platform, or model variants only when the changed code
-  branches on those variants.
+```bash
+.agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh
+```
 
-A Rust or native-code diff does not justify the full user-experience matrix by
-itself. It does justify checking that the exact candidate launches, remains
-responsive, completes the changed native operation without a crash or hang,
-and emits no relevant panic, deadlock, or repeated-error loop. Test recording,
-transcription, speaker identity, chat, calendar, auth, and provider matrices
-only when the diff can affect them.
+The helper builds against the currently deployed production public
+configuration (`VITE_APP_URL`, `VITE_API_URL`, `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_ANON_KEY` must match production; local URLs cannot pass), uses
+its own persistent Cargo cache under `~/Library/Caches/anarlog` (never the
+repo `target` directory), and launches with `AUDIO_SYNC_PROBE=1` and
+`LISTENER_DEBUG=1`. Reuse an already-current bundle with `--launch-only`.
 
-For example, a retained legacy-migration conflict that changes DB readiness
-and CloudSync gating should test: native launch and responsiveness; the
-conflict reproduction; the resulting Storage state and action; CloudSync
-readiness; retained recovery-file protection; and restart persistence. It
-should not run an in-meeting recording or provider matrix unless that code is
-also in the candidate.
+Pin release-gate builds to the intended candidate commit:
 
-If the original fixture or required account is unavailable, mark that specific
-check `BLOCKED`. Do not replace missing targeted evidence with unrelated broad
-testing. Stop when the risk map is covered.
+```bash
+ANARLOG_QA_GIT_SHA=<candidate-commit-sha> \
+  .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh
+```
 
-### Full release-gate mode
+In a GitButler workspace, take the branch tip's full `commitId` from
+`but status --format json`; `git rev-parse HEAD` is a synthetic workspace
+commit and is not release provenance.
 
-Use the complete setup, release-candidate order, and checklist below only when:
+A freshly rebuilt Dev bundle can trigger a login-Keychain prompt for the E2EE
+recovery key (its code-signing hash changed). Enter the password the user
+supplied for the QA machine, click **Always Allow**, and never place the
+password in commands, logs, screenshots, or files. `--launch-only` keeps the
+same binary and avoids another prompt.
 
-- the user explicitly asks for full-app QA or a release gate;
-- the release-new-version skill is about to run; or
-- the candidate is broad enough that the risk map genuinely includes most of
-  the critical experience.
+Note the app version in the report. For audio, leave the MacBook open on
+built-in speakers and microphone with no external device attached; the
+helper's preflight enforces this.
 
-Every applicable item must pass or be explicitly waived by the user before a
-release. A targeted run is evidence for its stated scope, not release approval.
+### Start from onboarding
 
-## Full release-gate setup
+Dev and staging runs begin at first launch, not in an already-configured app.
+Reset the channel before the run:
 
-1. Build and launch an authenticated native Dev bundle with AEC diagnostics:
+1. Quit the app, then delete its app data so `app.db` is gone:
 
    ```bash
-   .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh
+   rm -rf ~/Library/Application\ Support/com.hyprnote.dev      # Dev
+   rm -rf ~/Library/Application\ Support/com.hyprnote.staging  # staging
    ```
 
-   The script reads the currently deployed public Supabase configuration,
-   derives the production app/API endpoints from `desktop_cd.yaml`, builds the
-   native app identity needed for Computer Use, and launches with
-   `AUDIO_SYNC_PROBE=1` and `LISTENER_DEBUG=1`. The build runs with an
-   allowlisted environment containing only the public frontend configuration
-   and minimal process/toolchain values. It does not load `.env.supabase`,
-   desktop `.env` files through `dotenvx`, server credentials, or unrelated
-   channel configuration. Local environment files are also excluded from the
-   provenance fingerprint.
-
-   Native Dev release evidence is invalid unless `VITE_APP_URL`,
-   `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` all match
-   the currently deployed production public values. Local development URLs or
-   a different Supabase project require a rebuild and cannot pass this gate.
-
-   The helper owns a clean, persistent Cargo cache under
-   `~/Library/Caches/anarlog`; never point it at the repository's `target`
-   directory or clone that directory into the QA cache. The repository cache
-   can contain enough old, provenance-tracked proc-macro dylibs for macOS
-   assessment to stall `rustc` for minutes. Native builds use the full Xcode
-   toolchain explicitly so Swift/MLX can invoke the Metal compiler instead of
-   inheriting Command Line Tools. The helper also builds the workspace UI
-   package before Tauri, so a clean checkout does not depend on generated
-   `packages/ui/dist` output from an earlier build.
-
-   A successful-build manifest fingerprints the complete app bundle, all
-   desktop build inputs (including legacy crates), and the deployed public
-   auth key. Before the manifest is written, the helper inspects the generated
-   frontend `runtimeEnv`, rejects any non-allowlisted public variables, and
-   binds that validated configuration fingerprint to the app bundle hash. This
-   prevents `--launch-only` from running a stale bundle, a locally configured
-   bundle, or a bundle whose production auth config rotated. Reuse an
-   already-current bundle with:
+2. Launch with the onboarding flag, which clears auth, settings, and the
+   store and resets microphone, system-audio, screen-recording,
+   accessibility, calendar, and reminders permission state (it does not
+   touch `app.db` — that is why step 1 deletes the directory):
 
    ```bash
-   .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh --launch-only
+   ONBOARDING=1 .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh --launch-only
    ```
 
-   Pin release-gate builds to the intended 40-character candidate commit:
+   For the installed staging app:
 
    ```bash
-   ANARLOG_QA_GIT_SHA=<candidate-commit-sha> \
-     .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh
+   open -a "Anarlog Staging" --args --onboarding 1
    ```
 
-   In a GitButler workspace, copy the selected branch tip's full `commitId`
-   from `but status --format json`; `git rev-parse HEAD` is a synthetic
-   workspace commit and is not release provenance. Without the variable, the
-   helper auto-derives only when exactly one GitButler stack is applied, using
-   that stack's top branch tip. Multiple applied stacks or a stack without a
-   committed tip fail closed. Use the same variable with `--launch-only`.
+3. Complete onboarding for real: grant each permission when prompted, sign in
+   with the **Pro (or trialing)** test account, and select Anarlog cloud
+   (`anarlog` provider) in Settings → AI.
 
-   The first run uses a cold native cache and can take longer. Later source
-   builds reuse only that helper-owned cache; launch-only performs validation
-   without rebuilding.
+The installed **stable** app is not reset. Run the stable pass against its
+existing data — that is the update-in-place state real users are in.
+From-scratch onboarding evidence comes from the Dev and staging passes.
 
-   A newly rebuilt ad-hoc Dev bundle can prompt for access to the E2EE recovery
-   key because its code-signing hash changed. When the login Keychain prompt
-   appears, use Computer Use to enter the password explicitly supplied by the
-   user for that QA machine, then click **Always Allow**. Fetch fresh app state
-   and verify the prompt has disappeared before continuing. If the app or
-   SecurityAgent prompt closes first, record the step as incomplete and
-   relaunch the exact same bundle until it succeeds. Never place the password
-   in commands, logs, screenshots, reports, or repository files.
-   `--launch-only` keeps the same binary and avoids another prompt. Staging and
-   stable use a persistent Developer ID identity and do not have this Dev-only
-   behavior.
+## Checklist — the Pro user journey
 
-   The helper connects the Dev app identity and its existing local database to
-   production services. Use the intended QA account/workspace, and never commit
-   channel credentials.
-2. Do not repurpose this helper as a staging build. Staging release evidence
-   must come from the signed, notarized artifact produced by
-   `desktop_cd.yaml`; use the exact-run handoff below.
-3. Sign in with a test account that has calendar access. On the Fastrepl QA
-   machine, choose Google and select `john@fastrepl.com`. For provider matrix
-   runs you need a Pro (or trialing) account and a downloaded local STT + LLM
-   model pair.
-4. Note the app version and the provider config under test in the report.
-5. For macOS audio regression runs, leave the MacBook open and use its
-   built-in speakers and microphone with no external audio device attached.
-   The Dev helper fails before launch unless both macOS default devices use
-   the built-in transport; do not bypass that preflight.
-6. Only when the `ANLG-222` gate is active, create an untitled note, open its
-   metadata through the UI, and add exactly these two fixture participants
-   before recording:
+### 1. Launch and stay responsive
 
-   - **Lex Fridman**
-   - **George Hotz**
+- The app launches to a usable window without a hang, freeze, beachball, or
+  "could not start" dialog. This is the single most important check.
+- Quit and relaunch once: startup completes promptly again and the UI responds.
+- The log shows no panic, deadlock, or repeated-error loop.
 
-   Do not seed participant rows directly in SQLite. The participant field must
-   show both names without an **Unknown** chip, and the two named mappings must
-   persist after the app restarts. In the fixture reference
-   `crates/data/src/english_10/pyannote.json`, `SPEAKER_01` is Lex Fridman and
-   `SPEAKER_00` is George Hotz.
-7. Only when either the `ANLG-98` or `ANLG-222` gate is active, play at most
-   three minutes of the Lex Fridman/George Hotz fixture from a long-lived
-   terminal command after recording starts:
+### 2. Complete onboarding as a Pro user
 
-   ```bash
-   /usr/bin/afplay -v 0.7 -t 180 \
-     "$PWD/crates/data/src/english_10/audio.mp3"
-   ```
+- On Dev and staging (after the reset above): onboarding walks through
+  cleanly — each permission grant sticks, sign-in with the Pro test account
+  completes, and the app lands in the signed-in, entitled state with no
+  feature-gate prompts. A stall, dead button, or loop anywhere in onboarding
+  is a FAIL.
+- On stable: verify the existing signed-in, entitled state is intact after
+  the update; do not reset.
+- Deeper callback/sign-out permutations are `ANLG-285`, not this gate.
 
-   Let the three-minute cap finish naturally, or stop it earlier with Ctrl-C.
-   Do not use QuickTime or Computer Use just to control fixture playback.
+### 3. Create a note and record
 
-## Known fixture ground truth
+- Create a note; the editor opens immediately and typed content persists.
+- Start listening/recording. After it starts, play the bundled fixture from a
+  terminal to exercise system audio:
 
-The bundled audio is an excerpt from Lex Fridman Podcast #387 with George
-Hotz. Use the repo's time-aligned
-`crates/data/src/english_10/pyannote.json` as the transcription reference and
-the [official episode transcript](https://lexfridman.com/george-hotz-3-transcript)
-as the identity reference. Together they establish this canonical mapping:
+  ```bash
+  /usr/bin/afplay -v 0.7 -t 180 "$PWD/crates/data/src/english_10/audio.mp3"
+  ```
 
-| Fixture speaker | Participant |
-| --------------- | ----------- |
-| `SPEAKER_01`    | Lex Fridman |
-| `SPEAKER_00`    | George Hotz |
+- PASS when: recording starts without error, the indicator/timer runs, both
+  microphone and system-audio inputs carry nonzero signal, live transcript
+  words appear, and mute/unmute does not wedge the session.
+- On the Dev pass launched by `run-native-dev-qa.sh` with
+  `AUDIO_SYNC_PROBE=1`, the log must show an `audio_sync_probe` event;
+  staging/stable launches via `open` do not emit it, so its absence there is
+  not a failure. Every launch must have no `audio_sync_probe_panicked`,
+  dropped-sample, or queue-overflow events.
+- Echo leakage, duplicate phrases, and speaker naming are informational
+  (`ANLG-98`, `ANLG-222`, `ANLG-284`). Generic speaker labels are acceptable.
 
-Validate at least these opening checkpoints after aligning to the first
-recognized fixture phrase. Fixture timestamps are audio-relative, not session
-wall-clock timestamps:
+### 4. Stop and get a summary
 
-| Fixture time    | Expected participant | Semantic checkpoint                                          |
-| --------------- | -------------------- | ------------------------------------------------------------ |
-| 2.925-13.005 s  | Lex Fridman          | Asks what George thinks about Llama being open sourced       |
-| 14.145-19.025 s | George Hotz          | Says Mark Zuckerberg is the good guy                         |
-| 20.125-29.665 s | Lex Fridman          | Asks whether open source is ultimately good                  |
-| 30.365-36.065 s | George Hotz          | Answers "Undoubtedly" and begins discussing AI safety people |
-
-Use `turnLevelTranscription` for turn ownership and
-`wordLevelTranscription` only when finer alignment is needed. Provider wording
-and punctuation may differ, so compare the meaning and speaker ownership
-rather than requiring byte-identical text. The generic fixture IDs are valid
-only inside the reference file; they are not acceptable participant labels in
-the app.
+- Stop the recording. The app must not hang while settling.
+- PASS when: an enhanced summary is generated automatically without manual
+  triggering, the summary reflects the spoken content, a title is generated
+  for the untitled note, and a transcript is attached to the session.
+- Restart the app: the note, transcript, and summary are still there.
 
 ## Release-candidate order
 
-1. Run the complete Dev checklist from a clean checkout of the exact committed
-   SHA. Do not clean, discard, or include unrelated GitButler workspace changes
-   to produce release evidence; use a separate clean clone instead. Exploratory
-   Dev runs may use modified build inputs, but a release-gate run requires
-   `git_dirty=false` in the helper manifest. This means the fingerprinted build
-   inputs match the candidate commit. Record
-   `git_head_sha`, which is the candidate commit rather than GitButler's
-   synthetic workspace HEAD. The manifest is
+1. Run the checklist on a Dev build of the exact candidate SHA from a clean
+   checkout (`git_dirty=false` in the helper manifest; `git_head_sha` is the
+   candidate commit, not GitButler's synthetic HEAD). The manifest is
    `${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target-v2}/.anarlog-native-dev-qa-manifest`.
-2. Require every Dev gate to pass, then trigger `desktop_cd.yaml` with
-   `channel=staging` from a branch or ref whose tip is that exact SHA. Verify
-   the Actions run's head SHA matches the manifest before testing it.
-3. Download the artifact from that specific run:
+2. Trigger `desktop_cd.yaml` with `channel=staging` from that exact SHA and
+   verify the Actions run's head SHA matches the manifest. Download that
+   run's artifact (`gh run download <run-id> --name
+   hyprnote-staging-macos-silicon` — never a "latest staging" download),
+   record the DMG SHA-256, install it, reset the staging channel, and repeat
+   the checklist from onboarding.
+3. Stable is allowed only when Dev and that exact staging artifact pass for
+   the final `main` SHA. After stable publishes, download the release DMG,
+   record its SHA-256, install, verify the reported version, and run the
+   checklist once more against the existing stable data (no reset).
 
-   ```bash
-   gh run download <run-id> --name hyprnote-staging-macos-silicon
-   ```
-
-   Do not use a “latest staging” download for release evidence. Record the
-   DMG SHA-256, install it, and repeat the core gates: sign-in, note creation,
-   recording start/stop, transcript preservation, automated summary, and
-   recording/chat CloudSync deferral. Run full-fixture AEC or speaker identity
-   checks only when their temporary policy gate is active.
-4. Stable is allowed only when Dev and that exact staging artifact pass for
-   the final `main` SHA, including its changelog. Verify `main` still points to
-   that SHA before triggering stable. Any rebuild or source change invalidates
-   the prior evidence.
-5. After stable publishes, download the matching architecture DMG from the
-   `desktop_v<version>` GitHub release, record its SHA-256, install it, and
-   verify the app reports that version. Use Computer Use to repeat the core
-   sign-in, note, recording start/stop, transcript, summary, chat, and
-   CloudSync gates against the installed stable app. Run three-minute fixture,
-   AEC, and automatic speaker identity checks only when their temporary policy
-   gate is active. Keep any fixture playback in the terminal. Do not mark the
-   release complete until this stable pass succeeds.
-
-## CloudSync platform scope
-
-The patched native CloudSync vendor bundle and its request-cancellation tests
-currently cover only macOS Apple Silicon and Intel. This evidence must not be
-used to approve Windows, Linux, or mobile.
-
-Before enabling or releasing any of those lanes, rebuild every target
-architecture's bundled CloudSync native library from the patched source and
-run the equivalent cancellation/drain suite against that exact bundle. At
-minimum, prove stalled send/receive and manual/legacy network calls, logout,
-configuration cleanup/init, worker-idle fencing, and an immediate local write
-after cancellation. Rust-level fail-closed behavior or passing macOS bundle
-tests alone is not cross-platform evidence.
-
-## Checklist
-
-### 1. Sign in, callback handoff, and sign out
-
-- Start signed out and initiate sign-in from the desktop app.
-- PASS when: reaching the browser's signed-in callback page automatically
-  opens the native-protocol prompt without a click; accepting it signs the
-  desktop app in.
-- Sign out, repeat the flow, dismiss the automatic prompt, then click the
-  page's **Open Anarlog** button. PASS when the button opens the same native
-  prompt and completes desktop sign-in without a duplicate or expired-link
-  error.
-- Sign out once more with CloudSync enabled. The app must return promptly to
-  its signed-out state without a stuck spinner, SQLite lock, or orphaned sync
-  request.
-
-### 2. Calendar connect, events, notifications
-
-- Settings → Calendar (or onboarding): connect Apple Calendar and/or
-  Google/Outlook via the integration flow.
-- When creating a macOS Calendar test event, set its calendar to the
-  `john@fastrepl.com` Google account (`John (Char)` in Calendar), never
-  `Personal`.
-- PASS when: the calendar list renders the account's calendars, events for
-  today/this week appear in the timeline/sidebar, and an upcoming-event
-  notification (meeting-start notification or in-app banner) fires for a
-  test event starting within the notification window.
-- Also verify: toggling a calendar off hides its events; ignore/unignore
-  on a timeline event sticks (no snap-back after rapid toggling).
-
-### 3. Create a new note
-
-- Create a note from the sidebar/new-note affordance.
-- PASS when: the editor opens immediately (no blocking wait), typed
-  content persists after switching notes and after app restart, and the
-  note appears in the timeline.
-
-### 4. Start a recording
-
-- In the note, start listening/recording. Use a short recording to exercise
-  the basic capture path. Play the repo audio fixture from the terminal only
-  when the `ANLG-98` or `ANLG-222` gate is active.
-- PASS when: the recording starts without error, live transcript words
-  appear (when live transcription is enabled for the provider), and the
-  recording indicator/timer runs. Mute/unmute must not wedge the session.
-- Also verify both microphone and system-audio inputs carry nonzero signal.
-  While `ANLG-98` is open, AEC initialization, speaker leakage, and duplicate
-  playback phrases are informational only. When the issue is completed,
-  require AEC to initialize without an error or fallback and the transcript to
-  follow the podcast once rather than duplicating speaker leakage.
-- Provider diarization and automatic identity are separate concerns. When the
-  full fixture is applicable, verify the provider emits exactly two
-  RemoteParty speaker clusters and compare their turns with the **Known
-  fixture ground truth** above. While `ANLG-222` is open, incorrect or generic
-  participant names are informational only and do not fail the diarization
-  check.
-- When the `ANLG-222` gate is active, PASS speaker identification only when the
-  live or settled transcript labels
-  those clusters **Lex Fridman** and **George Hotz** automatically. Generic
-  labels such as **Speaker 1**, swapped names, a third RemoteParty cluster, or
-  names that appear only after a tester manually assigns them are failures. A
-  transcript that names only the opening turns and later reverts to generic or
-  inconsistent labels also fails. Verify both named assignments and the
-  participant mappings survive app restart unchanged.
-- When the `ANLG-98` gate is active, treat `audio_mic.wav` as the post-AEC,
-  post-VAD microphone track, not the raw microphone. For a playback-only run,
-  require all of:
-  - `audio_mic.wav` and `audio_spk.wav` are readable mono 16 kHz WAVs whose
-    durations differ by less than 0.1 seconds.
-  - RemoteParty has at least 400 transcript words.
-  - DirectMic words are at most 10% of RemoteParty words.
-  - At most 5% of DirectMic bigrams also appear on RemoteParty within one
-    second.
-  - Residual mic/speaker absolute correlation is at most 0.10 in every
-    active 30-second sample, with median attenuation of at least 20 dB.
-- When the `ANLG-98` gate is active, any duplicated-bigram failure blocks
-  release even when the processed
-  microphone is quieter than the system-audio track. If the result is
-  ambiguous, repeat a 90-second baseline with `NO_AEC=1`; enabling AEC must
-  reduce duplicate bigrams by at least 80% and processed-mic RMS by at least
-  10 dB.
-- When the `ANLG-98` gate is active and a person is available, speak a unique
-  phrase once over the podcast.
-  PASS when it appears on DirectMic and the surrounding podcast remains only
-  on RemoteParty. This protects real double-talk instead of solving echo by
-  suppressing all microphone speech.
-- With `AUDIO_SYNC_PROBE=1`, require an `audio_sync_probe` event and no
-  `audio_sync_probe_panicked`, dropped samples, or mic/speaker queue-overflow
-  events in the app log. While `ANLG-98` is open, record `aec_init_failed` or
-  `aec_failed` as informational; when it is completed, either event fails the
-  gate.
-- With CloudSync enabled, require `deferred_for_capture: true` for the whole
-  active recording. The status control must show a static **Saved locally**
-  state, while transcript rows continue growing in the local database.
-  No CloudSync request may start after capture deferral is acknowledged. If
-  the log contains a capture-drain timeout, allow the single operation that
-  started before deferral to settle, record the baseline afterward, then
-  compare `last_sync_at_ms` and the SQLite Cloud request log across at least
-  two 30-second intervals. No later send, receive, or E2EE witness work may
-  run during capture.
-- After Stop settles, require `deferred_for_capture: false`, one prompt
-  trailing sync, and no SQLite lock/error cluster. A staged native outbox
-  batch must remain unsent during capture and flush only after Stop.
-- For transcript-integrity regressions, play no more than three minutes of
-  the fixture.
-  Capture transcript word count, text length, and content hash immediately
-  before Stop, after Stop settles, and after app restart. Counts must never
-  shrink; the settled post-stop hash must survive restart unchanged.
-
-### 5. Chat and overlapping activity sync deferral
-
-- With CloudSync enabled and no recording active, send a chat request that
-  runs long enough to inspect status. Once its native lease is acknowledged,
-  require `activity_paused: true`, `deferred_for_capture: false`, and a static
-  **Saved locally** status. Streaming and SQLite persistence must remain
-  immediate.
-- No CloudSync send, receive, or E2EE witness request may start while the chat
-  lease is held. Apply the same pre-existing-operation drain exception as the
-  recording gate, then compare `last_sync_at_ms` and the SQLite Cloud request
-  log until the assistant response and its SQLite writes settle.
-- After the final chat persist plus the 750 ms trailing delay, require
-  `activity_paused: false` and exactly one coalesced trailing sync cycle.
-  Abort/error and regeneration paths must also release their leases.
-- Run one overlap: start recording, then start chat, and stagger their
-  completion. Ending the first activity must not resume sync; status remains
-  **Saved locally** and network sync stays at zero. Only the final lease may
-  resume CloudSync, with exactly one trailing sync cycle afterward.
-
-### 6. Automated summary after recording
-
-- Stop the recording.
-- PASS when: an enhanced note/summary is generated automatically without
-  manual triggering, the summary reflects the spoken content, and a title
-  is generated for untitled notes. A transcript must be attached to the
-  session.
-- With CloudSync enabled, verify the final summary-and-title persistence
-  acquires an `enhance` activity lease before its final database read. No
-  CloudSync request may overlap those writes; release must eventually
-  succeed after transient bridge failures, followed by one trailing sync.
-- Capture the summary body hash after generation and again after app restart.
-  The generated title and settled summary hash must remain unchanged.
-
-### 7. Provider matrix — repeat steps 3–6 under each config
-
-| Config    | How to set                                                                                                                                                |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| On-device | Settings → AI: repeat the recording gates with every on-device STT model exposed for the QA Mac, using a local LLM; sign-out state is also worth one pass |
-| Pro plan  | Settings → AI: select Anarlog cloud (`anarlog` provider) with a Pro/trialing account                                                                      |
-
-- PASS when: steps 3–6 behave identically in outcome under each config
-  (transcript + chat + automated summary), with provider-appropriate quality.
-- Do not sample one on-device model as representative. Record each exposed
-  model ID, its hardware recommendation status, and its individual result.
-  A model that cannot download, start, transcribe, or settle a recording is a
-  failed on-device matrix row.
-- Watch for: feature-gate prompts appearing for entitled users, silent
-  summary failures (check the AI task state), and stalled live
-  transcription (watchdog should batch-repair from the recording after
-  stop).
+Do not repurpose the Dev helper as a staging build; staging evidence must come
+from the signed `desktop_cd.yaml` artifact.
 
 ## Automation notes
 
-- Prefer driving the app UI via the Browser/automation tooling available
-  in the session; the Tauri webview is not reachable by the in-app
-  Browser pane, so use screenshots/accessibility tooling or ask the user
-  to perform mic-dependent steps.
-- Fixture playback and stop timing must run from the terminal. A human is
-  only needed for the optional double-talk phrase and OAuth consent screens;
-  verify the results programmatically (transcript rows, summary documents,
-  calendar events, and audio diagnostics).
-- Useful signals: `sessions`, `transcripts`, and `session_documents`
-  (kind = summary) tables via the app DB; console/log output from the
-  dev server for stall-watchdog and enhance-task errors.
-- When the `ANLG-222` gate is active, inspect `session_participants` and the
-  transcript's `speaker_hints_json` alongside the rendered UI. Count distinct
-  `provider_speaker_index` values per channel, but use the visible names to
-  gate identity attribution. Do not create `user_speaker_assignment` hints
-  before recording the automatic-identification result.
+- The Tauri webview is not reachable by the in-app Browser pane; drive the app
+  with screenshots/accessibility tooling (Computer Use).
+- Run fixture playback and stop timing from the terminal, not QuickTime.
+- Verify results programmatically where possible: `sessions`, `transcripts`,
+  and `session_documents` (kind = summary) tables in the app DB, plus app
+  logs for the probe/panic signals above.
 
 ## Reporting
 
-For targeted mode, report the candidate branch/commit, base, selected risk,
-`PASS`/`FAIL`/`BLOCKED`, and one-line evidence for each selected check. List
-unrelated checklist lanes once as `NOT APPLICABLE`, and say explicitly that the
-result is not full release certification.
-
-For full release-gate mode, produce a table: checklist item × provider config
-and on-device model → PASS/FAIL with a one-line note. Include the Dev manifest's
-Git SHA/dirty state, staging run URL and head SHA, staging artifact SHA-256,
-stable release URL and artifact SHA-256, app version, speaker-cluster count,
-speaker-name result, and any explicit waiver. Any FAIL or SHA mismatch blocks
-release; file or fix before cutting.
+Report the candidate SHA, app version, artifact SHA-256s (staging/stable when
+applicable), and PASS/FAIL with one line of evidence for each of the four
+checklist items. Any FAIL or SHA mismatch blocks release. Failures in
+non-gate areas go to their Linear ticket as informational notes.
