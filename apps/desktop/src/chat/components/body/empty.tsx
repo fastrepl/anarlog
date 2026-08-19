@@ -13,24 +13,6 @@ import type { ContextRef } from "~/chat/context/entities";
 import { useChatAppearance } from "~/chat/hooks/use-chat-appearance";
 import { useTabs } from "~/store/zustand/tabs";
 
-const SUGGESTIONS = [
-  {
-    label: t`List action items.`,
-    icon: ListChecks,
-    prompt: t`What are my action items from this meeting?`,
-  },
-  {
-    label: t`Draft follow-up email.`,
-    icon: Envelope,
-    prompt: t`Draft a follow-up email to the participants`,
-  },
-  {
-    label: t`Find key decisions.`,
-    icon: MagnifyingGlass,
-    prompt: t`What were the key decisions that have been made?`,
-  },
-];
-
 export function ChatBodyEmpty({
   isModelConfigured = true,
   hasContext = false,
@@ -46,6 +28,23 @@ export function ChatBodyEmpty({
 }) {
   const { isDarkAppearance } = useChatAppearance();
   const openNew = useTabs((state) => state.openNew);
+  const suggestions = [
+    {
+      label: t`List action items.`,
+      icon: ListChecks,
+      prompt: t`What are my action items from this meeting?`,
+    },
+    {
+      label: t`Draft follow-up email.`,
+      icon: Envelope,
+      prompt: t`Draft a follow-up email to the participants`,
+    },
+    {
+      label: t`Find key decisions.`,
+      icon: MagnifyingGlass,
+      prompt: t`What were the key decisions that have been made?`,
+    },
+  ];
 
   const handleGoToSettings = useCallback(() => {
     openNew({ type: "settings", state: { tab: "intelligence" } });
@@ -105,7 +104,7 @@ export function ChatBodyEmpty({
       <div className="flex w-full flex-col">
         {hasContext && (
           <div className="flex flex-col gap-0.5">
-            {SUGGESTIONS.map(({ label, icon: Icon, prompt }) => (
+            {suggestions.map(({ label, icon: Icon, prompt }) => (
               <button
                 key={label}
                 onClick={() => handleSuggestionClick(prompt)}

@@ -77,12 +77,6 @@ type AccessMutation =
       entry: Extract<SessionShareAccessEntry, { entryType: "request" }>;
     };
 
-const capabilityLabels: Record<SessionAccessCapability, string> = {
-  viewer: t`Can view`,
-  commenter: t`Can comment`,
-  editor: t`Can edit`,
-};
-
 const capabilityRanks: Record<SessionAccessCapability, number> = {
   viewer: 1,
   commenter: 2,
@@ -313,6 +307,12 @@ export function AccessEntryRow({
   onMutate: (mutation: AccessMutation) => void;
 }) {
   const label = contactName || entry.userEmail || t`Anarlog user`;
+  const capabilityLabels: Record<SessionAccessCapability, string> = {
+    viewer: t`Can view`,
+    commenter: t`Can comment`,
+    editor: t`Can edit`,
+  };
+
   return (
     <div className="hover:bg-accent/50 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
       <ContactFacehash name={label} size={24} />

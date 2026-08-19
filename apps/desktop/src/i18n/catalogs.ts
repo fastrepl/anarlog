@@ -1,4 +1,4 @@
-import { setupI18n, type I18n, type Messages } from "@lingui/core";
+import { i18n, type I18n, type Messages } from "@lingui/core";
 
 import { SOURCE_LOCALE, type DisplayLocale } from "./locales";
 
@@ -14,7 +14,6 @@ export function getCatalogLocalesForDisplayLocale(
 }
 
 export async function createI18n(locale: DisplayLocale): Promise<I18n> {
-  const i18n = setupI18n();
   const locales = getCatalogLocalesForDisplayLocale(locale);
   const messages = await Promise.all(locales.map(loadCatalog));
   const sourceMessages = messages[0]!;
