@@ -1,9 +1,16 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   useStoredSettingValuesQuery: vi.fn(),
   mutateCloudSync: vi.fn(),
+  setSettingValues: vi.fn(),
+  meetingSettingsProps: vi.fn(),
+}));
+
+vi.mock("@anlg/plugin-analytics", () => ({
+  commands: { event: vi.fn() },
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -32,7 +39,7 @@ vi.mock("~/auth/cloudsync", () => ({
 
 vi.mock("~/settings/queries", () => ({
   setSettingValue: vi.fn(),
-  useSetSettingValues: vi.fn(),
+  useSetSettingValues: () => mocks.setSettingValues,
   useStoredSettingValuesQuery: mocks.useStoredSettingValuesQuery,
 }));
 
@@ -47,7 +54,10 @@ vi.mock("./main-language", () => ({
   ),
 }));
 vi.mock("./meeting-settings", () => ({
-  MeetingSettingsView: () => <span>Meeting settings</span>,
+  MeetingSettingsView: (props: unknown) => {
+    mocks.meetingSettingsProps(props);
+    return <span>Meeting settings</span>;
+  },
 }));
 vi.mock("./notification", () => ({ NotificationSettingsView: () => null }));
 vi.mock("./permissions", () => ({ Permissions: () => null }));
@@ -95,6 +105,35 @@ describe("SettingsApp", () => {
     render(<SettingsApp />);
 
     expect(screen.getByTestId("main-language").textContent).toBe("ko");
+  });
+
+  it("persists meeting switch toggles", async () => {
+    mocks.useStoredSettingValuesQuery.mockReturnValue({
+      data: {
+        values: {},
+        hasValues: new Set(),
+      },
+      isLoading: false,
+      error: null,
+    });
+
+    render(<SettingsMeetings />);
+
+    const props = mocks.meetingSettingsProps.mock.lastCall?.[0] as {
+      autoStartScheduledMeetings: {
+        value: boolean;
+        onChange: (value: boolean) => void;
+      };
+    };
+    expect(props.autoStartScheduledMeetings.value).toBe(true);
+
+    act(() => props.autoStartScheduledMeetings.onChange(false));
+
+    await waitFor(() => {
+      expect(mocks.setSettingValues).toHaveBeenCalledWith(
+        expect.objectContaining({ auto_start_scheduled_meetings: false }),
+      );
+    });
   });
 
   it("keeps audio controls with meeting settings", () => {

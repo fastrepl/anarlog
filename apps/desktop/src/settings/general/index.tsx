@@ -130,7 +130,14 @@ function useSettingsForm(storedSettings: StoredSettingValues) {
     },
   });
 
-  return { form, value: settingsValue };
+  // form.setFieldValue never reaches the form-level onChange listener when
+  // the field has no mounted Field instance, so submit explicitly.
+  const submitFieldValue: (typeof form)["setFieldValue"] = (field, value) => {
+    form.setFieldValue(field, value);
+    void form.handleSubmit();
+  };
+
+  return { form, submitFieldValue, value: settingsValue };
 }
 
 type SettingsSection = "app" | "meetings";
@@ -170,7 +177,7 @@ function SettingsSectionContent({
   section: SettingsSection;
   storedSettings: StoredSettingValues;
 }) {
-  const { form } = useSettingsForm(storedSettings);
+  const { form, submitFieldValue } = useSettingsForm(storedSettings);
   const setSettingValues = useSetSettingValues();
   const audioRetention =
     resolveConfigValue("audio_retention", storedSettings) || "forever";
@@ -208,22 +215,22 @@ function SettingsSectionContent({
               <AppSettingsView
                 autostart={{
                   value: values.autostart,
-                  onChange: (value) => form.setFieldValue("autostart", value),
+                  onChange: (value) => submitFieldValue("autostart", value),
                 }}
                 automaticUpdates={{
                   value: values.automatic_updates,
                   onChange: (value) =>
-                    form.setFieldValue("automatic_updates", value),
+                    submitFieldValue("automatic_updates", value),
                 }}
                 showAppInDock={{
                   value: values.show_app_in_dock,
                   onChange: (value) =>
-                    form.setFieldValue("show_app_in_dock", value),
+                    submitFieldValue("show_app_in_dock", value),
                 }}
                 showTrayIcon={{
                   value: values.show_tray_icon,
                   onChange: (value) =>
-                    form.setFieldValue("show_tray_icon", value),
+                    submitFieldValue("show_tray_icon", value),
                 }}
               />
             )}
@@ -286,32 +293,32 @@ function SettingsSectionContent({
                 autoJoinScheduledMeetings={{
                   value: values.auto_join_scheduled_meetings,
                   onChange: (value) =>
-                    form.setFieldValue("auto_join_scheduled_meetings", value),
+                    submitFieldValue("auto_join_scheduled_meetings", value),
                 }}
                 autoStartScheduledMeetings={{
                   value: values.auto_start_scheduled_meetings,
                   onChange: (value) =>
-                    form.setFieldValue("auto_start_scheduled_meetings", value),
+                    submitFieldValue("auto_start_scheduled_meetings", value),
                 }}
                 autoStopMeetings={{
                   value: values.auto_stop_meetings,
                   onChange: (value) =>
-                    form.setFieldValue("auto_stop_meetings", value),
+                    submitFieldValue("auto_stop_meetings", value),
                 }}
                 floatingBar={{
                   value: values.floating_bar_enabled,
                   onChange: (value) =>
-                    form.setFieldValue("floating_bar_enabled", value),
+                    submitFieldValue("floating_bar_enabled", value),
                 }}
                 meetingDisclosureAutoPost={{
                   value: values.consent_auto_send_chat,
                   onChange: (value) =>
-                    form.setFieldValue("consent_auto_send_chat", value),
+                    submitFieldValue("consent_auto_send_chat", value),
                 }}
                 captureMeetingChat={{
                   value: values.capture_meeting_chat,
                   onChange: (value) =>
-                    form.setFieldValue("capture_meeting_chat", value),
+                    submitFieldValue("capture_meeting_chat", value),
                 }}
               />
             )}
