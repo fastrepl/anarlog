@@ -84,6 +84,9 @@ pub async fn create_session(
             let reconnect_req = anlg_nango::ReconnectSessionRequest {
                 connection_id: connection_id.to_string(),
                 integration_id: body.integration_id.clone(),
+                integrations_config_defaults: crate::integrations::integrations_config_defaults(
+                    &body.integration_id,
+                ),
             };
 
             let session = state.nango.reconnect_session(reconnect_req).await?;
@@ -104,6 +107,9 @@ pub async fn create_session(
                 let reconnect_req = anlg_nango::ReconnectSessionRequest {
                     connection_id: existing.connection_id.clone(),
                     integration_id: body.integration_id.clone(),
+                    integrations_config_defaults: crate::integrations::integrations_config_defaults(
+                        &body.integration_id,
+                    ),
                 };
 
                 match state.nango.reconnect_session(reconnect_req).await {
@@ -153,8 +159,10 @@ pub async fn create_session(
             tags: Some(tags),
         },
         organization: None,
-        allowed_integrations: Some(vec![body.integration_id]),
-        integrations_config_defaults: None,
+        allowed_integrations: Some(vec![body.integration_id.clone()]),
+        integrations_config_defaults: crate::integrations::integrations_config_defaults(
+            &body.integration_id,
+        ),
     };
 
     let session = state.nango.create_connect_session(req).await?;

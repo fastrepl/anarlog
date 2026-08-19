@@ -12,6 +12,7 @@ import {
   type NewAccountAuthMethod,
   shouldOfferNewAccountTrialCheckoutFallback,
 } from "@/functions/new-account-trial-policy";
+import { oauthProviderScopes } from "@/functions/oauth-provider";
 import { claimPendingReferral } from "@/functions/referrals";
 import {
   getSupabaseAdminClient,
@@ -252,20 +253,13 @@ export const doAuth = createServerFn({ method: "POST" })
     const supabase = getSupabaseServerClient();
     const params = buildAuthCallbackParams(data);
 
-    const scopes =
-      data.provider === "github" && data.rra
-        ? "repo"
-        : data.provider === "azure"
-          ? "email"
-          : undefined;
-
     const { data: authData, error } = await supabase.auth.signInWithOAuth({
       provider: data.provider,
       options: {
         redirectTo: buildAuthCallbackUrl(params),
         queryParams:
           data.provider === "azure" ? { prompt: "select_account" } : undefined,
-        scopes,
+        scopes: oauthProviderScopes(data.provider, data.rra),
       },
     });
 

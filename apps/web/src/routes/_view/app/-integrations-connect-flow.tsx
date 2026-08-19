@@ -1,4 +1,4 @@
-import Nango, { type AuthErrorType, type ConnectUI } from "@nangohq/frontend";
+import Nango, { type ConnectUI } from "@nangohq/frontend";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
@@ -10,25 +10,10 @@ import { getAccessToken } from "@/functions/access-token";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { captureOperationalError } from "@/lib/error-reporting";
+import { getConnectionErrorMessage } from "@/lib/integration-connection-error";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
-
-function getConnectionErrorMessage(
-  errorType: AuthErrorType,
-  providerName: string,
-) {
-  if (errorType === "blocked_by_browser") {
-    return `Your browser blocked the ${providerName} sign-in window. Allow pop-ups for Anarlog and try again.`;
-  }
-  if (errorType === "window_closed") {
-    return `The ${providerName} sign-in window closed before the connection finished. Please try again.`;
-  }
-  if (errorType === "resource_capped") {
-    return "This integration has reached its connection limit. Contact support to connect another account.";
-  }
-  return `${providerName} rejected the connection. Please try again or contact support if it keeps happening.`;
-}
 
 export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
   const search = Route.useSearch();
@@ -165,7 +150,11 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
           );
           inFlightRef.current = false;
           setConnectionError(
-            getConnectionErrorMessage(errorType, display.name),
+            getConnectionErrorMessage(
+              errorType,
+              display.name,
+              search.integration_id,
+            ),
           );
           updateStatus("error");
           connectUIRef.current?.close();

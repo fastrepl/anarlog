@@ -64,6 +64,8 @@ common_derives! {
     pub struct ReconnectSessionRequest {
         pub connection_id: String,
         pub integration_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub integrations_config_defaults: Option<HashMap<String, IntegrationConfigDefault>>,
     }
 }
 

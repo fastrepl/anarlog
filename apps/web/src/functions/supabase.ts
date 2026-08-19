@@ -4,6 +4,7 @@ import { createClientOnlyFn, createServerOnlyFn } from "@tanstack/react-start";
 import { getCookies, setCookie } from "@tanstack/react-start/server";
 
 import { env, requireEnv } from "@/env";
+import { toSetCookieOptions } from "@/lib/supabase-cookies";
 
 export const getSupabaseBrowserClient = createClientOnlyFn(() => {
   return createBrowserClient(
@@ -33,9 +34,9 @@ export const getSupabaseServerClient = createServerOnlyFn(() => {
             value,
           }));
         },
-        setAll(cookies: Array<{ name: string; value: string }>) {
+        setAll(cookies) {
           cookies.forEach((cookie) => {
-            setCookie(cookie.name, cookie.value);
+            setCookie(cookie.name, cookie.value, toSetCookieOptions(cookie));
           });
         },
       },
