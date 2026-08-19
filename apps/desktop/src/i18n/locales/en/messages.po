@@ -577,6 +577,7 @@ msgstr "Automations"
 
 #: src/calendar/components/apple/permission.tsx
 #: src/instruction/index.tsx
+#: src/session-sharing/delivery-panel.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/sidebar/custom-sidebar-header.tsx
 msgid "Back"
@@ -2505,6 +2506,7 @@ msgstr "Model is thinking..."
 msgid "Monday"
 msgstr "Monday"
 
+#: src/session-sharing/delivery-panel.tsx
 #: src/session/components/floating/options-menu.tsx
 msgid "More options"
 msgstr "More options"
@@ -2958,7 +2960,6 @@ msgid "Paused"
 msgstr "Paused"
 
 #: src/contacts/organization-details.tsx
-#: src/session-sharing/delivery-panel.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
 msgstr "People"
