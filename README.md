@@ -1,6 +1,6 @@
 > **Note:** The team is now building **[char](https://char.com)**. The **anarlog** community application remains open-source, MIT-licensed, and maintained as the local-first meeting notetaker in this repo. Source-visible enterprise components are commercially licensed.
 
-![anarlog](https://repository-images.githubusercontent.com/900550981/a4267a9f-414b-4c36-965c-419313ce2417)
+![anarlog](apps/web/public/og.jpg)
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/fastrepl/anarlog)
 
@@ -9,6 +9,8 @@
 An open-source AI meeting notetaker that is local-first, privacy-first, and yours to fork.
 
 Granola, rearranged.
+
+**[Website](https://anarlog.so)** · **[Docs](https://docs.anarlog.so)** · **[Download](https://github.com/fastrepl/anarlog/releases/latest)** · **[r/anarlog](https://www.reddit.com/r/anarlog/)** · **[@anarlogapp](https://x.com/anarlogapp)** · **[Status](https://status.anarlog.so)**
 
 ## How to use it
 
