@@ -138,8 +138,11 @@ From-scratch onboarding evidence comes from the Dev and staging passes.
 - PASS when: recording starts without error, the indicator/timer runs, both
   microphone and system-audio inputs carry nonzero signal, live transcript
   words appear, and mute/unmute does not wedge the session.
-- The log shows an `audio_sync_probe` event and no
-  `audio_sync_probe_panicked`, dropped-sample, or queue-overflow events.
+- On the Dev pass launched by `run-native-dev-qa.sh` with
+  `AUDIO_SYNC_PROBE=1`, the log must show an `audio_sync_probe` event;
+  staging/stable launches via `open` do not emit it, so its absence there is
+  not a failure. Every launch must have no `audio_sync_probe_panicked`,
+  dropped-sample, or queue-overflow events.
 - Echo leakage, duplicate phrases, and speaker naming are informational
   (`ANLG-98`, `ANLG-222`, `ANLG-284`). Generic speaker labels are acceptable.
 
