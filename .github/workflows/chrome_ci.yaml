@@ -19,6 +19,10 @@ on:
       - .github/actions/pnpm_install/**
       - .github/workflows/chrome_ci.yaml
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   chrome_ci:
     runs-on: ubuntu-24.04

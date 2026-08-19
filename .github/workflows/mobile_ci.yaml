@@ -2,6 +2,8 @@ name: mobile_ci
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * *"
   push:
     branches:
       - main
@@ -42,13 +44,26 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CI: "1"
   EXPO_NO_GIT_STATUS: "1"
   SENTRY_DISABLE_AUTO_UPLOAD: "true"
 
 jobs:
+  mobile_checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F @anlg/mobile typecheck
+      - run: pnpm -F @anlg/mobile test
+
   watchos_build:
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: depot-macos-26
     timeout-minutes: 30
     steps:
@@ -64,6 +79,7 @@ jobs:
             build
 
   ios_build:
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: depot-macos-26
     timeout-minutes: 45
     steps:
@@ -81,6 +97,7 @@ jobs:
             --no-bundler
 
   android_build:
+    if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -107,7 +124,7 @@ jobs:
 
   mobile_ci:
     if: always()
-    needs: [watchos_build, ios_build, android_build]
+    needs: [mobile_checks, watchos_build, ios_build, android_build]
     runs-on: ubuntu-latest
     steps:
       - run: exit 1

@@ -3,6 +3,11 @@ on:
   pull_request:
     paths:
       - apps/bot/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-24.04

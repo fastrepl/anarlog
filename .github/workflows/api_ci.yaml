@@ -22,6 +22,11 @@ on:
       - crates/api-sync/**
       - crates/llm-proxy/**
       - crates/transcribe-proxy/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest

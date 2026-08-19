@@ -2,6 +2,8 @@ name: Pro API E2E
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * *"
   push:
     branches:
       - main
@@ -11,13 +13,9 @@ on:
       - crates/owhisper-client/**
       - crates/soniox/**
       - crates/transcribe-proxy/**
-  pull_request:
-    paths:
-      - .github/workflows/pro_api_e2e.yaml
-      - crates/llm-proxy/**
-      - crates/owhisper-client/**
-      - crates/soniox/**
-      - crates/transcribe-proxy/**
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   pro-transcription:

@@ -13,6 +13,11 @@ on:
     paths:
       - apps/web/**
       - packages/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-24.04

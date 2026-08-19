@@ -1,6 +1,8 @@
 # https://github.com/tauri-apps/tauri-action/blob/3013cac/examples/test-build-only.yml
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * *"
   push:
     branches:
       - main
@@ -27,9 +29,27 @@ on:
       - crates/**
       - Cargo.toml
       - Cargo.lock
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  macos_ci:
+  js_ci:
     if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: ./.github/actions/pnpm_install
+      - run: pnpm -F ui build
+      - run: pnpm -F desktop typecheck
+      - run: pnpm -F desktop test
+
+  macos_ci:
+    if: ${{ github.event_name != 'pull_request' && !startsWith(github.head_ref || '', 'blog/') }}
     defaults:
       run:
         shell: bash
@@ -171,7 +191,7 @@ jobs:
             plugins/db/permissions/schemas/schema.json
 
   windows_ci:
-    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    if: ${{ github.event_name != 'pull_request' && !startsWith(github.head_ref || '', 'blog/') }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -388,23 +408,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-            rust_platform: linux-x86_64
-            artifact_name: x64
-            debian_arch: amd64
-            file_arch: x86-64
-            docker_arch: amd64
-            cloudsync_arch: x86_64
-          - runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            rust_platform: linux-aarch64
-            artifact_name: arm64
-            debian_arch: arm64
-            file_arch: ARM aarch64
-            docker_arch: arm64
-            cloudsync_arch: aarch64
+        include: ${{ github.event_name == 'pull_request' && fromJSON('[{"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","rust_platform":"linux-x86_64","artifact_name":"x64","debian_arch":"amd64","file_arch":"x86-64","docker_arch":"amd64","cloudsync_arch":"x86_64"}]') || fromJSON('[{"runner":"ubuntu-24.04","target":"x86_64-unknown-linux-gnu","rust_platform":"linux-x86_64","artifact_name":"x64","debian_arch":"amd64","file_arch":"x86-64","docker_arch":"amd64","cloudsync_arch":"x86_64"},{"runner":"ubuntu-24.04-arm","target":"aarch64-unknown-linux-gnu","rust_platform":"linux-aarch64","artifact_name":"arm64","debian_arch":"arm64","file_arch":"ARM aarch64","docker_arch":"arm64","cloudsync_arch":"aarch64"}]') }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -614,7 +618,7 @@ jobs:
       - run: pnpm -F desktop i18n:check
 
   desktop_swift:
-    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    if: ${{ github.event_name != 'pull_request' && !startsWith(github.head_ref || '', 'blog/') }}
     runs-on: depot-macos-15
     defaults:
       run:
@@ -629,6 +633,7 @@ jobs:
   ci:
     if: always()
     needs: [
+      js_ci,
       macos_ci,
       windows_ci,
       linux_ci,
