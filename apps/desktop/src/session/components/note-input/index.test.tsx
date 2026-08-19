@@ -40,7 +40,8 @@ vi.mock("./enhanced", async () => {
 });
 
 vi.mock("./header", () => ({
-  Header: ({
+  Header: () => <div data-testid="folder-header" />,
+  SessionViewSwitcher: ({
     currentTab,
     editorTabs,
     handleTabChange,

@@ -15,7 +15,7 @@ import type { NoteEditorRef } from "@anlg/editor/note";
 import { cn } from "@anlg/utils";
 
 import { Enhanced } from "./enhanced";
-import { Header, useEditorTabs } from "./header";
+import { Header, SessionViewSwitcher, useEditorTabs } from "./header";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
@@ -326,13 +326,16 @@ const NoteInputContent = forwardRef<
       <div className="-mx-2 flex h-full flex-col">
         {!hideHeader && (
           <div className="relative px-2">
-            <Header
-              sessionId={sessionId}
-              editorTabs={editorTabs}
-              currentTab={renderedCurrentTab}
-              handleTabChange={handleTabChange}
-              isTranscribing={shouldShowTranscriptSpinner}
-            />
+            <div className="flex items-center justify-between gap-2">
+              <Header sessionId={sessionId} />
+              <SessionViewSwitcher
+                sessionId={sessionId}
+                editorTabs={editorTabs}
+                currentTab={renderedCurrentTab}
+                handleTabChange={handleTabChange}
+                isTranscribing={shouldShowTranscriptSpinner}
+              />
+            </div>
           </div>
         )}
 

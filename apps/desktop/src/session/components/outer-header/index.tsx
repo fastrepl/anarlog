@@ -45,6 +45,7 @@ export function OuterHeader({
   currentView,
   standaloneWindow = false,
   title,
+  viewSwitcher,
   centerTitle = false,
   transcriptEditMode = false,
   onTranscriptEditModeChange,
@@ -53,6 +54,7 @@ export function OuterHeader({
   currentView: EditorView;
   standaloneWindow?: boolean;
   title?: React.ReactNode;
+  viewSwitcher?: React.ReactNode;
   centerTitle?: boolean;
   transcriptEditMode?: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
@@ -70,6 +72,7 @@ export function OuterHeader({
       className={cn([
         "relative flex w-full items-center",
         "h-12",
+        standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         showSidebarTimelineHeaderGutter &&
           (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
       ])}
@@ -78,20 +81,12 @@ export function OuterHeader({
         <div
           data-tauri-drag-region
           className={cn([
-            "pointer-events-none absolute inset-y-0 flex items-center",
+            "pointer-events-none flex min-w-0 flex-1 items-center",
             centerTitle && "justify-center",
-            "right-[140px]",
-            standaloneWindow
-              ? showWindowControlsGutter
-                ? "left-[76px]"
-                : "left-2"
-              : showSidebarTimelineHeaderGutter
-                ? showWindowControlsGutter
-                  ? "left-[104px]"
-                  : "left-[28px]"
-                : showExpandedSidebarTimelineHeader
-                  ? "left-0"
-                  : "left-[114px]",
+            !standaloneWindow &&
+              !showSidebarTimelineHeaderGutter &&
+              !showExpandedSidebarTimelineHeader &&
+              "pl-[114px]",
           ])}
         >
           <div
@@ -101,11 +96,14 @@ export function OuterHeader({
             {title}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div data-tauri-drag-region className="min-w-0 flex-1" />
+      )}
       <div
         data-tauri-drag-region
         className="relative z-10 ml-auto flex shrink-0 items-center gap-0 pr-1"
       >
+        {viewSwitcher}
         <HeaderMeetingControl
           sessionId={sessionId}
           sessionMode={sessionMode}

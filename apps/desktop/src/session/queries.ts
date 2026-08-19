@@ -16,6 +16,7 @@ export {
   createSession,
   getOrCreateSessionForEventId,
 } from "./queries/creation";
+export { useFolderPaths } from "./queries/folders";
 export {
   addSessionParticipant,
   removeSessionParticipant,

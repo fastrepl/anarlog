@@ -1332,6 +1332,10 @@ msgstr ""
 msgid "Create"
 msgstr ""
 
+#: src/session/components/folder-picker.tsx
+msgid "Create \"{folderName}\""
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr ""
@@ -1701,6 +1705,10 @@ msgstr ""
 msgid "Enter a valid date and time"
 msgstr ""
 
+#: src/session/components/folder-picker.tsx
+msgid "Enter a valid folder name."
+msgstr ""
+
 #: src/templates/template-form.tsx
 msgid "Enter template title"
 msgstr ""
@@ -1842,6 +1850,11 @@ msgstr ""
 
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
+msgstr ""
+
+#. placeholder {0}: folderBreadcrumbLabel(currentPath)
+#: src/session/components/folder-picker.tsx
+msgid "Folder: {0}"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -2605,8 +2618,20 @@ msgstr ""
 msgid "No emoji found"
 msgstr ""
 
+#: src/session/components/folder-picker.tsx
+msgid "No folder"
+msgstr ""
+
 #: src/settings/automations/starter-config.tsx
 msgid "No folder selected yet."
+msgstr ""
+
+#: src/session/components/folder-picker.tsx
+msgid "No folders found."
+msgstr ""
+
+#: src/session/components/folder-picker.tsx
+msgid "No folders yet."
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -3436,6 +3461,10 @@ msgstr "Teanga chuardaigh..."
 msgid "Search or add company"
 msgstr ""
 
+#: src/session/components/folder-picker.tsx
+msgid "Search or create folder"
+msgstr ""
+
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Search or create new"
 msgstr ""
@@ -3511,6 +3540,10 @@ msgstr ""
 
 #: src/settings/general/week-start.tsx
 msgid "Select day"
+msgstr ""
+
+#: src/session/components/folder-picker.tsx
+msgid "Select folder"
 msgstr ""
 
 #: src/settings/general/main-language.tsx

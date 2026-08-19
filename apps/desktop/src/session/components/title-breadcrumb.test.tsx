@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("~/session/queries", () => ({
+  useFolderPaths: () => [],
   useSession: () => ({ folder_id: mocks.folderId }),
+  useUpdateSession: () => vi.fn(() => Promise.resolve()),
 }));
 
 describe("NoteTitleBreadcrumb", () => {
@@ -20,7 +22,7 @@ describe("NoteTitleBreadcrumb", () => {
     cleanup();
   });
 
-  it("renders only the editable title when no folder is set", () => {
+  it("renders the folder picker and editable title when no folder is set", () => {
     render(
       <NoteTitleBreadcrumb
         sessionId="session-1"
@@ -33,12 +35,15 @@ describe("NoteTitleBreadcrumb", () => {
     });
     const title = screen.getByLabelText("Session title");
 
-    expect(screen.queryByText("Select folder")).toBeNull();
+    expect(
+      screen.getByRole("combobox", { name: "Select folder" }),
+    ).not.toBeNull();
     expect(breadcrumb.contains(title)).toBe(true);
     expect(breadcrumb.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(screen.queryByText("/")).toBeNull();
   });
 
-  it("renders persisted folder path crumbs before the editable title", () => {
+  it("renders the selected folder before the editable title", () => {
     mocks.folderId = "work/meetings";
 
     render(
@@ -48,12 +53,10 @@ describe("NoteTitleBreadcrumb", () => {
       />,
     );
 
-    expect(screen.getByText("work")).not.toBeNull();
-    expect(screen.getByText("meetings")).not.toBeNull();
-    expect(screen.getByText("work").parentElement?.className).toContain(
-      "min-w-0",
-    );
-    expect(screen.getAllByText("/")).toHaveLength(2);
+    expect(
+      screen.getByRole("combobox", { name: "Folder: work / meetings" }),
+    ).not.toBeNull();
+    expect(screen.getByText("/")).not.toBeNull();
     expect(screen.getByLabelText("Session title")).not.toBeNull();
   });
 });

@@ -13,6 +13,7 @@ import {
 import {
   createEditorTabs,
   Header as NoteInputHeader,
+  SessionViewSwitcher,
 } from "./components/note-input/header";
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
@@ -277,8 +278,9 @@ function TabContentNoteInner({
             standaloneWindow={standaloneWindow}
             transcriptEditMode={transcriptEditMode}
             onTranscriptEditModeChange={handleTranscriptEditModeChange}
-            title={
-              <NoteInputHeader
+            title={<NoteInputHeader sessionId={sessionId} />}
+            viewSwitcher={
+              <SessionViewSwitcher
                 sessionId={sessionId}
                 editorTabs={editorTabs}
                 currentTab={currentView}

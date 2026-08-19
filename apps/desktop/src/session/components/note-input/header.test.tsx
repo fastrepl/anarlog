@@ -192,7 +192,12 @@ vi.mock("~/session/queries", () => ({
     title: "Summary",
   }),
   useEnhancedNoteRecords: () => [{ id: "note-1" }],
-  useSession: () => ({ raw_md: "", title: hoisted.sessionTitle }),
+  useFolderPaths: () => [],
+  useSession: () => ({
+    folder_id: "",
+    raw_md: "",
+    title: hoisted.sessionTitle,
+  }),
   useUpdateSession: () => hoisted.updateSession,
 }));
 
@@ -309,7 +314,7 @@ vi.mock("~/templates", () => ({
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
-import { Header, useEditorTabs } from "./header";
+import { Header, SessionViewSwitcher, useEditorTabs } from "./header";
 
 describe("Header", () => {
   beforeEach(() => {
@@ -356,7 +361,7 @@ describe("Header", () => {
     const handleTabChange = vi.fn();
 
     const view = render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "raw" }}
@@ -416,7 +421,7 @@ describe("Header", () => {
     });
 
     view.rerender(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "enhanced", id: "note-1" }}
@@ -448,7 +453,7 @@ describe("Header", () => {
     fireEvent.click(screen.getByRole("button", { name: "Memos" }));
 
     view.rerender(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "raw" }}
@@ -465,9 +470,9 @@ describe("Header", () => {
     });
   });
 
-  it("shows the session title without tab controls when the memo is the only view", () => {
+  it("hides the view switcher when the memo is the only view", () => {
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={[{ type: "raw" }]}
         currentTab={{ type: "raw" }}
@@ -478,39 +483,36 @@ describe("Header", () => {
     expect(
       screen.queryByRole("group", { name: "Session note views" }),
     ).toBeNull();
-    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("shows the session title and folder picker in the toolbar", () => {
+    render(<Header sessionId="session-1" />);
+
+    expect(
+      screen.queryByRole("group", { name: "Session note views" }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("combobox", { name: "Select folder" }),
+    ).not.toBeNull();
     const title = screen.getByRole("textbox", { name: "Session title" });
     expect((title as HTMLInputElement).value).toBe("Weekly planning");
     expect(title.className).toContain("border-none");
-    expect(title.parentElement?.parentElement?.className).toContain("pl-2");
   });
 
   it("shows Untitled for an ad hoc memo with no title", () => {
     hoisted.sessionTitle = "";
 
-    render(
-      <Header
-        sessionId="session-1"
-        editorTabs={[{ type: "raw" }]}
-        currentTab={{ type: "raw" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
+    render(<Header sessionId="session-1" />);
 
     const title = screen.getByPlaceholderText("Untitled");
     expect((title as HTMLInputElement).value).toBe("");
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(
+      screen.getByRole("combobox", { name: "Select folder" }),
+    ).not.toBeNull();
   });
 
   it("persists edits to the session title", async () => {
-    render(
-      <Header
-        sessionId="session-1"
-        editorTabs={[{ type: "raw" }]}
-        currentTab={{ type: "raw" }}
-        handleTabChange={vi.fn()}
-      />,
-    );
+    render(<Header sessionId="session-1" />);
 
     const title = screen.getByRole("textbox", { name: "Session title" });
     fireEvent.focus(title);
@@ -533,7 +535,7 @@ describe("Header", () => {
     const handleTabChange = vi.fn();
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -563,7 +565,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -601,7 +603,7 @@ describe("Header", () => {
     hoisted.isMainWebviewWindow = false;
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={[
           { type: "enhanced", id: "note-1" },
@@ -635,7 +637,7 @@ describe("Header", () => {
     ];
 
     const view = render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "raw" }}
@@ -646,7 +648,7 @@ describe("Header", () => {
     expect(hoisted.transcriptRenderDataCalls).toBe(0);
 
     view.rerender(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -666,7 +668,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -688,7 +690,7 @@ describe("Header", () => {
       hoisted.sessionMode = sessionMode;
 
       render(
-        <Header
+        <SessionViewSwitcher
           sessionId="session-1"
           editorTabs={[
             { type: "enhanced", id: "note-1" },
@@ -713,7 +715,7 @@ describe("Header", () => {
     hoisted.audioExistsResolved = false;
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={[
           { type: "enhanced", id: "note-1" },
@@ -753,7 +755,7 @@ describe("Header", () => {
     const handleTabChange = vi.fn();
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "enhanced", id: "note-1" }}
@@ -797,7 +799,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "enhanced", id: "note-1" }}
@@ -823,7 +825,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "enhanced", id: "note-1" }}
@@ -845,7 +847,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "raw" }}
@@ -871,7 +873,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -895,7 +897,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -927,7 +929,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -951,7 +953,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "raw" }}
@@ -980,7 +982,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "raw" }}
@@ -1014,7 +1016,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -1048,7 +1050,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -1073,7 +1075,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}
@@ -1106,7 +1108,7 @@ describe("Header", () => {
     ];
 
     render(
-      <Header
+      <SessionViewSwitcher
         sessionId="session-1"
         editorTabs={editorTabs}
         currentTab={{ type: "transcript" }}

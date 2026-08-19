@@ -1332,6 +1332,10 @@ msgstr "Could not update this person's access."
 msgid "Create"
 msgstr "Create"
 
+#: src/session/components/folder-picker.tsx
+msgid "Create \"{folderName}\""
+msgstr "Create \"{folderName}\""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -1701,6 +1705,10 @@ msgstr "Enter a model identifier"
 msgid "Enter a valid date and time"
 msgstr "Enter a valid date and time"
 
+#: src/session/components/folder-picker.tsx
+msgid "Enter a valid folder name."
+msgstr "Enter a valid folder name."
+
 #: src/templates/template-form.tsx
 msgid "Enter template title"
 msgstr "Enter template title"
@@ -1843,6 +1851,11 @@ msgstr "Flags"
 #: src/chat/components/toolbar-controls.tsx
 msgid "Float chat"
 msgstr "Float chat"
+
+#. placeholder {0}: folderBreadcrumbLabel(currentPath)
+#: src/session/components/folder-picker.tsx
+msgid "Folder: {0}"
+msgstr "Folder: {0}"
 
 #: src/templates/template-icon-picker.tsx
 msgid "Food & Drink"
@@ -2605,9 +2618,21 @@ msgstr "No devices registered yet."
 msgid "No emoji found"
 msgstr "No emoji found"
 
+#: src/session/components/folder-picker.tsx
+msgid "No folder"
+msgstr "No folder"
+
 #: src/settings/automations/starter-config.tsx
 msgid "No folder selected yet."
 msgstr "No folder selected yet."
+
+#: src/session/components/folder-picker.tsx
+msgid "No folders found."
+msgstr "No folders found."
+
+#: src/session/components/folder-picker.tsx
+msgid "No folders yet."
+msgstr "No folders yet."
 
 #: src/templates/template-icon-picker.tsx
 msgid "No icons found"
@@ -3436,6 +3461,10 @@ msgstr "Search language..."
 msgid "Search or add company"
 msgstr "Search or add company"
 
+#: src/session/components/folder-picker.tsx
+msgid "Search or create folder"
+msgstr "Search or create folder"
+
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Search or create new"
 msgstr "Search or create new"
@@ -3512,6 +3541,10 @@ msgstr "Select an organization to view details"
 #: src/settings/general/week-start.tsx
 msgid "Select day"
 msgstr "Select day"
+
+#: src/session/components/folder-picker.tsx
+msgid "Select folder"
+msgstr "Select folder"
 
 #: src/settings/general/main-language.tsx
 msgid "Select language"

@@ -221,8 +221,8 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
-    expect(titleSlot?.className).toContain("right-[140px]");
-    expect(titleSlot?.className).not.toContain("right-[153px]");
+    expect(titleSlot?.className).toContain("flex-1");
+    expect(titleSlot?.className).not.toContain("right-[140px]");
   });
 
   it("hides the finalizing header button while the sidebar is collapsed", () => {
@@ -241,8 +241,8 @@ describe("OuterHeader", () => {
     const titleSlot = title.parentElement?.parentElement;
 
     expect(screen.queryByRole("button", { name: "Finalizing" })).toBeNull();
-    expect(titleSlot?.className).toContain("right-[140px]");
-    expect(titleSlot?.className).not.toContain("right-[153px]");
+    expect(titleSlot?.className).toContain("flex-1");
+    expect(titleSlot?.className).not.toContain("right-[140px]");
   });
 
   it("raises the tightened title field when the sidebar is collapsed", () => {
@@ -267,9 +267,9 @@ describe("OuterHeader", () => {
     expect(titleWrapper?.classList.contains("w-full")).toBe(false);
     expect(titleWrapper?.className).toContain("max-w-full");
     expect(titleWrapper?.className).not.toContain("max-w-[680px]");
-    expect(titleSlot?.className).toContain("left-[104px]");
+    expect(titleSlot?.className).toContain("flex-1");
     expect(titleSlot?.className).not.toContain("-translate-y-1");
-    expect(titleSlot?.className).toContain("right-[140px]");
+    expect(titleSlot?.className).not.toContain("right-[140px]");
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
@@ -289,8 +289,8 @@ describe("OuterHeader", () => {
     const title = screen.getByText("Session title");
     const titleSlot = title.parentElement?.parentElement;
 
-    expect(titleSlot?.className).toContain("left-0");
-    expect(titleSlot?.className).toContain("right-[140px]");
+    expect(titleSlot?.className).toContain("flex-1");
+    expect(titleSlot?.className).not.toContain("right-[140px]");
     expect(titleSlot?.className).not.toContain("justify-center");
   });
 
@@ -328,7 +328,7 @@ describe("OuterHeader", () => {
 
     expect(mocks.shareSessionIds).toEqual(["session-1"]);
     expect(screen.getByRole("button", { name: "Share" })).not.toBeNull();
-    expect(titleSlot?.className).toContain("right-[140px]");
+    expect(titleSlot?.className).toContain("flex-1");
   });
 
   it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
@@ -382,6 +382,35 @@ describe("OuterHeader", () => {
     expect(actionStrip?.hasAttribute("data-tauri-drag-region")).toBe(true);
   });
 
+  it("places view switcher tabs immediately before the calendar control", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        title={<span>Session title</span>}
+        viewSwitcher={
+          <div role="group" aria-label="Session note views">
+            Tabs
+          </div>
+        }
+      />,
+    );
+
+    const views = screen.getByRole("group", { name: "Session note views" });
+    const calendar = screen.getByRole("button", {
+      name: "Open event metadata",
+    });
+    const actionStrip = views.parentElement;
+    const actionChildren = [...(actionStrip?.children ?? [])];
+
+    expect(actionStrip?.contains(calendar)).toBe(true);
+    expect(actionChildren.indexOf(views)).toBeLessThan(
+      actionChildren.findIndex((child) => child.contains(calendar)),
+    );
+  });
+
   it("keeps the dedicated stop button hidden while the sidebar is expanded", () => {
     mocks.sessionModes = { "session-1": "active" };
 
@@ -410,11 +439,10 @@ describe("OuterHeader", () => {
     );
 
     const title = screen.getByText("Session title");
-    const titleSlot = title.parentElement?.parentElement;
+    const header = title.parentElement?.parentElement?.parentElement;
 
-    expect(titleSlot?.className).toContain("left-[76px]");
-    expect(titleSlot?.className).toContain("right-[140px]");
-    expect(titleSlot?.className).not.toContain("right-[153px]");
+    expect(header?.className).toContain("pl-[76px]");
+    expect(header?.className).not.toContain("right-[153px]");
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
 
     const overflowProps = mocks.overflowProps[mocks.overflowProps.length - 1];
@@ -435,13 +463,10 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const title = screen.getByText("Session title");
-    const titleSlot = title.parentElement?.parentElement;
     const header = container.firstElementChild;
 
     expect(header?.className).not.toContain("pl-[156px]");
-    expect(titleSlot?.className).toContain("left-[76px]");
-    expect(titleSlot?.className).toContain("right-[140px]");
+    expect(header?.className).toContain("pl-[76px]");
   });
 
   it.each([
@@ -462,11 +487,12 @@ describe("OuterHeader", () => {
         />,
       );
 
-      const title = screen.getByText("Session title");
-      const titleSlot = title.parentElement?.parentElement;
+      const header =
+        screen.getByText("Session title").parentElement?.parentElement
+          ?.parentElement;
 
-      expect(titleSlot?.className).toContain("left-2");
-      expect(titleSlot?.className).not.toContain("left-[76px]");
+      expect(header?.className).toContain("pl-2");
+      expect(header?.className).not.toContain("pl-[76px]");
     },
   );
 
