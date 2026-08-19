@@ -4,6 +4,8 @@ use anlg_db_core::Db;
 
 const DB_FILENAME: &str = "app.db";
 const DEFAULT_CLOUDSYNC_INTERVAL_MS: u64 = 30_000;
+const DB_OPEN_LOCK_RETRIES: u32 = 12;
+const DB_OPEN_LOCK_RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(5);
 
 pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
     let dir = desktop_db_dir(identifier)
@@ -12,11 +14,34 @@ pub async fn open_desktop_db(identifier: &str) -> Result<Arc<Db>, String> {
         .map_err(|error| format!("failed to create application data directory: {error}"))?;
 
     let db_path = dir.join(DB_FILENAME);
-    let db = tauri_plugin_db::open_app_db(Some(&db_path))
-        .await
-        .map_err(|error| format!("failed to open application database: {error}"))?;
+
+    // During an update relaunch the previous process can hold the database for
+    // several seconds while it flushes and exits; retry instead of failing the
+    // whole startup on a transient lock.
+    let mut attempts = 0u32;
+    let db = loop {
+        match tauri_plugin_db::open_app_db(Some(&db_path)).await {
+            Ok(db) => break db,
+            Err(error) if attempts < DB_OPEN_LOCK_RETRIES && is_transient_lock_error(&error) => {
+                attempts += 1;
+                eprintln!(
+                    "application database is locked by another process; \
+                     retrying ({attempts}/{DB_OPEN_LOCK_RETRIES}): {error}"
+                );
+                tokio::time::sleep(DB_OPEN_LOCK_RETRY_DELAY).await;
+            }
+            Err(error) => {
+                return Err(format!("failed to open application database: {error}"));
+            }
+        }
+    };
 
     Ok(Arc::new(db))
+}
+
+pub fn is_transient_lock_error(error: &impl std::fmt::Display) -> bool {
+    let message = error.to_string();
+    message.contains("database is locked") || message.contains("database table is locked")
 }
 
 pub fn cloudsync_runtime_config_from_env()
@@ -116,6 +141,19 @@ fn desktop_db_dir(identifier: &str) -> Option<std::path::PathBuf> {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn transient_lock_errors_are_recognized() {
+        assert!(is_transient_lock_error(
+            &"error returned from database: (code: 5) database is locked"
+        ));
+        assert!(is_transient_lock_error(
+            &"error returned from database: (code: 6) database table is locked"
+        ));
+        assert!(!is_transient_lock_error(
+            &"unable to open database file: /tmp/app.db"
+        ));
+    }
 
     #[test]
     fn dev_uses_an_isolated_persistent_database() {

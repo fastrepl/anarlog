@@ -161,6 +161,7 @@ fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actu
 pub async fn main() {
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     let context = tauri::generate_context!();
+    let identifier = context.config().identifier.clone();
 
     let (root_supervisor_ctx, root_supervisor_handle) =
         match supervisor::spawn_root_supervisor().await {
@@ -168,9 +169,9 @@ pub async fn main() {
             None => (None, None),
         };
 
-    let db = match open_desktop_db(&context.config().identifier).await {
+    let db = match open_desktop_db(&identifier).await {
         Ok(db) => db,
-        Err(error) => exit_after_startup_failure(&error),
+        Err(error) => exit_after_startup_failure(&identifier, &error),
     };
     let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
 
@@ -436,7 +437,7 @@ pub async fn main() {
 
     let app = match app_result {
         Ok(app) => app,
-        Err(error) => exit_after_startup_failure(&error),
+        Err(error) => exit_after_startup_failure(&identifier, &error),
     };
 
     match get_onboarding_flag() {
@@ -479,7 +480,7 @@ pub async fn main() {
                 }
             }
             Ok(_) => {}
-            Err(error) => exit_after_startup_failure(&error),
+            Err(error) => exit_after_startup_failure(&identifier, &error),
         }
     }
 
@@ -540,23 +541,85 @@ fn startup_failure_message(error: &impl std::fmt::Display) -> String {
     format!("Anarlog failed to start: {error}")
 }
 
-fn exit_after_startup_failure(error: &impl std::fmt::Display) -> ! {
+fn exit_after_startup_failure(identifier: &str, error: &impl std::fmt::Display) -> ! {
     let message = startup_failure_message(error);
     eprintln!("{message}");
     tracing::error!(error = %error, "desktop startup failed");
-    sentry::capture_message(&message, sentry::Level::Error);
+    append_startup_failure_to_log(identifier, &message);
+    report_startup_failure_to_sentry(&message);
 
     #[cfg(target_os = "macos")]
     {
+        // Startup can fail before the database is reachable, so the alert text
+        // is fixed per failure class instead of embedding the error.
+        let alert = if db::is_transient_lock_error(error) {
+            "display alert \"Anarlog is not ready yet\" message \"Another Anarlog process is still using your data, possibly finishing an update. Your existing data was left unchanged. Please wait a moment and open Anarlog again.\" as critical buttons {\"OK\"} default button \"OK\""
+        } else {
+            "display alert \"Anarlog could not start\" message \"Your existing data was left unchanged. Please restart the app. If the problem continues, contact support.\" as critical buttons {\"OK\"} default button \"OK\""
+        };
         let _ = std::process::Command::new("/usr/bin/osascript")
-            .args([
-                "-e",
-                "display alert \"Anarlog could not start\" message \"Your existing data was left unchanged. Please restart the app. If the problem continues, contact support.\" as critical buttons {\"OK\"} default button \"OK\"",
-            ])
+            .args(["-e", alert])
             .spawn();
     }
 
     std::process::exit(1);
+}
+
+// Startup failures happen before the tracing plugin exists, so append directly
+// to the same log file support already asks users for.
+fn append_startup_failure_to_log(identifier: &str, message: &str) {
+    #[cfg(target_os = "macos")]
+    {
+        use std::io::Write;
+
+        let Some(home) = dirs::home_dir() else {
+            return;
+        };
+        let dir = home.join("Library/Logs").join(identifier);
+        if std::fs::create_dir_all(&dir).is_err() {
+            return;
+        }
+        let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(dir.join("app.log"))
+        else {
+            return;
+        };
+        let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S%.6fZ");
+        let _ = writeln!(file, "{timestamp} ERROR anarlog::startup: {message}");
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (identifier, message);
+    }
+}
+
+// The main Sentry client is initialized after the database opens, so database
+// startup failures need their own short-lived client to be reported at all.
+fn report_startup_failure_to_sentry(message: &str) {
+    if let Some(client) = sentry::Hub::current().client() {
+        sentry::capture_message(message, sentry::Level::Error);
+        client.flush(Some(std::time::Duration::from_secs(3)));
+        return;
+    }
+
+    let Some(dsn) = option_env!("SENTRY_DSN") else {
+        return;
+    };
+    let guard = sentry::init((
+        dsn,
+        sentry::ClientOptions {
+            release: option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{}", v).into()),
+            auto_session_tracking: false,
+            before_send: Some(Arc::new(|event| {
+                tauri_plugin_tracing::redaction::sanitize_sentry_event(event)
+            })),
+            ..Default::default()
+        },
+    ));
+    sentry::capture_message(message, sentry::Level::Error);
+    guard.flush(Some(std::time::Duration::from_secs(3)));
 }
 
 fn get_onboarding_flag() -> Option<bool> {
