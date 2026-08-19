@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import { Button } from "@anlg/ui/components/ui/button";
 
 export function ApiKeyRow({
@@ -23,8 +25,8 @@ export function ApiKeyRow({
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-muted-foreground text-xs">
           {apiKey.last_used_at
-            ? `Last used ${apiKey.last_used_at.slice(0, 10)}`
-            : `Created ${apiKey.created_at.slice(0, 10)}`}
+            ? t`Last used ${apiKey.last_used_at.slice(0, 10)}`
+            : t`Created ${apiKey.created_at.slice(0, 10)}`}
         </span>
         <Button
           type="button"
@@ -33,7 +35,7 @@ export function ApiKeyRow({
           className="text-destructive h-7"
           onClick={onRevoke}
         >
-          Revoke
+          {t`Revoke`}
         </Button>
       </div>
     </li>

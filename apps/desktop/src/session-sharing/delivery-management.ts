@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useMutation } from "@tanstack/react-query";
 
 import { json2md } from "@anlg/editor/markdown";
@@ -118,12 +119,12 @@ export function useSessionRecapDelivery({
         recipient_count: recipientCount,
       });
       sonnerToast.success(
-        recipientCount > 1 ? "Meeting notes sent." : "Meeting note sent.",
+        recipientCount > 1 ? t`Meeting notes sent.` : t`Meeting note sent.`,
       );
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not email the meeting notes.");
+      sonnerToast.error(t`Could not email the meeting notes.`);
     },
   });
   const slackMutation = useMutation({
@@ -146,11 +147,11 @@ export function useSessionRecapDelivery({
       trackAnalyticsEvent("share_recap_sent", {
         delivery_method: "slack",
       });
-      sonnerToast.success(`Meeting notes sent to #${channel.name}.`);
+      sonnerToast.success(t`Meeting notes sent to #${channel.name}.`);
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not send the meeting notes to Slack.");
+      sonnerToast.error(t`Could not send the meeting notes to Slack.`);
     },
   });
 

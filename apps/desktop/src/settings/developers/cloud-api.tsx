@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { CircleNotch, Copy, Key, LockSimple } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -55,16 +57,16 @@ export function CloudApiSection() {
       });
       if (backfillFailed) {
         sonnerToast.error(
-          "Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry.",
+          t`Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry.`,
         );
       } else if (settings.enabled) {
         sonnerToast.success(
           uploaded === 1
-            ? "Cloud API enabled — 1 meeting uploaded"
-            : `Cloud API enabled — ${uploaded} meetings uploaded`,
+            ? t`Cloud API enabled — 1 meeting uploaded`
+            : t`Cloud API enabled — ${uploaded} meetings uploaded`,
         );
       } else {
-        sonnerToast.success("Cloud API disabled and readable copies deleted");
+        sonnerToast.success(t`Cloud API disabled and readable copies deleted`);
       }
     },
     onError: (error) => sonnerToast.error(error.message),
@@ -76,7 +78,7 @@ export function CloudApiSection() {
       <section className="flex items-start justify-between gap-4">
         <CloudApiHeading />
         <CircleNotch
-          aria-label="Loading Cloud API access"
+          aria-label={t`Loading Cloud API access`}
           className="text-muted-foreground mt-1 size-4 animate-spin"
         />
       </section>
@@ -90,11 +92,13 @@ export function CloudApiSection() {
           <LockSimple className="text-muted-foreground mt-1 size-4 shrink-0" />
           <div>
             <h2 className="font-sans text-lg font-semibold">
-              Cloud API & Connectors
+              <Trans>Cloud API & Connectors</Trans>
             </h2>
             <p className="text-muted-foreground mt-1 text-xs leading-5">
-              Access meetings remotely through the REST API and MCP connectors
-              with Anarlog Pro.
+              <Trans>
+                Access meetings remotely through the REST API and MCP connectors
+                with Anarlog Pro.
+              </Trans>
             </p>
           </div>
         </div>
@@ -107,7 +111,7 @@ export function CloudApiSection() {
           {billing.isUpgradingToPro ? (
             <CircleNotch className="size-4 animate-spin" />
           ) : null}
-          Upgrade to Pro
+          <Trans>Upgrade to Pro</Trans>
         </Button>
       </section>
     );
@@ -119,7 +123,7 @@ export function CloudApiSection() {
         <CloudApiHeading error={settingsQuery.error?.message} />
         <Switch
           checked={enabled}
-          aria-label="Enable Cloud API & Connectors"
+          aria-label={t`Enable Cloud API & Connectors`}
           disabled={
             settingsQuery.isPending ||
             settingsQuery.isError ||
@@ -133,14 +137,14 @@ export function CloudApiSection() {
         <>
           <div className="grid gap-3 sm:grid-cols-2">
             <CloudEndpoint
-              label="REST API"
+              label={t`REST API`}
               value={CLOUD_API_BASE_URL}
-              copyMessage="Cloud API URL copied"
+              copyMessage={t`Cloud API URL copied`}
             />
             <CloudEndpoint
-              label="Remote MCP"
+              label={t`Remote MCP`}
               value={CLOUD_MCP_URL}
-              copyMessage="Remote MCP URL copied"
+              copyMessage={t`Remote MCP URL copied`}
             />
           </div>
           <CloudApiKeys />
@@ -154,10 +158,12 @@ function CloudApiHeading({ error }: { error?: string }) {
   return (
     <div className="min-w-0">
       <h2 className="font-sans text-lg font-semibold">
-        Cloud API & Connectors
+        <Trans>Cloud API & Connectors</Trans>
       </h2>
       <p className="text-muted-foreground mt-1 text-xs">
-        Uploads meeting content for remote access while Anarlog is closed.
+        <Trans>
+          Uploads meeting content for remote access while Anarlog is closed.
+        </Trans>
       </p>
       {error ? <p className="text-destructive mt-2 text-xs">{error}</p> : null}
     </div>
@@ -185,7 +191,7 @@ function CloudEndpoint({
           variant="ghost"
           size="sm"
           className="size-7 shrink-0 p-0"
-          aria-label={`Copy ${label} URL`}
+          aria-label={t`Copy ${label} URL`}
           onClick={() => void copyText(value, copyMessage)}
         >
           <Copy className="size-3.5" />
@@ -216,7 +222,7 @@ function CloudApiKeys() {
   const form = useForm({
     defaultValues: { name: "" },
     onSubmit: ({ value }) => {
-      createMutation.mutate(value.name.trim() || "Connector");
+      createMutation.mutate(value.name.trim() || t`Connector`);
       form.setFieldValue("name", "");
     },
   });
@@ -227,7 +233,9 @@ function CloudApiKeys() {
     <div>
       <div className="mb-3 flex items-center gap-2">
         <Key className="text-muted-foreground size-4" />
-        <h4 className="text-sm font-medium">Cloud API keys</h4>
+        <h4 className="text-sm font-medium">
+          <Trans>Cloud API keys</Trans>
+        </h4>
       </div>
       <form
         className="flex gap-2"
@@ -241,7 +249,7 @@ function CloudApiKeys() {
           {(field) => (
             <Input
               className="h-8 max-w-64 text-sm"
-              placeholder="Key name (e.g. Claude Code)"
+              placeholder={t`Key name (e.g. Claude Code)`}
               value={field.state.value}
               onChange={(event) => field.handleChange(event.target.value)}
             />
@@ -253,14 +261,14 @@ function CloudApiKeys() {
           variant="outline"
           disabled={createMutation.isPending}
         >
-          Create key
+          <Trans>Create key</Trans>
         </Button>
       </form>
 
       {createdKey && (
         <div className="border-border bg-muted/30 mt-3 rounded-xl border p-3">
           <p className="text-muted-foreground text-xs">
-            Copy this key now — it is only shown once.
+            <Trans>Copy this key now — it is only shown once.</Trans>
           </p>
           <div className="mt-2 flex items-center gap-2">
             <code className="bg-muted scrollbar-hide overflow-x-auto rounded-md px-1.5 py-0.5 text-xs">
@@ -272,13 +280,13 @@ function CloudApiKeys() {
               size="sm"
               className="h-7 shrink-0"
               onClick={async () => {
-                if (await copyText(createdKey.key, "Cloud API key copied")) {
+                if (await copyText(createdKey.key, t`Cloud API key copied`)) {
                   createMutation.reset();
                 }
               }}
             >
               <Copy className="size-3.5" />
-              Copy
+              <Trans>Copy</Trans>
             </Button>
           </div>
         </div>

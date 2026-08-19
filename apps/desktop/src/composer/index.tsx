@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   ArrowUp,
   ArrowUpRight,
@@ -99,7 +100,7 @@ export function ComposerScreen() {
               }
               onStop={sessionProps.stop}
               onSendMessage={sendMessage}
-              title={currentChatGroup?.title || "Ask Anarlog AI anything"}
+              title={currentChatGroup?.title || t`Ask Anarlog AI anything`}
             />
           ) : (
             <ComposerSettingsCard />
@@ -121,10 +122,10 @@ function ComposerSettingsCard() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <div data-tauri-drag-region className="min-w-0 flex-1 pr-4">
           <p className="text-primary-foreground/38 text-[10px] font-semibold tracking-[0.24em] uppercase">
-            Composer
+            {t`Composer`}
           </p>
           <p className="text-primary-foreground/72 truncate pt-1 text-sm">
-            Configure a chat model to use the quick composer.
+            {t`Configure a chat model to use the quick composer.`}
           </p>
         </div>
 
@@ -152,7 +153,7 @@ function ComposerSettingsCard() {
         ])}
       >
         <GearSix className="size-4" />
-        Configure a chat model in Settings
+        {t`Configure a chat model in Settings`}
       </button>
     </div>
   );
@@ -206,7 +207,7 @@ function ComposerInput({
       <div className="mb-3 flex items-start justify-between gap-4">
         <div data-tauri-drag-region className="min-w-0 flex-1 pr-4">
           <p className="text-primary-foreground/38 text-[10px] font-semibold tracking-[0.24em] uppercase">
-            Composer
+            {t`Composer`}
           </p>
           <p className="text-primary-foreground/90 truncate pt-1 text-[15px]">
             {title}
@@ -225,7 +226,7 @@ function ComposerInput({
             ])}
           >
             <ArrowUpRight className="size-3.5" />
-            Open Anarlog
+            {t`Open Anarlog`}
           </button>
           <button
             type="button"
@@ -260,10 +261,10 @@ function ComposerInput({
       <div className="mt-3 flex items-center justify-between gap-3">
         <div className="text-primary-foreground/40 flex items-center gap-2 text-[11px]">
           <span className="bg-primary-foreground/8 rounded-full px-2 py-1">
-            Esc to dismiss
+            {t`Esc to dismiss`}
           </span>
           <span className="bg-primary-foreground/8 rounded-full px-2 py-1">
-            {primaryModifier} ↩ to send
+            {t`${primaryModifier} ↩ to send`}
           </span>
         </div>
 
@@ -278,7 +279,7 @@ function ComposerInput({
             ])}
           >
             <Sparkle className="size-3.5" />
-            Stop
+            {t`Stop`}
           </button>
         ) : (
           <button
@@ -306,7 +307,7 @@ function ComposerInput({
 
 const composerPlaceholder: PlaceholderFunction = ({ node, pos }) => {
   if (node.type.name === "paragraph" && pos === 0) {
-    return "Message Anarlog AI";
+    return t`Message Anarlog AI`;
   }
 
   return "";

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   ArrowsClockwise,
   Square,
@@ -40,7 +41,7 @@ export function TranscriptEmptyState({
           className="text-muted-foreground mb-5 size-9 stroke-[1.5]"
         />
         <div className="mb-6 flex max-w-md flex-col gap-2">
-          <p className="text-base font-medium">Transcription failed</p>
+          <p className="text-base font-medium">{t`Transcription failed`}</p>
           <p className="text-muted-foreground text-sm leading-relaxed">
             {error}
           </p>
@@ -48,7 +49,7 @@ export function TranscriptEmptyState({
         {onRetranscribe && (
           <Button size="sm" className="gap-2" onClick={onRetranscribe}>
             <ArrowsClockwise className="size-4" />
-            Re-transcribe
+            {t`Re-transcribe`}
           </Button>
         )}
       </div>
@@ -69,12 +70,12 @@ export function TranscriptEmptyState({
         <div className={onStopTranscription ? "mb-6" : undefined}>
           <p className="text-base font-medium">
             {phase === "importing"
-              ? "Importing audio..."
-              : "Generating transcript..."}
+              ? t`Importing audio...`
+              : t`Generating transcript...`}
           </p>
           {hasProgress && (
             <p className="text-muted-foreground mt-2 text-sm leading-relaxed tabular-nums">
-              {Math.round((percentage ?? 0) * 100)}% complete
+              {t`${Math.round((percentage ?? 0) * 100)}% complete`}
             </p>
           )}
         </div>
@@ -86,7 +87,7 @@ export function TranscriptEmptyState({
             onClick={onStopTranscription}
           >
             <Square className="size-3" weight="fill" />
-            Stop transcription
+            {t`Stop transcription`}
           </Button>
         )}
       </div>
@@ -101,12 +102,12 @@ export function TranscriptEmptyState({
       />
       <div className="mb-6 flex max-w-md flex-col gap-2">
         <p className="text-base font-medium">
-          {hasAudio ? "Audio available" : "No transcript available"}
+          {hasAudio ? t`Audio available` : t`No transcript available`}
         </p>
         <p className="text-muted-foreground text-sm leading-relaxed">
           {hasAudio
-            ? "Re-transcribe this audio, or upload a transcript file."
-            : "Upload audio or a transcript file to populate this note."}
+            ? t`Re-transcribe this audio, or upload a transcript file.`
+            : t`Upload audio or a transcript file to populate this note.`}
         </p>
       </div>
       {(onRetranscribe || onUploadAudio || onUploadTranscript) && (
@@ -114,17 +115,17 @@ export function TranscriptEmptyState({
           {hasAudio && onRetranscribe && (
             <Button size="sm" className="gap-2" onClick={onRetranscribe}>
               <ArrowsClockwise className="size-4" />
-              Re-transcribe
+              {t`Re-transcribe`}
             </Button>
           )}
           {!hasAudio && onUploadAudio && (
             <Button variant="outline" size="sm" onClick={onUploadAudio}>
-              Upload audio
+              {t`Upload audio`}
             </Button>
           )}
           {onUploadTranscript && (
             <Button variant="outline" size="sm" onClick={onUploadTranscript}>
-              Upload transcript
+              {t`Upload transcript`}
             </Button>
           )}
         </div>

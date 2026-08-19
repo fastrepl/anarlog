@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { useCallback, useEffect } from "react";
@@ -236,7 +237,7 @@ export function useDeleteSession() {
                 .getState()
                 .openCurrent({ type: "sessions", id: sessionId });
             }
-            sonnerToast.error("Could not delete this note. Please try again.");
+            sonnerToast.error(t`Could not delete this note. Please try again.`);
           } else {
             // The delete committed but main never learned about it, so its
             // finalize-time cleanup will not run. Finalize here — losing the

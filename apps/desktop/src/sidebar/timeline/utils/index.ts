@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import {
   differenceInCalendarDays,
   differenceInCalendarMonths,
@@ -92,20 +94,20 @@ export function getBucketInfo(
   const absDays = Math.abs(daysDiff);
 
   if (daysDiff === 0) {
-    return { label: "Today", sortKey, precision: "time" };
+    return { label: t`Today`, sortKey, precision: "time" };
   }
 
   if (daysDiff === -1) {
-    return { label: "Yesterday", sortKey, precision: "time" };
+    return { label: t`Yesterday`, sortKey, precision: "time" };
   }
 
   if (daysDiff === 1) {
-    return { label: "Tomorrow", sortKey, precision: "time" };
+    return { label: t`Tomorrow`, sortKey, precision: "time" };
   }
 
   if (daysDiff < 0) {
     if (absDays <= 6) {
-      return { label: `${absDays} days ago`, sortKey, precision: "time" };
+      return { label: t`${absDays} days ago`, sortKey, precision: "time" };
     }
 
     if (absDays <= 27) {
@@ -117,7 +119,7 @@ export function getBucketInfo(
       const weekSortKey = startOfDay(toTZ(weekRangeEnd, timezone)).getTime();
 
       return {
-        label: weeks === 1 ? "a week ago" : `${weeks} weeks ago`,
+        label: weeks === 1 ? t`a week ago` : t`${weeks} weeks ago`,
         sortKey: weekSortKey,
         precision: "date",
       };
@@ -136,14 +138,14 @@ export function getBucketInfo(
     ).getTime();
     const monthSortKey = Math.min(monthStartKey, lastDayKey);
     return {
-      label: months === 1 ? "a month ago" : `${months} months ago`,
+      label: months === 1 ? t`a month ago` : t`${months} months ago`,
       sortKey: monthSortKey,
       precision: "date",
     };
   }
 
   if (absDays <= 6) {
-    return { label: `in ${absDays} days`, sortKey, precision: "time" };
+    return { label: t`in ${absDays} days`, sortKey, precision: "time" };
   }
 
   if (absDays <= 27) {
@@ -155,7 +157,7 @@ export function getBucketInfo(
     const weekSortKey = startOfDay(toTZ(weekRangeStart, timezone)).getTime();
 
     return {
-      label: weeks === 1 ? "next week" : `in ${weeks} weeks`,
+      label: weeks === 1 ? t`next week` : t`in ${weeks} weeks`,
       sortKey: weekSortKey,
       precision: "date",
     };
@@ -174,7 +176,7 @@ export function getBucketInfo(
   ).getTime();
   const monthSortKey = Math.max(monthStartKey, firstDayKey);
   return {
-    label: months === 1 ? "next month" : `in ${months} months`,
+    label: months === 1 ? t`next month` : t`in ${months} months`,
     sortKey: monthSortKey,
     precision: "date",
   };

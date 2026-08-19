@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { downloadDir } from "@tauri-apps/api/path";
 import { open as selectFile } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
@@ -108,7 +109,7 @@ export function useNewNoteAndUpload() {
     async (kind: "audio" | "transcript") => {
       const defaultPath = await downloadDir();
       const selection = await selectFile({
-        title: kind === "audio" ? "Upload Audio" : "Upload Transcript",
+        title: kind === "audio" ? t`Upload Audio` : t`Upload Transcript`,
         multiple: false,
         directory: false,
         defaultPath,
@@ -123,7 +124,7 @@ export function useNewNoteAndUpload() {
       const reservation = reservePendingUpload({ kind, filePath });
       if (!reservation) {
         sonnerToast.error(
-          "Too many uploads are waiting. Open an existing upload and try again.",
+          t`Too many uploads are waiting. Open an existing upload and try again.`,
         );
         return;
       }
@@ -131,7 +132,9 @@ export function useNewNoteAndUpload() {
       try {
         const sessionId = await createSession();
         if (!reservation.commit(sessionId)) {
-          sonnerToast.error("Could not prepare this upload. Please try again.");
+          sonnerToast.error(
+            t`Could not prepare this upload. Please try again.`,
+          );
           return;
         }
         openNew({

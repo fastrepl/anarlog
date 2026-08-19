@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useCallback } from "react";
 
 import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
@@ -15,7 +16,7 @@ export function useRegenerateTranscript(sessionId: string) {
   return useCallback(async () => {
     const result = await fsSyncCommands.audioPath(sessionId);
     if (result.status === "error") {
-      sonnerToast.error("Recording not found. It may have been deleted.", {
+      sonnerToast.error(t`Recording not found. It may have been deleted.`, {
         id: `transcript-regenerate-audio-missing-${sessionId}`,
       });
       return;
@@ -40,7 +41,7 @@ export function useRegenerateTranscript(sessionId: string) {
       }
       const msg = error instanceof Error ? error.message : String(error);
       handleBatchFailed(sessionId, msg);
-      sonnerToast.error("Re-transcription failed", {
+      sonnerToast.error(t`Re-transcription failed`, {
         id: `transcript-regenerate-failed-${sessionId}`,
         description: msg,
       });

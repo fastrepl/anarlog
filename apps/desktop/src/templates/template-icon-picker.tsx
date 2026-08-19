@@ -158,7 +158,7 @@ function SearchField({
           type="button"
           onClick={() => onChange("")}
           className="hover:bg-accent rounded-sm p-1"
-          aria-label="Clear search"
+          aria-label={t`Clear search`}
         >
           <X className="text-muted-foreground size-3.5" />
         </button>

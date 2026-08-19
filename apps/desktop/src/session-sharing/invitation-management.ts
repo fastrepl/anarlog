@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useMutation } from "@tanstack/react-query";
 
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
@@ -159,23 +160,23 @@ export function reportSessionShareInvitations(
   if (!sent.length) {
     sonnerToast.error(
       deliveries.length > 1
-        ? "Could not create these invitations."
-        : "Could not create this invitation.",
+        ? t`Could not create these invitations.`
+        : t`Could not create this invitation.`,
     );
     return;
   }
   if (failed) {
     sonnerToast.error(
-      `Invited ${sent.length}. Could not invite ${failed}. Try again.`,
+      t`Invited ${sent.length}. Could not invite ${failed}. Try again.`,
     );
     return;
   }
   sonnerToast.success(
     sent.some((delivery) => delivery.deliveredBy === "clipboard")
-      ? "Email unavailable. Invite link copied instead."
+      ? t`Email unavailable. Invite link copied instead.`
       : sent.length > 1
-        ? "Invitations sent."
-        : "Invitation sent.",
+        ? t`Invitations sent.`
+        : t`Invitation sent.`,
   );
 }
 

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
 import { getIgnoredEventSets } from "~/calendar/ignored-events";
@@ -66,14 +68,17 @@ export async function checkEventNotifications(
 
       void notificationCommands.showNotification({
         key: notificationKey,
-        title: event.title || "Upcoming Event",
-        message: `Starting in ${minutesUntil} minute${minutesUntil !== 1 ? "s" : ""}`,
+        title: event.title || t`Upcoming Event`,
+        message:
+          minutesUntil === 1
+            ? t`Starting in 1 minute`
+            : t`Starting in ${minutesUntil} minutes`,
         timeout: null,
         source: { type: "calendar_event", event_id: event.id },
         start_time: Math.floor(startTime.getTime() / 1000),
         participants: null,
         event_details: null,
-        action_label: "Open Anarlog",
+        action_label: t`Open Anarlog`,
         action_variant: null,
         options: null,
         footer: null,

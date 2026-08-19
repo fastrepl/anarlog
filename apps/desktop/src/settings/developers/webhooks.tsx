@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { Copy, Trash } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,9 +58,9 @@ export function WebhooksSection() {
     mutationFn: (id: string) => unwrap(webhookCommands.testWebhook(id)),
     onSuccess: (delivery) => {
       if (delivery.delivered) {
-        sonnerToast.success(`Test delivered (${delivery.status})`);
+        sonnerToast.success(t`Test delivered (${delivery.status})`);
       } else {
-        sonnerToast.error(`Test failed (${delivery.status})`);
+        sonnerToast.error(t`Test failed (${delivery.status})`);
       }
       void queryClient.invalidateQueries({ queryKey: WEBHOOKS_QUERY_KEY });
     },
@@ -82,7 +84,7 @@ export function WebhooksSection() {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-sans text-lg font-semibold">Webhooks</h2>
+      <h2 className="font-sans text-lg font-semibold">{t`Webhooks`}</h2>
       <div>
         <form
           className="flex gap-2"
@@ -108,14 +110,16 @@ export function WebhooksSection() {
             variant="outline"
             disabled={createMutation.isPending}
           >
-            Add webhook
+            <Trans>Add webhook</Trans>
           </Button>
         </form>
 
         {createdWebhook && (
           <div className="border-border bg-muted/30 mt-3 rounded-xl border p-3">
             <p className="text-muted-foreground text-xs">
-              Copy this signing secret now — it is only shown once.
+              <Trans>
+                Copy this signing secret now — it is only shown once.
+              </Trans>
             </p>
             <div className="mt-2 flex items-center gap-2">
               <code className="bg-muted scrollbar-hide overflow-x-auto rounded-md px-1.5 py-0.5 text-xs">
@@ -130,7 +134,7 @@ export function WebhooksSection() {
                   if (
                     await copyText(
                       createdWebhook.secret,
-                      "Signing secret copied",
+                      t`Signing secret copied`,
                     )
                   ) {
                     createMutation.reset();
@@ -138,7 +142,7 @@ export function WebhooksSection() {
                 }}
               >
                 <Copy className="size-3.5" />
-                Copy
+                <Trans>Copy</Trans>
               </Button>
             </div>
           </div>
@@ -181,6 +185,15 @@ function WebhookRow({
   onToggleActive: () => void;
   isTesting: boolean;
 }) {
+  const statusParts = [
+    !webhook.active ? t`Paused` : null,
+    !webhook.active ? t`not receiving events` : null,
+    webhook.events.length > 0 ? webhook.events.join(", ") : t`All events`,
+    webhook.last_delivery_at
+      ? t`Last delivery ${webhook.last_delivery_status}`
+      : null,
+  ].filter(Boolean);
+
   return (
     <li className="flex items-center justify-between gap-3 text-sm">
       <div className="flex min-w-0 flex-col">
@@ -193,10 +206,7 @@ function WebhookRow({
           {webhook.url}
         </span>
         <span className="text-muted-foreground text-xs">
-          {!webhook.active && "Paused · not receiving events · "}
-          {webhook.events.length > 0 ? webhook.events.join(", ") : "All events"}
-          {webhook.last_delivery_at &&
-            ` · Last delivery ${webhook.last_delivery_status}`}
+          {statusParts.join(" · ")}
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -207,7 +217,7 @@ function WebhookRow({
           className="h-7"
           onClick={onToggleActive}
         >
-          {webhook.active ? "Pause" : "Enable"}
+          {webhook.active ? t`Pause` : t`Enable`}
         </Button>
         <Button
           type="button"
@@ -217,7 +227,7 @@ function WebhookRow({
           disabled={isTesting}
           onClick={onTest}
         >
-          Test
+          {t`Test`}
         </Button>
         <Button
           type="button"

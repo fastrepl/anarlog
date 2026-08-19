@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useCallback, useMemo } from "react";
 
@@ -97,7 +98,7 @@ function useRestoreGroup() {
           }
         } catch (error) {
           console.error("[undo-delete] failed to restore session", error);
-          sonnerToast.error("Could not restore deleted note");
+          sonnerToast.error(t`Could not restore deleted note`);
           // Re-add the unrestored deletions so their undo toast (and the
           // finalize path) comes back instead of leaving them tombstoned,
           // and close the optimistically reopened tab — it still points at
@@ -141,11 +142,11 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
   const pendingDeletions = useUndoDelete((state) => state.pendingDeletions);
   const title = group.isBatch
     ? null
-    : pendingDeletions[group.sessionIds[0]]?.data.session.title || "Untitled";
-  const noteLabel = group.sessionIds.length === 1 ? "note" : "notes";
+    : pendingDeletions[group.sessionIds[0]]?.data.session.title || t`Untitled`;
+  const noteLabel = group.sessionIds.length === 1 ? t`note` : t`notes`;
   const label = group.isBatch
-    ? `${group.sessionIds.length} ${noteLabel} deleted`
-    : `${title} deleted`;
+    ? t`${group.sessionIds.length} ${noteLabel} deleted`
+    : t`${title} deleted`;
   const remainingDuration = Math.max(
     0,
     group.addedAt + UNDO_TIMEOUT_MS - Date.now(),
@@ -174,7 +175,7 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
       descriptionClassName:
         "bg-muted absolute inset-x-0 bottom-0 h-1 overflow-hidden rounded-b-xl",
       action: {
-        label: "Undo",
+        label: t`Undo`,
         onClick: () => restoreGroup(group),
       },
     });

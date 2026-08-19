@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import type { StoreApi } from "zustand";
 
 import { commands as notificationCommands } from "@anlg/plugin-notification";
@@ -45,8 +46,8 @@ export async function showBatchCompletedNotification(
   try {
     const result = await notificationCommands.showNotification({
       key: createBatchCompletedNotificationKey(sessionId),
-      title: "Transcription complete",
-      message: "Your transcript is ready.",
+      title: t`Transcription complete`,
+      message: t`Your transcript is ready.`,
       timeout: {
         secs: BATCH_COMPLETED_NOTIFICATION_TIMEOUT_SECONDS,
         nanos: 0,
@@ -55,7 +56,7 @@ export async function showBatchCompletedNotification(
       start_time: null,
       participants: null,
       event_details: null,
-      action_label: "Open Anarlog",
+      action_label: t`Open Anarlog`,
       action_variant: null,
       options: null,
       footer: null,

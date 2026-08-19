@@ -6,6 +6,7 @@ import {
   shift,
   useFloating,
 } from "@floating-ui/react";
+import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { Play, UserSwitch, X } from "@phosphor-icons/react";
 import { type MouseEvent, useCallback, useMemo, useRef, useState } from "react";
@@ -147,7 +148,7 @@ export function MultiSelectionBar({
       </Popover>
       <button
         type="button"
-        aria-label="Clear selection"
+        aria-label={t`Clear selection`}
         className="hover:bg-accent flex size-7 items-center justify-center rounded-full"
         onClick={onClear}
       >

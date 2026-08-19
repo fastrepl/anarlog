@@ -477,6 +477,7 @@ function CommentComposer({
   onSubmit: (body: string) => void;
   pending: boolean;
 }) {
+  const { t } = useLingui();
   const form = useForm({
     defaultValues: { body: "" },
     onSubmit: ({ value }) => {
@@ -502,16 +503,16 @@ function CommentComposer({
               <div className="flex items-start gap-2">
                 <Avatar
                   seed="shared-note:you"
-                  label="You"
+                  label={t`You`}
                   size={28}
                   className="mt-1"
                 />
                 <Textarea
                   autoFocus
-                  aria-label="Comment on selected text"
+                  aria-label={t`Comment on selected text`}
                   aria-invalid={comment.tooLong}
                   className="min-h-20 min-w-0 flex-1 resize-none"
-                  placeholder="Comment on the selected text…"
+                  placeholder={t`Comment on the selected text…`}
                   value={field.state.value}
                   onBlur={field.handleBlur}
                   onChange={(event) => field.handleChange(event.target.value)}
@@ -612,7 +613,7 @@ function SessionCommentItem({
             variant="ghost"
             size="icon"
             className="text-muted-foreground size-6"
-            aria-label="Delete comment"
+            aria-label={t`Delete comment`}
             disabled={deleteDisabled}
             onClick={onDelete}
           >

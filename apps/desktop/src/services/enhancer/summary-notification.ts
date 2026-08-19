@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import { commands as notificationCommands } from "@anlg/plugin-notification";
 
 import { isAppWindowInactive } from "~/shared/window-activity";
@@ -23,10 +25,10 @@ export async function showSummaryReadyNotification(
   try {
     const result = await notificationCommands.showNotification({
       key: createSummaryReadyNotificationKey(sessionId),
-      title: "Summary ready",
+      title: t`Summary ready`,
       message: title
-        ? `"${title}" is ready to read.`
-        : "Your summary is ready.",
+        ? t`"${title}" is ready to read.`
+        : t`Your summary is ready.`,
       timeout: {
         secs: SUMMARY_READY_NOTIFICATION_TIMEOUT_SECONDS,
         nanos: 0,
@@ -35,7 +37,7 @@ export async function showSummaryReadyNotification(
       start_time: null,
       participants: null,
       event_details: null,
-      action_label: "Open Anarlog",
+      action_label: t`Open Anarlog`,
       action_variant: null,
       options: null,
       footer: null,

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 export async function copyText(value: string, message: string) {
@@ -7,7 +9,7 @@ export async function copyText(value: string, message: string) {
     return true;
   } catch (error) {
     sonnerToast.error(
-      error instanceof Error ? error.message : "Could not copy to clipboard",
+      error instanceof Error ? error.message : t`Could not copy to clipboard`,
     );
     return false;
   }

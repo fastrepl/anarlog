@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import {
   ArrowsClockwise,
@@ -171,12 +172,12 @@ export function SessionSharePopoverContent({
         ),
       ),
     onSuccess: () => {
-      sonnerToast.success("Desktop edits published. Sharing resumed.");
+      sonnerToast.success(t`Desktop edits published. Sharing resumed.`);
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
       sonnerToast.error(
-        "Could not publish the desktop edits. Check the latest web copy and try again.",
+        t`Could not publish the desktop edits. Check the latest web copy and try again.`,
         { id: "desktop-edits-publish-failed", duration: Infinity },
       );
     },
@@ -198,7 +199,7 @@ export function SessionSharePopoverContent({
       }),
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not open the web copy.");
+      sonnerToast.error(t`Could not open the web copy.`);
     },
   });
 
@@ -254,14 +255,14 @@ export function SessionSharePopoverContent({
     onSuccess: ({ copied }) => {
       sonnerToast.success(
         copied
-          ? "Anyone with the link can view. Link copied."
-          : "Access updated.",
+          ? t`Anyone with the link can view. Link copied.`
+          : t`Access updated.`,
       );
     },
     onError: (error) => {
       setOptimisticScope(null);
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not update general access.");
+      sonnerToast.error(t`Could not update general access.`);
     },
     onSettled: async () => {
       await onChanged();
@@ -299,11 +300,11 @@ export function SessionSharePopoverContent({
       trackAnalyticsEvent("share_link_copied", {
         entry_point: "share_panel",
       });
-      sonnerToast.success("Share link copied.");
+      sonnerToast.success(t`Share link copied.`);
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not copy the share link.");
+      sonnerToast.error(t`Could not copy the share link.`);
     },
   });
 

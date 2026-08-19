@@ -60,7 +60,7 @@ export function DateEditor({ sessionId }: { sessionId: string }) {
         setPendingCreatedAt(nextCreatedAt);
         void commit.catch((error) => {
           console.error("[metadata] failed to update session date", error);
-          sonnerToast.error("Could not update the note date.");
+          sonnerToast.error(t`Could not update the note date.`);
           setPendingCreatedAt(null);
         });
       }}

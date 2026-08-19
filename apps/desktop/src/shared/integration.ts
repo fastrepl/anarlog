@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useMutation } from "@tanstack/react-query";
 import { useCallback, useRef } from "react";
 
@@ -81,7 +82,7 @@ export async function openIntegrationUrl(
         mode: action,
       },
     });
-    sonnerToast.error("Could not start the integration setup. Try again.");
+    sonnerToast.error(t`Could not start the integration setup. Try again.`);
   }
 }
 

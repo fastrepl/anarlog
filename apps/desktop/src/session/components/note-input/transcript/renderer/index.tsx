@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { ArrowDown, ArrowUp } from "@phosphor-icons/react";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -353,7 +354,7 @@ export function TranscriptViewer({
         >
           <button
             type="button"
-            aria-label="Scroll to top"
+            aria-label={t`Scroll to top`}
             onClick={scrollToTop}
             disabled={isAtTop}
             className={cn([
@@ -367,7 +368,7 @@ export function TranscriptViewer({
           <div className="bg-border/20 group-hover/scroll-controls:bg-border/60 group-focus-within/scroll-controls:bg-border/60 h-px w-full transition-colors" />
           <button
             type="button"
-            aria-label="Scroll to bottom"
+            aria-label={t`Scroll to bottom`}
             onClick={scrollToBottom}
             disabled={isAtBottom}
             className={cn([

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { useIsMutating, useMutation } from "@tanstack/react-query";
 import { generateText, type LanguageModel, Output } from "ai";
 import { useCallback, useMemo } from "react";
@@ -153,7 +154,7 @@ export function usePastSessionNotes(
     },
     onError: (error) => {
       console.error("Failed to generate meeting insights", error);
-      sonnerToast.error("Could not generate meeting insights. Try again.", {
+      sonnerToast.error(t`Could not generate meeting insights. Try again.`, {
         id: "past-note-key-facts-error",
       });
     },

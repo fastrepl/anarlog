@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   createContext,
   useCallback,
@@ -63,7 +64,7 @@ export function SttSettingsProvider({
     void localSttCommands.downloadModel(model).then(
       (result) => {
         if (result.status === "error") {
-          sonnerToast.error("Model download couldn’t start", {
+          sonnerToast.error(t`Model download couldn't start`, {
             description: result.error,
           });
           dequeue();
@@ -76,7 +77,7 @@ export function SttSettingsProvider({
         setTimeout(dequeue, DOWNLOAD_PROGRESS_GRACE_MS);
       },
       (error) => {
-        sonnerToast.error("Model download couldn’t start", {
+        sonnerToast.error(t`Model download couldn't start`, {
           description: error instanceof Error ? error.message : String(error),
         });
         dequeue();

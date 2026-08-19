@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
@@ -77,9 +78,9 @@ type AccessMutation =
     };
 
 const capabilityLabels: Record<SessionAccessCapability, string> = {
-  viewer: "Can view",
-  commenter: "Can comment",
-  editor: "Can edit",
+  viewer: t`Can view`,
+  commenter: t`Can comment`,
+  editor: t`Can edit`,
 };
 
 const capabilityRanks: Record<SessionAccessCapability, number> = {
@@ -284,15 +285,15 @@ export function useSessionAccessManagement({
     onSuccess: ({ deliveredBy }) => {
       sonnerToast.success(
         deliveredBy === "email"
-          ? "Invitation sent."
+          ? t`Invitation sent.`
           : deliveredBy === "clipboard"
-            ? "Email unavailable. Invite link copied instead."
-            : "Access updated.",
+            ? t`Email unavailable. Invite link copied instead.`
+            : t`Access updated.`,
       );
     },
     onError: (error) => {
       if (error instanceof ShareOperationAbortedError) return;
-      sonnerToast.error("Could not update this person's access.");
+      sonnerToast.error(t`Could not update this person's access.`);
     },
     onSettled: onChanged,
   });
@@ -311,7 +312,7 @@ export function AccessEntryRow({
   contactName?: string;
   onMutate: (mutation: AccessMutation) => void;
 }) {
-  const label = contactName || entry.userEmail || "Anarlog user";
+  const label = contactName || entry.userEmail || t`Anarlog user`;
   return (
     <div className="hover:bg-accent/50 flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
       <ContactFacehash name={label} size={24} />
@@ -321,16 +322,16 @@ export function AccessEntryRow({
           {contactName && entry.userEmail
             ? entry.userEmail
             : entry.entryType === "grant"
-              ? "Anarlog member"
+              ? t`Anarlog member`
               : entry.entryType === "invitation"
-                ? "Invitation pending"
-                : `Requested ${capabilityLabels[entry.capability].toLowerCase()}`}
+                ? t`Invitation pending`
+                : t`Requested ${capabilityLabels[entry.capability].toLowerCase()}`}
         </p>
       </div>
       {pending ? (
         <CircleNotch
           className="text-muted-foreground size-3.5 animate-spin"
-          aria-label="Updating access"
+          aria-label={t`Updating access`}
         />
       ) : entry.entryType === "request" ? (
         <div className="flex items-center gap-1">
@@ -355,7 +356,7 @@ export function AccessEntryRow({
         <CapabilitySelect
           value={entry.capability}
           disabled={!canExpand && entry.entryType === "invitation"}
-          ariaLabel={`Permission for ${label}`}
+          ariaLabel={t`Permission for ${label}`}
           maximumRank={
             canExpand
               ? capabilityRanks.editor
@@ -433,27 +434,27 @@ function CapabilitySelect({
           value="viewer"
           disabled={capabilityRanks.viewer > maximumRank}
         >
-          Can view
+          {t`Can view`}
         </SelectItem>
         <SelectItem
           value="commenter"
           disabled={capabilityRanks.commenter > maximumRank}
         >
-          Can comment
+          {t`Can comment`}
         </SelectItem>
         <SelectItem
           value="editor"
           disabled={capabilityRanks.editor > maximumRank}
         >
-          Can edit
+          {t`Can edit`}
         </SelectItem>
         {onResend || onRemove ? <SelectSeparator /> : null}
         {onResend ? (
-          <SelectItem value="resend">Resend invite</SelectItem>
+          <SelectItem value="resend">{t`Resend invite`}</SelectItem>
         ) : null}
         {onRemove ? (
           <SelectItem value="remove" className="text-destructive">
-            Remove
+            {t`Remove`}
           </SelectItem>
         ) : null}
       </SelectContent>

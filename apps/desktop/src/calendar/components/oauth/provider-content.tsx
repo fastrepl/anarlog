@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { CircleNotch } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
 
@@ -58,11 +59,11 @@ export function OAuthProviderContent({
               tabIndex={0}
               className="text-muted-foreground cursor-not-allowed text-xs opacity-50"
             >
-              Connect {config.displayName} Calendar
+              {t`Connect ${config.displayName} Calendar`}
             </span>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            Sign in to connect your calendar
+            {t`Sign in to connect your calendar`}
           </TooltipContent>
         </Tooltip>
       </div>
@@ -80,7 +81,7 @@ export function OAuthProviderContent({
           {isUpgradingToPro && (
             <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
-          Upgrade to connect
+          {t`Upgrade to connect`}
         </button>
       </div>
     );
@@ -131,7 +132,7 @@ export function OAuthProviderContent({
     return (
       <div className="pt-1 pb-2">
         <span className="text-xs text-red-600">
-          Failed to load integration status
+          {t`Failed to load integration status`}
         </span>
       </div>
     );
@@ -147,7 +148,7 @@ export function OAuthProviderContent({
         {openingAction === "connect" && (
           <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
         )}
-        Connect {config.displayName} Calendar
+        {t`Connect ${config.displayName} Calendar`}
       </button>
     </div>
   );
@@ -170,7 +171,7 @@ function ReconnectRequiredContent({
     <div className="flex flex-col gap-2 pb-2">
       <div className="flex items-center gap-2 text-xs text-amber-700">
         <ReconnectRequiredIndicator />
-        <span>Reconnect required for {config.displayName} Calendar</span>
+        <span>{t`Reconnect required for ${config.displayName} Calendar`}</span>
       </div>
 
       {errorDescription && (
@@ -186,9 +187,9 @@ function ReconnectRequiredContent({
           {openingAction === "reconnect" && (
             <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
-          Reconnect
+          {t`Reconnect`}
         </button>
-        <span className="text-muted-foreground text-xs">or</span>
+        <span className="text-muted-foreground text-xs">{t`or`}</span>
         <button
           onClick={onDisconnect}
           disabled={openingAction !== null}
@@ -197,7 +198,7 @@ function ReconnectRequiredContent({
           {openingAction === "disconnect" && (
             <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
           )}
-          Disconnect
+          {t`Disconnect`}
         </button>
       </div>
     </div>
@@ -238,7 +239,7 @@ function ConnectedContent({
           menuItems: [
             {
               id: `reconnect-${connection.connection_id}`,
-              text: "Reconnect",
+              text: t`Reconnect`,
               action: () =>
                 void openIntegration({
                   nangoIntegrationId: config.nangoIntegrationId,
@@ -249,7 +250,7 @@ function ConnectedContent({
             },
             {
               id: `disconnect-${connection.connection_id}`,
-              text: "Disconnect",
+              text: t`Disconnect`,
               action: () =>
                 void openIntegration({
                   nangoIntegrationId: config.nangoIntegrationId,

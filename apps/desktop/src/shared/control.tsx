@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   ArrowClockwise,
   House,
@@ -83,17 +84,17 @@ const ReportedErrorComponent = ({ error }: { error: Error }) => {
 
               <div className="flex flex-col gap-1.5">
                 <h2 className="text-foreground text-base font-semibold">
-                  Something went wrong
+                  {t`Something went wrong`}
                 </h2>
                 <p className="text-muted-foreground max-w-[260px] text-sm leading-relaxed">
-                  {error.message || "An unexpected error occurred."}
+                  {error.message || t`An unexpected error occurred.`}
                 </p>
               </div>
 
               <div className="pt-2">
                 <Button size="sm" onClick={handleRestart}>
                   <ArrowClockwise className="mr-1.5 h-3.5 w-3.5" />
-                  Restart App
+                  {t`Restart App`}
                 </Button>
               </div>
             </div>
@@ -154,17 +155,17 @@ export const NotFoundComponent: NotFoundRouteComponent = () => {
                   404
                 </motion.span>
                 <h2 className="text-foreground text-base font-semibold">
-                  Page not found
+                  {t`Page not found`}
                 </h2>
                 <p className="text-muted-foreground text-sm">
-                  The page you're looking for doesn't exist.
+                  {t`The page you're looking for doesn't exist.`}
                 </p>
               </div>
 
               <div className="pt-2">
                 <Button size="sm" onClick={() => navigate({ to: "/app" })}>
                   <House className="mr-1.5 h-3.5 w-3.5" />
-                  Go to Home
+                  {t`Go to Home`}
                 </Button>
               </div>
             </div>

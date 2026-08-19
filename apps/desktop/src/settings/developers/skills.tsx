@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { CaretDown, Check, CircleNotch } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -50,8 +52,8 @@ export function SkillsRow() {
       void queryClient.invalidateQueries({ queryKey: SKILL_AGENTS_QUERY_KEY });
       sonnerToast.success(
         statuses.length === 1
-          ? `Anarlog skill added to ${statuses[0].displayName}`
-          : `Anarlog skill added to ${statuses.length} agents`,
+          ? t`Anarlog skill added to ${statuses[0].displayName}`
+          : t`Anarlog skill added to ${statuses.length} agents`,
       );
     },
     onError: (error) => {
@@ -66,9 +68,13 @@ export function SkillsRow() {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h3 className="text-sm font-medium">Agent skills</h3>
+        <h3 className="text-sm font-medium">
+          <Trans>Agent skills</Trans>
+        </h3>
         <p className="text-muted-foreground mt-1 text-xs">
-          Teach coding agents when and how to use the Anarlog CLI and MCP
+          <Trans>
+            Teach coding agents when and how to use the Anarlog CLI and MCP
+          </Trans>
         </p>
       </div>
       <div className="flex shrink-0 gap-2">
@@ -84,7 +90,7 @@ export function SkillsRow() {
                 <CircleNotch className="size-3.5 animate-spin" />
               ) : (
                 <>
-                  Add skill to…
+                  <Trans>Add skill to…</Trans>
                   <CaretDown className="size-3.5" />
                 </>
               )}
@@ -98,7 +104,7 @@ export function SkillsRow() {
                   installMutation.mutate(detected.map((agent) => agent.agent))
                 }
               >
-                Install to all agents
+                <Trans>Install to all agents</Trans>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               {agents.map((agent) => (
@@ -110,7 +116,7 @@ export function SkillsRow() {
                   {agent.displayName}
                   {agent.installed && (
                     <Check
-                      aria-label="Skill installed"
+                      aria-label={t`Skill installed`}
                       className="ml-auto size-3.5"
                     />
                   )}

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
@@ -25,7 +27,10 @@ export function TrialPaymentReminderDialog({
   daysRemaining: number;
   onAddPaymentMethod: () => void;
 }) {
-  const dayLabel = daysRemaining === 1 ? "day" : "days";
+  const title =
+    daysRemaining === 1
+      ? t`Your Pro trial ends in 1 day`
+      : t`Your Pro trial ends in ${daysRemaining} days`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -33,16 +38,15 @@ export function TrialPaymentReminderDialog({
         <DialogHeader className="items-center gap-2 text-center sm:text-center">
           <TrialDialogIcon state="started" />
           <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
-            Your Pro trial ends in {daysRemaining} {dayLabel}
+            {title}
           </DialogTitle>
           <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
-            Add a payment method before it ends to keep using Pro without an
-            interruption.
+            {t`Add a payment method before it ends to keep using Pro without an interruption.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
           <GlassDialogCancelButton onClick={() => onOpenChange(false)}>
-            Not now
+            {t`Not now`}
           </GlassDialogCancelButton>
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
@@ -51,7 +55,7 @@ export function TrialPaymentReminderDialog({
               onOpenChange(false);
             }}
           >
-            Add payment method
+            {t`Add payment method`}
           </Button>
         </DialogFooter>
       </GlassDialogContent>

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { Buildings, CircleNotch, Globe, LockKey } from "@phosphor-icons/react";
 
@@ -55,7 +56,7 @@ export function GeneralAccessSelector({
         }}
       >
         <SelectTrigger
-          aria-label="General access"
+          aria-label={t`General access`}
           className="h-8 min-w-0 flex-1 rounded-md border-0 bg-transparent px-2 text-xs shadow-none"
         >
           <SelectValue />

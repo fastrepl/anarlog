@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import type { ServerStatus } from "@anlg/plugin-local-stt";
 
 import type { DownloadProgress, ToastCondition, ToastType } from "./types";
@@ -65,8 +67,8 @@ export function createToastRegistry({
 }: ToastRegistryParams): ToastRegistryEntry[] {
   const downloadTitle =
     activeDownloads.length === 1 && downloadingModel
-      ? `Downloading ${downloadingModel}`
-      : `Downloading ${activeDownloads.length} models`;
+      ? t`Downloading ${downloadingModel}`
+      : t`Downloading ${activeDownloads.length} models`;
   const hasUsableSttConfigured =
     hasSttConfigured &&
     (isAuthLoading || isAuthenticated || !hasProSttConfigured);
@@ -98,7 +100,7 @@ export function createToastRegistry({
     {
       toast: {
         id: "local-stt-loading",
-        description: "Starting transcription...",
+        description: t`Starting transcription...`,
         lifecycle: { type: "condition-bound" },
         loading: true,
       },
@@ -111,9 +113,9 @@ export function createToastRegistry({
     {
       toast: {
         id: "local-stt-unreachable",
-        description: "Transcription unavailable",
+        description: t`Transcription unavailable`,
         primaryAction: {
-          label: "Settings",
+          label: t`Settings`,
           onClick: onOpenSTTSettings,
         },
         lifecycle: { type: "condition-bound" },
@@ -135,9 +137,9 @@ export function createToastRegistry({
             className="size-5 object-contain object-center"
           />
         ),
-        description: "Sign in to get the most out of Anarlog",
+        description: t`Sign in to get the most out of Anarlog`,
         primaryAction: {
-          label: "Sign in",
+          label: t`Sign in`,
           onClick: onSignIn,
         },
         lifecycle: {
@@ -151,9 +153,9 @@ export function createToastRegistry({
     {
       toast: {
         id: "missing-stt",
-        description: "Transcription provider needed",
+        description: t`Transcription provider needed`,
         primaryAction: {
-          label: "Add",
+          label: t`Add`,
           onClick: onOpenSTTSettings,
         },
         lifecycle: { type: "condition-bound" },
@@ -163,9 +165,9 @@ export function createToastRegistry({
     {
       toast: {
         id: "missing-llm",
-        description: "Language model needed",
+        description: t`Language model needed`,
         primaryAction: {
-          label: "Add",
+          label: t`Add`,
           onClick: onOpenLLMSettings,
         },
         lifecycle: { type: "condition-bound" },
@@ -178,9 +180,9 @@ export function createToastRegistry({
     {
       toast: {
         id: "upgrade-to-pro",
-        description: "Pro features available",
+        description: t`Pro features available`,
         primaryAction: {
-          label: "Upgrade",
+          label: t`Upgrade`,
           onClick: onSignIn,
         },
         lifecycle: {
@@ -219,10 +221,10 @@ export function createDesktopUpdateToast(
       // A new ID prevents Sonner from retaining the loading state used while
       // this update was downloading.
       id: `${id}:ready`,
-      description: `Anarlog ${update.version} is ready to install`,
+      description: t`Anarlog ${update.version} is ready to install`,
       primaryAction: busy
         ? undefined
-        : { label: "Restart", onClick: update.installUpdate },
+        : { label: t`Restart`, onClick: update.installUpdate },
       lifecycle: { type: "persistent", dismissal: "session" },
     };
   }
@@ -234,7 +236,7 @@ export function createDesktopUpdateToast(
         : ` (${Math.round(update.progress * 100)}%)`;
     return {
       id: `${id}:downloading`,
-      description: `Downloading Anarlog ${update.version}${progress}`,
+      description: t`Downloading Anarlog ${update.version}${progress}`,
       lifecycle: { type: "condition-bound" },
       loading: true,
     };
@@ -243,10 +245,10 @@ export function createDesktopUpdateToast(
   if (update.status === "failed") {
     return {
       id: `${id}:failed`,
-      description: update.errorMessage || "The update download failed",
+      description: update.errorMessage || t`The update download failed`,
       primaryAction: busy
         ? undefined
-        : { label: "Retry", onClick: update.downloadUpdate },
+        : { label: t`Retry`, onClick: update.downloadUpdate },
       lifecycle: { type: "persistent", dismissal: "session" },
       variant: "error",
     };
@@ -254,10 +256,10 @@ export function createDesktopUpdateToast(
 
   return {
     id: `${id}:available`,
-    description: `Anarlog ${update.version} is available`,
+    description: t`Anarlog ${update.version} is available`,
     primaryAction: busy
       ? undefined
-      : { label: "Download", onClick: update.downloadUpdate },
+      : { label: t`Download`, onClick: update.downloadUpdate },
     lifecycle: { type: "persistent", dismissal: "day" },
   };
 }
@@ -288,9 +290,9 @@ export function createDevtoolsToastPreview({
     case "language-model":
       return {
         id: "devtools-missing-llm",
-        description: "Language model needed",
+        description: t`Language model needed`,
         primaryAction: {
-          label: "Add",
+          label: t`Add`,
           onClick: onOpenLLMSettings,
         },
         lifecycle: { type: "condition-bound" },
@@ -298,9 +300,9 @@ export function createDevtoolsToastPreview({
     case "transcription-model":
       return {
         id: "devtools-missing-stt",
-        description: "Transcription provider needed",
+        description: t`Transcription provider needed`,
         primaryAction: {
-          label: "Add",
+          label: t`Add`,
           onClick: onOpenSTTSettings,
         },
         lifecycle: { type: "condition-bound" },
@@ -308,9 +310,9 @@ export function createDevtoolsToastPreview({
     case "transcription-error":
       return {
         id: "devtools-local-stt-unreachable",
-        description: "Transcription unavailable",
+        description: t`Transcription unavailable`,
         primaryAction: {
-          label: "Settings",
+          label: t`Settings`,
           onClick: onOpenSTTSettings,
         },
         lifecycle: { type: "condition-bound" },
@@ -319,16 +321,16 @@ export function createDevtoolsToastPreview({
     case "download":
       return {
         id: "devtools-downloading-model",
-        description: "Downloading model",
+        description: t`Downloading model`,
         lifecycle: { type: "condition-bound" },
         loading: true,
       };
     case "pro":
       return {
         id: "devtools-upgrade-to-pro",
-        description: "Pro features available",
+        description: t`Pro features available`,
         primaryAction: {
-          label: "Upgrade",
+          label: t`Upgrade`,
           onClick: onSignIn,
         },
         lifecycle: { type: "persistent", dismissal: "session" },

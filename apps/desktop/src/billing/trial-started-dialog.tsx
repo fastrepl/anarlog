@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+
 import { PRO_TRIAL_DAYS } from "@anlg/pricing";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -33,12 +35,12 @@ export function TrialStartedDialog({
         <DialogHeader className="items-center gap-2 text-center sm:text-center">
           <TrialDialogIcon state="started" />
           <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
-            Your Pro trial just started
+            {t`Your Pro trial just started`}
           </DialogTitle>
           <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
             {hasPaymentMethod
-              ? `Your ${days}-day Pro trial starts now. Pro will continue automatically when it ends.`
-              : `Your ${days}-day Pro trial starts now. Add a payment method before it ends to keep Pro.`}
+              ? t`Your ${days}-day Pro trial starts now. Pro will continue automatically when it ends.`
+              : t`Your ${days}-day Pro trial starts now. Add a payment method before it ends to keep Pro.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="sm:justify-center">
@@ -46,7 +48,7 @@ export function TrialStartedDialog({
             className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 w-full rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
             onClick={() => onOpenChange(false)}
           >
-            Got it
+            {t`Got it`}
           </Button>
         </DialogFooter>
       </GlassDialogContent>

@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { ArrowSquareOut } from "@phosphor-icons/react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
@@ -18,7 +19,7 @@ export function SettingsDevelopers() {
   return (
     <div className="flex flex-col gap-8">
       <div className="flex items-center justify-between gap-4">
-        <SettingsPageTitle title="Developers" />
+        <SettingsPageTitle title={t`Developers`} />
         <Button
           type="button"
           variant="outline"
@@ -27,7 +28,7 @@ export function SettingsDevelopers() {
             void openerCommands.openUrl(DEVELOPERS_GUIDE_URL, null)
           }
         >
-          Guide
+          {t`Guide`}
           <ArrowSquareOut className="size-3.5" />
         </Button>
       </div>

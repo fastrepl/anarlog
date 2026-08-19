@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { commands as windowsCommands } from "@anlg/plugin-windows";
@@ -28,13 +30,15 @@ export function DevtoolsSection() {
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-sans text-lg font-semibold">Devtools</h2>
+      <h2 className="font-sans text-lg font-semibold">{t`Devtools`}</h2>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h3 className="text-sm font-medium">Devtools panel</h3>
+          <h3 className="text-sm font-medium">{t`Devtools panel`}</h3>
           <p className="text-muted-foreground mt-1 text-sm leading-5">
-            Preview notifications, toasts, updates, and billing dialogs. Only
-            available in dev and staging builds.
+            <Trans>
+              Preview notifications, toasts, updates, and billing dialogs. Only
+              available in dev and staging builds.
+            </Trans>
           </p>
         </div>
         <div className="flex shrink-0 items-center">
@@ -45,7 +49,7 @@ export function DevtoolsSection() {
             disabled={openMutation.isPending}
             onClick={() => openMutation.mutate()}
           >
-            Open panel
+            {t`Open panel`}
           </Button>
         </div>
       </div>

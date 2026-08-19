@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Sidebar, SidebarSimple } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useRef, useState } from "react";
@@ -109,7 +110,7 @@ export function WindowsTitleBar() {
         className="flex min-w-0 flex-1 items-center pl-2"
       >
         <LeftSurfaceChromeButton
-          ariaLabel={leftsidebar.expanded ? "Hide sidebar" : "Show sidebar"}
+          ariaLabel={leftsidebar.expanded ? t`Hide sidebar` : t`Show sidebar`}
           badge={showUpcomingMeetingBadge ? "upcomingMeeting" : null}
           onClick={leftsidebar.toggleExpanded}
         >
@@ -120,13 +121,13 @@ export function WindowsTitleBar() {
           )}
         </LeftSurfaceChromeButton>
         <nav
-          aria-label="Application menu"
+          aria-label={t`Application menu`}
           className="ml-2 flex h-full items-center"
           role="menubar"
         >
-          <TitleBarMenu label="File" onPointerDown={rememberEditTarget}>
+          <TitleBarMenu label={t`File`} onPointerDown={rememberEditTarget}>
             <DropdownMenuItem onSelect={createNewNote}>
-              New Note
+              {t`New Note`}
               <DropdownMenuShortcut>Ctrl+N</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -134,59 +135,59 @@ export function WindowsTitleBar() {
                 openNew({ type: "settings", state: { tab: "app" } })
               }
             >
-              Settings
+              {t`Settings`}
               <DropdownMenuShortcut>Ctrl+,</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => void appWindow.close()}>
-              Close
+              {t`Close`}
               <DropdownMenuShortcut>Alt+F4</DropdownMenuShortcut>
             </DropdownMenuItem>
           </TitleBarMenu>
-          <TitleBarMenu label="Edit" onPointerDown={rememberEditTarget}>
+          <TitleBarMenu label={t`Edit`} onPointerDown={rememberEditTarget}>
             <DropdownMenuItem onSelect={() => runEditCommand("undo")}>
-              Undo
+              {t`Undo`}
               <DropdownMenuShortcut>Ctrl+Z</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => runEditCommand("redo")}>
-              Redo
+              {t`Redo`}
               <DropdownMenuShortcut>Ctrl+Y</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => runEditCommand("cut")}>
-              Cut
+              {t`Cut`}
               <DropdownMenuShortcut>Ctrl+X</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => runEditCommand("copy")}>
-              Copy
+              {t`Copy`}
               <DropdownMenuShortcut>Ctrl+C</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => runEditCommand("paste")}>
-              Paste
+              {t`Paste`}
               <DropdownMenuShortcut>Ctrl+V</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => runEditCommand("selectAll")}>
-              Select All
+              {t`Select All`}
               <DropdownMenuShortcut>Ctrl+A</DropdownMenuShortcut>
             </DropdownMenuItem>
           </TitleBarMenu>
-          <TitleBarMenu label="View" onPointerDown={rememberEditTarget}>
+          <TitleBarMenu label={t`View`} onPointerDown={rememberEditTarget}>
             <DropdownMenuItem onSelect={leftsidebar.toggleExpanded}>
-              {leftsidebar.expanded ? "Hide Sidebar" : "Show Sidebar"}
+              {leftsidebar.expanded ? t`Hide Sidebar` : t`Show Sidebar`}
               <DropdownMenuShortcut>Ctrl+\</DropdownMenuShortcut>
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => void toggleFullscreen()}>
-              Full Screen
+              {t`Full Screen`}
               <DropdownMenuShortcut>F11</DropdownMenuShortcut>
             </DropdownMenuItem>
           </TitleBarMenu>
-          <TitleBarMenu label="Help" onPointerDown={rememberEditTarget}>
+          <TitleBarMenu label={t`Help`} onPointerDown={rememberEditTarget}>
             <DropdownMenuItem
               onSelect={() =>
                 void openerCommands.openUrl("https://docs.anarlog.so", null)
               }
             >
-              Documentation
+              {t`Documentation`}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -194,14 +195,14 @@ export function WindowsTitleBar() {
                 void openerCommands.openUrl("https://anarlog.so/discord", null)
               }
             >
-              Report a Bug
+              {t`Report a Bug`}
             </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() =>
                 void openerCommands.openUrl("https://anarlog.so/discord", null)
               }
             >
-              Suggest a Feature
+              {t`Suggest a Feature`}
             </DropdownMenuItem>
           </TitleBarMenu>
         </nav>
@@ -209,19 +210,19 @@ export function WindowsTitleBar() {
       </div>
       <div className="flex shrink-0" data-tauri-drag-region="false">
         <WindowControlButton
-          ariaLabel="Minimize"
+          ariaLabel={t`Minimize`}
           onClick={() => void appWindow.minimize()}
         >
           <span className="h-px w-2.5 bg-current" />
         </WindowControlButton>
         <WindowControlButton
-          ariaLabel={isMaximized ? "Restore" : "Maximize"}
+          ariaLabel={isMaximized ? t`Restore` : t`Maximize`}
           onClick={() => void toggleMaximize()}
         >
           {isMaximized ? <RestoreIcon /> : <MaximizeIcon />}
         </WindowControlButton>
         <WindowControlButton
-          ariaLabel="Close"
+          ariaLabel={t`Close`}
           close
           onClick={() => void appWindow.close()}
         >

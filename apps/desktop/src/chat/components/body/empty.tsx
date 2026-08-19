@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import {
   Envelope,
   ListChecks,
@@ -14,19 +15,19 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const SUGGESTIONS = [
   {
-    label: "List action items.",
+    label: t`List action items.`,
     icon: ListChecks,
-    prompt: "What are my action items from this meeting?",
+    prompt: t`What are my action items from this meeting?`,
   },
   {
-    label: "Draft follow-up email.",
+    label: t`Draft follow-up email.`,
     icon: Envelope,
-    prompt: "Draft a follow-up email to the participants",
+    prompt: t`Draft a follow-up email to the participants`,
   },
   {
-    label: "Find key decisions.",
+    label: t`Find key decisions.`,
     icon: MagnifyingGlass,
-    prompt: "What were the key decisions that have been made?",
+    prompt: t`What were the key decisions that have been made?`,
   },
 ];
 
@@ -82,8 +83,7 @@ export function ChatBodyEmpty({
                 : "text-muted-foreground",
             ])}
           >
-            Hi, I'm Anarlog AI. Set up a language model and I'll be ready to
-            help.
+            {t`Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help.`}
           </p>
           <button
             onClick={handleGoToSettings}
@@ -93,7 +93,7 @@ export function ChatBodyEmpty({
             ])}
           >
             <Sparkle size={12} />
-            Open AI Settings
+            {t`Open AI Settings`}
           </button>
         </div>
       </div>
@@ -148,7 +148,7 @@ function BetaChip({ isDarkAppearance }: { isDarkAppearance: boolean }) {
           : "border-sky-200 bg-sky-100 text-sky-900",
       ])}
     >
-      Beta
+      {t`Beta`}
     </span>
   );
 }

@@ -1,3 +1,5 @@
+import { t } from "@lingui/core/macro";
+import { Trans } from "@lingui/react/macro";
 import { CheckCircle, CircleNotch, Copy } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -53,13 +55,13 @@ export function getCliInstallNotification(status: EmbeddedCliStatus) {
   if (status.state === "installed") {
     return {
       type: "success" as const,
-      message: `${status.commandName} is ready to use`,
+      message: t`${status.commandName} is ready to use`,
     };
   }
 
   return {
     type: "error" as const,
-    message: status.details ?? `${status.commandName} could not be installed`,
+    message: status.details ?? t`${status.commandName} could not be installed`,
   };
 }
 
@@ -123,15 +125,15 @@ function CliSection({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="font-sans text-lg font-semibold">CLI & MCP</h2>
+      <h2 className="font-sans text-lg font-semibold">{t`CLI & MCP`}</h2>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h3 className="flex items-center gap-1.5 text-sm font-medium">
-              Anarlog CLI
+              <Trans>Anarlog CLI</Trans>
               {isInstalled && (
                 <CheckCircle
-                  aria-label="Installed"
+                  aria-label={t`Installed`}
                   className="size-3.5 text-emerald-600"
                 />
               )}
@@ -148,9 +150,9 @@ function CliSection({
               {isInstalling ? (
                 <CircleNotch className="size-3.5 animate-spin" />
               ) : isInstalled ? (
-                "Reinstall"
+                t`Reinstall`
               ) : (
-                "Install"
+                t`Install`
               )}
             </Button>
           </div>
@@ -175,7 +177,7 @@ function CliStatus({
     return (
       <span className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
         <CircleNotch className="size-3 animate-spin" />
-        Checking…
+        {t`Checking…`}
       </span>
     );
   }
@@ -183,7 +185,7 @@ function CliStatus({
   if (error) {
     return (
       <p className="text-destructive mt-1 text-xs">
-        Could not check the CLI: {error.message}
+        {t`Could not check the CLI: ${error.message}`}
       </p>
     );
   }
@@ -211,7 +213,7 @@ function CliStatus({
         ])}
       />
       <span className="text-muted-foreground break-all">
-        {showDetails ? (status.details ?? "Unavailable") : "Not installed"}
+        {showDetails ? (status.details ?? t`Unavailable`) : t`Not installed`}
       </span>
     </div>
   );
@@ -227,7 +229,7 @@ function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <h3 className="text-sm font-medium">MCP server</h3>
+        <h3 className="text-sm font-medium">{t`MCP server`}</h3>
       </div>
       <div className="flex shrink-0 gap-2">
         <Button
@@ -238,13 +240,13 @@ function McpRow({ status }: { status: EmbeddedCliStatus | undefined }) {
           onClick={() =>
             void copyText(
               configuration,
-              "MCP configuration copied",
-              "Could not copy the MCP configuration",
+              t`MCP configuration copied`,
+              t`Could not copy the MCP configuration`,
             )
           }
         >
           <Copy className="size-3.5" />
-          Copy config
+          {t`Copy config`}
         </Button>
       </div>
     </div>

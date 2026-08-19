@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { ShareNetwork, Users } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -407,26 +408,26 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
         });
         sonnerToast.success(
           actionResult.recipientCount > 1
-            ? "Meeting notes sent."
-            : "Meeting note sent.",
+            ? t`Meeting notes sent.`
+            : t`Meeting note sent.`,
         );
       } else if (actionResult.type === "slack") {
         trackAnalyticsEvent("share_recap_sent", {
           delivery_method: "slack",
         });
         sonnerToast.success(
-          `Meeting notes sent to #${actionResult.channelName}.`,
+          t`Meeting notes sent to #${actionResult.channelName}.`,
         );
       } else if (actionResult.type === "copy-link") {
         trackAnalyticsEvent("share_link_copied", {
           entry_point: "share_panel",
         });
-        sonnerToast.success("Share link copied.");
+        sonnerToast.success(t`Share link copied.`);
       } else {
         sonnerToast.success(
           actionResult.copied
-            ? "Anyone with the link can view. Link copied."
-            : "Access updated.",
+            ? t`Anyone with the link can view. Link copied.`
+            : t`Access updated.`,
         );
       }
       sharePreparationIdentityRef.current = null;
@@ -564,7 +565,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     }
     if (!auth.session || auth.session.user.is_anonymous === true) {
       void auth.signIn().catch(() => {
-        sonnerToast.error("Could not start sign-in.");
+        sonnerToast.error(t`Could not start sign-in.`);
       });
       return;
     }
@@ -588,9 +589,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           size="icon"
           variant="ghost"
           data-tauri-drag-region="false"
-          aria-label="Share note"
+          aria-label={t`Share note`}
           aria-expanded={sharePopoverOpen}
-          title="Share note"
+          title={t`Share note`}
           onClick={handleShare}
           className={cn([
             "text-muted-foreground hover:text-foreground rounded-full",

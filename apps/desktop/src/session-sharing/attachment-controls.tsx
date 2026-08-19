@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { CircleNotch, Waveform } from "@phosphor-icons/react";
 
 import { Switch } from "@anlg/ui/components/ui/switch";
@@ -46,18 +47,18 @@ export function SessionAttachmentControls({
               htmlFor={`share-audio-${audio.id}`}
               className="text-xs font-medium"
             >
-              Share audio
+              {t`Share audio`}
             </label>
             <p className="text-muted-foreground text-[11px]">
               {available || included
-                ? "Let people with access play the recording."
-                : "Audio is not available on this device."}
+                ? t`Let people with access play the recording.`
+                : t`Audio is not available on this device.`}
             </p>
           </div>
         </div>
         {pending ? (
           <CircleNotch
-            aria-label="Updating audio sharing"
+            aria-label={t`Updating audio sharing`}
             className="text-muted-foreground size-4 animate-spin"
           />
         ) : (

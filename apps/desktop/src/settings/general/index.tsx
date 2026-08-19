@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
@@ -153,7 +154,7 @@ function SettingsSectionPage({ section }: { section: SettingsSection }) {
     return (
       <div className="flex min-h-48 items-center justify-center">
         <CircleNotch
-          aria-label="Loading settings"
+          aria-label={t`Loading settings`}
           className="text-muted-foreground size-5 animate-spin"
         />
       </div>

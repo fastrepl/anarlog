@@ -1,3 +1,4 @@
+import { t } from "@lingui/core/macro";
 import { arch, platform } from "@tauri-apps/plugin-os";
 import { useEffect } from "react";
 
@@ -48,17 +49,17 @@ export function TrialEndedDialog({
         <DialogHeader className="items-center gap-2 text-center sm:text-center">
           <TrialDialogIcon state="ended" />
           <DialogTitle className="text-foreground text-[13px] leading-5 font-semibold tracking-normal">
-            Your Pro trial has ended
+            {t`Your Pro trial has ended`}
           </DialogTitle>
           <DialogDescription className="text-foreground w-full text-center text-[13px] leading-[1.36]">
             {supportsFreeLocalTranscription
-              ? "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
-              : "Your notes and recordings are safe. Upgrade anytime to keep cloud transcription and Pro features, or configure your own transcription provider."}
+              ? t`Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features.`
+              : t`Your notes and recordings are safe. Upgrade anytime to keep cloud transcription and Pro features, or configure your own transcription provider.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:justify-normal">
           <GlassDialogCancelButton onClick={() => onOpenChange(false)}>
-            Maybe later
+            {t`Maybe later`}
           </GlassDialogCancelButton>
           <Button
             className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 rounded-full px-4 text-xs font-medium shadow-sm dark:bg-white dark:text-black dark:hover:bg-white/90"
@@ -67,7 +68,7 @@ export function TrialEndedDialog({
               onOpenChange(false);
             }}
           >
-            Upgrade to Pro
+            {t`Upgrade to Pro`}
           </Button>
         </DialogFooter>
       </GlassDialogContent>
