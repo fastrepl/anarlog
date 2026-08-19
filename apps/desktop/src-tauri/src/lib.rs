@@ -545,6 +545,8 @@ fn exit_after_startup_failure(identifier: &str, error: &impl std::fmt::Display) 
         // is fixed per failure class instead of embedding the error.
         let alert = if db::is_transient_lock_error(error) {
             "display alert \"Anarlog is not ready yet\" message \"Another Anarlog process is still using your data, possibly finishing an update. Your existing data was left unchanged. Please wait a moment and open Anarlog again.\" as critical buttons {\"OK\"} default button \"OK\""
+        } else if db::is_newer_schema_error(error) {
+            "display alert \"Anarlog needs an update\" message \"Your data was created by a newer version of Anarlog, and this older version cannot open it. Your existing data was left unchanged. Please install the latest version of Anarlog.\" as critical buttons {\"OK\"} default button \"OK\""
         } else {
             "display alert \"Anarlog could not start\" message \"Your existing data was left unchanged. Please restart the app. If the problem continues, contact support.\" as critical buttons {\"OK\"} default button \"OK\""
         };

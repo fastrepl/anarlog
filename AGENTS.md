@@ -29,6 +29,7 @@ SQLite is the primary data store (schema and migrations in `crates/db-app/`, des
 - JavaScript/TypeScript formatting runs through `oxfmt` via dprint's exec plugin.
 - Use `useForm` (tanstack-form) and `useQuery`/`useMutation` (tanstack-query) for form/mutation state. Avoid manual state management (e.g. `setError`).
 - For `plugins/db` live queries, keep schema creation, migrations, and DB initialization on the Rust side; TypeScript should only consume `execute`/`subscribe` APIs.
+- New SQLite migrations must be downgrade-safe (older builds tolerate newer schemas): additive only, new columns nullable or with a DEFAULT. If a migration can't be downgrade-safe, add a `-- breaking` line to the leading comment block of its `.sql` file so older builds refuse the database with an update prompt.
 - Branch naming: `fix/`, `chore/`, `refactor/` prefixes.
 
 ## Code Style

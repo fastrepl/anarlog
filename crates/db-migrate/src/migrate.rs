@@ -15,31 +15,45 @@ use crate::schema::{DbSchema, MigrationScope, MigrationStep};
 
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
+#[derive(Clone, Copy)]
+struct StepMeta {
+    scope: MigrationScope,
+    breaking: bool,
+}
+
 struct DbMigrateConnection<'a> {
     db: &'a Db,
     conn: sqlx::pool::PoolConnection<Sqlite>,
-    scopes_by_version: HashMap<i64, MigrationScope>,
+    meta_by_version: HashMap<i64, StepMeta>,
 }
 
 impl<'a> DbMigrateConnection<'a> {
     fn new(
         db: &'a Db,
         conn: sqlx::pool::PoolConnection<Sqlite>,
-        scopes_by_version: HashMap<i64, MigrationScope>,
+        meta_by_version: HashMap<i64, StepMeta>,
     ) -> Self {
         Self {
             db,
             conn,
-            scopes_by_version,
+            meta_by_version,
         }
     }
 }
 
 pub(crate) async fn run_migrations(db: &Db, schema: DbSchema) -> Result<(), MigrateError> {
     let resolved = resolve_migrations(schema)?;
-    let scopes_by_version = resolved
+    let meta_by_version = resolved
         .iter()
-        .map(|(step, migration)| (migration.version, step.scope))
+        .map(|(step, migration)| {
+            (
+                migration.version,
+                StepMeta {
+                    scope: step.scope,
+                    breaking: is_breaking_step(step.sql),
+                },
+            )
+        })
         .collect();
     let migrations: Vec<_> = resolved
         .into_iter()
@@ -47,26 +61,43 @@ pub(crate) async fn run_migrations(db: &Db, schema: DbSchema) -> Result<(), Migr
         .collect();
 
     let conn = db.pool().acquire().await?;
-    let mut conn = DbMigrateConnection::new(db, conn, scopes_by_version);
+    let mut conn = DbMigrateConnection::new(db, conn, meta_by_version);
     run_direct(&migrations, &mut conn).await?;
     Ok(())
 }
 
 const MIGRATIONS_TABLE: &str = "_sqlx_migrations";
 
-async fn run_direct<C>(migrations: &[Migration], conn: &mut C) -> Result<(), SqlxMigrateError>
-where
-    C: Migrate,
-{
+async fn run_direct(
+    migrations: &[Migration],
+    conn: &mut DbMigrateConnection<'_>,
+) -> Result<(), MigrateError> {
     conn.lock().await?;
     conn.ensure_migrations_table(MIGRATIONS_TABLE).await?;
+    ensure_schema_compat_table(&mut conn.conn).await?;
 
     if let Some(version) = conn.dirty_version(MIGRATIONS_TABLE).await? {
-        return Err(SqlxMigrateError::Dirty(version));
+        return Err(SqlxMigrateError::Dirty(version).into());
     }
 
     let applied_migrations = conn.list_applied_migrations(MIGRATIONS_TABLE).await?;
-    validate_applied_migrations(&applied_migrations, migrations)?;
+    let max_known_version = migrations
+        .iter()
+        .map(|migration| migration.version)
+        .max()
+        .unwrap_or(0);
+    validate_applied_migrations(&applied_migrations, migrations, max_known_version)?;
+
+    // A database written by a newer build is fine to keep using as long as
+    // none of its extra migrations were marked "-- breaking"; the compat
+    // floor records the newest breaking migration ever applied.
+    let min_supported_version = read_min_supported_version(&mut conn.conn).await?;
+    if min_supported_version > max_known_version {
+        return Err(MigrateError::SchemaFromNewerApp {
+            min_supported_version,
+            max_known_version,
+        });
+    }
 
     let applied_migrations: HashMap<_, _> = applied_migrations
         .into_iter()
@@ -81,7 +112,7 @@ where
         match applied_migrations.get(&migration.version) {
             Some(applied_migration) => {
                 if migration.checksum != applied_migration.checksum {
-                    return Err(SqlxMigrateError::VersionMismatch(migration.version));
+                    return Err(SqlxMigrateError::VersionMismatch(migration.version).into());
                 }
             }
             None => {
@@ -97,6 +128,7 @@ where
 fn validate_applied_migrations(
     applied_migrations: &[AppliedMigration],
     migrations: &[Migration],
+    max_known_version: i64,
 ) -> Result<(), SqlxMigrateError> {
     let versions: HashSet<_> = migrations
         .iter()
@@ -104,10 +136,71 @@ fn validate_applied_migrations(
         .collect();
 
     for applied_migration in applied_migrations {
-        if !versions.contains(&applied_migration.version) {
+        if versions.contains(&applied_migration.version) {
+            continue;
+        }
+        // Versions above everything this build knows come from a newer build
+        // and are tolerated (subject to the compat floor); an unknown version
+        // interleaved with known ones means a divergent history.
+        if applied_migration.version <= max_known_version {
             return Err(SqlxMigrateError::VersionMissing(applied_migration.version));
         }
     }
+
+    Ok(())
+}
+
+// A step whose leading comment block contains a "-- breaking" line makes the
+// schema unreadable by builds that don't include it (e.g. dropped or renamed
+// columns); applying it raises the compat floor so older builds refuse to
+// open the database with a clear "update Anarlog" message instead of
+// misbehaving on a schema they don't understand.
+fn is_breaking_step(sql: &str) -> bool {
+    sql.lines()
+        .take_while(|line| {
+            let line = line.trim();
+            line.is_empty() || line.starts_with("--")
+        })
+        .any(|line| line.trim() == "-- breaking")
+}
+
+async fn ensure_schema_compat_table(conn: &mut SqliteConnection) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS _anlg_schema_compat ( \
+             id INTEGER PRIMARY KEY CHECK (id = 0), \
+             min_supported_version INTEGER NOT NULL \
+         )",
+    )
+    .execute(&mut *conn)
+    .await?;
+
+    sqlx::query(
+        "INSERT OR IGNORE INTO _anlg_schema_compat (id, min_supported_version) VALUES (0, 0)",
+    )
+    .execute(&mut *conn)
+    .await?;
+
+    Ok(())
+}
+
+async fn read_min_supported_version(conn: &mut SqliteConnection) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar("SELECT min_supported_version FROM _anlg_schema_compat WHERE id = 0")
+        .fetch_one(&mut *conn)
+        .await
+}
+
+async fn raise_min_supported_version(
+    conn: &mut SqliteConnection,
+    version: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE _anlg_schema_compat \
+         SET min_supported_version = MAX(min_supported_version, ?1) \
+         WHERE id = 0",
+    )
+    .bind(version)
+    .execute(&mut *conn)
+    .await?;
 
     Ok(())
 }
@@ -227,13 +320,26 @@ impl Migrate for DbMigrateConnection<'_> {
         migration: &'e Migration,
     ) -> BoxFuture<'e, Result<Duration, SqlxMigrateError>> {
         Box::pin(async move {
-            let scope = self
-                .scopes_by_version
+            let meta = self
+                .meta_by_version
                 .get(&migration.version)
                 .copied()
-                .unwrap_or(MigrationScope::Plain);
+                .unwrap_or(StepMeta {
+                    scope: MigrationScope::Plain,
+                    breaking: false,
+                });
 
-            match scope {
+            // Raise the floor before the schema change lands: crashing in
+            // between locks older builds out of a schema that is still
+            // compatible, while the reverse order would let them open one
+            // that is not.
+            if meta.breaking {
+                raise_min_supported_version(&mut self.conn, migration.version)
+                    .await
+                    .map_err(SqlxMigrateError::from)?;
+            }
+
+            match meta.scope {
                 MigrationScope::Plain => {
                     <SqliteConnection as Migrate>::apply(&mut *self.conn, table_name, migration)
                         .await

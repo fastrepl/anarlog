@@ -44,6 +44,14 @@ pub fn is_transient_lock_error(error: &impl std::fmt::Display) -> bool {
     message.contains("database is locked") || message.contains("database table is locked")
 }
 
+// Matches MigrateError::SchemaFromNewerApp, which reaches startup as a string
+// after crossing the tauri plugin setup boundary.
+pub fn is_newer_schema_error(error: &impl std::fmt::Display) -> bool {
+    error
+        .to_string()
+        .contains("created by a newer version of Anarlog")
+}
+
 pub fn cloudsync_runtime_config_from_env()
 -> Result<Option<anlg_db_core::CloudsyncRuntimeConfig>, String> {
     cloudsync_runtime_config(|key| std::env::var(key).ok())
@@ -151,6 +159,18 @@ mod tests {
             &"error returned from database: (code: 6) database table is locked"
         ));
         assert!(!is_transient_lock_error(
+            &"unable to open database file: /tmp/app.db"
+        ));
+    }
+
+    #[test]
+    fn newer_schema_errors_are_recognized() {
+        // Rendered form of MigrateError::SchemaFromNewerApp after crossing the
+        // plugin setup boundary as a string.
+        assert!(is_newer_schema_error(
+            &"plugin db failed: the database was created by a newer version of Anarlog: it requires migration 20260901000000, but this build only includes migrations up to 20260816100100"
+        ));
+        assert!(!is_newer_schema_error(
             &"unable to open database file: /tmp/app.db"
         ));
     }

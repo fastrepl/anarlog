@@ -19,4 +19,13 @@ pub enum MigrateError {
         step_id: &'static str,
         table_name: &'static str,
     },
+    // The desktop startup dialog classifies this failure by matching
+    // "created by a newer version of Anarlog" in the rendered message.
+    #[error(
+        "the database was created by a newer version of Anarlog: it requires migration {min_supported_version}, but this build only includes migrations up to {max_known_version}"
+    )]
+    SchemaFromNewerApp {
+        min_supported_version: i64,
+        max_known_version: i64,
+    },
 }

@@ -33,6 +33,13 @@ pub use voiceprint_types::*;
 pub use webhook_ops::*;
 pub use webhook_types::*;
 
+// Older builds keep running against databases that carry newer migrations, so
+// every new migration must be downgrade-safe by default: additive only, new
+// columns nullable or with a DEFAULT, no renames or drops of anything older
+// builds read or write. If a migration cannot be downgrade-safe, put a
+// "-- breaking" line in the leading comment block of its .sql file; older
+// builds will then refuse to open the database with an explicit
+// "update Anarlog" dialog instead of misbehaving on it.
 pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
     anlg_db_migrate::MigrationStep {
         id: "20260413020000_templates",

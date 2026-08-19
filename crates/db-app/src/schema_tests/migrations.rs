@@ -82,6 +82,7 @@ async fn migrations_apply_cleanly() {
     assert_eq!(
         tables,
         vec![
+            "_anlg_schema_compat",
             "_sqlx_migrations",
             "action_items",
             "app_settings",
