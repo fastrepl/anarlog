@@ -1,15 +1,23 @@
+import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
+  CaretLeft,
   CircleNotch,
+  DotsThree,
   EnvelopeSimple,
   LockSimple,
-  SlackLogo,
-  UserPlus,
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
+import {
+  AppFloatingPanel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -17,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
-import { cn } from "@anlg/utils";
 
 import { listSlackChannels } from "./delivery-client";
 import {
@@ -33,44 +40,87 @@ import { useOpenIntegrationUrl } from "~/shared/integration";
 
 export type ShareRecapMode = "invite" | "email" | "slack";
 
-export function ShareRecapModeSelector({
-  value,
+function SlackBrandIcon({ size }: { size: number }) {
+  return (
+    <Icon
+      icon="logos:slack-icon"
+      width={size}
+      height={size}
+      aria-hidden="true"
+    />
+  );
+}
+
+export function ShareRecapOverflowMenu({
   onValueChange,
 }: {
-  value: ShareRecapMode;
-  onValueChange: (value: ShareRecapMode) => void;
+  onValueChange: (value: Exclude<ShareRecapMode, "invite">) => void;
 }) {
+  const { t } = useLingui();
+
   return (
-    <div className="bg-muted/60 grid grid-cols-3 gap-0.5 rounded-lg p-0.5">
-      {(
-        [
-          ["invite", UserPlus],
-          ["email", EnvelopeSimple],
-          ["slack", SlackLogo],
-        ] as const
-      ).map(([mode, Icon]) => (
-        <button
-          key={mode}
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
           type="button"
-          aria-pressed={value === mode}
-          onClick={() => onValueChange(mode)}
-          className={cn([
-            "flex h-7 items-center justify-center gap-1.5 rounded-md text-xs transition-colors",
-            value === mode
-              ? "bg-background text-foreground shadow-xs"
-              : "text-muted-foreground hover:text-foreground",
-          ])}
+          size="icon"
+          variant="ghost"
+          aria-label={t`More options`}
+          className="text-muted-foreground hover:text-foreground"
         >
-          <Icon className="size-3.5" aria-hidden="true" />
-          {mode === "invite" ? (
-            <Trans>People</Trans>
-          ) : mode === "email" ? (
+          <DotsThree className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent variant="app" align="end" className="w-44">
+        <AppFloatingPanel className="overflow-hidden p-1">
+          <DropdownMenuItem
+            onSelect={() => onValueChange("email")}
+            className="cursor-pointer"
+          >
+            <EnvelopeSimple aria-hidden="true" />
             <Trans>Email</Trans>
-          ) : (
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => onValueChange("slack")}
+            className="cursor-pointer"
+          >
+            <span className="flex size-4 items-center justify-center">
+              <SlackBrandIcon size={16} />
+            </span>
             <Trans>Slack</Trans>
-          )}
+          </DropdownMenuItem>
+        </AppFloatingPanel>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function ShareRecapFormHeading({
+  id,
+  onBack,
+  children,
+}: {
+  id: string;
+  onBack?: () => void;
+  children: ReactNode;
+}) {
+  const { t } = useLingui();
+
+  return (
+    <div className="flex items-center gap-1">
+      {onBack ? (
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={t`Back`}
+          className="text-muted-foreground hover:text-foreground flex size-6 shrink-0 items-center justify-center rounded-md"
+        >
+          <CaretLeft className="size-3.5" aria-hidden="true" />
         </button>
-      ))}
+      ) : null}
+      <h3 id={id} className="text-xs font-medium">
+        {children}
+      </h3>
     </div>
   );
 }
@@ -80,12 +130,14 @@ export function EmailRecapForm({
   ownerEmail,
   disabled,
   pending,
+  onBack,
   onSubmit,
 }: {
   sessionId: string;
   ownerEmail: string;
   disabled: boolean;
   pending: boolean;
+  onBack?: () => void;
   onSubmit: (emails: string[]) => void;
 }) {
   const { t } = useLingui();
@@ -98,9 +150,9 @@ export function EmailRecapForm({
   return (
     <section aria-labelledby="email-recap-heading" className="space-y-2">
       <div>
-        <h3 id="email-recap-heading" className="text-xs font-medium">
+        <ShareRecapFormHeading id="email-recap-heading" onBack={onBack}>
           <Trans>Email meeting notes</Trans>
-        </h3>
+        </ShareRecapFormHeading>
         <p className="text-muted-foreground mt-0.5 text-[11px] leading-4">
           <Trans>
             Send the summary in the email. Replies go directly to you.
@@ -127,10 +179,12 @@ export function EmailRecapForm({
 export function SlackRecapForm({
   disabled,
   pending,
+  onBack,
   onSubmit,
 }: {
   disabled: boolean;
   pending: boolean;
+  onBack?: () => void;
   onSubmit: (channel: { id: string; name: string }) => void;
 }) {
   const { t } = useLingui();
@@ -163,9 +217,9 @@ export function SlackRecapForm({
     return (
       <section aria-labelledby="slack-recap-heading" className="space-y-2">
         <div>
-          <h3 id="slack-recap-heading" className="text-xs font-medium">
+          <ShareRecapFormHeading id="slack-recap-heading" onBack={onBack}>
             <Trans>Send to Slack</Trans>
-          </h3>
+          </ShareRecapFormHeading>
           <p className="text-muted-foreground mt-0.5 text-[11px] leading-4">
             <Trans>Connect Slack to choose a channel for this recap.</Trans>
           </p>
@@ -187,7 +241,7 @@ export function SlackRecapForm({
           {openingAction ? (
             <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : (
-            <SlackLogo className="size-3.5" aria-hidden="true" />
+            <SlackBrandIcon size={14} />
           )}
           {reconnect ? (
             <Trans>Reconnect Slack</Trans>
@@ -202,9 +256,9 @@ export function SlackRecapForm({
   return (
     <section aria-labelledby="slack-recap-heading" className="space-y-2">
       <div>
-        <h3 id="slack-recap-heading" className="text-xs font-medium">
+        <ShareRecapFormHeading id="slack-recap-heading" onBack={onBack}>
           <Trans>Send to Slack</Trans>
-        </h3>
+        </ShareRecapFormHeading>
         <p className="text-muted-foreground mt-0.5 text-[11px] leading-4">
           <Trans>Post the meeting summary to a channel you can access.</Trans>
         </p>

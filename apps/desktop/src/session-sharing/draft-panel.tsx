@@ -10,7 +10,7 @@ import {
 
 import {
   EmailRecapForm,
-  ShareRecapModeSelector,
+  ShareRecapOverflowMenu,
   SlackRecapForm,
   type ShareRecapMode,
 } from "./delivery-panel";
@@ -82,10 +82,6 @@ export function SessionShareDraftContent({
 
         <div className="scrollbar-soft min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-2">
           <div className="space-y-2">
-            <ShareRecapModeSelector
-              value={recapMode}
-              onValueChange={setRecapMode}
-            />
             {recapMode === "invite" ? (
               <section aria-labelledby="invite-people-heading">
                 <h3 id="invite-people-heading" className="sr-only">
@@ -129,12 +125,14 @@ export function SessionShareDraftContent({
                 ownerEmail={ownerEmail}
                 disabled={disabled || actionPending}
                 pending={pendingAction?.type === "email"}
+                onBack={() => setRecapMode("invite")}
                 onSubmit={(emails) => onAction({ type: "email", emails })}
               />
             ) : (
               <SlackRecapForm
                 disabled={disabled || actionPending}
                 pending={pendingAction?.type === "slack"}
+                onBack={() => setRecapMode("invite")}
                 onSubmit={(channel) => onAction({ type: "slack", channel })}
               />
             )}
@@ -165,7 +163,8 @@ export function SessionShareDraftContent({
           </div>
         </div>
 
-        <footer className="border-border/60 flex justify-end border-t px-3 py-2">
+        <footer className="border-border/60 flex items-center justify-end gap-1 border-t px-3 py-2">
+          <ShareRecapOverflowMenu onValueChange={setRecapMode} />
           <Button
             type="button"
             size="sm"

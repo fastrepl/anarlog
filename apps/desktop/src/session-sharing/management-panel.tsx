@@ -32,7 +32,7 @@ import { setSessionShareScope, ShareManagementError } from "./client";
 import { useSessionRecapDelivery } from "./delivery-management";
 import {
   EmailRecapForm,
-  ShareRecapModeSelector,
+  ShareRecapOverflowMenu,
   SlackRecapForm,
   type ShareRecapMode,
 } from "./delivery-panel";
@@ -438,11 +438,6 @@ export function SessionSharePopoverContent({
                 </section>
               ) : null}
 
-              <ShareRecapModeSelector
-                value={recapMode}
-                onValueChange={setRecapMode}
-              />
-
               {recapMode === "invite" ? (
                 <section aria-labelledby="invite-people-heading">
                   <h3 id="invite-people-heading" className="sr-only">
@@ -534,12 +529,14 @@ export function SessionSharePopoverContent({
                   ownerEmail={ownerEmail}
                   disabled={!canPublish || anyPending || deliveryPending}
                   pending={emailMutation.isPending}
+                  onBack={() => setRecapMode("invite")}
                   onSubmit={(emails) => emailMutation.mutate(emails)}
                 />
               ) : (
                 <SlackRecapForm
                   disabled={!canPublish || anyPending || deliveryPending}
                   pending={slackMutation.isPending}
+                  onBack={() => setRecapMode("invite")}
                   onSubmit={(channel) => slackMutation.mutate(channel)}
                 />
               )}
@@ -592,7 +589,8 @@ export function SessionSharePopoverContent({
             </div>
           </div>
 
-          <footer className="border-border/60 flex items-center justify-end border-t px-3 py-2">
+          <footer className="border-border/60 flex items-center justify-end gap-1 border-t px-3 py-2">
+            <ShareRecapOverflowMenu onValueChange={setRecapMode} />
             <Button
               type="button"
               size="sm"

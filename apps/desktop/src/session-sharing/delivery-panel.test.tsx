@@ -1,20 +1,53 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  createElement,
+  type ButtonHTMLAttributes,
+  type ReactNode,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { ShareRecapModeSelector } from "./delivery-panel";
+import { ShareRecapOverflowMenu } from "./delivery-panel";
 
-describe("ShareRecapModeSelector", () => {
-  it("offers invitation, email, and Slack delivery", () => {
+vi.mock("@iconify-icon/react", () => ({
+  Icon: (props: Record<string, unknown>) =>
+    createElement("iconify-icon", props),
+}));
+
+vi.mock("@anlg/ui/components/ui/dropdown-menu", () => ({
+  AppFloatingPanel: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenu: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onSelect,
+    ...props
+  }: ButtonHTMLAttributes<HTMLButtonElement> & { onSelect?: () => void }) => (
+    <button type="button" {...props} onClick={onSelect}>
+      {children}
+    </button>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
+    <>{children}</>
+  ),
+}));
+
+describe("ShareRecapOverflowMenu", () => {
+  it("offers email and Slack delivery from the overflow menu", () => {
     const onValueChange = vi.fn();
-    render(
-      <ShareRecapModeSelector value="invite" onValueChange={onValueChange} />,
-    );
+    render(<ShareRecapOverflowMenu onValueChange={onValueChange} />);
 
+    expect(screen.queryByRole("button", { name: "People" })).toBeNull();
+    expect(screen.getByRole("button", { name: "More options" })).toBeTruthy();
     expect(
-      screen
-        .getByRole("button", { name: "People" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
+      document.querySelector('iconify-icon[icon="logos:slack-icon"]'),
+    ).not.toBeNull();
+
     fireEvent.click(screen.getByRole("button", { name: "Email" }));
     fireEvent.click(screen.getByRole("button", { name: "Slack" }));
 
