@@ -6,10 +6,10 @@ import { BrandLoadingView } from "./brand-loading-view";
 describe("BrandLoadingView", () => {
   afterEach(cleanup);
 
-  it("shows a loading status without a mark", () => {
+  it("shows the anarlog mark while loading", () => {
     render(<BrandLoadingView />);
 
     const status = screen.getByRole("status", { name: "Loading" });
-    expect(status.querySelector("svg")).toBeNull();
+    expect(status.querySelectorAll("svg")).toHaveLength(2);
   });
 });

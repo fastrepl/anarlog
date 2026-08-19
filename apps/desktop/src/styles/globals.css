@@ -55,6 +55,7 @@
   --selection-overlay: rgba(59, 130, 246, 0.3);
 
   --animate-shimmer: shimmer 2s infinite;
+  --animate-logo-shimmer-sweep: logo-shimmer-sweep 2.4s ease-in-out infinite;
   --animate-reveal-left: reveal-left 0.5s ease-out forwards;
   --animate-title-hover-scroll: title-hover-scroll var(
     --title-hover-scroll-duration,
@@ -93,6 +94,16 @@
     }
     100% {
       transform: translateX(100%);
+    }
+  }
+  @keyframes logo-shimmer-sweep {
+    0% {
+      -webkit-mask-position: 120% 0%;
+      mask-position: 120% 0%;
+    }
+    100% {
+      -webkit-mask-position: -20% 0%;
+      mask-position: -20% 0%;
     }
   }
   @keyframes reveal-left {
