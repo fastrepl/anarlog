@@ -459,12 +459,19 @@ impl From<anlg_cloudsync::Error> for AppSchemaError {
 }
 
 pub async fn prepare_schema(db: &anlg_db_core::Db) -> Result<(), AppSchemaError> {
+    prepare_schema_with_progress(db, |_| {}).await
+}
+
+pub async fn prepare_schema_with_progress(
+    db: &anlg_db_core::Db,
+    on_migration_progress: impl FnMut(anlg_db_migrate::MigrationProgress) + Send,
+) -> Result<(), AppSchemaError> {
     let templates_missing_before_migration = !templates_table_exists(db.pool()).await?;
     adopt_legacy_mobile_schema_migration(db.pool()).await?;
     repair_legacy_shared_session_cache_migration(db.pool()).await?;
     repair_legacy_attachment_transfer_jobs_migration(db.pool()).await?;
     repair_torn_e2ee_payload_hash_local_state_migration(db).await?;
-    anlg_db_migrate::migrate(db, schema()).await?;
+    anlg_db_migrate::migrate_with_progress(db, schema(), on_migration_progress).await?;
     repair_missing_core_tables(db.pool(), templates_missing_before_migration).await?;
     backfill_session_share_activation(db.pool()).await?;
     ensure_cloudsync_workspace_binding(db.pool()).await?;

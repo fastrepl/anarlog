@@ -6,9 +6,14 @@ async fn wait_until_ready_resolves_after_startup_finishes() {
     anlg_db_app::prepare_schema(&db).await.unwrap();
     let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
 
+    assert_eq!(
+        runtime.startup_status().phase,
+        crate::StartupPhase::PreparingDatabase
+    );
     let wait = runtime.wait_until_ready();
     runtime.finish_startup(Ok(()));
     wait.await.unwrap();
+    assert_eq!(runtime.startup_status().phase, crate::StartupPhase::Ready);
 }
 
 #[tokio::test]
@@ -28,6 +33,7 @@ async fn wait_until_ready_surfaces_startup_failure() {
             .to_string()
             .contains("created by a newer version of Anarlog")
     );
+    assert_eq!(runtime.startup_status().phase, crate::StartupPhase::Failed);
 }
 
 #[tokio::test]
@@ -38,6 +44,21 @@ async fn wait_until_ready_resolves_when_startup_already_finished() {
 
     runtime.finish_startup(Ok(()));
     runtime.wait_until_ready().await.unwrap();
+}
+
+#[tokio::test]
+async fn terminal_startup_status_ignores_late_schema_progress() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    let runtime = PluginDbRuntime::new(std::sync::Arc::new(db));
+
+    runtime.finish_startup(Err("startup failed".into()));
+    runtime.set_startup_status_if_running(crate::StartupStatus {
+        phase: crate::StartupPhase::MigratingDatabase,
+        migration_current: Some(1),
+        migration_total: Some(2),
+    });
+
+    assert_eq!(runtime.startup_status().phase, crate::StartupPhase::Failed);
 }
 
 #[tokio::test]

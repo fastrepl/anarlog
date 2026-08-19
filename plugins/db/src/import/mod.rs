@@ -39,7 +39,7 @@ pub async fn import_legacy_data<R: tauri::Runtime>(
     Ok(())
 }
 
-async fn legacy_import_attempt_required(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
+pub(crate) async fn legacy_import_attempt_required(pool: &SqlitePool) -> Result<bool, sqlx::Error> {
     let attempted: bool = sqlx::query_scalar(
         "SELECT EXISTS(
            SELECT 1

@@ -41,7 +41,11 @@ impl<'a> DbMigrateConnection<'a> {
     }
 }
 
-pub(crate) async fn run_migrations(db: &Db, schema: DbSchema) -> Result<(), MigrateError> {
+pub(crate) async fn run_migrations(
+    db: &Db,
+    schema: DbSchema,
+    on_progress: impl FnMut(crate::MigrationProgress) + Send,
+) -> Result<(), MigrateError> {
     let resolved = resolve_migrations(schema)?;
     let meta_by_version = resolved
         .iter()
@@ -62,7 +66,7 @@ pub(crate) async fn run_migrations(db: &Db, schema: DbSchema) -> Result<(), Migr
 
     let conn = db.pool().acquire().await?;
     let mut conn = DbMigrateConnection::new(db, conn, meta_by_version);
-    run_direct(&migrations, &mut conn).await?;
+    run_direct(&migrations, &mut conn, on_progress).await?;
     Ok(())
 }
 
@@ -71,6 +75,7 @@ const MIGRATIONS_TABLE: &str = "_sqlx_migrations";
 async fn run_direct(
     migrations: &[Migration],
     conn: &mut DbMigrateConnection<'_>,
+    mut on_progress: impl FnMut(crate::MigrationProgress) + Send,
 ) -> Result<(), MigrateError> {
     conn.lock().await?;
     conn.ensure_migrations_table(MIGRATIONS_TABLE).await?;
@@ -121,6 +126,15 @@ async fn run_direct(
         });
     }
 
+    let pending_total = migrations
+        .iter()
+        .filter(|migration| {
+            !migration.migration_type.is_down_migration()
+                && !applied_migrations.contains_key(&migration.version)
+        })
+        .count();
+    let mut completed = 0;
+
     for migration in migrations {
         if migration.migration_type.is_down_migration() {
             continue;
@@ -133,7 +147,18 @@ async fn run_direct(
                 }
             }
             None => {
+                if completed == 0 {
+                    on_progress(crate::MigrationProgress {
+                        completed,
+                        total: pending_total,
+                    });
+                }
                 conn.apply(MIGRATIONS_TABLE, migration).await?;
+                completed += 1;
+                on_progress(crate::MigrationProgress {
+                    completed,
+                    total: pending_total,
+                });
             }
         }
     }

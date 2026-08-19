@@ -12,7 +12,11 @@ export const Route = createRootRouteWithContext<Partial<Context>>()({
 
 function Component() {
   return (
-    <Suspense fallback={<BrandLoadingView />}>
+    <Suspense
+      fallback={
+        <BrandLoadingView detail="Loading your workspace. This should only take a moment." />
+      }
+    >
       <MainAppLayout />
     </Suspense>
   );

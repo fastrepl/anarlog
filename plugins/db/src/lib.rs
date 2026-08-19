@@ -21,6 +21,35 @@ pub struct TransactionStatement {
     pub expected_rows_affected: Option<u64>,
 }
 
+#[derive(Debug, Clone, Copy, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StartupPhase {
+    PreparingDatabase,
+    MigratingDatabase,
+    ImportingLegacyData,
+    ConfiguringCloudsync,
+    Ready,
+    Failed,
+}
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StartupStatus {
+    pub phase: StartupPhase,
+    pub migration_current: Option<u32>,
+    pub migration_total: Option<u32>,
+}
+
+impl StartupStatus {
+    fn for_phase(phase: StartupPhase) -> Self {
+        Self {
+            phase,
+            migration_current: None,
+            migration_total: None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, specta::Type, sqlx::FromRow)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageMigrationState {
@@ -331,6 +360,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::sync_cloudsync_now,
             commands::begin_cloudsync_activity,
             commands::end_cloudsync_activity,
+            commands::get_startup_status,
             commands::wait_until_ready,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -346,10 +376,21 @@ async fn bootstrap_app_database<R: tauri::Runtime>(
         .ensure_app_schema()
         .await
         .map_err(|error| error.to_string())?;
+    if import::legacy_import_attempt_required(db.pool())
+        .await
+        .map_err(|error| error.to_string())?
+    {
+        runtime.set_startup_status_if_running(StartupStatus::for_phase(
+            StartupPhase::ImportingLegacyData,
+        ));
+    }
     import::import_legacy_data(&app, db.pool())
         .await
         .map_err(|error| error.to_string())?;
     if let Some(config) = startup_config {
+        runtime.set_startup_status_if_running(StartupStatus::for_phase(
+            StartupPhase::ConfiguringCloudsync,
+        ));
         let migration_ready = import::legacy_migration_ready(db.pool())
             .await
             .map_err(|error| error.to_string())?;

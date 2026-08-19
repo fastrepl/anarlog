@@ -70,5 +70,6 @@ fn default_permissions_include_session_ingest() {
 fn default_permissions_include_startup_ready() {
     let permissions = include_str!("../../permissions/default.toml");
 
+    assert!(permissions.contains("allow-get-startup-status"));
     assert!(permissions.contains("allow-wait-until-ready"));
 }

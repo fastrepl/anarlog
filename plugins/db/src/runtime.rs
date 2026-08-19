@@ -135,6 +135,7 @@ pub struct PluginDbRuntime {
     db: std::sync::Arc<Db>,
     schema_ready: tokio::sync::OnceCell<()>,
     startup_tx: tokio::sync::watch::Sender<Option<std::result::Result<(), String>>>,
+    startup_status: std::sync::RwLock<crate::StartupStatus>,
     synced_write_barrier: tokio::sync::RwLock<()>,
     executor: DbExecutor,
     live_query_runtime: LiveQueryRuntime<QueryEventChannel>,
@@ -204,6 +205,9 @@ impl PluginDbRuntime {
             db: std::sync::Arc::clone(&db),
             schema_ready: tokio::sync::OnceCell::new(),
             startup_tx,
+            startup_status: std::sync::RwLock::new(crate::StartupStatus::for_phase(
+                crate::StartupPhase::PreparingDatabase,
+            )),
             synced_write_barrier: tokio::sync::RwLock::new(()),
             executor: DbExecutor::new(std::sync::Arc::clone(&db)),
             live_query_runtime: LiveQueryRuntime::new(db),
@@ -440,12 +444,56 @@ impl PluginDbRuntime {
 
     pub(crate) async fn ensure_app_schema(&self) -> Result<()> {
         self.schema_ready
-            .get_or_try_init(|| async { anlg_db_app::prepare_schema(self.db.as_ref()).await })
+            .get_or_try_init(|| async {
+                anlg_db_app::prepare_schema_with_progress(self.db.as_ref(), |progress| {
+                    if progress.completed < progress.total {
+                        self.set_startup_status_if_running(crate::StartupStatus {
+                            phase: crate::StartupPhase::MigratingDatabase,
+                            migration_current: Some(
+                                u32::try_from(progress.completed + 1).unwrap_or(u32::MAX),
+                            ),
+                            migration_total: Some(
+                                u32::try_from(progress.total).unwrap_or(u32::MAX),
+                            ),
+                        });
+                    } else {
+                        self.set_startup_status_if_running(crate::StartupStatus::for_phase(
+                            crate::StartupPhase::PreparingDatabase,
+                        ));
+                    }
+                })
+                .await
+            })
             .await?;
         Ok(())
     }
 
+    pub(crate) fn set_startup_status_if_running(&self, status: crate::StartupStatus) {
+        let mut current = self.startup_status.write().unwrap();
+        if matches!(
+            current.phase,
+            crate::StartupPhase::Ready | crate::StartupPhase::Failed
+        ) {
+            return;
+        }
+        *current = status;
+    }
+
+    fn set_startup_status(&self, status: crate::StartupStatus) {
+        *self.startup_status.write().unwrap() = status;
+    }
+
+    pub fn startup_status(&self) -> crate::StartupStatus {
+        self.startup_status.read().unwrap().clone()
+    }
+
     pub(crate) fn finish_startup(&self, result: std::result::Result<(), String>) {
+        let phase = if result.is_ok() {
+            crate::StartupPhase::Ready
+        } else {
+            crate::StartupPhase::Failed
+        };
+        self.set_startup_status(crate::StartupStatus::for_phase(phase));
         self.startup_tx.send_replace(Some(result));
     }
 

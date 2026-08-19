@@ -792,6 +792,12 @@ pub(crate) async fn end_cloudsync_activity(
 
 #[tauri::command]
 #[specta::specta]
+pub(crate) fn get_startup_status(state: tauri::State<'_, ManagedState>) -> crate::StartupStatus {
+    state.startup_status()
+}
+
+#[tauri::command]
+#[specta::specta]
 pub(crate) async fn wait_until_ready(state: tauri::State<'_, ManagedState>) -> Result<(), String> {
     state
         .wait_until_ready()

@@ -9,8 +9,22 @@ pub use schema::{DbSchema, MigrationScope, MigrationStep};
 
 use anlg_db_core::Db;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct MigrationProgress {
+    pub completed: usize,
+    pub total: usize,
+}
+
 pub async fn migrate(db: &Db, schema: DbSchema) -> Result<(), MigrateError> {
-    migrate::run_migrations(db, schema).await
+    migrate_with_progress(db, schema, |_| {}).await
+}
+
+pub async fn migrate_with_progress(
+    db: &Db,
+    schema: DbSchema,
+    on_progress: impl FnMut(MigrationProgress) + Send,
+) -> Result<(), MigrateError> {
+    migrate::run_migrations(db, schema, on_progress).await
 }
 
 #[cfg(test)]
@@ -207,5 +221,38 @@ mod tests {
         .unwrap();
 
         assert!(tables.contains(&"_sqlx_migrations".to_string()));
+    }
+
+    #[tokio::test]
+    async fn migration_progress_only_counts_pending_steps() {
+        let db = open_memory_db().await;
+        migrate(&db, schema_of(&[STEP_ONE])).await.unwrap();
+
+        let mut updates = Vec::new();
+        migrate_with_progress(
+            &db,
+            schema_of(&[STEP_ONE, STEP_TWO_ADDITIVE, STEP_THREE_ADDITIVE]),
+            |progress| updates.push(progress),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            updates,
+            vec![
+                MigrationProgress {
+                    completed: 0,
+                    total: 2,
+                },
+                MigrationProgress {
+                    completed: 1,
+                    total: 2,
+                },
+                MigrationProgress {
+                    completed: 2,
+                    total: 2,
+                },
+            ]
+        );
     }
 }

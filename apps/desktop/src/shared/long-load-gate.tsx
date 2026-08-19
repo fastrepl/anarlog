@@ -1,8 +1,13 @@
 import { ArrowClockwise } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useEffect, useState, type ReactNode } from "react";
 
-import { waitUntilReady } from "@anlg/plugin-db";
+import {
+  getStartupStatus,
+  waitUntilReady,
+  type StartupStatus,
+} from "@anlg/plugin-db";
 import { Button } from "@anlg/ui/components/ui/button";
 import { cn } from "@anlg/utils";
 
@@ -11,6 +16,7 @@ import { BrandLoadingView } from "./brand-loading-view";
 import { captureOperationalError } from "~/error-reporting";
 
 export const LONG_LOAD_SPLASH_DELAY_MS = 400;
+const STARTUP_STATUS_REFETCH_INTERVAL_MS = 250;
 
 function dismissBootSplash() {
   document.getElementById("boot-splash")?.remove();
@@ -20,6 +26,13 @@ export function LongLoadGate({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const { data: startupStatus } = useQuery({
+    queryKey: ["database-startup-status"],
+    queryFn: getStartupStatus,
+    enabled: !ready && !error,
+    refetchInterval: ready ? false : STARTUP_STATUS_REFETCH_INTERVAL_MS,
+    retry: false,
+  });
 
   useEffect(() => {
     if (ready || showSplash || error) {
@@ -65,9 +78,29 @@ export function LongLoadGate({ children }: { children: ReactNode }) {
   if (!showSplash) {
     return null;
   }
-  return (
-    <BrandLoadingView detail="Updating your data. This may take a few minutes." />
-  );
+  return <BrandLoadingView detail={getStartupDetail(startupStatus)} />;
+}
+
+function getStartupDetail(status: StartupStatus | undefined) {
+  switch (status?.phase) {
+    case "preparing_database":
+      return "Checking your local database. This is taking longer than expected.";
+    case "migrating_database": {
+      const progress =
+        status.migrationCurrent && status.migrationTotal
+          ? ` (${status.migrationCurrent} of ${status.migrationTotal})`
+          : "";
+      return `Migrating your local database${progress}. This may take a few minutes.`;
+    }
+    case "importing_legacy_data":
+      return "Importing your existing notes. This may take a few minutes.";
+    case "configuring_cloudsync":
+      return "Preparing sync. This should only take a moment.";
+    case "ready":
+    case "failed":
+    case undefined:
+      return undefined;
+  }
 }
 
 function StartupErrorView({ error }: { error: Error }) {

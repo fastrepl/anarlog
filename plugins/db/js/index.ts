@@ -20,6 +20,7 @@ import type {
   Meeting,
   MeetingPage,
   SessionIngestApplyResult,
+  StartupStatus,
   SubscriptionRegistration,
   TranscriptPage,
   WorkspaceE2eeKeyRecipient,
@@ -42,6 +43,7 @@ export type {
   Meeting,
   MeetingPage,
   SessionIngestApplyResult,
+  StartupStatus,
   TranscriptPage,
   WorkspaceE2eeKeyRecipient,
 } from "./bindings.gen";
@@ -360,6 +362,10 @@ export async function getCloudsyncStatus(): Promise<CloudsyncStatus> {
 
 export async function waitUntilReady(): Promise<void> {
   return invoke("plugin:db|wait_until_ready");
+}
+
+export async function getStartupStatus(): Promise<StartupStatus> {
+  return invoke("plugin:db|get_startup_status");
 }
 
 export async function beginCloudsyncActivity(

@@ -286,6 +286,9 @@ async endCloudsyncActivity(activity: string, key: string) : Promise<Result<null,
     else return { status: "error", error: e  as any };
 }
 },
+async getStartupStatus() : Promise<StartupStatus> {
+    return await TAURI_INVOKE("plugin:db|get_startup_status");
+},
 async waitUntilReady() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("plugin:db|wait_until_ready") };
@@ -339,6 +342,8 @@ export type Participant = { human_id: string; display_name: string; email: strin
 export type QueryEvent = { event: "result"; data: JsonValue[] } | { event: "error"; data: string }
 export type SealedWorkspaceE2eeKey = { keyId: string; grants: WorkspaceE2eeKeyGrantUpload[] }
 export type SessionIngestApplyResult = "applied" | "already_applied" | "rejected"
+export type StartupPhase = "preparing_database" | "migrating_database" | "importing_legacy_data" | "configuring_cloudsync" | "ready" | "failed"
+export type StartupStatus = { phase: StartupPhase; migrationCurrent: number | null; migrationTotal: number | null }
 export type StorageMigrationState = { phase: string; latestRunId: string; parityVerified: boolean; cutoverAt: string | null; rollbackUntil: string | null; lastError: string; updatedAt: string }
 export type SubscriptionRegistration = { id: string; analysis: DependencyAnalysis }
 export type TAURI_CHANNEL<TSend> = null

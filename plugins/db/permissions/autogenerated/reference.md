@@ -34,6 +34,7 @@ Default permissions for the plugin
 - `allow-suspend-cloudsync-for-sign-out`
 - `allow-suspend-cloudsync-after-auth-loss`
 - `allow-get-cloudsync-status`
+- `allow-get-startup-status`
 - `allow-wait-until-ready`
 
 ## Permission Table
@@ -561,6 +562,32 @@ Enables the get_recurring_meeting_history command without any pre-configured sco
 <td>
 
 Denies the get_recurring_meeting_history command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:allow-get-startup-status`
+
+</td>
+<td>
+
+Enables the get_startup_status command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`db:deny-get-startup-status`
+
+</td>
+<td>
+
+Denies the get_startup_status command without any pre-configured scope.
 
 </td>
 </tr>
