@@ -47,7 +47,7 @@ pub(super) fn propagate_identity(segments: &mut Vec<ProtoSegment>, speaker_state
         assign_complete_channel_human_id(&mut segments[read_index], speaker_state);
 
         let should_merge = last_kept_key.as_ref().is_some_and(|last_key| {
-            *last_key == segments[read_index].key && segments[read_index].key.has_speaker_identity()
+            should_merge_adjacent_keys(last_key, &segments[read_index].key)
         });
 
         if should_merge {
@@ -193,4 +193,18 @@ fn create_segment_key(channel: ChannelProfile, identity: Option<&SpeakerIdentity
         speaker_index: identity.and_then(|value| value.speaker_index),
         speaker_human_id: identity.and_then(|value| value.human_id.clone()),
     }
+}
+
+fn should_merge_adjacent_keys(last: &SegmentKey, next: &SegmentKey) -> bool {
+    if last.channel != next.channel {
+        return false;
+    }
+
+    if let (Some(last_human), Some(next_human)) = (&last.speaker_human_id, &next.speaker_human_id)
+        && last_human == next_human
+    {
+        return true;
+    }
+
+    last == next && next.has_speaker_identity()
 }

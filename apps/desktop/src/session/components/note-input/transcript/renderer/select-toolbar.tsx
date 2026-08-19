@@ -1,6 +1,11 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { CheckCircle, Selection, UserSwitch } from "@phosphor-icons/react";
+import {
+  ArrowsMerge,
+  CheckCircle,
+  Selection,
+  UserSwitch,
+} from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 
 import {
@@ -50,13 +55,16 @@ export function TranscriptSelectButton({
 export function TranscriptSelectToolbar({
   selection,
   entryCount,
+  canMerge,
   onSelectAll,
   onClear,
   onDone,
   onAssignSpeaker,
+  onMerge,
 }: {
   selection: TranscriptWordSelection | null;
   entryCount: number;
+  canMerge: boolean;
   onSelectAll: () => void;
   onClear: () => void;
   onDone: () => void;
@@ -64,6 +72,7 @@ export function TranscriptSelectToolbar({
     selection: TranscriptWordSelection,
     humanId: string,
   ) => void | Promise<void>;
+  onMerge: () => void | Promise<void>;
 }) {
   const [speakerPickerOpen, setSpeakerPickerOpen] = useState(false);
   const handleAssign = useCallback(
@@ -77,6 +86,10 @@ export function TranscriptSelectToolbar({
     },
     [onAssignSpeaker, onClear, selection],
   );
+  const handleMerge = useCallback(async () => {
+    await onMerge();
+    onClear();
+  }, [onClear, onMerge]);
 
   return (
     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
@@ -128,6 +141,18 @@ export function TranscriptSelectToolbar({
           </PopoverContent>
         )}
       </Popover>
+      <button
+        type="button"
+        disabled={!canMerge}
+        className={cn([
+          TOOLBAR_BUTTON_CLASSES,
+          "disabled:pointer-events-none disabled:opacity-50",
+        ])}
+        onClick={() => void handleMerge()}
+      >
+        <ArrowsMerge className="size-3.5" />
+        <Trans>Merge</Trans>
+      </button>
       <button
         type="button"
         aria-label={t`Done`}

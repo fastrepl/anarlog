@@ -4,6 +4,7 @@ import type { LiveTranscriptDelta } from "@anlg/plugin-transcription";
 
 import {
   createTranscriptAccumulator,
+  mergeTranscriptSegmentAssignments,
   updateTranscriptHints,
   upsertSpeakerAssignment,
 } from "./utils";
@@ -1231,6 +1232,199 @@ describe("upsertSpeakerAssignment", () => {
           human_id: "bob",
           scope: "segment",
           word_ids: ["word-1"],
+        }),
+      },
+    ]);
+  });
+});
+
+describe("mergeTranscriptSegmentAssignments", () => {
+  it("assigns contiguous words to the target human", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "word-1",
+          text: " hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+        {
+          id: "word-2",
+          text: " there",
+          start_ms: 150,
+          end_ms: 250,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        },
+        {
+          id: "word-2:provider_speaker_index",
+          word_id: "word-2",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+      ]),
+    });
+
+    mergeTranscriptSegmentAssignments(
+      store,
+      "transcript-1",
+      {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: "alice",
+      } as SegmentKey,
+      ["word-1", "word-2"],
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+      },
+      {
+        id: "word-1:user_speaker_assignment:segment",
+        word_id: "word-1",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "alice",
+          scope: "segment",
+          word_ids: ["word-1", "word-2"],
+        }),
+      },
+    ]);
+  });
+
+  it("unifies unlabeled speaker indexes and drops overlapping segment assignments", () => {
+    const store = createStore({
+      words: JSON.stringify([
+        {
+          id: "word-1",
+          text: " hello",
+          start_ms: 0,
+          end_ms: 100,
+          channel: 1,
+        },
+        {
+          id: "word-2",
+          text: " there",
+          start_ms: 150,
+          end_ms: 250,
+          channel: 1,
+        },
+        {
+          id: "word-3",
+          text: " later",
+          start_ms: 400,
+          end_ms: 500,
+          channel: 1,
+        },
+      ]),
+      speaker_hints: JSON.stringify([
+        {
+          id: "word-1:provider_speaker_index",
+          word_id: "word-1",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+        },
+        {
+          id: "word-2:provider_speaker_index",
+          word_id: "word-2",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+        {
+          id: "word-3:provider_speaker_index",
+          word_id: "word-3",
+          type: "provider_speaker_index",
+          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+        },
+        {
+          id: "word-2:user_speaker_assignment:segment",
+          word_id: "word-2",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "bob",
+            scope: "segment",
+            word_ids: ["word-2"],
+          }),
+        },
+        {
+          id: "word-3:user_speaker_assignment",
+          word_id: "word-3",
+          type: "user_speaker_assignment",
+          value: JSON.stringify({
+            human_id: "carol",
+            scope: "speaker",
+            channel: 1,
+            speaker_index: 1,
+          }),
+        },
+      ]),
+    });
+
+    mergeTranscriptSegmentAssignments(
+      store,
+      "transcript-1",
+      {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: null,
+      } as SegmentKey,
+      ["word-1", "word-2"],
+    );
+
+    expect(
+      JSON.parse(
+        store.getCell("transcripts", "transcript-1", "speaker_hints") as string,
+      ),
+    ).toEqual([
+      {
+        id: "word-1:provider_speaker_index",
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+      },
+      {
+        id: "word-2:provider_speaker_index",
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+      },
+      {
+        id: "word-3:provider_speaker_index",
+        word_id: "word-3",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+      },
+      {
+        id: "word-3:user_speaker_assignment",
+        word_id: "word-3",
+        type: "user_speaker_assignment",
+        value: JSON.stringify({
+          human_id: "carol",
+          scope: "speaker",
+          channel: 1,
+          speaker_index: 1,
         }),
       },
     ]);

@@ -2453,6 +2453,10 @@ msgstr ""
 msgid "Memos"
 msgstr ""
 
+#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
+msgid "Merge"
+msgstr ""
+
 #: src/task/resource-view.tsx
 msgid "Merged"
 msgstr ""

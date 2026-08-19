@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  canMergeTranscriptEntries,
   getTranscriptContextSelection,
+  getTranscriptMergeTarget,
   getTranscriptSelectionFromRange,
   getTranscriptSelectionFromSegment,
   mergeTranscriptSelections,
@@ -166,7 +168,87 @@ describe("transcript word selection", () => {
       ],
     });
   });
+
+  it("allows merging only contiguous same-channel transcript entries", () => {
+    const order = ["a", "b", "c"];
+    const entries = new Map([
+      ["a", entry("transcript-1", 0, "alice", "word-1")],
+      ["b", entry("transcript-1", 1, null, "word-2")],
+      ["c", entry("transcript-1", 2, null, "word-3")],
+    ]);
+
+    expect(canMergeTranscriptEntries(new Set(["a", "c"]), order, entries)).toBe(
+      false,
+    );
+    expect(canMergeTranscriptEntries(new Set(["a", "b"]), order, entries)).toBe(
+      true,
+    );
+    expect(
+      canMergeTranscriptEntries(
+        new Set(["a", "b"]),
+        order,
+        new Map([
+          ["a", entry("transcript-1", 0, null, "word-1")],
+          ["b", entry("transcript-1", 1, null, "word-2")],
+        ]),
+      ),
+    ).toBe(true);
+    expect(
+      canMergeTranscriptEntries(
+        new Set(["a", "b"]),
+        order,
+        new Map([
+          ["a", entry("transcript-1", null, null, "word-1")],
+          ["b", entry("transcript-1", 1, null, "word-2")],
+        ]),
+      ),
+    ).toBe(false);
+    expect(
+      getTranscriptMergeTarget(new Set(["a", "b"]), order, entries)?.groups[0],
+    ).toEqual({
+      transcriptId: "transcript-1",
+      segmentKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: "alice",
+      },
+      wordIds: ["word-1"],
+    });
+    expect(
+      canMergeTranscriptEntries(
+        new Set(["a", "b"]),
+        order,
+        new Map([
+          ["a", entry("transcript-1", 0, null, "word-1")],
+          ["b", entry("transcript-2", 1, null, "word-2")],
+        ]),
+      ),
+    ).toBe(false);
+  });
 });
+
+function entry(
+  transcriptId: string,
+  speakerIndex: number | null,
+  speakerHumanId: string | null,
+  wordId: string,
+) {
+  return {
+    text: wordId,
+    startMs: 0,
+    groups: [
+      {
+        transcriptId,
+        segmentKey: {
+          channel: "RemoteParty" as const,
+          speaker_index: speakerIndex,
+          speaker_human_id: speakerHumanId,
+        },
+        wordIds: [wordId],
+      },
+    ],
+  };
+}
 
 function createReadSegment() {
   const container = document.createElement("div");

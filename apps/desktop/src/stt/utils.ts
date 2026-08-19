@@ -332,6 +332,134 @@ export function upsertSpeakerAssignment(
   updateTranscriptHints(store, transcriptId, nextHints);
 }
 
+export function mergeTranscriptSegmentAssignments(
+  store: TranscriptStore,
+  transcriptId: string,
+  segmentKey: SegmentKey,
+  wordIds: string[],
+): void {
+  const assignmentWordIds = getUniqueWordIds(wordIds);
+  if (assignmentWordIds.length === 0) {
+    return;
+  }
+
+  if (segmentKey.speaker_human_id) {
+    upsertSpeakerAssignment(
+      store,
+      transcriptId,
+      segmentKey,
+      segmentKey.speaker_human_id,
+      assignmentWordIds[0]!,
+      { mode: "segment", wordIds: assignmentWordIds },
+    );
+    return;
+  }
+
+  if (typeof segmentKey.speaker_index === "number") {
+    unifyProviderSpeakerIndex(
+      store,
+      transcriptId,
+      assignmentWordIds,
+      segmentKey.speaker_index,
+    );
+  }
+}
+
+function unifyProviderSpeakerIndex(
+  store: TranscriptStore,
+  transcriptId: string,
+  wordIds: string[],
+  speakerIndex: number,
+): void {
+  const wordIdSet = new Set(wordIds);
+  const words = parseTranscriptWords(store, transcriptId);
+  const wordsById = new Map(words.map((word) => [word.id, word]));
+  const hints = parseTranscriptHints(store, transcriptId);
+  const nextHints: SpeakerHintWithId[] = [];
+  const updatedProviderWordIds = new Set<string>();
+
+  for (const hint of hints) {
+    if (
+      hint.type === "provider_speaker_index" &&
+      typeof hint.word_id === "string" &&
+      wordIdSet.has(hint.word_id)
+    ) {
+      nextHints.push({
+        ...hint,
+        value: JSON.stringify({
+          channel: getProviderHintChannel(hint, wordsById.get(hint.word_id)),
+          speaker_index: speakerIndex,
+        }),
+      });
+      updatedProviderWordIds.add(hint.word_id);
+      continue;
+    }
+
+    if (
+      hint.type === "automatic_speaker_assignment" ||
+      hint.type === "user_speaker_assignment"
+    ) {
+      const hintScope = getSpeakerAssignmentScopeForHint(
+        hints,
+        wordsById,
+        hint,
+      );
+      if (hintScope?.kind === "all") {
+        nextHints.push(hint);
+        continue;
+      }
+      if (
+        hintScope?.kind === "words" &&
+        setsOverlap(hintScope.wordIds, wordIdSet)
+      ) {
+        continue;
+      }
+      if (typeof hint.word_id === "string" && wordIdSet.has(hint.word_id)) {
+        continue;
+      }
+    }
+
+    nextHints.push(hint);
+  }
+
+  for (const wordId of wordIds) {
+    if (updatedProviderWordIds.has(wordId)) {
+      continue;
+    }
+    const word = wordsById.get(wordId);
+    if (!word) {
+      continue;
+    }
+    nextHints.push({
+      id: `${wordId}:provider_speaker_index`,
+      word_id: wordId,
+      type: "provider_speaker_index",
+      value: JSON.stringify({
+        channel: word.channel,
+        speaker_index: speakerIndex,
+      }),
+    });
+  }
+
+  updateTranscriptHints(store, transcriptId, nextHints);
+}
+
+function getProviderHintChannel(
+  hint: SpeakerHintWithId,
+  word: WordWithId | undefined,
+) {
+  const value = parseHintValue(hint.value);
+  if (
+    value &&
+    typeof value === "object" &&
+    typeof (value as { channel?: unknown }).channel === "number"
+  ) {
+    return (value as { channel: number }).channel;
+  }
+
+  return word?.channel ?? 0;
+}
+
 function markTranscriptAccumulatorDirty(transcriptId: string): void {
   if (activeAccumulatorCounts.has(transcriptId)) {
     dirtyAccumulatorTranscriptIds.add(transcriptId);

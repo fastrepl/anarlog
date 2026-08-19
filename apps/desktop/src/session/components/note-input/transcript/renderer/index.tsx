@@ -20,6 +20,7 @@ import {
 } from "./select-toolbar";
 import {
   getTranscriptContextSelection,
+  getTranscriptMergeTarget,
   getTranscriptSectionKeyFromElement,
   getTranscriptSectionSelection,
   mergeTranscriptSelections,
@@ -44,7 +45,10 @@ import { trackAnalyticsEvent } from "~/analytics";
 import { useAudioPlayer } from "~/audio-player";
 import { useAudioTime } from "~/audio-player/provider";
 import type { Segment } from "~/stt/live-segment";
-import { assignTranscriptSpeaker } from "~/stt/queries";
+import {
+  assignTranscriptSpeaker,
+  mergeTranscriptSegments,
+} from "~/stt/queries";
 
 const LIVE_TRANSCRIPT_PLACEHOLDER_ID = "__live-transcript__";
 
@@ -187,6 +191,53 @@ export function TranscriptViewer({
     },
     [],
   );
+  const handleMergeSegments = useCallback(async () => {
+    const { order, entries } = collectEntries(visibleTranscriptIdsRef.current);
+    const target = getTranscriptMergeTarget(
+      new Set(selectedEntries.keys()),
+      order,
+      entries,
+    );
+    const targetGroup = target?.groups[0];
+    const selection = mergeTranscriptSelections([...selectedEntries.values()]);
+    if (!targetGroup || !selection) {
+      return;
+    }
+
+    const groups = selection.groups.filter(
+      (group) => group.transcriptId === targetGroup.transcriptId,
+    );
+    await preserveScrollPosition(containerRef.current, () =>
+      Promise.all(
+        groups.map((group) =>
+          mergeTranscriptSegments({
+            transcriptId: group.transcriptId,
+            segmentKey: targetGroup.segmentKey,
+            wordIds: group.wordIds,
+          }),
+        ),
+      ),
+    );
+    trackAnalyticsEvent("participant_assigned", {
+      assignment_scope: "merge",
+      word_count: groups.reduce(
+        (count, group) => count + group.wordIds.length,
+        0,
+      ),
+    });
+  }, [collectEntries, selectedEntries]);
+  const canMergeSelection = useMemo(() => {
+    if (selectedEntries.size < 2) {
+      return false;
+    }
+    const { order, entries } = collectEntries(visibleTranscriptIds);
+    return getTranscriptMergeTarget(selectedKeys, order, entries) != null;
+  }, [
+    collectEntries,
+    selectedEntries.size,
+    selectedKeys,
+    visibleTranscriptIds,
+  ]);
   const handleContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
       if (selectMode) {
@@ -344,10 +395,12 @@ export function TranscriptViewer({
               <TranscriptSelectToolbar
                 selection={multiSelection}
                 entryCount={selectedEntries.size}
+                canMerge={canMergeSelection}
                 onSelectAll={selectAllEntries}
                 onClear={clearSelectedEntries}
                 onDone={exitSelectMode}
                 onAssignSpeaker={handleAssignSpeaker}
+                onMerge={handleMergeSegments}
               />
             ) : (
               <div className="ml-auto">

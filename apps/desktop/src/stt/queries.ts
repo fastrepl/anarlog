@@ -16,6 +16,7 @@ import {
   parseTranscriptHints,
   updateTranscriptHints,
   updateTranscriptWords,
+  mergeTranscriptSegmentAssignments,
   upsertSpeakerAssignment,
 } from "~/stt/utils";
 
@@ -435,6 +436,20 @@ export function appendTranscriptWordsAndHints(
     const accumulator = createTranscriptAccumulator(store, transcriptId);
     accumulator.appendWordsAndHints(words, hints, options);
     accumulator.dispose();
+  });
+}
+
+export function mergeTranscriptSegments({
+  transcriptId,
+  segmentKey,
+  wordIds,
+}: {
+  transcriptId: string;
+  segmentKey: SegmentKey;
+  wordIds: string[];
+}): Promise<void> {
+  return mutateTranscript(transcriptId, (store) => {
+    mergeTranscriptSegmentAssignments(store, transcriptId, segmentKey, wordIds);
   });
 }
 

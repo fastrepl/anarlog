@@ -53,6 +53,7 @@ import {
   createLiveTranscript,
   createTranscript,
   flushLiveTranscriptDeltasToDatabase,
+  mergeTranscriptSegments,
   removeHumanSpeakerAssignments,
   updateTranscriptSegmentText,
   useSessionParticipantHumanIds,
@@ -592,6 +593,67 @@ describe("transcript SQLite queries", () => {
       expect.objectContaining({
         word_id: "word-1",
         type: "user_speaker_assignment",
+      }),
+    ]);
+  });
+
+  it("persists merged unlabeled speaker indexes through the optimistic transcript update", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        words_json: JSON.stringify([
+          {
+            id: "word-1",
+            text: "Hello",
+            start_ms: 0,
+            end_ms: 500,
+            channel: 1,
+          },
+          {
+            id: "word-2",
+            text: "there",
+            start_ms: 600,
+            end_ms: 900,
+            channel: 1,
+          },
+        ]),
+        speaker_hints_json: JSON.stringify([
+          {
+            id: "word-1:provider_speaker_index",
+            word_id: "word-1",
+            type: "provider_speaker_index",
+            value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+          },
+          {
+            id: "word-2:provider_speaker_index",
+            word_id: "word-2",
+            type: "provider_speaker_index",
+            value: JSON.stringify({ channel: 1, speaker_index: 1 }),
+          },
+        ]),
+      },
+    ]);
+
+    await mergeTranscriptSegments({
+      transcriptId: "transcript-1",
+      segmentKey: {
+        channel: "RemoteParty",
+        speaker_index: 0,
+        speaker_human_id: null,
+      },
+      wordIds: ["word-1", "word-2"],
+    });
+
+    const statement = mocks.executeTransaction.mock.calls[0]?.[0]?.[0];
+    expect(JSON.parse(String(statement?.params[1]))).toEqual([
+      expect.objectContaining({
+        word_id: "word-1",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 0 }),
+      }),
+      expect.objectContaining({
+        word_id: "word-2",
+        type: "provider_speaker_index",
+        value: JSON.stringify({ channel: 1, speaker_index: 0 }),
       }),
     ]);
   });

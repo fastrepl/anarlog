@@ -258,6 +258,68 @@ export function mergeTranscriptSelections(
   };
 }
 
+const LIVE_TRANSCRIPT_PLACEHOLDER_ID = "__live-transcript__";
+
+export function canMergeTranscriptEntries(
+  selectedKeys: ReadonlySet<string>,
+  order: string[],
+  entries: Map<string, TranscriptWordSelection>,
+) {
+  return getTranscriptMergeTarget(selectedKeys, order, entries) != null;
+}
+
+export function getTranscriptMergeTarget(
+  selectedKeys: ReadonlySet<string>,
+  order: string[],
+  entries: Map<string, TranscriptWordSelection>,
+) {
+  if (selectedKeys.size < 2) {
+    return null;
+  }
+
+  const indexes = order.flatMap((key, index) =>
+    selectedKeys.has(key) ? [index] : [],
+  );
+  if (indexes.length !== selectedKeys.size) {
+    return null;
+  }
+
+  for (let index = 1; index < indexes.length; index += 1) {
+    if (indexes[index] !== indexes[index - 1]! + 1) {
+      return null;
+    }
+  }
+
+  const firstKey = order[indexes[0]!];
+  const first = firstKey ? (entries.get(firstKey) ?? null) : null;
+  const targetGroup = first?.groups[0];
+  if (!first || !targetGroup) {
+    return null;
+  }
+  if (targetGroup.transcriptId === LIVE_TRANSCRIPT_PLACEHOLDER_ID) {
+    return null;
+  }
+  if (
+    !targetGroup.segmentKey.speaker_human_id &&
+    typeof targetGroup.segmentKey.speaker_index !== "number"
+  ) {
+    return null;
+  }
+
+  for (const index of indexes) {
+    const group = entries.get(order[index]!)?.groups[0];
+    if (
+      !group ||
+      group.transcriptId !== targetGroup.transcriptId ||
+      group.segmentKey.channel !== targetGroup.segmentKey.channel
+    ) {
+      return null;
+    }
+  }
+
+  return first;
+}
+
 function readSegmentKey(element: HTMLElement): SegmentKey | undefined {
   const channel = element.dataset.segmentChannel;
   if (

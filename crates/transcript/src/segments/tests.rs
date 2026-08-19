@@ -540,3 +540,35 @@ fn micro_segment_not_absorbed_across_long_segment() {
     assert_eq!(texts(&result[0]), vec!["hi"]);
     assert_eq!(texts(&result[2]), vec!["ok"]);
 }
+
+#[test]
+fn merges_adjacent_same_human_across_speaker_indexes() {
+    let finals = vec![
+        fw_si("0", 0, 100, 2, 0),
+        fw_si("1", 150, 250, 2, 1),
+        fw_si("2", 400, 500, 2, 0),
+    ];
+    let assignments = vec![words_human("alice", &["w-0", "w-1", "w-2"])];
+    let result = build_segments(&finals, &[], &assignments, None);
+    assert_eq!(result.len(), 1);
+    assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("alice"));
+    assert_eq!(texts(&result[0]), vec!["0", "1", "2"]);
+}
+
+#[test]
+fn does_not_merge_same_human_across_another_speaker() {
+    let finals = vec![
+        fw_si("0", 0, 100, 2, 0),
+        fw_si("1", 150, 250, 2, 1),
+        fw_si("2", 400, 500, 2, 0),
+    ];
+    let assignments = vec![
+        words_human("alice", &["w-0", "w-2"]),
+        words_human("bob", &["w-1"]),
+    ];
+    let result = build_segments(&finals, &[], &assignments, None);
+    assert_eq!(result.len(), 3);
+    assert_eq!(result[0].key.speaker_human_id.as_deref(), Some("alice"));
+    assert_eq!(result[1].key.speaker_human_id.as_deref(), Some("bob"));
+    assert_eq!(result[2].key.speaker_human_id.as_deref(), Some("alice"));
+}
