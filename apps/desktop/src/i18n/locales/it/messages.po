@@ -13,6 +13,10 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#: src/services/enhancer/summary-notification.ts
+msgid "\"{title}\" is ready to read."
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "(default)"
 msgstr ""
@@ -21,9 +25,33 @@ msgstr ""
 msgid "(Unavailable — using current default)"
 msgstr ""
 
+#. placeholder {0}: group.sessionIds.length
+#: src/sidebar/toast/undo-delete-toast.tsx
+msgid "{0} {noteLabel} deleted"
+msgstr ""
+
+#. placeholder {0}: status.commandName
+#: src/settings/developers/cli.tsx
+msgid "{0} could not be installed"
+msgstr ""
+
+#. placeholder {0}: status.commandName
+#: src/settings/developers/cli.tsx
+msgid "{0} is ready to use"
+msgstr ""
+
 #. placeholder {0}: issue.user?.login
 #: src/task/resource-view.tsx
 msgid "{0} opened on"
+msgstr ""
+
+#. placeholder {0}: Math.round((percentage ?? 0) * 100)
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "{0}% complete"
+msgstr ""
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "{absDays} days ago"
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
@@ -39,12 +67,28 @@ msgstr ""
 msgid "{model} can't transcribe all selected languages together. Try another model or use fewer spoken languages."
 msgstr ""
 
+#: src/sidebar/timeline/utils/index.ts
+msgid "{months} months ago"
+msgstr ""
+
+#: src/composer/index.tsx
+msgid "{primaryModifier} ↩ to send"
+msgstr ""
+
+#: src/sidebar/toast/undo-delete-toast.tsx
+msgid "{title} deleted"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "{trialDaysRemaining} day left"
 msgstr ""
 
 #: src/settings/general/account.tsx
 msgid "{trialDaysRemaining} days left"
+msgstr ""
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "{weeks} weeks ago"
 msgstr ""
 
 #: src/settings/general/audio-settings.tsx
@@ -71,6 +115,10 @@ msgstr ""
 msgid "A Markdown file with the note, summary, and transcript."
 msgstr ""
 
+#: src/sidebar/timeline/utils/index.ts
+msgid "a month ago"
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "A Slack message with the meeting title and recap."
 msgstr ""
@@ -79,12 +127,26 @@ msgstr ""
 msgid "A to Z"
 msgstr ""
 
+#: src/sidebar/timeline/utils/index.ts
+msgid "a week ago"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Access meetings remotely through the REST API and MCP connectors with Anarlog Pro."
+msgstr ""
+
 #: src/shared-notes/index.tsx
 msgid "Access no longer available"
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
 msgid "Access settings could not be loaded."
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
+msgid "Access updated."
 msgstr ""
 
 #: src/onboarding/permissions.tsx
@@ -113,6 +175,7 @@ msgstr ""
 #: src/contacts/shared.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/todo/github.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Add"
 msgstr ""
 
@@ -133,6 +196,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Add a dated update to the selected Notion page."
+msgstr ""
+
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr ""
 
 #: src/onboarding/calendar.tsx
@@ -179,6 +246,7 @@ msgstr ""
 msgid "Add organization"
 msgstr ""
 
+#: src/billing/trial-payment-reminder-dialog.tsx
 #: src/settings/general/account.tsx
 msgid "Add payment method"
 msgstr ""
@@ -191,9 +259,17 @@ msgstr ""
 msgid "Add repository"
 msgstr ""
 
+#: src/settings/developers/skills.tsx
+msgid "Add skill to…"
+msgstr ""
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Add spoken language"
 msgstr "Aggiungi lingua parlata"
+
+#: src/settings/developers/webhooks.tsx
+msgid "Add webhook"
+msgstr ""
 
 #: src/settings/general/spoken-languages.tsx
 msgid "Additional spoken languages"
@@ -212,6 +288,10 @@ msgstr ""
 msgid "After recording"
 msgstr ""
 
+#: src/settings/developers/skills.tsx
+msgid "Agent skills"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "AI step"
 msgstr ""
@@ -220,8 +300,16 @@ msgstr ""
 msgid "AI-generated summary of all interactions and notes with this contact will appear here. This will synthesize key discussion points, action items, and relationship context across all meetings and notes."
 msgstr ""
 
+#: src/settings/developers/webhooks.tsx
+msgid "All events"
+msgstr ""
+
 #: src/shared/open-note-dialog.tsx
 msgid "All Notes"
+msgstr ""
+
+#: src/shared/control.tsx
+msgid "An unexpected error occurred."
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -230,6 +318,16 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Analyzing structure..."
+msgstr ""
+
+#. placeholder {0}: update.version
+#: src/sidebar/toast/registry.tsx
+msgid "Anarlog {0} is available"
+msgstr ""
+
+#. placeholder {0}: update.version
+#: src/sidebar/toast/registry.tsx
+msgid "Anarlog {0} is ready to install"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
@@ -242,6 +340,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Anarlog can read meeting details"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "Anarlog CLI"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -268,6 +370,10 @@ msgstr ""
 msgid "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
 msgstr ""
 
+#: src/session-sharing/access-management.tsx
+msgid "Anarlog member"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
 msgstr ""
@@ -283,6 +389,20 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/team/index.tsx
 msgid "Anarlog Pro required"
+msgstr ""
+
+#. placeholder {0}: statuses[0].displayName
+#: src/settings/developers/skills.tsx
+msgid "Anarlog skill added to {0}"
+msgstr ""
+
+#. placeholder {0}: statuses.length
+#: src/settings/developers/skills.tsx
+msgid "Anarlog skill added to {0} agents"
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+msgid "Anarlog user"
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -318,6 +438,11 @@ msgstr ""
 msgid "Anyone with the link"
 msgstr ""
 
+#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
+msgid "Anyone with the link can view. Link copied."
+msgstr ""
+
 #: src/settings/ai/shared/index.tsx
 msgid "API Key"
 msgstr ""
@@ -347,12 +472,20 @@ msgstr ""
 msgid "Apple Calendar access is off"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "Application menu"
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
 msgstr ""
 
 #: src/session-sharing/access-management.tsx
 msgid "Approve"
+msgstr ""
+
+#: src/composer/index.tsx
+msgid "Ask Anarlog AI anything"
 msgstr ""
 
 #: src/shared/chat-cta.tsx
@@ -376,13 +509,25 @@ msgstr ""
 msgid "Attach up to three past summaries you like. Anarlog will learn how you prefer meeting notes to be structured and written."
 msgstr ""
 
+#: src/session-sharing/attachment-management.ts
+msgid "Attachment settings updated."
+msgstr ""
+
 #: src/settings/general/index.tsx
 #: src/settings/general/permissions.tsx
 msgid "Audio"
 msgstr ""
 
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "Audio available"
+msgstr ""
+
 #: src/settings/general/audio-settings.tsx
 msgid "Audio file retention"
+msgstr ""
+
+#: src/session-sharing/attachment-controls.tsx
+msgid "Audio is not available on this device."
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -453,6 +598,10 @@ msgstr ""
 msgid "Best for this Mac"
 msgstr ""
 
+#: src/chat/components/body/empty.tsx
+msgid "Beta"
+msgstr ""
+
 #: src/settings/appearance/app-icon.tsx
 msgid "Blueprint"
 msgstr ""
@@ -496,8 +645,20 @@ msgstr ""
 msgid "Calendar connected"
 msgstr ""
 
+#: src/session-sharing/access-management.tsx
+msgid "Can comment"
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+msgid "Can edit"
+msgstr ""
+
 #: src/settings/ai/stt/select.tsx
 msgid "Can transcribe while the meeting is happening."
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+msgid "Can view"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
@@ -574,6 +735,10 @@ msgstr ""
 
 #: src/onboarding/account/after-login.tsx
 msgid "Checking trial eligibility..."
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "Checking…"
 msgstr ""
 
 #. placeholder {0}: provider.name
@@ -699,8 +864,17 @@ msgstr ""
 #: src/settings/ai/shared/provider-search.tsx
 #: src/sidebar/automations.tsx
 #: src/sidebar/settings.tsx
+#: src/templates/template-icon-picker.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Clear search"
+msgstr ""
+
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+msgid "Clear selection"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "CLI & MCP"
 msgstr ""
 
 #: src/shared/ui/resource-list/preview-header.tsx
@@ -708,6 +882,7 @@ msgid "Clone"
 msgstr ""
 
 #: src/changelog/index.tsx
+#: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/search/bar.tsx
 #: src/shared/open-note-dialog.tsx
 msgid "Close"
@@ -723,6 +898,38 @@ msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "Closed"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API & Connectors"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API disabled and readable copies deleted"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API enabled — {uploaded} meetings uploaded"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API enabled — 1 meeting uploaded"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API enabled, but existing meetings could not be uploaded. Anarlog will retry."
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API key copied"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API keys"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Cloud API URL copied"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -811,6 +1018,14 @@ msgstr ""
 msgid "Comment is too long."
 msgstr ""
 
+#: src/session-sharing/comments.tsx
+msgid "Comment on selected text"
+msgstr ""
+
+#: src/session-sharing/comments.tsx
+msgid "Comment on the selected text…"
+msgstr ""
+
 #: src/task/resource-view.tsx
 msgid "commented on"
 msgstr ""
@@ -835,8 +1050,20 @@ msgstr ""
 msgid "Complete your purchase"
 msgstr ""
 
+#: src/composer/index.tsx
+msgid "Composer"
+msgstr ""
+
 #: src/session/components/floating/options-menu.tsx
 msgid "Configure"
+msgstr ""
+
+#: src/composer/index.tsx
+msgid "Configure a chat model in Settings"
+msgstr ""
+
+#: src/composer/index.tsx
+msgid "Configure a chat model to use the quick composer."
 msgstr ""
 
 #: src/settings/ai/llm/configure.tsx
@@ -856,6 +1083,11 @@ msgstr ""
 #: src/instruction/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"
+msgstr ""
+
+#. placeholder {0}: config.displayName
+#: src/calendar/components/oauth/provider-content.tsx
+msgid "Connect {0} Calendar"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -914,6 +1146,10 @@ msgstr ""
 msgid "Connecting..."
 msgstr ""
 
+#: src/settings/developers/cloud-api.tsx
+msgid "Connector"
+msgstr ""
+
 #: src/contacts/contact-page-header.tsx
 msgid "Contact options"
 msgstr ""
@@ -935,8 +1171,19 @@ msgstr ""
 msgid "Control listening without reopening Anarlog."
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+#: src/settings/developers/cloud-api.tsx
+#: src/settings/developers/webhooks.tsx
 msgid "Copy"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Copy {label} URL"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "Copy config"
 msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
@@ -952,16 +1199,77 @@ msgstr ""
 msgid "Copy recovery key"
 msgstr ""
 
+#: src/settings/developers/cloud-api.tsx
+msgid "Copy this key now — it is only shown once."
+msgstr ""
+
+#: src/settings/developers/webhooks.tsx
+msgid "Copy this signing secret now — it is only shown once."
+msgstr ""
+
+#. placeholder {0}: error.message
+#: src/settings/developers/cli.tsx
+msgid "Could not check the CLI: {0}"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "Could not copy the MCP configuration"
+msgstr ""
+
+#: src/session-sharing/management-panel.tsx
+msgid "Could not copy the share link."
+msgstr ""
+
+#: src/settings/developers/clipboard.ts
+msgid "Could not copy to clipboard"
+msgstr ""
+
+#: src/session-sharing/invitation-management.ts
+msgid "Could not create these invitations."
+msgstr ""
+
+#: src/session-sharing/invitation-management.ts
+msgid "Could not create this invitation."
+msgstr ""
+
 #: src/automations/actions.ts
 msgid "Could not delete the automation"
+msgstr ""
+
+#: src/session/hooks/useDeleteSession.ts
+msgid "Could not delete this note. Please try again."
+msgstr ""
+
+#: src/session-sharing/delivery-management.ts
+msgid "Could not email the meeting notes."
+msgstr ""
+
+#: src/session/insights/past-notes.ts
+msgid "Could not generate meeting insights. Try again."
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
 msgstr ""
 
+#: src/session-sharing/management-panel.tsx
+msgid "Could not open the web copy."
+msgstr ""
+
+#: src/shared/useNewNote.ts
+msgid "Could not prepare this upload. Please try again."
+msgstr ""
+
+#: src/session-sharing/management-panel.tsx
+msgid "Could not publish the desktop edits. Check the latest web copy and try again."
+msgstr ""
+
 #: src/automations/actions.ts
 msgid "Could not remove the automation"
+msgstr ""
+
+#: src/sidebar/toast/undo-delete-toast.tsx
+msgid "Could not restore deleted note"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -970,6 +1278,18 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Could not save the automation setting"
+msgstr ""
+
+#: src/session-sharing/delivery-management.ts
+msgid "Could not send the meeting notes to Slack."
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Could not start sign-in."
+msgstr ""
+
+#: src/shared/integration.ts
+msgid "Could not start the integration setup. Try again."
 msgstr ""
 
 #: src/onboarding/account/after-login.tsx
@@ -984,12 +1304,28 @@ msgstr ""
 msgid "Could not transcribe voice input"
 msgstr ""
 
+#: src/session-sharing/attachment-management.ts
+msgid "Could not update attachment sharing."
+msgstr ""
+
+#: src/session-sharing/management-panel.tsx
+msgid "Could not update general access."
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Could not update the automation"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Could not update the export folder"
+msgstr ""
+
+#: src/session/components/outer-header/metadata/date.tsx
+msgid "Could not update the note date."
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+msgid "Could not update this person's access."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -1006,6 +1342,10 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Create account"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Create key"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -1028,6 +1368,11 @@ msgstr ""
 msgid "Created"
 msgstr ""
 
+#. placeholder {0}: apiKey.created_at.slice(0, 10)
+#: src/settings/developers/api-key-row.tsx
+msgid "Created {0}"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 msgid "Created {createdAt}"
 msgstr ""
@@ -1043,6 +1388,10 @@ msgstr ""
 
 #: src/templates/template-sidebar.tsx
 msgid "Customized"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Cut"
 msgstr ""
 
 #: src/settings/appearance/theme.tsx
@@ -1088,6 +1437,10 @@ msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Delete automation"
+msgstr ""
+
+#: src/session-sharing/comments.tsx
+msgid "Delete comment"
 msgstr ""
 
 #: src/sidebar/timeline/item.tsx
@@ -1138,6 +1491,10 @@ msgstr ""
 msgid "Describe what should happen and when. This draft becomes an automation once you send the first message."
 msgstr ""
 
+#: src/session-sharing/management-panel.tsx
+msgid "Desktop edits published. Sharing resumed."
+msgstr ""
+
 #: src/settings/general/summary-length.tsx
 msgid "Detailed"
 msgstr ""
@@ -1150,6 +1507,7 @@ msgstr ""
 msgid "Detection delay"
 msgstr ""
 
+#: src/settings/developers/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Developers"
 msgstr ""
@@ -1166,6 +1524,14 @@ msgstr ""
 msgid "Devices"
 msgstr ""
 
+#: src/settings/developers/devtools.tsx
+msgid "Devtools"
+msgstr ""
+
+#: src/settings/developers/devtools.tsx
+msgid "Devtools panel"
+msgstr ""
+
 #: src/settings/dictionary/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Dictionary"
@@ -1179,6 +1545,7 @@ msgstr ""
 msgid "Disable"
 msgstr ""
 
+#: src/calendar/components/oauth/provider-content.tsx
 #: src/imports/screen.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
@@ -1188,6 +1555,7 @@ msgstr ""
 msgid "Disconnect private repo access."
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
 #: src/settings/imports/index.tsx
 msgid "Documentation"
 msgstr ""
@@ -1205,6 +1573,7 @@ msgid "Done writing"
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Download"
 msgstr ""
 
@@ -1212,9 +1581,35 @@ msgstr ""
 msgid "Download recovery key (.txt)"
 msgstr ""
 
+#. placeholder {0}: activeDownloads.length
+#: src/sidebar/toast/registry.tsx
+msgid "Downloading {0} models"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Downloading {downloadingModel}"
+msgstr ""
+
+#. placeholder {0}: update.version
+#: src/sidebar/toast/registry.tsx
+msgid "Downloading Anarlog {0}{progress}"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Downloading model"
+msgstr ""
+
 #: src/settings/automations/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Draft"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Draft a follow-up email to the participants"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Draft follow-up email."
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -1234,6 +1629,7 @@ msgstr ""
 msgid "Each example must be 12,000 characters or fewer."
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr ""
@@ -1259,13 +1655,26 @@ msgstr ""
 msgid "Email or name"
 msgstr ""
 
+#: src/session-sharing/access-management.tsx
+#: src/session-sharing/invitation-management.ts
+msgid "Email unavailable. Invite link copied instead."
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Emojis"
+msgstr ""
+
+#: src/settings/developers/webhooks.tsx
+msgid "Enable"
 msgstr ""
 
 #. placeholder {0}: permissionName.toLowerCase()
 #: src/onboarding/permissions.tsx
 msgid "Enable {0}"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Enable Cloud API & Connectors"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -1306,6 +1715,10 @@ msgstr ""
 
 #: src/settings/ai/shared/index.tsx
 msgid "Enter your API key (optional)"
+msgstr ""
+
+#: src/composer/index.tsx
+msgid "Esc to dismiss"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -1362,6 +1775,7 @@ msgstr ""
 msgid "Failed to load Google Calendar"
 msgstr ""
 
+#: src/calendar/components/oauth/provider-content.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Failed to load integration status"
 msgstr ""
@@ -1386,6 +1800,10 @@ msgstr ""
 msgid "Field Journal"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "File"
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "File each action item as an issue in the selected team."
 msgstr ""
@@ -1400,6 +1818,10 @@ msgstr ""
 
 #: src/shared/open-note-dialog.tsx
 msgid "Find a note..."
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "Find key decisions."
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -1447,12 +1869,17 @@ msgstr ""
 msgid "Full access"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "Full Screen"
+msgstr ""
+
 #: src/settings/general/index.tsx
 #: src/sidebar/settings.tsx
 msgid "General"
 msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
+#: src/session-sharing/general-access.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "General access"
 msgstr ""
@@ -1460,6 +1887,10 @@ msgstr ""
 #: src/session/components/note-input/enhanced/streaming.tsx
 #: src/session/components/title-input.tsx
 msgid "Generating title..."
+msgstr ""
+
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "Generating transcript..."
 msgstr ""
 
 #: src/session/components/note-input/enhanced/config-error.tsx
@@ -1488,6 +1919,10 @@ msgstr ""
 msgid "Go home"
 msgstr ""
 
+#: src/shared/control.tsx
+msgid "Go to Home"
+msgstr ""
+
 #: src/onboarding/shared.tsx
 msgid "Go to next section"
 msgstr ""
@@ -1500,8 +1935,13 @@ msgstr ""
 msgid "Go to recent"
 msgstr ""
 
+#: src/billing/trial-started-dialog.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Got it"
+msgstr ""
+
+#: src/settings/developers/index.tsx
+msgid "Guide"
 msgstr ""
 
 #: src/settings/general/app-settings.tsx
@@ -1510,6 +1950,10 @@ msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
 msgid "Having trouble?"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Help"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
@@ -1532,12 +1976,24 @@ msgstr ""
 msgid "Help transcription recognize names, jargon, and product terms."
 msgstr ""
 
+#: src/chat/components/body/empty.tsx
+msgid "Hi, I'm Anarlog AI. Set up a language model and I'll be ready to help."
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "Hide Deleted Events"
 msgstr ""
 
 #: src/settings/automations/index.tsx
 msgid "Hide preview"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Hide sidebar"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Hide Sidebar"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -1570,6 +2026,10 @@ msgstr ""
 msgid "Import notes and transcripts from the meeting apps you already use."
 msgstr ""
 
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "Importing audio..."
+msgstr ""
+
 #: src/settings/imports/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Imports"
@@ -1587,12 +2047,24 @@ msgstr ""
 msgid "Improve with examples"
 msgstr ""
 
+#: src/sidebar/timeline/utils/index.ts
+msgid "in {absDays} days"
+msgstr ""
+
 #: src/sidebar/timeline/upcoming-meeting.ts
 msgid "In {minutes}m {seconds}s"
 msgstr ""
 
+#: src/sidebar/timeline/utils/index.ts
+msgid "in {months} months"
+msgstr ""
+
 #: src/sidebar/timeline/upcoming-meeting.ts
 msgid "In {totalSeconds}s"
+msgstr ""
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "in {weeks} weeks"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1607,8 +2079,20 @@ msgstr ""
 msgid "Insert below"
 msgstr ""
 
+#: src/settings/developers/cli.tsx
+msgid "Install"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Install Anarlog and sign in with this account on the new device. Choose “Use an existing key” when prompted, then enter your saved recovery key."
+msgstr ""
+
+#: src/settings/developers/skills.tsx
+msgid "Install to all agents"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "Installed"
 msgstr ""
 
 #: src/settings/ai/llm/index.tsx
@@ -1616,8 +2100,18 @@ msgstr ""
 msgid "Intelligence"
 msgstr ""
 
+#: src/session-sharing/access-management.tsx
 #: src/settings/team/index.tsx
 msgid "Invitation pending"
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+#: src/session-sharing/invitation-management.ts
+msgid "Invitation sent."
+msgstr ""
+
+#: src/session-sharing/invitation-management.ts
+msgid "Invitations sent."
 msgstr ""
 
 #: src/session-sharing/invite-recipients.tsx
@@ -1632,6 +2126,11 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Invite teammates, share notes across the workspace, and manage who has access. Your personal notes stay private."
+msgstr ""
+
+#. placeholder {0}: sent.length
+#: src/session-sharing/invitation-management.ts
+msgid "Invited {0}. Could not invite {failed}. Try again."
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -1670,9 +2169,22 @@ msgstr ""
 msgid "Keep synced notes readable only on your devices."
 msgstr ""
 
+#: src/settings/developers/cloud-api.tsx
+msgid "Key name (e.g. Claude Code)"
+msgstr ""
+
 #: src/settings/general/index.tsx
 msgid "Language & Region"
 msgstr "Lingua e regione"
+
+#: src/sidebar/toast/registry.tsx
+msgid "Language model needed"
+msgstr ""
+
+#. placeholder {0}: webhook.last_delivery_status
+#: src/settings/developers/webhooks.tsx
+msgid "Last delivery {0}"
+msgstr ""
 
 #. placeholder {0}: lastRun.imported
 #. placeholder {1}: lastRun.matched
@@ -1701,6 +2213,11 @@ msgstr ""
 msgid "Last synced {0}"
 msgstr ""
 
+#. placeholder {0}: apiKey.last_used_at.slice(0, 10)
+#: src/settings/developers/api-key-row.tsx
+msgid "Last used {0}"
+msgstr ""
+
 #: src/chat/components/message/error.tsx
 msgid "Learn how to fix this"
 msgstr ""
@@ -1721,6 +2238,10 @@ msgstr ""
 msgid "Leaving gives up your access to shared notes here."
 msgstr ""
 
+#: src/session-sharing/attachment-controls.tsx
+msgid "Let people with access play the recording."
+msgstr ""
+
 #: src/settings/appearance/theme.tsx
 msgid "Light"
 msgstr ""
@@ -1735,6 +2256,10 @@ msgstr ""
 
 #: src/contacts/details.tsx
 msgid "LinkedIn"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "List action items."
 msgstr ""
 
 #: src/settings/ai/stt/select.tsx
@@ -1754,8 +2279,17 @@ msgstr ""
 msgid "Loading channels…"
 msgstr ""
 
+#: src/settings/developers/cloud-api.tsx
+msgid "Loading Cloud API access"
+msgstr ""
+
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Loading models..."
+msgstr ""
+
+#: src/settings/general/index.tsx
+#: src/settings/hydration-boundary.tsx
+msgid "Loading settings"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -1818,8 +2352,28 @@ msgstr ""
 msgid "Match your device"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "Maximize"
+msgstr ""
+
+#: src/billing/trial-ended-dialog.tsx
+msgid "Maybe later"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "MCP configuration copied"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "MCP server"
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "Meeting"
+msgstr ""
+
+#: src/session/components/note-input/meeting-chat-highlights.tsx
+msgid "Meeting chat"
 msgstr ""
 
 #: src/onboarding/permissions.tsx
@@ -1836,6 +2390,23 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Meeting history imported"
+msgstr ""
+
+#: src/session-sharing/delivery-management.ts
+#: src/session-sharing/index.tsx
+msgid "Meeting note sent."
+msgstr ""
+
+#. placeholder {0}: actionResult.channelName
+#. placeholder {0}: channel.name
+#: src/session-sharing/delivery-management.ts
+#: src/session-sharing/index.tsx
+msgid "Meeting notes sent to #{0}."
+msgstr ""
+
+#: src/session-sharing/delivery-management.ts
+#: src/session-sharing/index.tsx
+msgid "Meeting notes sent."
 msgstr ""
 
 #: src/settings/general/index.tsx
@@ -1865,6 +2436,10 @@ msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "Merged"
+msgstr ""
+
+#: src/composer/index.tsx
+msgid "Message Anarlog AI"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -1897,9 +2472,17 @@ msgstr ""
 msgid "Migration status unavailable"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "Minimize"
+msgstr ""
+
 #: src/settings/ai/llm/select.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Model being used"
+msgstr ""
+
+#: src/settings/ai/stt/context.tsx
+msgid "Model download couldn’t start"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
@@ -1944,6 +2527,7 @@ msgid "New chat"
 msgstr ""
 
 #: src/main/empty.tsx
+#: src/main/windows-title-bar.tsx
 msgid "New Note"
 msgstr ""
 
@@ -1958,6 +2542,14 @@ msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
 msgid "Next match"
+msgstr ""
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "next month"
+msgstr ""
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "next week"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -2106,12 +2698,36 @@ msgstr ""
 msgid "No templates yet"
 msgstr ""
 
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "No transcript available"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "Not installed"
+msgstr ""
+
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "Not now"
+msgstr ""
+
+#: src/settings/developers/webhooks.tsx
+msgid "not receiving events"
+msgstr ""
+
+#: src/sidebar/toast/undo-delete-toast.tsx
+msgid "note"
+msgstr ""
+
 #: src/session/components/title-breadcrumb.tsx
 msgid "Note breadcrumb"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Notepad"
+msgstr ""
+
+#: src/sidebar/toast/undo-delete-toast.tsx
+msgid "notes"
 msgstr ""
 
 #: src/contacts/details.tsx
@@ -2185,7 +2801,15 @@ msgstr ""
 msgid "Open {0} settings"
 msgstr ""
 
+#: src/chat/components/body/empty.tsx
+msgid "Open AI Settings"
+msgstr ""
+
+#: src/composer/index.tsx
 #: src/onboarding/final.tsx
+#: src/services/enhancer/summary-notification.ts
+#: src/services/event-notification/index.ts
+#: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr ""
 
@@ -2216,6 +2840,10 @@ msgstr ""
 
 #: src/task/resource-view.tsx
 msgid "Open on GitHub"
+msgstr ""
+
+#: src/settings/developers/devtools.tsx
+msgid "Open panel"
 msgstr ""
 
 #: src/settings/todo/github.tsx
@@ -2251,6 +2879,7 @@ msgid "Opens System Settings and guides you to add Anarlog to the {0} list."
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
+#: src/calendar/components/oauth/provider-content.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr ""
@@ -2267,9 +2896,17 @@ msgstr ""
 msgid "Others"
 msgstr ""
 
+#: src/shared/control.tsx
+msgid "Page not found"
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Participants"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Paste"
 msgstr ""
 
 #: src/templates/auto-format-examples-dialog.tsx
@@ -2280,12 +2917,20 @@ msgstr ""
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
 msgstr ""
 
+#: src/settings/developers/webhooks.tsx
+msgid "Pause"
+msgstr ""
+
 #: src/settings/general/notification.tsx
 msgid "Pause alerts while Do Not Disturb is on."
 msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "Pause sync"
+msgstr ""
+
+#: src/settings/developers/webhooks.tsx
+msgid "Paused"
 msgstr ""
 
 #: src/contacts/organization-details.tsx
@@ -2297,6 +2942,10 @@ msgstr ""
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "People with access"
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+msgid "Permission for {label}"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
@@ -2364,6 +3013,10 @@ msgstr ""
 msgid "Preview"
 msgstr ""
 
+#: src/settings/developers/devtools.tsx
+msgid "Preview notifications, toasts, updates, and billing dialogs. Only available in dev and staging builds."
+msgstr ""
+
 #: src/templates/auto-form.tsx
 msgid "Preview the summary format, then upgrade to Pro to customize it."
 msgstr ""
@@ -2378,6 +3031,10 @@ msgstr ""
 
 #: src/settings/ai/stt/select.tsx
 msgid "Pro"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Pro features available"
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -2396,6 +3053,18 @@ msgstr ""
 msgid "Public on the web"
 msgstr ""
 
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "Re-transcribe"
+msgstr ""
+
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "Re-transcribe this audio, or upload a transcript file."
+msgstr ""
+
+#: src/session/components/note-input/transcript/actions.ts
+msgid "Re-transcription failed"
+msgstr ""
+
 #: src/settings/general/permissions.tsx
 msgid "Read meeting controls, chat, and participant status."
 msgstr ""
@@ -2410,6 +3079,10 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/streaming.tsx
 msgid "Reasoning models think through the transcript before writing."
+msgstr ""
+
+#: src/session/components/note-input/meeting-chat-highlights.tsx
+msgid "received"
 msgstr ""
 
 #. placeholder {0}: formatSyncBytes(entry.received_bytes)
@@ -2429,6 +3102,10 @@ msgstr ""
 msgid "Recipient email"
 msgstr ""
 
+#: src/calendar/components/oauth/provider-content.tsx
+msgid "Reconnect"
+msgstr ""
+
 #: src/settings/automations/starter-config.tsx
 msgid "Reconnect Linear"
 msgstr ""
@@ -2440,6 +3117,11 @@ msgstr ""
 #: src/calendar/components/oauth/status.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Reconnect required"
+msgstr ""
+
+#. placeholder {0}: config.displayName
+#: src/calendar/components/oauth/provider-content.tsx
+msgid "Reconnect required for {0} Calendar"
 msgstr ""
 
 #: src/session-sharing/delivery-panel.tsx
@@ -2459,6 +3141,14 @@ msgstr ""
 msgid "Record your voice in meetings and calls."
 msgstr ""
 
+#: src/session/components/note-input/transcript/actions.ts
+msgid "Recording not found. It may have been deleted."
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Redo"
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Refresh billing status"
 msgstr ""
@@ -2469,6 +3159,10 @@ msgstr ""
 
 #: src/chat/components/message/normal.tsx
 msgid "Regenerate message"
+msgstr ""
+
+#: src/settings/developers/cli.tsx
+msgid "Reinstall"
 msgstr ""
 
 #: src/contacts/related-notes.tsx
@@ -2483,6 +3177,15 @@ msgstr ""
 msgid "Reminders"
 msgstr ""
 
+#: src/settings/developers/cloud-api.tsx
+msgid "Remote MCP"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Remote MCP URL copied"
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
 #: src/sidebar/automations.tsx
 msgid "Remove"
 msgstr ""
@@ -2558,6 +3261,10 @@ msgstr ""
 msgid "Replace with..."
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "Report a Bug"
+msgstr ""
+
 #: src/calendar/components/apple/permission.tsx
 msgid "Request"
 msgstr ""
@@ -2572,8 +3279,17 @@ msgstr ""
 msgid "Request {0} permission"
 msgstr ""
 
+#. placeholder {0}: capabilityLabels[entry.capability].toLowerCase()
+#: src/session-sharing/access-management.tsx
+msgid "Requested {0}"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Resend invitation"
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+msgid "Resend invite"
 msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
@@ -2590,6 +3306,22 @@ msgstr ""
 
 #: src/settings/general/notification.tsx
 msgid "Respect Do-Not-Disturb mode"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "REST API"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Restart"
+msgstr ""
+
+#: src/shared/control.tsx
+msgid "Restart App"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Restore"
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -2613,7 +3345,12 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Retry"
+msgstr ""
+
+#: src/settings/developers/api-key-row.tsx
+msgid "Revoke"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -2656,6 +3393,14 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Saved locally"
+msgstr ""
+
+#: src/session/components/note-input/transcript/renderer/index.tsx
+msgid "Scroll to bottom"
+msgstr ""
+
+#: src/session/components/note-input/transcript/renderer/index.tsx
+msgid "Scroll to top"
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
@@ -2755,6 +3500,10 @@ msgstr ""
 msgid "Select a provider"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "Select All"
+msgstr ""
+
 #: src/contacts/organization-details.tsx
 msgid "Select an organization to view details"
 msgstr ""
@@ -2815,6 +3564,10 @@ msgstr ""
 msgid "Sending and receiving your latest changes."
 msgstr ""
 
+#: src/session/components/note-input/meeting-chat-highlights.tsx
+msgid "sent"
+msgstr ""
+
 #. placeholder {0}: formatSyncBytes(entry.sent_bytes)
 #: src/settings/sync/index.tsx
 msgid "Sent {0}"
@@ -2862,6 +3615,8 @@ msgid "Setting up encrypted cloud sync."
 msgstr ""
 
 #: src/main/empty.tsx
+#: src/main/windows-title-bar.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Settings"
 msgstr ""
 
@@ -2872,6 +3627,19 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Share a meeting recap in Slack"
+msgstr ""
+
+#: src/session-sharing/attachment-controls.tsx
+msgid "Share audio"
+msgstr ""
+
+#: src/session-sharing/index.tsx
+#: src/session-sharing/management-panel.tsx
+msgid "Share link copied."
+msgstr ""
+
+#: src/session-sharing/index.tsx
+msgid "Share note"
 msgstr ""
 
 #: src/session-sharing/index.tsx
@@ -2962,6 +3730,14 @@ msgstr ""
 msgid "Show in folder"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "Show sidebar"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Show Sidebar"
+msgstr ""
+
 #: src/settings/general/timezone.tsx
 msgid "Show the timeline in your preferred timezone."
 msgstr ""
@@ -2978,6 +3754,7 @@ msgstr ""
 #: src/settings/general/account.tsx
 #: src/settings/sync/index.tsx
 #: src/shared-notes/index.tsx
+#: src/sidebar/toast/registry.tsx
 msgid "Sign in"
 msgstr ""
 
@@ -3015,12 +3792,20 @@ msgstr ""
 msgid "Sign in to connect {0}"
 msgstr ""
 
+#: src/calendar/components/oauth/provider-content.tsx
+msgid "Sign in to connect your calendar"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Sign in to create a shared workspace for your team."
 msgstr ""
 
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 msgid "Sign in to generate this summary"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Sign in to get the most out of Anarlog"
 msgstr ""
 
 #: src/onboarding/index.tsx
@@ -3061,8 +3846,16 @@ msgstr ""
 msgid "Signing out..."
 msgstr ""
 
+#: src/settings/developers/webhooks.tsx
+msgid "Signing secret copied"
+msgstr ""
+
 #: src/settings/appearance/app-icon.tsx
 msgid "Sketch"
+msgstr ""
+
+#: src/settings/developers/skills.tsx
+msgid "Skill installed"
 msgstr ""
 
 #: src/onboarding/shared.tsx
@@ -3091,6 +3884,10 @@ msgstr ""
 
 #: src/contacts/details.tsx
 msgid "Software Engineer"
+msgstr ""
+
+#: src/shared/control.tsx
+msgid "Something went wrong"
 msgstr ""
 
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -3150,6 +3947,18 @@ msgstr ""
 msgid "Starting"
 msgstr ""
 
+#: src/services/event-notification/index.ts
+msgid "Starting in {minutesUntil} minutes"
+msgstr ""
+
+#: src/services/event-notification/index.ts
+msgid "Starting in 1 minute"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Starting transcription..."
+msgstr ""
+
 #: src/chat/components/input/index.tsx
 msgid "Starting voice input"
 msgstr ""
@@ -3174,6 +3983,7 @@ msgstr ""
 msgid "Stone"
 msgstr ""
 
+#: src/composer/index.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr ""
@@ -3191,6 +4001,7 @@ msgstr ""
 msgid "Stop response"
 msgstr ""
 
+#: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop transcription"
 msgstr ""
@@ -3218,6 +4029,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+msgid "Suggest a Feature"
 msgstr ""
 
 #: src/session/components/note-input/raw.tsx
@@ -3248,6 +4063,10 @@ msgstr ""
 
 #: src/settings/general/summary-length.tsx
 msgid "Summary length"
+msgstr ""
+
+#: src/services/enhancer/summary-notification.ts
+msgid "Summary ready"
 msgstr ""
 
 #: src/settings/general/week-start.tsx
@@ -3335,6 +4154,10 @@ msgstr ""
 msgid "Take the enhanced note with decisions and follow-ups."
 msgstr ""
 
+#: src/settings/developers/skills.tsx
+msgid "Teach coding agents when and how to use the Anarlog CLI and MCP"
+msgstr ""
+
 #: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Team"
@@ -3363,7 +4186,18 @@ msgid "Templates"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/developers/webhooks.tsx
 msgid "Test"
+msgstr ""
+
+#. placeholder {0}: delivery.status
+#: src/settings/developers/webhooks.tsx
+msgid "Test delivered ({0})"
+msgstr ""
+
+#. placeholder {0}: delivery.status
+#: src/settings/developers/webhooks.tsx
+msgid "Test failed ({0})"
 msgstr ""
 
 #: src/settings/automations/index.tsx
@@ -3384,6 +4218,14 @@ msgstr ""
 
 #: src/auth/context.tsx
 msgid "The notes on this device are linked to another Anarlog account. Sign in with the account previously used here."
+msgstr ""
+
+#: src/shared/control.tsx
+msgid "The page you're looking for doesn't exist."
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "The update download failed"
 msgstr ""
 
 #: src/settings/appearance/theme.tsx
@@ -3440,6 +4282,18 @@ msgstr ""
 msgid "Tip: The Anarlog team loves our users!"
 msgstr ""
 
+#: src/sidebar/timeline/utils/index.ts
+msgid "Today"
+msgstr ""
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "Tomorrow"
+msgstr ""
+
+#: src/shared/useNewNote.ts
+msgid "Too many uploads are waiting. Open an existing upload and try again."
+msgstr ""
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Transcribe meetings that use more than one language."
 msgstr ""
@@ -3460,6 +4314,22 @@ msgstr ""
 #: src/settings/ai/stt/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Transcription"
+msgstr ""
+
+#: src/store/zustand/listener/general-batch.ts
+msgid "Transcription complete"
+msgstr ""
+
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "Transcription failed"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Transcription provider needed"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Transcription unavailable"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
@@ -3513,6 +4383,15 @@ msgstr ""
 msgid "Typewriter Key"
 msgstr ""
 
+#: src/settings/developers/cli.tsx
+msgid "Unavailable"
+msgstr ""
+
+#: src/main/windows-title-bar.tsx
+#: src/sidebar/toast/undo-delete-toast.tsx
+msgid "Undo"
+msgstr ""
+
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Unknown"
 msgstr ""
@@ -3551,6 +4430,7 @@ msgstr ""
 #: src/shared/ui/resource-list/preview-header.tsx
 #: src/sidebar/shared-notes.tsx
 #: src/sidebar/timeline/item.tsx
+#: src/sidebar/toast/undo-delete-toast.tsx
 #: src/templates/details.tsx
 #: src/templates/sections-editor.tsx
 msgid "Untitled"
@@ -3565,14 +4445,31 @@ msgstr ""
 msgid "Untitled Note"
 msgstr ""
 
+#: src/services/event-notification/index.ts
+msgid "Upcoming Event"
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "Update project notes in Notion"
+msgstr ""
+
+#: src/session-sharing/access-management.tsx
+msgid "Updating access"
+msgstr ""
+
+#: src/session-sharing/attachment-controls.tsx
+msgid "Updating audio sharing"
+msgstr ""
+
+#: src/sidebar/toast/registry.tsx
+msgid "Upgrade"
 msgstr ""
 
 #: src/settings/todo/github.tsx
 msgid "Upgrade for private repos."
 msgstr ""
 
+#: src/calendar/components/oauth/provider-content.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Upgrade to connect"
 msgstr ""
@@ -3585,8 +4482,10 @@ msgstr ""
 msgid "Upgrade to enable"
 msgstr ""
 
+#: src/billing/trial-ended-dialog.tsx
 #: src/calendar/components/sidebar.tsx
 #: src/session-sharing/index.tsx
+#: src/settings/developers/cloud-api.tsx
 #: src/settings/dictionary/index.tsx
 #: src/settings/team/index.tsx
 #: src/sidebar/settings.tsx
@@ -3622,13 +4521,31 @@ msgid "Upgrade to use"
 msgstr ""
 
 #: src/session/components/floating/options-menu.tsx
+#: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload audio"
 msgstr ""
 
+#: src/shared/useNewNote.ts
+msgid "Upload Audio"
+msgstr ""
+
+#: src/session/components/note-input/transcript/screens/empty.tsx
+msgid "Upload audio or a transcript file to populate this note."
+msgstr ""
+
 #: src/session/components/floating/options-menu.tsx
+#: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/overflow/index.tsx
 msgid "Upload transcript"
+msgstr ""
+
+#: src/shared/useNewNote.ts
+msgid "Upload Transcript"
+msgstr ""
+
+#: src/settings/developers/cloud-api.tsx
+msgid "Uploads meeting content for remote access while Anarlog is closed."
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -3667,6 +4584,10 @@ msgstr ""
 msgid "Verifying the SQLite migration status"
 msgstr ""
 
+#: src/main/windows-title-bar.tsx
+msgid "View"
+msgstr ""
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
 msgstr ""
@@ -3695,12 +4616,24 @@ msgstr ""
 msgid "Walnut"
 msgstr ""
 
+#: src/settings/developers/webhooks.tsx
+msgid "Webhooks"
+msgstr ""
+
 #: src/settings/general/week-start.tsx
 msgid "Week starts on"
 msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Welcome to Anarlog"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "What are my action items from this meeting?"
+msgstr ""
+
+#: src/chat/components/body/empty.tsx
+msgid "What were the key decisions that have been made?"
 msgstr ""
 
 #: src/changelog/index.tsx
@@ -3729,6 +4662,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Write to a folder"
+msgstr ""
+
+#: src/sidebar/timeline/utils/index.ts
+msgid "Yesterday"
 msgstr ""
 
 #: src/session-sharing/comments.tsx
@@ -3764,6 +4701,14 @@ msgstr ""
 msgid "You're on the <0>{planLabel}</0> plan"
 msgstr ""
 
+#: src/billing/trial-started-dialog.tsx
+msgid "Your {days}-day Pro trial starts now. Add a payment method before it ends to keep Pro."
+msgstr ""
+
+#: src/billing/trial-started-dialog.tsx
+msgid "Your {days}-day Pro trial starts now. Pro will continue automatically when it ends."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Your Account"
 msgstr ""
@@ -3776,6 +4721,14 @@ msgstr ""
 msgid "Your dictionary is empty"
 msgstr ""
 
+#: src/billing/trial-ended-dialog.tsx
+msgid "Your notes and recordings are safe. Free local transcription still works. Upgrade anytime to keep Pro features."
+msgstr ""
+
+#: src/billing/trial-ended-dialog.tsx
+msgid "Your notes and recordings are safe. Upgrade anytime to keep cloud transcription and Pro features, or configure your own transcription provider."
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Your notes remain available locally."
 msgstr ""
@@ -3784,12 +4737,36 @@ msgstr ""
 msgid "Your notes remain available locally. Try again in a moment."
 msgstr ""
 
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "Your Pro trial ends in {daysRemaining} days"
+msgstr ""
+
+#: src/billing/trial-payment-reminder-dialog.tsx
+msgid "Your Pro trial ends in 1 day"
+msgstr ""
+
+#: src/billing/trial-ended-dialog.tsx
+msgid "Your Pro trial has ended"
+msgstr ""
+
+#: src/billing/trial-started-dialog.tsx
+msgid "Your Pro trial just started"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Your recovery key encrypts synced notes before they leave this device. Anarlog cannot read or recover it."
 msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Your storage location is inside {cloudStorageService}"
+msgstr ""
+
+#: src/services/enhancer/summary-notification.ts
+msgid "Your summary is ready."
+msgstr ""
+
+#: src/store/zustand/listener/general-batch.ts
+msgid "Your transcript is ready."
 msgstr ""
 
 #: src/templates/template-sidebar.tsx
