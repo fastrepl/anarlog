@@ -1,6 +1,7 @@
 target/
 **/.build/
 node_modules/
+.pnpm-store/
 .DS_Store
 .shuttle/
 Secrets*.toml
