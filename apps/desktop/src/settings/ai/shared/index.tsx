@@ -14,6 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@anlg/ui/components/ui/accordion";
+import { Button } from "@anlg/ui/components/ui/button";
 import {
   InputGroup,
   InputGroupInput,
@@ -364,6 +365,24 @@ export function NonAnarlogProviderCard({
     }
   };
 
+  const hasAdvancedFields = (!showBaseUrl && !!config.baseUrl) || !showApiKey;
+  const showAdvanced = !config.hideAdvanced && hasAdvancedFields;
+  const resetAction = hasStoredConfig ? (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      onClick={() => void handleReset()}
+      disabled={clearProvider.isPending}
+      className="text-destructive hover:text-destructive/80 h-7 self-start px-0 hover:bg-transparent"
+    >
+      {clearProvider.isPending ? (
+        <CircleNotch className="size-3 animate-spin" aria-hidden="true" />
+      ) : null}
+      <Trans>Reset</Trans>
+    </Button>
+  ) : null;
+
   return (
     <AccordionItem
       disabled={config.disabled || locked}
@@ -471,55 +490,35 @@ export function NonAnarlogProviderCard({
               )}
             </div>
           )}
-          {!config.hideAdvanced &&
-            ((!showBaseUrl && config.baseUrl) || !showApiKey) && (
-              <details className="flex flex-col gap-4 pt-2">
-                <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs hover:underline">
-                  <Trans>Advanced</Trans>
-                </summary>
-                <div className="mt-4 flex flex-col gap-4">
-                  {!showBaseUrl && config.baseUrl && (
-                    <form.Field name="base_url">
-                      {(field) => (
-                        <FormField field={field} label={t`Base URL`} />
-                      )}
-                    </form.Field>
-                  )}
-                  {!showApiKey && (
-                    <form.Field name="api_key">
-                      {(field) => (
-                        <FormField
-                          field={field}
-                          label={t`API Key`}
-                          placeholder={t`Enter your API key (optional)`}
-                          type="password"
-                        />
-                      )}
-                    </form.Field>
-                  )}
-                </div>
-              </details>
-            )}
-          {hasStoredConfig ? (
-            <button
-              type="button"
-              onClick={() => void handleReset()}
-              disabled={clearProvider.isPending}
-              className={cn([
-                "inline-flex cursor-pointer items-center gap-1 self-start text-xs",
-                "text-muted-foreground hover:text-foreground transition-colors",
-                "disabled:cursor-not-allowed disabled:opacity-50",
-              ])}
-            >
-              {clearProvider.isPending ? (
-                <CircleNotch
-                  className="size-3 animate-spin"
-                  aria-hidden="true"
-                />
-              ) : null}
-              <Trans>Reset</Trans>
-            </button>
-          ) : null}
+          {showAdvanced ? (
+            <details>
+              <summary className="text-muted-foreground hover:text-foreground cursor-pointer text-xs hover:underline">
+                <Trans>Advanced</Trans>
+              </summary>
+              <div className="mt-2 flex flex-col gap-4">
+                {!showBaseUrl && config.baseUrl && (
+                  <form.Field name="base_url">
+                    {(field) => <FormField field={field} label={t`Base URL`} />}
+                  </form.Field>
+                )}
+                {!showApiKey && (
+                  <form.Field name="api_key">
+                    {(field) => (
+                      <FormField
+                        field={field}
+                        label={t`API Key`}
+                        placeholder={t`Enter your API key (optional)`}
+                        type="password"
+                      />
+                    )}
+                  </form.Field>
+                )}
+                {resetAction}
+              </div>
+            </details>
+          ) : (
+            resetAction
+          )}
           {clearProvider.error && (
             <p className="text-destructive text-xs">
               {clearProvider.error.message}
