@@ -69,3 +69,14 @@ Naming rules:
 ## Misc
 
 - Do not create summary docs or example code files unless requested.
+
+## Cursor Cloud specific instructions
+
+Environment is Ubuntu 24.04 x86_64. Node 22, pnpm 11.1.1, and Rust 1.94.0 are pre-provisioned, and the Linux system libraries needed for the Tauri desktop build (from `scripts/setup-linux-tauri.sh` + `scripts/setup-linux-others.sh`: webkit2gtk-4.1, gtk-3/4, alsa, pulse, pipewire, clang/libclang, cmake, patchelf, etc.) plus `xvfb`/`dbus-x11` are baked into the base image. The startup update script only runs `pnpm install --frozen-lockfile` and builds `@anlg/ui`; it does not re-install system packages.
+
+- Build `@anlg/ui` before running desktop/web dev (`pnpm -F @anlg/ui build`); `turbo dev:*` already declares this dependency, but plain `pnpm dev:*` does not.
+- A real XFCE desktop runs on the VNC display `:1` (this is what computer-use sees). Run the desktop app there instead of `xvfb` so it is visible: `DISPLAY=:1 LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 pnpm dev:desktop`. First `tauri dev` compiles the whole Rust workspace (~2000 crates) and is slow; the desktop Vite frontend serves on `:1422`.
+- Both apps are local-first and boot without secrets: `dotenvx` loads `.env.supabase`/`.env` with `--ignore MISSING_ENV_FILE`. Cloud/Pro features (auth, CloudSync, hosted STT/LLM, web billing) need local Supabase (`task supabase-start`, requires Docker) and `cargo run -p api`. LLM/STT provider keys are entered in-app.
+- Web dev: `pnpm dev:web` serves on `:3000` and renders without Supabase; only auth/DB-backed routes require the Supabase stack.
+- `pnpm fmt:check` (`dprint check`) reports ~67 failures on Linux, all Swift files ("Cannot start formatter process") because `dprint` shells out to `swift format`, which is macOS-only. These are not real diffs; non-Swift formatting still validates. Scope fmt checks to changed non-Swift files on Linux.
+- No audio input device exists in the headless pod; use `crates/audio-mock` for recording flows. `apps/mobile` (Expo) and `apps/cli-ui` (Swift) cannot be built/run on Linux.
