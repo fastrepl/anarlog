@@ -1060,3 +1060,126 @@ async fn e2ee_dirty_triggers_apply_to_initialized_cloudsync_tables() {
     .unwrap();
     assert_eq!(generation, 1);
 }
+
+async fn e2ee_schema_objects(db: &Db) -> Vec<(String, String, String)> {
+    sqlx::query_as(
+        "SELECT type, name, sql FROM sqlite_master
+         WHERE type IN ('view', 'trigger') AND name LIKE 'e2ee_%'
+         ORDER BY type, name",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn torn_e2ee_payload_hash_local_state_migration_is_repaired() {
+    let migration_sql =
+        include_str!("../../migrations/20260816100100_e2ee_payload_hash_local_state.sql");
+    let clean_db = test_db().await;
+
+    // A pre-transactional 1.4.10 runner force-quit mid-migration leaves the
+    // column dropped with no history row: either nothing recreated yet, or
+    // some views/triggers (including a non-IF-EXISTS trigger) already back.
+    for cut_marker in [
+        "CREATE VIEW e2ee_local_state_resolved",
+        "CREATE TRIGGER e2ee_replica_payload_hash_update",
+    ] {
+        let db = Db::connect_memory_plain().await.unwrap();
+        anlg_db_migrate::migrate(
+            &db,
+            anlg_db_migrate::DbSchema {
+                steps: migration_steps_before("20260816100100_e2ee_payload_hash_local_state"),
+                validate_cloudsync_table: cloudsync_alter_guard_required,
+            },
+        )
+        .await
+        .unwrap();
+
+        let cut = migration_sql.find(cut_marker).unwrap();
+        sqlx::raw_sql(sqlx::AssertSqlSafe(&migration_sql[..cut]))
+            .execute(db.pool())
+            .await
+            .unwrap();
+
+        prepare_schema(&db).await.unwrap();
+
+        let (success, checksum): (bool, Vec<u8>) = sqlx::query_as(
+            "SELECT success, checksum FROM _sqlx_migrations WHERE version = 20260816100100",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(success);
+        assert_eq!(checksum, migration_checksum(migration_sql));
+
+        let payload_hash_exists: bool = sqlx::query_scalar(
+            "SELECT EXISTS(
+                SELECT 1 FROM pragma_table_info('e2ee_records') WHERE name = 'payload_hash'
+            )",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert!(!payload_hash_exists);
+
+        assert_eq!(
+            e2ee_schema_objects(&db).await,
+            e2ee_schema_objects(&clean_db).await
+        );
+    }
+}
+
+#[tokio::test]
+async fn e2ee_payload_hash_repair_ignores_databases_before_the_column_existed() {
+    let db = Db::connect_memory_plain().await.unwrap();
+    anlg_db_migrate::migrate(
+        &db,
+        anlg_db_migrate::DbSchema {
+            steps: migration_steps_before("20260815100300_e2ee_record_payload_hash"),
+            validate_cloudsync_table: cloudsync_alter_guard_required,
+        },
+    )
+    .await
+    .unwrap();
+
+    repair_torn_e2ee_payload_hash_local_state_migration(db.pool())
+        .await
+        .unwrap();
+
+    let row_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM _sqlx_migrations WHERE version = 20260816100100)",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert!(
+        !row_exists,
+        "repair must not pre-record an unapplied migration"
+    );
+
+    prepare_schema(&db).await.unwrap();
+}
+
+#[tokio::test]
+async fn e2ee_payload_hash_repair_leaves_cleanly_migrated_databases_alone() {
+    let db = test_db().await;
+    let before = e2ee_schema_objects(&db).await;
+    let checksum_before: Vec<u8> =
+        sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = 20260816100100")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+
+    repair_torn_e2ee_payload_hash_local_state_migration(db.pool())
+        .await
+        .unwrap();
+
+    let checksum_after: Vec<u8> =
+        sqlx::query_scalar("SELECT checksum FROM _sqlx_migrations WHERE version = 20260816100100")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+    assert_eq!(checksum_before, checksum_after);
+    assert_eq!(before, e2ee_schema_objects(&db).await);
+}
