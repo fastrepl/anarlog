@@ -83,6 +83,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn newer_database_rejects_missing_local_migration() {
+        let db = open_memory_db().await;
+        migrate(&db, schema_of(&[STEP_ONE, STEP_THREE_ADDITIVE]))
+            .await
+            .unwrap();
+
+        let error = migrate(&db, schema_of(&[STEP_ONE, STEP_TWO_ADDITIVE]))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            error,
+            MigrateError::DatabaseAhead {
+                missing_version: 20,
+                max_applied_version: 30,
+            }
+        ));
+        assert!(
+            error
+                .to_string()
+                .contains("created by a newer version of Anarlog")
+        );
+
+        let recorded: Vec<i64> =
+            sqlx::query_scalar("SELECT version FROM _sqlx_migrations ORDER BY version")
+                .fetch_all(db.pool())
+                .await
+                .unwrap();
+        assert_eq!(recorded, vec![10, 30]);
+
+        let table_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 't_two'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .unwrap();
+        assert_eq!(table_count, 0);
+    }
+
+    #[tokio::test]
     async fn breaking_migration_blocks_older_builds() {
         let db = open_memory_db().await;
         migrate(&db, schema_of(&[STEP_ONE, STEP_TWO_BREAKING]))

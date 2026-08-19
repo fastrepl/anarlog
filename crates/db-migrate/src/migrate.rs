@@ -86,6 +86,11 @@ async fn run_direct(
         .map(|migration| migration.version)
         .max()
         .unwrap_or(0);
+    let max_applied_version = applied_migrations
+        .iter()
+        .map(|migration| migration.version)
+        .max()
+        .unwrap_or(0);
     validate_applied_migrations(&applied_migrations, migrations, max_known_version)?;
 
     // A database written by a newer build is fine to keep using as long as
@@ -103,6 +108,18 @@ async fn run_direct(
         .into_iter()
         .map(|migration| (migration.version, migration))
         .collect();
+
+    if max_applied_version > max_known_version
+        && let Some(migration) = migrations.iter().find(|migration| {
+            !migration.migration_type.is_down_migration()
+                && !applied_migrations.contains_key(&migration.version)
+        })
+    {
+        return Err(MigrateError::DatabaseAhead {
+            missing_version: migration.version,
+            max_applied_version,
+        });
+    }
 
     for migration in migrations {
         if migration.migration_type.is_down_migration() {
