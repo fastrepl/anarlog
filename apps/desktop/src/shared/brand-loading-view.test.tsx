@@ -11,5 +11,8 @@ describe("BrandLoadingView", () => {
 
     const status = screen.getByRole("status", { name: "Loading" });
     expect(status.querySelectorAll("svg")).toHaveLength(2);
+    expect(
+      screen.getByText("Updating your data. This may take a few minutes."),
+    ).toBeTruthy();
   });
 });

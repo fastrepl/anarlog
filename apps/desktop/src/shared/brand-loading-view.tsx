@@ -12,29 +12,34 @@ export function BrandLoadingView() {
         "bg-background flex h-screen w-screen items-center justify-center",
       ])}
     >
-      <div
-        className={cn([
-          "relative w-[4.5rem]",
-          "drop-shadow-[0_10px_24px_rgba(0,0,0,0.10)]",
-          "dark:drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]",
-        ])}
-      >
-        <AnarlogMark className="text-foreground/20 w-full" />
+      <div className="flex flex-col items-center">
         <div
-          aria-hidden="true"
           className={cn([
-            "pointer-events-none absolute inset-0",
-            "text-foreground/75 dark:text-foreground/50",
-            "[-webkit-mask-image:linear-gradient(105deg,transparent_36%,#000_50%,transparent_64%)]",
-            "[mask-image:linear-gradient(105deg,transparent_36%,#000_50%,transparent_64%)]",
-            "[-webkit-mask-size:220%_100%]",
-            "[mask-size:220%_100%]",
-            "animate-logo-shimmer-sweep",
-            "motion-reduce:animate-none motion-reduce:opacity-0",
+            "relative w-[4.5rem]",
+            "drop-shadow-[0_10px_24px_rgba(0,0,0,0.10)]",
+            "dark:drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]",
           ])}
         >
-          <AnarlogMark className="w-full" />
+          <AnarlogMark className="text-foreground/20 w-full" />
+          <div
+            aria-hidden="true"
+            className={cn([
+              "pointer-events-none absolute inset-0",
+              "text-foreground/75 dark:text-foreground/50",
+              "[-webkit-mask-image:linear-gradient(105deg,transparent_36%,#000_50%,transparent_64%)]",
+              "[mask-image:linear-gradient(105deg,transparent_36%,#000_50%,transparent_64%)]",
+              "[-webkit-mask-size:220%_100%]",
+              "[mask-size:220%_100%]",
+              "animate-logo-shimmer-sweep",
+              "motion-reduce:animate-none motion-reduce:opacity-0",
+            ])}
+          >
+            <AnarlogMark className="w-full" />
+          </div>
         </div>
+        <p className="text-muted-foreground mt-5 max-w-64 text-center text-xs">
+          Updating your data. This may take a few minutes.
+        </p>
       </div>
     </div>
   );
