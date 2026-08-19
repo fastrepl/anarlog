@@ -2577,6 +2577,7 @@ msgid "Resend invitation"
 msgstr "Resend invitation"
 
 #: src/calendar/components/apple/permission.tsx
+#: src/settings/ai/shared/index.tsx
 msgid "Reset"
 msgstr "Reset"
 
