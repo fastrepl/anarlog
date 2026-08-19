@@ -10,7 +10,9 @@ type QueryResult = { rowCount: number | null };
 
 export type SnapshotClient = {
   query(sql: string, params?: unknown[]): Promise<QueryResult>;
-  release(): void;
+  // Passing an error destroys the connection instead of returning it to the
+  // pool (node-postgres semantics).
+  release(error?: Error): void;
 };
 
 export type SnapshotPool = {
@@ -64,6 +66,7 @@ export async function applyEntitlementSnapshot(
     );
 
     await client.query("COMMIT");
+    client.release();
     return {
       updated: entitlements.length,
       deleted: deleteResult.rowCount ?? 0,
@@ -72,11 +75,16 @@ export async function applyEntitlementSnapshot(
   } catch (error) {
     try {
       await client.query("ROLLBACK");
-    } catch {
-      // Releasing a broken connection also aborts the transaction.
+      client.release();
+    } catch (rollbackError) {
+      // A failed rollback leaves the connection in an unknown state; destroy
+      // it instead of returning a broken client to the pool.
+      client.release(
+        rollbackError instanceof Error
+          ? rollbackError
+          : new Error(String(rollbackError)),
+      );
     }
     throw error;
-  } finally {
-    client.release();
   }
 }

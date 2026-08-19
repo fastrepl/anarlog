@@ -21,7 +21,7 @@ function fakePool(
   options: { failOn?: (sql: string, call: number) => boolean } = {},
 ) {
   const calls: Array<{ sql: string; params?: unknown[] }> = [];
-  let released = 0;
+  const releases: Array<Error | undefined> = [];
   let connects = 0;
 
   const client: SnapshotClient = {
@@ -33,8 +33,8 @@ function fakePool(
       }
       return { rowCount: sql.startsWith("DELETE") ? 2 : 1 };
     },
-    release() {
-      released++;
+    release(error?: Error) {
+      releases.push(error);
     },
   };
 
@@ -48,8 +48,9 @@ function fakePool(
   return {
     pool,
     calls,
+    releases,
     kinds: () => calls.map(({ sql }) => sql.split(/[ \n]/, 1)[0]),
-    released: () => released,
+    released: () => releases.length,
     connects: () => connects,
   };
 }
@@ -73,7 +74,7 @@ test("commits deletion, upserts, and last_synced_at in one transaction", async (
   expect(db.calls[1]?.params).toEqual(["cus_1", ["pro", "teams"]]);
   expect(db.calls[4]?.sql).toContain("stripe.customers SET last_synced_at");
   expect(result).toEqual({ updated: 2, deleted: 2, hasError: false });
-  expect(db.released()).toBe(1);
+  expect(db.releases).toEqual([undefined]);
 });
 
 test("empty snapshots use the same transaction path and delete everything", async () => {
@@ -94,7 +95,8 @@ test("rolls back when stale deletion fails", async () => {
   ).rejects.toThrow("injected failure");
 
   expect(db.kinds()).toEqual(["BEGIN", "DELETE", "ROLLBACK"]);
-  expect(db.released()).toBe(1);
+  // Rollback succeeded, so the connection goes back to the pool intact.
+  expect(db.releases).toEqual([undefined]);
 });
 
 test("rolls back a partially applied upsert batch", async () => {
@@ -145,7 +147,9 @@ test("releases the connection even when rollback itself fails", async () => {
     applyEntitlementSnapshot(db.pool, "cus_1", [entitlement("pro")]),
   ).rejects.toThrow("injected failure: DELETE");
 
-  expect(db.released()).toBe(1);
+  // A failed rollback must destroy the connection, not return it to the pool.
+  expect(db.releases).toHaveLength(1);
+  expect(db.releases[0]).toBeInstanceOf(Error);
 });
 
 test("concurrent customers each get their own connection and transaction", async () => {
