@@ -44,7 +44,7 @@ describe("NoteTitleBreadcrumb", () => {
   });
 
   it("renders the selected folder before the editable title", () => {
-    mocks.folderId = "work/meetings";
+    mocks.folderId = "work";
 
     render(
       <NoteTitleBreadcrumb
@@ -54,7 +54,7 @@ describe("NoteTitleBreadcrumb", () => {
     );
 
     expect(
-      screen.getByRole("combobox", { name: "Folder: work / meetings" }),
+      screen.getByRole("combobox", { name: "Folder: work" }),
     ).not.toBeNull();
     expect(screen.getByText("/")).not.toBeNull();
     expect(screen.getByLabelText("Session title")).not.toBeNull();

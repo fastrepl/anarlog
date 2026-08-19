@@ -19,11 +19,7 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { cn } from "@anlg/utils";
 
-import {
-  folderBreadcrumbLabel,
-  folderPathSegments,
-  normalizeFolderPath,
-} from "~/session/folders";
+import { folderDisplayName, normalizeFolderPath } from "~/session/folders";
 import {
   useFolderPaths,
   useSession,
@@ -43,7 +39,7 @@ export function FolderPicker({ sessionId }: { sessionId: string }) {
   const folderId = useSession(sessionId)?.folder_id ?? "";
   const folderPaths = useFolderPaths();
   const updateSession = useUpdateSession(sessionId);
-  const currentPath = normalizeFolderPath(folderId) || "";
+  const currentPath = folderDisplayName(folderId);
   const folders = useMemo(() => {
     if (currentPath && !folderPaths.includes(currentPath)) {
       return collectWithCurrent(folderPaths, currentPath);
@@ -72,7 +68,7 @@ export function FolderPicker({ sessionId }: { sessionId: string }) {
 
       setOpen(false);
       setQuery("");
-      if (normalized === currentPath) {
+      if (normalized === folderId) {
         return;
       }
 
@@ -80,7 +76,7 @@ export function FolderPicker({ sessionId }: { sessionId: string }) {
         console.error("[folder-picker] failed to update folder", error);
       });
     },
-    [currentPath, updateSession],
+    [folderId, updateSession],
   );
 
   return (
@@ -92,13 +88,9 @@ export function FolderPicker({ sessionId }: { sessionId: string }) {
           role="combobox"
           aria-expanded={open}
           aria-label={
-            currentPath
-              ? t`Folder: ${folderBreadcrumbLabel(currentPath)}`
-              : t`Select folder`
+            currentPath ? t`Folder: ${currentPath}` : t`Select folder`
           }
-          title={
-            currentPath ? folderBreadcrumbLabel(currentPath) : t`Select folder`
-          }
+          title={currentPath ? currentPath : t`Select folder`}
           className={cn([
             "flex h-7 max-w-full min-w-0 items-center gap-1 rounded-full px-1.5",
             "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
@@ -109,7 +101,7 @@ export function FolderPicker({ sessionId }: { sessionId: string }) {
           <Folder className="size-3.5 shrink-0" />
           {currentPath ? (
             <span className="min-w-0 truncate text-xs text-neutral-600 dark:text-neutral-300">
-              {folderBreadcrumbLabel(currentPath)}
+              {currentPath}
             </span>
           ) : (
             <span className="text-muted-foreground truncate text-xs">
@@ -159,14 +151,12 @@ export function FolderPicker({ sessionId }: { sessionId: string }) {
                   {folders.map((path) => (
                     <CommandItem
                       key={path}
-                      value={`${path} ${folderBreadcrumbLabel(path)}`}
+                      value={path}
                       onSelect={() => handleSelect(path)}
                       className="cursor-pointer"
                     >
                       <Folder className="size-4 shrink-0 opacity-70" />
-                      <span className="min-w-0 flex-1 truncate">
-                        {folderItemLabel(path)}
-                      </span>
+                      <span className="min-w-0 flex-1 truncate">{path}</span>
                       {path === currentPath ? (
                         <Check className="size-4 shrink-0" />
                       ) : null}
@@ -200,13 +190,4 @@ function collectWithCurrent(folderPaths: string[], currentPath: string) {
   return [...folderPaths, currentPath].sort((left, right) =>
     left.localeCompare(right),
   );
-}
-
-function folderItemLabel(path: string) {
-  const segments = folderPathSegments(path);
-  if (segments.length <= 1) {
-    return path;
-  }
-
-  return folderBreadcrumbLabel(path);
 }

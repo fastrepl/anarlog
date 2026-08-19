@@ -2,41 +2,41 @@ import { describe, expect, it } from "vitest";
 
 import {
   collectFolderPaths,
-  folderBreadcrumbLabel,
-  folderPathSegments,
+  folderDisplayName,
   normalizeFolderPath,
 } from "./folders";
 
 describe("folder paths", () => {
-  it("normalizes nested paths and empty values", () => {
+  it("normalizes a single folder name and empty values", () => {
     expect(normalizeFolderPath("")).toBe("");
     expect(normalizeFolderPath("   ")).toBe("");
     expect(normalizeFolderPath("work")).toBe("work");
-    expect(normalizeFolderPath("work/meetings/")).toBe("work/meetings");
-    expect(normalizeFolderPath(String.raw`work\meetings`)).toBe(
-      "work/meetings",
-    );
+    expect(normalizeFolderPath("  meetings  ")).toBe("meetings");
   });
 
-  it("rejects traversal and absolute paths", () => {
+  it("rejects nested, traversal, and absolute paths", () => {
     expect(normalizeFolderPath("/work")).toBeNull();
+    expect(normalizeFolderPath("work/meetings")).toBeNull();
+    expect(normalizeFolderPath("work/meetings/")).toBeNull();
+    expect(normalizeFolderPath(String.raw`work\meetings`)).toBeNull();
     expect(normalizeFolderPath("work//meetings")).toBeNull();
     expect(normalizeFolderPath("../work")).toBeNull();
     expect(normalizeFolderPath("work/../meetings")).toBeNull();
     expect(normalizeFolderPath("./work")).toBeNull();
+    expect(normalizeFolderPath(".")).toBeNull();
+    expect(normalizeFolderPath("..")).toBeNull();
   });
 
-  it("expands ancestor folder paths from stored session paths", () => {
-    expect(collectFolderPaths(["work/meetings", "personal", ""])).toEqual([
-      "personal",
-      "work",
-      "work/meetings",
-    ]);
+  it("lists unique top-level folder names", () => {
+    expect(
+      collectFolderPaths(["work/meetings", "personal", "work", ""]),
+    ).toEqual(["personal", "work"]);
   });
 
-  it("formats breadcrumb labels from path segments", () => {
-    expect(folderPathSegments("work/meetings")).toEqual(["work", "meetings"]);
-    expect(folderBreadcrumbLabel("work/meetings")).toBe("work / meetings");
-    expect(folderBreadcrumbLabel("")).toBe("");
+  it("displays the top-level name from stored paths", () => {
+    expect(folderDisplayName("work")).toBe("work");
+    expect(folderDisplayName("work/meetings")).toBe("work");
+    expect(folderDisplayName("")).toBe("");
+    expect(folderDisplayName(null)).toBe("");
   });
 });

@@ -1852,9 +1852,8 @@ msgstr ""
 msgid "Float chat"
 msgstr ""
 
-#. placeholder {0}: folderBreadcrumbLabel(currentPath)
 #: src/session/components/folder-picker.tsx
-msgid "Folder: {0}"
+msgid "Folder: {currentPath}"
 msgstr ""
 
 #: src/templates/template-icon-picker.tsx
