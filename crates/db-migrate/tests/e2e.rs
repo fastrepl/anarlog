@@ -96,6 +96,26 @@ const CLOUDSYNC_ALTER_STEPS: &[MigrationStep] = &[
     },
 ];
 
+const ADD_SLUG_THEN_FAIL_SQL: &str = r#"
+ALTER TABLE widgets ADD COLUMN slug TEXT NOT NULL DEFAULT '';
+ALTER TABLE missing_table ADD COLUMN broken TEXT;
+"#;
+
+const CLOUDSYNC_FAILING_ALTER_STEPS: &[MigrationStep] = &[
+    MigrationStep {
+        id: "20260415030101_create_widgets",
+        scope: MigrationScope::Plain,
+        sql: CREATE_CLOUDSYNC_WIDGETS_SQL,
+    },
+    MigrationStep {
+        id: "20260415030102_add_slug",
+        scope: MigrationScope::CloudsyncAlter {
+            table_name: "widgets",
+        },
+        sql: ADD_SLUG_THEN_FAIL_SQL,
+    },
+];
+
 fn schema(steps: &'static [MigrationStep], validate_cloudsync_table: fn(&str) -> bool) -> DbSchema {
     DbSchema {
         steps,
@@ -326,5 +346,53 @@ async fn cloudsync_alter_scope_preserves_an_initialized_cloudsync_table() {
         anlg_db_core::cloudsync_is_enabled_on(db.pool(), "widgets")
             .await
             .unwrap()
+    );
+}
+
+#[cfg(any(
+    all(test, target_os = "macos", target_arch = "aarch64"),
+    all(test, target_os = "macos", target_arch = "x86_64"),
+    all(test, target_os = "linux", target_env = "gnu", target_arch = "aarch64"),
+    all(test, target_os = "linux", target_env = "gnu", target_arch = "x86_64"),
+    all(
+        test,
+        target_os = "linux",
+        target_env = "musl",
+        target_arch = "aarch64"
+    ),
+    all(test, target_os = "linux", target_env = "musl", target_arch = "x86_64"),
+    all(test, target_os = "windows", target_arch = "x86_64"),
+))]
+#[tokio::test]
+async fn failed_cloudsync_alter_leaves_no_partial_schema_and_can_be_retried() {
+    let db = Db::connect_memory().await.unwrap();
+
+    migrate(&db, schema(CLOUDSYNC_BASE_STEPS, widgets_synced))
+        .await
+        .unwrap();
+
+    db.cloudsync_init("widgets", None, None).await.unwrap();
+
+    migrate(&db, schema(CLOUDSYNC_FAILING_ALTER_STEPS, widgets_synced))
+        .await
+        .unwrap_err();
+
+    assert_eq!(applied_versions(&db).await, vec![20260415030101]);
+    assert_eq!(
+        widget_columns(&db).await,
+        vec!["id".to_string(), "name".to_string()]
+    );
+
+    migrate(&db, schema(CLOUDSYNC_ALTER_STEPS, widgets_synced))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        applied_versions(&db).await,
+        vec![20260415030101, 20260415030102]
+    );
+    assert_eq!(
+        widget_columns(&db).await,
+        vec!["id".to_string(), "name".to_string(), "slug".to_string()]
     );
 }
