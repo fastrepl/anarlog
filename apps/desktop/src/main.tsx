@@ -49,6 +49,7 @@ import { listenerStore } from "./store/zustand/listener/instance";
 
 const toolRegistry = createToolRegistry();
 const queryClient = new QueryClient();
+const STARTUP_TASK_TIMEOUT_MS = 10_000;
 
 const router = createRouter({
   routeTree,
@@ -146,23 +147,6 @@ async function enableReactScanInDev() {
 }
 
 async function renderApp() {
-  if (isMainWindow) {
-    await refreshLegacySettingsSnapshots().catch((error) => {
-      captureOperationalError(error, {
-        operation: "legacy_settings_refresh",
-      });
-    });
-    await initializeApplicationSettings().catch((error) => {
-      captureOperationalError(error, {
-        operation: "application_settings_initialize",
-      });
-    });
-    await migratePlaintextAiProviderApiKeys().catch((error) => {
-      captureOperationalError(error, {
-        operation: "ai_credentials_migrate",
-      });
-    });
-  }
   await Promise.all([bootstrapThemeFromSettings(), enableReactScanInDev()]);
   const root = ReactDOM.createRoot(rootElement);
   root.render(
@@ -170,8 +154,51 @@ async function renderApp() {
       <AppRoot />
     </StrictMode>,
   );
+  runMainWindowStartupTasks();
 }
 
 if (!rootElement.innerHTML) {
   void renderApp();
+}
+
+function runMainWindowStartupTasks() {
+  if (!isMainWindow) {
+    return;
+  }
+
+  void runStartupTask(
+    "legacy_settings_refresh",
+    refreshLegacySettingsSnapshots,
+  );
+  void runStartupTask(
+    "application_settings_initialize",
+    initializeApplicationSettings,
+  );
+  void runStartupTask(
+    "ai_credentials_migrate",
+    migratePlaintextAiProviderApiKeys,
+  );
+}
+
+async function runStartupTask(
+  operation: string,
+  task: () => Promise<void>,
+): Promise<void> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+  await new Promise<void>((resolve, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(`startup operation timed out: ${operation}`));
+    }, STARTUP_TASK_TIMEOUT_MS);
+
+    void task().then(resolve, reject);
+  })
+    .catch((error) => {
+      captureOperationalError(error, { operation });
+    })
+    .finally(() => {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    });
 }
