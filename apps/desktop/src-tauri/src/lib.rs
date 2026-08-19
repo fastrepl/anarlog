@@ -604,6 +604,9 @@ fn report_startup_failure_to_sentry(message: &str) {
         return;
     }
 
+    if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
+        return;
+    }
     let Some(dsn) = option_env!("SENTRY_DSN") else {
         return;
     };
