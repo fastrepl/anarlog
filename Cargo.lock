@@ -19422,6 +19422,7 @@ dependencies = [
 name = "tauri-plugin-updater2"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "specta",
  "specta-typescript",

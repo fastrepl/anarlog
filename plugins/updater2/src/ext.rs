@@ -214,21 +214,38 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Updater2<'a, R, M> {
     // Install and relaunch are one operation so no caller can install without
     // completing the required restart. The restart only happens after a
     // successful install; any earlier failure returns without restarting.
+    //
+    // The cached artifact may be older than the latest release (daily releases
+    // outpace app opens); installing it still moves the app forward, and the
+    // relaunched process downloads the newer one. The newer-than-current guard
+    // is what prevents an install/relaunch loop, since the installed artifact
+    // stays cached until check() prunes it.
     pub async fn install_and_relaunch(&self, version: &str) -> Result<(), crate::Error> {
+        let current = self.manager.config().version.clone().unwrap_or_default();
+        let is_newer = match (
+            semver::Version::parse(version),
+            semver::Version::parse(&current),
+        ) {
+            (Ok(cached), Ok(current)) => cached > current,
+            _ => false,
+        };
+        if !is_newer {
+            return Err(crate::Error::UpdateNotNewer {
+                version: version.to_string(),
+                current,
+            });
+        }
+
         let bytes = self.get_cached_update_bytes(version)?;
 
+        // The check only supplies the platform install plumbing; signature
+        // verification already happened when the cached bytes were downloaded.
         let updater = self.manager.updater()?;
-        let update = updater
+        let mut update = updater
             .check()
             .await?
             .ok_or(crate::Error::UpdateNotAvailable)?;
-
-        if update.version != version {
-            return Err(crate::Error::VersionMismatch {
-                expected: version.to_string(),
-                actual: update.version,
-            });
-        }
+        update.version = version.to_string();
 
         let _ = self.manager.store2().save();
 
