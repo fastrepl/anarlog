@@ -43,9 +43,7 @@ export function createSubscriptionFetch(
 
     if (providerId === "chatgpt") {
       for (const [key, value] of Object.entries(CHATGPT_REQUEST_HEADERS)) {
-        if (!headers.has(key)) {
-          headers.set(key, value);
-        }
+        headers.set(key, value);
       }
       const accountId = credential?.accountId ?? parseChatgptAccountId(token);
       if (accountId) {
