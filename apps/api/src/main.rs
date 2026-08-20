@@ -386,6 +386,7 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
                 .nest("/messenger", anlg_api_messenger::router())
                 .nest("/notion", anlg_api_notion::router())
                 .nest("/ticket", anlg_api_ticket::router())
+                .nest("/zoom", anlg_api_zoom::router())
                 .nest("/nango", anlg_api_nango::session_router(config))
                 .layer(axum::Extension(nango_connection_state))
                 .route_layer(middleware::from_fn(auth::sentry_and_analytics))

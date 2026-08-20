@@ -18,6 +18,7 @@ anlg-api-research = { workspace = true }
 anlg-api-subscription = { workspace = true }
 anlg-api-sync = { workspace = true }
 anlg-api-ticket = { workspace = true }
+anlg-api-zoom = { workspace = true }
 anlg-linear = { workspace = true }
 anlg-llm-proxy = { workspace = true }
 anlg-observability = { workspace = true }

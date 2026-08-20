@@ -62,6 +62,12 @@ export const INTEGRATION_DISPLAY: Record<
     description: "Connect Notion to add meeting updates to your pages",
     connectingHint: "Pick the Notion pages to share, then return to Anarlog",
   },
+  zoom: {
+    name: "Zoom",
+    description:
+      "Review how Anarlog uses Zoom cloud recordings, then continue to Zoom",
+    connectingHint: "Finish authorization with Zoom, then return to Anarlog",
+  },
 };
 
 export function getIntegrationDisplay(integrationId: string) {

@@ -1,0 +1,19 @@
+[package]
+name = "api-zoom"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anlg-api-auth = { workspace = true }
+anlg-api-error = { workspace = true }
+anlg-api-nango = { workspace = true }
+anlg-nango = { workspace = true }
+anlg-zoom = { workspace = true }
+
+axum = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+utoipa = { workspace = true }

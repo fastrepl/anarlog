@@ -10,10 +10,14 @@ pub const GOOGLE_CALENDAR_OAUTH_SCOPES: &str = "https://www.googleapis.com/auth/
 
 pub const OUTLOOK_OAUTH_SCOPES: &str = "offline_access User.Read Calendars.Read";
 
+pub const ZOOM_OAUTH_SCOPES: &str =
+    "user:read:user cloud_recording:read:list_user_recordings meeting:read:summary";
+
 pub fn oauth_scopes_override(integration_id: &str) -> Option<&'static str> {
     match integration_id {
         GoogleCalendar::ID => Some(GOOGLE_CALENDAR_OAUTH_SCOPES),
         Outlook::ID => Some(OUTLOOK_OAUTH_SCOPES),
+        Zoom::ID => Some(ZOOM_OAUTH_SCOPES),
         _ => None,
     }
 }
@@ -87,6 +91,12 @@ impl NangoIntegrationId for Notion {
     const ID: &'static str = "notion";
 }
 
+pub struct Zoom;
+
+impl NangoIntegrationId for Zoom {
+    const ID: &'static str = "zoom";
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,6 +134,23 @@ mod tests {
         assert_eq!(scopes, OUTLOOK_OAUTH_SCOPES);
         assert!(scopes.contains("Calendars.Read"));
         assert!(!scopes.contains("Calendars.ReadWrite"));
+    }
+
+    #[test]
+    fn zoom_connect_requests_readonly_recording_scopes() {
+        let defaults = integrations_config_defaults(Zoom::ID).unwrap();
+        let scopes = defaults
+            .get(Zoom::ID)
+            .unwrap()
+            .connection_config
+            .as_ref()
+            .and_then(|c| c.oauth_scopes_override.as_deref())
+            .unwrap();
+
+        assert_eq!(scopes, ZOOM_OAUTH_SCOPES);
+        assert!(scopes.contains("cloud_recording:read:list_user_recordings"));
+        assert!(scopes.contains("meeting:read:summary"));
+        assert!(!scopes.contains("recording:write"));
     }
 
     #[test]

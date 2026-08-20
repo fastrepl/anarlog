@@ -20,6 +20,7 @@ use utoipa::{Modify, OpenApi};
         (name = "messenger", description = "Messaging integrations"),
         (name = "notion", description = "Notion integration"),
         (name = "ticket", description = "Ticket management"),
+        (name = "zoom", description = "Zoom meeting import"),
         (name = "nango", description = "Integration management via Nango"),
         (name = "sync", description = "CloudSync credential management"),
         (name = "shared-notes", description = "Public shared-note delivery"),
@@ -41,6 +42,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let messenger_doc = with_path_prefix(anlg_api_messenger::openapi(), "/messenger");
     let notion_doc = with_path_prefix(anlg_api_notion::openapi(), "/notion");
     let ticket_doc = with_path_prefix(anlg_api_ticket::openapi(), "/ticket");
+    let zoom_doc = with_path_prefix(anlg_api_zoom::openapi(), "/zoom");
     let nango_doc = with_path_prefix(anlg_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(anlg_api_subscription::openapi(), "/subscription");
     let sync_doc = with_path_prefix(anlg_api_sync::openapi(), "/sync");
@@ -56,6 +58,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(messenger_doc);
     doc.merge(notion_doc);
     doc.merge(ticket_doc);
+    doc.merge(zoom_doc);
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
     doc.merge(sync_doc);
@@ -136,6 +139,7 @@ fn apply_bearer_auth_to_protected_paths(doc: &mut utoipa::openapi::OpenApi) {
         if path.starts_with("/calendar")
             || path.starts_with("/mail")
             || path.starts_with("/ticket")
+            || path.starts_with("/zoom")
             || path.starts_with("/subscription")
             || path.starts_with("/nango")
             || path.starts_with("/pyannote")
@@ -283,6 +287,15 @@ mod tests {
             assert_public(doc.paths.paths.get(path).unwrap(), method);
             assert!(!doc.paths.paths.contains_key(&format!("/sync{path}")));
         }
+    }
+
+    #[test]
+    fn zoom_import_path_is_prefixed_and_protected() {
+        let doc = super::openapi();
+        assert_bearer(
+            doc.paths.paths.get("/zoom/import-meetings").unwrap(),
+            "post",
+        );
     }
 
     #[test]

@@ -13,7 +13,7 @@ describe("meeting import providers", () => {
     ).toBe(MEETING_IMPORT_PROVIDERS.length);
   });
 
-  it("enables direct OAuth imports for every provider with a public MCP server", () => {
+  it("enables direct OAuth imports for MCP providers and Zoom", () => {
     expect(
       MEETING_IMPORT_PROVIDERS.filter((provider) => provider.directImport).map(
         (provider) => provider.id,
@@ -27,7 +27,14 @@ describe("meeting import providers", () => {
       "fellow",
       "tactiq",
       "jiminny",
+      "zoom",
     ]);
+    expect(
+      MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "zoom"),
+    ).toMatchObject({
+      directImport: "nango-oauth",
+      nangoIntegrationId: "zoom",
+    });
   });
 
   it("detects exact native names and bundle identifiers", () => {

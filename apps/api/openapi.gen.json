@@ -4456,6 +4456,47 @@
           }
         ]
       }
+    },
+    "/zoom/import-meetings": {
+      "post": {
+        "tags": [
+          "zoom"
+        ],
+        "operationId": "zoom_import_meetings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoomImportMeetingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Zoom meetings fetched for import",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoomImportMeetingsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -11659,6 +11700,63 @@
           }
         }
       },
+      "ZoomImportMeetingsRequest": {
+        "type": "object",
+        "required": [
+          "connection_id"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "known_meeting_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ZoomImportMeetingsResponse": {
+        "type": "object",
+        "required": [
+          "files",
+          "warnings"
+        ],
+        "properties": {
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ZoomImportTextFile"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ZoomImportTextFile": {
+        "type": "object",
+        "required": [
+          "path",
+          "name",
+          "content"
+        ],
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
       "google.Attendee": {
         "type": "object",
         "properties": {
@@ -12933,6 +13031,10 @@
     {
       "name": "ticket",
       "description": "Ticket management"
+    },
+    {
+      "name": "zoom",
+      "description": "Zoom meeting import"
     },
     {
       "name": "nango",

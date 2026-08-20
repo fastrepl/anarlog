@@ -2452,6 +2452,63 @@
         ],
         "type": "string"
       },
+      "ZoomImportMeetingsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "known_meeting_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "ZoomImportMeetingsResponse": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ZoomImportTextFile"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "files",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "ZoomImportTextFile": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name",
+          "content"
+        ],
+        "type": "object"
+      },
       "google.Attendee": {
         "properties": {
           "additionalGuests": {
@@ -4210,6 +4267,47 @@
           "cloud-api"
         ]
       }
+    },
+    "/zoom/import-meetings": {
+      "post": {
+        "operationId": "zoom_import_meetings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoomImportMeetingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoomImportMeetingsResponse"
+                }
+              }
+            },
+            "description": "Zoom meetings fetched for import"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "zoom"
+        ]
+      }
     }
   },
   "tags": [
@@ -4244,6 +4342,10 @@
     {
       "description": "Ticket management",
       "name": "ticket"
+    },
+    {
+      "description": "Zoom meeting import",
+      "name": "zoom"
     },
     {
       "description": "Integration management via Nango",

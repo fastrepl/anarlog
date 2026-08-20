@@ -6,6 +6,7 @@ const ALLOWED_PATH_PREFIXES: &[&str] = &[
     "/nango",
     "/subscription",
     "/ticket",
+    "/zoom",
     "/v1/cloud-api",
     "/v1/meetings",
     "/v1/sync-snapshots",

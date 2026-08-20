@@ -11,7 +11,7 @@ pub use config::NangoConfig;
 pub use extractor::{NangoConnection, NangoConnectionError, NangoConnectionState};
 pub use integrations::{
     Discord, GitHub, GoogleCalendar, GoogleDrive, GoogleMail, Linear, NangoIntegrationId, Notion,
-    Outlook, Slack,
+    Outlook, Slack, Zoom,
 };
 pub use openapi::openapi;
 pub use routes::{

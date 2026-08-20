@@ -15,6 +15,14 @@ struct OutlookMe {
     display_name: Option<String>,
 }
 
+#[derive(serde::Deserialize)]
+struct ZoomUser {
+    email: Option<String>,
+    display_name: Option<String>,
+    first_name: Option<String>,
+    last_name: Option<String>,
+}
+
 pub(crate) async fn fetch_identity(
     nango: &anlg_nango::NangoClient,
     integration_id: &str,
@@ -51,6 +59,28 @@ pub(crate) async fn fetch_identity(
 
             let me: OutlookMe = resp.json().await.map_err(|e| e.to_string())?;
             Ok((me.mail.or(me.user_principal_name), me.display_name))
+        }
+
+        "zoom" => {
+            let resp = proxy
+                .get("/users/me")
+                .map_err(|e| e.to_string())?
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+
+            let me: ZoomUser = resp.json().await.map_err(|e| e.to_string())?;
+            let name = me
+                .display_name
+                .or_else(|| match (me.first_name, me.last_name) {
+                    (Some(first), Some(last)) => Some(format!("{first} {last}").trim().to_string()),
+                    (Some(first), None) => Some(first),
+                    (None, Some(last)) => Some(last),
+                    (None, None) => None,
+                });
+            Ok((me.email, name))
         }
 
         other => Err(format!("unsupported integration: {other}")),

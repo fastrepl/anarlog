@@ -23,6 +23,7 @@ const INTEGRATION_NAMES: Record<string, string> = {
   github: "GitHub",
   slack: "Slack",
   notion: "Notion",
+  zoom: "Zoom",
 };
 
 const INTEGRATION_ICONS: Record<string, ReactNode> = {
@@ -34,6 +35,7 @@ const INTEGRATION_ICONS: Record<string, ReactNode> = {
   github: <Icon icon="logos:github-icon" width="20" height="20" />,
   slack: <Icon icon="logos:slack-icon" width="20" height="20" />,
   notion: <Icon icon="logos:notion-icon" width="20" height="20" />,
+  zoom: <Icon icon="logos:zoom-icon" width="20" height="20" />,
 };
 
 const connectionsQueryKey = ["account-integrations"];

@@ -13,15 +13,32 @@ const mocks = vi.hoisted(() => ({
   detectImportSources: vi.fn(),
   cancelConnectedImport: vi.fn(),
   connectConnectedImport: vi.fn(),
+  connectNangoImport: vi.fn(),
   disconnectConnectedImport: vi.fn(),
+  disconnectNangoImport: vi.fn(),
   signIn: vi.fn(),
   signedIn: true,
+  connections: [] as Array<{
+    connection_id: string;
+    integration_id: string;
+    status?: string | null;
+  }>,
 }));
 
 vi.mock("~/auth", () => ({
   useAuth: () => ({
-    session: mocks.signedIn ? {} : null,
+    session: mocks.signedIn ? { user: { id: "user-1" } } : null,
     signIn: mocks.signIn,
+    getHeaders: () =>
+      mocks.signedIn ? { Authorization: "Bearer test" } : null,
+  }),
+}));
+
+vi.mock("~/auth/useConnections", () => ({
+  useConnections: () => ({
+    data: mocks.connections,
+    error: null,
+    isPending: false,
   }),
 }));
 
@@ -39,7 +56,16 @@ vi.mock("./queries", () => ({
 vi.mock("./connected-import", () => ({
   cancelConnectedImport: mocks.cancelConnectedImport,
   connectConnectedImport: mocks.connectConnectedImport,
+  connectNangoImport: mocks.connectNangoImport,
   disconnectConnectedImport: mocks.disconnectConnectedImport,
+  disconnectNangoImport: mocks.disconnectNangoImport,
+  isDirectMeetingImport: (provider: { directImport?: string }) =>
+    Boolean(provider.directImport),
+  isNangoMeetingImport: (provider: { directImport?: string }) =>
+    provider.directImport === "nango-oauth",
+  nangoConnectionIsReady: (
+    connection: { status?: string | null } | undefined,
+  ) => Boolean(connection) && connection?.status !== "reconnect_required",
   connectedImportCredentialsQueryKey: (providerId: string) => [
     "meeting-import",
     providerId,
@@ -60,6 +86,26 @@ vi.mock("./connected-import", () => ({
     enabled: boolean,
   ) => ({
     queryKey: ["meeting-import", provider.id, "sync"],
+    queryFn: async () => ({
+      result: {
+        discovered: 0,
+        imported: 0,
+        matched: 0,
+        conflicts: 0,
+        errors: 0,
+      },
+      warnings: [],
+    }),
+    enabled,
+    retry: false,
+  }),
+  nangoImportSyncQueryOptions: (
+    provider: { id: string },
+    connectionId: string | undefined,
+    _headers: Record<string, string> | null,
+    enabled: boolean,
+  ) => ({
+    queryKey: ["meeting-import", provider.id, "sync", connectionId],
     queryFn: async () => ({
       result: {
         discovered: 0,
@@ -116,7 +162,12 @@ describe("MeetingImportScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.signedIn = true;
+    mocks.connections = [];
     mocks.cancelConnectedImport.mockResolvedValue(true);
+    mocks.connectNangoImport.mockResolvedValue({
+      connection_id: "zoom-1",
+      integration_id: "zoom",
+    });
     mocks.signIn.mockResolvedValue(undefined);
   });
 
@@ -148,17 +199,17 @@ describe("MeetingImportScreen", () => {
     expect(screen.queryByText("Export help")).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "Connect & import" }),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(screen.getAllByRole("button", { name: "Use files" })).toHaveLength(
-      2,
+      3,
     );
     expect(screen.queryByRole("menuitem", { name: "Use files" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "Choose files" }),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
     expect(
       screen.getAllByText(/keep new meetings coming in while you switch/i),
-    ).toHaveLength(2);
+    ).toHaveLength(3);
     expect(
       container.querySelectorAll('img[src^="data:image/png;base64,"]'),
     ).toHaveLength(5);
@@ -263,6 +314,27 @@ describe("MeetingImportScreen", () => {
     await waitFor(() => {
       expect(mocks.connectConnectedImport).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("connects Zoom through Nango OAuth instead of file-only import", async () => {
+    mockDetected(["zoom"]);
+
+    renderImports();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Connect & import" }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.connectNangoImport).toHaveBeenCalledOnce();
+    });
+    expect(mocks.connectConnectedImport).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/keep new meetings coming in while you switch/i),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(/Direct connection is not available yet/i),
+    ).toBeNull();
   });
 
   it("shows the empty state when nothing is detected", async () => {

@@ -5,7 +5,8 @@ export type MeetingImportProvider = {
   name: string;
   access: "API" | "CLI" | "Export" | "MCP" | "OAuth" | "Webhook";
   helpUrl: string;
-  directImport?: "mcp-oauth";
+  directImport?: "mcp-oauth" | "nango-oauth";
+  nangoIntegrationId?: string;
   nativeNames?: string[];
   bundleIds?: string[];
 };
@@ -169,6 +170,8 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     name: "Zoom",
     access: "OAuth",
     helpUrl: "https://developers.zoom.us/docs/api/meetings/",
+    directImport: "nango-oauth",
+    nangoIntegrationId: "zoom",
     nativeNames: ["zoom.us", "Zoom", "Zoom Workplace"],
     bundleIds: ["us.zoom.xos"],
   },

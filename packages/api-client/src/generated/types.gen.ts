@@ -1910,6 +1910,22 @@ export type WorkspaceE2EeKeyRecipient = {
     userId: string;
 };
 
+export type ZoomImportMeetingsRequest = {
+    connection_id: string;
+    known_meeting_ids?: Array<string>;
+};
+
+export type ZoomImportMeetingsResponse = {
+    files: Array<ZoomImportTextFile>;
+    warnings: Array<string>;
+};
+
+export type ZoomImportTextFile = {
+    content: string;
+    name: string;
+    path: string;
+};
+
 export type GoogleAttendee = {
     additionalGuests?: number | null;
     comment?: string | null;
@@ -5162,3 +5178,30 @@ export type PublishSnapshotResponses = {
 };
 
 export type PublishSnapshotResponse = PublishSnapshotResponses[keyof PublishSnapshotResponses];
+
+export type ZoomImportMeetingsData = {
+    body: ZoomImportMeetingsRequest;
+    path?: never;
+    query?: never;
+    url: '/zoom/import-meetings';
+};
+
+export type ZoomImportMeetingsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type ZoomImportMeetingsResponses = {
+    /**
+     * Zoom meetings fetched for import
+     */
+    200: ZoomImportMeetingsResponse;
+};
+
+export type ZoomImportMeetingsResponse2 = ZoomImportMeetingsResponses[keyof ZoomImportMeetingsResponses];
