@@ -17,6 +17,11 @@ import { ApiKeysSection } from "./-account-api-keys";
 import { DangerAreaSection } from "./-account-danger";
 import { DevicesSection } from "./-account-devices";
 import { IntegrationsSection } from "./-account-integrations";
+import {
+  AccountNav,
+  ACCOUNT_SECTIONS,
+  useActiveAccountSection,
+} from "./-account-nav";
 import { PlanSection } from "./-account-plan";
 import { ProfileInfoSection } from "./-account-profile-info";
 import { ReferralSection } from "./-account-referrals";
@@ -47,6 +52,7 @@ function Component() {
   const search = Route.useSearch();
   const { identify: identifyPosthog, track } = useAnalytics();
   const queryClient = useQueryClient();
+  const activeSectionId = useActiveAccountSection();
 
   useEffect(() => {
     if (!search.success && search.trial !== "started") {
@@ -103,7 +109,7 @@ function Component() {
 
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 pt-10 pb-16 md:px-8 md:pt-12 md:pb-24">
+      <div className="mx-auto w-full max-w-[700px] px-5 pt-10 pb-16 md:px-8 md:pt-12 md:pb-24 lg:max-w-[980px]">
         <Link to="/" aria-label="Anarlog home" className="inline-flex">
           <AnarlogLogo className="h-8 w-auto" />
         </Link>
@@ -120,89 +126,69 @@ function Component() {
           </h1>
         </header>
 
-        <div className="mt-14 flex flex-col gap-14 md:mt-16">
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Profile
-            </h2>
-            <div className="mt-6">
+        <div className="isolate mt-10 grid items-start gap-8 md:mt-12 lg:mt-16 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-x-12 lg:gap-y-0">
+          <div className="sticky top-0 z-10 -mx-5 border-b border-[#ede7dc] bg-white py-3 md:-mx-8 lg:top-10 lg:mx-0 lg:border-0 lg:bg-transparent lg:py-0">
+            <AccountNav activeId={activeSectionId} />
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-14">
+            <AccountSection id="profile">
               <ProfileInfoSection email={user?.email} />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section id="referrals" className="scroll-mt-8">
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Refer friends
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="referrals">
               <ReferralSection ineligible={search.referral === "ineligible"} />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Your plan
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="plan">
               <PlanSection perk={search.perk} />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Integrations
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="integrations">
               <IntegrationsSection />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Synced devices
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="devices">
               <DevicesSection />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Shared notes
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="shares">
               <SharedNotesSection />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Cloud API keys
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="api-keys">
               <ApiKeysSection />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Session controls
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="session">
               <AccountAccessSection />
-            </div>
-          </section>
+            </AccountSection>
 
-          <section>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Danger area
-            </h2>
-            <div className="mt-6">
+            <AccountSection id="danger">
               <DangerAreaSection />
-            </div>
-          </section>
+            </AccountSection>
+          </div>
         </div>
       </div>
     </main>
+  );
+}
+
+function AccountSection({
+  id,
+  children,
+}: {
+  id: (typeof ACCOUNT_SECTIONS)[number]["id"];
+  children: React.ReactNode;
+}) {
+  const title = ACCOUNT_SECTIONS.find((section) => section.id === id)?.label;
+
+  return (
+    <section id={id} className="scroll-mt-20 lg:scroll-mt-10">
+      <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+        {title}
+      </h2>
+      <div className="mt-6">{children}</div>
+    </section>
   );
 }
