@@ -44,6 +44,7 @@ import {
   nangoImportSyncQueryOptions,
 } from "./connected-import";
 import { detectImportSources } from "./detection";
+import { providerIconSrc } from "./icons";
 import type {
   DetectedMeetingImportProvider,
   MeetingImportProvider,
@@ -74,10 +75,9 @@ function ProviderIcon({
 }: {
   provider: DetectedMeetingImportProvider;
 }) {
-  if (provider.iconUrl) {
-    return (
-      <img src={provider.iconUrl} alt="" className="size-8 object-contain" />
-    );
+  const src = providerIconSrc(provider);
+  if (src) {
+    return <img src={src} alt="" className="size-8 object-contain" />;
   }
 
   return (

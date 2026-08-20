@@ -449,12 +449,14 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
     case "zoom":
       return {
         name: "Zoom",
-        icon: <img src="/assets/zoom.png" alt="" width={18} height={18} />,
+        icon: <img src="/assets/zoom-icon.svg" alt="" width={18} height={18} />,
       };
     case "google-meet":
       return {
         name: "Meet",
-        icon: <img src="/assets/meet.png" alt="" width={18} height={18} />,
+        icon: (
+          <img src="/assets/google-meet.svg" alt="" width={18} height={18} />
+        ),
       };
     case "webex":
       return {

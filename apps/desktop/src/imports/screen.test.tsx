@@ -214,7 +214,47 @@ describe("MeetingImportScreen", () => {
     ).toHaveLength(3);
     expect(
       container.querySelectorAll('img[src^="data:image/png;base64,"]'),
-    ).toHaveLength(5);
+    ).toHaveLength(4);
+    expect(
+      container.querySelector('img[src="/assets/zoom-icon.svg"]'),
+    ).toBeTruthy();
+    expect(container.querySelector("iconify-icon")).toBeNull();
+  });
+
+  it("uses official Meet and Zoom marks instead of a letter or wordmark", async () => {
+    mocks.detectImportSources.mockResolvedValue([
+      {
+        ...MEETING_IMPORT_PROVIDERS.find(
+          (provider) => provider.id === "google-meet",
+        )!,
+        installedAppId: "google-meet",
+      },
+      {
+        ...MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "zoom")!,
+        installedAppId: "us.zoom.xos",
+        iconUrl: "data:image/png;base64,zoom-wordmark",
+      },
+      {
+        ...MEETING_IMPORT_PROVIDERS.find(
+          (provider) => provider.id === "granola",
+        )!,
+        installedAppId: "com.granola.app",
+        iconUrl: "data:image/png;base64,granola",
+      },
+    ]);
+
+    const { container } = renderImports();
+
+    expect(await screen.findByText("Google Meet")).toBeTruthy();
+    expect(
+      container.querySelector('img[src="/assets/google-meet.svg"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('img[src="/assets/zoom-icon.svg"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelector('img[src="data:image/png;base64,granola"]'),
+    ).toBeTruthy();
     expect(container.querySelector("iconify-icon")).toBeNull();
   });
 

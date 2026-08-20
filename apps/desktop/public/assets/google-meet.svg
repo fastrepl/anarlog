@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 176 176">
+  <g transform="translate(0 19)">
+    <path
+      fill="url(#meetLens)"
+      d="M102.015 81.88c-6.829-4.718-6.921-14.778-.179-19.62L157 22.643c7.94-5.701 19-.038 19 9.737v77.755c0 9.675-10.861 15.359-18.821 9.859z"
+    />
+    <path
+      fill="url(#meetBody)"
+      d="M0 44C0 19.7 19.7 0 44 0h64c11.046 0 20 8.954 20 20v98c0 11.046-8.954 20-20 20H20c-11.046 0-20-8.954-20-20z"
+    />
+    <mask
+      id="meetGlowMask"
+      width="129"
+      height="138"
+      x="8"
+      y="27"
+      maskUnits="userSpaceOnUse"
+    >
+      <path
+        fill="#fff"
+        d="M8 71c0-24.3 19.7-44 44-44h64c11.046 0 20 8.954 20 20v98c0 11.046-8.954 20-20 20H28c-11.046 0-20-8.954-20-20z"
+      />
+    </mask>
+    <g filter="url(#meetGlow)" mask="url(#meetGlowMask)" transform="translate(-8 -27)">
+      <path fill="url(#meetHighlight)" d="M73.906 99.198 183.906 36v124z" />
+    </g>
+    <circle cx="30" cy="108" r="14" fill="#fff" />
+  </g>
+  <defs>
+    <linearGradient
+      id="meetLens"
+      x1="128.8"
+      x2="227.2"
+      y1="104.44"
+      y2="104.44"
+      gradientTransform="translate(-8 -27)"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop stop-color="#f6a100" />
+      <stop offset="1" stop-color="#ffbe00" />
+    </linearGradient>
+    <linearGradient
+      id="meetHighlight"
+      x1="136.22"
+      x2="78.5"
+      y1="91.32"
+      y2="91.19"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop offset=".15" stop-color="#ffb5e8" />
+      <stop offset="1" stop-color="#ffdbf5" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient
+      id="meetBody"
+      cx="0"
+      cy="0"
+      r="1"
+      gradientTransform="matrix(-159.725 0 0 -135.852 152.325 69)"
+      gradientUnits="userSpaceOnUse"
+    >
+      <stop offset=".15" stop-color="#ffe921" />
+      <stop offset="1" stop-color="#fec700" />
+    </radialGradient>
+    <filter
+      id="meetGlow"
+      width="166"
+      height="180"
+      x="45.91"
+      y="8"
+      color-interpolation-filters="sRGB"
+      filterUnits="userSpaceOnUse"
+    >
+      <feFlood flood-opacity="0" result="BackgroundImageFix" />
+      <feBlend in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+      <feGaussianBlur stdDeviation="14" />
+    </filter>
+  </defs>
+</svg>
