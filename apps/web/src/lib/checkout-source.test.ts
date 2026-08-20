@@ -8,6 +8,7 @@ import {
 
 test("keeps mobile checkout attribution through validation", () => {
   assert.equal(checkoutSourceSchema.parse("mobile"), "mobile");
+  assert.equal(checkoutSourceSchema.parse("yc_perk"), "yc_perk");
   assert.equal(
     checkoutSourceSchema.catch("unknown").parse("invalid"),
     "unknown",

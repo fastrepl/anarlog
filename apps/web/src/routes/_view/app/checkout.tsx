@@ -20,6 +20,12 @@ const validateSearch = z.object({
     .transform((value) => value === "true"),
   source: checkoutSourceSchema.catch("unknown"),
   return_to: z.string().optional(),
+  code: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .transform((value) => (value ? value : undefined)),
 });
 
 export const Route = createFileRoute("/_view/app/checkout")({
@@ -36,6 +42,7 @@ export const Route = createFileRoute("/_view/app/checkout")({
           trial: search.trial,
           source: search.source,
           returnTo,
+          code: search.code,
         },
       }));
     } catch (e) {

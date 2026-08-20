@@ -6,6 +6,7 @@ export const checkoutSourceSchema = z.enum([
   "trial_ended",
   "feature_gate",
   "mobile",
+  "yc_perk",
   "unknown",
 ]);
 

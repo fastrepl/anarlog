@@ -37,6 +37,7 @@ export function getAccountPlanCopy({
   trialEnd,
   cancelAtPeriodEnd,
   currentPeriodEnd,
+  hasYcPerk = false,
 }: {
   isTrialing: boolean;
   isPaid: boolean;
@@ -46,6 +47,7 @@ export function getAccountPlanCopy({
   trialEnd: Date | null;
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: Date | null;
+  hasYcPerk?: boolean;
 }): { planLabel: string; planDetail: string } {
   const planLabel = isTrialing
     ? "Pro trial"
@@ -82,6 +84,13 @@ export function getAccountPlanCopy({
       planDetail: currentPeriodEnd
         ? `Cancels ${formatAccountPlanDate(currentPeriodEnd)}.`
         : "Cancels at the end of the billing period.",
+    };
+  }
+
+  if (hasYcPerk) {
+    return {
+      planLabel,
+      planDetail: "YC founder year is applied.",
     };
   }
 

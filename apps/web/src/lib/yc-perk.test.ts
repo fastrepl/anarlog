@@ -5,6 +5,8 @@ import {
   getYcVerificationApiUrl,
   isYcVerificationUrl,
   normalizeYcVerificationUrl,
+  parseYcPerkApplyValue,
+  validateYcPerkApplyValue,
   validateYcVerificationUrl,
   verifyYcFounder,
   ycPerkRequestSchema,
@@ -67,6 +69,30 @@ test("normalizes founder verification links", () => {
       "https://www.ycombinator.com/verify/founder-token/",
     ),
     "https://www.ycombinator.com/verify/founder-token.json",
+  );
+});
+
+test("parses YC verification links and promotion codes for account apply", () => {
+  assert.deepEqual(parseYcPerkApplyValue("  YC-0123456789abcdef01234567  "), {
+    type: "promotion_code",
+    code: "YC-0123456789ABCDEF01234567",
+  });
+  assert.deepEqual(
+    parseYcPerkApplyValue(
+      " https://ycombinator.com/verify/founder-token/?source=deal ",
+    ),
+    {
+      type: "verification_url",
+      verificationUrl: "https://www.ycombinator.com/verify/founder-token",
+    },
+  );
+  assert.equal(
+    validateYcPerkApplyValue("https://example.com/verify/founder-token"),
+    "Use your ycombinator.com/verify link",
+  );
+  assert.equal(
+    validateYcPerkApplyValue("SAVE20"),
+    "Paste your YC verification link or YC- code",
   );
 });
 

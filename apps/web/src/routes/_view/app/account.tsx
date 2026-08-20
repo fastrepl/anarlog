@@ -32,6 +32,7 @@ const validateSearch = z
     checkout_type: z.enum(["trial", "paid"]),
     source: checkoutSourceSchema,
     referral: z.enum(["ineligible"]),
+    perk: z.enum(["applied", "claimed", "invalid"]),
   })
   .partial();
 
@@ -143,7 +144,7 @@ function Component() {
               Your plan
             </h2>
             <div className="mt-6">
-              <PlanSection />
+              <PlanSection perk={search.perk} />
             </div>
           </section>
 

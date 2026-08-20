@@ -1,13 +1,14 @@
 import { ArrowUpRight, Check, CircleNotch } from "@phosphor-icons/react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 
 import { cn } from "@anlg/utils";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SiteFooter } from "@/components/site-footer";
-import { submitYcPerkRequest } from "@/functions/yc-perk";
+import { fetchUser } from "@/functions/auth";
+import { applyYcPerk, submitYcPerkRequest } from "@/functions/yc-perk";
 import { getCanonicalUrl } from "@/lib/seo";
 import { validateYcVerificationUrl, ycPerkRequestSchema } from "@/lib/yc-perk";
 
@@ -22,6 +23,7 @@ const invalidVerificationMessages = {
 
 export const Route = createFileRoute("/yc/")({
   component: YcPerkPage,
+  loader: async () => ({ user: await fetchUser() }),
   head: () => ({
     meta: [
       { title },
@@ -38,11 +40,35 @@ export const Route = createFileRoute("/yc/")({
 });
 
 function YcPerkPage() {
+  const { user } = Route.useLoaderData();
+  const navigate = useNavigate();
   const requestMutation = useMutation({
-    mutationFn: (data: {
+    mutationFn: async (data: {
       verificationUrl: string;
       additionalComments: string;
-    }) => submitYcPerkRequest({ data }),
+    }) => {
+      if (user) {
+        return applyYcPerk({ data: { value: data.verificationUrl } });
+      }
+      return submitYcPerkRequest({ data });
+    },
+    onSuccess: (result) => {
+      if (
+        result.status === "needs_checkout" &&
+        "code" in result &&
+        result.code
+      ) {
+        void navigate({
+          to: "/app/checkout/",
+          search: {
+            period: "monthly",
+            trial: "false",
+            source: "yc_perk",
+            code: result.code,
+          },
+        });
+      }
+    },
   });
   const form = useForm({
     defaultValues: {
@@ -52,17 +78,24 @@ function YcPerkPage() {
     validators: { onSubmit: ycPerkRequestSchema },
     onSubmit: ({ value }) => requestMutation.mutate(value),
   });
+  const appliedToAccount =
+    requestMutation.data?.status === "applied" ||
+    requestMutation.data?.status === "already_applied";
   const requestSucceeded =
     requestMutation.data?.status === "verified" ||
-    requestMutation.data?.status === "submitted";
+    requestMutation.data?.status === "submitted" ||
+    appliedToAccount;
   const invalidVerificationMessage =
     requestMutation.data?.status === "invalid"
       ? invalidVerificationMessages[requestMutation.data.reason]
       : undefined;
   const requestErrorMessage =
-    requestMutation.data?.status === "already_claimed"
+    requestMutation.data?.status === "already_claimed" ||
+    requestMutation.data?.status === "claimed"
       ? "This perk has already been claimed."
-      : invalidVerificationMessage;
+      : requestMutation.data?.status === "invalid_code"
+        ? "This YC code is not valid."
+        : invalidVerificationMessage;
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-[#181613]">
@@ -107,8 +140,18 @@ function YcPerkPage() {
                   You’re verified.
                 </h2>
                 <p className="mt-2 text-base leading-7 text-[#4f4940]">
-                  We sent your Pro code to your YC email.
+                  {appliedToAccount
+                    ? "Your YC year is on this account."
+                    : "We sent your Pro code to your YC email."}
                 </p>
+                {appliedToAccount ? (
+                  <Link
+                    to="/app/account/"
+                    className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[#181613] px-5 text-sm font-medium text-white transition-colors hover:bg-[#363029]"
+                  >
+                    View account
+                  </Link>
+                ) : null}
               </div>
             ) : (
               <form

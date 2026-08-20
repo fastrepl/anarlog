@@ -2,14 +2,25 @@ import { createServerFn } from "@tanstack/react-start";
 import { createHash } from "node:crypto";
 
 import { env, requireEnv } from "@/env";
+import { getStripeCustomerIdForUser } from "@/functions/billing";
 import { getStripeClient } from "@/functions/stripe";
-import { getSupabaseAdminClient } from "@/functions/supabase";
+import {
+  getSupabaseAdminClient,
+  getSupabaseServerClient,
+} from "@/functions/supabase";
 import { sendLoopsEvent, sendLoopsTransactional } from "@/lib/loops";
 import {
   normalizeYcVerificationUrl,
+  parseYcPerkApplyValue,
   verifyYcFounder,
+  ycPerkApplyInputSchema,
   ycPerkRequestSchema,
 } from "@/lib/yc-perk";
+import {
+  applyYcPromotionToCustomer,
+  findYcPromotionCodeByCustomerCode,
+  isYcPromotionAvailable,
+} from "@/lib/yc-perk-apply";
 import {
   createYcPromotionCode,
   getOrCreateYcPromotionCode,
@@ -100,4 +111,74 @@ export const submitYcPerkRequest = createServerFn({ method: "POST" })
     }
 
     return { status: "verified" as const };
+  });
+
+export const applyYcPerk = createServerFn({ method: "POST" })
+  .inputValidator(ycPerkApplyInputSchema)
+  .handler(async ({ data }) => {
+    const parsed = parseYcPerkApplyValue(data.value);
+    if (parsed.type === "invalid") {
+      return { status: "invalid_input" as const, message: parsed.message };
+    }
+
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.id || user.is_anonymous) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+    let promotion: {
+      id: string;
+      code: string;
+      active: boolean;
+      max_redemptions: number | null;
+      times_redeemed: number;
+    } | null = null;
+
+    if (parsed.type === "verification_url") {
+      const verification = await verifyYcFounder({
+        verificationUrl: parsed.verificationUrl,
+      });
+      if (verification.status === "invalid") {
+        return verification;
+      }
+
+      const claimId = getYcPerkClaimId(verification.email);
+      const promotionCode = await getOrCreateYcPerkClaimCode(claimId);
+      promotion = await getOrCreateYcPromotionCode({
+        stripe,
+        claimId,
+        code: promotionCode,
+      });
+    } else {
+      promotion = await findYcPromotionCodeByCustomerCode(stripe, parsed.code);
+      if (!promotion) {
+        return { status: "invalid_code" as const };
+      }
+    }
+
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      user,
+    );
+    if (!stripeCustomerId) {
+      if (!isYcPromotionAvailable(promotion)) {
+        return { status: "claimed" as const };
+      }
+      return { status: "needs_checkout" as const, code: promotion.code };
+    }
+
+    const result = await applyYcPromotionToCustomer({
+      stripe,
+      customerId: stripeCustomerId,
+      promotion,
+    });
+    if (result.status === "needs_checkout") {
+      return { status: "needs_checkout" as const, code: promotion.code };
+    }
+    return result;
   });

@@ -29,6 +29,7 @@ test("reuses an existing promotion code", async () => {
       list: async () => ({
         data: [
           {
+            id: "promo_existing",
             active: true,
             code: "YC-EXISTING",
             max_redemptions: 1,
@@ -39,14 +40,21 @@ test("reuses an existing promotion code", async () => {
       }),
       create: async () => {
         creates += 1;
-        return { code: "YC-NEW" };
+        return { id: "promo_new", code: "YC-NEW" };
       },
     },
   } as unknown as Stripe;
 
   assert.deepEqual(
     await getOrCreateYcPromotionCode({ stripe, claimId, code }),
-    { status: "available", code: "YC-EXISTING" },
+    {
+      status: "available",
+      id: "promo_existing",
+      code: "YC-EXISTING",
+      active: true,
+      max_redemptions: 1,
+      times_redeemed: 0,
+    },
   );
   assert.equal(creates, 0);
 });
@@ -57,6 +65,7 @@ test("reports an existing redeemed promotion code as claimed", async () => {
       list: async () => ({
         data: [
           {
+            id: "promo_claimed",
             active: false,
             code: "YC-CLAIMED",
             max_redemptions: 1,
@@ -70,7 +79,14 @@ test("reports an existing redeemed promotion code as claimed", async () => {
 
   assert.deepEqual(
     await getOrCreateYcPromotionCode({ stripe, claimId, code }),
-    { status: "claimed" },
+    {
+      status: "claimed",
+      id: "promo_claimed",
+      code: "YC-CLAIMED",
+      active: false,
+      max_redemptions: 1,
+      times_redeemed: 1,
+    },
   );
 });
 
@@ -81,14 +97,27 @@ test("creates a single-use promotion code for the one-year YC coupon", async () 
       list: async () => ({ data: [] }),
       create: async (params: unknown, options: unknown) => {
         calls.push({ params, options });
-        return { code };
+        return {
+          id: "promo_created",
+          code,
+          active: true,
+          max_redemptions: 1,
+          times_redeemed: 0,
+        };
       },
     },
   } as unknown as Stripe;
 
   assert.deepEqual(
     await getOrCreateYcPromotionCode({ stripe, claimId, code }),
-    { status: "available", code },
+    {
+      status: "available",
+      id: "promo_created",
+      code,
+      active: true,
+      max_redemptions: 1,
+      times_redeemed: 0,
+    },
   );
   assert.deepEqual(calls, [
     {

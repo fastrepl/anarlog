@@ -34,6 +34,64 @@ export type YcFounderVerificationResult =
       reason: "not_verified" | "email_missing";
     };
 
+export function isYcPromotionCode(value: string) {
+  return /^YC-[A-F0-9]{24}$/i.test(value.trim());
+}
+
+export function normalizeYcPromotionCode(value: string) {
+  return value.trim().toUpperCase();
+}
+
+export type YcPerkApplyValue =
+  | { type: "verification_url"; verificationUrl: string }
+  | { type: "promotion_code"; code: string }
+  | { type: "invalid"; message: string };
+
+export const ycPerkApplyInputSchema = z.object({
+  value: z
+    .string()
+    .trim()
+    .min(1, "Paste your YC verification link or YC- code")
+    .max(2_048),
+});
+
+export function parseYcPerkApplyValue(value: string): YcPerkApplyValue {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return {
+      type: "invalid",
+      message: "Paste your YC verification link or YC- code",
+    };
+  }
+
+  if (isYcPromotionCode(trimmed)) {
+    return { type: "promotion_code", code: normalizeYcPromotionCode(trimmed) };
+  }
+
+  if (/^https?:\/\//i.test(trimmed) || trimmed.includes("ycombinator.com")) {
+    if (!isYcVerificationUrl(trimmed)) {
+      return {
+        type: "invalid",
+        message: "Use your ycombinator.com/verify link",
+      };
+    }
+    return {
+      type: "verification_url",
+      verificationUrl: normalizeYcVerificationUrl(trimmed),
+    };
+  }
+
+  return {
+    type: "invalid",
+    message: "Paste your YC verification link or YC- code",
+  };
+}
+
+export function validateYcPerkApplyValue(value: string) {
+  const parsed = parseYcPerkApplyValue(value);
+  return parsed.type === "invalid" ? parsed.message : undefined;
+}
+
 export function isYcVerificationUrl(value: string) {
   try {
     const url = new URL(value.trim());

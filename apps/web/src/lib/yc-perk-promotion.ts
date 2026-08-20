@@ -22,12 +22,23 @@ export async function getOrCreateYcPromotionCode({
 }) {
   const findPromotionCode = async () =>
     (await stripe.promotionCodes.list({ code, limit: 1 })).data[0];
+  const toPromotionResult = (
+    promotion: Stripe.PromotionCode,
+    status: "available" | "claimed",
+  ) => ({
+    status,
+    id: promotion.id,
+    code: promotion.code,
+    active: promotion.active,
+    max_redemptions: promotion.max_redemptions,
+    times_redeemed: promotion.times_redeemed,
+  });
   const getExistingPromotion = (promotion: Stripe.PromotionCode) =>
     !promotion.active ||
     (promotion.max_redemptions !== null &&
       promotion.times_redeemed >= promotion.max_redemptions)
-      ? ({ status: "claimed" } as const)
-      : ({ status: "available", code: promotion.code } as const);
+      ? toPromotionResult(promotion, "claimed")
+      : toPromotionResult(promotion, "available");
 
   const existingPromotion = await findPromotionCode();
   if (existingPromotion) {
@@ -50,7 +61,7 @@ export async function getOrCreateYcPromotionCode({
       },
       { idempotencyKey: `yc-perk-promotion:${claimId}` },
     );
-    return { status: "available", code: promotionCode.code } as const;
+    return toPromotionResult(promotionCode, "available");
   } catch (error) {
     const concurrentPromotion = await findPromotionCode();
     if (concurrentPromotion) {

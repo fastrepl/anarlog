@@ -63,6 +63,24 @@ test("paid copy acknowledges a scheduled cancellation", () => {
   );
 });
 
+test("paid copy names the YC founder year when that perk is on the subscription", () => {
+  assert.deepEqual(
+    getAccountPlanCopy({
+      isTrialing: false,
+      isPaid: true,
+      trialDaysRemaining: null,
+      trialEnd: null,
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: new Date("2026-09-17T00:00:00.000Z"),
+      hasYcPerk: true,
+    }),
+    {
+      planLabel: "Pro",
+      planDetail: "YC founder year is applied.",
+    },
+  );
+});
+
 test("paid copy stays supportive when the subscription is not canceling", () => {
   assert.deepEqual(
     getAccountPlanCopy({
