@@ -6,6 +6,8 @@ use std::sync::{
 use tauri::async_runtime::JoinHandle;
 #[cfg(target_os = "macos")]
 use tauri::menu::{HELP_SUBMENU_ID, Submenu, WINDOW_SUBMENU_ID};
+#[cfg(target_os = "macos")]
+use tauri::tray::{MouseButtonState, TrayIconEvent};
 use tauri::{
     AppHandle, Result,
     image::Image,
@@ -21,10 +23,11 @@ use crate::{
     tray_icon::{RECORDING_FRAMES, TrayIconState},
 };
 
+#[cfg(target_os = "macos")]
+use crate::menu_items::{AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, TrayQuit};
 use crate::menu_items::{
-    AppInfo, AppNew, HelpReportBug, HelpSuggestFeature, MenuItemHandler, TrayCheckUpdate, TrayHide,
-    TrayOpen, TrayQuit, TrayQuitCompletely, TraySettings, TrayShowEvents, TrayStart, TrayVersion,
-    build_agenda_item,
+    MenuItemHandler, TrayCheckUpdate, TrayHide, TrayOpen, TrayQuitCompletely, TraySettings,
+    TrayShowEvents, TrayStart, TrayVersion, build_agenda_item,
 };
 use tauri_plugin_store2::Store2PluginExt;
 
@@ -41,6 +44,11 @@ static SCHEDULE_TASK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 static MENU_BAR_TITLE: Mutex<Option<String>> = Mutex::new(None);
 static RECORDING_TITLE: Mutex<Option<String>> = Mutex::new(None);
 static AGENDA_SECTIONS: Mutex<Vec<TrayAgendaSection>> = Mutex::new(Vec::new());
+// muda 0.17 stores a raw MenuChild pointer on each NSMenuItem. Replacing the
+// tray menu while it is still visible frees those items and crashes on click
+// (HYPRNOTE2-2MTS). Defer set_menu until the next tray mouse-down instead.
+#[cfg(target_os = "macos")]
+static MENU_DIRTY: AtomicBool = AtomicBool::new(false);
 
 #[cfg(target_os = "macos")]
 pub fn build_app_menu(app: &AppHandle<tauri::Wry>) -> Result<Menu<tauri::Wry>> {
@@ -167,12 +175,27 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         let menu = Self::build_tray_menu(app, &agenda)?;
         *AGENDA_SECTIONS.lock().unwrap() = agenda;
 
-        TrayIconBuilder::with_id(TRAY_ID)
+        let builder = TrayIconBuilder::with_id(TRAY_ID)
             .icon(TrayIconState::Default.to_image()?)
             .icon_as_template(true)
             .menu(&menu)
-            .show_menu_on_left_click(true)
-            .build(app)?;
+            .show_menu_on_left_click(true);
+        #[cfg(target_os = "macos")]
+        let builder = {
+            let app = app.clone();
+            builder.on_tray_icon_event(move |_tray, event| {
+                if let TrayIconEvent::Click {
+                    button_state: MouseButtonState::Down,
+                    ..
+                } = event
+                {
+                    let _ = Self::apply_pending_menu(&app);
+                }
+            })
+        };
+        builder.build(app)?;
+        #[cfg(target_os = "macos")]
+        MENU_DIRTY.store(false, Ordering::SeqCst);
 
         Self::refresh_menu_bar_title(app)?;
 
@@ -357,11 +380,31 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
     }
 
     fn rebuild_menu(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        #[cfg(target_os = "macos")]
+        {
+            MENU_DIRTY.store(true, Ordering::SeqCst);
+            Ok(())
+        }
+        #[cfg(not(target_os = "macos"))]
+        Self::install_menu(app)
+    }
+
+    fn install_menu(app: &AppHandle<tauri::Wry>) -> Result<()> {
         let agenda = Self::current_agenda_sections();
         if let Some(tray) = app.tray_by_id(TRAY_ID) {
             tray.set_menu(Some(Self::build_tray_menu(app, &agenda)?))?;
         }
         *AGENDA_SECTIONS.lock().unwrap() = agenda;
+        #[cfg(target_os = "macos")]
+        MENU_DIRTY.store(false, Ordering::SeqCst);
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    fn apply_pending_menu(app: &AppHandle<tauri::Wry>) -> Result<()> {
+        while MENU_DIRTY.swap(false, Ordering::SeqCst) {
+            Self::install_menu(app)?;
+        }
         Ok(())
     }
 
@@ -371,11 +414,15 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
             return Ok(());
         }
 
-        if let Some(tray) = app.tray_by_id(TRAY_ID) {
-            tray.set_menu(Some(Self::build_tray_menu(app, &agenda)?))?;
+        #[cfg(target_os = "macos")]
+        {
+            *AGENDA_SECTIONS.lock().unwrap() = agenda;
+            MENU_DIRTY.store(true, Ordering::SeqCst);
+            return Ok(());
         }
-        *AGENDA_SECTIONS.lock().unwrap() = agenda;
-        Ok(())
+
+        #[cfg(not(target_os = "macos"))]
+        Self::install_menu(app)
     }
 
     fn restart_schedule_task(app: &AppHandle<tauri::Wry>) {
