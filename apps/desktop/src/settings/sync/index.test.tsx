@@ -282,6 +282,45 @@ describe("SettingsSync", () => {
     });
   });
 
+  it("shows this-device as a chip and disconnects other devices", async () => {
+    mocks.requestSyncDevices.mockResolvedValue({
+      devices: [
+        {
+          deviceFingerprint: "current-device",
+          deviceName: "Johns-M4-Max.local",
+          createdAt: "2026-08-20T00:00:00Z",
+          lastSeenAt: "2026-08-20T00:00:00Z",
+        },
+        {
+          deviceFingerprint: "other-device",
+          deviceName: null,
+          createdAt: "2026-08-18T00:00:00Z",
+          lastSeenAt: "2026-08-18T00:00:00Z",
+        },
+      ],
+      pendingDevices: [],
+      maxDevices: 5,
+    });
+    renderSettings();
+
+    expect(await screen.findByText("Johns-M4-Max.local")).toBeTruthy();
+    const thisDevice = screen.getByText("This device");
+    expect(thisDevice.className).toContain("rounded-full");
+    expect(screen.queryByText(/· This device/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove device" })).toBeNull();
+
+    const disconnect = screen.getByRole("button", { name: "Disconnect" });
+    expect(disconnect.className).toContain("text-destructive");
+    fireEvent.click(disconnect);
+
+    await vi.waitFor(() =>
+      expect(mocks.removeSyncDevice).toHaveBeenCalledWith(
+        "token",
+        "other-device",
+      ),
+    );
+  });
+
   it("replaces an active device when the device limit is reached", async () => {
     mocks.credentialBlock = "device_limit";
     mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: false });

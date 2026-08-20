@@ -6,10 +6,10 @@ import {
   CircleNotch,
   CloudSlash,
   Devices,
+  Plugs,
   Plus,
   Shield,
   ShieldCheck,
-  Trash,
   Warning,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,7 @@ import {
 import type { CloudsyncActivityEntry } from "@anlg/plugin-db";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { commands as settingsCommands } from "@anlg/plugin-settings";
+import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,
@@ -76,6 +77,57 @@ async function readE2eeIdentityStatus(accountUserId: string) {
   } catch (error) {
     throw error instanceof Error ? error : new Error(String(error));
   }
+}
+
+function DeviceTitle({
+  name,
+  current,
+}: {
+  name: string | null;
+  current: boolean;
+}) {
+  const { t } = useLingui();
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <p className="truncate text-sm font-medium">
+        {name || t`Unnamed device`}
+      </p>
+      {current ? (
+        <Badge variant="secondary" size="sm" className="shrink-0">
+          <Trans>This device</Trans>
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
+function DisconnectDeviceButton({
+  fingerprint,
+  isPending,
+  pendingFingerprint,
+  onDisconnect,
+}: {
+  fingerprint: string;
+  isPending: boolean;
+  pendingFingerprint?: string;
+  onDisconnect: (fingerprint: string) => void;
+}) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+      disabled={isPending}
+      onClick={() => onDisconnect(fingerprint)}
+    >
+      {isPending && pendingFingerprint === fingerprint ? (
+        <CircleNotch className="size-3.5 animate-spin" />
+      ) : (
+        <Plugs className="size-3.5" />
+      )}
+      <Trans>Disconnect</Trans>
+    </Button>
+  );
 }
 
 function formatSyncBytes(bytes: number) {
@@ -810,10 +862,7 @@ export function SettingsSync() {
               >
                 <Devices className="text-muted-foreground size-4 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {device.deviceName || t`Unnamed device`}
-                    {current ? ` · ${t`This device`}` : ""}
-                  </p>
+                  <DeviceTitle name={device.deviceName} current={current} />
                   <p className="text-muted-foreground text-[11px]">{t`Last seen ${formatDistanceToNow(new Date(device.lastSeenAt))}`}</p>
                 </div>
                 {!current && (
@@ -836,17 +885,12 @@ export function SettingsSync() {
                       </Button>
                     )}
                     {credentialBlock !== "device_limit" && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t`Remove device`}
-                        disabled={removeDeviceMutation.isPending}
-                        onClick={() =>
-                          removeDeviceMutation.mutate(device.deviceFingerprint)
-                        }
-                      >
-                        <Trash className="size-3.5" />
-                      </Button>
+                      <DisconnectDeviceButton
+                        fingerprint={device.deviceFingerprint}
+                        isPending={removeDeviceMutation.isPending}
+                        pendingFingerprint={removeDeviceMutation.variables}
+                        onDisconnect={removeDeviceMutation.mutate}
+                      />
                     )}
                   </>
                 )}
@@ -864,10 +908,7 @@ export function SettingsSync() {
               >
                 <Devices className="text-muted-foreground size-4 shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {device.deviceName || t`Unnamed device`}
-                    {current ? ` · ${t`This device`}` : ""}
-                  </p>
+                  <DeviceTitle name={device.deviceName} current={current} />
                   <p className="text-muted-foreground text-[11px]">
                     {device.status === "sealed"
                       ? t`Approved — waiting for this device to finish`
@@ -905,17 +946,12 @@ export function SettingsSync() {
                   </span>
                 )}
                 {!current && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t`Remove pending device`}
-                    disabled={removeDeviceMutation.isPending}
-                    onClick={() =>
-                      removeDeviceMutation.mutate(device.deviceFingerprint)
-                    }
-                  >
-                    <Trash className="size-3.5" />
-                  </Button>
+                  <DisconnectDeviceButton
+                    fingerprint={device.deviceFingerprint}
+                    isPending={removeDeviceMutation.isPending}
+                    pendingFingerprint={removeDeviceMutation.variables}
+                    onDisconnect={removeDeviceMutation.mutate}
+                  />
                 )}
               </div>
             );
