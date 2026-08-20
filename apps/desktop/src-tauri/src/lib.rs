@@ -75,6 +75,22 @@ fn start_minidump_reporting(
     }
 }
 
+fn run_crash_reporter_process() -> ! {
+    let client = sentry::init(sentry::ClientOptions {
+        dsn: option_env!("SENTRY_DSN")
+            .filter(|_| std::env::var_os("ANARLOG_DISABLE_SENTRY").is_none())
+            .and_then(|dsn| dsn.parse().ok()),
+        release: option_env!("APP_VERSION").map(|v| format!("anarlog-desktop@{}", v).into()),
+        auto_session_tracking: false,
+        before_send: Some(Arc::new(|event| {
+            tauri_plugin_tracing::redaction::sanitize_sentry_event(event)
+        })),
+        ..Default::default()
+    });
+    let _ = tauri_plugin_sentry::minidump::init(&client);
+    std::process::exit(0);
+}
+
 async fn load_crash_reporting_consent(db: &anlg_db_core::Db) -> bool {
     let rows = sqlx::query_as::<_, (String, String)>(
         "SELECT id, value_json FROM app_settings \
@@ -140,6 +156,13 @@ fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actu
 
 #[tokio::main]
 pub async fn main() {
+    // Sentry minidump reporting re-execs this binary with --crash-reporter-server.
+    // That helper must reach minidump::init instead of the launch lock, or it
+    // shows "Anarlog is already starting" on every launch and never serves dumps.
+    if startup::is_crash_reporter_process() {
+        run_crash_reporter_process();
+    }
+
     tauri::async_runtime::set(tokio::runtime::Handle::current());
     let context = tauri::generate_context!();
     let identifier = context.config().identifier.clone();

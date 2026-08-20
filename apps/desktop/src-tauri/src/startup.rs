@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 
 const LAUNCH_LOCK_FILENAME: &str = "launch.lock";
 const SLOW_STARTUP_INDICATOR_DELAY: std::time::Duration = std::time::Duration::from_secs(3);
+const CRASH_REPORTER_SERVER_ARG: &str = "--crash-reporter-server";
 
 // Startup migrations can hold the database for minutes before any window or
 // plugin exists, so single-instance semantics are enforced with an OS file
@@ -17,6 +18,14 @@ pub enum LaunchLockState {
     Acquired(LaunchLock),
     HeldByAnotherProcess,
     Unavailable(String),
+}
+
+pub fn is_crash_reporter_process() -> bool {
+    std::env::args().any(|arg| is_crash_reporter_arg(&arg))
+}
+
+fn is_crash_reporter_arg(arg: &str) -> bool {
+    arg.starts_with(CRASH_REPORTER_SERVER_ARG)
 }
 
 pub fn acquire_launch_lock(identifier: &str) -> LaunchLockState {
@@ -135,6 +144,16 @@ fn spawn_indicator_alert() -> Option<std::process::Child> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn crash_reporter_args_are_detected() {
+        assert!(is_crash_reporter_arg(
+            "--crash-reporter-server=/tmp/temp-socket-abc"
+        ));
+        assert!(is_crash_reporter_arg("--crash-reporter-server"));
+        assert!(!is_crash_reporter_arg("--background"));
+        assert!(!is_crash_reporter_arg("--crash-reporter"));
+    }
 
     #[test]
     fn launch_lock_excludes_a_second_holder_until_released() {
