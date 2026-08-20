@@ -136,12 +136,12 @@ function Component() {
               <ProfileInfoSection email={user?.email} />
             </AccountSection>
 
-            <AccountSection id="referrals">
-              <ReferralSection ineligible={search.referral === "ineligible"} />
-            </AccountSection>
-
             <AccountSection id="plan">
               <PlanSection perk={search.perk} />
+            </AccountSection>
+
+            <AccountSection id="referrals">
+              <ReferralSection ineligible={search.referral === "ineligible"} />
             </AccountSection>
 
             <AccountSection id="integrations">

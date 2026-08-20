@@ -4,8 +4,8 @@ import { cn } from "@anlg/utils";
 
 export const ACCOUNT_SECTIONS = [
   { id: "profile", label: "Profile" },
-  { id: "referrals", label: "Refer friends" },
   { id: "plan", label: "Your plan" },
+  { id: "referrals", label: "Refer friends" },
   { id: "integrations", label: "Integrations" },
   { id: "devices", label: "Synced devices" },
   { id: "shares", label: "Shared notes" },
