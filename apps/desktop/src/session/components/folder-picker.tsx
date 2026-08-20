@@ -115,74 +115,80 @@ export function FolderPicker({
           ) : null}
         </button>
       </PopoverTrigger>
-      <PopoverContent variant="app" align={align} className="w-64 p-0">
+      <PopoverContent
+        variant="app"
+        align={align}
+        className="w-85 overflow-hidden"
+      >
         <AppFloatingPanel className="overflow-hidden">
           <Command
             filter={filterFolders}
-            className="rounded-[inherit] border-0 bg-transparent"
+            className="rounded-[inherit] border-0 bg-transparent **:[[cmdk-input-wrapper]]:h-7 **:[[cmdk-input-wrapper]]:border-0 **:[[cmdk-input-wrapper]]:px-0"
           >
-            <CommandInput
-              placeholder={t`Search or create folder`}
-              value={query}
-              onValueChange={setQuery}
-            />
-            <CommandList>
-              <CommandEmpty>
-                <div className="text-muted-foreground px-2 py-1.5 text-sm">
+            <div className="flex flex-col gap-4 p-4">
+              <CommandInput
+                placeholder={t`Search or create folder`}
+                value={query}
+                onValueChange={setQuery}
+                className="h-7 py-0"
+              />
+              <div className="bg-accent h-px" />
+              <CommandList>
+                <CommandEmpty className="text-muted-foreground py-0 text-left text-sm">
                   {trimmedQuery
                     ? normalizedQuery === null
                       ? t`Enter a valid folder name.`
                       : t`No folders found.`
                     : t`No folders yet.`}
-                </div>
-              </CommandEmpty>
-              {currentPath ? (
-                <CommandGroup>
-                  <CommandItem
-                    value={`no-folder ${t`No folder`}`}
-                    onSelect={() => handleSelect("")}
-                    className="cursor-pointer"
-                  >
-                    <span className="flex-1 truncate">{t`No folder`}</span>
-                  </CommandItem>
-                </CommandGroup>
-              ) : null}
-              {currentPath && (folders.length > 0 || canCreateFolder) ? (
-                <CommandSeparator />
-              ) : null}
-              {folders.length > 0 ? (
-                <CommandGroup>
-                  {folders.map((path) => (
+                </CommandEmpty>
+                {currentPath ? (
+                  <CommandGroup>
                     <CommandItem
-                      key={path}
-                      value={path}
-                      onSelect={() => handleSelect(path)}
+                      value={`no-folder ${t`No folder`}`}
+                      onSelect={() => handleSelect("")}
                       className="cursor-pointer"
                     >
-                      <Folder className="size-4 shrink-0 opacity-70" />
-                      <span className="min-w-0 flex-1 truncate">{path}</span>
-                      {path === currentPath ? (
-                        <Check className="size-4 shrink-0" />
-                      ) : null}
+                      <span className="flex-1 truncate">{t`No folder`}</span>
                     </CommandItem>
-                  ))}
-                </CommandGroup>
-              ) : null}
-              {canCreateFolder && normalizedQuery ? (
-                <CommandGroup>
-                  <CommandItem
-                    value={`create-folder ${normalizedQuery}`}
-                    onSelect={() => handleSelect(normalizedQuery)}
-                    className="cursor-pointer"
-                  >
-                    <Plus className="size-4 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">
-                      {t`Create "${folderName}"`}
-                    </span>
-                  </CommandItem>
-                </CommandGroup>
-              ) : null}
-            </CommandList>
+                  </CommandGroup>
+                ) : null}
+                {currentPath && (folders.length > 0 || canCreateFolder) ? (
+                  <CommandSeparator />
+                ) : null}
+                {folders.length > 0 ? (
+                  <CommandGroup>
+                    {folders.map((path) => (
+                      <CommandItem
+                        key={path}
+                        value={path}
+                        onSelect={() => handleSelect(path)}
+                        className="cursor-pointer"
+                      >
+                        <Folder className="size-4 shrink-0 opacity-70" />
+                        <span className="min-w-0 flex-1 truncate">{path}</span>
+                        {path === currentPath ? (
+                          <Check className="size-4 shrink-0" />
+                        ) : null}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ) : null}
+                {canCreateFolder && normalizedQuery ? (
+                  <CommandGroup>
+                    <CommandItem
+                      value={`create-folder ${normalizedQuery}`}
+                      onSelect={() => handleSelect(normalizedQuery)}
+                      className="cursor-pointer"
+                    >
+                      <Plus className="size-4 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">
+                        {t`Create "${folderName}"`}
+                      </span>
+                    </CommandItem>
+                  </CommandGroup>
+                ) : null}
+              </CommandList>
+            </div>
           </Command>
         </AppFloatingPanel>
       </PopoverContent>
