@@ -6,6 +6,7 @@ const catalogModules = import.meta.glob<{ messages: Messages }>(
   "./locales/*/messages.ts",
 );
 const catalogCache = new Map<DisplayLocale, Promise<Messages>>();
+let createI18nGeneration = 0;
 
 export function getCatalogLocalesForDisplayLocale(
   locale: DisplayLocale,
@@ -14,8 +15,13 @@ export function getCatalogLocalesForDisplayLocale(
 }
 
 export async function createI18n(locale: DisplayLocale): Promise<I18n> {
+  const generation = ++createI18nGeneration;
   const locales = getCatalogLocalesForDisplayLocale(locale);
   const messages = await Promise.all(locales.map(loadCatalog));
+  if (generation !== createI18nGeneration) {
+    return i18n;
+  }
+
   const sourceMessages = messages[0]!;
   const activeMessages = messages[messages.length - 1]!;
 

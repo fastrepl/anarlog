@@ -21,4 +21,15 @@ describe("i18n catalogs", () => {
     expect(second.locale).toBe("ko");
     expect(first._("dEgA5A")).not.toBe("dEgA5A");
   });
+
+  it("does not let a slower catalog overwrite a newer locale", async () => {
+    const stale = createI18n("ko");
+    const latest = createI18n("ja");
+
+    await latest;
+    expect(i18n.locale).toBe("ja");
+
+    await stale;
+    expect(i18n.locale).toBe("ja");
+  });
 });
