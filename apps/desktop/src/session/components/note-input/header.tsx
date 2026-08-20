@@ -7,25 +7,15 @@ import { HeaderViewRaw } from "./header-raw";
 import { HeaderViewStop, isMeetingStopAction } from "./header-stop";
 import { HeaderViewTranscript } from "./header-transcript";
 
+import { FolderPicker } from "~/session/components/folder-picker";
 import { useCanShowTranscript } from "~/session/components/shared";
-import { NoteTitleBreadcrumb } from "~/session/components/title-breadcrumb";
-import { EditableSessionTitle } from "~/session/components/title-input";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import { deleteEnhancedNote, useEnhancedNoteRecords } from "~/session/queries";
 import { type EditorView } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 
 export function Header({ sessionId }: { sessionId: string }) {
-  const { t } = useLingui();
-
-  return (
-    <NoteTitleBreadcrumb
-      sessionId={sessionId}
-      title={
-        <EditableSessionTitle sessionId={sessionId} placeholder={t`Untitled`} />
-      }
-    />
-  );
+  return <FolderPicker sessionId={sessionId} align="end" />;
 }
 
 export function SessionViewSwitcher({
@@ -64,7 +54,7 @@ export function SessionViewSwitcher({
       aria-label={t`Session note views`}
       data-tauri-drag-region="false"
       className={cn([
-        "pointer-events-auto relative z-10 mr-1 w-fit max-w-full overflow-visible",
+        "pointer-events-auto relative z-10 w-fit max-w-full shrink-0 overflow-visible",
         "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] [corner-shape:round]",
       ])}
     >

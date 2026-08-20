@@ -476,23 +476,6 @@ const TitleInputInner = memo(
   ),
 );
 
-export function EditableSessionTitle({
-  sessionId,
-  placeholder,
-}: {
-  sessionId: string;
-  placeholder: string;
-}) {
-  return (
-    <TitleInputInner
-      sessionId={sessionId}
-      editorId="header"
-      placeholder={placeholder}
-      variant="breadcrumb"
-    />
-  );
-}
-
 function isComposingKeyEvent(event: React.KeyboardEvent<HTMLInputElement>) {
   return (
     event.nativeEvent.isComposing ||

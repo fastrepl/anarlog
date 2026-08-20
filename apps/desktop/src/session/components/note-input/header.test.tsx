@@ -501,7 +501,7 @@ describe("Header", () => {
     ).toBeNull();
   });
 
-  it("shows the session title and folder picker in the toolbar", () => {
+  it("shows the folder picker in the toolbar without a title field", () => {
     render(<Header sessionId="session-1" />);
 
     expect(
@@ -510,36 +510,8 @@ describe("Header", () => {
     expect(
       screen.getByRole("combobox", { name: "Select folder" }),
     ).not.toBeNull();
-    const title = screen.getByRole("textbox", { name: "Session title" });
-    expect((title as HTMLInputElement).value).toBe("Weekly planning");
-    expect(title.className).toContain("border-none");
-  });
-
-  it("shows Untitled for an ad hoc memo with no title", () => {
-    hoisted.sessionTitle = "";
-
-    render(<Header sessionId="session-1" />);
-
-    const title = screen.getByPlaceholderText("Untitled");
-    expect((title as HTMLInputElement).value).toBe("");
-    expect(
-      screen.getByRole("combobox", { name: "Select folder" }),
-    ).not.toBeNull();
-  });
-
-  it("persists edits to the session title", async () => {
-    render(<Header sessionId="session-1" />);
-
-    const title = screen.getByRole("textbox", { name: "Session title" });
-    fireEvent.focus(title);
-    fireEvent.change(title, { target: { value: "Customer follow-up" } });
-    fireEvent.blur(title);
-
-    await waitFor(() => {
-      expect(hoisted.updateSession).toHaveBeenCalledWith({
-        title: "Customer follow-up",
-      });
-    });
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+    expect(screen.queryByPlaceholderText("Untitled")).toBeNull();
   });
 
   it("can switch from transcript back to memo or summary tabs", () => {

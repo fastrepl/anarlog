@@ -32,7 +32,13 @@ const filterFolders = (value: string, search: string) => {
   return haystack.includes(needle) ? 1 : 0;
 };
 
-export function FolderPicker({ sessionId }: { sessionId: string }) {
+export function FolderPicker({
+  sessionId,
+  align = "start",
+}: {
+  sessionId: string;
+  align?: "start" | "end";
+}) {
   const { t } = useLingui();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -111,7 +117,7 @@ export function FolderPicker({ sessionId }: { sessionId: string }) {
           <CaretDown className="size-3 shrink-0 opacity-70" />
         </button>
       </PopoverTrigger>
-      <PopoverContent variant="app" align="start" className="w-64 p-0">
+      <PopoverContent variant="app" align={align} className="w-64 p-0">
         <AppFloatingPanel className="overflow-hidden">
           <Command
             filter={filterFolders}

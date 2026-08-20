@@ -326,8 +326,7 @@ const NoteInputContent = forwardRef<
       <div className="-mx-2 flex h-full flex-col">
         {!hideHeader && (
           <div className="relative px-2">
-            <div className="flex items-center justify-between gap-2">
-              <Header sessionId={sessionId} />
+            <div className="flex items-center justify-between gap-1">
               <SessionViewSwitcher
                 sessionId={sessionId}
                 editorTabs={editorTabs}
@@ -335,6 +334,7 @@ const NoteInputContent = forwardRef<
                 handleTabChange={handleTabChange}
                 isTranscribing={shouldShowTranscriptSpinner}
               />
+              <Header sessionId={sessionId} />
             </div>
           </div>
         )}

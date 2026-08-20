@@ -44,6 +44,14 @@ const mocks = vi.hoisted(() => ({
   windowControlsGutter: true,
 }));
 
+vi.mock("../folder-picker", () => ({
+  FolderPicker: () => (
+    <button type="button" role="combobox" aria-label="Select folder">
+      Folder
+    </button>
+  ),
+}));
+
 vi.mock("./metadata", () => ({
   MetadataButton: ({
     renderTrigger,
@@ -209,105 +217,78 @@ describe("OuterHeader", () => {
     mocks.leftsidebar.expanded = false;
     mocks.sessionModes = { "session-1": "active" };
 
-    render(
+    const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
-    const title = screen.getByText("Session title");
-    const titleSlot = title.parentElement?.parentElement;
+    const spacer = container.firstElementChild?.firstElementChild;
 
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
-    expect(titleSlot?.className).toContain("flex-1");
-    expect(titleSlot?.className).not.toContain("right-[140px]");
+    expect(spacer?.className).toContain("flex-1");
+    expect(spacer?.className).not.toContain("right-[140px]");
   });
 
   it("hides the finalizing header button while the sidebar is collapsed", () => {
     mocks.leftsidebar.expanded = false;
     mocks.sessionModes = { "session-1": "finalizing" };
 
-    render(
+    const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
-    const title = screen.getByText("Session title");
-    const titleSlot = title.parentElement?.parentElement;
+    const spacer = container.firstElementChild?.firstElementChild;
 
     expect(screen.queryByRole("button", { name: "Finalizing" })).toBeNull();
-    expect(titleSlot?.className).toContain("flex-1");
-    expect(titleSlot?.className).not.toContain("right-[140px]");
+    expect(spacer?.className).toContain("flex-1");
+    expect(spacer?.className).not.toContain("right-[140px]");
   });
 
-  it("raises the tightened title field when the sidebar is collapsed", () => {
+  it("uses the collapsed sidebar gutter without a title field", () => {
     mocks.leftsidebar.expanded = false;
 
-    render(
+    const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
-    const title = screen.getByText("Session title");
-    const titleWrapper = title.parentElement;
-    const titleSlot = titleWrapper?.parentElement;
-    const header = titleSlot?.parentElement;
+    const header = container.firstElementChild;
+    const spacer = header?.firstElementChild;
 
     expect(header?.className).toContain("pl-[156px]");
     expect(header?.className).toContain("h-12");
     expect(header?.className).not.toContain("pb-1");
-    expect(titleWrapper?.classList.contains("w-full")).toBe(false);
-    expect(titleWrapper?.className).toContain("max-w-full");
-    expect(titleWrapper?.className).not.toContain("max-w-[680px]");
-    expect(titleSlot?.className).toContain("flex-1");
-    expect(titleSlot?.className).not.toContain("-translate-y-1");
-    expect(titleSlot?.className).not.toContain("right-[140px]");
+    expect(spacer?.className).toContain("flex-1");
+    expect(spacer?.className).not.toContain("-translate-y-1");
+    expect(spacer?.className).not.toContain("right-[140px]");
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
   });
 
-  it("uses a compact title offset while the sidebar is expanded", () => {
+  it("does not add a title offset while the sidebar is expanded", () => {
     mocks.leftsidebar.expanded = true;
 
-    render(
+    const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
-    const title = screen.getByText("Session title");
-    const titleSlot = title.parentElement?.parentElement;
+    const spacer = container.firstElementChild?.firstElementChild;
 
-    expect(titleSlot?.className).toContain("flex-1");
-    expect(titleSlot?.className).not.toContain("right-[140px]");
-    expect(titleSlot?.className).not.toContain("justify-center");
-  });
-
-  it("can center the title slot for toolbar controls", () => {
-    render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "raw" } as EditorView}
-        centerTitle
-        title={<span>Toolbar controls</span>}
-      />,
-    );
-
-    const title = screen.getByText("Toolbar controls");
-    const titleSlot = title.parentElement?.parentElement;
-
-    expect(titleSlot?.className).toContain("justify-center");
+    expect(spacer?.className).toContain("flex-1");
+    expect(spacer?.className).not.toContain("right-[140px]");
+    expect(spacer?.className).not.toContain("justify-center");
+    expect(container.firstElementChild?.className).not.toContain("pl-[114px]");
   });
 
   it.each([
@@ -315,20 +296,18 @@ describe("OuterHeader", () => {
     ["memos", { type: "raw" }],
     ["transcript", { type: "transcript" }],
   ])("shows sharing from the %s view", (_label, currentView) => {
-    render(
+    const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={currentView as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
-    const title = screen.getByText("Session title");
-    const titleSlot = title.parentElement?.parentElement;
+    const spacer = container.firstElementChild?.firstElementChild;
 
     expect(mocks.shareSessionIds).toEqual(["session-1"]);
     expect(screen.getByRole("button", { name: "Share" })).not.toBeNull();
-    expect(titleSlot?.className).toContain("flex-1");
+    expect(spacer?.className).toContain("flex-1");
   });
 
   it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
@@ -338,7 +317,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -354,42 +332,36 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
     expect(container.firstElementChild?.className).toContain("h-12");
   });
 
-  it("marks the structural title and action strip as draggable", () => {
+  it("marks the spacer and action strip as draggable", () => {
     const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
     const header = container.firstElementChild;
-    const title = screen.getByText("Session title");
-    const titleWrapper = title.parentElement;
-    const titleSlot = titleWrapper?.parentElement;
+    const spacer = header?.firstElementChild;
     const actionStrip = header?.lastElementChild;
 
     expect(header?.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(titleSlot?.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(titleWrapper?.hasAttribute("data-tauri-drag-region")).toBe(true);
+    expect(spacer?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(actionStrip?.hasAttribute("data-tauri-drag-region")).toBe(true);
   });
 
-  it("places view switcher tabs immediately before the calendar control", () => {
+  it("places tabs on the left and the folder picker next to the calendar control", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
-    render(
+    const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
         viewSwitcher={
           <div role="group" aria-label="Session note views">
             Tabs
@@ -398,15 +370,19 @@ describe("OuterHeader", () => {
       />,
     );
 
+    const header = container.firstElementChild;
     const views = screen.getByRole("group", { name: "Session note views" });
+    const folder = screen.getByRole("combobox", { name: "Select folder" });
     const calendar = screen.getByRole("button", {
       name: "Open event metadata",
     });
-    const actionStrip = views.parentElement;
+    const actionStrip = header?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
 
+    expect(header?.firstElementChild).toBe(views);
+    expect(actionStrip?.contains(folder)).toBe(true);
     expect(actionStrip?.contains(calendar)).toBe(true);
-    expect(actionChildren.indexOf(views)).toBeLessThan(
+    expect(actionChildren.indexOf(folder)).toBeLessThan(
       actionChildren.findIndex((child) => child.contains(calendar)),
     );
   });
@@ -418,7 +394,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -429,17 +404,15 @@ describe("OuterHeader", () => {
     mocks.leftsidebar.expanded = true;
     mocks.sessionModes = { "session-1": "active" };
 
-    render(
+    const { container } = render(
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
         standaloneWindow
-        title={<span>Session title</span>}
       />,
     );
 
-    const title = screen.getByText("Session title");
-    const header = title.parentElement?.parentElement?.parentElement;
+    const header = container.firstElementChild;
 
     expect(header?.className).toContain("pl-[76px]");
     expect(header?.className).not.toContain("right-[153px]");
@@ -459,7 +432,6 @@ describe("OuterHeader", () => {
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
         standaloneWindow
-        title={<span>Session title</span>}
       />,
     );
 
@@ -478,18 +450,15 @@ describe("OuterHeader", () => {
       mocks.leftsidebar.expanded = expanded;
       mocks.windowControlsGutter = false;
 
-      render(
+      const { container } = render(
         <OuterHeader
           sessionId="session-1"
           currentView={{ type: "raw" } as EditorView}
           standaloneWindow
-          title={<span>Session title</span>}
         />,
       );
 
-      const header =
-        screen.getByText("Session title").parentElement?.parentElement
-          ?.parentElement;
+      const header = container.firstElementChild;
 
       expect(header?.className).toContain("pl-2");
       expect(header?.className).not.toContain("pl-[76px]");
@@ -511,7 +480,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -690,7 +658,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -768,7 +735,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -792,7 +758,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -819,7 +784,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -835,7 +799,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -861,7 +824,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "transcript" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -880,7 +842,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "transcript" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -900,7 +861,6 @@ describe("OuterHeader", () => {
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
         viewSwitcher={<div>tabs</div>}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -915,7 +875,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -942,7 +901,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -976,7 +934,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -1001,7 +958,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -1032,7 +988,6 @@ describe("OuterHeader", () => {
       <OuterHeader
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -1051,7 +1006,6 @@ describe("OuterHeader", () => {
         currentView={{ type: "transcript" } as EditorView}
         transcriptEditMode={false}
         onTranscriptEditModeChange={onTranscriptEditModeChange}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -1073,7 +1027,6 @@ describe("OuterHeader", () => {
         currentView={{ type: "transcript" } as EditorView}
         transcriptEditMode
         onTranscriptEditModeChange={onTranscriptEditModeChange}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -1091,7 +1044,6 @@ describe("OuterHeader", () => {
         sessionId="session-1"
         currentView={{ type: "raw" } as EditorView}
         onTranscriptEditModeChange={vi.fn()}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -1107,7 +1059,6 @@ describe("OuterHeader", () => {
         sessionId="session-1"
         currentView={{ type: "transcript" } as EditorView}
         onTranscriptEditModeChange={vi.fn()}
-        title={<span>Session title</span>}
       />,
     );
 
@@ -1131,7 +1082,6 @@ describe("OuterHeader", () => {
         sessionId="session-1"
         currentView={{ type: "transcript" } as EditorView}
         onTranscriptEditModeChange={vi.fn()}
-        title={<span>Session title</span>}
       />,
     );
 
