@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { jwtDecode } from "jwt-decode";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
 import { deriveBillingInfo, type SupabaseJwtPayload } from "@anlg/supabase";
@@ -10,6 +10,14 @@ import { AnarlogLogo } from "@/components/anarlog-logo";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 import { useAnalytics } from "@/hooks/use-posthog";
+import {
+  ACCOUNT_SECTIONS,
+  type AccountSectionId,
+  type AccountTabId,
+  accountTabForSection,
+  resolveAccountTab,
+  sectionsForAccountTab,
+} from "@/lib/account-tabs";
 import { checkoutSourceSchema } from "@/lib/checkout-source";
 
 import { AccountAccessSection } from "./-account-access";
@@ -17,11 +25,7 @@ import { ApiKeysSection } from "./-account-api-keys";
 import { DangerAreaSection } from "./-account-danger";
 import { DevicesSection } from "./-account-devices";
 import { IntegrationsSection } from "./-account-integrations";
-import {
-  AccountNav,
-  ACCOUNT_SECTIONS,
-  useActiveAccountSection,
-} from "./-account-nav";
+import { AccountTabs } from "./-account-nav";
 import { PlanSection } from "./-account-plan";
 import { ProfileInfoSection } from "./-account-profile-info";
 import { ReferralSection } from "./-account-referrals";
@@ -38,6 +42,7 @@ const validateSearch = z
     source: checkoutSourceSchema,
     referral: z.enum(["ineligible"]),
     perk: z.enum(["applied", "claimed", "invalid"]),
+    tab: z.enum(["account", "connections", "developer"]),
   })
   .partial();
 
@@ -50,9 +55,11 @@ export const Route = createFileRoute("/_view/app/account")({
 function Component() {
   const { user } = Route.useLoaderData();
   const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const { identify: identifyPosthog, track } = useAnalytics();
   const queryClient = useQueryClient();
-  const activeSectionId = useActiveAccountSection();
+  const [hash, setHash] = useState("");
+  const activeTab = resolveAccountTab({ tab: search.tab, hash });
 
   useEffect(() => {
     if (!search.success && search.trial !== "started") {
@@ -107,9 +114,42 @@ function Component() {
     track,
   ]);
 
+  useEffect(() => {
+    const syncHash = () => setHash(window.location.hash);
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  useEffect(() => {
+    const sectionId = hash.replace(/^#/, "");
+    if (!sectionId || accountTabForSection(sectionId) !== activeTab) {
+      return;
+    }
+
+    document.getElementById(sectionId)?.scrollIntoView({ block: "start" });
+  }, [activeTab, hash]);
+
+  const selectTab = (tabId: AccountTabId) => {
+    if (window.location.hash) {
+      const url = new URL(window.location.href);
+      url.hash = "";
+      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
+      setHash("");
+    }
+
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        tab: tabId === "account" ? undefined : tabId,
+      }),
+      replace: true,
+    });
+  };
+
   return (
     <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 pt-10 pb-16 md:px-8 md:pt-12 md:pb-24 lg:max-w-[980px]">
+      <div className="mx-auto w-full max-w-[700px] px-5 pt-10 pb-16 md:px-8 md:pt-12 md:pb-24">
         <Link to="/" aria-label="Anarlog home" className="inline-flex">
           <AnarlogLogo className="h-8 w-auto" />
         </Link>
@@ -126,47 +166,27 @@ function Component() {
           </h1>
         </header>
 
-        <div className="isolate mt-10 grid items-start gap-8 md:mt-12 lg:mt-16 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-x-12 lg:gap-y-0">
-          <div className="sticky top-0 z-10 -mx-5 border-b border-[#ede7dc] bg-white py-3 md:-mx-8 lg:top-10 lg:mx-0 lg:border-0 lg:bg-transparent lg:py-0">
-            <AccountNav activeId={activeSectionId} />
+        <div className="mt-10 md:mt-12 lg:mt-16">
+          <div className="sticky top-0 z-10 -mx-5 border-b border-[#ede7dc] bg-white px-5 py-3 md:-mx-8 md:px-8">
+            <AccountTabs activeId={activeTab} onSelect={selectTab} />
           </div>
 
-          <div className="flex min-w-0 flex-col gap-14">
-            <AccountSection id="profile">
-              <ProfileInfoSection email={user?.email} />
-            </AccountSection>
-
-            <AccountSection id="plan">
-              <PlanSection perk={search.perk} />
-            </AccountSection>
-
-            <AccountSection id="referrals">
-              <ReferralSection ineligible={search.referral === "ineligible"} />
-            </AccountSection>
-
-            <AccountSection id="integrations">
-              <IntegrationsSection />
-            </AccountSection>
-
-            <AccountSection id="devices">
-              <DevicesSection />
-            </AccountSection>
-
-            <AccountSection id="shares">
-              <SharedNotesSection />
-            </AccountSection>
-
-            <AccountSection id="api-keys">
-              <ApiKeysSection />
-            </AccountSection>
-
-            <AccountSection id="session">
-              <AccountAccessSection />
-            </AccountSection>
-
-            <AccountSection id="danger">
-              <DangerAreaSection />
-            </AccountSection>
+          <div
+            role="tabpanel"
+            id={`account-tabpanel-${activeTab}`}
+            aria-labelledby={`account-tab-${activeTab}`}
+            className="mt-10 flex min-w-0 flex-col gap-14"
+          >
+            {sectionsForAccountTab(activeTab).map((section) => (
+              <AccountSection key={section.id} id={section.id}>
+                <AccountSectionBody
+                  id={section.id}
+                  email={user?.email}
+                  perk={search.perk}
+                  referralIneligible={search.referral === "ineligible"}
+                />
+              </AccountSection>
+            ))}
           </div>
         </div>
       </div>
@@ -178,17 +198,50 @@ function AccountSection({
   id,
   children,
 }: {
-  id: (typeof ACCOUNT_SECTIONS)[number]["id"];
+  id: AccountSectionId;
   children: React.ReactNode;
 }) {
   const title = ACCOUNT_SECTIONS.find((section) => section.id === id)?.label;
 
   return (
-    <section id={id} className="scroll-mt-20 lg:scroll-mt-10">
+    <section id={id} className="scroll-mt-20">
       <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
         {title}
       </h2>
       <div className="mt-6">{children}</div>
     </section>
   );
+}
+
+function AccountSectionBody({
+  id,
+  email,
+  perk,
+  referralIneligible,
+}: {
+  id: AccountSectionId;
+  email?: string;
+  perk?: "applied" | "claimed" | "invalid";
+  referralIneligible: boolean;
+}) {
+  switch (id) {
+    case "profile":
+      return <ProfileInfoSection email={email} />;
+    case "plan":
+      return <PlanSection perk={perk} />;
+    case "referrals":
+      return <ReferralSection ineligible={referralIneligible} />;
+    case "integrations":
+      return <IntegrationsSection />;
+    case "devices":
+      return <DevicesSection />;
+    case "shares":
+      return <SharedNotesSection />;
+    case "api-keys":
+      return <ApiKeysSection />;
+    case "session":
+      return <AccountAccessSection />;
+    case "danger":
+      return <DangerAreaSection />;
+  }
 }
