@@ -1,8 +1,15 @@
 import { EditorState, TextSelection } from "prosemirror-state";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { schema } from "../note/schema";
-import { selectionTouchesTitleHeading } from "./format-toolbar";
+import {
+  getClipBoundary,
+  selectionTouchesTitleHeading,
+} from "./format-toolbar";
+
+afterEach(() => {
+  document.body.innerHTML = "";
+});
 
 function createState(from: number, to: number) {
   const doc = schema.node("doc", null, [
@@ -39,5 +46,26 @@ describe("selectionTouchesTitleHeading", () => {
     });
 
     expect(selectionTouchesTitleHeading(state)).toBe(false);
+  });
+});
+
+describe("getClipBoundary", () => {
+  it("returns the nearest overflow ancestor", () => {
+    const scroller = document.createElement("div");
+    scroller.style.overflowY = "auto";
+    const inner = document.createElement("div");
+    const target = document.createElement("div");
+    inner.append(target);
+    scroller.append(inner);
+    document.body.append(scroller);
+
+    expect(getClipBoundary(target)).toBe(scroller);
+  });
+
+  it("falls back to the element when there is no overflow ancestor", () => {
+    const target = document.createElement("div");
+    document.body.append(target);
+
+    expect(getClipBoundary(target)).toBe(target);
   });
 });

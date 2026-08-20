@@ -16,6 +16,8 @@ export type PersistentPlaceholderFunction = (props: {
 
 export const placeholderPluginKey = new PluginKey("placeholder");
 
+export const PLACEHOLDER_COMPOSING_CLASS = "is-composing";
+
 function getPlaceholderTarget(doc: PMNode, $anchor: ResolvedPos) {
   for (let depth = $anchor.depth; depth > 0; depth--) {
     const node = $anchor.node(depth);
@@ -51,6 +53,16 @@ export function placeholderPlugin(
   return new Plugin({
     key: placeholderPluginKey,
     props: {
+      handleDOMEvents: {
+        compositionstart(view) {
+          view.dom.classList.add(PLACEHOLDER_COMPOSING_CLASS);
+          return false;
+        },
+        compositionend(view) {
+          view.dom.classList.remove(PLACEHOLDER_COMPOSING_CLASS);
+          return false;
+        },
+      },
       decorations(state) {
         const { doc, selection } = state;
         const { $anchor } = selection;

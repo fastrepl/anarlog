@@ -1,9 +1,20 @@
 import { GapCursor } from "prosemirror-gapcursor";
 import { EditorState, TextSelection } from "prosemirror-state";
-import { describe, expect, it } from "vitest";
+import { EditorView } from "prosemirror-view";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { schema } from "../note/schema";
-import { placeholderPlugin } from "./placeholder";
+import { PLACEHOLDER_COMPOSING_CLASS, placeholderPlugin } from "./placeholder";
+
+const views: EditorView[] = [];
+
+afterEach(() => {
+  for (const view of views) {
+    view.destroy();
+  }
+  views.length = 0;
+  document.body.innerHTML = "";
+});
 
 describe("placeholderPlugin", () => {
   it("decorates only the selected empty top-level block", () => {
@@ -138,5 +149,30 @@ describe("placeholderPlugin", () => {
     const decorations = plugin.props.decorations?.(nestedState)?.find() ?? [];
     expect(decorations).toHaveLength(1);
     expect(decorations[0].from).toBe(emptyParagraphPos);
+  });
+
+  it("hides placeholders while IME composition is active", () => {
+    const plugin = placeholderPlugin(() => "Start writing...");
+    const state = EditorState.create({
+      schema,
+      doc: schema.node("doc", null, [schema.node("paragraph")]),
+      plugins: [plugin],
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const view = new EditorView(host, { state });
+    views.push(view);
+
+    view.dom.dispatchEvent(
+      new CompositionEvent("compositionstart", { bubbles: true }),
+    );
+    expect(view.dom.classList.contains(PLACEHOLDER_COMPOSING_CLASS)).toBe(true);
+
+    view.dom.dispatchEvent(
+      new CompositionEvent("compositionend", { bubbles: true }),
+    );
+    expect(view.dom.classList.contains(PLACEHOLDER_COMPOSING_CLASS)).toBe(
+      false,
+    );
   });
 });

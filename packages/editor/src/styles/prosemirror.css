@@ -56,6 +56,14 @@
   height: 0;
 }
 
+/* IME composition paints glyphs in the DOM before ProseMirror state updates,
+   so empty-node placeholder decorations would otherwise overlap them. */
+.ProseMirror.is-composing .is-editor-empty:first-child::before,
+.ProseMirror.is-composing .is-empty::before,
+.ProseMirror.is-composing .react-placeholder-widget {
+  display: none;
+}
+
 .ProseMirror .react-placeholder-widget {
   float: left;
   pointer-events: auto;

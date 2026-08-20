@@ -23,12 +23,50 @@ import {
 import { toggleMark } from "prosemirror-commands";
 import type { MarkType } from "prosemirror-model";
 import type { EditorState } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@anlg/utils";
 
 import { schema } from "../note/schema";
+
+const OVERFLOW_CLIP = /(auto|scroll|overlay|hidden|clip)/;
+
+export function getClipBoundary(element: Element): Element {
+  let current = element.parentElement;
+  while (current && current !== document.documentElement) {
+    const { overflow, overflowX, overflowY } = getComputedStyle(current);
+    if (
+      OVERFLOW_CLIP.test(overflowY) ||
+      OVERFLOW_CLIP.test(overflowX) ||
+      OVERFLOW_CLIP.test(overflow)
+    ) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return element;
+}
+
+export function createSelectionVirtualElement(
+  view: EditorView,
+  from: number,
+  to: number,
+): VirtualElement {
+  const start = view.coordsAtPos(from);
+  const end = view.coordsAtPos(to);
+  return {
+    contextElement: view.dom,
+    getBoundingClientRect: () =>
+      new DOMRect(
+        Math.min(start.left, end.left),
+        start.top,
+        Math.abs(end.right - start.left),
+        end.bottom - start.top,
+      ),
+  };
+}
 
 export function selectionTouchesTitleHeading(state: EditorState): boolean {
   const firstNode = state.doc.firstChild;
@@ -105,24 +143,25 @@ export function FormatToolbar({
     if (!toolbar) return;
 
     const { from, to } = view.state.selection;
-    const start = view.coordsAtPos(from);
-    const end = view.coordsAtPos(to);
-
-    const referenceEl: VirtualElement = {
-      getBoundingClientRect: () =>
-        new DOMRect(
-          Math.min(start.left, end.left),
-          start.top,
-          Math.abs(end.right - start.left),
-          end.bottom - start.top,
-        ),
-    };
+    const referenceEl = createSelectionVirtualElement(view, from, to);
+    // Portaled toolbars clip to the viewport by default, which includes window
+    // chrome. Stay inside the editor scrollport so the menu flips below the
+    // first line instead of covering traffic lights.
+    const boundary = getClipBoundary(view.dom);
 
     const update = () => {
       void computePosition(referenceEl, toolbar, {
         placement: "top",
         strategy: "fixed",
-        middleware: [offset(8), flip(), shift({ padding: 8 })],
+        middleware: [
+          offset(8),
+          flip({
+            boundary,
+            fallbackPlacements: ["bottom"],
+            padding: 8,
+          }),
+          shift({ boundary, padding: 8 }),
+        ],
       }).then(({ x, y }) => {
         Object.assign(toolbar.style, {
           left: `${x}px`,
