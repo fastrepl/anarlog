@@ -355,7 +355,7 @@ describe("OuterHeader", () => {
     expect(actionStrip?.hasAttribute("data-tauri-drag-region")).toBe(true);
   });
 
-  it("places tabs on the left and the folder picker next to the calendar control", () => {
+  it("places tabs on the left and the folder picker after the calendar control", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     const { container } = render(
@@ -382,7 +382,7 @@ describe("OuterHeader", () => {
     expect(header?.firstElementChild).toBe(views);
     expect(actionStrip?.contains(folder)).toBe(true);
     expect(actionStrip?.contains(calendar)).toBe(true);
-    expect(actionChildren.indexOf(folder)).toBeLessThan(
+    expect(actionChildren.indexOf(folder)).toBeGreaterThan(
       actionChildren.findIndex((child) => child.contains(calendar)),
     );
   });
@@ -806,7 +806,7 @@ describe("OuterHeader", () => {
 
     expect(recordButton.parentElement?.className).toContain("bg-card");
     expect(recordButton.parentElement?.className).not.toContain("bg-primary");
-    expect(recordButton.querySelector("span")?.className).toContain(
+    expect(recordButton.querySelector("span")?.className).not.toContain(
       "@max-[480px]:sr-only",
     );
     fireEvent.click(recordButton);

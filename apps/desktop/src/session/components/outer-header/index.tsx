@@ -82,7 +82,6 @@ export function OuterHeader({
         data-tauri-drag-region
         className="relative z-10 flex shrink-0 items-center pr-1"
       >
-        <FolderPicker sessionId={sessionId} align="end" />
         <HeaderMeetingControl
           sessionId={sessionId}
           sessionMode={sessionMode}
@@ -91,6 +90,7 @@ export function OuterHeader({
           onTranscriptEditModeChange={onTranscriptEditModeChange}
           hideStop={embedStopInViewSwitcher}
         />
+        <FolderPicker sessionId={sessionId} align="end" />
         <SessionShareButton key={sessionId} sessionId={sessionId} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
@@ -381,9 +381,7 @@ function HeaderMeetingActionPill({
               ])}
             >
               {action.icon}
-              <span className="truncate @max-[480px]:sr-only">
-                {action.label}
-              </span>
+              <span className="truncate">{action.label}</span>
             </button>
             <MetadataButton
               sessionId={sessionId}

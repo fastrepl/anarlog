@@ -53,13 +53,11 @@ export function HeaderViewStop({ sessionId }: { sessionId: string }) {
         className={iconHeaderViewClassName(
           false,
           "tray",
-          "text-foreground max-w-40 min-w-10 gap-1.5 px-2 hover:text-foreground @max-[480px]:max-w-10 @max-[480px]:gap-0",
+          "text-foreground max-w-40 min-w-10 gap-1.5 px-2 hover:text-foreground",
         )}
       >
         <Square className="size-3 text-red-500" weight="fill" />
-        <span className="min-w-0 truncate text-xs font-medium @max-[480px]:sr-only">
-          {label}
-        </span>
+        <span className="min-w-0 truncate text-xs font-medium">{label}</span>
       </button>
       <MetadataButton
         sessionId={sessionId}
