@@ -75,12 +75,31 @@ function findMeetingCandidates(value: unknown): unknown[] {
   const record = asRecord(value);
   if (!record) return [];
 
-  for (const key of MEETING_ARRAY_KEYS) {
-    const candidate = record[key];
-    if (Array.isArray(candidate)) return candidate;
+  if (!looksLikeSingleMeeting(record)) {
+    for (const key of MEETING_ARRAY_KEYS) {
+      const candidate = record[key];
+      if (Array.isArray(candidate)) return candidate;
+    }
   }
 
   return [value];
+}
+
+function looksLikeSingleMeeting(record: JsonRecord) {
+  return Boolean(
+    firstText(record, [
+      "title",
+      "meeting_title",
+      "meetingTitle",
+      "call_title",
+      "callTitle",
+      "recording_title",
+      "recordingTitle",
+      "meeting_name",
+      "meetingName",
+      "topic",
+    ]),
+  );
 }
 
 function normalizeMeeting(value: unknown, fallbackTitle: string) {

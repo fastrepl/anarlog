@@ -1105,12 +1105,37 @@ fn merge_enrichment(meeting: &mut Value, tool_name: &str, payloads: Vec<Value>) 
     }
 
     for payload in payloads {
-        if let Value::Object(payload_record) = payload {
+        for payload_record in enrichment_records(payload) {
             for (key, value) in payload_record {
+                if is_envelope_key(&key) {
+                    continue;
+                }
                 record.entry(key).or_insert(value);
             }
         }
     }
+}
+
+fn enrichment_records(payload: Value) -> Vec<Map<String, Value>> {
+    match payload {
+        Value::Array(items) => items.into_iter().flat_map(enrichment_records).collect(),
+        Value::Object(mut record) => match record.remove("data") {
+            Some(data) => {
+                let inner = enrichment_records(data);
+                if inner.is_empty() {
+                    vec![record]
+                } else {
+                    inner
+                }
+            }
+            None => vec![record],
+        },
+        _ => Vec::new(),
+    }
+}
+
+fn is_envelope_key(key: &str) -> bool {
+    matches!(key, "success" | "error" | "errors" | "status" | "meta")
 }
 
 fn find_string(value: &Value, keys: &[&str]) -> Option<String> {
@@ -1338,7 +1363,8 @@ mod tests {
     fn merges_pocket_conversation_transcripts() {
         let mut meeting = serde_json::json!({
             "recordingId": "rec_123",
-            "recordingTitle": "Weekly Sync"
+            "recordingTitle": "Weekly Sync",
+            "recordingDate": "2026-03-25T15:04:05Z"
         });
         merge_enrichment(
             &mut meeting,
@@ -1354,8 +1380,12 @@ mod tests {
         );
 
         assert!(meeting_has_content(&meeting));
+        assert_eq!(meeting["recordingTitle"], "Weekly Sync");
+        assert_eq!(meeting["recordingDate"], "2026-03-25T15:04:05Z");
         assert_eq!(meeting["transcript"][0]["text"], "Ship it");
         assert_eq!(meeting["summary"]["text"], "Ship the launch.");
+        assert!(meeting.get("data").is_none());
+        assert!(meeting.get("success").is_none());
     }
 
     #[test]

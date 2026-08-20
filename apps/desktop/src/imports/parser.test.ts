@@ -106,6 +106,40 @@ describe("meeting export parser", () => {
     });
   });
 
+  it("keeps Pocket title and date when enrichment wraps the recording in data", () => {
+    const [meeting] = parseMeetingExport({
+      path: "mcp://pocket/rec_123.json",
+      name: "rec_123.json",
+      content: JSON.stringify({
+        recordingId: "rec_123",
+        recordingTitle: "Weekly Sync",
+        recordingDate: "2026-03-25T15:04:05Z",
+        transcript: [{ speaker: "Ada", text: "Ship it" }],
+        summary: { text: "Ship the launch." },
+        success: true,
+        data: [
+          {
+            recordingId: "rec_123",
+            transcriptSegments: [
+              { text: "Ship it", start: 1.0, end: 2.0, speaker: "Ada" },
+            ],
+            summary: { text: "Ship the launch." },
+          },
+        ],
+      }),
+    });
+
+    expect(meeting).toMatchObject({
+      externalId: "rec_123",
+      title: "Weekly Sync",
+      startedAt: "2026-03-25T15:04:05.000Z",
+    });
+    expect(meeting?.transcript[0]).toMatchObject({
+      speaker: "Ada",
+      text: "Ship it",
+    });
+  });
+
   it("normalizes call-oriented MCP meeting fields", () => {
     const [meeting] = parseMeetingExport({
       path: "mcp://jiminny/call-1.json",
