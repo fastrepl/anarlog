@@ -7,27 +7,103 @@ import { cn } from "@anlg/utils";
 
 import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
 
-const credibilityLogos = [
-  { name: "Databricks", src: "/icons/databricks.svg", className: "max-h-5" },
-  { name: "Cloudflare", src: "/icons/cloudflare.png" },
-  { name: "Amazon", src: "/icons/amazon.svg", className: "max-h-5" },
-  { name: "Meta", src: "/icons/meta.svg", className: "max-h-5" },
-  { name: "Y Combinator", src: "/icons/yc.svg" },
-  { name: "Palantir", src: "/icons/palantir.svg", className: "max-h-5" },
-  { name: "Apple", src: "/icons/apple.svg", className: "max-h-5" },
-  { name: "Disney", src: "/icons/disney.svg", className: "max-h-5" },
+// `width`/`height` are the intrinsic dimensions of each asset so the browser
+// can reserve the correct aspect ratio before the image loads (CLS). CSS still
+// controls the rendered size. `resizeWidth` routes oversized bitmap logos
+// through the Netlify Image CDN at ~2x their rendered width.
+const credibilityLogos: {
+  name: string;
+  src: string;
+  width: number;
+  height: number;
+  className?: string;
+  resizeWidth?: number;
+}[] = [
+  {
+    name: "Databricks",
+    src: "/icons/databricks.svg",
+    width: 276,
+    height: 42,
+    className: "max-h-5",
+  },
+  {
+    name: "Cloudflare",
+    src: "/icons/cloudflare.png",
+    width: 1556,
+    height: 704,
+    resizeWidth: 106,
+  },
+  {
+    name: "Amazon",
+    src: "/icons/amazon.svg",
+    width: 399,
+    height: 133,
+    className: "max-h-5",
+  },
+  {
+    name: "Meta",
+    src: "/icons/meta.svg",
+    width: 256,
+    height: 171,
+    className: "max-h-5",
+  },
+  { name: "Y Combinator", src: "/icons/yc.svg", width: 64, height: 64 },
+  {
+    name: "Palantir",
+    src: "/icons/palantir.svg",
+    width: 210,
+    height: 51,
+    className: "max-h-5",
+  },
+  {
+    name: "Apple",
+    src: "/icons/apple.svg",
+    width: 42,
+    height: 51,
+    className: "max-h-5",
+  },
+  {
+    name: "Disney",
+    src: "/icons/disney.svg",
+    width: 155,
+    height: 66,
+    className: "max-h-5",
+  },
   {
     name: "Richmond American",
     src: "/icons/richmond_american.svg",
+    width: 165,
+    height: 51,
     className: "max-h-5",
   },
-  { name: "Adobe", src: "/icons/adobe.svg", className: "max-h-5" },
-  { name: "Wayfair", src: "/icons/wayfair.svg", className: "max-h-5" },
-  { name: "Bain & Company", src: "/icons/bain.svg", className: "max-h-5" },
+  {
+    name: "Adobe",
+    src: "/icons/adobe.svg",
+    width: 66,
+    height: 17,
+    className: "max-h-5",
+  },
+  {
+    name: "Wayfair",
+    src: "/icons/wayfair.svg",
+    width: 630,
+    height: 150,
+    className: "max-h-5",
+  },
+  {
+    name: "Bain & Company",
+    src: "/icons/bain.svg",
+    width: 547,
+    height: 60,
+    className: "max-h-5",
+  },
   {
     name: "McKinsey & Company",
     src: "/icons/mckinsey.png",
+    width: 960,
+    height: 297,
     className: "max-h-5",
+    resizeWidth: 130,
   },
 ];
 
@@ -277,7 +353,15 @@ export function CredibilityLogoMarquee() {
               {credibilityLogos.map((logo) => (
                 <img
                   key={`${trackIndex}-${logo.name}`}
-                  src={logo.src}
+                  src={
+                    logo.resizeWidth
+                      ? getResizedImageUrl(logo.src, {
+                          width: logo.resizeWidth,
+                        })
+                      : logo.src
+                  }
+                  width={logo.width}
+                  height={logo.height}
                   alt=""
                   className={cn([
                     "h-6 w-auto max-w-none object-contain opacity-65 grayscale transition-[filter,opacity] duration-200 hover:opacity-100 hover:grayscale-0",

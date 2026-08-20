@@ -51,6 +51,8 @@ export function SiteFooter() {
           <img
             src="/icons/fastrepl.svg"
             alt="Fastrepl"
+            width={4261}
+            height={1242}
             className="h-4 w-auto"
           />
           <span>© 2026</span>

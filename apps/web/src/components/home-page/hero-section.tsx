@@ -15,6 +15,7 @@ import {
   detectDesktopPlatform,
   getOrderedDesktopDownloadSections,
 } from "@/lib/download";
+import { getResizedImageUrl } from "@/lib/image-cdn";
 import { createTrackedTimers } from "@/lib/tracked-timers";
 
 import { CredibilityLogoMarquee } from "./social-proof-sections";
@@ -305,7 +306,16 @@ function HeroWorkflowDemo() {
         ])}
       >
         <img
-          src="/images/hero-meeting-participants.webp"
+          src={getResizedImageUrl("/images/hero-meeting-participants.webp", {
+            width: 600,
+          })}
+          srcSet={[300, 600, 900]
+            .map(
+              (width) =>
+                `${getResizedImageUrl("/images/hero-meeting-participants.webp", { width })} ${width}w`,
+            )
+            .join(", ")}
+          sizes="(min-width: 640px) 286px, 66vw"
           alt="Four participants in a video meeting"
           width={1200}
           height={215}
