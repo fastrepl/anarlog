@@ -4,6 +4,8 @@ import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import {
   bindCloudsyncAccount,
   getCloudsyncStatus,
+  getOrCreateE2eeDeviceIdentity,
+  importE2eeDeviceEnrollment,
   isCloudsyncActivityDeferredError,
   suspendCloudsync,
   suspendCloudsyncAfterAuthLoss,
@@ -16,6 +18,7 @@ import {
   DEVICE_LIMIT_ERROR_CODE,
   DEVICE_LIMIT_TOAST_ID,
   getCloudsyncCredentialBlock,
+  getDeviceIdentity,
   hasWorkspaceProjection,
   isCredentials,
   readE2eeIdentity,
@@ -31,6 +34,12 @@ import {
 import { flushCloudsyncSessionEvictions } from "./cloudsync-session-evictions";
 import { requestCloudsyncCredentials } from "./cloudsync-token-exchange";
 import { provisionMissingWorkspaceKeys } from "./cloudsync-workspace-keys";
+import {
+  ENROLLMENT_REQUIRES_EXISTING_KEY_ERROR_CODE,
+  SyncDeviceRequestError,
+  consumeDeviceEnrollment,
+  registerDeviceEnrollment,
+} from "./sync-devices";
 
 import { resolveConfigValue } from "~/shared/config";
 import { isKeychainAccessError } from "~/shared/keychain";
@@ -44,6 +53,7 @@ export {
 const REFRESH_LEAD_MS = 2 * 60 * 1000;
 const RETRY_DELAY_MS = 60 * 1000;
 const ACTIVITY_RETRY_DELAY_MS = 5 * 1000;
+const ENROLLMENT_RETRY_DELAY_MS = 5 * 1000;
 const MIN_REFRESH_DELAY_MS = 1000;
 const EXCHANGE_TIMEOUT_MS = 25 * 1000;
 const EVICTION_RETRY_DELAY_MS = 30 * 1000;
@@ -600,6 +610,65 @@ function scheduleActivityStatusRetry(
   }, ACTIVITY_RETRY_DELAY_MS);
 }
 
+async function enrollCurrentDevice(
+  session: Session,
+  activeGeneration: number,
+): Promise<"imported" | "pending"> {
+  const controller = new AbortController();
+  exchangeController = controller;
+  const timeout = setTimeout(() => controller.abort(), EXCHANGE_TIMEOUT_MS);
+
+  try {
+    const [device, enrollmentIdentity] = await Promise.all([
+      getDeviceIdentity(),
+      getOrCreateE2eeDeviceIdentity(session.user.id),
+    ]);
+    if (
+      controller.signal.aborted ||
+      activeGeneration !== generation ||
+      !device.fingerprint
+    ) {
+      throw new Error("E2EE device enrollment was interrupted");
+    }
+
+    const enrollment = await registerDeviceEnrollment({
+      accessToken: session.access_token,
+      publicKey: enrollmentIdentity.publicKey,
+      fingerprint: device.fingerprint,
+      deviceName: device.name,
+      signal: controller.signal,
+    });
+    if (enrollment.status !== "sealed" || !enrollment.package) {
+      return "pending";
+    }
+
+    await importE2eeDeviceEnrollment(
+      session.user.id,
+      enrollment.requestId,
+      enrollment.package,
+    );
+    try {
+      await consumeDeviceEnrollment({
+        accessToken: session.access_token,
+        requestId: enrollment.requestId,
+        publicKey: enrollmentIdentity.publicKey,
+        fingerprint: device.fingerprint,
+        signal: controller.signal,
+      });
+    } catch {
+      console.warn(
+        "[cloudsync] imported device enrollment acknowledgement failed; credential exchange will finalize it",
+      );
+    }
+    return "imported";
+  } finally {
+    clearTimeout(timeout);
+    if (exchangeController === controller) {
+      exchangeController = null;
+    }
+  }
+}
+
 async function activateCloudsync(
   session: Session,
   suspendBeforeExchange: boolean,
@@ -796,7 +865,7 @@ async function activateCloudsync(
     if (identityRead.status === "timed_out") {
       throw new Error("E2EE identity read timed out");
     }
-    const identity = identityRead.value;
+    let identity = identityRead.value;
     if (activeGeneration !== generation) {
       return "ok";
     }
@@ -819,6 +888,65 @@ async function activateCloudsync(
         return "ok";
       }
       suspendedBeforeCredentialExchange = true;
+    }
+    if (!identity.configured) {
+      let enrollment: Awaited<ReturnType<typeof enrollCurrentDevice>>;
+      try {
+        enrollment = await enrollCurrentDevice(session, activeGeneration);
+      } catch (error) {
+        if (activeGeneration !== generation) {
+          return "ok";
+        }
+        if (
+          error instanceof SyncDeviceRequestError &&
+          error.code === ENROLLMENT_REQUIRES_EXISTING_KEY_ERROR_CODE
+        ) {
+          setCredentialBlock("setup_required");
+          await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+          console.warn(
+            "[cloudsync] first-device E2EE recovery key setup is required; sync remains disabled",
+          );
+          return "ok";
+        }
+        if (error instanceof SyncDeviceRequestError && error.status === 403) {
+          const deviceLimit = error.code === DEVICE_LIMIT_ERROR_CODE;
+          setCredentialBlock(deviceLimit ? "device_limit" : "not_entitled");
+          await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+          if (deviceLimit) {
+            sonnerToast.error(
+              t`Cloud sync is limited to 5 devices. Replace or remove another device to sync here.`,
+              { id: DEVICE_LIMIT_TOAST_ID },
+            );
+          }
+          return "ok";
+        }
+        throw error;
+      }
+      if (activeGeneration !== generation) {
+        return "ok";
+      }
+      if (enrollment === "pending") {
+        setCredentialBlock("approval_pending");
+        await suspendCloudsyncAfterCredentialRejection(activeGeneration);
+        if (activeGeneration === generation) {
+          scheduleExchange(
+            session,
+            activeGeneration,
+            ENROLLMENT_RETRY_DELAY_MS,
+            onAccountMismatch,
+          );
+        }
+        return "ok";
+      }
+
+      const importedIdentity = await settleCloudsyncOperationWithin(
+        readE2eeIdentity(session.user.id),
+        EXCHANGE_TIMEOUT_MS,
+      );
+      if (importedIdentity.status === "timed_out") {
+        throw new Error("Imported E2EE identity read timed out");
+      }
+      identity = importedIdentity.value;
     }
     if (
       !identity.configured ||

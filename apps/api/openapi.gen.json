@@ -2572,6 +2572,274 @@
         ]
       }
     },
+    "/sync/devices": {
+      "get": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "get_devices",
+        "responses": {
+          "200": {
+            "description": "Approved and pending sync devices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncDevicesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "502": {
+            "description": "Device service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/devices/{fingerprint}": {
+      "delete": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "delete_device",
+        "parameters": [
+          {
+            "name": "fingerprint",
+            "in": "path",
+            "description": "Device fingerprint",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Device removed"
+          },
+          "400": {
+            "description": "Invalid device fingerprint"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "502": {
+            "description": "Device service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/e2ee/device-enrollments": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "register_e2ee_device_enrollment",
+        "parameters": [
+          {
+            "name": "x-device-fingerprint",
+            "in": "header",
+            "description": "Current device fingerprint",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-anarlog-device-name",
+            "in": "header",
+            "description": "Current device name",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterE2eeDeviceEnrollmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Current enrollment request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterE2eeDeviceEnrollmentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid device enrollment"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro or a free device slot is required"
+          },
+          "409": {
+            "description": "An existing device must establish encrypted sync first"
+          },
+          "502": {
+            "description": "Enrollment service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/e2ee/device-enrollments/{request_id}/consume": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "consume_e2ee_device_enrollment",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "description": "Enrollment request ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-device-fingerprint",
+            "in": "header",
+            "description": "Requesting device fingerprint",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumeE2eeDeviceEnrollmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Enrollment package consumed"
+          },
+          "400": {
+            "description": "Invalid enrollment acknowledgement"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "404": {
+            "description": "Enrollment request unavailable"
+          },
+          "502": {
+            "description": "Enrollment service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/sync/e2ee/device-enrollments/{request_id}/seal": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "seal_e2ee_device_enrollment",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "description": "Enrollment request ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/E2eeDeviceEnrollmentPackage"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Enrollment package sealed"
+          },
+          "400": {
+            "description": "Invalid enrollment package"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "404": {
+            "description": "Enrollment request unavailable"
+          },
+          "409": {
+            "description": "Enrollment request already sealed"
+          },
+          "502": {
+            "description": "Enrollment service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/sync/e2ee/identity": {
       "put": {
         "tags": [
@@ -5548,6 +5816,18 @@
           }
         }
       },
+      "ConsumeE2eeDeviceEnrollmentRequest": {
+        "type": "object",
+        "required": [
+          "publicKey"
+        ],
+        "properties": {
+          "publicKey": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateApiKeyBody": {
         "type": "object",
         "required": [
@@ -5990,6 +6270,71 @@
           },
           "updated_at": {
             "type": "string"
+          }
+        }
+      },
+      "E2eeDeviceEnrollmentPackage": {
+        "type": "object",
+        "required": [
+          "ephemeralPublicKey",
+          "nonce",
+          "ciphertext"
+        ],
+        "properties": {
+          "ciphertext": {
+            "type": "string"
+          },
+          "ephemeralPublicKey": {
+            "type": "string"
+          },
+          "nonce": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "E2eeDeviceEnrollmentStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "sealed",
+          "consumed"
+        ]
+      },
+      "E2eeDeviceEnrollmentSummary": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "deviceFingerprint",
+          "publicKey",
+          "createdAt",
+          "expiresAt",
+          "status"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "deviceFingerprint": {
+            "type": "string"
+          },
+          "deviceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiresAt": {
+            "type": "string"
+          },
+          "publicKey": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/E2eeDeviceEnrollmentStatus"
           }
         }
       },
@@ -9384,6 +9729,53 @@
           "unknown"
         ]
       },
+      "RegisterE2eeDeviceEnrollmentRequest": {
+        "type": "object",
+        "required": [
+          "publicKey"
+        ],
+        "properties": {
+          "publicKey": {
+            "type": "string"
+          },
+          "replaceFingerprint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "RegisterE2eeDeviceEnrollmentResponse": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "expiresAt",
+          "status"
+        ],
+        "properties": {
+          "expiresAt": {
+            "type": "string"
+          },
+          "package": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/E2eeDeviceEnrollmentPackage"
+              }
+            ]
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/E2eeDeviceEnrollmentStatus"
+          }
+        }
+      },
       "Reminder": {
         "type": "object",
         "required": [
@@ -10520,6 +10912,58 @@
           },
           "status": {
             "$ref": "#/components/schemas/PipelineStatus"
+          }
+        }
+      },
+      "SyncDeviceRow": {
+        "type": "object",
+        "required": [
+          "deviceFingerprint",
+          "createdAt",
+          "lastSeenAt"
+        ],
+        "properties": {
+          "createdAt": {
+            "type": "string"
+          },
+          "deviceFingerprint": {
+            "type": "string"
+          },
+          "deviceName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastSeenAt": {
+            "type": "string"
+          }
+        }
+      },
+      "SyncDevicesResponse": {
+        "type": "object",
+        "required": [
+          "devices",
+          "pendingDevices",
+          "maxDevices"
+        ],
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncDeviceRow"
+            }
+          },
+          "maxDevices": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "pendingDevices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/E2eeDeviceEnrollmentSummary"
+            }
           }
         }
       },

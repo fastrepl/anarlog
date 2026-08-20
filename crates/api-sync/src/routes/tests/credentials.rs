@@ -375,8 +375,16 @@ async fn registers_the_device_before_minting_a_token() {
     assert_eq!(response.status(), StatusCode::OK);
 
     let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests[0].url.path(), "/rest/v1/rpc/claim_sync_device");
-    let claim_request: Value = serde_json::from_slice(&requests[0].body).unwrap();
+    let claim_index = requests
+        .iter()
+        .position(|request| request.url.path() == "/rest/v1/rpc/claim_sync_device")
+        .unwrap();
+    let token_index = requests
+        .iter()
+        .position(|request| request.url.path() == "/v2/tokens")
+        .unwrap();
+    assert!(claim_index < token_index);
+    let claim_request: Value = serde_json::from_slice(&requests[claim_index].body).unwrap();
     assert_eq!(
         claim_request,
         json!({
@@ -390,6 +398,8 @@ async fn registers_the_device_before_minting_a_token() {
 #[tokio::test]
 async fn refuses_token_when_device_limit_is_reached() {
     let server = MockServer::start().await;
+    mock_workspace_projection(&server, json!([personal_workspace("user-123")])).await;
+    mock_e2ee_key_claim(&server, TEST_KEY_ID).await;
     mock_sync_device_claim(&server, false, 5).await;
 
     let response = test_router(&server, "issuer-key", &["hyprnote_pro"])

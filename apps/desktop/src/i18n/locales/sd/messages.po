@@ -481,8 +481,21 @@ msgstr ""
 msgid "Apply to all"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Approval requested"
+msgstr ""
+
 #: src/session-sharing/access-management.tsx
+#: src/settings/sync/index.tsx
 msgid "Approve"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Approved"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Approved — waiting for this device to finish"
 msgstr ""
 
 #: src/composer/index.tsx
@@ -754,6 +767,10 @@ msgstr ""
 msgid "Choose a channel"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Choose a device below to replace, then this device will continue automatically."
+msgstr ""
+
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Choose a file format and what to include."
 msgstr ""
@@ -966,6 +983,10 @@ msgstr ""
 
 #: src/auth/cloudsync.ts
 msgid "Cloud sync is limited to 5 devices. Remove another device to sync here."
+msgstr ""
+
+#: src/auth/cloudsync.ts
+msgid "Cloud sync is limited to 5 devices. Replace or remove another device to sync here."
 msgstr ""
 
 #: src/main/sync-status.tsx
@@ -1255,8 +1276,16 @@ msgstr ""
 msgid "Could not generate meeting insights. Try again."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Could not identify this device. Try again."
+msgstr ""
+
 #: src/session-sharing/delivery-panel.tsx
 msgid "Could not load Slack channels. Reconnect Slack and try again."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Could not load your devices."
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -1524,11 +1553,8 @@ msgid "Developers"
 msgstr ""
 
 #: src/main/sync-status.tsx
-msgid "Device limit reached"
-msgstr ""
-
 #: src/settings/sync/index.tsx
-msgid "Device-to-device approval is being connected next. Until then, your recovery key remains the secure cross-platform fallback."
+msgid "Device limit reached"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -1721,16 +1747,16 @@ msgstr ""
 msgid "Enter template title"
 msgstr ""
 
-#: src/settings/general/e2ee-setup.tsx
-msgid "Enter the recovery key from an existing Anarlog device."
-msgstr ""
-
 #: src/settings/ai/shared/index.tsx
 msgid "Enter your API key"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
 msgid "Enter your API key (optional)"
+msgstr ""
+
+#: src/settings/general/e2ee-setup.tsx
+msgid "Enter your saved recovery key when another approved device is unavailable."
 msgstr ""
 
 #: src/composer/index.tsx
@@ -2104,7 +2130,7 @@ msgid "Install"
 msgstr ""
 
 #: src/settings/sync/index.tsx
-msgid "Install Anarlog and sign in with this account on the new device. Choose “Use an existing key” when prompted, then enter your saved recovery key."
+msgid "Install Anarlog and sign in with this account on the new device. It will appear here automatically so you can approve it."
 msgstr ""
 
 #: src/settings/developers/skills.tsx
@@ -2187,6 +2213,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Keep synced notes readable only on your devices."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Keep your recovery key saved somewhere safe. You can still use it if another approved device is unavailable."
 msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
@@ -2301,6 +2331,10 @@ msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Loading Cloud API access"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Loading devices"
 msgstr ""
 
 #: src/settings/ai/shared/model-combobox.tsx
@@ -2854,6 +2888,11 @@ msgstr ""
 msgid "Open Anarlog from the menu bar."
 msgstr ""
 
+#: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
+msgid "Open Anarlog on a device that already has access, then approve this device."
+msgstr ""
+
 #: src/sidebar/timeline/index.tsx
 msgid "Open calendar"
 msgstr ""
@@ -3243,6 +3282,10 @@ msgstr ""
 msgid "Remove example {0}"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Remove pending device"
+msgstr ""
+
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"
 msgstr ""
@@ -3278,6 +3321,7 @@ msgid "Repair Keychain Access"
 msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
+#: src/settings/sync/index.tsx
 msgid "Replace"
 msgstr ""
 
@@ -3382,6 +3426,7 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
+#: src/settings/sync/index.tsx
 #: src/sidebar/toast/registry.tsx
 msgid "Retry"
 msgstr ""
@@ -3420,7 +3465,7 @@ msgid "Save draft"
 msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
-msgid "Save this key in a password manager. You need it to add a new device, and it will not be shown again."
+msgid "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
 msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
@@ -4298,6 +4343,10 @@ msgstr ""
 msgid "This device"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "This device will start syncing after you approve it from another signed-in device."
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr ""
@@ -4610,6 +4659,10 @@ msgstr ""
 msgid "Use files"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Use recovery key instead"
+msgstr ""
+
 #: src/onboarding/permissions.tsx
 msgid "Use system audio to capture other speakers"
 msgstr ""
@@ -4660,6 +4713,15 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Wait until the transcript and note are complete."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Waiting for approval"
+msgstr ""
+
+#: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
+msgid "Waiting for device approval"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx

@@ -226,6 +226,7 @@ export type CloudsyncCredentials = {
     personalWorkspaceId: string;
     token: string;
     workspaceId: string;
+    workspaceKeyGrants: Array<WorkspaceE2EeKeyGrant>;
     workspaces: Array<CloudsyncWorkspace>;
 };
 
@@ -316,6 +317,10 @@ export type ConnectionItem = {
     last_error_type?: string | null;
     status?: string | null;
     updated_at?: string | null;
+};
+
+export type ConsumeE2EeDeviceEnrollmentRequest = {
+    publicKey: string;
 };
 
 export type CreateApiKeyBody = {
@@ -470,6 +475,24 @@ export type Document = {
     updated_at: string;
 };
 
+export type E2EeDeviceEnrollmentPackage = {
+    ciphertext: string;
+    ephemeralPublicKey: string;
+    nonce: string;
+};
+
+export type E2EeDeviceEnrollmentStatus = 'pending' | 'sealed' | 'consumed';
+
+export type E2EeDeviceEnrollmentSummary = {
+    createdAt: string;
+    deviceFingerprint: string;
+    deviceName?: string | null;
+    expiresAt: string;
+    publicKey: string;
+    requestId: string;
+    status: E2EeDeviceEnrollmentStatus;
+};
+
 export type E2EeIdentity = {
     keyId: string;
 };
@@ -494,6 +517,11 @@ export type E2EeWitnessPageEvent = {
     payloadHash: string;
     recordId: string;
     sequence: number;
+};
+
+export type E2EeWitnessWaitResponse = {
+    headSequence: number;
+    initialized: boolean;
 };
 
 export type EmailAddress = {
@@ -1334,6 +1362,18 @@ export type RecurrenceRange = {
 
 export type RecurrenceRangeType = 'endDate' | 'noEnd' | 'numbered' | 'unknown';
 
+export type RegisterE2EeDeviceEnrollmentRequest = {
+    publicKey: string;
+    replaceFingerprint?: string | null;
+};
+
+export type RegisterE2EeDeviceEnrollmentResponse = {
+    expiresAt: string;
+    package?: null | E2EeDeviceEnrollmentPackage;
+    requestId: string;
+    status: E2EeDeviceEnrollmentStatus;
+};
+
 export type Reminder = {
     method: ReminderMethod;
     minutes: number;
@@ -1344,6 +1384,15 @@ export type ReminderMethod = 'email' | 'popup' | 'unknown';
 export type Reminders = {
     overrides?: Array<Reminder> | null;
     useDefault?: boolean | null;
+};
+
+export type ReplicaCredentials = {
+    accountUserId: string;
+    encryptionKeyId: string;
+    encryptionVersion: number;
+    expiresAt: string;
+    transport: string;
+    workspaceId: string;
 };
 
 export type ReserveAttachmentBackupRequest = {
@@ -1417,6 +1466,16 @@ export type SessionResponse = {
     token: string;
 };
 
+export type SetWorkspaceE2EeKeyRequest = {
+    grants: Array<WorkspaceE2EeKeyGrantUpload>;
+    keyId: string;
+};
+
+export type SetWorkspaceE2EeKeyResult = {
+    grantedMemberCount: number;
+    keyId: string;
+};
+
 export type SharedAttachmentDownload = {
     contentType: string;
     expiresAt: string;
@@ -1470,6 +1529,14 @@ export type SharedNoteInvitationEmailRequest = {
     inviteToken: string;
     noteTitle: string;
     shareId: string;
+};
+
+export type SharedNoteLinkPreview = {
+    meetingAt: string;
+    participants: Array<string>;
+    shareId: string;
+    summary: string;
+    title: string;
 };
 
 export type SharedNoteLinkPreviewRequest = {
@@ -1600,6 +1667,19 @@ export type SttStatusResponse = {
         [key: string]: unknown;
     } | null;
     status: PipelineStatus;
+};
+
+export type SyncDeviceRow = {
+    createdAt: string;
+    deviceFingerprint: string;
+    deviceName?: string | null;
+    lastSeenAt: string;
+};
+
+export type SyncDevicesResponse = {
+    devices: Array<SyncDeviceRow>;
+    maxDevices: number;
+    pendingDevices: Array<E2EeDeviceEnrollmentSummary>;
 };
 
 export type TestResponse = {
@@ -1805,6 +1885,30 @@ export type WorkingLocationProperties = {
 };
 
 export type WorkingLocationType = 'homeOffice' | 'officeLocation' | 'customLocation' | 'unknown';
+
+export type WorkspaceE2EeKeyGrant = {
+    ciphertext: string;
+    ephemeralPublicKey: string;
+    isActive: boolean;
+    keyId: string;
+    nonce: string;
+    workspaceId: string;
+};
+
+export type WorkspaceE2EeKeyGrantUpload = {
+    ciphertext: string;
+    ephemeralPublicKey: string;
+    nonce: string;
+    userId: string;
+};
+
+export type WorkspaceE2EeKeyRecipient = {
+    grantedKeyIds: Array<string>;
+    publicKey?: string | null;
+    role: string;
+    userEmail: string;
+    userId: string;
+};
 
 export type GoogleAttendee = {
     additionalGuests?: number | null;
@@ -3041,6 +3145,38 @@ export type ReadLinkSharedNotePreviewResponses = {
 
 export type ReadLinkSharedNotePreviewResponse = ReadLinkSharedNotePreviewResponses[keyof ReadLinkSharedNotePreviewResponses];
 
+export type ReadShortLinkSharedNotePreviewData = {
+    body?: never;
+    path: {
+        /**
+         * Session share link ID
+         */
+        link_id: string;
+    };
+    query?: never;
+    url: '/shared-notes/links/{link_id}/preview';
+};
+
+export type ReadShortLinkSharedNotePreviewErrors = {
+    /**
+     * Shared note unavailable
+     */
+    404: unknown;
+    /**
+     * Shared note service unavailable
+     */
+    502: unknown;
+};
+
+export type ReadShortLinkSharedNotePreviewResponses = {
+    /**
+     * Short-link shared note preview
+     */
+    200: SharedNoteLinkPreview;
+};
+
+export type ReadShortLinkSharedNotePreviewResponse = ReadShortLinkSharedNotePreviewResponses[keyof ReadShortLinkSharedNotePreviewResponses];
+
 export type ReadPublicSharedNoteData = {
     body?: never;
     path: {
@@ -3813,6 +3949,224 @@ export type GrantAttachmentBackupUploadResponses = {
 
 export type GrantAttachmentBackupUploadResponse = GrantAttachmentBackupUploadResponses[keyof GrantAttachmentBackupUploadResponses];
 
+export type GetDevicesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/sync/devices';
+};
+
+export type GetDevicesErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * Device service unavailable
+     */
+    502: unknown;
+};
+
+export type GetDevicesResponses = {
+    /**
+     * Approved and pending sync devices
+     */
+    200: SyncDevicesResponse;
+};
+
+export type GetDevicesResponse = GetDevicesResponses[keyof GetDevicesResponses];
+
+export type DeleteDeviceData = {
+    body?: never;
+    path: {
+        /**
+         * Device fingerprint
+         */
+        fingerprint: string;
+    };
+    query?: never;
+    url: '/sync/devices/{fingerprint}';
+};
+
+export type DeleteDeviceErrors = {
+    /**
+     * Invalid device fingerprint
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * Device service unavailable
+     */
+    502: unknown;
+};
+
+export type DeleteDeviceResponses = {
+    /**
+     * Device removed
+     */
+    204: void;
+};
+
+export type DeleteDeviceResponse = DeleteDeviceResponses[keyof DeleteDeviceResponses];
+
+export type RegisterE2EeDeviceEnrollmentData = {
+    body: RegisterE2EeDeviceEnrollmentRequest;
+    headers: {
+        /**
+         * Current device fingerprint
+         */
+        'x-device-fingerprint': string;
+        /**
+         * Current device name
+         */
+        'x-anarlog-device-name'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/sync/e2ee/device-enrollments';
+};
+
+export type RegisterE2EeDeviceEnrollmentErrors = {
+    /**
+     * Invalid device enrollment
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro or a free device slot is required
+     */
+    403: unknown;
+    /**
+     * An existing device must establish encrypted sync first
+     */
+    409: unknown;
+    /**
+     * Enrollment service unavailable
+     */
+    502: unknown;
+};
+
+export type RegisterE2EeDeviceEnrollmentResponses = {
+    /**
+     * Current enrollment request
+     */
+    200: RegisterE2EeDeviceEnrollmentResponse;
+};
+
+export type RegisterE2EeDeviceEnrollmentResponse2 = RegisterE2EeDeviceEnrollmentResponses[keyof RegisterE2EeDeviceEnrollmentResponses];
+
+export type ConsumeE2EeDeviceEnrollmentData = {
+    body: ConsumeE2EeDeviceEnrollmentRequest;
+    headers: {
+        /**
+         * Requesting device fingerprint
+         */
+        'x-device-fingerprint': string;
+    };
+    path: {
+        /**
+         * Enrollment request ID
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/sync/e2ee/device-enrollments/{request_id}/consume';
+};
+
+export type ConsumeE2EeDeviceEnrollmentErrors = {
+    /**
+     * Invalid enrollment acknowledgement
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * Enrollment request unavailable
+     */
+    404: unknown;
+    /**
+     * Enrollment service unavailable
+     */
+    502: unknown;
+};
+
+export type ConsumeE2EeDeviceEnrollmentResponses = {
+    /**
+     * Enrollment package consumed
+     */
+    204: void;
+};
+
+export type ConsumeE2EeDeviceEnrollmentResponse = ConsumeE2EeDeviceEnrollmentResponses[keyof ConsumeE2EeDeviceEnrollmentResponses];
+
+export type SealE2EeDeviceEnrollmentData = {
+    body: E2EeDeviceEnrollmentPackage;
+    path: {
+        /**
+         * Enrollment request ID
+         */
+        request_id: string;
+    };
+    query?: never;
+    url: '/sync/e2ee/device-enrollments/{request_id}/seal';
+};
+
+export type SealE2EeDeviceEnrollmentErrors = {
+    /**
+     * Invalid enrollment package
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * Enrollment request unavailable
+     */
+    404: unknown;
+    /**
+     * Enrollment request already sealed
+     */
+    409: unknown;
+    /**
+     * Enrollment service unavailable
+     */
+    502: unknown;
+};
+
+export type SealE2EeDeviceEnrollmentResponses = {
+    /**
+     * Enrollment package sealed
+     */
+    204: void;
+};
+
+export type SealE2EeDeviceEnrollmentResponse = SealE2EeDeviceEnrollmentResponses[keyof SealE2EeDeviceEnrollmentResponses];
+
 export type ClaimE2EeIdentityData = {
     body: ClaimE2EeIdentityRequest;
     path?: never;
@@ -3856,7 +4210,7 @@ export type ReadE2EeWitnessData = {
     body?: never;
     path: {
         /**
-         * Personal workspace ID
+         * Workspace ID
          */
         workspace_id: string;
     };
@@ -3905,7 +4259,7 @@ export type PublishE2EeWitnessData = {
     body: PublishE2EeWitnessRequest;
     path: {
         /**
-         * Personal workspace ID
+         * Workspace ID
          */
         workspace_id: string;
     };
@@ -3944,6 +4298,180 @@ export type PublishE2EeWitnessResponses = {
 };
 
 export type PublishE2EeWitnessResponse2 = PublishE2EeWitnessResponses[keyof PublishE2EeWitnessResponses];
+
+export type WaitE2EeWitnessData = {
+    body?: never;
+    path: {
+        /**
+         * Workspace ID
+         */
+        workspace_id: string;
+    };
+    query?: {
+        /**
+         * Last witness sequence known to the caller
+         */
+        afterSequence?: number;
+    };
+    url: '/sync/e2ee/witness/{workspace_id}/wait';
+};
+
+export type WaitE2EeWitnessErrors = {
+    /**
+     * Invalid witness cursor
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Witness workspace access denied
+     */
+    403: unknown;
+    /**
+     * Witness service unavailable
+     */
+    502: unknown;
+};
+
+export type WaitE2EeWitnessResponses = {
+    /**
+     * Witness head state, held until it advances past the cursor or the hold expires
+     */
+    200: E2EeWitnessWaitResponse;
+};
+
+export type WaitE2EeWitnessResponse = WaitE2EeWitnessResponses[keyof WaitE2EeWitnessResponses];
+
+export type SetWorkspaceE2EeKeyData = {
+    body: SetWorkspaceE2EeKeyRequest;
+    path: {
+        /**
+         * Shared workspace ID
+         */
+        workspace_id: string;
+    };
+    query?: never;
+    url: '/sync/e2ee/workspaces/{workspace_id}/key';
+};
+
+export type SetWorkspaceE2EeKeyErrors = {
+    /**
+     * Invalid workspace key grants
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Workspace manager access required
+     */
+    403: unknown;
+    /**
+     * Workspace key service unavailable
+     */
+    502: unknown;
+};
+
+export type SetWorkspaceE2EeKeyResponses = {
+    /**
+     * Wrapped workspace key published
+     */
+    200: SetWorkspaceE2EeKeyResult;
+};
+
+export type SetWorkspaceE2EeKeyResponse = SetWorkspaceE2EeKeyResponses[keyof SetWorkspaceE2EeKeyResponses];
+
+export type GetWorkspaceE2EeKeyRecipientsData = {
+    body?: never;
+    path: {
+        /**
+         * Shared workspace ID
+         */
+        workspace_id: string;
+    };
+    query?: never;
+    url: '/sync/e2ee/workspaces/{workspace_id}/recipients';
+};
+
+export type GetWorkspaceE2EeKeyRecipientsErrors = {
+    /**
+     * Invalid workspace ID
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Workspace manager access required
+     */
+    403: unknown;
+    /**
+     * Workspace key service unavailable
+     */
+    502: unknown;
+};
+
+export type GetWorkspaceE2EeKeyRecipientsResponses = {
+    /**
+     * Active workspace key recipients
+     */
+    200: Array<WorkspaceE2EeKeyRecipient>;
+};
+
+export type GetWorkspaceE2EeKeyRecipientsResponse = GetWorkspaceE2EeKeyRecipientsResponses[keyof GetWorkspaceE2EeKeyRecipientsResponses];
+
+export type CreateReplicaCredentialsData = {
+    body?: never;
+    headers: {
+        /**
+         * Local recovery-key identity
+         */
+        'x-anarlog-e2ee-key-id': string;
+        /**
+         * Account-level member identity public key
+         */
+        'x-anarlog-e2ee-member-public-key'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/sync/replica/credentials';
+};
+
+export type CreateReplicaCredentialsErrors = {
+    /**
+     * Invalid E2EE key identity
+     */
+    400: unknown;
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Anarlog Pro subscription required
+     */
+    403: unknown;
+    /**
+     * Account already uses a different recovery key
+     */
+    409: unknown;
+    /**
+     * Replica credential service unavailable
+     */
+    502: unknown;
+};
+
+export type CreateReplicaCredentialsResponses = {
+    /**
+     * Encrypted replica credentials
+     */
+    200: ReplicaCredentials;
+};
+
+export type CreateReplicaCredentialsResponse = CreateReplicaCredentialsResponses[keyof CreateReplicaCredentialsResponses];
 
 export type FinalizeSharedAttachmentData = {
     body: SharedAttachmentObjectRequest;
@@ -4196,6 +4724,10 @@ export type CreateCredentialsData = {
          * Local recovery-key identity
          */
         'x-anarlog-e2ee-key-id'?: string | null;
+        /**
+         * Account-level member identity public key
+         */
+        'x-anarlog-e2ee-member-public-key'?: string | null;
     };
     path?: never;
     query?: never;

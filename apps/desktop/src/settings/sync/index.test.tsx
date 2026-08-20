@@ -6,9 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getCloudsyncStatus: vi.fn(),
   getE2eeIdentityStatus: vi.fn(),
+  getOrCreateE2eeDeviceIdentity: vi.fn(),
+  sealE2eeRecoveryKeyForDevice: vi.fn(),
   syncCloudsyncNow: vi.fn(),
   setSettingValue: vi.fn(),
   applyCloudsyncPreference: vi.fn(),
+  refreshCloudsyncForSession: vi.fn(),
+  requestSyncDevices: vi.fn(),
+  registerDeviceEnrollment: vi.fn(),
+  sealDeviceEnrollment: vi.fn(),
+  removeSyncDevice: vi.fn(),
+  getDeviceIdentity: vi.fn(),
   repairKeychainAccess: vi.fn(),
   vaultBase: vi.fn(),
   openUrl: vi.fn(),
@@ -28,6 +36,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@anlg/plugin-db", () => ({
   getCloudsyncStatus: mocks.getCloudsyncStatus,
   getE2eeIdentityStatus: mocks.getE2eeIdentityStatus,
+  getOrCreateE2eeDeviceIdentity: mocks.getOrCreateE2eeDeviceIdentity,
+  sealE2eeRecoveryKeyForDevice: mocks.sealE2eeRecoveryKeyForDevice,
   syncCloudsyncNow: mocks.syncCloudsyncNow,
 }));
 
@@ -58,7 +68,19 @@ vi.mock("~/auth/billing-context", () => ({
 vi.mock("~/auth/cloudsync", () => ({
   applyCloudsyncPreference: mocks.applyCloudsyncPreference,
   getCloudsyncCredentialBlock: () => mocks.credentialBlock,
+  refreshCloudsyncForSession: mocks.refreshCloudsyncForSession,
   subscribeCloudsyncCredentialBlock: () => () => {},
+}));
+
+vi.mock("~/auth/cloudsync-credentials", () => ({
+  getDeviceIdentity: mocks.getDeviceIdentity,
+}));
+
+vi.mock("~/auth/sync-devices", () => ({
+  registerDeviceEnrollment: mocks.registerDeviceEnrollment,
+  removeSyncDevice: mocks.removeSyncDevice,
+  requestSyncDevices: mocks.requestSyncDevices,
+  sealDeviceEnrollment: mocks.sealDeviceEnrollment,
 }));
 
 vi.mock("~/analytics", () => ({
@@ -147,6 +169,32 @@ describe("SettingsSync", () => {
       access_token: "token",
     };
     mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: true });
+    mocks.getOrCreateE2eeDeviceIdentity.mockResolvedValue({
+      publicKey: "A".repeat(43),
+    });
+    mocks.sealE2eeRecoveryKeyForDevice.mockResolvedValue({
+      ephemeralPublicKey: "E".repeat(43),
+      nonce: "N".repeat(32),
+      ciphertext: "C".repeat(100),
+    });
+    mocks.requestSyncDevices.mockResolvedValue({
+      devices: [],
+      pendingDevices: [],
+      maxDevices: 5,
+    });
+    mocks.getDeviceIdentity.mockResolvedValue({
+      fingerprint: "current-device",
+      name: "Current Mac",
+    });
+    mocks.registerDeviceEnrollment.mockResolvedValue({
+      requestId: "request-id",
+      expiresAt: "2026-08-21T00:00:00Z",
+      status: "pending",
+      package: null,
+    });
+    mocks.sealDeviceEnrollment.mockResolvedValue(undefined);
+    mocks.removeSyncDevice.mockResolvedValue(undefined);
+    mocks.refreshCloudsyncForSession.mockResolvedValue("ok");
     mocks.getCloudsyncStatus.mockResolvedValue(syncedStatus());
     mocks.vaultBase.mockResolvedValue({
       status: "ok",
@@ -173,6 +221,132 @@ describe("SettingsSync", () => {
       screen.getByText(/Keep synced notes readable only on your devices/),
     ).toBeTruthy();
     expect(screen.queryByText(/conflicted copies/)).toBeNull();
+  });
+
+  it("retries when the device list cannot load", async () => {
+    mocks.requestSyncDevices
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue({
+        devices: [],
+        pendingDevices: [],
+        maxDevices: 5,
+      });
+    renderSettings();
+
+    expect(
+      await screen.findByText("Could not load your devices."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await vi.waitFor(() =>
+      expect(mocks.requestSyncDevices).toHaveBeenCalledTimes(2),
+    );
+    expect(await screen.findByText("No devices registered yet.")).toBeTruthy();
+  });
+
+  it("approves a pending device without sharing the recovery key", async () => {
+    mocks.requestSyncDevices.mockResolvedValue({
+      devices: [],
+      pendingDevices: [
+        {
+          requestId: "11111111-1111-4111-8111-111111111111",
+          deviceFingerprint: "new-device",
+          deviceName: "New Mac",
+          publicKey: "A".repeat(43),
+          createdAt: "2026-08-20T00:00:00Z",
+          expiresAt: "2026-08-21T00:00:00Z",
+          status: "pending",
+        },
+      ],
+      maxDevices: 5,
+    });
+    renderSettings();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+
+    await vi.waitFor(() =>
+      expect(mocks.sealE2eeRecoveryKeyForDevice).toHaveBeenCalledWith(
+        "user-1",
+        "11111111-1111-4111-8111-111111111111",
+        "A".repeat(43),
+      ),
+    );
+    expect(mocks.sealDeviceEnrollment).toHaveBeenCalledWith({
+      accessToken: "token",
+      requestId: "11111111-1111-4111-8111-111111111111",
+      packageValue: {
+        ephemeralPublicKey: "E".repeat(43),
+        nonce: "N".repeat(32),
+        ciphertext: "C".repeat(100),
+      },
+    });
+  });
+
+  it("replaces an active device when the device limit is reached", async () => {
+    mocks.credentialBlock = "device_limit";
+    mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: false });
+    mocks.requestSyncDevices.mockResolvedValue({
+      devices: [
+        {
+          deviceFingerprint: "old-device",
+          deviceName: "Old Mac",
+          createdAt: "2026-08-01T00:00:00Z",
+          lastSeenAt: "2026-08-19T00:00:00Z",
+        },
+      ],
+      pendingDevices: [],
+      maxDevices: 5,
+    });
+    renderSettings();
+
+    expect(await screen.findByText("Device limit reached")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Replace" }));
+
+    await vi.waitFor(() =>
+      expect(mocks.registerDeviceEnrollment).toHaveBeenCalledWith({
+        accessToken: "token",
+        publicKey: "A".repeat(43),
+        fingerprint: "current-device",
+        deviceName: "Current Mac",
+        replaceFingerprint: "old-device",
+      }),
+    );
+    expect(mocks.refreshCloudsyncForSession).toHaveBeenCalledWith(
+      mocks.session,
+    );
+  });
+
+  it("keeps recovery-key import available while approval is pending", async () => {
+    mocks.credentialBlock = "approval_pending";
+    mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: false });
+    renderSettings();
+
+    expect(await screen.findByText("Waiting for device approval")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Use recovery key instead" }),
+    ).toBeTruthy();
+  });
+
+  it("keeps first-device recovery setup actionable", async () => {
+    mocks.credentialBlock = "setup_required";
+    mocks.getE2eeIdentityStatus.mockResolvedValue({ configured: false });
+    renderSettings();
+
+    const syncSwitch = await screen.findByRole("switch", {
+      name: "Cloud sync",
+    });
+    expect(syncSwitch.getAttribute("data-state")).toBe("unchecked");
+    await vi.waitFor(() =>
+      expect(syncSwitch.hasAttribute("disabled")).toBe(false),
+    );
+    fireEvent.click(syncSwitch);
+
+    await vi.waitFor(() =>
+      expect(mocks.setSettingValue).toHaveBeenCalledWith(
+        "cloud_sync_enabled",
+        true,
+      ),
+    );
   });
 
   it("shows recent sync activity on demand", async () => {

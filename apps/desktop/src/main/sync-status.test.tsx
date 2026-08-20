@@ -229,6 +229,24 @@ describe("SyncStatusIndicator", () => {
     expect(screen.queryByText("Connecting...")).toBeNull();
   });
 
+  it("distinguishes device approval from first-device setup", async () => {
+    mocks.credentialBlock = "approval_pending";
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({ configured: false, running: false }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Waiting for device approval")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Open Anarlog on a device that already has access, then approve this device.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Cloud sync setup required")).toBeNull();
+  });
+
   it.each([
     [
       "setup_required",

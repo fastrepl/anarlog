@@ -124,6 +124,12 @@ export function SyncStatusIndicator() {
           label: t`Device limit reached`,
           description: t`This account already syncs on 5 devices. Remove another device to sync here.`,
         };
+      case "approval_pending":
+        return {
+          kind: "connecting" as const,
+          label: t`Waiting for device approval`,
+          description: t`Open Anarlog on a device that already has access, then approve this device.`,
+        };
       case "identity_mismatch":
         return {
           kind: "error" as const,

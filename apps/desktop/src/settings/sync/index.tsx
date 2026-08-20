@@ -19,6 +19,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   getCloudsyncStatus,
   getE2eeIdentityStatus,
+  getOrCreateE2eeDeviceIdentity,
+  sealE2eeRecoveryKeyForDevice,
   syncCloudsyncNow,
 } from "@anlg/plugin-db";
 import type { CloudsyncActivityEntry } from "@anlg/plugin-db";
@@ -45,10 +47,16 @@ import { useBillingAccess } from "~/auth/billing-context";
 import {
   applyCloudsyncPreference,
   getCloudsyncCredentialBlock,
+  refreshCloudsyncForSession,
   subscribeCloudsyncCredentialBlock,
 } from "~/auth/cloudsync";
 import { getDeviceIdentity } from "~/auth/cloudsync-credentials";
-import { env } from "~/env";
+import {
+  registerDeviceEnrollment,
+  removeSyncDevice,
+  requestSyncDevices,
+  sealDeviceEnrollment,
+} from "~/auth/sync-devices";
 import { captureOperationalError } from "~/error-reporting";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
@@ -61,21 +69,6 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_POLL_INTERVAL_MS = 10_000;
 const SYNC_GUIDE_URL = "https://docs.anarlog.so/sync";
-
-type SyncDevice = {
-  deviceFingerprint: string;
-  deviceName: string | null;
-  createdAt: string;
-  lastSeenAt: string;
-};
-
-async function requestSyncDevices(accessToken: string) {
-  const response = await fetch(new URL("/sync/devices", env.VITE_API_URL), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!response.ok) throw new Error("Could not load your devices.");
-  return (await response.json()) as { devices: SyncDevice[] };
-}
 
 async function readE2eeIdentityStatus(accountUserId: string) {
   try {
@@ -180,30 +173,80 @@ export function SettingsSync() {
     queryKey: ["e2ee-identity", session?.user.id],
     queryFn: () => readE2eeIdentityStatus(session!.user.id),
     enabled: Boolean(session?.user.id),
+    refetchInterval:
+      credentialBlock === "approval_pending" ? STATUS_POLL_INTERVAL_MS : false,
     retry: false,
   });
   const devicesQuery = useQuery({
     queryKey: ["sync-devices", session?.user.id],
-    queryFn: () => requestSyncDevices(session!.access_token),
+    queryFn: ({ signal }) => requestSyncDevices(session!.access_token, signal),
     enabled: Boolean(session && isPro),
+    refetchInterval: (query) =>
+      query.state.data?.pendingDevices.length ? 5_000 : false,
   });
   const deviceIdentityQuery = useQuery({
     queryKey: ["device-identity"],
     queryFn: getDeviceIdentity,
   });
   const removeDeviceMutation = useMutation({
-    mutationFn: async (fingerprint: string) => {
-      const response = await fetch(
-        new URL(
-          `/sync/devices/${encodeURIComponent(fingerprint)}`,
-          env.VITE_API_URL,
-        ),
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${session!.access_token}` },
-        },
+    mutationFn: (fingerprint: string) =>
+      removeSyncDevice(session!.access_token, fingerprint),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["sync-devices", session?.user.id],
+      });
+      if (credentialBlock === "device_limit") {
+        const result = await refreshCloudsyncForSession(session!);
+        if (result === "account_mismatch") {
+          await auth.signOut();
+        }
+      }
+    },
+  });
+  const approveDeviceMutation = useMutation({
+    mutationFn: async ({
+      requestId,
+      publicKey,
+    }: {
+      requestId: string;
+      publicKey: string;
+    }) => {
+      const packageValue = await sealE2eeRecoveryKeyForDevice(
+        session!.user.id,
+        requestId,
+        publicKey,
       );
-      if (!response.ok) throw new Error("Could not remove this device.");
+      await sealDeviceEnrollment({
+        accessToken: session!.access_token,
+        requestId,
+        packageValue,
+      });
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["sync-devices", session?.user.id],
+      }),
+  });
+  const replaceDeviceMutation = useMutation({
+    mutationFn: async (replaceFingerprint: string) => {
+      const [device, enrollmentIdentity] = await Promise.all([
+        getDeviceIdentity(),
+        getOrCreateE2eeDeviceIdentity(session!.user.id),
+      ]);
+      if (!device.fingerprint) {
+        throw new Error(t`Could not identify this device. Try again.`);
+      }
+      await registerDeviceEnrollment({
+        accessToken: session!.access_token,
+        publicKey: enrollmentIdentity.publicKey,
+        fingerprint: device.fingerprint,
+        deviceName: device.name,
+        replaceFingerprint,
+      });
+      const result = await refreshCloudsyncForSession(session!);
+      if (result === "account_mismatch") {
+        await auth.signOut();
+      }
     },
     onSuccess: () =>
       queryClient.invalidateQueries({
@@ -274,7 +317,13 @@ export function SettingsSync() {
       if (configured) {
         setSyncEnabledMutation.mutate(true);
       } else {
-        setE2eeSetupOpen(true);
+        setSyncEnabledMutation.mutate(true, {
+          onSuccess: () => {
+            if (getCloudsyncCredentialBlock() === "setup_required") {
+              setE2eeSetupOpen(true);
+            }
+          },
+        });
       }
     },
   });
@@ -288,15 +337,17 @@ export function SettingsSync() {
       }
     },
   });
-  const syncEnabled = setSyncEnabledMutation.isPending
+  const syncPreferred = setSyncEnabledMutation.isPending
     ? (setSyncEnabledMutation.variables ?? storedSyncEnabled)
-    : storedSyncEnabled && e2eeIdentityQuery.data?.configured !== false;
+    : storedSyncEnabled;
+  const syncSwitchChecked =
+    syncPreferred && credentialBlock !== "setup_required";
   const statusQuery = useQuery({
     queryKey: statusQueryKey,
     queryFn: getCloudsyncStatus,
     refetchInterval: STATUS_POLL_INTERVAL_MS,
     refetchIntervalInBackground: false,
-    enabled: Boolean(session) && isPro && syncEnabled,
+    enabled: Boolean(session) && isPro && syncPreferred,
   });
   const syncNowMutation = useMutation({
     mutationFn: syncCloudsyncNow,
@@ -436,7 +487,7 @@ export function SettingsSync() {
   }
 
   const statusView = (() => {
-    if (!syncEnabled) {
+    if (!syncPreferred) {
       return {
         kind: "paused" as const,
         label: t`Sync paused`,
@@ -444,6 +495,20 @@ export function SettingsSync() {
       };
     }
     if (credentialBlock !== null) {
+      if (credentialBlock === "approval_pending") {
+        return {
+          kind: "local" as const,
+          label: t`Waiting for device approval`,
+          description: t`Open Anarlog on a device that already has access, then approve this device.`,
+        };
+      }
+      if (credentialBlock === "device_limit") {
+        return {
+          kind: "error" as const,
+          label: t`Device limit reached`,
+          description: t`Choose a device below to replace, then this device will continue automatically.`,
+        };
+      }
       return {
         kind: "error" as const,
         label: t`Sync needs attention`,
@@ -542,6 +607,10 @@ export function SettingsSync() {
     e2eePreflightMutation.error ??
     repairKeychainMutation.error ??
     syncNowMutation.error;
+  const deviceMutationError =
+    approveDeviceMutation.error ??
+    replaceDeviceMutation.error ??
+    removeDeviceMutation.error;
   const canRepairKeychainAccess =
     platform() === "macos" &&
     (credentialBlock === "keychain_access" ||
@@ -566,7 +635,7 @@ export function SettingsSync() {
           </div>
           <Switch
             aria-label={t`Cloud sync`}
-            checked={syncEnabled}
+            checked={syncSwitchChecked}
             disabled={
               setSyncEnabledMutation.isPending ||
               e2eePreflightMutation.isPending ||
@@ -594,7 +663,8 @@ export function SettingsSync() {
             variant="outline"
             size="sm"
             disabled={
-              !syncEnabled ||
+              !syncPreferred ||
+              credentialBlock !== null ||
               syncNowMutation.isPending ||
               statusQuery.isFetching ||
               status?.activity_paused === true
@@ -706,6 +776,29 @@ export function SettingsSync() {
           </Button>
         </div>
         <div className="border-border/60 divide-border/60 divide-y overflow-hidden rounded-xl border">
+          {devicesQuery.isPending && (
+            <div className="flex items-center justify-center px-4 py-5">
+              <CircleNotch
+                aria-label={t`Loading devices`}
+                className="text-muted-foreground size-4 animate-spin"
+              />
+            </div>
+          )}
+          {devicesQuery.isError && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <p className="text-xs text-red-500">
+                <Trans>Could not load your devices.</Trans>
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={devicesQuery.isFetching}
+                onClick={() => void devicesQuery.refetch()}
+              >
+                <Trans>Retry</Trans>
+              </Button>
+            </div>
+          )}
           {devicesQuery.data?.devices.map((device) => {
             const current =
               device.deviceFingerprint ===
@@ -724,10 +817,98 @@ export function SettingsSync() {
                   <p className="text-muted-foreground text-[11px]">{t`Last seen ${formatDistanceToNow(new Date(device.lastSeenAt))}`}</p>
                 </div>
                 {!current && (
+                  <>
+                    {credentialBlock === "device_limit" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={replaceDeviceMutation.isPending}
+                        onClick={() =>
+                          replaceDeviceMutation.mutate(device.deviceFingerprint)
+                        }
+                      >
+                        {replaceDeviceMutation.isPending &&
+                          replaceDeviceMutation.variables ===
+                            device.deviceFingerprint && (
+                            <CircleNotch className="size-3.5 animate-spin" />
+                          )}
+                        <Trans>Replace</Trans>
+                      </Button>
+                    )}
+                    {credentialBlock !== "device_limit" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t`Remove device`}
+                        disabled={removeDeviceMutation.isPending}
+                        onClick={() =>
+                          removeDeviceMutation.mutate(device.deviceFingerprint)
+                        }
+                      >
+                        <Trash className="size-3.5" />
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+          {devicesQuery.data?.pendingDevices.map((device) => {
+            const current =
+              device.deviceFingerprint ===
+              deviceIdentityQuery.data?.fingerprint;
+            return (
+              <div
+                key={device.requestId}
+                className="flex items-center gap-3 px-4 py-3"
+              >
+                <Devices className="text-muted-foreground size-4 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">
+                    {device.deviceName || t`Unnamed device`}
+                    {current ? ` · ${t`This device`}` : ""}
+                  </p>
+                  <p className="text-muted-foreground text-[11px]">
+                    {device.status === "sealed"
+                      ? t`Approved — waiting for this device to finish`
+                      : current
+                        ? t`Waiting for approval`
+                        : t`Approval requested`}
+                  </p>
+                </div>
+                {!current &&
+                  device.status === "pending" &&
+                  e2eeIdentityQuery.data?.configured &&
+                  credentialBlock !== "identity_mismatch" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={approveDeviceMutation.isPending}
+                      onClick={() =>
+                        approveDeviceMutation.mutate({
+                          requestId: device.requestId,
+                          publicKey: device.publicKey,
+                        })
+                      }
+                    >
+                      {approveDeviceMutation.isPending &&
+                        approveDeviceMutation.variables?.requestId ===
+                          device.requestId && (
+                          <CircleNotch className="size-3.5 animate-spin" />
+                        )}
+                      <Trans>Approve</Trans>
+                    </Button>
+                  )}
+                {!current && device.status === "sealed" && (
+                  <span className="text-xs text-emerald-500">
+                    <Trans>Approved</Trans>
+                  </span>
+                )}
+                {!current && (
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label={t`Remove device`}
+                    aria-label={t`Remove pending device`}
                     disabled={removeDeviceMutation.isPending}
                     onClick={() =>
                       removeDeviceMutation.mutate(device.deviceFingerprint)
@@ -739,15 +920,18 @@ export function SettingsSync() {
               </div>
             );
           })}
-          {!devicesQuery.isPending && !devicesQuery.data?.devices.length && (
-            <p className="text-muted-foreground px-4 py-5 text-center text-xs">
-              <Trans>No devices registered yet.</Trans>
-            </p>
-          )}
+          {!devicesQuery.isPending &&
+            !devicesQuery.isError &&
+            !devicesQuery.data?.devices.length &&
+            !devicesQuery.data?.pendingDevices.length && (
+              <p className="text-muted-foreground px-4 py-5 text-center text-xs">
+                <Trans>No devices registered yet.</Trans>
+              </p>
+            )}
         </div>
-        {removeDeviceMutation.error && (
+        {deviceMutationError && (
           <p className="mt-2 text-xs text-red-500">
-            {removeDeviceMutation.error.message}
+            {deviceMutationError.message}
           </p>
         )}
       </section>
@@ -771,6 +955,11 @@ export function SettingsSync() {
             <p className="text-muted-foreground mt-1 text-xs leading-5">
               {e2eeIdentityQuery.data?.configured ? (
                 <Trans>Keep synced notes readable only on your devices.</Trans>
+              ) : credentialBlock === "approval_pending" ? (
+                <Trans>
+                  This device will start syncing after you approve it from
+                  another signed-in device.
+                </Trans>
               ) : canRepairKeychainAccess ? (
                 <Trans>
                   macOS could not access your recovery key. Repair Keychain
@@ -794,6 +983,16 @@ export function SettingsSync() {
                   <CircleNotch className="size-3.5 animate-spin" />
                 )}
                 <Trans>Repair Keychain Access</Trans>
+              </Button>
+            )}
+            {credentialBlock === "approval_pending" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => setE2eeSetupOpen(true)}
+              >
+                <Trans>Use recovery key instead</Trans>
               </Button>
             )}
           </div>
@@ -820,15 +1019,14 @@ export function SettingsSync() {
             <DialogDescription>
               <Trans>
                 Install Anarlog and sign in with this account on the new device.
-                Choose “Use an existing key” when prompted, then enter your
-                saved recovery key.
+                It will appear here automatically so you can approve it.
               </Trans>
             </DialogDescription>
           </DialogHeader>
           <p className="text-muted-foreground text-xs leading-5">
             <Trans>
-              Device-to-device approval is being connected next. Until then,
-              your recovery key remains the secure cross-platform fallback.
+              Keep your recovery key saved somewhere safe. You can still use it
+              if another approved device is unavailable.
             </Trans>
           </p>
           <DialogFooter>

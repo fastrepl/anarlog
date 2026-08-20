@@ -20,6 +20,15 @@ pub enum SyncError {
     #[error("This account is protected by a different E2EE recovery key")]
     E2eeKeyMismatch,
 
+    #[error("Set up encrypted sync on an existing device first")]
+    E2eeEnrollmentRequiresExistingKey,
+
+    #[error("E2EE device enrollment is unavailable")]
+    E2eeEnrollmentUnavailable,
+
+    #[error("E2EE device enrollment is already approved")]
+    E2eeEnrollmentConflict,
+
     #[error("CloudSync device limit reached")]
     SyncDeviceLimitReached,
 
@@ -120,6 +129,21 @@ impl IntoResponse for SyncError {
                 StatusCode::CONFLICT,
                 "e2ee_key_mismatch",
                 "This account is protected by a different E2EE recovery key".to_string(),
+            ),
+            Self::E2eeEnrollmentRequiresExistingKey => (
+                StatusCode::CONFLICT,
+                "e2ee_enrollment_requires_existing_key",
+                "Set up encrypted sync on an existing device first".to_string(),
+            ),
+            Self::E2eeEnrollmentUnavailable => (
+                StatusCode::NOT_FOUND,
+                "e2ee_enrollment_unavailable",
+                "E2EE device enrollment is unavailable".to_string(),
+            ),
+            Self::E2eeEnrollmentConflict => (
+                StatusCode::CONFLICT,
+                "e2ee_enrollment_conflict",
+                "E2EE device enrollment is already approved".to_string(),
             ),
             Self::SyncDeviceLimitReached => (
                 StatusCode::FORBIDDEN,

@@ -167,8 +167,9 @@ export function E2eeSetupDialog({
             <div className="space-y-3">
               <p className="text-muted-foreground text-center text-xs leading-5">
                 <Trans>
-                  Save this key in a password manager. You need it to add a new
-                  device, and it will not be shown again.
+                  Save this key in a password manager. New devices can usually
+                  be approved from another device; this key is your fallback and
+                  will not be shown again.
                 </Trans>
               </p>
               <code className="bg-muted block max-h-28 overflow-auto rounded-xl p-3 font-mono text-[11px] leading-5 break-all select-all">
@@ -204,7 +205,8 @@ export function E2eeSetupDialog({
             <div className="space-y-3">
               <p className="text-muted-foreground text-xs leading-5">
                 <Trans>
-                  Enter the recovery key from an existing Anarlog device.
+                  Enter your saved recovery key when another approved device is
+                  unavailable.
                 </Trans>
               </p>
               <importForm.Field name="recoveryKey">

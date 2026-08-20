@@ -136,5 +136,6 @@ async fn response_json(response: axum::response::Response) -> Value {
 }
 
 mod credentials;
+mod enrollment;
 mod publication;
 mod web_edits;

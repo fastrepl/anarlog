@@ -9,6 +9,8 @@ import {
   execute,
   getCloudsyncStatus,
   getE2eeIdentityStatus,
+  getOrCreateE2eeDeviceIdentity,
+  importE2eeDeviceEnrollment,
   suspendCloudsync,
   suspendCloudsyncAfterAuthLoss,
   suspendCloudsyncForSignOut,
@@ -138,6 +140,28 @@ function replicaCredentialsResponse() {
   );
 }
 
+function deviceEnrollmentResponse(status: "pending" | "sealed") {
+  return new Response(
+    JSON.stringify({
+      requestId: "11111111-1111-4111-8111-111111111111",
+      expiresAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      status,
+      package:
+        status === "sealed"
+          ? {
+              ephemeralPublicKey: "E".repeat(43),
+              nonce: "N".repeat(32),
+              ciphertext: "C".repeat(100),
+            }
+          : null,
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+}
+
 function cloudsyncStatus(activityPaused = false) {
   return {
     cloudsync_enabled: true,
@@ -235,6 +259,17 @@ describe("CloudSync auth lifecycle", () => {
       keyId: E2EE_KEY_ID,
       memberPublicKey: E2EE_MEMBER_PUBLIC_KEY,
     });
+    vi.mocked(getOrCreateE2eeDeviceIdentity).mockResolvedValue({
+      publicKey: "A".repeat(43),
+    });
+    vi.mocked(importE2eeDeviceEnrollment).mockResolvedValue({
+      keyId: E2EE_KEY_ID,
+    });
+    vi.mocked(miscCommands.getFingerprint).mockResolvedValue({
+      status: "error",
+      error: "unavailable",
+    });
+    vi.mocked(hostname).mockResolvedValue(null);
     vi.mocked(fsSyncCommands.deleteSessionFolder).mockResolvedValue({
       status: "ok",
       data: null,
@@ -280,23 +315,148 @@ describe("CloudSync auth lifecycle", () => {
     expect(getCloudsyncCredentialBlock()).toBeNull();
   });
 
-  test("does not request cloud credentials before E2EE recovery setup", async () => {
-    const fetchMock = vi.fn();
+  test("keeps first-device recovery setup separate from enrollment", async () => {
+    const fetchMock = vi.fn<(input: RequestInfo | URL) => Promise<Response>>(
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: {
+                code: "e2ee_enrollment_requires_existing_key",
+                message: "Set up encrypted sync on an existing device first",
+              },
+            }),
+            {
+              status: 409,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        ),
+    );
     vi.stubGlobal("fetch", fetchMock);
     vi.mocked(getE2eeIdentityStatus).mockResolvedValue({
       configured: false,
       keyId: null,
       memberPublicKey: null,
     });
+    vi.mocked(miscCommands.getFingerprint).mockResolvedValue({
+      status: "ok",
+      data: "fingerprint-1234",
+    });
     vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await handleCloudsyncAuthChange("SIGNED_IN", session());
     await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0].toString()).toBe(
+      "https://api.test/sync/e2ee/device-enrollments",
+    );
     expect(configureCloudsyncToken).not.toHaveBeenCalled();
     expect(suspendCloudsync).toHaveBeenCalledTimes(1);
     expect(getCloudsyncCredentialBlock()).toBe("setup_required");
+  });
+
+  test("registers a keyless device and polls for approval", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(deviceEnrollmentResponse("pending")),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getE2eeIdentityStatus).mockResolvedValue({
+      configured: false,
+      keyId: null,
+      memberPublicKey: null,
+    });
+    vi.mocked(miscCommands.getFingerprint).mockResolvedValue({
+      status: "ok",
+      data: "fingerprint-1234",
+    });
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(getCloudsyncCredentialBlock()).toBe("approval_pending");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getOrCreateE2eeDeviceIdentity).toHaveBeenCalledWith("user-id");
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5 * 1000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(getCloudsyncCredentialBlock()).toBe("approval_pending");
+  });
+
+  test("imports an approved package and continues credential exchange", async () => {
+    const fetchMock = vi
+      .fn<(input: RequestInfo | URL) => Promise<Response>>()
+      .mockResolvedValueOnce(deviceEnrollmentResponse("sealed"))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(credentialsResponse());
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getE2eeIdentityStatus)
+      .mockResolvedValueOnce({
+        configured: false,
+        keyId: null,
+        memberPublicKey: null,
+      })
+      .mockResolvedValueOnce({
+        configured: true,
+        keyId: E2EE_KEY_ID,
+        memberPublicKey: E2EE_MEMBER_PUBLIC_KEY,
+      });
+    vi.mocked(miscCommands.getFingerprint).mockResolvedValue({
+      status: "ok",
+      data: "fingerprint-1234",
+    });
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(importE2eeDeviceEnrollment).toHaveBeenCalledWith(
+      "user-id",
+      "11111111-1111-4111-8111-111111111111",
+      {
+        ephemeralPublicKey: "E".repeat(43),
+        nonce: "N".repeat(32),
+        ciphertext: "C".repeat(100),
+      },
+    );
+    expect(fetchMock.mock.calls[1]?.[0].toString()).toContain("/consume");
+    expect(configureCloudsyncToken).toHaveBeenCalledTimes(1);
+    expect(getCloudsyncCredentialBlock()).toBeNull();
+  });
+
+  test("blocks enrollment until a capped device is replaced", async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "sync_device_limit_reached",
+              message: "CloudSync device limit reached",
+            },
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.mocked(getE2eeIdentityStatus).mockResolvedValue({
+      configured: false,
+      keyId: null,
+      memberPublicKey: null,
+    });
+    vi.mocked(miscCommands.getFingerprint).mockResolvedValue({
+      status: "ok",
+      data: "fingerprint-1234",
+    });
+
+    await handleCloudsyncAuthChange("SIGNED_IN", session());
+
+    expect(getCloudsyncCredentialBlock()).toBe("device_limit");
+    expect(sonnerToast.error).toHaveBeenCalledOnce();
+    expect(configureCloudsyncToken).not.toHaveBeenCalled();
   });
 
   test("surfaces macOS Keychain access failures separately", async () => {

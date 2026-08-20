@@ -47,13 +47,23 @@ struct SyncDeviceClaimRow {
     device_count: i64,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct SyncDeviceRow {
+    #[serde(alias = "device_fingerprint")]
     pub device_fingerprint: String,
+    #[serde(alias = "device_name")]
     pub device_name: Option<String>,
+    #[serde(alias = "created_at")]
     pub created_at: String,
+    #[serde(alias = "last_seen_at")]
     pub last_seen_at: String,
+}
+
+#[derive(Serialize)]
+struct RemoveSyncDeviceRpcRequest<'a> {
+    p_actor_user_id: &'a str,
+    p_device_fingerprint: &'a str,
 }
 
 pub(super) async fn list_sync_devices(
@@ -98,16 +108,16 @@ pub(super) async fn remove_sync_device(
     }
     let response = state
         .client
-        .delete(format!(
-            "{}/rest/v1/sync_devices",
+        .post(format!(
+            "{}/rest/v1/rpc/remove_sync_device",
             state.config.supabase_url
         ))
         .header("apikey", &state.config.supabase_service_role_key)
         .bearer_auth(&state.config.supabase_service_role_key)
-        .query(&[
-            ("user_id", format!("eq.{account_user_id}")),
-            ("device_fingerprint", format!("eq.{fingerprint}")),
-        ])
+        .json(&RemoveSyncDeviceRpcRequest {
+            p_actor_user_id: account_user_id,
+            p_device_fingerprint: fingerprint,
+        })
         .timeout(SUPABASE_REQUEST_TIMEOUT)
         .send()
         .await
@@ -118,7 +128,7 @@ pub(super) async fn remove_sync_device(
     Ok(())
 }
 
-fn is_valid_device_fingerprint(fingerprint: &str) -> bool {
+pub(super) fn is_valid_device_fingerprint(fingerprint: &str) -> bool {
     (8..=128).contains(&fingerprint.len())
         && fingerprint
             .bytes()

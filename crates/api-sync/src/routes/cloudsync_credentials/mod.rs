@@ -14,11 +14,19 @@ use crate::{
     state::{AppState, ReplicaState},
 };
 
+mod enrollment;
 mod grants;
 mod identity;
 mod projection;
 mod token;
 
+use enrollment::{
+    __path_consume_e2ee_device_enrollment, __path_register_e2ee_device_enrollment,
+    __path_seal_e2ee_device_enrollment, ConsumeE2eeDeviceEnrollmentRequest,
+    E2eeDeviceEnrollmentPackage, E2eeDeviceEnrollmentSummary, RegisterE2eeDeviceEnrollmentRequest,
+    RegisterE2eeDeviceEnrollmentResponse, consume_e2ee_device_enrollment,
+    list_e2ee_device_enrollments, register_e2ee_device_enrollment, seal_e2ee_device_enrollment,
+};
 use grants::{
     SetWorkspaceE2eeKeyRequest, SetWorkspaceE2eeKeyResult, WorkspaceE2eeKeyRecipient,
     fetch_workspace_key_recipients, publish_workspace_e2ee_key,
@@ -106,6 +114,11 @@ pub struct E2eeIdentity {
         create_credentials,
         create_replica_credentials,
         claim_e2ee_identity,
+        get_devices,
+        delete_device,
+        register_e2ee_device_enrollment,
+        seal_e2ee_device_enrollment,
+        consume_e2ee_device_enrollment,
         get_workspace_e2ee_key_recipients,
         set_workspace_e2ee_key
     ),
@@ -119,6 +132,13 @@ pub struct E2eeIdentity {
         SetWorkspaceE2eeKeyResult,
         ClaimE2eeIdentityRequest,
         E2eeIdentity,
+        SyncDevicesResponse,
+        SyncDeviceRow,
+        E2eeDeviceEnrollmentSummary,
+        E2eeDeviceEnrollmentPackage,
+        RegisterE2eeDeviceEnrollmentRequest,
+        RegisterE2eeDeviceEnrollmentResponse,
+        ConsumeE2eeDeviceEnrollmentRequest,
         LegacyCloudsyncCredentials,
         ReplicaCredentials
     ))
@@ -139,6 +159,18 @@ pub(super) fn replica_router() -> Router<ReplicaState> {
         .route("/e2ee/identity", put(claim_e2ee_identity))
         .route("/devices", get(get_devices))
         .route("/devices/{fingerprint}", delete(delete_device))
+        .route(
+            "/e2ee/device-enrollments",
+            post(register_e2ee_device_enrollment),
+        )
+        .route(
+            "/e2ee/device-enrollments/{request_id}/seal",
+            post(seal_e2ee_device_enrollment),
+        )
+        .route(
+            "/e2ee/device-enrollments/{request_id}/consume",
+            post(consume_e2ee_device_enrollment),
+        )
         .route(
             "/e2ee/workspaces/{workspace_id}/recipients",
             get(get_workspace_e2ee_key_recipients),
@@ -237,7 +269,6 @@ async fn create_replica_credentials(
     }
 
     publish_requested_member_identity(&state, &auth, &headers).await?;
-    claim_sync_device(&state, &auth.claims.sub, &headers).await?;
     let requested_key_id = headers
         .get(E2EE_KEY_ID_HEADER)
         .ok_or_else(|| SyncError::BadRequest("E2EE key identity is required".to_string()))?
@@ -245,6 +276,7 @@ async fn create_replica_credentials(
         .map_err(|_| SyncError::BadRequest("E2EE key identity is invalid".to_string()))?;
     let encryption_key_id =
         claim_personal_e2ee_key(&state, &auth.claims.sub, requested_key_id).await?;
+    claim_sync_device(&state, &auth.claims.sub, &headers).await?;
     let expires_at = token_expiry(REPLICA_CREDENTIAL_TTL_SECONDS)?;
 
     Ok((
@@ -260,12 +292,25 @@ async fn create_replica_credentials(
     ))
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
-struct SyncDevicesResponse {
+pub struct SyncDevicesResponse {
     devices: Vec<SyncDeviceRow>,
+    pending_devices: Vec<E2eeDeviceEnrollmentSummary>,
+    max_devices: u8,
 }
 
+#[utoipa::path(
+    get,
+    path = "/devices",
+    tag = "sync",
+    responses(
+        (status = 200, description = "Approved and pending sync devices", body = SyncDevicesResponse),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 502, description = "Device service unavailable")
+    )
+)]
 async fn get_devices(
     Extension(auth): Extension<AuthContext>,
     State(state): State<ReplicaState>,
@@ -273,11 +318,30 @@ async fn get_devices(
     if !auth.claims.is_pro() {
         return Err(SyncError::ProPlanRequired);
     }
+    let (devices, pending_devices) = tokio::try_join!(
+        list_sync_devices(&state, &auth.claims.sub),
+        list_e2ee_device_enrollments(&state, &auth.claims.sub)
+    )?;
     Ok(Json(SyncDevicesResponse {
-        devices: list_sync_devices(&state, &auth.claims.sub).await?,
+        devices,
+        pending_devices,
+        max_devices: 5,
     }))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/devices/{fingerprint}",
+    tag = "sync",
+    params(("fingerprint" = String, Path, description = "Device fingerprint")),
+    responses(
+        (status = 204, description = "Device removed"),
+        (status = 400, description = "Invalid device fingerprint"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 502, description = "Device service unavailable")
+    )
+)]
 async fn delete_device(
     Extension(auth): Extension<AuthContext>,
     State(state): State<ReplicaState>,
@@ -349,7 +413,6 @@ async fn create_credentials(
     }
 
     publish_requested_member_identity(&state.replica, &auth, &headers).await?;
-    claim_sync_device(&state.replica, &auth.claims.sub, &headers).await?;
 
     let requested_key_id = headers
         .get(E2EE_KEY_ID_HEADER)
@@ -371,6 +434,7 @@ async fn create_credentials(
             return Err(SyncError::CloudsyncUpgradeRequired);
         }
 
+        claim_sync_device(&state.replica, &auth.claims.sub, &headers).await?;
         let database_id = state.config.legacy_database_id.clone().ok_or_else(|| {
             SyncError::Internal("Legacy CloudSync database is missing".to_string())
         })?;
@@ -406,6 +470,7 @@ async fn create_credentials(
         fetch_workspace_key_grants(&state.replica, &auth.token, &workspaces).await?;
     let encryption_key_id =
         claim_personal_e2ee_key(&state.replica, &auth.claims.sub, requested_key_id).await?;
+    claim_sync_device(&state.replica, &auth.claims.sub, &headers).await?;
     let token_attributes = encode_workspace_token_attributes(&workspaces)?;
 
     let token = mint_cloudsync_token(

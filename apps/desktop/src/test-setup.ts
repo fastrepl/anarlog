@@ -75,11 +75,22 @@ vi.mock("@anlg/plugin-db", () => ({
     configured: true,
     keyId: "abcdefghijklmnopqrstuv",
   }),
+  getOrCreateE2eeDeviceIdentity: vi
+    .fn()
+    .mockResolvedValue({ publicKey: "A".repeat(43) }),
   createE2eeIdentity: vi.fn(),
   inspectE2eeRecoveryKey: vi
     .fn()
     .mockResolvedValue({ keyId: "abcdefghijklmnopqrstuv" }),
   importE2eeIdentity: vi.fn(),
+  importE2eeDeviceEnrollment: vi
+    .fn()
+    .mockResolvedValue({ keyId: "abcdefghijklmnopqrstuv" }),
+  sealE2eeRecoveryKeyForDevice: vi.fn().mockResolvedValue({
+    ephemeralPublicKey: "E".repeat(43),
+    nonce: "N".repeat(32),
+    ciphertext: "C".repeat(100),
+  }),
   getCloudsyncStatus: vi.fn().mockResolvedValue({
     cloudsync_enabled: true,
     extension_loaded: true,
