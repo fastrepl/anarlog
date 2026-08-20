@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(20);
 
 select tests.create_supabase_user('witness_owner', 'witness-owner@example.com');
 select tests.create_supabase_user('witness_other', 'witness-other@example.com');
@@ -88,6 +88,15 @@ select is(
   'Claiming a new recovery-key identity succeeds'
 );
 
+select is(
+  private.active_e2ee_freshness_key_id(
+    tests.get_supabase_uid('witness_owner'),
+    tests.get_supabase_uid('witness_owner')
+  ),
+  'abcdefghijklmnopqrstuv',
+  'Personal witness access remains bound to the recovery-key identity'
+);
+
 select isnt(
   (
     select e2ee_freshness_initialized_at
@@ -114,13 +123,43 @@ select results_eq(
 create temporary table witness_event as
 select
   repeat('r', 43)::text as record_id,
-  '{"version":1,"key_id":"abcdefghijklmnopqrstuv","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","ciphertext":"opaque"}'::text as payload;
+  '{"version":1,"key_id":"ABCDEFGHIJKLMNOPQRSTUV","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","ciphertext":"opaque"}'::text as payload;
 
 alter table witness_event add column payload_hash text;
 update witness_event
 set payload_hash = rtrim(
   translate(encode(extensions.digest(payload, 'sha256'), 'base64'), '+/', '-_'),
   '='
+);
+
+select throws_ok(
+  format(
+    $$
+      select *
+      from public.publish_e2ee_freshness_events(
+        %L,
+        %L,
+        false,
+        jsonb_build_array(jsonb_build_object(
+          'record_id', repeat('m', 43),
+          'payload_hash', rtrim(
+            translate(
+              encode(extensions.digest('not-an-envelope', 'sha256'), 'base64'),
+              '+/',
+              '-_'
+            ),
+            '='
+          ),
+          'payload', 'not-an-envelope'
+        ))
+      )
+    $$,
+    tests.get_supabase_uid('witness_owner'),
+    tests.get_supabase_uid('witness_owner')
+  ),
+  '22023',
+  'E2EE freshness event is invalid',
+  'Personal witness events still require a valid envelope'
 );
 
 select isnt(
@@ -207,7 +246,7 @@ select
 from (
   select ordinal,
     format(
-      '{"version":1,"key_id":"abcdefghijklmnopqrstuv","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","ciphertext":"opaque-%s"}',
+      '{"version":1,"key_id":"ABCDEFGHIJKLMNOPQRSTUV","nonce":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","ciphertext":"opaque-%s"}',
       ordinal
     )::text as payload
   from generate_series(1, 64) as series(ordinal)

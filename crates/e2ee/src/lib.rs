@@ -568,6 +568,29 @@ mod tests {
     }
 
     #[test]
+    fn personal_payload_key_id_is_not_the_recovery_identity() {
+        let recovery = recovery_key();
+        let workspace = recovery.workspace_key("workspace-a").unwrap();
+        let sealed = workspace
+            .seal_field(
+                "workspace-a",
+                "sessions",
+                "session-1",
+                "title",
+                "00000000000000000000000000000001",
+                1,
+                false,
+                json!("Planning"),
+            )
+            .unwrap();
+        let envelope: Value = serde_json::from_str(&sealed.payload).unwrap();
+
+        assert_ne!(workspace.key_id(), recovery.key_id());
+        assert_eq!(envelope["key_id"], workspace.key_id());
+        assert_ne!(envelope["key_id"], recovery.key_id());
+    }
+
+    #[test]
     fn fields_round_trip_with_blinded_identifiers() {
         let key = recovery_key().workspace_key("workspace-a").unwrap();
         let sealed = key

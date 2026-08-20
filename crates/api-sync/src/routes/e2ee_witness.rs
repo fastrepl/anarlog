@@ -1103,6 +1103,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn maps_invalid_witness_events_to_bad_request() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/publish_e2ee_freshness_events"))
+            .respond_with(
+                ResponseTemplate::new(500)
+                    .set_body_json(json!({ "code": "22023", "message": "invalid event" })),
+            )
+            .mount(&server)
+            .await;
+        let response = test_router(&server)
+            .oneshot(request(
+                Method::POST,
+                &format!("/e2ee/witness/{OWNER}"),
+                Some(json!({
+                    "initialize": false,
+                    "events": [{
+                        "recordId": RECORD_ID,
+                        "payloadHash": PAYLOAD_HASH,
+                        "payload": "opaque"
+                    }]
+                })),
+            ))
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
     async fn maps_uninitialized_legacy_witnesses_to_conflict() {
         let server = MockServer::start().await;
         let payload = "opaque";
