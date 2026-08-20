@@ -310,6 +310,7 @@ export type Confidence = {
 };
 
 export type ConnectionItem = {
+    account_identity?: string | null;
     connection_id: string;
     integration_id: string;
     last_error_at?: string | null;

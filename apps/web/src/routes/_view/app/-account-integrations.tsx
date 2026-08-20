@@ -6,7 +6,19 @@ import type { ReactNode } from "react";
 
 import { listConnections } from "@anlg/api-client";
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@anlg/ui/components/ui/tooltip";
 import { cn } from "@anlg/utils";
+
+import {
+  connectionIdentityLabel,
+  connectionNeedsReconnect,
+  connectionReconnectError,
+} from "@/lib/integration-connection-label";
 
 import { getAuthorizedApiClient } from "./-account-api";
 import { useAccountSession } from "./-account-session";
@@ -89,73 +101,82 @@ export function IntegrationsSection() {
             : "Integrations come with a paid plan and connect from the desktop app."}
         </p>
       ) : (
-        <ul className="divide-y divide-[#ede7dc]">
-          {connections.map((connection) => {
-            const hasError = !!connection.last_error_type;
-            return (
-              <li
-                key={connection.connection_id}
-                className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
-              >
-                <div className="flex items-center gap-4">
-                  <span
-                    aria-hidden="true"
-                    className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ede7dc] bg-[#fffaf0]"
-                  >
-                    {INTEGRATION_ICONS[connection.integration_id] ?? (
-                      <PuzzlePiece size={20} className="text-[#756b5d]" />
-                    )}
-                  </span>
-                  <div>
-                    <p className="text-base font-medium text-[#181613]">
-                      {INTEGRATION_NAMES[connection.integration_id] ??
-                        connection.integration_id}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-[#756b5d]">
-                      {hasError
-                        ? connection.last_error_description ||
-                          "Connection needs attention."
-                        : "Connected."}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  {hasError && (
-                    <Link
-                      to="/app/integration/"
-                      search={{
-                        flow: "web",
-                        integration_id: connection.integration_id,
-                        connection_id: connection.connection_id,
-                        action: "reconnect",
-                      }}
-                      className={accountPillSecondaryClassName}
+        <TooltipProvider delayDuration={0}>
+          <ul className="divide-y divide-[#ede7dc]">
+            {connections.map((connection) => {
+              const name =
+                INTEGRATION_NAMES[connection.integration_id] ??
+                connection.integration_id;
+              const needsReconnect = connectionNeedsReconnect(connection);
+              const reconnectError = connectionReconnectError(connection);
+
+              return (
+                <li
+                  key={connection.connection_id}
+                  className="flex items-center justify-between gap-3 p-6 sm:px-8"
+                >
+                  <div className="flex min-w-0 items-center gap-4">
+                    <span
+                      aria-hidden="true"
+                      className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ede7dc] bg-[#fffaf0]"
                     >
-                      Reconnect
-                    </Link>
-                  )}
-                  <Link
-                    to="/app/integration/"
-                    search={{
-                      flow: "web",
-                      integration_id: connection.integration_id,
-                      connection_id: connection.connection_id,
-                      action: "disconnect",
-                    }}
-                    aria-label={`Disconnect ${
-                      INTEGRATION_NAMES[connection.integration_id] ??
-                      connection.integration_id
-                    }`}
-                    title="Disconnect"
-                    className={cn([accountPillDangerClassName, "w-9 px-0"])}
-                  >
-                    <Plugs size={16} aria-hidden="true" />
-                  </Link>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                      {INTEGRATION_ICONS[connection.integration_id] ?? (
+                        <PuzzlePiece size={20} className="text-[#756b5d]" />
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-base font-medium text-[#181613]">
+                        {name}
+                      </p>
+                      <p className="mt-1 truncate text-sm leading-6 text-[#756b5d]">
+                        {connectionIdentityLabel(connection)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-row items-center gap-2">
+                    {needsReconnect ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link
+                            to="/app/integration/"
+                            search={{
+                              flow: "web",
+                              integration_id: connection.integration_id,
+                              connection_id: connection.connection_id,
+                              action: "reconnect",
+                            }}
+                            aria-label={`Reconnect ${name}. ${reconnectError}`}
+                            className={accountPillSecondaryClassName}
+                          >
+                            Reconnect
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs">
+                          {reconnectError}
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <Link
+                        to="/app/integration/"
+                        search={{
+                          flow: "web",
+                          integration_id: connection.integration_id,
+                          connection_id: connection.connection_id,
+                          action: "disconnect",
+                        }}
+                        aria-label={`Disconnect ${name}`}
+                        title="Disconnect"
+                        className={cn([accountPillDangerClassName, "w-9 px-0"])}
+                      >
+                        <Plugs size={16} aria-hidden="true" />
+                      </Link>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </TooltipProvider>
       )}
     </div>
   );

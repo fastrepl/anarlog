@@ -207,6 +207,256 @@ pub(crate) async fn fetch_identity(
             Ok((email, name))
         }
 
+        "slack" => {
+            let resp = proxy
+                .post(
+                    "/auth.test",
+                    Vec::new(),
+                    "application/x-www-form-urlencoded",
+                )
+                .map_err(|e| e.to_string())?
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+            let auth: SlackAuthTest = resp.json().await.map_err(|e| e.to_string())?;
+            if auth.ok == Some(false) {
+                return Err(auth
+                    .error
+                    .unwrap_or_else(|| "slack auth.test failed".to_string()));
+            }
+            Ok((nonempty(auth.team), nonempty(auth.user)))
+        }
+
+        "linear" => {
+            let body = serde_json::to_vec(&serde_json::json!({
+                "query": "query OrganizationName { organization { name } }"
+            }))
+            .map_err(|e| e.to_string())?;
+            let resp = proxy
+                .post("/graphql", body, "application/json")
+                .map_err(|e| e.to_string())?
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+            let payload: LinearOrganizationResponse =
+                resp.json().await.map_err(|e| e.to_string())?;
+            Ok((
+                payload
+                    .data
+                    .and_then(|data| data.organization)
+                    .and_then(|organization| nonempty(organization.name)),
+                None,
+            ))
+        }
+
+        "github" => {
+            let resp = proxy
+                .get("/user")
+                .map_err(|e| e.to_string())?
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+            let me: GithubUser = resp.json().await.map_err(|e| e.to_string())?;
+            Ok((
+                nonempty(me.email).or_else(|| nonempty(me.login)),
+                nonempty(me.name),
+            ))
+        }
+
         other => Err(format!("unsupported integration: {other}")),
+    }
+}
+
+fn nonempty(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+pub(crate) fn account_identity_from_tags(
+    tags: Option<&std::collections::HashMap<String, String>>,
+) -> Option<String> {
+    nonempty(tags.and_then(|tags| tags.get("account_identity").cloned()))
+}
+
+pub(crate) async fn fetch_and_store_account_identity(
+    nango: &anlg_nango::NangoClient,
+    integration_id: &str,
+    connection_id: &str,
+) -> Option<String> {
+    let identity = match fetch_identity(nango, integration_id, connection_id).await {
+        Ok((identity, _display_name)) => identity?,
+        Err(e) => {
+            tracing::warn!(
+                anarlog.connection.id = %connection_id,
+                anarlog.integration.id = %integration_id,
+                error = %e,
+                "failed to fetch identity for account_identity tag"
+            );
+            return None;
+        }
+    };
+
+    let mut tags = match nango.get_connection(connection_id, integration_id).await {
+        Ok(connection) => connection.tags.unwrap_or_default(),
+        Err(e) => {
+            tracing::warn!(
+                anarlog.connection.id = %connection_id,
+                anarlog.integration.id = %integration_id,
+                error = %e,
+                "failed to fetch connection before patching account_identity tag"
+            );
+            return Some(identity);
+        }
+    };
+    tags.insert("account_identity".to_string(), identity.clone());
+
+    let req = anlg_nango::PatchConnectionRequest {
+        end_user: None,
+        tags: Some(tags),
+    };
+
+    match nango
+        .patch_connection(connection_id, integration_id, req)
+        .await
+    {
+        Ok(()) => {
+            tracing::info!(
+                anarlog.connection.id = %connection_id,
+                anarlog.integration.id = %integration_id,
+                account_identity = %identity,
+                "account_identity tag set"
+            );
+        }
+        Err(e) => {
+            tracing::warn!(
+                anarlog.connection.id = %connection_id,
+                anarlog.integration.id = %integration_id,
+                error = %e,
+                "failed to patch account_identity tag"
+            );
+        }
+    }
+
+    Some(identity)
+}
+
+pub(crate) fn spawn_identity_task(
+    nango: anlg_nango::NangoClient,
+    integration_id: String,
+    connection_id: String,
+) {
+    tokio::spawn(async move {
+        let _ = fetch_and_store_account_identity(&nango, &integration_id, &connection_id).await;
+    });
+}
+
+#[derive(serde::Deserialize)]
+struct SlackAuthTest {
+    ok: Option<bool>,
+    team: Option<String>,
+    user: Option<String>,
+    error: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct LinearOrganizationResponse {
+    data: Option<LinearOrganizationData>,
+}
+
+#[derive(serde::Deserialize)]
+struct LinearOrganizationData {
+    organization: Option<LinearOrganization>,
+}
+
+#[derive(serde::Deserialize)]
+struct LinearOrganization {
+    name: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct GithubUser {
+    login: Option<String>,
+    email: Option<String>,
+    name: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::NangoConfig;
+    use crate::state::AppState;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    async fn nango_client(nango_mock: &MockServer) -> anlg_nango::NangoClient {
+        let supabase = MockServer::start().await;
+        AppState::new(NangoConfig::for_test(&nango_mock.uri(), &supabase.uri())).nango
+    }
+
+    #[test]
+    fn account_identity_from_tags_trims_and_ignores_empty() {
+        let mut tags = std::collections::HashMap::new();
+        tags.insert(
+            "account_identity".to_string(),
+            "  john@fastrepl.com  ".to_string(),
+        );
+        assert_eq!(
+            account_identity_from_tags(Some(&tags)).as_deref(),
+            Some("john@fastrepl.com")
+        );
+
+        tags.insert("account_identity".to_string(), "   ".to_string());
+        assert_eq!(account_identity_from_tags(Some(&tags)), None);
+        assert_eq!(account_identity_from_tags(None), None);
+    }
+
+    #[tokio::test]
+    async fn slack_identity_uses_workspace_name() {
+        let nango_mock = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/proxy/auth.test"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "ok": true,
+                "team": "Fastrepl",
+                "user": "john"
+            })))
+            .mount(&nango_mock)
+            .await;
+
+        let nango = nango_client(&nango_mock).await;
+        let (identity, user) = fetch_identity(&nango, "slack", "conn-slack").await.unwrap();
+        assert_eq!(identity.as_deref(), Some("Fastrepl"));
+        assert_eq!(user.as_deref(), Some("john"));
+    }
+
+    #[tokio::test]
+    async fn linear_identity_uses_organization_name() {
+        let nango_mock = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/proxy/graphql"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": { "organization": { "name": "Anarlog" } }
+            })))
+            .mount(&nango_mock)
+            .await;
+
+        let nango = nango_client(&nango_mock).await;
+        let (identity, display_name) = fetch_identity(&nango, "linear", "conn-linear")
+            .await
+            .unwrap();
+        assert_eq!(identity.as_deref(), Some("Anarlog"));
+        assert_eq!(display_name, None);
     }
 }

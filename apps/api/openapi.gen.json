@@ -6034,6 +6034,12 @@
           "connection_id"
         ],
         "properties": {
+          "account_identity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "connection_id": {
             "type": "string"
           },

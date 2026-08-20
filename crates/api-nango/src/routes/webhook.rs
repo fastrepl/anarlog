@@ -211,7 +211,7 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
             payload.operation,
             AuthOperation::Creation | AuthOperation::Override
         ) {
-            spawn_identity_task(
+            super::identity::spawn_identity_task(
                 state.nango.clone(),
                 payload.provider_config_key.clone(),
                 payload.connection_id.clone(),
@@ -220,71 +220,6 @@ pub(crate) async fn handle_auth_webhook(state: &AppState, payload: NangoAuthWebh
     }
 
     Ok(())
-}
-
-fn spawn_identity_task(
-    nango: anlg_nango::NangoClient,
-    integration_id: String,
-    connection_id: String,
-) {
-    tokio::spawn(async move {
-        match super::identity::fetch_identity(&nango, &integration_id, &connection_id).await {
-            Ok((email, _display_name)) => {
-                let Some(identity) = email else {
-                    return;
-                };
-
-                let mut tags = match nango.get_connection(&connection_id, &integration_id).await {
-                    Ok(connection) => connection.tags.unwrap_or_default(),
-                    Err(e) => {
-                        tracing::warn!(
-                            anarlog.connection.id = %connection_id,
-                            anarlog.integration.id = %integration_id,
-                            error = %e,
-                            "failed to fetch connection before patching account_identity tag"
-                        );
-                        return;
-                    }
-                };
-                tags.insert("account_identity".to_string(), identity.clone());
-
-                let req = anlg_nango::PatchConnectionRequest {
-                    end_user: None,
-                    tags: Some(tags),
-                };
-
-                match nango
-                    .patch_connection(&connection_id, &integration_id, req)
-                    .await
-                {
-                    Ok(()) => {
-                        tracing::info!(
-                            anarlog.connection.id = %connection_id,
-                            anarlog.integration.id = %integration_id,
-                            account_identity = %identity,
-                            "account_identity tag set"
-                        );
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            anarlog.connection.id = %connection_id,
-                            anarlog.integration.id = %integration_id,
-                            error = %e,
-                            "failed to patch account_identity tag"
-                        );
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::warn!(
-                    anarlog.connection.id = %connection_id,
-                    anarlog.integration.id = %integration_id,
-                    error = %e,
-                    "failed to fetch identity for account_identity tag"
-                );
-            }
-        }
-    });
 }
 
 #[cfg(test)]

@@ -69,9 +69,9 @@ pub async fn whoami(
 
             let email = nango_map
                 .get(&(row.integration_id.as_str(), row.connection_id.as_str()))
-                .and_then(|c| c.tags.as_ref())
-                .and_then(|tags| tags.get("account_identity"))
-                .cloned();
+                .and_then(|connection| {
+                    super::identity::account_identity_from_tags(connection.tags.as_ref())
+                });
 
             WhoAmIItem {
                 integration_id: row.integration_id,
