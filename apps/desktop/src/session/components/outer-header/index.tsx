@@ -412,7 +412,7 @@ function HeaderMeetingActionPill({
           <PopoverContent
             data-welcome-demo-prompt
             side="bottom"
-            sideOffset={8}
+            sideOffset={10}
             onOpenAutoFocus={(event) => event.preventDefault()}
             className="border-border bg-popover text-popover-foreground pointer-events-none w-72 max-w-[calc(100vw-1rem)] rounded-md border px-3 py-2.5 text-sm shadow-sm"
           >
