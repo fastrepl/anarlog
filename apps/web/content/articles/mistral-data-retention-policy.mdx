@@ -16,6 +16,8 @@ Here is how the policy works in practice.
 
 ## What Mistral Stores by Default
 
+![How Mistral handles prompts: default limited retention, an optional zero-retention path, and training only with explicit opt-in](/api/assets/blog/articles/mistral-data-retention-policy/mistral-data-flow.png)
+
 For API users, Mistral retains your inputs and outputs for 30 rolling days after the request is processed. This window exists for abuse monitoring. After 30 days, the data is deleted. It is not used to train Mistral's models unless you explicitly opt in.
 
 For free users of Le Chat, Mistral's consumer product, your conversations may be used for model improvement unless you opt out. You can do this by opening the Privacy menu in the Admin Console and disabling the toggle under Anonymous improvement data.
