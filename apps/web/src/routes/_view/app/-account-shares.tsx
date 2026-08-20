@@ -1,9 +1,20 @@
+import { DotsThree } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
+import { cn } from "@anlg/utils";
+
+import {
   deleteMyShare,
+  deleteMyShares,
   listMyManagedShares,
   restrictMyShare,
 } from "@/functions/account-shares";
@@ -25,9 +36,7 @@ const sharesQueryKey = ["account-managed-shares"];
 
 export function SharedNotesSection() {
   const queryClient = useQueryClient();
-  const [confirmingShareId, setConfirmingShareId] = useState<string | null>(
-    null,
-  );
+  const [confirmingAll, setConfirmingAll] = useState(false);
 
   const sharesQuery = useQuery({
     queryKey: sharesQueryKey,
@@ -63,12 +72,28 @@ export function SharedNotesSection() {
       }
     },
     onSuccess: () => {
-      setConfirmingShareId(null);
+      queryClient.invalidateQueries({ queryKey: sharesQueryKey });
+    },
+  });
+
+  const stopSharingAll = useMutation({
+    mutationFn: async (shareIds: string[]) => {
+      const result = await deleteMyShares({ data: { shareIds } });
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+    },
+    onSuccess: () => {
+      setConfirmingAll(false);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: sharesQueryKey });
     },
   });
 
   const shares = sharesQuery.data ?? [];
+  const actionsDisabled =
+    restrict.isPending || stopSharing.isPending || stopSharingAll.isPending;
 
   return (
     <div className={accountCardClassName}>
@@ -86,66 +111,65 @@ export function SharedNotesSection() {
           show up here.
         </p>
       ) : (
-        <ul className="divide-y divide-[#ede7dc]">
-          {shares.map((share) => (
-            <li
-              key={share.shareId}
-              className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
+        <>
+          <div className="flex justify-end border-b border-[#ede7dc] px-6 py-3 sm:px-8">
+            <button
+              type="button"
+              onClick={() => {
+                if (confirmingAll) {
+                  stopSharingAll.mutate(shares.map((share) => share.shareId));
+                } else {
+                  setConfirmingAll(true);
+                }
+              }}
+              disabled={actionsDisabled}
+              className={accountPillDangerClassName}
             >
-              <div className="min-w-0">
-                <p className="truncate text-base font-medium text-[#181613]">
-                  {share.title || "Untitled note"}
-                </p>
-                <p className="mt-1 text-sm leading-6 text-[#756b5d]">
-                  {SCOPE_LABELS[share.scope]} · updated{" "}
-                  {new Date(share.updatedAt).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  to="/share/$shareId/"
-                  params={{ shareId: share.shareId }}
-                  search={{ scheme: "anarlog" }}
-                  className={accountPillSecondaryClassName}
-                >
-                  Open
-                </Link>
-                {share.scope !== "restricted" && (
-                  <button
-                    onClick={() => restrict.mutate(share.shareId)}
-                    disabled={restrict.isPending}
-                    className={accountPillSecondaryClassName}
-                  >
-                    {restrict.isPending && restrict.variables === share.shareId
-                      ? "Restricting..."
-                      : "Restrict"}
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    if (confirmingShareId === share.shareId) {
-                      stopSharing.mutate(share.shareId);
-                    } else {
-                      setConfirmingShareId(share.shareId);
-                    }
-                  }}
-                  disabled={stopSharing.isPending}
-                  className={accountPillDangerClassName}
-                >
-                  {stopSharing.isPending &&
-                  stopSharing.variables === share.shareId
-                    ? "Stopping..."
-                    : confirmingShareId === share.shareId
-                      ? "You sure?"
-                      : "Stop sharing"}
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+              {stopSharingAll.isPending
+                ? "Stopping..."
+                : confirmingAll
+                  ? "You sure?"
+                  : "Stop sharing all"}
+            </button>
+          </div>
+          <ul className="divide-y divide-[#ede7dc]">
+            {shares.map((share) => (
+              <li
+                key={share.shareId}
+                className="flex items-center justify-between gap-3 p-6 sm:px-8"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-base font-medium text-[#181613]">
+                    {share.title || "Untitled note"}
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-[#756b5d]">
+                    {SCOPE_LABELS[share.scope]} · updated{" "}
+                    {new Date(share.updatedAt).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                </div>
+                <ShareRowMenu
+                  shareId={share.shareId}
+                  title={share.title || "Untitled note"}
+                  canRestrict={share.scope !== "restricted"}
+                  disabled={actionsDisabled}
+                  restricting={
+                    restrict.isPending && restrict.variables === share.shareId
+                  }
+                  stopping={
+                    stopSharing.isPending &&
+                    stopSharing.variables === share.shareId
+                  }
+                  onOpenChange={() => setConfirmingAll(false)}
+                  onRestrict={() => restrict.mutate(share.shareId)}
+                  onStopSharing={() => stopSharing.mutate(share.shareId)}
+                />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
       {restrict.isError && (
         <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
@@ -157,6 +181,82 @@ export function SharedNotesSection() {
           {stopSharing.error?.message || "Failed to stop sharing this note"}
         </p>
       )}
+      {stopSharingAll.isError && (
+        <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
+          {stopSharingAll.error?.message || "Failed to stop sharing your notes"}
+        </p>
+      )}
     </div>
+  );
+}
+
+function ShareRowMenu({
+  shareId,
+  title,
+  canRestrict,
+  disabled,
+  restricting,
+  stopping,
+  onOpenChange,
+  onRestrict,
+  onStopSharing,
+}: {
+  shareId: string;
+  title: string;
+  canRestrict: boolean;
+  disabled: boolean;
+  restricting: boolean;
+  stopping: boolean;
+  onOpenChange: () => void;
+  onRestrict: () => void;
+  onStopSharing: () => void;
+}) {
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) {
+          onOpenChange();
+        }
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={`Actions for ${title}`}
+          className={cn([accountPillSecondaryClassName, "w-9 px-0"])}
+        >
+          <DotsThree size={16} aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link
+            to="/share/$shareId/"
+            params={{ shareId }}
+            search={{ scheme: "anarlog" }}
+          >
+            Open
+          </Link>
+        </DropdownMenuItem>
+        {canRestrict && (
+          <DropdownMenuItem
+            className="cursor-pointer"
+            disabled={restricting}
+            onSelect={onRestrict}
+          >
+            {restricting ? "Restricting..." : "Restrict"}
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="cursor-pointer text-red-700 focus:bg-red-50 focus:text-red-800"
+          disabled={stopping}
+          onSelect={onStopSharing}
+        >
+          {stopping ? "Stopping..." : "Stop sharing"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -128,3 +128,37 @@ export const restrictMyShare = createServerFn({ method: "POST" })
     }
     return { success: true as const };
   });
+
+export const deleteMyShares = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({ shareIds: z.array(z.string().uuid()).min(1).max(100) }),
+  )
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    let failed = 0;
+
+    for (const shareId of data.shareIds) {
+      const { error } = await supabase.rpc("delete_session_share", {
+        p_share_id: shareId,
+      });
+      if (error) {
+        failed += 1;
+      }
+    }
+
+    if (failed === data.shareIds.length) {
+      return {
+        success: false as const,
+        message: "Failed to stop sharing your notes",
+      };
+    }
+    if (failed > 0) {
+      return {
+        success: false as const,
+        message: `Couldn't stop sharing ${failed} ${
+          failed === 1 ? "note" : "notes"
+        }. Try again.`,
+      };
+    }
+    return { success: true as const };
+  });
