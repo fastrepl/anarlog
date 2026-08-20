@@ -30,7 +30,7 @@
     "@anlg/utils": "workspace:^",
     "facehash": "^0.0.7",
     "@phosphor-icons/react": "^2.1.10",
-    "markdown-it": "^14.1.1",
+    "markdown-it": "^14.2.0",
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.2",
     "prosemirror-gapcursor": "1.4.0",

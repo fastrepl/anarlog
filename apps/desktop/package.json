@@ -140,7 +140,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
-    "postcss": "^8.5.9",
+    "postcss": "^8.5.23",
     "react-scan": "^0.5.7",
     "tailwindcss": "^4.2.2",
     "tsx": "^4.21.0",

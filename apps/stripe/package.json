@@ -14,7 +14,7 @@
     "@supabase/supabase-js": "^2.103.0",
     "@t3-oss/env-core": "^0.13.11",
     "effect": "^3.21.0",
-    "hono": "^4.12.12",
+    "hono": "^4.12.34",
     "pg": "^8.20.0",
     "posthog-node": "^5.29.2",
     "stripe": "^20.4.1",
