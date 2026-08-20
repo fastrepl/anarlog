@@ -107,6 +107,13 @@ const MCP_PROVIDERS: &[McpProvider] = &[
         list_tools: &["search_calls"],
         enrichment_tools: &["get_call"],
     },
+    McpProvider {
+        id: "pocket",
+        name: "Pocket",
+        endpoint: "https://public.heypocketai.com/mcp",
+        list_tools: &["search_pocket_conversations"],
+        enrichment_tools: &["get_pocket_conversation"],
+    },
 ];
 
 fn provider(provider_id: &str) -> Result<McpProvider, String> {
@@ -616,7 +623,15 @@ async fn list_all_meetings(
 ) -> Result<Vec<Value>, String> {
     let mut payloads = Vec::new();
     let mut cursor: Option<String> = None;
-    let cursor_property = schema_property(tool, &["cursor", "next_cursor", "nextCursor"]);
+    let cursor_property = schema_property(
+        tool,
+        &[
+            "cursor",
+            "next_cursor",
+            "nextCursor",
+            "recordingDateBeforeExclusive",
+        ],
+    );
     let offset_property = schema_property(tool, &["skip", "offset"]);
     let mut offset = 0_u64;
 
@@ -929,6 +944,7 @@ fn meeting_has_content(meeting: &Value) -> bool {
             "summary",
             "transcript",
             "transcription",
+            "transcriptSegments",
             "sentences",
             "segments",
             "utterances",
@@ -980,11 +996,25 @@ fn meeting_id(record: &Map<String, Value>) -> Option<String> {
 
 fn next_cursor(payloads: &[Value]) -> Option<String> {
     for payload in payloads {
-        if let Some(cursor) = find_string(payload, &["next_cursor", "nextCursor"]) {
+        if is_false_flag(payload, &["has_more", "hasMore"]) {
+            return None;
+        }
+        if let Some(cursor) = find_string(
+            payload,
+            &[
+                "next_cursor",
+                "nextCursor",
+                "nextRecordingDateBeforeExclusive",
+            ],
+        ) {
             return Some(cursor);
         }
     }
     None
+}
+
+fn is_false_flag(value: &Value, keys: &[&str]) -> bool {
+    matches!(find_value(value, keys), Some(Value::Bool(false)))
 }
 
 fn transcript_value(payloads: &[Value]) -> Option<Value> {
@@ -995,6 +1025,7 @@ fn transcript_value(payloads: &[Value]) -> Option<Value> {
                 "transcript",
                 "raw_transcript",
                 "rawTranscript",
+                "transcriptSegments",
                 "segments",
                 "utterances",
                 "sentences",
@@ -1017,7 +1048,7 @@ fn merge_enrichment(meeting: &mut Value, tool_name: &str, payloads: Vec<Value>) 
     };
     let normalized_tool = normalized_tool_name(tool_name);
 
-    if normalized_tool.contains("transcript")
+    if (normalized_tool.contains("transcript") || normalized_tool.contains("conversation"))
         && let Some(transcript) = transcript_value(&payloads)
     {
         record.insert("transcript".to_string(), transcript);
@@ -1074,12 +1105,37 @@ fn merge_enrichment(meeting: &mut Value, tool_name: &str, payloads: Vec<Value>) 
     }
 
     for payload in payloads {
-        if let Value::Object(payload_record) = payload {
+        for payload_record in enrichment_records(payload) {
             for (key, value) in payload_record {
+                if is_envelope_key(&key) {
+                    continue;
+                }
                 record.entry(key).or_insert(value);
             }
         }
     }
+}
+
+fn enrichment_records(payload: Value) -> Vec<Map<String, Value>> {
+    match payload {
+        Value::Array(items) => items.into_iter().flat_map(enrichment_records).collect(),
+        Value::Object(mut record) => match record.remove("data") {
+            Some(data) => {
+                let inner = enrichment_records(data);
+                if inner.is_empty() {
+                    vec![record]
+                } else {
+                    inner
+                }
+            }
+            None => vec![record],
+        },
+        _ => Vec::new(),
+    }
+}
+
+fn is_envelope_key(key: &str) -> bool {
+    matches!(key, "success" | "error" | "errors" | "status" | "meta")
 }
 
 fn find_string(value: &Value, keys: &[&str]) -> Option<String> {
@@ -1235,6 +1291,101 @@ mod tests {
 
         assert!(meeting_has_content(&meeting));
         assert_eq!(meeting["transcript"][0]["text"], "Ship it");
+    }
+
+    #[test]
+    fn extracts_pocket_recordings_and_transcript_segments() {
+        let payloads = vec![serde_json::json!({
+            "success": true,
+            "data": [{
+                "recordingId": "rec_123",
+                "recordingTitle": "Weekly Sync",
+                "recordingDate": "2026-03-25T15:04:05Z",
+                "transcriptSegments": [
+                    { "text": "Let's review the launch plan.", "start": 0.62, "end": 4.88, "speaker": "Alex" }
+                ]
+            }]
+        })];
+        let meetings = meeting_records(&payloads);
+        let files = meeting_files(provider("pocket").unwrap(), meetings);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, "mcp://pocket/rec_123.json");
+        assert!(files[0].content.contains("Weekly Sync"));
+        let meeting: Value = serde_json::from_str(&files[0].content).unwrap();
+        assert!(meeting_has_content(&meeting));
+    }
+
+    #[test]
+    fn pages_pocket_recordings_with_exclusive_date_cursors() {
+        let next = next_cursor(&[serde_json::json!({
+            "data": {
+                "meta": {
+                    "hasMore": true,
+                    "nextRecordingDateBeforeExclusive": "2026-03-20T12:00:00.000Z"
+                }
+            }
+        })]);
+        assert_eq!(next.as_deref(), Some("2026-03-20T12:00:00.000Z"));
+
+        assert_eq!(
+            next_cursor(&[serde_json::json!({
+                "data": {
+                    "meta": {
+                        "hasMore": false,
+                        "nextRecordingDateBeforeExclusive": "2026-03-01T00:00:00.000Z"
+                    }
+                }
+            })]),
+            None
+        );
+
+        let tool = Tool::new(
+            "search_pocket_conversations",
+            "Search conversations",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "recordingDateBeforeExclusive": { "type": "string" }
+                }
+            })
+            .as_object()
+            .unwrap()
+            .clone(),
+        );
+        assert_eq!(
+            schema_property(&tool, &["recordingDateBeforeExclusive"]).as_deref(),
+            Some("recordingDateBeforeExclusive")
+        );
+    }
+
+    #[test]
+    fn merges_pocket_conversation_transcripts() {
+        let mut meeting = serde_json::json!({
+            "recordingId": "rec_123",
+            "recordingTitle": "Weekly Sync",
+            "recordingDate": "2026-03-25T15:04:05Z"
+        });
+        merge_enrichment(
+            &mut meeting,
+            "get_pocket_conversation",
+            vec![serde_json::json!({
+                "success": true,
+                "data": [{
+                    "recordingId": "rec_123",
+                    "transcriptSegments": [{ "text": "Ship it", "start": 1.0, "end": 2.0, "speaker": "Ada" }],
+                    "summary": { "text": "Ship the launch." }
+                }]
+            })],
+        );
+
+        assert!(meeting_has_content(&meeting));
+        assert_eq!(meeting["recordingTitle"], "Weekly Sync");
+        assert_eq!(meeting["recordingDate"], "2026-03-25T15:04:05Z");
+        assert_eq!(meeting["transcript"][0]["text"], "Ship it");
+        assert_eq!(meeting["summary"]["text"], "Ship the launch.");
+        assert!(meeting.get("data").is_none());
+        assert!(meeting.get("success").is_none());
     }
 
     #[test]

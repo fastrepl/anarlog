@@ -71,13 +71,13 @@ vi.mock("~/db", () => ({
               position: row.sort_order,
             }))
         : data.enhancedNotes;
-    const rows = options.sql.includes("FROM sessions")
-      ? Object.values(data.sessions)
+    const rows = options.sql.includes("FROM session_documents")
+      ? options.sql.includes("kind IN ('summary', 'template_output')")
+        ? enhancedRows()
+        : Object.values(data.keyFacts)
       : options.sql.includes("FROM session_participants")
         ? data.participants
-        : options.sql.includes("kind IN ('summary', 'template_output')")
-          ? enhancedRows()
-          : Object.values(data.keyFacts);
+        : Object.values(data.sessions);
     return { data: options.mapRows(rows) };
   },
 }));

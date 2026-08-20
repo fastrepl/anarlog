@@ -11,6 +11,7 @@ import type {
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
+import { isLockedFlag } from "~/lock/flag";
 
 type SessionSqlRow = {
   id: string;
@@ -22,6 +23,7 @@ type SessionSqlRow = {
   raw_body: string;
   raw_body_format: string;
   raw_template_id: string;
+  locked: boolean | number;
 };
 
 type SessionSummarySqlRow = {
@@ -46,6 +48,7 @@ const SESSION_SELECT_SQL = `
     sessions.folder_path,
     sessions.event_json,
     sessions.title,
+    sessions.locked,
     COALESCE(note.body, '') AS raw_body,
     COALESCE(note.body_format, 'prosemirror_json') AS raw_body_format,
     COALESCE(note.template_id, '') AS raw_template_id
@@ -179,6 +182,10 @@ export function updateSession(
       ["created_at", changes.created_at],
       ["folder_path", changes.folder_id],
       ["event_json", changes.event_json],
+      [
+        "locked",
+        changes.locked === undefined ? undefined : Number(changes.locked),
+      ],
     ] as const) {
       if (value === undefined) continue;
       assignments.push(`${column} = ?`);
@@ -251,5 +258,6 @@ function mapSessionRow(row: SessionSqlRow): SessionRecord {
     title: row.title,
     raw_md: rawMd,
     raw_template_id: row.raw_template_id,
+    locked: isLockedFlag(row.locked),
   };
 }

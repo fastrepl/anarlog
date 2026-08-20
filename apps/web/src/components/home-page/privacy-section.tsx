@@ -117,18 +117,24 @@ export function LocalFilesVisual() {
       <img
         src="/icons/file.webp"
         alt=""
+        width={160}
+        height={221}
         className="w-10 rotate-[-5deg] object-contain transition-transform duration-300 ease-out hover:rotate-[-9deg]"
         draggable={false}
       />
       <img
         src="/icons/folderchar.svg"
         alt=""
+        width={1004}
+        height={841}
         className="w-14 object-contain transition-transform duration-300 ease-out hover:rotate-[3deg]"
         draggable={false}
       />
       <img
         src="/icons/file.webp"
         alt=""
+        width={160}
+        height={221}
         className="w-10 rotate-[6deg] object-contain transition-transform duration-300 ease-out hover:rotate-[10deg]"
         draggable={false}
       />

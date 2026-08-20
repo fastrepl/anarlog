@@ -48,6 +48,7 @@
     "@anlg/plugin-icon": "workspace:*",
     "@anlg/plugin-importer": "workspace:*",
     "@anlg/plugin-local-api": "workspace:*",
+    "@anlg/plugin-local-auth": "workspace:*",
     "@anlg/plugin-local-llm": "workspace:*",
     "@anlg/plugin-local-stt": "workspace:*",
     "@anlg/plugin-misc": "workspace:*",

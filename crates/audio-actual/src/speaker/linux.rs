@@ -257,11 +257,11 @@ fn pipewire_capture_loop(
         init_tx,
     );
 
-    if let Err(error) = &result {
+    if let Err(error) = result {
         let _ = setup_err_tx.send(Err(anyhow::anyhow!(error.to_string())));
     }
 
-    result
+    Ok(())
 }
 
 fn pipewire_capture_setup(
@@ -515,9 +515,10 @@ fn pulseaudio_capture_loop(
     let (mut stream, actual_rate) = match setup_result {
         Ok(values) => values,
         Err(err) => {
+            tracing::warn!(error = %err, "pulseaudio_capture_setup_failed");
             let _ = init_tx.send(Err(anyhow::anyhow!(err.to_string())));
             mainloop.stop();
-            return Err(err);
+            return Ok(());
         }
     };
 

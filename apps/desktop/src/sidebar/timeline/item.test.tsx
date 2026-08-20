@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
     toggleSelect: vi.fn(),
   },
   windowShow: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
+  authAvailable: false as boolean | null,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -76,6 +77,16 @@ vi.mock("~/session/hooks/useEnhancedNotes", () => ({
 
 vi.mock("~/session/queries", () => ({
   getOrCreateSessionForEventId: mocks.getOrCreateSessionForEventId,
+}));
+
+vi.mock("~/lock/notes", () => ({
+  revealLockedNote: vi.fn(() => Promise.resolve(true)),
+  setSessionLocked: vi.fn(() => Promise.resolve(true)),
+}));
+
+vi.mock("~/lock/store", () => ({
+  useAppLock: (selector: (state: { available: boolean | null }) => unknown) =>
+    selector({ available: mocks.authAvailable }),
 }));
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
@@ -164,6 +175,7 @@ describe("TimelineItemComponent", () => {
     mocks.openCurrent.mockClear();
     mocks.openNew.mockClear();
     mocks.platform = "macos";
+    mocks.authAvailable = false;
     mocks.windowShow.mockClear();
     mocks.nativeContextMenus = [];
     mocks.timelineSelection.selectedIds = [];
@@ -612,5 +624,59 @@ describe("TimelineItemComponent", () => {
       type: "note",
       value: "session-note-window",
     });
+  });
+
+  it("offers lock note when device authentication is available", () => {
+    mocks.authAvailable = true;
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-lock",
+          data: {
+            title: "Private",
+            created_at: "2024-01-15T10:30:00.000Z",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-lock"]}
+      />,
+    );
+
+    const menu = mocks.nativeContextMenus.find((items) =>
+      items.some((item) => item.id === "lock"),
+    );
+
+    expect(menu?.find((item) => item.id === "lock")).toMatchObject({
+      id: "lock",
+      text: "Lock Note",
+    });
+  });
+
+  it("marks a locked note with a lock icon", () => {
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-locked",
+          data: {
+            title: "Secret",
+            created_at: "2024-01-15T10:30:00.000Z",
+            locked: 1,
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-locked"]}
+      />,
+    );
+
+    expect(screen.getByLabelText("Locked note")).toBeTruthy();
   });
 });

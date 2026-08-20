@@ -139,7 +139,7 @@ fn run_detector(
     let mut mainloop = match Mainloop::new() {
         Some(m) => m,
         None => {
-            tracing::error!("failed_to_create_pulseaudio_mainloop");
+            tracing::warn!("failed_to_create_pulseaudio_mainloop");
             return;
         }
     };
@@ -147,21 +147,18 @@ fn run_detector(
     let mut context = match Context::new(&mainloop, "anarlog-mic-detector") {
         Some(c) => c,
         None => {
-            tracing::error!("failed_to_create_pulseaudio_context");
+            tracing::warn!("failed_to_create_pulseaudio_context");
             return;
         }
     };
 
-    if context
-        .connect(None, ContextFlagSet::NOFLAGS, None)
-        .is_err()
-    {
-        tracing::error!("failed_to_connect_to_pulseaudio");
+    if let Err(error) = context.connect(None, ContextFlagSet::NOFLAGS, None) {
+        tracing::warn!(?error, "failed_to_connect_to_pulseaudio");
         return;
     }
 
-    if mainloop.start().is_err() {
-        tracing::error!("failed_to_start_pulseaudio_mainloop");
+    if let Err(error) = mainloop.start() {
+        tracing::warn!(?error, "failed_to_start_pulseaudio_mainloop");
         context.disconnect();
         return;
     }
@@ -233,7 +230,7 @@ fn wait_for_context(mainloop: &mut Mainloop, context: &Context, shutdown: &Atomi
         match state {
             pulse::context::State::Ready => return true,
             pulse::context::State::Failed | pulse::context::State::Terminated => {
-                tracing::error!("pulseaudio_context_connection_failed");
+                tracing::warn!(?state, "pulseaudio_context_connection_failed");
                 return false;
             }
             _ => std::thread::sleep(Duration::from_millis(10)),

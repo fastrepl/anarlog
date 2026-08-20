@@ -7,6 +7,7 @@ const MACOS_COMPETITOR_BUNDLE_IDS: &[(&str, &str)] = &[
     ("Fathom", "Fathom"),
     ("com.jamie.app", "Jamie"),
     ("ai.plaud.desktop.plaud", "Plaud"),
+    ("com.openvisionengineering.pocket-desktop-app", "Pocket"),
     ("ai.limitless.desktop", "Limitless"),
     ("com.memoryvault.MemoryVault", "Rewind"),
 ];
@@ -19,6 +20,7 @@ const WINDOWS_COMPETITOR_PROCESS_NAMES: &[(&str, &str)] = &[
     ("Otter.exe", "Otter"),
     ("Jamie.exe", "Jamie"),
     ("Plaud.exe", "Plaud"),
+    ("Pocket.exe", "Pocket"),
     ("Limitless.exe", "Limitless"),
     ("Rewind.exe", "Rewind"),
 ];
@@ -96,6 +98,14 @@ mod tests {
         assert_eq!(
             competitor_name_for_macos_bundle_id("com.granola.app"),
             Some("Granola")
+        );
+        assert_eq!(
+            competitor_name_for_macos_bundle_id("com.openvisionengineering.pocket-desktop-app"),
+            Some("Pocket")
+        );
+        assert_eq!(
+            competitor_name_for_macos_bundle_id("ai.plaud.desktop.plaud"),
+            Some("Plaud")
         );
         assert_eq!(
             competitor_name_for_macos_bundle_id("com.granola.app.helper"),

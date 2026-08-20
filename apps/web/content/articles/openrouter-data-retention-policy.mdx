@@ -36,6 +36,8 @@ This gives you granular control if you need it. For most use cases, simply not e
 
 ## What OpenRouter's Underlying Provider Stores
 
+![An OpenRouter request passes through the gateway, then the underlying provider's own retention policy applies](/api/assets/blog/articles/openrouter-data-retention-policy/openrouter-request-path.png)
+
 This is where OpenRouter's data policy gets more complicated.
 
 When you send a request through OpenRouter, it routes that request to a provider. That provider processes your prompt under their own data retention policy. OpenRouter does not change what the provider stores. If your request goes to OpenAI's API, [OpenAI's 30-day abuse monitoring window](https://anarlog.so/blog/chatgpt-data-retention-policy/) applies. If it goes to Anthropic's API, [Anthropic's 7-day window](https://anarlog.so/blog/anthropic-data-retention-policy/) applies.

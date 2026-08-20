@@ -145,6 +145,28 @@ export function readE2eeIdentity(userId: string) {
   return read;
 }
 
+const MAX_DEVICE_NAME_BYTES = 128;
+
+export function sanitizeDeviceName(name: string | null | undefined) {
+  if (typeof name !== "string") {
+    return null;
+  }
+
+  const ascii = Array.from(name.trim())
+    .filter((char) => {
+      const code = char.charCodeAt(0);
+      return code >= 0x20 && code <= 0x7e;
+    })
+    .join("")
+    .trim();
+  if (!ascii) {
+    return null;
+  }
+  return ascii.length <= MAX_DEVICE_NAME_BYTES
+    ? ascii
+    : ascii.slice(0, MAX_DEVICE_NAME_BYTES);
+}
+
 export async function getDeviceIdentity() {
   if (cachedDeviceIdentity) {
     return cachedDeviceIdentity;
@@ -162,7 +184,8 @@ export async function getDeviceIdentity() {
 
   let name: string | null = null;
   try {
-    name = await hostname();
+    // hostname() is excluded from os:default and needs os:allow-hostname.
+    name = sanitizeDeviceName(await hostname());
   } catch {
     // Device name is optional.
   }

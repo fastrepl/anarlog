@@ -1,0 +1,30 @@
+[package]
+name = "tauri-plugin-local-auth"
+version = "0.1.0"
+authors = ["You"]
+edition = "2024"
+exclude = ["/js", "/node_modules"]
+links = "tauri-plugin-local-auth"
+description = ""
+
+[build-dependencies]
+tauri-plugin = { workspace = true, features = ["build"] }
+
+[dev-dependencies]
+specta-typescript = { workspace = true }
+
+[dependencies]
+serde = { workspace = true }
+specta = { workspace = true }
+tauri = { workspace = true, features = ["test"] }
+tauri-specta = { workspace = true, features = ["derive", "typescript"] }
+thiserror = { workspace = true }
+
+[target."cfg(target_os = \"macos\")".dependencies]
+block2 = { workspace = true }
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true, features = ["NSError", "NSString"] }
+objc2-local-authentication = { workspace = true, features = ["LAContext", "block2"] }
+
+[target."cfg(target_os = \"windows\")".dependencies]
+windows = { workspace = true, features = ["Foundation", "Security_Credentials_UI"] }

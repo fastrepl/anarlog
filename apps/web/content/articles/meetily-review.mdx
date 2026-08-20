@@ -43,6 +43,8 @@ The codebase is MIT licensed and public on GitHub. The community edition is free
 
 ## **How Does Meetily Work?**
 
+![Meetily's local processing pipeline from system audio to meeting summary](/api/assets/blog/articles/meetily-review/meetily-pipeline.png)
+
 Meetily captures audio from your microphone and system output as separate channels. Transcription runs on your device using either Parakeet (the default) or Whisper Large V3. Both are open-source models that run entirely on local hardware.
 
 Parakeet is the faster option. It runs at roughly 4x the speed of Whisper with lower resource usage. GPU acceleration works on Apple Silicon via Metal, NVIDIA via CUDA, and AMD/Intel via Vulkan. On a modern Mac, transcription happens in real time without visible CPU strain.

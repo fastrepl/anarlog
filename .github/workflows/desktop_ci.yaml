@@ -157,6 +157,7 @@ jobs:
             --exclude tauri-plugin-js \
             --exclude tauri-plugin-listener \
             --exclude tauri-plugin-listener2 \
+            --exclude tauri-plugin-local-auth \
             --exclude tauri-plugin-local-llm \
             --exclude tauri-plugin-local-stt \
             --exclude tauri-plugin-misc \
