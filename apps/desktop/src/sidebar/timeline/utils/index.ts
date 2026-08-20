@@ -36,6 +36,7 @@ export type TimelineSessionRow = {
   created_at?: string | null;
   event_json?: string | null;
   folder_id?: string | null;
+  locked?: boolean | number | null;
 };
 
 export type TimelineEventsTable =

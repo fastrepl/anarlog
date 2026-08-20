@@ -413,6 +413,31 @@ describe("MeetingImportScreen", () => {
     ).toBeNull();
   });
 
+  it("connects Pocket through MCP OAuth instead of file-only import", async () => {
+    mockDetected(["pocket"]);
+    mocks.connectConnectedImport.mockResolvedValue({
+      providerId: "pocket",
+      clientId: "pocket-client",
+      tokenJson: "{}",
+    });
+
+    renderImports();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Connect & import" }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.connectConnectedImport).toHaveBeenCalledOnce();
+    });
+    expect(mocks.connectNangoImport).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        /Connected · New meetings are imported automatically while Anarlog is running/i,
+      ),
+    ).toBeTruthy();
+  });
+
   it("shows the empty state when nothing is detected", async () => {
     mockDetected([]);
 

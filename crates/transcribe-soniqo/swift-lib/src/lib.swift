@@ -140,9 +140,12 @@ private enum SpeechModelKind: String, CaseIterable {
 
     switch self {
     case .parakeetStreaming:
+      // speech-swift's streaming loader always contacts HuggingFace unless
+      // offlineMode is set; live start must keep working from the local cache.
       return .streaming(
         try await ParakeetStreamingASRModel.fromPretrained(
           modelId: repo,
+          offlineMode: offlineMode,
           progressHandler: progressHandler
         )
       )
@@ -687,8 +690,13 @@ private actor SoniqoBridge {
       if let kind {
         markModelIdle(kind)
       }
+      let cached = kind.map { $0.filesReady() } ?? false
       return encodeJSON(
-        StatusPayload(running: false, sessionToken: nil, error: error.localizedDescription)
+        StatusPayload(
+          running: false,
+          sessionToken: nil,
+          error: "\(error.localizedDescription) (model_cached=\(cached))"
+        )
       )
     }
   }

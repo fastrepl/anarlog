@@ -46,6 +46,7 @@ pub struct SessionRow {
     pub folder_path: String,
     pub slug: String,
     pub metadata_json: String,
+    pub locked: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]

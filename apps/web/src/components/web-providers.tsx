@@ -27,6 +27,21 @@ type AnalyticsWindow = Window &
     gtag?: (...args: unknown[]) => void;
   };
 
+/**
+ * Defers third-party analytics script injection until the main thread is
+ * idle so it stays off the critical rendering path (LCP/TBT). Falls back to
+ * a timeout where `requestIdleCallback` is unavailable (e.g. Safari).
+ */
+function runWhenIdle(callback: () => void): () => void {
+  if (typeof window.requestIdleCallback === "function") {
+    const idleId = window.requestIdleCallback(callback, { timeout: 5000 });
+    return () => window.cancelIdleCallback(idleId);
+  }
+
+  const timeoutId = window.setTimeout(callback, 2000);
+  return () => window.clearTimeout(timeoutId);
+}
+
 function GoogleAnalyticsScript() {
   useMountEffect(() => {
     if (
@@ -42,29 +57,34 @@ function GoogleAnalyticsScript() {
       return;
     }
 
-    setGoogleAnalyticsDisabled(false);
+    const cancelIdle = runWhenIdle(() => {
+      setGoogleAnalyticsDisabled(false);
 
-    if (document.getElementById(GOOGLE_TAG_ID)) {
-      return () => setGoogleAnalyticsDisabled(true);
-    }
+      if (document.getElementById(GOOGLE_TAG_ID)) {
+        return;
+      }
 
-    const analyticsWindow = window as AnalyticsWindow;
-    analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
-    analyticsWindow.gtag =
-      analyticsWindow.gtag ??
-      function gtag() {
-        analyticsWindow.dataLayer?.push(arguments);
-      };
-    analyticsWindow.gtag("js", new Date());
-    analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID);
+      const analyticsWindow = window as AnalyticsWindow;
+      analyticsWindow.dataLayer = analyticsWindow.dataLayer ?? [];
+      analyticsWindow.gtag =
+        analyticsWindow.gtag ??
+        function gtag() {
+          analyticsWindow.dataLayer?.push(arguments);
+        };
+      analyticsWindow.gtag("js", new Date());
+      analyticsWindow.gtag("config", GOOGLE_ANALYTICS_ID);
 
-    const script = document.createElement("script");
-    script.id = GOOGLE_TAG_ID;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`;
-    script.async = true;
-    document.head.appendChild(script);
+      const script = document.createElement("script");
+      script.id = GOOGLE_TAG_ID;
+      script.src = `https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`;
+      script.async = true;
+      document.head.appendChild(script);
+    });
 
-    return () => setGoogleAnalyticsDisabled(true);
+    return () => {
+      cancelIdle();
+      setGoogleAnalyticsDisabled(true);
+    };
   });
 
   return null;
@@ -85,26 +105,31 @@ function MicrosoftClarityScript() {
       return;
     }
 
-    const clarityWindow = window as ClarityWindow;
-    clarityWindow.clarity = clarityWindow.clarity ?? createClarityFallback();
+    const cancelIdle = runWhenIdle(() => {
+      const clarityWindow = window as ClarityWindow;
+      clarityWindow.clarity = clarityWindow.clarity ?? createClarityFallback();
 
-    clarityWindow.clarity("consentv2", {
-      ad_Storage: "denied",
-      analytics_Storage: "granted",
+      clarityWindow.clarity("consentv2", {
+        ad_Storage: "denied",
+        analytics_Storage: "granted",
+      });
+      clarityWindow.clarity("start");
+
+      if (document.getElementById(MICROSOFT_CLARITY_SCRIPT_ID)) {
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.id = MICROSOFT_CLARITY_SCRIPT_ID;
+      script.async = true;
+      script.src = `https://www.clarity.ms/tag/${MICROSOFT_CLARITY_TAG_ID}`;
+      document.head.appendChild(script);
     });
-    clarityWindow.clarity("start");
 
-    if (document.getElementById(MICROSOFT_CLARITY_SCRIPT_ID)) {
-      return disableMicrosoftClarity;
-    }
-
-    const script = document.createElement("script");
-    script.id = MICROSOFT_CLARITY_SCRIPT_ID;
-    script.async = true;
-    script.src = `https://www.clarity.ms/tag/${MICROSOFT_CLARITY_TAG_ID}`;
-    document.head.appendChild(script);
-
-    return disableMicrosoftClarity;
+    return () => {
+      cancelIdle();
+      disableMicrosoftClarity();
+    };
   });
 
   return null;

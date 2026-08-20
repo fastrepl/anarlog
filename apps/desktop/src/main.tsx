@@ -22,6 +22,7 @@ import {
   initializeErrorReporting,
 } from "./error-reporting";
 import { AppI18nProvider } from "./i18n/provider";
+import { AppLockGate } from "./lock/gate";
 import { FloatingMeetingWindowHost } from "./meeting-float/host";
 import { routeTree } from "./routeTree.gen";
 import { EventListeners } from "./services/event-listeners";
@@ -108,14 +109,16 @@ function ReadyApp() {
 
   return (
     <TaskSchedulerProvider scheduler={scheduler}>
-      <App />
-      {isMainWindow ? <TaskManager /> : null}
-      {isMainWindow ? <FloatingMeetingWindowHost /> : null}
-      {isMainWindow ? <EventListeners /> : null}
-      {isMainWindow ? <TrayScheduleSync /> : null}
-      {isMainWindow ? <TrayRecordingSync /> : null}
-      {isMainWindow ? <UpdaterMeetingSync /> : null}
-      <Toaster position="bottom-right" theme={theme} />
+      <AppLockGate>
+        <App />
+        {isMainWindow ? <TaskManager /> : null}
+        {isMainWindow ? <FloatingMeetingWindowHost /> : null}
+        {isMainWindow ? <EventListeners /> : null}
+        {isMainWindow ? <TrayScheduleSync /> : null}
+        {isMainWindow ? <TrayRecordingSync /> : null}
+        {isMainWindow ? <UpdaterMeetingSync /> : null}
+        <Toaster position="bottom-right" theme={theme} />
+      </AppLockGate>
     </TaskSchedulerProvider>
   );
 }

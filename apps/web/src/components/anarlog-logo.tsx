@@ -9,6 +9,8 @@ export function AnarlogLogo({
     <img
       src="/logo.svg"
       alt="Anarlog"
+      width={1205}
+      height={334}
       className={className}
       data-compact={compact ? "true" : undefined}
     />

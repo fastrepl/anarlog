@@ -72,6 +72,60 @@ describe("meeting export parser", () => {
     expect(meeting?.noteMarkdown).toContain("Move forward with the migration");
   });
 
+  it("parses Pocket MCP recording fields", () => {
+    const [meeting] = parseMeetingExport({
+      path: "mcp://pocket/rec_123.json",
+      name: "rec_123.json",
+      content: JSON.stringify({
+        recordingId: "rec_123",
+        recordingTitle: "Weekly Sync",
+        recordingDate: "2026-03-25T15:04:05Z",
+        transcriptSegments: [
+          {
+            text: "Let's review the launch plan.",
+            start: 0.62,
+            end: 4.88,
+            speaker: "Alex",
+          },
+        ],
+        summary: { text: "Finalize QA by Friday." },
+      }),
+    });
+
+    expect(meeting).toMatchObject({
+      externalId: "rec_123",
+      title: "Weekly Sync",
+      startedAt: "2026-03-25T15:04:05.000Z",
+    });
+    expect(meeting?.noteMarkdown).toContain("Finalize QA by Friday.");
+    expect(meeting?.transcript[0]).toMatchObject({
+      speaker: "Alex",
+      text: "Let's review the launch plan.",
+      startMs: 620,
+      endMs: 4_880,
+    });
+  });
+
+  it("imports each meeting from a titled collection export", () => {
+    const meetings = parseMeetingExport({
+      path: "/tmp/export.json",
+      name: "export.json",
+      content: JSON.stringify({
+        title: "March export",
+        topic: "search",
+        meetings: [
+          { id: "meeting-1", title: "Weekly planning" },
+          { id: "meeting-2", title: "Customer call" },
+        ],
+      }),
+    });
+
+    expect(meetings.map((meeting) => meeting.title)).toEqual([
+      "Weekly planning",
+      "Customer call",
+    ]);
+  });
+
   it("normalizes call-oriented MCP meeting fields", () => {
     const [meeting] = parseMeetingExport({
       path: "mcp://jiminny/call-1.json",

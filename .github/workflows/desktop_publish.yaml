@@ -21,11 +21,6 @@ on:
         description: "Publish Windows artifacts from the candidate"
         type: boolean
         default: true
-      audio_qa_run_id:
-        description: "Successful desktop Linux virtual-audio QA run for the candidate"
-        required: false
-        type: string
-        default: ""
 
 concurrency:
   group: desktop-stable-release
@@ -44,13 +39,11 @@ jobs:
       dry_run_id: ${{ steps.parse.outputs.dry_run_id }}
       include_linux: ${{ steps.parse.outputs.include_linux }}
       include_windows: ${{ steps.parse.outputs.include_windows }}
-      audio_qa_run_id: ${{ steps.parse.outputs.audio_qa_run_id }}
     steps:
       - id: parse
         env:
           EXECUTION_REF: ${{ github.ref }}
           EXECUTION_SHA: ${{ github.sha }}
-          INPUT_AUDIO_QA_RUN_ID: ${{ inputs.audio_qa_run_id }}
           INPUT_CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           INPUT_DRY_RUN_ID: ${{ inputs.dry_run_id }}
           INPUT_INCLUDE_LINUX: ${{ inputs.include_linux }}
@@ -68,15 +61,6 @@ jobs:
           fi
           if [[ ! "$INPUT_DRY_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::Dry-run workflow ID must be a positive integer"
-            exit 1
-          fi
-          if [[ "$INPUT_INCLUDE_LINUX" == "true" ]]; then
-            if [[ ! "$INPUT_AUDIO_QA_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
-              echo "::error::Linux audio QA workflow ID must be a positive integer when Linux is included"
-              exit 1
-            fi
-          elif [[ -n "$INPUT_AUDIO_QA_RUN_ID" ]]; then
-            echo "::error::Linux audio QA workflow ID must be empty when Linux is excluded"
             exit 1
           fi
 
@@ -97,7 +81,6 @@ jobs:
           echo "dry_run_id=$INPUT_DRY_RUN_ID" >> $GITHUB_OUTPUT
           echo "include_linux=$INPUT_INCLUDE_LINUX" >> $GITHUB_OUTPUT
           echo "include_windows=$INPUT_INCLUDE_WINDOWS" >> $GITHUB_OUTPUT
-          echo "audio_qa_run_id=$INPUT_AUDIO_QA_RUN_ID" >> $GITHUB_OUTPUT
 
   verify-candidate:
     needs: parse
@@ -216,58 +199,6 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --name "desktop-release-provenance-$VERSION-$EXPECTED_SHA" \
             --dir release-provenance
-      - name: Verify Linux virtual-audio QA evidence
-        if: ${{ needs.parse.outputs.include_linux == 'true' }}
-        env:
-          AUDIO_QA_RUN_ID: ${{ needs.parse.outputs.audio_qa_run_id }}
-          DRY_RUN_ID: ${{ needs.parse.outputs.dry_run_id }}
-          EXPECTED_SHA: ${{ needs.parse.outputs.candidate_sha }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.parse.outputs.version }}
-        run: |
-          RUN=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$AUDIO_QA_RUN_ID")
-          ARTIFACTS=$(gh api \
-            "repos/$GITHUB_REPOSITORY/actions/runs/$AUDIO_QA_RUN_ID/artifacts?per_page=100")
-          printf '%s' "$RUN" > "$RUNNER_TEMP/linux-audio-qa-run.json"
-          printf '%s' "$ARTIFACTS" > "$RUNNER_TEMP/linux-audio-qa-artifacts.json"
-          node scripts/verify-linux-audio-qa-run.mjs \
-            --run "$RUNNER_TEMP/linux-audio-qa-run.json" \
-            --artifacts "$RUNNER_TEMP/linux-audio-qa-artifacts.json" \
-            --repository "$GITHUB_REPOSITORY" \
-            --version "$VERSION" \
-            --candidate-sha "$EXPECTED_SHA" \
-            --run-id "$AUDIO_QA_RUN_ID" \
-            --output "$RUNNER_TEMP/linux-audio-qa-downloads.json"
-
-          for arch in x64 arm64; do
-            NAME="linux-audio-qa-$VERSION-$arch"
-            ARTIFACT_ID=$(jq -er \
-              --arg arch "$arch" \
-              '.[] | select(.architecture == $arch) | .id' \
-              "$RUNNER_TEMP/linux-audio-qa-downloads.json")
-            ARTIFACT_DIGEST=$(jq -er \
-              --arg arch "$arch" \
-              '.[] | select(.architecture == $arch) | .digest' \
-              "$RUNNER_TEMP/linux-audio-qa-downloads.json")
-            mkdir -p "linux-audio-qa/$arch"
-            gh api \
-              "repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
-              > "$RUNNER_TEMP/$NAME.zip"
-            ACTUAL_DIGEST="sha256:$(sha256sum "$RUNNER_TEMP/$NAME.zip" | cut -d ' ' -f 1)"
-            if [[ "$ACTUAL_DIGEST" != "$ARTIFACT_DIGEST" ]]; then
-              echo "::error::$NAME digest mismatch: expected $ARTIFACT_DIGEST, got $ACTUAL_DIGEST"
-              exit 1
-            fi
-            unzip -q "$RUNNER_TEMP/$NAME.zip" -d "linux-audio-qa/$arch"
-          done
-
-          node scripts/verify-linux-audio-qa-evidence.mjs \
-            --evidence-dir linux-audio-qa \
-            --manifest release-provenance/manifest.json \
-            --version "$VERSION" \
-            --candidate-sha "$EXPECTED_SHA" \
-            --dry-run-id "$DRY_RUN_ID" \
-            --audio-qa-run-id "$AUDIO_QA_RUN_ID"
       - id: release
         uses: ./.github/actions/cn_release
         with:

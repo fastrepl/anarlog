@@ -21,7 +21,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
     let mut proplist = match Proplist::new() {
         Some(p) => p,
         None => {
-            tracing::error!("Failed to create PulseAudio proplist");
+            tracing::warn!("Failed to create PulseAudio proplist");
             let _ = stop_rx.recv();
             return None;
         }
@@ -34,7 +34,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
         )
         .is_err()
     {
-        tracing::error!("Failed to set PulseAudio application name");
+        tracing::warn!("Failed to set PulseAudio application name");
         let _ = stop_rx.recv();
         return None;
     }
@@ -42,7 +42,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
     let mainloop = match Mainloop::new() {
         Some(m) => Rc::new(RefCell::new(m)),
         None => {
-            tracing::error!("Failed to create PulseAudio mainloop");
+            tracing::warn!("Failed to create PulseAudio mainloop");
             let _ = stop_rx.recv();
             return None;
         }
@@ -52,7 +52,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
     {
         Some(c) => Rc::new(RefCell::new(c)),
         None => {
-            tracing::error!("Failed to create PulseAudio context");
+            tracing::warn!("Failed to create PulseAudio context");
             let _ = stop_rx.recv();
             return None;
         }
@@ -62,7 +62,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
         .borrow_mut()
         .connect(None, ContextFlagSet::NOFLAGS, None)
     {
-        tracing::error!("Failed to connect to PulseAudio: {:?}", e);
+        tracing::warn!("Failed to connect to PulseAudio: {:?}", e);
         let _ = stop_rx.recv();
         return None;
     }
@@ -70,7 +70,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
     mainloop.borrow_mut().lock();
 
     if let Err(e) = mainloop.borrow_mut().start() {
-        tracing::error!("Failed to start PulseAudio mainloop: {:?}", e);
+        tracing::warn!("Failed to start PulseAudio mainloop: {:?}", e);
         mainloop.borrow_mut().unlock();
         let _ = stop_rx.recv();
         return None;
@@ -84,7 +84,7 @@ fn setup_pulseaudio(stop_rx: &mpsc::Receiver<()>) -> Option<PulseAudioHandles> {
             }
             libpulse_binding::context::State::Failed
             | libpulse_binding::context::State::Terminated => {
-                tracing::error!("PulseAudio context failed");
+                tracing::warn!("PulseAudio context failed");
                 mainloop.borrow_mut().unlock();
                 return None;
             }

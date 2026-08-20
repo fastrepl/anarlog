@@ -367,6 +367,10 @@ msgstr "Anarlog couldn't read cloud sync status. Your notes are still available 
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr "Anarlog couldn't sign you out. Try again."
 
+#: src/lock/gate.tsx
+msgid "Anarlog is Locked"
+msgstr "Anarlog is Locked"
+
 #: src/main/sync-status.tsx
 msgid "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
 msgstr "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
@@ -543,6 +547,14 @@ msgstr "Audio file retention"
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
 msgstr "Audio is not available on this device."
+
+#: src/lock/screen.tsx
+msgid "Authenticate to continue."
+msgstr "Authenticate to continue."
+
+#: src/lock/screen.tsx
+msgid "Authenticating…"
+msgstr "Authenticating…"
 
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to Anarlog."
@@ -1552,6 +1564,10 @@ msgstr "Detection delay"
 msgid "Developers"
 msgstr "Developers"
 
+#: src/settings/privacy/index.tsx
+msgid "Device authentication is not available on this computer."
+msgstr "Device authentication is not available on this computer."
+
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Device limit reached"
@@ -2361,6 +2377,19 @@ msgstr "Loading teams…"
 msgid "Loading..."
 msgstr "Loading..."
 
+#: src/settings/privacy/index.tsx
+msgid "Lock app"
+msgstr "Lock app"
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Lock Note"
+msgstr "Lock Note"
+
+#: src/sidebar/timeline/item.tsx
+msgid "Locked note"
+msgstr "Locked note"
+
 #: src/onboarding/account/before-login.tsx
 msgid "Login"
 msgstr "Login"
@@ -2789,6 +2818,10 @@ msgstr "not receiving events"
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "note"
 msgstr "note"
+
+#: src/lock/screen.tsx
+msgid "Note is Locked"
+msgstr "Note is Locked"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Notepad"
@@ -3352,6 +3385,14 @@ msgstr "Request {0} permission"
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
 msgstr "Requested {0}"
+
+#: src/settings/privacy/index.tsx
+msgid "Require Touch ID or your password when opening Anarlog."
+msgstr "Require Touch ID or your password when opening Anarlog."
+
+#: src/settings/privacy/index.tsx
+msgid "Require Windows Hello face, PIN, or password when opening Anarlog."
+msgstr "Require Windows Hello face, PIN, or password when opening Anarlog."
 
 #: src/settings/team/index.tsx
 msgid "Resend invitation"
@@ -4491,6 +4532,15 @@ msgstr "Unknown"
 msgid "Unknown date"
 msgstr "Unknown date"
 
+#: src/lock/screen.tsx
+msgid "Unlock"
+msgstr "Unlock"
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Unlock Note"
+msgstr "Unlock Note"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Unlock sync"
 msgstr "Unlock sync"
@@ -4670,6 +4720,14 @@ msgstr "Use the meeting's action items and summary tasks."
 msgid "Use this language for summaries and AI responses."
 msgstr "Use this language for summaries and AI responses."
 
+#: src/lock/screen.tsx
+msgid "Use Touch ID or enter your password to view."
+msgstr "Use Touch ID or enter your password to view."
+
+#: src/lock/screen.tsx
+msgid "Use Windows Hello face, PIN, or password to view."
+msgstr "Use Windows Hello face, PIN, or password to view."
+
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
 msgstr "Use your microphone to capture your voice"
@@ -4682,9 +4740,17 @@ msgstr "Verifying the SQLite migration status"
 msgid "View"
 msgstr "View"
 
+#: src/lock/gate.tsx
+msgid "View Anarlog"
+msgstr "View Anarlog"
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
 msgstr "View LinkedIn profile"
+
+#: src/lock/screen.tsx
+msgid "View Note"
+msgstr "View Note"
 
 #: src/settings/sync/index.tsx
 msgid "View plans"

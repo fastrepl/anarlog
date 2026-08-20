@@ -24,6 +24,7 @@ import {
 import { DeleteNote } from "./delete";
 import { ExportModal } from "./export-modal";
 import { Listening } from "./listening";
+import { LockNote } from "./lock-note";
 import { ShowInFolder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
@@ -200,6 +201,7 @@ export function OverflowButton({
               </DropdownMenuItem>
             )}
             <ShowInFolder sessionId={sessionId} />
+            <LockNote sessionId={sessionId} />
             <DeleteNote sessionId={sessionId} />
           </AppFloatingPanel>
         </DropdownMenuContent>

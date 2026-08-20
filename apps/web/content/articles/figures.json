@@ -1,7 +1,16 @@
 {
   "ai-meeting-notes-without-bot": [],
   "ai-meeting-summary-tools": [],
-  "anthropic-data-retention-policy": [],
+  "anthropic-data-retention-policy": [
+    {
+      "filename": "claude-data-paths.png",
+      "content": "Claude.ai apps\nTraining toggle on: multi-year retention\nTraining toggle off: standard retention\nAnthropic API\nNo training on inputs by default\nLimited abuse-monitoring retention",
+      "context": "Two-branch diagram for an Anarlog blog post contrasting how conversation data is handled in Anthropic's consumer Claude apps versus the Anthropic API. Neutral, factual tone; no alarmist styling.",
+      "visualQuery": "flowchart",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "avoma-alternatives": [
     {
       "filename": "avoma-three-layers.png",
@@ -11,7 +20,16 @@
       "width": 1000
     }
   ],
-  "azure-open-ai-data-retention-policy": [],
+  "azure-open-ai-data-retention-policy": [
+    {
+      "filename": "azure-openai-data-flow.png",
+      "content": "Your prompt\nAzure OpenAI service in your region\nDefault: abuse-monitoring storage up to 30 days\nApproved: modified monitoring, no prompt storage\nResponses returned to you",
+      "context": "Horizontal data-flow diagram for an Anarlog blog post showing where prompts go in Azure OpenAI, with the default abuse-monitoring path and the approved zero-retention path as branches.",
+      "visualQuery": "flowchart",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "best-ai-meeting-assistant-for-taking-notes": [],
   "best-ai-notetaker": [],
   "best-ai-notetaker-for-in-person-meetings": [],
@@ -19,10 +37,46 @@
   "best-ai-notetaker-for-zoom": [],
   "best-ai-notetakers-google-meet": [],
   "bot-free-ai-meeting-assistants": [],
-  "can-you-transcribe-meetings-without-sending-data-to-cloud": [],
-  "char-is-now-anarlog": [],
-  "char-vs-meetily": [],
-  "chatgpt-data-retention-policy": [],
+  "can-you-transcribe-meetings-without-sending-data-to-cloud": [
+    {
+      "filename": "cloud-vs-local-transcription.png",
+      "content": "Cloud transcription\nMicrophone\nVendor servers\nTranscript returned\nOn-device transcription\nMicrophone\nLocal model on your Mac\nTranscript stays local",
+      "context": "Side-by-side comparison diagram for an Anarlog blog post contrasting the data path of cloud transcription against fully on-device transcription. The on-device path should read as shorter and self-contained.",
+      "visualQuery": "comparison",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "char-is-now-anarlog": [
+    {
+      "filename": "name-timeline.png",
+      "content": "Hyprnote\nChar\nAnarlog\nSame local-first meeting notepad",
+      "context": "Simple horizontal timeline for an Anarlog announcement post showing the product's naming history from Hyprnote to Char to Anarlog, with the constant being the same local-first meeting notepad.",
+      "visualQuery": "timeline",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "char-vs-meetily": [
+    {
+      "filename": "anarlog-vs-meetily-axes.png",
+      "content": "Both: local-first and open source\nAnarlog: native app polish, live notepad, AI stack choice\nMeetily: self-hosted focus, community project",
+      "context": "Comparison diagram for an Anarlog blog post positioning Anarlog and Meetily. They share local-first open-source foundations but differ in product polish and focus. Honest, not dismissive of Meetily.",
+      "visualQuery": "comparison",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "chatgpt-data-retention-policy": [
+    {
+      "filename": "chatgpt-retention-by-plan.png",
+      "content": "Title: ChatGPT Data Handling by Plan\nFree and Plus: chats stored until deleted, training controlled by a settings toggle\nTeam and Enterprise: no training on business data, admin retention controls\nAPI: limited retention, no training by default",
+      "context": "Three-column reference figure comparing how OpenAI handles data across the three ChatGPT usage tiers. Each column is one tier with its data-handling facts. Do not frame as pros versus cons.",
+      "visualQuery": "three column comparison",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "enterprise-ai-notetaking-tools": [],
   "fathom-ai-alternatives": [],
   "fireflies-ai-alternatives": [],
@@ -41,9 +95,36 @@
       "width": 1200
     }
   ],
-  "how-to-have-productive-one-on-one-meetings": [],
-  "how-to-participate-in-meetings-effectively": [],
-  "how-to-reduce-meeting-fatigue": [],
+  "how-to-have-productive-one-on-one-meetings": [
+    {
+      "filename": "one-on-one-loop.png",
+      "content": "Shared agenda\nListen more than you talk\nCapture decisions\nFollow through\nConsistent cadence",
+      "context": "Circular loop diagram showing the repeating weekly system that keeps manager one-on-ones productive. Use the five step labels exactly as given, no added descriptions, plain ASCII text only.",
+      "visualQuery": "cycle",
+      "orientation": "horizontal",
+      "width": 1100
+    }
+  ],
+  "how-to-participate-in-meetings-effectively": [
+    {
+      "filename": "participation-framework.png",
+      "content": "Prepare before the meeting\nSpeak early\nCapture notes as you go\nAsk sharp questions\nFollow up after",
+      "context": "Five-step horizontal framework for participating effectively in meetings, ordered before, during, and after. Keep all five steps separate. Plain ASCII text only, no ampersands.",
+      "visualQuery": "flowchart",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "how-to-reduce-meeting-fatigue": [
+    {
+      "filename": "fatigue-causes-fixes.png",
+      "content": "Constant self-view\nHide your own camera tile\nBack-to-back calls\nAdd buffers between meetings\nHolding notes in your head\nOffload capture to a notetaker",
+      "context": "Cause-to-fix mapping diagram for an Anarlog blog post pairing each driver of meeting fatigue with a practical intervention.",
+      "visualQuery": "comparison",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "how-to-transcribe-zoom-calls": [],
   "is-ai-notetaking-legal": [],
   "is-fireflies-ai-safe": [],
@@ -53,7 +134,16 @@
   "mac-productivity-apps": [],
   "markdown-note-taking-apps": [],
   "meetgeek-alternatives": [],
-  "meetily-review": [],
+  "meetily-review": [
+    {
+      "filename": "meetily-pipeline.png",
+      "content": "System audio\nLocal Whisper transcription\nLocal or self-hosted LLM\nMeeting summary on your machine",
+      "context": "Horizontal pipeline diagram for an Anarlog review post showing how Meetily processes meetings entirely on local or self-hosted infrastructure.",
+      "visualQuery": "flowchart",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "meeting-action-items": [],
   "meeting-decision-log": [],
   "meeting-minutes-software": [],
@@ -69,22 +159,59 @@
   "meeting-preparation-checklist": [],
   "meeting-productivity-tools": [],
   "mistral-api-key": [],
-  "mistral-data-retention-policy": [],
-  "notetakers-for-developers": [],
-  "notion-meeting-notes": [
+  "mistral-data-retention-policy": [
     {
-      "filename": "notion-relations.png",
-      "content": "Meetings\nPeople\nProjects\nAction items",
-      "context": "Relationship diagram for an Anarlog blog post showing a Notion Meetings database linked by relation to People, Projects, and Action Items.",
+      "filename": "mistral-data-flow.png",
+      "content": "Your prompt\nMistral EU-hosted service\nDefault: limited retention for abuse monitoring\nEligible customers: zero-retention option\nTraining: only if you explicitly opt in",
+      "context": "Data-flow diagram summarizing how Mistral handles prompts. The three outcomes are default limited retention, an optional zero-retention path, and training that happens only with explicit opt-in. Training must not look like a default outcome.",
+      "visualQuery": "flowchart",
       "orientation": "horizontal",
       "width": 1200
     }
   ],
-  "notta-ai-alternative": [],
+  "notetakers-for-developers": [],
+  "notion-meeting-notes": [
+    {
+      "filename": "notion-relations.png",
+      "content": "Title: Notion Meeting Notes Schema\nMeetings database in the center\nRelated to People: who attended\nRelated to Projects: what it concerns\nRelated to Action Items: what was assigned",
+      "context": "Relationship diagram of a Notion setup with the Meetings database as the central hub, linked by relations to People, Projects, and Action Items. Meetings must be the central node.",
+      "visualQuery": "hub and spoke",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "notta-ai-alternative": [
+    {
+      "filename": "notta-decision-flow.png",
+      "content": "Need translation and multilingual cloud workflow\nChoose Notta\nNeed local storage and control over AI processing\nChoose a local-first notetaker",
+      "context": "Two-branch decision diagram for an Anarlog blog post helping readers decide between Notta's cloud model and a local-first alternative based on what they actually need.",
+      "visualQuery": "decision tree",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "obsidian-meeting-notes": [],
   "open-source-meeting-transcription-software": [],
-  "openrouter-data-retention-policy": [],
-  "organize-meeting-notes": [],
+  "openrouter-data-retention-policy": [
+    {
+      "filename": "openrouter-request-path.png",
+      "content": "Your request\nOpenRouter gateway\nPrompt logging off by default\nUnderlying model provider\nProvider retention policy applies\nZero-retention endpoints available",
+      "context": "Request-path diagram for an Anarlog blog post showing that OpenRouter sits in front of many model providers, and that each provider applies its own retention policy after the gateway.",
+      "visualQuery": "flowchart",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "organize-meeting-notes": [
+    {
+      "filename": "capture-to-retrieval.png",
+      "content": "Title: From Capture to Retrieval\nCapture during the meeting\nStructure decisions and actions\nTag and link related notes\nRetrieve instantly with search",
+      "context": "Four-stage pipeline showing a personal meeting-notes system. Use the title exactly as given.",
+      "visualQuery": "flowchart",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "otter-ai-alternatives": [],
   "otter-ai-review": [],
   "plaud-ai-alternatives": [],
@@ -92,9 +219,36 @@
   "see-zoom-meeting-history": [],
   "selfhosted-ai-notetakers": [],
   "tactiq-alternatives": [],
-  "tldv-alternatives": [],
+  "tldv-alternatives": [
+    {
+      "filename": "tldv-alternatives-map.png",
+      "content": "Title: tldv Alternatives by Use Case\nCentral node: tldv alternatives\nSales coaching: revenue intelligence tools\nFree unlimited recording: generous free-tier notetakers\nPrivacy and control: local-first notetakers\nLightweight capture: browser extension tools",
+      "context": "Mind map grouping tldv alternatives by the job the reader is hiring them for. The central node must be labeled tldv alternatives, four branches around it.",
+      "visualQuery": "mind map",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "tldv-review": [],
-  "transcription-software-mac": [],
-  "what-makes-reliable-ai-note-taker": [],
+  "transcription-software-mac": [
+    {
+      "filename": "mac-transcription-decision.png",
+      "content": "Live meeting transcription with privacy\nAnarlog\nDrag-and-drop file transcription\nMacWhisper\nEdit podcasts by editing text\nDescript\nAutomated meeting bot\nOtter\nHuman-verified accuracy\nRev",
+      "context": "Decision-tree diagram for an Anarlog blog post matching common Mac transcription needs to the right tool. Anarlog is one branch among several; keep it honest.",
+      "visualQuery": "decision tree",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
+  "what-makes-reliable-ai-note-taker": [
+    {
+      "filename": "reliability-stack.png",
+      "content": "Capture never fails\nTranscription is accurate\nSummaries stay faithful\nNotes remain yours for years",
+      "context": "Vertical stack diagram for an Anarlog blog post showing the layers of reliability an AI notetaker must deliver, from raw capture at the bottom to long-term ownership at the top.",
+      "visualQuery": "pyramid",
+      "orientation": "vertical",
+      "width": 1000
+    }
+  ],
   "zoom-ai-companion-review": []
 }

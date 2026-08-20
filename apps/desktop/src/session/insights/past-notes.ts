@@ -228,7 +228,7 @@ function usePastSessionNotesData(enabled: boolean): PastSessionNotesData {
         created_at,
         event_json
       FROM sessions
-      WHERE deleted_at IS NULL
+      WHERE deleted_at IS NULL AND locked = 0
       ORDER BY created_at, id
     `,
     enabled,
@@ -273,6 +273,9 @@ function usePastSessionNotesData(enabled: boolean): PastSessionNotesData {
         sort_order AS position
       FROM session_documents
       WHERE kind IN ('summary', 'template_output') AND deleted_at IS NULL
+        AND session_id IN (
+          SELECT id FROM sessions WHERE deleted_at IS NULL AND locked = 0
+        )
       ORDER BY session_id, sort_order, created_at, id
     `,
     enabled,
@@ -292,6 +295,9 @@ function usePastSessionNotesData(enabled: boolean): PastSessionNotesData {
         source_hash
       FROM session_documents
       WHERE kind = 'key_facts' AND deleted_at IS NULL
+        AND session_id IN (
+          SELECT id FROM sessions WHERE deleted_at IS NULL AND locked = 0
+        )
       ORDER BY updated_at, id
     `,
     enabled,
@@ -487,7 +493,7 @@ export function buildSessionKeyFactsStatements(
           AND EXISTS (
             SELECT 1
             FROM sessions
-            WHERE id = ? AND deleted_at IS NULL
+            WHERE id = ? AND deleted_at IS NULL AND locked = 0
           )
       `,
       params: [
@@ -510,7 +516,7 @@ export function buildSessionKeyFactsStatements(
         SELECT ?, session.workspace_id, session.id, 'key_facts', '',
           'Key facts', 'markdown', ?, ?, '{}', 0, ?, ?, ?, ?, NULL
         FROM sessions AS session
-        WHERE session.id = ? AND session.deleted_at IS NULL
+        WHERE session.id = ? AND session.deleted_at IS NULL AND session.locked = 0
           AND NOT EXISTS (
             SELECT 1
             FROM session_documents

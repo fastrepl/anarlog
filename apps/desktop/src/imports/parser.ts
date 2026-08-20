@@ -117,6 +117,7 @@ function normalizeMeeting(value: unknown, fallbackTitle: string) {
   const transcriptValue = firstValue(record, [
     "transcript",
     "transcription",
+    "transcriptSegments",
     "utterances",
     "segments",
     "sentences",
@@ -165,6 +166,8 @@ function normalizeMeeting(value: unknown, fallbackTitle: string) {
           "startTime",
           "meeting_date",
           "meetingDate",
+          "recording_date",
+          "recordingDate",
           "date",
           "created_at",
           "createdAt",
@@ -339,6 +342,7 @@ function parseTranscriptValue(value: unknown): ImportedMeeting["transcript"] {
   if (record) {
     return parseTranscriptValue(
       firstValue(record, [
+        "transcriptSegments",
         "segments",
         "utterances",
         "sentences",

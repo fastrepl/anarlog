@@ -31,6 +31,10 @@ import { shouldShowSessionTopAudioPlayer } from "./top-audio-player";
 import { getSessionEvent } from "./utils";
 
 import * as AudioPlayer from "~/audio-player";
+import { isLockedFlag } from "~/lock/flag";
+import { revealLockedNote } from "~/lock/notes";
+import { NoteLockScreen } from "~/lock/screen";
+import { useAppLock } from "~/lock/store";
 import {
   isCanonicalSessionImportLocked,
   subscribeCanonicalSessionImportLocks,
@@ -62,6 +66,37 @@ export function TabContentNote({
   );
 
   if (importLocked) return <SessionContentLoading />;
+
+  return <LockedNoteGate tab={tab} standaloneWindow={standaloneWindow} />;
+}
+
+function LockedNoteGate({
+  standaloneWindow,
+  tab,
+}: {
+  standaloneWindow: boolean;
+  tab: Extract<Tab, { type: "sessions" }>;
+}) {
+  const session = useSession(tab.id);
+  const locked = isLockedFlag(session?.locked);
+  const revealed = useAppLock((state) =>
+    Boolean(state.revealedNoteIds[tab.id]),
+  );
+  const authenticating = useAppLock((state) => state.authenticating);
+
+  if (session && locked && !revealed) {
+    return (
+      <SessionSurface>
+        <NoteLockScreen
+          sessionTitle={session.title}
+          authenticating={authenticating}
+          onUnlock={() => {
+            void revealLockedNote(tab.id);
+          }}
+        />
+      </SessionSurface>
+    );
+  }
 
   return (
     <UnlockedTabContentNote tab={tab} standaloneWindow={standaloneWindow} />

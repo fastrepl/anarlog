@@ -114,6 +114,18 @@ describe("session SQLite operations", () => {
     expect(statements[1].params).toContain('{"type":"doc"}');
   });
 
+  it("persists a note lock flag on the session row", async () => {
+    await updateSession("session-1", { locked: true });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+      params: unknown[];
+    }>;
+    expect(statements).toHaveLength(1);
+    expect(statements[0].sql).toContain("locked = ?");
+    expect(statements[0].params).toContain(1);
+  });
+
   it("stores a memo template without clearing it on later edits", async () => {
     await updateSession("session-1", {
       raw_md: '{"type":"doc"}',

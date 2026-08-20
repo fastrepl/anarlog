@@ -250,6 +250,7 @@ tauri-plugin-icon = { path = "plugins/icon" }
 tauri-plugin-importer = { path = "plugins/importer", default-features = false }
 tauri-plugin-js = { path = "plugins/js" }
 tauri-plugin-local-api = { path = "plugins/local-api" }
+tauri-plugin-local-auth = { path = "plugins/local-auth" }
 tauri-plugin-local-llm = { path = "plugins/local-llm" }
 tauri-plugin-local-stt = { path = "plugins/local-stt" }
 tauri-plugin-mcp = { path = "plugins/mcp" }
@@ -432,6 +433,7 @@ objc2-core-graphics = "0.3.2"
 objc2-core-location = "0.3.2"
 objc2-event-kit = "0.3.2"
 objc2-foundation = "0.3.2"
+objc2-local-authentication = "0.3.2"
 objc2-quartz-core = "0.3.2"
 objc2-security = "0.3.2"
 objc2-user-notifications = "0.3.2"

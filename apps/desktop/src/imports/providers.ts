@@ -168,8 +168,17 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     helpUrl:
       "https://support.plaud.ai/hc/en-us/articles/57751026815257-Plaud-CLI",
     directImport: "cli",
-    nativeNames: ["Plaud"],
+    nativeNames: ["Plaud", "Plaud Desktop"],
     bundleIds: ["ai.plaud.desktop.plaud"],
+  },
+  {
+    id: "pocket",
+    name: "Pocket",
+    access: "MCP",
+    helpUrl: "https://docs.heypocketai.com/docs",
+    directImport: "mcp-oauth",
+    nativeNames: ["Pocket", "Pocket Desktop", "Pocket AI"],
+    bundleIds: ["com.openvisionengineering.pocket-desktop-app"],
   },
   {
     id: "zoom",

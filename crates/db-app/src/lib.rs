@@ -382,6 +382,13 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         },
         sql: include_str!("../migrations/20260816100100_e2ee_payload_hash_local_state.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260820120000_session_locked",
+        scope: anlg_db_migrate::MigrationScope::CloudsyncAlter {
+            table_name: "sessions",
+        },
+        sql: include_str!("../migrations/20260820120000_session_locked.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

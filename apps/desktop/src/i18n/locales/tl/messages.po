@@ -367,6 +367,10 @@ msgstr ""
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr ""
 
+#: src/lock/gate.tsx
+msgid "Anarlog is Locked"
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
 msgstr ""
@@ -542,6 +546,14 @@ msgstr ""
 
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Authenticate to continue."
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Authenticating…"
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -1552,6 +1564,10 @@ msgstr ""
 msgid "Developers"
 msgstr ""
 
+#: src/settings/privacy/index.tsx
+msgid "Device authentication is not available on this computer."
+msgstr ""
+
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Device limit reached"
@@ -2361,6 +2377,19 @@ msgstr ""
 msgid "Loading..."
 msgstr ""
 
+#: src/settings/privacy/index.tsx
+msgid "Lock app"
+msgstr ""
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Lock Note"
+msgstr ""
+
+#: src/sidebar/timeline/item.tsx
+msgid "Locked note"
+msgstr ""
+
 #: src/onboarding/account/before-login.tsx
 msgid "Login"
 msgstr ""
@@ -2788,6 +2817,10 @@ msgstr ""
 
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "note"
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Note is Locked"
 msgstr ""
 
 #: src/settings/appearance/app-icon.tsx
@@ -3351,6 +3384,14 @@ msgstr ""
 #. placeholder {0}: capabilityLabels[entry.capability].toLowerCase()
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Require Touch ID or your password when opening Anarlog."
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Require Windows Hello face, PIN, or password when opening Anarlog."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -4491,6 +4532,15 @@ msgstr ""
 msgid "Unknown date"
 msgstr ""
 
+#: src/lock/screen.tsx
+msgid "Unlock"
+msgstr ""
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Unlock Note"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Unlock sync"
 msgstr ""
@@ -4670,6 +4720,14 @@ msgstr ""
 msgid "Use this language for summaries and AI responses."
 msgstr ""
 
+#: src/lock/screen.tsx
+msgid "Use Touch ID or enter your password to view."
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Use Windows Hello face, PIN, or password to view."
+msgstr ""
+
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
 msgstr ""
@@ -4682,8 +4740,16 @@ msgstr ""
 msgid "View"
 msgstr ""
 
+#: src/lock/gate.tsx
+msgid "View Anarlog"
+msgstr ""
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "View Note"
 msgstr ""
 
 #: src/settings/sync/index.tsx

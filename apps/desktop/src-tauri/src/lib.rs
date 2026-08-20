@@ -314,6 +314,7 @@ pub async fn main() {
         .plugin(tauri_plugin_export::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_local_api::init())
+        .plugin(tauri_plugin_local_auth::init())
         .plugin(tauri_plugin_mcp::init())
         .plugin(tauri_plugin_messenger::init())
         .plugin(tauri_plugin_misc::init())

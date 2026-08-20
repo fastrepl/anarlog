@@ -36,7 +36,8 @@ Run these before publishing a stable desktop release.
 
 4. **Real-hardware QA** (cannot run in CI/Cloud Agent):
    - Critical Pro user journey on a Mac — follow `.agents/skills/qa-critical-ux`.
-   - Linux system-audio capture — `desktop_linux_audio_qa` against the candidate.
+     Linux and Windows ship from the same dry-run provenance; do not run a
+     separate Linux-only audio QA gate before publish.
 
 5. **Changelog** — add the entry via `.agents/skills/new-changelog`.
 
