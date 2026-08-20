@@ -343,6 +343,18 @@
           "markdownDescription": "Denies the attachment_save command without any pre-configured scope."
         },
         {
+          "description": "Enables the audio_copy command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-audio-copy",
+          "markdownDescription": "Enables the audio_copy command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the audio_copy command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-audio-copy",
+          "markdownDescription": "Denies the audio_copy command without any pre-configured scope."
+        },
+        {
           "description": "Enables the audio_delete command without any pre-configured scope.",
           "type": "string",
           "const": "allow-audio-delete",
@@ -413,18 +425,6 @@
           "type": "string",
           "const": "deny-audio-metadata",
           "markdownDescription": "Denies the audio_metadata command without any pre-configured scope."
-        },
-        {
-          "description": "Enables the audio_copy command without any pre-configured scope.",
-          "type": "string",
-          "const": "allow-audio-copy",
-          "markdownDescription": "Enables the audio_copy command without any pre-configured scope."
-        },
-        {
-          "description": "Denies the audio_copy command without any pre-configured scope.",
-          "type": "string",
-          "const": "deny-audio-copy",
-          "markdownDescription": "Denies the audio_copy command without any pre-configured scope."
         },
         {
           "description": "Enables the audio_path command without any pre-configured scope.",
