@@ -338,7 +338,8 @@ pub async fn main() {
         .plugin(tauri_plugin_js::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .skip_initial_state("main")
+                .with_state_flags(tauri_plugin_windows::persisted_window_state_flags())
+                .with_denylist(&["composer"])
                 .build(),
         )
         .plugin(tauri_plugin_transcription::init())
