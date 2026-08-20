@@ -208,7 +208,9 @@ async fn spawn_soniqo_rx_task(
             Err(error) => {
                 tracing::error!(
                     anarlog.session.id = %args.session_id,
-                    error.message = ?error,
+                    anarlog.stt.provider.name = "soniqo",
+                    anarlog.stt.model = %model,
+                    error.message = %error,
                     "soniqo_live_start_failed(dual)"
                 );
                 args.runtime.emit_error(SessionErrorEvent::ConnectionError {
@@ -249,7 +251,9 @@ async fn spawn_soniqo_rx_task(
                 Err(error) => {
                     tracing::error!(
                         anarlog.session.id = %args.session_id,
-                        error.message = ?error,
+                        anarlog.stt.provider.name = "soniqo",
+                        anarlog.stt.model = %model,
+                        error.message = %error,
                         "soniqo_live_start_failed(single)"
                     );
                     args.runtime.emit_error(SessionErrorEvent::ConnectionError {

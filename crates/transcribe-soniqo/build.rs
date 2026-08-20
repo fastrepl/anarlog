@@ -203,6 +203,7 @@ fn prepare_swift_package(swift_build_dir: &Path) {
     run_command(command, "resolving Soniqo Swift dependencies");
 
     patch_speech_swift_manifest(swift_build_dir);
+    patch_parakeet_streaming_offline_mode(swift_build_dir);
 }
 
 #[cfg(target_os = "macos")]
@@ -253,6 +254,60 @@ fn patch_speech_swift_manifest(swift_build_dir: &Path) {
         panic!(
             "failed to patch Soniqo speech-swift manifest {}: {error}",
             manifest.display()
+        )
+    });
+}
+
+#[cfg(target_os = "macos")]
+include!("src/streaming_offline.rs");
+
+#[cfg(target_os = "macos")]
+fn patch_parakeet_streaming_offline_mode(swift_build_dir: &Path) {
+    let path = swift_build_dir
+        .join("checkouts")
+        .join("speech-swift")
+        .join("Sources")
+        .join("ParakeetStreamingASR")
+        .join("ParakeetStreamingASR.swift");
+    let contents = fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!(
+            "failed to read Soniqo Parakeet streaming source {}: {error}",
+            path.display()
+        )
+    });
+    let patched = patch_parakeet_streaming_source(&contents).unwrap_or_else(|error| {
+        panic!(
+            "failed to patch Soniqo Parakeet streaming offline mode in {}: {error}",
+            path.display()
+        )
+    });
+
+    if patched == contents {
+        return;
+    }
+
+    let mut permissions = fs::metadata(&path)
+        .unwrap_or_else(|error| {
+            panic!(
+                "failed to read permissions for Soniqo Parakeet streaming source {}: {error}",
+                path.display()
+            )
+        })
+        .permissions();
+    if permissions.readonly() {
+        permissions.set_readonly(false);
+        fs::set_permissions(&path, permissions).unwrap_or_else(|error| {
+            panic!(
+                "failed to make Soniqo Parakeet streaming source writable {}: {error}",
+                path.display()
+            )
+        });
+    }
+
+    fs::write(&path, patched).unwrap_or_else(|error| {
+        panic!(
+            "failed to patch Soniqo Parakeet streaming source {}: {error}",
+            path.display()
         )
     });
 }

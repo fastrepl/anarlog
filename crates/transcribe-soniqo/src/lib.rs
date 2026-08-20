@@ -5,6 +5,8 @@ mod error;
 mod model;
 mod platform;
 mod responses;
+#[cfg(test)]
+mod streaming_offline;
 mod types;
 
 pub use error::{Error, Result};
@@ -171,7 +173,15 @@ impl LiveTranscriptionSession {
             )));
         }
 
-        let session_token = platform::live_start(model)?;
+        let session_token = platform::live_start(model).map_err(|error| {
+            tracing::error!(
+                anarlog.stt.provider.name = "soniqo",
+                anarlog.stt.model = %model,
+                error = %error,
+                "soniqo_native_live_start_failed"
+            );
+            error
+        })?;
         Ok(Self {
             model,
             session_token,
