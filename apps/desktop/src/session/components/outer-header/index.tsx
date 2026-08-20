@@ -11,6 +11,7 @@ import {
 } from "@anlg/ui/components/ui/popover";
 import { cn, safeParseDate } from "@anlg/utils";
 
+import { isMeetingStopAction } from "../note-input/header-stop";
 import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
 import { MetadataButton } from "./metadata";
@@ -65,6 +66,8 @@ export function OuterHeader({
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
   const showExpandedSidebarTimelineHeader = leftsidebar.expanded;
+  const embedStopInViewSwitcher =
+    viewSwitcher != null && isMeetingStopAction(sessionMode);
 
   return (
     <div
@@ -110,6 +113,7 @@ export function OuterHeader({
           currentView={currentView}
           transcriptEditMode={transcriptEditMode}
           onTranscriptEditModeChange={onTranscriptEditModeChange}
+          hideStop={embedStopInViewSwitcher}
         />
         <SessionShareButton key={sessionId} sessionId={sessionId} />
         <OverflowButton
@@ -128,12 +132,14 @@ function HeaderMeetingControl({
   currentView,
   transcriptEditMode,
   onTranscriptEditModeChange,
+  hideStop = false,
 }: {
   sessionId: string;
   sessionMode: string;
   currentView: EditorView;
   transcriptEditMode: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
+  hideStop?: boolean;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
@@ -166,6 +172,10 @@ function HeaderMeetingControl({
 
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
+
+  if (hideStop && isRecording) {
+    return null;
+  }
 
   if (!sessionEvent && !isRecording) {
     if (hasTranscript || audioExists) {

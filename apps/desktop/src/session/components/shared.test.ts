@@ -99,16 +99,16 @@ describe("useCurrentNoteTab", () => {
     expect(result.current).toEqual({ type: "raw" });
   });
 
-  it("keeps active transcript view when no transcript evidence exists", () => {
+  it("switches active transcript view to memos when no transcript evidence exists", () => {
     hoisted.sessionMode = "active";
     hoisted.liveSessionId = "session-1";
 
     const { result } = renderHook(() => useCurrentNoteTab(tab));
 
-    expect(result.current).toEqual({ type: "transcript" });
+    expect(result.current).toEqual({ type: "raw" });
   });
 
-  it("keeps active transcript view when only in-progress audio exists", () => {
+  it("switches active transcript view to memos when only in-progress audio exists", () => {
     hoisted.sessionMode = "active";
     hoisted.liveSessionId = "session-1";
 
@@ -116,7 +116,7 @@ describe("useCurrentNoteTab", () => {
       useCurrentNoteTab(tab, { audioExists: true }),
     );
 
-    expect(result.current).toEqual({ type: "transcript" });
+    expect(result.current).toEqual({ type: "raw" });
   });
 });
 
@@ -313,14 +313,14 @@ describe("computeCurrentNoteTab", () => {
       expect(result).toEqual({ type: "raw" });
     });
 
-    it("preserves transcript view when transcript can show", () => {
+    it("switches transcript view to memos while listening", () => {
       const result = computeCurrentNoteTab(
         { type: "transcript" },
         true,
         ["note-1"],
         true,
       );
-      expect(result).toEqual({ type: "transcript" });
+      expect(result).toEqual({ type: "raw" });
     });
 
     it("normalizes transcript view when transcript cannot show", () => {

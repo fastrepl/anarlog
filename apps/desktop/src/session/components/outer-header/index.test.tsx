@@ -892,6 +892,22 @@ describe("OuterHeader", () => {
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
+  it("hides the separate stop pill when the view switcher owns stop", () => {
+    mocks.sessionModes = { "session-1": "active" };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        viewSwitcher={<div>tabs</div>}
+        title={<span>Session title</span>}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByText("tabs")).not.toBeNull();
+  });
+
   it("keeps stop available for an active ad hoc session", () => {
     mocks.sessionModes = { "session-1": "active" };
 
