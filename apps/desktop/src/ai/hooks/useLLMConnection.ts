@@ -20,6 +20,10 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/llm/shared";
 import {
+  createSubscriptionFetch,
+  usesSubscriptionFetch,
+} from "~/settings/ai/llm/subscriptions";
+import {
   getProviderSelectionBlockers,
   type ProviderEligibilityContext,
 } from "~/settings/ai/shared/eligibility";
@@ -260,6 +264,44 @@ const createLanguageModel = (
         },
       });
       return wrapWithThinkingMiddleware(provider(conn.modelId));
+    }
+
+    case "claude": {
+      const oauth = usesSubscriptionFetch(conn.providerId, conn.apiKey);
+      const provider = createAnthropic({
+        fetch: oauth
+          ? createSubscriptionFetch(conn.providerId, conn.apiKey)
+          : tauriFetch,
+        apiKey: oauth ? "oauth" : conn.apiKey,
+        headers: {
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+      });
+      return wrapWithThinkingMiddleware(provider(conn.modelId));
+    }
+
+    case "chatgpt": {
+      const oauth = usesSubscriptionFetch(conn.providerId, conn.apiKey);
+      const provider = createOpenAI({
+        fetch: oauth
+          ? createSubscriptionFetch(conn.providerId, conn.apiKey)
+          : tauriFetch,
+        baseURL: conn.baseUrl,
+        apiKey: oauth ? "oauth" : conn.apiKey,
+      });
+      return wrapWithThinkingMiddleware(provider(conn.modelId));
+    }
+
+    case "grok":
+    case "github_copilot": {
+      const provider = createOpenAICompatible({
+        fetch: createSubscriptionFetch(conn.providerId, conn.apiKey),
+        name: conn.providerId,
+        baseURL: conn.baseUrl,
+        apiKey: "oauth",
+      });
+      return wrapWithThinkingMiddleware(provider.chatModel(conn.modelId));
     }
 
     case "google_generative_ai": {

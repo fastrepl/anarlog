@@ -20,6 +20,10 @@ import {
   shouldShowMissingModelWarning,
 } from "./selection";
 import { type Provider, PROVIDERS } from "./shared";
+import {
+  isSubscriptionProviderId,
+  listSubscriptionModels,
+} from "./subscriptions";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
@@ -557,7 +561,13 @@ export function getLlmProviderStatus({
       listModelsFunc = () => listGenericModels(baseUrl, apiKey);
       break;
     default:
-      listModelsFunc = () => listGenericModels(baseUrl, apiKey);
+      if (isSubscriptionProviderId(provider.id)) {
+        const subscriptionId = provider.id;
+        listModelsFunc = () =>
+          listSubscriptionModels(subscriptionId, baseUrl, apiKey);
+      } else {
+        listModelsFunc = () => listGenericModels(baseUrl, apiKey);
+      }
   }
 
   return {

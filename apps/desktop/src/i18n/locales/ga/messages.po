@@ -309,6 +309,10 @@ msgstr ""
 msgid "All Notes"
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "All providers are connected."
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr ""
@@ -442,6 +446,10 @@ msgstr ""
 #: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Anyone with the link can view. Link copied."
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "API"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -679,6 +687,7 @@ msgstr ""
 #: src/calendar/components/apple/permission.tsx
 #: src/imports/screen.tsx
 #: src/session-sharing/comments.tsx
+#: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
 #: src/settings/todo/github.tsx
@@ -1104,11 +1113,17 @@ msgstr ""
 msgid "Confirm"
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/ai/shared/index.tsx
+msgid "Connect"
+msgstr ""
+
 #. placeholder {0}: config.displayName
 #. placeholder {0}: integration.displayName
 #. placeholder {0}: provider.displayName
 #: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
+#: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"
 msgstr ""
@@ -1169,6 +1184,10 @@ msgstr ""
 msgid "Connected · New meetings are imported automatically while Anarlog is running."
 msgstr ""
 
+#: src/settings/ai/shared/index.tsx
+msgid "Connected with your existing subscription."
+msgstr ""
+
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Connecting..."
@@ -1201,6 +1220,7 @@ msgstr ""
 
 #: src/main/windows-title-bar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
+#: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/developers/cloud-api.tsx
 #: src/settings/developers/webhooks.tsx
 msgid "Copy"
@@ -2053,6 +2073,10 @@ msgstr ""
 msgid "History {0}/{1}"
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "How to get a Kimi Code key"
+msgstr ""
+
 #: src/contacts/humans.tsx
 msgid "Human"
 msgstr ""
@@ -2222,6 +2246,10 @@ msgstr ""
 
 #: src/settings/developers/cloud-api.tsx
 msgid "Key name (e.g. Claude Code)"
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Kimi Code API key"
 msgstr ""
 
 #: src/settings/general/index.tsx
@@ -2935,6 +2963,10 @@ msgstr ""
 msgid "Open web copy"
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Opening sign-in…"
+msgstr ""
+
 #: src/imports/screen.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
 #: src/shared-notes/index.tsx
@@ -2986,8 +3018,20 @@ msgstr ""
 msgid "Paste a past summary you like..."
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Paste an API key from your Kimi Code membership."
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Paste the authorization code"
+msgstr ""
+
 #: src/instruction/index.tsx
 msgid "Paste the browser URL here if the browser button did not reopen Anarlog."
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Paste the localhost redirect URL"
 msgstr ""
 
 #: src/settings/developers/webhooks.tsx
@@ -3908,6 +3952,22 @@ msgstr ""
 msgid "Sign in to your account"
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser."
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Sign in with Claude Pro or Max, then paste the authorization code."
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Sign in with GitHub Copilot and enter the code below."
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Sign in with SuperGrok or X Premium+ and enter the code below."
+msgstr ""
+
 #: src/settings/general/account.tsx
 msgid "Sign out"
 msgstr ""
@@ -4116,6 +4176,10 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Subscription"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -4708,6 +4772,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Waiting for approval"
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Waiting for authorization in your browser…"
 msgstr ""
 
 #: src/main/sync-status.tsx

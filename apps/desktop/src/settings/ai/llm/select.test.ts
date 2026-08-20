@@ -16,6 +16,11 @@ describe("LLM providers", () => {
   test("orders providers by popularity", () => {
     expect(PROVIDERS.map(({ id }) => id)).toEqual([
       "anarlog",
+      "claude",
+      "chatgpt",
+      "grok",
+      "github_copilot",
+      "kimi_code",
       "openai",
       "anthropic",
       "google_generative_ai",
@@ -79,6 +84,33 @@ describe("getLlmProviderStatus", () => {
     expect(status.configured).toBe(true);
     expect(status.listModels).toBeTypeOf("function");
   });
+
+  test.each(["claude", "chatgpt", "grok", "github_copilot", "kimi_code"])(
+    "treats %s as a subscription provider that needs a saved credential",
+    (id) => {
+      const definition = provider(id);
+      const missing = getLlmProviderStatus({
+        provider: definition,
+        config: { api_key: "" },
+        isAuthenticated: false,
+        isPaid: false,
+      });
+      const configured = getLlmProviderStatus({
+        provider: definition,
+        config: {
+          api_key: '{"type":"oauth","refresh":"r","access":"a","expires":1}',
+        },
+        isAuthenticated: false,
+        isPaid: false,
+      });
+
+      expect(definition.authKind).toBe("subscription");
+      expect(definition.badge).toBe("Subscription");
+      expect(missing.configured).toBe(false);
+      expect(configured.configured).toBe(true);
+      expect(configured.listModels).toBeTypeOf("function");
+    },
+  );
 
   test.each([
     ["moonshot", "https://api.moonshot.ai/v1"],

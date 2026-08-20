@@ -31,17 +31,24 @@ const AnthropicModelSchema = Schema.Struct({
 export async function listAnthropicModels(
   baseUrl: string,
   apiKey: string,
+  options?: { authorization?: "x-api-key" | "bearer" },
 ): Promise<ListModelsResult> {
   if (!baseUrl) {
     return DEFAULT_RESULT;
   }
 
+  const headers: Record<string, string> = {
+    "anthropic-version": "2023-06-01",
+    "anthropic-dangerous-direct-browser-access": "true",
+  };
+  if (options?.authorization === "bearer") {
+    headers.Authorization = `Bearer ${apiKey}`;
+  } else {
+    headers["x-api-key"] = apiKey;
+  }
+
   return pipe(
-    fetchJson(`${baseUrl}/models`, {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true",
-    }),
+    fetchJson(`${baseUrl}/models`, headers),
     Effect.andThen((json) => Schema.decodeUnknown(AnthropicModelSchema)(json)),
     Effect.map(({ data }) => {
       const result = partition(

@@ -11,6 +11,7 @@ import {
   DeepSeek,
   Fireworks,
   Gemini,
+  GithubCopilot,
   GoogleCloud,
   Groq,
   LmStudio,
@@ -44,6 +45,7 @@ export type Provider = {
   badge: string | null;
   icon: ReactNode;
   baseUrl?: string;
+  authKind?: "api" | "subscription";
   requirements: ProviderRequirement[];
   checkAvailability?: (baseUrl: string, apiKey: string) => Promise<boolean>;
   hideAdvanced?: boolean;
@@ -65,6 +67,86 @@ const _PROVIDERS = [
       { kind: "requires_auth" },
       { kind: "requires_entitlement", entitlement: "pro" },
     ],
+  },
+  {
+    id: "claude",
+    displayName: "Claude",
+    badge: "Subscription",
+    icon: <Anthropic />,
+    baseUrl: "https://api.anthropic.com/v1",
+    authKind: "subscription",
+    hideAdvanced: true,
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      setup: {
+        label: "Claude Pro / Max",
+        url: "https://claude.ai/upgrade",
+      },
+    },
+  },
+  {
+    id: "chatgpt",
+    displayName: "ChatGPT",
+    badge: "Subscription",
+    icon: <OpenAI />,
+    baseUrl: "https://api.openai.com/v1",
+    authKind: "subscription",
+    hideAdvanced: true,
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      setup: {
+        label: "ChatGPT plans",
+        url: "https://chatgpt.com/",
+      },
+    },
+  },
+  {
+    id: "grok",
+    displayName: "Grok",
+    badge: "Subscription",
+    icon: <XAI />,
+    baseUrl: "https://api.x.ai/v1",
+    authKind: "subscription",
+    hideAdvanced: true,
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      setup: {
+        label: "SuperGrok",
+        url: "https://grok.com/",
+      },
+    },
+  },
+  {
+    id: "github_copilot",
+    displayName: "GitHub Copilot",
+    badge: "Subscription",
+    icon: <GithubCopilot />,
+    baseUrl: "https://api.githubcopilot.com",
+    authKind: "subscription",
+    hideAdvanced: true,
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      setup: {
+        label: "GitHub Copilot",
+        url: "https://github.com/features/copilot",
+      },
+    },
+  },
+  {
+    id: "kimi_code",
+    displayName: "Kimi Code",
+    badge: "Subscription",
+    icon: <Moonshot />,
+    baseUrl: "https://api.kimi.com/coding/v1",
+    authKind: "subscription",
+    hideAdvanced: true,
+    requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      setup: {
+        label: "Kimi Code membership",
+        url: "https://www.kimi.com/en/help/kimi-code/membership-guide",
+      },
+    },
   },
   {
     id: "apple_foundation",
@@ -478,6 +560,11 @@ const _PROVIDERS = [
 ] as const satisfies readonly Provider[];
 
 const PROVIDER_ORDER = [
+  "claude",
+  "chatgpt",
+  "grok",
+  "github_copilot",
+  "kimi_code",
   "openai",
   "anthropic",
   "google_generative_ai",
@@ -505,5 +592,5 @@ const PROVIDER_ORDER = [
   "apple_foundation",
 ] as const;
 
-export const PROVIDERS = sortProviders(_PROVIDERS, PROVIDER_ORDER);
+export const PROVIDERS: Provider[] = sortProviders(_PROVIDERS, PROVIDER_ORDER);
 export type ProviderId = (typeof _PROVIDERS)[number]["id"];

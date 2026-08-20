@@ -58,6 +58,7 @@ type ProviderConfig = {
   icon: ReactNode;
   badge?: string | null;
   baseUrl?: string;
+  authKind?: "api" | "subscription";
   disabled?: boolean;
   requirements: ProviderRequirement[];
   checkAvailability?: (baseUrl: string, apiKey: string) => Promise<boolean>;
@@ -239,12 +240,14 @@ export function NonAnarlogProviderCard({
   providers,
   providerContext,
   currentProvider,
+  onConnect,
 }: {
   config: ProviderConfig;
   providerType: ProviderType;
   providers: readonly ProviderConfig[];
   providerContext?: ReactNode;
   currentProvider?: string;
+  onConnect?: () => void;
 }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
@@ -262,8 +265,9 @@ export function NonAnarlogProviderCard({
   const isReady = useIsProviderReady(config.id, providerType, providers);
 
   const requiredFields = getRequiredConfigFields(config.requirements);
-  const showApiKey = requiredFields.includes("api_key");
-  const showBaseUrl = requiredFields.includes("base_url");
+  const isSubscription = config.authKind === "subscription";
+  const showApiKey = requiredFields.includes("api_key") && !isSubscription;
+  const showBaseUrl = requiredFields.includes("base_url") && !isSubscription;
   const notifyProviderSelection = useProviderSelectionPrompt({
     providerType,
     providerId: config.id,
@@ -428,6 +432,25 @@ export function NonAnarlogProviderCard({
         ])}
       >
         {providerContext}
+
+        {isSubscription ? (
+          <div className="mb-3 flex items-center gap-2">
+            {hasStoredConfig ? (
+              <p className="text-muted-foreground text-xs">
+                <Trans>Connected with your existing subscription.</Trans>
+              </p>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onConnect}
+              >
+                <Trans>Connect</Trans>
+              </Button>
+            )}
+          </div>
+        ) : null}
 
         <form
           className="flex flex-col gap-4"
