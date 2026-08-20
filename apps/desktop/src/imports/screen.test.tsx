@@ -297,7 +297,7 @@ describe("MeetingImportScreen", () => {
   it("renders the same detected list in the compact onboarding layout", async () => {
     mockDetected(["granola", "slack-huddles"]);
 
-    renderImports({ compact: true });
+    const { container } = renderImports({ compact: true });
 
     expect(await screen.findByText("Granola")).toBeTruthy();
     expect(screen.getByText("Slack Huddles")).toBeTruthy();
@@ -308,6 +308,12 @@ describe("MeetingImportScreen", () => {
     expect(
       screen.getAllByRole("button", { name: "Choose files" }),
     ).toHaveLength(1);
+
+    const list = container.querySelector(".rounded-2xl");
+    expect(list).toBeTruthy();
+    expect(list?.className).toContain("overflow-hidden");
+    expect(list?.className).not.toContain("overflow-y-auto");
+    expect(list?.querySelector(".overflow-y-auto")).toBeTruthy();
   });
 
   it("renders the secondary action even before anything is imported", async () => {

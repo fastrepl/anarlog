@@ -358,289 +358,293 @@ export function MeetingImportScreen({
         ))}
 
       {displayedProviders.length > 0 || detectionSettled ? (
-        <div
-          className={cn([
-            "border-border bg-card divide-border divide-y overflow-hidden rounded-2xl border",
-            compact && "max-h-80 overflow-y-auto",
-          ])}
-        >
-          {displayedProviders.length === 0 ? (
-            <p className="text-muted-foreground px-4 py-6 text-center text-sm">
-              <Trans>No apps found.</Trans>
-            </p>
-          ) : (
-            displayedProviders.map((provider) => {
-              const importing =
-                fileImportMutation.isPending &&
-                fileImportMutation.variables.id === provider.id;
-              const connectedProvider = isDirectMeetingImport(provider);
-              const nangoProvider = isNangoMeetingImport(provider);
-              const connectedIndex = connectedProviderIndexes.get(provider.id);
-              const nangoIndex = nangoProviderIndexes.get(provider.id);
-              const credentialsQuery =
-                connectedIndex === undefined
-                  ? undefined
-                  : credentialQueries[connectedIndex];
-              const nangoConnection = nangoProvider
-                ? connectionsQuery.data?.find(
-                    (item) =>
-                      item.integration_id === provider.nangoIntegrationId,
-                  )
-                : undefined;
-              const syncQuery = nangoProvider
-                ? nangoIndex === undefined
-                  ? undefined
-                  : nangoSyncQueries[nangoIndex]
-                : connectedIndex === undefined
-                  ? undefined
-                  : syncQueries[connectedIndex];
-              const connected = nangoProvider
-                ? signedIn && nangoConnectionIsReady(nangoConnection)
-                : signedIn && Boolean(credentialsQuery?.data);
-              const checkingConnection = nangoProvider
-                ? signedIn && connectionsQuery.isPending
-                : Boolean(credentialsQuery?.isPending);
-              const connecting =
-                connectMutation.isPending &&
-                connectMutation.variables.id === provider.id;
-              const connectionCancellationRequested =
-                connecting &&
-                Boolean(connectAbortController.current?.signal.aborted);
-              const cancellingConnection =
-                cancelConnectMutation.isPending &&
-                cancelConnectMutation.variables === provider.id;
-              const disconnecting =
-                disconnectMutation.isPending &&
-                disconnectMutation.variables?.providerId === provider.id;
-              const lastRun = history.find(
-                (run) => run.providerId === provider.id,
-              );
+        <div className="border-border bg-card overflow-hidden rounded-2xl border">
+          <div
+            className={cn([
+              "divide-border divide-y",
+              compact && "max-h-80 overflow-y-auto",
+            ])}
+          >
+            {displayedProviders.length === 0 ? (
+              <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+                <Trans>No apps found.</Trans>
+              </p>
+            ) : (
+              displayedProviders.map((provider) => {
+                const importing =
+                  fileImportMutation.isPending &&
+                  fileImportMutation.variables.id === provider.id;
+                const connectedProvider = isDirectMeetingImport(provider);
+                const nangoProvider = isNangoMeetingImport(provider);
+                const connectedIndex = connectedProviderIndexes.get(
+                  provider.id,
+                );
+                const nangoIndex = nangoProviderIndexes.get(provider.id);
+                const credentialsQuery =
+                  connectedIndex === undefined
+                    ? undefined
+                    : credentialQueries[connectedIndex];
+                const nangoConnection = nangoProvider
+                  ? connectionsQuery.data?.find(
+                      (item) =>
+                        item.integration_id === provider.nangoIntegrationId,
+                    )
+                  : undefined;
+                const syncQuery = nangoProvider
+                  ? nangoIndex === undefined
+                    ? undefined
+                    : nangoSyncQueries[nangoIndex]
+                  : connectedIndex === undefined
+                    ? undefined
+                    : syncQueries[connectedIndex];
+                const connected = nangoProvider
+                  ? signedIn && nangoConnectionIsReady(nangoConnection)
+                  : signedIn && Boolean(credentialsQuery?.data);
+                const checkingConnection = nangoProvider
+                  ? signedIn && connectionsQuery.isPending
+                  : Boolean(credentialsQuery?.isPending);
+                const connecting =
+                  connectMutation.isPending &&
+                  connectMutation.variables.id === provider.id;
+                const connectionCancellationRequested =
+                  connecting &&
+                  Boolean(connectAbortController.current?.signal.aborted);
+                const cancellingConnection =
+                  cancelConnectMutation.isPending &&
+                  cancelConnectMutation.variables === provider.id;
+                const disconnecting =
+                  disconnectMutation.isPending &&
+                  disconnectMutation.variables?.providerId === provider.id;
+                const lastRun = history.find(
+                  (run) => run.providerId === provider.id,
+                );
 
-              return (
-                <div
-                  key={provider.id}
-                  className="flex min-h-16 items-center gap-3 px-4 py-3"
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center">
-                    <ProviderIcon provider={provider} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">
-                      {provider.name}
+                return (
+                  <div
+                    key={provider.id}
+                    className="flex min-h-16 items-center gap-3 px-4 py-3"
+                  >
+                    <span className="flex size-8 shrink-0 items-center justify-center">
+                      <ProviderIcon provider={provider} />
                     </span>
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {provider.name}
+                      </span>
+                      {connectedProvider ? (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {connected ? (
+                            <Trans>
+                              Connected · New meetings are imported
+                              automatically while Anarlog is running.
+                            </Trans>
+                          ) : (
+                            <Trans>
+                              Connect once to bring over your {provider.name}{" "}
+                              history and keep new meetings coming in while you
+                              switch.
+                            </Trans>
+                          )}
+                        </p>
+                      ) : lastRun ? (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          <Trans>
+                            Last import: {lastRun.imported} added,{" "}
+                            {lastRun.matched} unchanged
+                          </Trans>
+                        </p>
+                      ) : provider.access === "Export" ? (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          <Trans>Choose files exported from this app.</Trans>
+                        </p>
+                      ) : (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          <Trans>
+                            Direct connection is not available yet. You can
+                            still bring your history over with files.
+                          </Trans>
+                        </p>
+                      )}
+                    </div>
                     {connectedProvider ? (
-                      <p className="text-muted-foreground mt-1 text-xs">
+                      <div className="flex shrink-0 items-center gap-1">
                         {connected ? (
-                          <Trans>
-                            Connected · New meetings are imported automatically
-                            while Anarlog is running.
-                          </Trans>
+                          <>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={syncQuery?.isFetching}
+                              onClick={() => void syncQuery?.refetch()}
+                            >
+                              {syncQuery?.isFetching ? (
+                                <CircleNotch className="size-3.5 animate-spin" />
+                              ) : (
+                                <ArrowsClockwise className="size-3.5" />
+                              )}
+                              <Trans>Sync now</Trans>
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              disabled={syncQuery?.isFetching || disconnecting}
+                              onClick={() =>
+                                disconnectMutation.mutate({
+                                  providerId: provider.id,
+                                  nangoIntegrationId: nangoProvider
+                                    ? provider.nangoIntegrationId
+                                    : undefined,
+                                  connectionId: nangoConnection?.connection_id,
+                                })
+                              }
+                            >
+                              <Trans>Disconnect</Trans>
+                            </Button>
+                          </>
                         ) : (
-                          <Trans>
-                            Connect once to bring over your {provider.name}{" "}
-                            history and keep new meetings coming in while you
-                            switch.
-                          </Trans>
+                          <ButtonGroup>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={signedIn ? "default" : "outline"}
+                              aria-label={
+                                signedIn ? undefined : t`Sign in to connect`
+                              }
+                              disabled={
+                                signedIn
+                                  ? checkingConnection ||
+                                    cancelConnectMutation.isPending ||
+                                    connectionCancellationRequested ||
+                                    (connectMutation.isPending && !connecting)
+                                  : signInMutation.isPending
+                              }
+                              className={cn([
+                                !signedIn &&
+                                  "group/sign-in bg-muted hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground",
+                              ])}
+                              onClick={() => {
+                                if (!signedIn) {
+                                  signInMutation.mutate();
+                                  return;
+                                }
+                                if (connecting) {
+                                  connectAbortController.current?.abort();
+                                  if (!nangoProvider) {
+                                    cancelConnectMutation.mutate(provider.id);
+                                  }
+                                  return;
+                                }
+                                connectMutation.mutate(provider);
+                              }}
+                            >
+                              {!signedIn ? (
+                                signInMutation.isPending ? (
+                                  <>
+                                    <CircleNotch className="size-3.5 animate-spin" />
+                                    <Trans>Opening…</Trans>
+                                  </>
+                                ) : (
+                                  <span className="grid items-center overflow-hidden">
+                                    <span className="invisible col-start-1 row-start-1">
+                                      <Trans>Sign in to connect</Trans>
+                                    </span>
+                                    <span className="col-start-1 row-start-1 flex items-center justify-center gap-2 transition-transform duration-200 group-hover/sign-in:translate-y-full group-focus-visible/sign-in:translate-y-full">
+                                      <PlugsConnected className="size-3.5" />
+                                      <Trans>Connect & import</Trans>
+                                    </span>
+                                    <span className="col-start-1 row-start-1 flex -translate-y-full items-center justify-center transition-transform duration-200 group-hover/sign-in:translate-y-0 group-focus-visible/sign-in:translate-y-0">
+                                      <Trans>Sign in to connect</Trans>
+                                    </span>
+                                  </span>
+                                )
+                              ) : checkingConnection ||
+                                connecting ||
+                                cancellingConnection ? (
+                                <CircleNotch className="size-3.5 animate-spin" />
+                              ) : (
+                                <PlugsConnected className="size-3.5" />
+                              )}
+                              {!signedIn ? null : connecting ||
+                                cancellingConnection ? (
+                                <Trans>Cancel</Trans>
+                              ) : checkingConnection ? (
+                                <Trans>Checking connection</Trans>
+                              ) : (
+                                <Trans>Connect & import</Trans>
+                              )}
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant={signedIn ? "default" : "outline"}
+                                  aria-label={t`Use files`}
+                                  disabled={fileImportMutation.isPending}
+                                  className={cn([
+                                    "relative w-6 px-0 before:absolute before:inset-y-1.5 before:left-0 before:w-px",
+                                    signedIn
+                                      ? "before:bg-primary-foreground/20"
+                                      : "before:bg-border",
+                                  ])}
+                                >
+                                  <CaretDown className="size-3.5" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                variant="app"
+                                align="end"
+                                className="w-40"
+                              >
+                                <AppFloatingPanel className="p-1">
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      fileImportMutation.mutate(provider)
+                                    }
+                                  >
+                                    <DownloadSimple />
+                                    <Trans>Use files</Trans>
+                                  </DropdownMenuItem>
+                                </AppFloatingPanel>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </ButtonGroup>
                         )}
-                      </p>
-                    ) : lastRun ? (
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        <Trans>
-                          Last import: {lastRun.imported} added,{" "}
-                          {lastRun.matched} unchanged
-                        </Trans>
-                      </p>
-                    ) : provider.access === "Export" ? (
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        <Trans>Choose files exported from this app.</Trans>
-                      </p>
-                    ) : (
-                      <p className="text-muted-foreground mt-1 text-xs">
-                        <Trans>
-                          Direct connection is not available yet. You can still
-                          bring your history over with files.
-                        </Trans>
-                      </p>
-                    )}
-                  </div>
-                  {connectedProvider ? (
-                    <div className="flex shrink-0 items-center gap-1">
-                      {connected ? (
-                        <>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={syncQuery?.isFetching}
-                            onClick={() => void syncQuery?.refetch()}
-                          >
-                            {syncQuery?.isFetching ? (
-                              <CircleNotch className="size-3.5 animate-spin" />
-                            ) : (
-                              <ArrowsClockwise className="size-3.5" />
-                            )}
-                            <Trans>Sync now</Trans>
-                          </Button>
+                        {connected ? (
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
-                            disabled={syncQuery?.isFetching || disconnecting}
-                            onClick={() =>
-                              disconnectMutation.mutate({
-                                providerId: provider.id,
-                                nangoIntegrationId: nangoProvider
-                                  ? provider.nangoIntegrationId
-                                  : undefined,
-                                connectionId: nangoConnection?.connection_id,
-                              })
-                            }
+                            disabled={fileImportMutation.isPending}
+                            onClick={() => fileImportMutation.mutate(provider)}
                           >
-                            <Trans>Disconnect</Trans>
+                            <DownloadSimple className="size-3.5" />
+                            <Trans>Use files</Trans>
                           </Button>
-                        </>
-                      ) : (
-                        <ButtonGroup>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={signedIn ? "default" : "outline"}
-                            aria-label={
-                              signedIn ? undefined : t`Sign in to connect`
-                            }
-                            disabled={
-                              signedIn
-                                ? checkingConnection ||
-                                  cancelConnectMutation.isPending ||
-                                  connectionCancellationRequested ||
-                                  (connectMutation.isPending && !connecting)
-                                : signInMutation.isPending
-                            }
-                            className={cn([
-                              !signedIn &&
-                                "group/sign-in bg-muted hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground",
-                            ])}
-                            onClick={() => {
-                              if (!signedIn) {
-                                signInMutation.mutate();
-                                return;
-                              }
-                              if (connecting) {
-                                connectAbortController.current?.abort();
-                                if (!nangoProvider) {
-                                  cancelConnectMutation.mutate(provider.id);
-                                }
-                                return;
-                              }
-                              connectMutation.mutate(provider);
-                            }}
-                          >
-                            {!signedIn ? (
-                              signInMutation.isPending ? (
-                                <>
-                                  <CircleNotch className="size-3.5 animate-spin" />
-                                  <Trans>Opening…</Trans>
-                                </>
-                              ) : (
-                                <span className="grid items-center overflow-hidden">
-                                  <span className="invisible col-start-1 row-start-1">
-                                    <Trans>Sign in to connect</Trans>
-                                  </span>
-                                  <span className="col-start-1 row-start-1 flex items-center justify-center gap-2 transition-transform duration-200 group-hover/sign-in:translate-y-full group-focus-visible/sign-in:translate-y-full">
-                                    <PlugsConnected className="size-3.5" />
-                                    <Trans>Connect & import</Trans>
-                                  </span>
-                                  <span className="col-start-1 row-start-1 flex -translate-y-full items-center justify-center transition-transform duration-200 group-hover/sign-in:translate-y-0 group-focus-visible/sign-in:translate-y-0">
-                                    <Trans>Sign in to connect</Trans>
-                                  </span>
-                                </span>
-                              )
-                            ) : checkingConnection ||
-                              connecting ||
-                              cancellingConnection ? (
-                              <CircleNotch className="size-3.5 animate-spin" />
-                            ) : (
-                              <PlugsConnected className="size-3.5" />
-                            )}
-                            {!signedIn ? null : connecting ||
-                              cancellingConnection ? (
-                              <Trans>Cancel</Trans>
-                            ) : checkingConnection ? (
-                              <Trans>Checking connection</Trans>
-                            ) : (
-                              <Trans>Connect & import</Trans>
-                            )}
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant={signedIn ? "default" : "outline"}
-                                aria-label={t`Use files`}
-                                disabled={fileImportMutation.isPending}
-                                className={cn([
-                                  "relative w-6 px-0 before:absolute before:inset-y-1.5 before:left-0 before:w-px",
-                                  signedIn
-                                    ? "before:bg-primary-foreground/20"
-                                    : "before:bg-border",
-                                ])}
-                              >
-                                <CaretDown className="size-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              variant="app"
-                              align="end"
-                              className="w-40"
-                            >
-                              <AppFloatingPanel className="p-1">
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    fileImportMutation.mutate(provider)
-                                  }
-                                >
-                                  <DownloadSimple />
-                                  <Trans>Use files</Trans>
-                                </DropdownMenuItem>
-                              </AppFloatingPanel>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </ButtonGroup>
-                      )}
-                      {connected ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          disabled={fileImportMutation.isPending}
-                          onClick={() => fileImportMutation.mutate(provider)}
-                        >
+                        ) : null}
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={fileImportMutation.isPending}
+                        onClick={() => fileImportMutation.mutate(provider)}
+                      >
+                        {importing ? (
+                          <CircleNotch className="size-3.5 animate-spin" />
+                        ) : (
                           <DownloadSimple className="size-3.5" />
-                          <Trans>Use files</Trans>
-                        </Button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={fileImportMutation.isPending}
-                      onClick={() => fileImportMutation.mutate(provider)}
-                    >
-                      {importing ? (
-                        <CircleNotch className="size-3.5 animate-spin" />
-                      ) : (
-                        <DownloadSimple className="size-3.5" />
-                      )}
-                      <Trans>Choose files</Trans>
-                    </Button>
-                  )}
-                </div>
-              );
-            })
-          )}
+                        )}
+                        <Trans>Choose files</Trans>
+                      </Button>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       ) : null}
 
