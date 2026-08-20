@@ -311,6 +311,11 @@ describe("SettingsSync", () => {
 
     const disconnect = screen.getByRole("button", { name: "Disconnect" });
     expect(disconnect.className).toContain("text-destructive");
+    expect(disconnect.className).toContain("hover:!bg-destructive/10");
+    expect(disconnect.className).toContain("hover:!text-destructive");
+    expect(
+      document.querySelectorAll("[data-device-kind='desktop']"),
+    ).toHaveLength(2);
     fireEvent.click(disconnect);
 
     await vi.waitFor(() =>
@@ -319,6 +324,49 @@ describe("SettingsSync", () => {
         "other-device",
       ),
     );
+  });
+
+  it("shows mobile and watch icons when those device kinds are present", async () => {
+    mocks.requestSyncDevices.mockResolvedValue({
+      devices: [
+        {
+          deviceFingerprint: "current-device",
+          deviceName: "Johns-M4-Max.local",
+          deviceKind: "desktop",
+          createdAt: "2026-08-20T00:00:00Z",
+          lastSeenAt: "2026-08-20T00:00:00Z",
+        },
+        {
+          deviceFingerprint: "phone-device",
+          deviceName: "iPhone",
+          deviceKind: "mobile",
+          createdAt: "2026-08-19T00:00:00Z",
+          lastSeenAt: "2026-08-19T00:00:00Z",
+        },
+        {
+          deviceFingerprint: "watch-device",
+          deviceName: "Apple Watch",
+          deviceKind: "watch",
+          createdAt: "2026-08-18T00:00:00Z",
+          lastSeenAt: "2026-08-18T00:00:00Z",
+        },
+      ],
+      pendingDevices: [],
+      maxDevices: 5,
+    });
+    renderSettings();
+
+    expect(await screen.findByText("iPhone")).toBeTruthy();
+    expect(screen.getByText("Apple Watch")).toBeTruthy();
+    expect(
+      document.querySelectorAll("[data-device-kind='desktop']"),
+    ).toHaveLength(1);
+    expect(
+      document.querySelectorAll("[data-device-kind='mobile']"),
+    ).toHaveLength(1);
+    expect(
+      document.querySelectorAll("[data-device-kind='watch']"),
+    ).toHaveLength(1);
   });
 
   it("replaces an active device when the device limit is reached", async () => {

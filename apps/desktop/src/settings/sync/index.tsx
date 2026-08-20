@@ -5,12 +5,14 @@ import {
   CheckCircle,
   CircleNotch,
   CloudSlash,
-  Devices,
+  Desktop,
+  DeviceMobile,
   Plugs,
   Plus,
   Shield,
   ShieldCheck,
   Warning,
+  Watch,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
@@ -57,6 +59,7 @@ import {
   removeSyncDevice,
   requestSyncDevices,
   sealDeviceEnrollment,
+  type SyncDeviceKind,
 } from "~/auth/sync-devices";
 import { captureOperationalError } from "~/error-reporting";
 import { SettingsPageTitle } from "~/settings/page-title";
@@ -101,6 +104,31 @@ function DeviceTitle({
   );
 }
 
+const DEVICE_KIND_ICONS = {
+  desktop: Desktop,
+  mobile: DeviceMobile,
+  watch: Watch,
+} as const;
+
+function resolveDeviceKind(kind: unknown): SyncDeviceKind {
+  if (kind === "mobile" || kind === "watch") {
+    return kind;
+  }
+  return "desktop";
+}
+
+function DeviceKindIcon({ kind }: { kind?: string | null }) {
+  const resolved = resolveDeviceKind(kind);
+  const Icon = DEVICE_KIND_ICONS[resolved];
+  return (
+    <Icon
+      aria-hidden="true"
+      data-device-kind={resolved}
+      className="text-muted-foreground size-4 shrink-0"
+    />
+  );
+}
+
 function DisconnectDeviceButton({
   fingerprint,
   isPending,
@@ -116,7 +144,7 @@ function DisconnectDeviceButton({
     <Button
       variant="outline"
       size="sm"
-      className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+      className="text-destructive hover:!border-destructive hover:!bg-destructive/10 hover:!text-destructive"
       disabled={isPending}
       onClick={() => onDisconnect(fingerprint)}
     >
@@ -860,7 +888,7 @@ export function SettingsSync() {
                 key={device.deviceFingerprint}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <Devices className="text-muted-foreground size-4 shrink-0" />
+                <DeviceKindIcon kind={device.deviceKind} />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle name={device.deviceName} current={current} />
                   <p className="text-muted-foreground text-[11px]">{t`Last seen ${formatDistanceToNow(new Date(device.lastSeenAt))}`}</p>
@@ -906,7 +934,7 @@ export function SettingsSync() {
                 key={device.requestId}
                 className="flex items-center gap-3 px-4 py-3"
               >
-                <Devices className="text-muted-foreground size-4 shrink-0" />
+                <DeviceKindIcon kind={device.deviceKind} />
                 <div className="min-w-0 flex-1">
                   <DeviceTitle name={device.deviceName} current={current} />
                   <p className="text-muted-foreground text-[11px]">

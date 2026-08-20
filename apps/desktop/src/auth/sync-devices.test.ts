@@ -27,6 +27,7 @@ test("validates active and pending device responses", async () => {
             {
               deviceFingerprint: "fingerprint-active",
               deviceName: "Active Mac",
+              deviceKind: "desktop",
               createdAt: "2026-08-19T00:00:00Z",
               lastSeenAt: "2026-08-20T00:00:00Z",
             },
@@ -36,6 +37,7 @@ test("validates active and pending device responses", async () => {
               requestId: "11111111-1111-4111-8111-111111111111",
               deviceFingerprint: "fingerprint-pending",
               deviceName: "Pending Mac",
+              deviceKind: "mobile",
               publicKey: "A".repeat(43),
               createdAt: "2026-08-20T00:00:00Z",
               expiresAt: "2026-08-21T00:00:00Z",
@@ -50,8 +52,10 @@ test("validates active and pending device responses", async () => {
 
   await expect(requestSyncDevices("access-token")).resolves.toMatchObject({
     maxDevices: 5,
-    devices: [{ deviceFingerprint: "fingerprint-active" }],
-    pendingDevices: [{ status: "pending" }],
+    devices: [
+      { deviceFingerprint: "fingerprint-active", deviceKind: "desktop" },
+    ],
+    pendingDevices: [{ status: "pending", deviceKind: "mobile" }],
   });
 });
 
