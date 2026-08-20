@@ -20,6 +20,7 @@ import { useBillingAccess } from "~/auth/billing-context";
 import { env } from "~/env";
 import { type ProviderId, PROVIDERS } from "~/settings/ai/llm/shared";
 import {
+  CHATGPT_API_BASE_URL,
   createSubscriptionFetch,
   usesSubscriptionFetch,
 } from "~/settings/ai/llm/subscriptions";
@@ -287,10 +288,10 @@ const createLanguageModel = (
         fetch: oauth
           ? createSubscriptionFetch(conn.providerId, conn.apiKey)
           : tauriFetch,
-        baseURL: conn.baseUrl,
+        baseURL: oauth ? CHATGPT_API_BASE_URL : conn.baseUrl,
         apiKey: oauth ? "oauth" : conn.apiKey,
       });
-      return wrapWithThinkingMiddleware(provider(conn.modelId));
+      return wrapWithThinkingMiddleware(provider.responses(conn.modelId));
     }
 
     case "grok":

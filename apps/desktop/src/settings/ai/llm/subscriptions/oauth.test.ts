@@ -1,9 +1,12 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  chatgptCodexUrl,
+  chatgptResponsesBody,
   claudeMessagesUrl,
   isSubscriptionProviderId,
   parseAuthorizationInput,
+  parseChatgptAccountId,
   usesSubscriptionFetch,
 } from "./oauth";
 
@@ -60,4 +63,42 @@ describe("subscription OAuth helpers", () => {
     expect(usesSubscriptionFetch("claude", "sk-test")).toBe(false);
     expect(usesSubscriptionFetch("anthropic", oauth)).toBe(false);
   });
+
+  test("reads ChatGPT account ids from id-token claims", () => {
+    const token = chatgptJwt({
+      "https://api.openai.com/auth": { chatgpt_account_id: "acct_workspace" },
+    });
+    expect(parseChatgptAccountId(token)).toBe("acct_workspace");
+    expect(parseChatgptAccountId("sk-not-a-jwt")).toBeUndefined();
+  });
+
+  test("rewrites platform OpenAI URLs onto the Codex backend", () => {
+    expect(chatgptCodexUrl("https://api.openai.com/v1/responses")).toBe(
+      "https://chatgpt.com/backend-api/codex/responses",
+    );
+    expect(chatgptCodexUrl("https://api.openai.com/v1/models")).toBe(
+      "https://chatgpt.com/backend-api/codex/models",
+    );
+    expect(
+      chatgptCodexUrl("https://chatgpt.com/backend-api/codex/responses"),
+    ).toBe("https://chatgpt.com/backend-api/codex/responses");
+  });
+
+  test("forces store=false on Codex Responses bodies", () => {
+    expect(chatgptResponsesBody('{"model":"gpt-5.4","store":true}')).toBe(
+      '{"model":"gpt-5.4","store":false}',
+    );
+    expect(chatgptResponsesBody('{"model":"gpt-5.4"}')).toBe(
+      '{"model":"gpt-5.4","store":false}',
+    );
+  });
 });
+
+function chatgptJwt(payload: Record<string, unknown>): string {
+  const json = JSON.stringify(payload);
+  const body = btoa(json)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+  return `eyJhbGciOiJub25lIn0.${body}.sig`;
+}

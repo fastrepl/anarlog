@@ -6,6 +6,7 @@ export {
 export { createSubscriptionFetch } from "./fetch";
 export { listSubscriptionModels } from "./models";
 export {
+  CHATGPT_API_BASE_URL,
   completeCodeConnect,
   isSubscriptionProviderId,
   type ConnectSession,

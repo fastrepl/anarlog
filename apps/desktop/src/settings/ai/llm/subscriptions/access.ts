@@ -5,6 +5,7 @@ import {
   serializeOAuthCredential,
 } from "./credential";
 import {
+  CHATGPT_API_BASE_URL,
   isSubscriptionProviderId,
   refreshOAuthCredential,
   type SubscriptionProviderId,
@@ -61,7 +62,8 @@ async function refreshStoredOAuth(
     ) {
       await setAiProvider("llm", providerId, {
         api_key: serializeOAuthCredential(current),
-        base_url: latest?.base_url,
+        base_url:
+          providerId === "chatgpt" ? CHATGPT_API_BASE_URL : latest?.base_url,
       });
     }
 

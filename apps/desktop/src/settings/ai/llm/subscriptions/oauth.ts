@@ -65,6 +65,14 @@ const CHATGPT = {
   scope: "openid profile email offline_access",
 } as const;
 
+export const CHATGPT_API_BASE_URL = "https://chatgpt.com/backend-api/codex";
+
+export const CHATGPT_REQUEST_HEADERS = {
+  originator: "codex_cli_rs",
+  "OpenAI-Beta": "responses=experimental",
+  "User-Agent": "codex_cli_rs",
+} as const;
+
 const COPILOT = {
   clientId: "Iv1.b507a08c87ecfe98",
   deviceCodeUrl: "https://github.com/login/device/code",
@@ -504,8 +512,79 @@ function credentialFromTokenResponse(
     refresh: stringField(json, "refresh_token") ?? previous?.refresh ?? access,
     access,
     expires: Date.now() + expiresIn * 1000,
-    accountId: previous?.accountId,
+    accountId:
+      parseChatgptAccountId(stringField(json, "id_token")) ??
+      parseChatgptAccountId(access) ??
+      stringField(json, "account_id") ??
+      previous?.accountId,
   };
+}
+
+export function parseChatgptAccountId(jwt?: string): string | undefined {
+  if (!jwt) {
+    return undefined;
+  }
+
+  const payload = decodeJwtPayload(jwt);
+  if (!payload) {
+    return undefined;
+  }
+
+  const auth = payload["https://api.openai.com/auth"];
+  if (auth && typeof auth === "object") {
+    const nested = (auth as Record<string, unknown>).chatgpt_account_id;
+    if (typeof nested === "string" && nested.length > 0) {
+      return nested;
+    }
+  }
+
+  const direct = payload.chatgpt_account_id;
+  return typeof direct === "string" && direct.length > 0 ? direct : undefined;
+}
+
+function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
+  const payload = jwt.split(".")[1];
+  if (!payload) {
+    return null;
+  }
+
+  try {
+    const padded =
+      payload.replace(/-/g, "+").replace(/_/g, "/") +
+      "=".repeat((4 - (payload.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+export function chatgptCodexUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname !== "api.openai.com") {
+      return url;
+    }
+    const suffix = parsed.pathname.replace(/^\/v1(?=\/|$)/, "") || "/";
+    return `${CHATGPT_API_BASE_URL}${suffix}${parsed.search}`;
+  } catch {
+    return url;
+  }
+}
+
+export function chatgptResponsesBody(body: BodyInit | null | undefined) {
+  if (typeof body !== "string") {
+    return body;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as Record<string, unknown>;
+    if (parsed.store === false) {
+      return body;
+    }
+    return JSON.stringify({ ...parsed, store: false });
+  } catch {
+    return body;
+  }
 }
 
 export function claudeMessagesUrl(url: string): string {

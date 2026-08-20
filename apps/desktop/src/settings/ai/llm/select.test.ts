@@ -112,6 +112,12 @@ describe("getLlmProviderStatus", () => {
     },
   );
 
+  test("routes ChatGPT subscriptions through the Codex backend", () => {
+    expect(provider("chatgpt").baseUrl).toBe(
+      "https://chatgpt.com/backend-api/codex",
+    );
+  });
+
   test.each([
     ["moonshot", "https://api.moonshot.ai/v1"],
     ["zai", "https://api.z.ai/api/paas/v4"],

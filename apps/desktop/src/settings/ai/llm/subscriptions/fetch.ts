@@ -2,9 +2,13 @@ import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 import { resolveSubscriptionAccess } from "./access";
 import {
+  CHATGPT_REQUEST_HEADERS,
+  chatgptCodexUrl,
+  chatgptResponsesBody,
   CLAUDE_OAUTH_HEADERS,
   claudeMessagesUrl,
   COPILOT_REQUEST_HEADERS,
+  parseChatgptAccountId,
 } from "./oauth";
 
 export function createSubscriptionFetch(
@@ -13,7 +17,10 @@ export function createSubscriptionFetch(
 ): typeof fetch {
   const fetchImpl: typeof fetch = async (input, init) => {
     const headers = new Headers(init?.headers);
-    const { token } = await resolveSubscriptionAccess(providerId, storedApiKey);
+    const { token, credential } = await resolveSubscriptionAccess(
+      providerId,
+      storedApiKey,
+    );
 
     if (providerId === "claude") {
       headers.delete("x-api-key");
@@ -32,6 +39,23 @@ export function createSubscriptionFetch(
       for (const [key, value] of Object.entries(COPILOT_REQUEST_HEADERS)) {
         headers.set(key, value);
       }
+    }
+
+    if (providerId === "chatgpt") {
+      for (const [key, value] of Object.entries(CHATGPT_REQUEST_HEADERS)) {
+        if (!headers.has(key)) {
+          headers.set(key, value);
+        }
+      }
+      const accountId = credential?.accountId ?? parseChatgptAccountId(token);
+      if (accountId) {
+        headers.set("ChatGPT-Account-ID", accountId);
+      }
+      const url = chatgptCodexUrl(requestUrl(input));
+      const body = url.includes("/responses")
+        ? chatgptResponsesBody(init?.body)
+        : init?.body;
+      return tauriFetch(url, { ...init, headers, body });
     }
 
     return tauriFetch(input as RequestInfo | URL, { ...init, headers });

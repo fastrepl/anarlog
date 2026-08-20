@@ -89,7 +89,7 @@ const _PROVIDERS = [
     displayName: "ChatGPT",
     badge: "Subscription",
     icon: <OpenAI />,
-    baseUrl: "https://api.openai.com/v1",
+    baseUrl: "https://chatgpt.com/backend-api/codex",
     authKind: "subscription",
     hideAdvanced: true,
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],

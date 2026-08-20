@@ -1,7 +1,13 @@
 import { Effect, pipe, Schema } from "effect";
 
 import { resolveSubscriptionAccess } from "./access";
-import { COPILOT_REQUEST_HEADERS, type SubscriptionProviderId } from "./oauth";
+import {
+  CHATGPT_API_BASE_URL,
+  CHATGPT_REQUEST_HEADERS,
+  COPILOT_REQUEST_HEADERS,
+  parseChatgptAccountId,
+  type SubscriptionProviderId,
+} from "./oauth";
 
 import { listAnthropicModels } from "~/settings/ai/shared/list-anthropic";
 import {
@@ -18,11 +24,19 @@ import {
 
 const FALLBACK_MODELS: Record<SubscriptionProviderId, string[]> = {
   claude: ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"],
-  chatgpt: ["gpt-5.4", "gpt-5.4-mini", "gpt-4.1"],
+  chatgpt: ["gpt-5.4", "gpt-5.3-codex", "gpt-5.2-codex"],
   grok: ["grok-4", "grok-4-fast", "grok-3"],
   github_copilot: ["gpt-4.1", "claude-sonnet-4", "gemini-2.5-pro"],
   kimi_code: ["kimi-for-coding"],
 };
+
+const ChatgptModelSchema = Schema.Struct({
+  data: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+    }),
+  ),
+});
 
 const CopilotModelSchema = Schema.Struct({
   data: Schema.Array(
@@ -66,7 +80,10 @@ export async function listSubscriptionModels(
     );
   }
 
-  const { token } = await resolveSubscriptionAccess(providerId, apiKey);
+  const { token, credential } = await resolveSubscriptionAccess(
+    providerId,
+    apiKey,
+  );
 
   if (providerId === "claude") {
     return withFallback(
@@ -79,7 +96,64 @@ export async function listSubscriptionModels(
     return withFallback(providerId, await listCopilotModels(baseUrl, token));
   }
 
+  if (providerId === "chatgpt") {
+    return withFallback(
+      providerId,
+      await listChatgptModels(
+        baseUrl,
+        token,
+        credential?.accountId ?? parseChatgptAccountId(token),
+      ),
+    );
+  }
+
   return withFallback(providerId, await listOpenAIModels(baseUrl, token));
+}
+
+async function listChatgptModels(
+  baseUrl: string,
+  accessToken: string,
+  accountId?: string,
+): Promise<ListModelsResult> {
+  const endpoint = chatgptModelsUrl(baseUrl);
+  if (!endpoint || !accessToken) {
+    return DEFAULT_RESULT;
+  }
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    ...CHATGPT_REQUEST_HEADERS,
+  };
+  if (accountId) {
+    headers["ChatGPT-Account-ID"] = accountId;
+  }
+
+  return pipe(
+    fetchJson(`${endpoint}/models`, headers),
+    Effect.andThen((json) => Schema.decodeUnknown(ChatgptModelSchema)(json)),
+    Effect.map(({ data }) => {
+      const models = data.map((model) => model.id);
+      return {
+        models,
+        ignored: [],
+        metadata: extractMetadataMap(
+          data,
+          (model) => model.id,
+          () => ({ input_modalities: ["text", "image"] as const }),
+        ),
+      };
+    }),
+    Effect.timeout(REQUEST_TIMEOUT),
+    Effect.catchAll(() => Effect.succeed(DEFAULT_RESULT)),
+    Effect.runPromise,
+  );
+}
+
+function chatgptModelsUrl(baseUrl: string): string {
+  if (!baseUrl || baseUrl.includes("api.openai.com")) {
+    return CHATGPT_API_BASE_URL;
+  }
+  return baseUrl.replace(/\/$/, "");
 }
 
 async function listCopilotModels(
