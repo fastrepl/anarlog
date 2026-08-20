@@ -38,6 +38,7 @@ import {
   disconnectConnectedImport,
   disconnectNangoImport,
   isDirectMeetingImport,
+  isLocalConnectedImport,
   isNangoMeetingImport,
   nangoConnectionIsReady,
   nangoImportSyncQueryOptions,
@@ -119,9 +120,7 @@ export function MeetingImportScreen({
   const connectedProviders = detectedProviders
     .filter((provider) => isDirectMeetingImport(provider))
     .sort((left, right) => left.name.localeCompare(right.name));
-  const mcpProviders = connectedProviders.filter(
-    (provider) => provider.directImport === "mcp-oauth",
-  );
+  const mcpProviders = connectedProviders.filter(isLocalConnectedImport);
   const nangoProviders = connectedProviders.filter(isNangoMeetingImport);
   const fileProviders = detectedProviders
     .filter((provider) => !provider.directImport)

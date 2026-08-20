@@ -38,6 +38,8 @@ vi.mock("~/imports/connected-import", () => ({
   ) => mocks.connectedImportSyncQueryOptions(provider, enabled),
   isNangoMeetingImport: (provider: { directImport?: string }) =>
     provider.directImport === "nango-oauth",
+  isLocalConnectedImport: (provider: { directImport?: string }) =>
+    provider.directImport === "mcp-oauth" || provider.directImport === "cli",
   nangoConnectionIsReady: (
     connection: { status?: string | null } | undefined,
   ) => Boolean(connection) && connection?.status !== "reconnect_required",

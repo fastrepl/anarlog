@@ -67,6 +67,14 @@ export function isNangoMeetingImport(
   return provider.directImport === "nango-oauth";
 }
 
+export function isLocalConnectedImport(
+  provider: Pick<MeetingImportProvider, "directImport">,
+) {
+  return (
+    provider.directImport === "mcp-oauth" || provider.directImport === "cli"
+  );
+}
+
 export function nangoConnectionIsReady(connection: ConnectionItem | undefined) {
   return Boolean(connection) && connection?.status !== "reconnect_required";
 }
@@ -118,12 +126,14 @@ export async function connectConnectedImport(
   if (authorization.status === "error") throw new Error(authorization.error);
   await cancelConnectionIfRequested(provider.id, signal);
 
-  const opened = await openerCommands.openUrl(
-    authorization.data.authorizationUrl,
-    null,
-  );
-  if (opened.status === "error") throw new Error(opened.error);
-  await cancelConnectionIfRequested(provider.id, signal);
+  if (authorization.data.authorizationUrl) {
+    const opened = await openerCommands.openUrl(
+      authorization.data.authorizationUrl,
+      null,
+    );
+    if (opened.status === "error") throw new Error(opened.error);
+    await cancelConnectionIfRequested(provider.id, signal);
+  }
 
   const credentials = await waitForConnectionCompletion(provider.id, signal);
   if (credentials.status === "error") throw new Error(credentials.error);
@@ -365,7 +375,9 @@ async function writeConnectedImportCredentials(
 }
 
 function connectedImportSecretKey(providerId: string) {
-  return providerId === "granola" ? "granola-mcp" : `${providerId}-mcp`;
+  if (providerId === "granola") return "granola-mcp";
+  if (providerId === "plaud") return "plaud-cli";
+  return `${providerId}-mcp`;
 }
 
 function nangoImportMeetings(

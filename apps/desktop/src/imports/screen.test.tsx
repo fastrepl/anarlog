@@ -63,6 +63,8 @@ vi.mock("./connected-import", () => ({
     Boolean(provider.directImport),
   isNangoMeetingImport: (provider: { directImport?: string }) =>
     provider.directImport === "nango-oauth",
+  isLocalConnectedImport: (provider: { directImport?: string }) =>
+    provider.directImport === "mcp-oauth" || provider.directImport === "cli",
   nangoConnectionIsReady: (
     connection: { status?: string | null } | undefined,
   ) => Boolean(connection) && connection?.status !== "reconnect_required",
@@ -331,6 +333,34 @@ describe("MeetingImportScreen", () => {
     expect(mocks.connectConnectedImport).not.toHaveBeenCalled();
     expect(
       screen.getByText(/keep new meetings coming in while you switch/i),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(/Direct connection is not available yet/i),
+    ).toBeNull();
+  });
+
+  it("connects Plaud by running the local CLI instead of file-only import", async () => {
+    mockDetected(["plaud"]);
+    mocks.connectConnectedImport.mockResolvedValue({
+      providerId: "plaud",
+      clientId: "ada@example.com",
+      tokenJson: "{}",
+    });
+
+    renderImports();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Connect & import" }),
+    );
+
+    await waitFor(() => {
+      expect(mocks.connectConnectedImport).toHaveBeenCalledOnce();
+    });
+    expect(mocks.connectNangoImport).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        /Connected · New meetings are imported automatically while Anarlog is running/i,
+      ),
     ).toBeTruthy();
     expect(
       screen.queryByText(/Direct connection is not available yet/i),

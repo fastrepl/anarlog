@@ -13,27 +13,42 @@ const SUPPORTED_EXTENSIONS: &[&str] = &["csv", "json", "md", "markdown", "srt", 
 #[specta::specta]
 pub async fn begin_connected_import(
     provider_id: String,
-    state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+    mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+    cli_state: tauri::State<'_, crate::connected_cli::ConnectedImportCliState>,
 ) -> Result<ConnectedImportAuthorization, String> {
-    crate::connected_mcp::begin_connection(&provider_id, &state).await
+    if crate::connected_cli::is_cli_provider(&provider_id) {
+        crate::connected_cli::begin_connection(&provider_id, &cli_state).await
+    } else {
+        crate::connected_mcp::begin_connection(&provider_id, &mcp_state).await
+    }
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn cancel_connected_import(
     provider_id: String,
-    state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+    mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+    cli_state: tauri::State<'_, crate::connected_cli::ConnectedImportCliState>,
 ) -> Result<bool, String> {
-    crate::connected_mcp::cancel_connection(&provider_id, &state).await
+    if crate::connected_cli::is_cli_provider(&provider_id) {
+        crate::connected_cli::cancel_connection(&provider_id, &cli_state).await
+    } else {
+        crate::connected_mcp::cancel_connection(&provider_id, &mcp_state).await
+    }
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn complete_connected_import(
     provider_id: String,
-    state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+    mcp_state: tauri::State<'_, crate::connected_mcp::ConnectedImportOAuthState>,
+    cli_state: tauri::State<'_, crate::connected_cli::ConnectedImportCliState>,
 ) -> Result<ConnectedImportCredentials, String> {
-    crate::connected_mcp::complete_connection(&provider_id, &state).await
+    if crate::connected_cli::is_cli_provider(&provider_id) {
+        crate::connected_cli::complete_connection(&provider_id, &cli_state).await
+    } else {
+        crate::connected_mcp::complete_connection(&provider_id, &mcp_state).await
+    }
 }
 
 #[tauri::command]
@@ -43,7 +58,11 @@ pub async fn sync_connected_import(
     credentials: ConnectedImportCredentials,
     known_meeting_ids: Vec<String>,
 ) -> Result<ConnectedImportSyncResult, String> {
-    crate::connected_mcp::sync(&provider_id, credentials, known_meeting_ids).await
+    if crate::connected_cli::is_cli_provider(&provider_id) {
+        crate::connected_cli::sync(&provider_id, credentials, known_meeting_ids).await
+    } else {
+        crate::connected_mcp::sync(&provider_id, credentials, known_meeting_ids).await
+    }
 }
 
 #[tauri::command]

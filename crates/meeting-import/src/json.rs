@@ -38,6 +38,14 @@ pub fn meeting_has_content(meeting: &ImportedMeeting) -> bool {
 }
 
 pub fn meeting_file(provider: &str, meeting: &ImportedMeeting) -> Result<ImportFile, String> {
+    meeting_file_with_scheme("oauth", provider, meeting)
+}
+
+pub fn meeting_file_with_scheme(
+    scheme: &str,
+    provider: &str,
+    meeting: &ImportedMeeting,
+) -> Result<ImportFile, String> {
     let safe_id = safe_file_component(&meeting.id);
     let mut record = Map::new();
     record.insert("id".into(), Value::String(meeting.id.clone()));
@@ -72,7 +80,7 @@ pub fn meeting_file(provider: &str, meeting: &ImportedMeeting) -> Result<ImportF
     }
 
     Ok(ImportFile {
-        path: format!("oauth://{provider}/{safe_id}.json"),
+        path: format!("{scheme}://{provider}/{safe_id}.json"),
         name: format!("{safe_id}.json"),
         content: serde_json::to_string(&Value::Object(record))
             .map_err(|error| format!("could not save a meeting: {error}"))?,
@@ -127,6 +135,8 @@ mod tests {
         };
         let file = meeting_file("fathom", &meeting).unwrap();
         assert_eq!(file.path, "oauth://fathom/meeting-one.json");
+        let cli = meeting_file_with_scheme("cli", "plaud", &meeting).unwrap();
+        assert_eq!(cli.path, "cli://plaud/meeting-one.json");
         let json: Value = serde_json::from_str(&file.content).unwrap();
         assert_eq!(json["id"], "meeting/one");
         assert_eq!(json["title"], "Weekly planning");

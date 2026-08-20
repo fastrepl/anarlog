@@ -11241,6 +11241,7 @@ version = "0.1.0"
 dependencies = [
  "anlg-http-utils",
  "chrono",
+ "dirs 6.0.0",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -18746,6 +18747,7 @@ dependencies = [
  "db-parser",
  "dirs 6.0.0",
  "importer-core",
+ "meeting-import",
  "rmcp",
  "serde",
  "serde_json",

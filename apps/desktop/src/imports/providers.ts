@@ -5,7 +5,7 @@ export type MeetingImportProvider = {
   name: string;
   access: "API" | "CLI" | "Export" | "MCP" | "OAuth" | "Webhook";
   helpUrl: string;
-  directImport?: "mcp-oauth" | "nango-oauth";
+  directImport?: "cli" | "mcp-oauth" | "nango-oauth";
   nangoIntegrationId?: string;
   nativeNames?: string[];
   bundleIds?: string[];
@@ -167,6 +167,7 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     access: "CLI",
     helpUrl:
       "https://support.plaud.ai/hc/en-us/articles/57751026815257-Plaud-CLI",
+    directImport: "cli",
     nativeNames: ["Plaud"],
     bundleIds: ["ai.plaud.desktop.plaud"],
   },

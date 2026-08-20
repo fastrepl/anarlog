@@ -5,14 +5,15 @@ import { useConnections } from "~/auth/useConnections";
 import {
   connectedImportCredentialsQueryOptions,
   connectedImportSyncQueryOptions,
+  isLocalConnectedImport,
   isNangoMeetingImport,
   nangoConnectionIsReady,
   nangoImportSyncQueryOptions,
 } from "~/imports/connected-import";
 import { MEETING_IMPORT_PROVIDERS } from "~/imports/providers";
 
-const MCP_PROVIDERS = MEETING_IMPORT_PROVIDERS.filter(
-  (provider) => provider.directImport === "mcp-oauth",
+const LOCAL_CONNECTED_PROVIDERS = MEETING_IMPORT_PROVIDERS.filter(
+  isLocalConnectedImport,
 );
 const NANGO_PROVIDERS = MEETING_IMPORT_PROVIDERS.filter(isNangoMeetingImport);
 
@@ -22,12 +23,12 @@ export function MeetingImportSync() {
   const headers = auth.getHeaders();
   const connectionsQuery = useConnections(signedIn);
   const credentialQueries = useQueries({
-    queries: MCP_PROVIDERS.map((provider) =>
+    queries: LOCAL_CONNECTED_PROVIDERS.map((provider) =>
       connectedImportCredentialsQueryOptions(provider.id),
     ),
   });
   useQueries({
-    queries: MCP_PROVIDERS.map((provider, index) =>
+    queries: LOCAL_CONNECTED_PROVIDERS.map((provider, index) =>
       connectedImportSyncQueryOptions(
         provider,
         signedIn && Boolean(credentialQueries[index]?.data),

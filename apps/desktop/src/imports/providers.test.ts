@@ -29,11 +29,17 @@ describe("meeting import providers", () => {
       "fellow",
       "tactiq",
       "jiminny",
+      "plaud",
       "zoom",
       "microsoft-teams",
       "google-meet",
       "webex",
     ]);
+    expect(
+      MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "plaud"),
+    ).toMatchObject({
+      directImport: "cli",
+    });
     expect(
       MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "zoom"),
     ).toMatchObject({

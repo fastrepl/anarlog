@@ -225,6 +225,41 @@ describe("connected meeting imports", () => {
     );
     expect(result.result.imported).toBe(1);
   });
+
+  it("connects Plaud through the local CLI without opening a leftover URL", async () => {
+    const plaud = { id: "plaud", name: "Plaud" };
+    const plaudCredentials = {
+      providerId: "plaud",
+      clientId: "ada@example.com",
+      clientSecret: null,
+      tokenJson: JSON.stringify({
+        kind: "cli",
+        binary: "/usr/local/bin/plaud",
+      }),
+      tokenReceivedAt: 1_786_217_400,
+    };
+    mocks.beginConnectedImport.mockResolvedValue({
+      status: "ok",
+      data: {
+        providerId: "plaud",
+        authorizationUrl: "",
+      },
+    });
+    mocks.completeConnectedImport.mockResolvedValue({
+      status: "ok",
+      data: plaudCredentials,
+    });
+
+    await expect(connectConnectedImport(plaud)).resolves.toEqual(
+      plaudCredentials,
+    );
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.setSecret).toHaveBeenCalledWith(
+      "meeting-imports",
+      "plaud-cli",
+      JSON.stringify(plaudCredentials),
+    );
+  });
 });
 
 describe("nango meeting imports", () => {
