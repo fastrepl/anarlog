@@ -223,9 +223,17 @@ describe("OuterHeader", () => {
     expect(spacer?.className).not.toContain("right-[140px]");
   });
 
-  it("hides the finalizing header button while the sidebar is collapsed", () => {
+  it("shows only calendar metadata after a scheduled meeting is stopped", () => {
     mocks.leftsidebar.expanded = false;
     mocks.sessionModes = { "session-1": "finalizing" };
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T09:45:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
 
     const { container } = render(
       <OuterHeader
@@ -236,7 +244,10 @@ describe("OuterHeader", () => {
 
     const spacer = container.firstElementChild?.firstElementChild;
 
-    expect(screen.queryByRole("button", { name: "Finalizing" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
     expect(spacer?.className).toContain("flex-1");
     expect(spacer?.className).not.toContain("right-[140px]");
   });

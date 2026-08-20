@@ -145,16 +145,12 @@ function HeaderMeetingControl({
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
 
-  if (hideStop && isRecording) {
+  if (sessionMode === "finalizing" || (hideStop && isRecording)) {
     return null;
   }
 
   if (!sessionEvent && !isRecording) {
     if (hasTranscript || audioExists) {
-      return null;
-    }
-
-    if (sessionMode === "finalizing") {
       return null;
     }
 
