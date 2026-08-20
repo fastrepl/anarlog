@@ -9,7 +9,7 @@ export const TOAST_DURATIONS = {
   success: 3_000,
   info: 4_000,
   warning: 6_000,
-  error: 8_000,
+  error: 5_000,
 } as const;
 
 function withDefaultDuration(
@@ -29,7 +29,7 @@ function withAutoDismissDuration(
     duration:
       requested === undefined || !Number.isFinite(requested)
         ? duration
-        : requested,
+        : Math.min(requested, duration),
   };
 }
 
@@ -101,7 +101,7 @@ const Toaster = ({
     toastOptions={{
       classNames: {
         toast:
-          "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border group-[.toaster]:border-border group-[.toaster]:shadow-md group-[.toaster]:rounded-xl group-[.toaster]:overflow-visible group-[.toaster]:w-[300px] group-[.toaster]:p-3.5 group-[.toaster]:gap-3",
+          "group toast pointer-events-auto group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border group-[.toaster]:border-border group-[.toaster]:shadow-md group-[.toaster]:rounded-xl group-[.toaster]:overflow-visible group-[.toaster]:w-[300px] group-[.toaster]:p-3.5 group-[.toaster]:gap-3",
         description: "group-[.toast]:text-muted-foreground",
         actionButton:
           "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
