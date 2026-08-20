@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { PROVIDER_BRAND_ICONS, providerIconSrc } from "./icons";
+import {
+  PROVIDER_BRAND_ICONS,
+  providerIconOpticalClass,
+  providerIconSrc,
+} from "./icons";
 
 describe("providerIconSrc", () => {
   it("uses the official Meet camera instead of a letter fallback", () => {
@@ -47,5 +51,38 @@ describe("providerIconSrc", () => {
 
   it("leaves unknown apps without an icon source", () => {
     expect(providerIconSrc({ id: "circleback" })).toBeUndefined();
+  });
+});
+
+describe("providerIconOpticalClass", () => {
+  it("enlarges line-art brand marks so they match filled app icons", () => {
+    expect(providerIconOpticalClass({ id: "chatgpt-record" })).toBe(
+      "scale-[1.22]",
+    );
+    expect(providerIconOpticalClass({ id: "slack-huddles" })).toBe(
+      "scale-[1.12]",
+    );
+  });
+
+  it("leaves filled brand marks and native app icons unscaled", () => {
+    expect(providerIconOpticalClass({ id: "google-meet" })).toBeUndefined();
+    expect(
+      providerIconOpticalClass({
+        id: "zoom",
+        iconUrl: "data:image/png;base64,zoom-wordmark",
+      }),
+    ).toBeUndefined();
+    expect(
+      providerIconOpticalClass({
+        id: "granola",
+        iconUrl: "data:image/png;base64,granola",
+      }),
+    ).toBeUndefined();
+    expect(
+      providerIconOpticalClass({
+        id: "chatgpt-record",
+        iconUrl: "data:image/png;base64,chatgpt",
+      }),
+    ).toBeUndefined();
   });
 });
