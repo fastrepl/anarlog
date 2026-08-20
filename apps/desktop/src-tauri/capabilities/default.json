@@ -68,6 +68,7 @@
     "fs2:default",
     "git:default",
     "os:default",
+    "os:allow-hostname",
     "opener2:default",
     "mcp:default",
     "messenger:default",
