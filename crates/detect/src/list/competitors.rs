@@ -7,8 +7,7 @@ const MACOS_COMPETITOR_BUNDLE_IDS: &[(&str, &str)] = &[
     ("Fathom", "Fathom"),
     ("com.jamie.app", "Jamie"),
     ("ai.plaud.desktop.plaud", "Plaud"),
-    ("com.heypocket.app", "Pocket"),
-    ("com.heypocket.desktop", "Pocket"),
+    ("com.openvisionengineering.pocket-desktop-app", "Pocket"),
     ("ai.limitless.desktop", "Limitless"),
     ("com.memoryvault.MemoryVault", "Rewind"),
 ];
@@ -101,8 +100,12 @@ mod tests {
             Some("Granola")
         );
         assert_eq!(
-            competitor_name_for_macos_bundle_id("com.heypocket.desktop"),
+            competitor_name_for_macos_bundle_id("com.openvisionengineering.pocket-desktop-app"),
             Some("Pocket")
+        );
+        assert_eq!(
+            competitor_name_for_macos_bundle_id("ai.plaud.desktop.plaud"),
+            Some("Plaud")
         );
         assert_eq!(
             competitor_name_for_macos_bundle_id("com.granola.app.helper"),
