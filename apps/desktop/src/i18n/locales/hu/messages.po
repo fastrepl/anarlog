@@ -1584,6 +1584,7 @@ msgstr ""
 
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/imports/screen.tsx
+#: src/settings/sync/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
 msgstr ""
@@ -3269,17 +3270,9 @@ msgstr ""
 msgid "Remove automation"
 msgstr ""
 
-#: src/settings/sync/index.tsx
-msgid "Remove device"
-msgstr ""
-
 #. placeholder {0}: index + 1
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Remove example {0}"
-msgstr ""
-
-#: src/settings/sync/index.tsx
-msgid "Remove pending device"
 msgstr ""
 
 #: src/contacts/contact-page-header.tsx

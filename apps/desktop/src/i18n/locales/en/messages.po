@@ -1584,6 +1584,7 @@ msgstr "Disable"
 
 #: src/calendar/components/oauth/provider-content.tsx
 #: src/imports/screen.tsx
+#: src/settings/sync/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Disconnect"
 msgstr "Disconnect"
@@ -3269,18 +3270,10 @@ msgstr "Remove {term}"
 msgid "Remove automation"
 msgstr "Remove automation"
 
-#: src/settings/sync/index.tsx
-msgid "Remove device"
-msgstr "Remove device"
-
 #. placeholder {0}: index + 1
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Remove example {0}"
 msgstr "Remove example {0}"
-
-#: src/settings/sync/index.tsx
-msgid "Remove pending device"
-msgstr "Remove pending device"
 
 #: src/contacts/contact-page-header.tsx
 msgid "Remove photo"
