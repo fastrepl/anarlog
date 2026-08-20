@@ -33,6 +33,7 @@ import {
   stopActiveWelcomeDemo,
   takePendingWelcomeSession,
 } from "./welcome-note";
+import { buildWelcomeNoteDemoUrl } from "./welcome-note.constants";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -170,4 +171,15 @@ it("ignores a demo callback when listening already stopped", async () => {
 
   expect(mocks.execute).not.toHaveBeenCalled();
   expect(mocks.listenerState.stop).not.toHaveBeenCalled();
+});
+
+it("auto-joins the hosted demo and optionally attaches a completion callback", () => {
+  expect(buildWelcomeNoteDemoUrl("https://anarlog.so/onboarding-demo/")).toBe(
+    "https://anarlog.so/onboarding-demo/?autojoin=1",
+  );
+  expect(
+    buildWelcomeNoteDemoUrl("https://anarlog.so/onboarding-demo/", 43210),
+  ).toBe(
+    "https://anarlog.so/onboarding-demo/?autojoin=1&completion_url=http%3A%2F%2F127.0.0.1%3A43210%2Fonboarding-demo%2Fcomplete",
+  );
 });

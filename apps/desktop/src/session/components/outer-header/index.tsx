@@ -255,6 +255,7 @@ function HeaderMeetingActionPill({
 
     let url = meetingLink;
     if (isWelcomeDemo) {
+      url = buildWelcomeNoteDemoUrl(meetingLink);
       try {
         const scheme = await getScheme();
         const result = await deeplinkCommands.startCallbackServer(scheme);

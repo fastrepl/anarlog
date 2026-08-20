@@ -978,6 +978,7 @@
       const avatarPhoto = document.querySelector(".avatar-photo");
       const params = new URLSearchParams(window.location.search);
       const completionUrl = getCompletionUrl(params.get("completion_url"));
+      const shouldAutojoin = params.get("autojoin") === "1";
       const joiningUrl = getJoiningUrl();
 
       document.querySelector(".joining-url").textContent = joiningUrl;
@@ -989,6 +990,7 @@
 
         const url = new URL(window.location.href);
         url.searchParams.delete("completion_url");
+        url.searchParams.delete("autojoin");
         return url.toString();
       }
 
@@ -1054,6 +1056,13 @@
         joinButton.disabled = false;
       }
 
+      async function readyToJoin() {
+        showJoin();
+        if (shouldAutojoin) {
+          await playFromStart({ fallbackToJoin: true });
+        }
+      }
+
       function setOpenPanel(panelName) {
         const wasChatOpen = !chatPanel.hidden;
         const wasDetailsOpen = !detailsPanel.hidden;
@@ -1087,7 +1096,7 @@
           const videoOverride = params.get("video");
           if (videoOverride) {
             video.src = getVideoUrl(videoOverride).toString();
-            showJoin();
+            await readyToJoin();
             return;
           }
 
@@ -1111,20 +1120,27 @@
             .map((part) => part[0])
             .join("")
             .slice(0, 2);
-          showJoin();
+          await readyToJoin();
         } catch (error) {
           showError(error.message);
         }
       }
 
-      async function playFromStart() {
+      async function playFromStart({ fallbackToJoin = false } = {}) {
         endedLayer.hidden = true;
         errorLayer.hidden = true;
-        joinLayer.hidden = true;
+        if (!fallbackToJoin) {
+          joinLayer.hidden = true;
+        }
         video.currentTime = 0;
         try {
           await video.play();
+          joinLayer.hidden = true;
         } catch (error) {
+          if (fallbackToJoin && error?.name === "NotAllowedError") {
+            showJoin();
+            return;
+          }
           showError(
             error?.name === "NotAllowedError"
               ? "Your browser blocked playback. Allow media playback and join again."

@@ -542,9 +542,48 @@ describe("OuterHeader", () => {
     expect(openedUrl.origin + openedUrl.pathname).toBe(
       "https://anarlog.so/onboarding-demo/",
     );
+    expect(openedUrl.searchParams.get("autojoin")).toBe("1");
     expect(openedUrl.searchParams.get("completion_url")).toBe(
       "http://127.0.0.1:43210/onboarding-demo/complete",
     );
+  });
+
+  it("still auto-joins the welcome demo if the completion callback cannot start", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.startCallbackServer.mockRejectedValue(new Error("unavailable"));
+    mocks.sessionEvents = {
+      "session-1": {
+        tracking_id: "anarlog-onboarding-demo-v1",
+        meeting_link: "https://anarlog.so/onboarding-demo/",
+      },
+    };
+
+    try {
+      render(
+        <OuterHeader
+          sessionId="session-1"
+          currentView={{ type: "raw" } as EditorView}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Join & record" }));
+
+      await vi.waitFor(() => {
+        expect(mocks.openUrl).toHaveBeenCalledOnce();
+      });
+
+      const openedUrl = new URL(mocks.openUrl.mock.calls[0][0]);
+      expect(openedUrl.origin + openedUrl.pathname).toBe(
+        "https://anarlog.so/onboarding-demo/",
+      );
+      expect(openedUrl.searchParams.get("autojoin")).toBe("1");
+      expect(openedUrl.searchParams.get("completion_url")).toBeNull();
+      expect(consoleError).toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("prompts new users to try the prerecorded welcome demo", () => {
