@@ -144,7 +144,8 @@ export function useTimelineSessionsTable(): TimelineSessionsTable {
         title,
         created_at,
         event_json,
-        folder_path AS folder_id
+        folder_path AS folder_id,
+        locked
       FROM sessions
       WHERE deleted_at IS NULL
       ORDER BY created_at, id

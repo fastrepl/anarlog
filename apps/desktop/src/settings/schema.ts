@@ -142,6 +142,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "crash_reporting_consent"],
     default: true as boolean,
   },
+  lock_app: {
+    type: "boolean",
+    path: ["general", "lock_app"],
+    default: false as boolean,
+  },
   consent_auto_send_chat: {
     type: "boolean",
     path: ["general", "consent_auto_send_chat"],

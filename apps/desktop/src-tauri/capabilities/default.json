@@ -82,6 +82,7 @@
     "autostart:default",
     "js:default",
     "local-api:default",
+    "local-auth:default",
     "relay:default",
     "shortcut:default",
     "dictation:default",

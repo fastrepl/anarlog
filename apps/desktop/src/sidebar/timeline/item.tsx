@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Square, Users } from "@phosphor-icons/react";
+import { Lock, Square, Users } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   createContext,
@@ -28,6 +28,10 @@ import {
 
 import { useIgnoredEvents } from "~/calendar/ignored-events";
 import { writeSessionContextDragData } from "~/chat/context/session-drag";
+import { DEVICE_AUTH_REASON } from "~/lock/auth";
+import { isLockedFlag } from "~/lock/flag";
+import { revealLockedNote, setSessionLocked } from "~/lock/notes";
+import { useAppLock } from "~/lock/store";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
 import { getOrCreateSessionForEventId } from "~/session/queries";
@@ -54,6 +58,7 @@ type ItemBaseProps = {
   amplitude?: number;
   showSpinner?: boolean;
   isShared?: boolean;
+  isLocked?: boolean;
   selected: boolean;
   ignored?: boolean;
   muted?: boolean;
@@ -143,6 +148,7 @@ const ItemBase = memo(function ItemBase({
   amplitude,
   showSpinner,
   isShared,
+  isLocked,
   selected,
   ignored,
   muted,
@@ -240,6 +246,13 @@ const ItemBase = memo(function ItemBase({
               </div>
             )}
           </div>
+          {isLocked ? (
+            <Lock
+              aria-label={t`Locked note`}
+              className="text-muted-foreground size-3.5 shrink-0"
+              weight="fill"
+            />
+          ) : null}
           {isShared ? (
             <Users
               aria-label={t`Shared note`}
@@ -317,6 +330,7 @@ function itemBasePropsAreEqual(prev: ItemBaseProps, next: ItemBaseProps) {
     prev.amplitude === next.amplitude &&
     prev.showSpinner === next.showSpinner &&
     prev.isShared === next.isShared &&
+    prev.isLocked === next.isLocked &&
     prev.selected === next.selected &&
     prev.ignored === next.ignored &&
     prev.muted === next.muted &&
@@ -534,6 +548,8 @@ const SessionItem = memo(
 
     const sessionId = item.id;
     const title = useSessionTitle(sessionId, item.data.title ?? undefined);
+    const noteLocked = isLockedFlag(item.data.locked);
+    const authAvailable = useAppLock((state) => state.available) === true;
 
     const { sessionMode, stop, amplitude } = useListener((state) => {
       const sessionMode = state.getSessionMode(sessionId);
@@ -567,8 +583,14 @@ const SessionItem = memo(
 
     const handleClick = useCallback(() => {
       useTimelineSelection.getState().setAnchor(itemKey);
+      if (noteLocked) {
+        void revealLockedNote(sessionId).then((ok) => {
+          if (ok) openCurrent({ id: sessionId, type: "sessions" });
+        });
+        return;
+      }
       openCurrent({ id: sessionId, type: "sessions" });
-    }, [sessionId, openCurrent, itemKey]);
+    }, [noteLocked, sessionId, openCurrent, itemKey]);
 
     const handleCmdClick = useCallback(() => {
       useTimelineSelection.getState().toggleSelect(itemKey);
@@ -600,15 +622,25 @@ const SessionItem = memo(
       });
     }, [deleteSession, sessionId, sessionEvent?.tracking_id, title]);
 
+    const handleToggleLock = useCallback(() => {
+      void setSessionLocked(sessionId, !noteLocked);
+    }, [noteLocked, sessionId]);
+
     const handleShowInFolder = useCallback(async () => {
+      if (noteLocked) {
+        const ok = await useAppLock
+          .getState()
+          .authenticate(DEVICE_AUTH_REASON.openApp);
+        if (!ok) return;
+      }
       const result = await fsSyncCommands.sessionDir(sessionId);
       if (result.status === "ok") {
         await openerCommands.openPath(result.data, null);
       }
-    }, [sessionId]);
+    }, [noteLocked, sessionId]);
 
-    const contextMenu = useMemo(
-      () => [
+    const contextMenu = useMemo(() => {
+      const menu: MenuItemDef[] = [
         {
           id: "open-new-window",
           text: t`Open in New Window`,
@@ -619,15 +651,32 @@ const SessionItem = memo(
           text: platform() === "macos" ? t`Show in Finder` : t`Show in folder`,
           action: handleShowInFolder,
         },
+      ];
+      if (authAvailable) {
+        menu.push({
+          id: noteLocked ? "unlock" : "lock",
+          text: noteLocked ? t`Unlock Note` : t`Lock Note`,
+          action: handleToggleLock,
+        });
+      }
+      menu.push(
         { separator: true as const },
         {
           id: "delete",
           text: t`Delete Note`,
           action: handleDelete,
         },
-      ],
-      [handleOpenStandaloneWindow, handleShowInFolder, handleDelete, t],
-    );
+      );
+      return menu;
+    }, [
+      authAvailable,
+      handleDelete,
+      handleOpenStandaloneWindow,
+      handleShowInFolder,
+      handleToggleLock,
+      noteLocked,
+      t,
+    ]);
 
     return (
       <ItemBase
@@ -640,6 +689,7 @@ const SessionItem = memo(
         )}
         showSpinner={showSpinner}
         isShared={managedSharedSessionIds.has(sessionId)}
+        isLocked={noteLocked}
         selected={selected}
         muted={muted}
         multiSelected={multiSelected}

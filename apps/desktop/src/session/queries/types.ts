@@ -7,6 +7,7 @@ export type SessionRecord = {
   title: string;
   raw_md: string;
   raw_template_id: string;
+  locked: boolean;
 };
 
 export type SessionChanges = Partial<
@@ -15,6 +16,7 @@ export type SessionChanges = Partial<
     | "created_at"
     | "event_json"
     | "folder_id"
+    | "locked"
     | "raw_md"
     | "raw_template_id"
     | "title"

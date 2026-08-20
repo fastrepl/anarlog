@@ -321,6 +321,10 @@ msgstr ""
 msgid "Analyzing structure..."
 msgstr ""
 
+#: src/lock/gate.tsx
+msgid "Anarlog"
+msgstr ""
+
 #. placeholder {0}: update.version
 #: src/sidebar/toast/registry.tsx
 msgid "Anarlog {0} is available"
@@ -542,6 +546,14 @@ msgstr ""
 
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Authenticate to continue."
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Authenticating…"
 msgstr ""
 
 #: src/instruction/index.tsx
@@ -1552,6 +1564,10 @@ msgstr ""
 msgid "Developers"
 msgstr ""
 
+#: src/settings/privacy/index.tsx
+msgid "Device authentication is not available on this computer."
+msgstr ""
+
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Device limit reached"
@@ -2359,6 +2375,23 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Lock app"
+msgstr ""
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Lock Note"
+msgstr ""
+
+#: src/sidebar/timeline/item.tsx
+msgid "Locked note"
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Locked Note"
 msgstr ""
 
 #: src/onboarding/account/before-login.tsx
@@ -3351,6 +3384,10 @@ msgstr ""
 #. placeholder {0}: capabilityLabels[entry.capability].toLowerCase()
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
+msgstr ""
+
+#: src/settings/privacy/index.tsx
+msgid "Require device authentication when opening Anarlog."
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -4385,6 +4422,10 @@ msgstr ""
 msgid "Too many uploads are waiting. Open an existing upload and try again."
 msgstr ""
 
+#: src/lock/screen.tsx
+msgid "Touch ID or enter your password to allow this."
+msgstr ""
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Transcribe meetings that use more than one language."
 msgstr ""
@@ -4489,6 +4530,15 @@ msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Unknown date"
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Unlock"
+msgstr ""
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Unlock Note"
 msgstr ""
 
 #: src/settings/general/e2ee-setup.tsx
@@ -4668,6 +4718,10 @@ msgstr ""
 
 #: src/settings/general/main-language.tsx
 msgid "Use this language for summaries and AI responses."
+msgstr ""
+
+#: src/lock/screen.tsx
+msgid "Use Windows Hello to allow this."
 msgstr ""
 
 #: src/onboarding/permissions.tsx

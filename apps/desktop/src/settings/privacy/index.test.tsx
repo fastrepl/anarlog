@@ -1,11 +1,23 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   setSettingValues: vi.fn(),
+  authenticate: vi.fn(),
+  refreshAvailability: vi.fn(),
+  lockApp: vi.fn(),
+  available: true as boolean | null,
+  authenticating: false,
   values: {
     telemetry_consent: true,
     crash_reporting_consent: false,
+    lock_app: false,
   },
 }));
 
@@ -14,11 +26,26 @@ vi.mock("~/settings/queries", () => ({
   useStoredSettingValuesQuery: () => ({
     data: {
       values: mocks.values,
-      hasValues: new Set(["telemetry_consent", "crash_reporting_consent"]),
+      hasValues: new Set([
+        "telemetry_consent",
+        "crash_reporting_consent",
+        "lock_app",
+      ]),
     },
     isLoading: false,
     error: null,
   }),
+}));
+
+vi.mock("~/lock/store", () => ({
+  useAppLock: (selector: (state: typeof mocks) => unknown) =>
+    selector({
+      available: mocks.available,
+      authenticating: mocks.authenticating,
+      authenticate: mocks.authenticate,
+      refreshAvailability: mocks.refreshAvailability,
+      lockApp: mocks.lockApp,
+    } as never),
 }));
 
 import { SettingsPrivacy } from ".";
@@ -28,6 +55,11 @@ describe("SettingsPrivacy", () => {
     vi.clearAllMocks();
     mocks.values.telemetry_consent = true;
     mocks.values.crash_reporting_consent = false;
+    mocks.values.lock_app = false;
+    mocks.available = true;
+    mocks.authenticating = false;
+    mocks.authenticate.mockResolvedValue(true);
+    mocks.refreshAvailability.mockResolvedValue(true);
   });
 
   afterEach(cleanup);
@@ -51,6 +83,18 @@ describe("SettingsPrivacy", () => {
     });
     expect(mocks.setSettingValues).toHaveBeenNthCalledWith(2, {
       crash_reporting_consent: true,
+    });
+  });
+
+  it("requires device authentication before locking the app", async () => {
+    render(<SettingsPrivacy />);
+
+    fireEvent.click(screen.getByRole("switch", { name: "Lock app" }));
+
+    await waitFor(() => {
+      expect(mocks.authenticate).toHaveBeenCalled();
+      expect(mocks.setSettingValues).toHaveBeenCalledWith({ lock_app: true });
+      expect(mocks.lockApp).toHaveBeenCalled();
     });
   });
 });

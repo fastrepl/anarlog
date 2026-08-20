@@ -321,6 +321,10 @@ msgstr "Anagram"
 msgid "Analyzing structure..."
 msgstr "Analyzing structure..."
 
+#: src/lock/gate.tsx
+msgid "Anarlog"
+msgstr "Anarlog"
+
 #. placeholder {0}: update.version
 #: src/sidebar/toast/registry.tsx
 msgid "Anarlog {0} is available"
@@ -543,6 +547,14 @@ msgstr "Audio file retention"
 #: src/session-sharing/attachment-controls.tsx
 msgid "Audio is not available on this device."
 msgstr "Audio is not available on this device."
+
+#: src/lock/screen.tsx
+msgid "Authenticate to continue."
+msgstr "Authenticate to continue."
+
+#: src/lock/screen.tsx
+msgid "Authenticating…"
+msgstr "Authenticating…"
 
 #: src/instruction/index.tsx
 msgid "Authorize access in your browser, then return to Anarlog."
@@ -1552,6 +1564,10 @@ msgstr "Detection delay"
 msgid "Developers"
 msgstr "Developers"
 
+#: src/settings/privacy/index.tsx
+msgid "Device authentication is not available on this computer."
+msgstr "Device authentication is not available on this computer."
+
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Device limit reached"
@@ -2360,6 +2376,23 @@ msgstr "Loading teams…"
 #: src/task/resource-view.tsx
 msgid "Loading..."
 msgstr "Loading..."
+
+#: src/settings/privacy/index.tsx
+msgid "Lock app"
+msgstr "Lock app"
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Lock Note"
+msgstr "Lock Note"
+
+#: src/sidebar/timeline/item.tsx
+msgid "Locked note"
+msgstr "Locked note"
+
+#: src/lock/screen.tsx
+msgid "Locked Note"
+msgstr "Locked Note"
 
 #: src/onboarding/account/before-login.tsx
 msgid "Login"
@@ -3352,6 +3385,10 @@ msgstr "Request {0} permission"
 #: src/session-sharing/access-management.tsx
 msgid "Requested {0}"
 msgstr "Requested {0}"
+
+#: src/settings/privacy/index.tsx
+msgid "Require device authentication when opening Anarlog."
+msgstr "Require device authentication when opening Anarlog."
 
 #: src/settings/team/index.tsx
 msgid "Resend invitation"
@@ -4385,6 +4422,10 @@ msgstr "Tomorrow"
 msgid "Too many uploads are waiting. Open an existing upload and try again."
 msgstr "Too many uploads are waiting. Open an existing upload and try again."
 
+#: src/lock/screen.tsx
+msgid "Touch ID or enter your password to allow this."
+msgstr "Touch ID or enter your password to allow this."
+
 #: src/settings/general/spoken-languages.tsx
 msgid "Transcribe meetings that use more than one language."
 msgstr "Transcribe meetings that use more than one language."
@@ -4490,6 +4531,15 @@ msgstr "Unknown"
 #: src/session/components/outer-header/metadata/date.tsx
 msgid "Unknown date"
 msgstr "Unknown date"
+
+#: src/lock/screen.tsx
+msgid "Unlock"
+msgstr "Unlock"
+
+#: src/session/components/outer-header/overflow/lock-note.tsx
+#: src/sidebar/timeline/item.tsx
+msgid "Unlock Note"
+msgstr "Unlock Note"
 
 #: src/settings/general/e2ee-setup.tsx
 msgid "Unlock sync"
@@ -4669,6 +4719,10 @@ msgstr "Use the meeting's action items and summary tasks."
 #: src/settings/general/main-language.tsx
 msgid "Use this language for summaries and AI responses."
 msgstr "Use this language for summaries and AI responses."
+
+#: src/lock/screen.tsx
+msgid "Use Windows Hello to allow this."
+msgstr "Use Windows Hello to allow this."
 
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"

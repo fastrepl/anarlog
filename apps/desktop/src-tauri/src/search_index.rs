@@ -10,7 +10,7 @@ use tauri_plugin_tantivy::{
 };
 
 // Increment when the SQLite-to-Tantivy document shape changes so existing indexes are rebuilt.
-const PROJECTION_VERSION: i64 = 2;
+const PROJECTION_VERSION: i64 = 3;
 const BATCH_SIZE: i64 = 64;
 const DIRTY_DEBOUNCE: Duration = Duration::from_millis(250);
 const RETRY_INTERVAL: Duration = Duration::from_secs(5);
@@ -280,7 +280,7 @@ async fn build_index_action(pool: &SqlitePool, dirty: &DirtyEntity) -> WorkerRes
 
 async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<IndexAction> {
     let Some(session) = sqlx::query(
-        "SELECT title, created_at, event_json
+        "SELECT title, created_at, event_json, locked
          FROM sessions
          WHERE id = ? AND deleted_at IS NULL",
     )
@@ -290,6 +290,22 @@ async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<Ind
     else {
         return Ok(IndexAction::Remove(id.to_string()));
     };
+
+    let locked: i64 = session.get("locked");
+    if locked != 0 {
+        let title: String = session.get("title");
+        let created_at: String = session.get("created_at");
+        let event_json: String = session.get("event_json");
+        return Ok(IndexAction::Upsert(SearchDocument {
+            id: id.to_string(),
+            doc_type: "session".to_string(),
+            language: None,
+            title: fallback_title(&title, "Untitled"),
+            content: String::new(),
+            created_at: session_search_timestamp(&event_json, &created_at),
+            facets: Vec::new(),
+        }));
+    }
 
     let raw_body: Option<String> = sqlx::query_scalar(
         "SELECT body

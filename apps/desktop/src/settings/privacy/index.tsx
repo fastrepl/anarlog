@@ -1,5 +1,8 @@
 import { useLingui } from "@lingui/react/macro";
+import { useEffect } from "react";
 
+import { DEVICE_AUTH_REASON } from "~/lock/auth";
+import { useAppLock } from "~/lock/store";
 import { privacyMessages } from "~/settings/general/app-settings";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
@@ -13,6 +16,15 @@ export function SettingsPrivacy() {
   const { i18n, t } = useLingui();
   const settingsQuery = useStoredSettingValuesQuery();
   const setSettingValues = useSetSettingValues();
+  const available = useAppLock((state) => state.available);
+  const authenticating = useAppLock((state) => state.authenticating);
+  const authenticate = useAppLock((state) => state.authenticate);
+  const lockApp = useAppLock((state) => state.lockApp);
+  const refreshAvailability = useAppLock((state) => state.refreshAvailability);
+
+  useEffect(() => {
+    void refreshAvailability();
+  }, [refreshAvailability]);
 
   if (settingsQuery.error) {
     throw settingsQuery.error;
@@ -29,12 +41,36 @@ export function SettingsPrivacy() {
     "crash_reporting_consent",
     settingsQuery.data,
   );
+  const lockAppEnabled = resolveConfigValue("lock_app", settingsQuery.data);
+  const authAvailable = available === true;
 
   return (
     <div className="flex flex-col gap-8">
       <SettingsPageTitle title={i18n._(privacyMessages.title)} />
 
       <section className="flex flex-col gap-4">
+        <SettingSwitchRow
+          title={t`Lock app`}
+          description={
+            authAvailable
+              ? t`Require device authentication when opening Anarlog.`
+              : t`Device authentication is not available on this computer.`
+          }
+          checked={lockAppEnabled && authAvailable}
+          disabled={!authAvailable || authenticating}
+          onChange={(next) => {
+            void (async () => {
+              const canAuth = await refreshAvailability();
+              if (!canAuth) return;
+              const ok = await authenticate(
+                DEVICE_AUTH_REASON.changeLockSettings,
+              );
+              if (!ok) return;
+              setSettingValues({ lock_app: next });
+              if (next) lockApp();
+            })();
+          }}
+        />
         <SettingSwitchRow
           title={`${i18n._(privacyMessages.posthogTitle)} (PostHog)`}
           description={i18n._(privacyMessages.posthogDescription)}

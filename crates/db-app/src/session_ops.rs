@@ -16,7 +16,7 @@ const SESSION_COLUMNS: &str = "
     SELECT id, workspace_id, owner_user_id, title, kind, status, created_at, updated_at,
            started_at, ended_at, timezone, language, event_id, external_event_id,
            external_provider, series_id, source_apps_json, event_json, folder_path, slug,
-           metadata_json
+           metadata_json, locked
     FROM sessions
 ";
 
@@ -413,6 +413,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(session.source_apps_json, "[{\"app\":\"zoom\"}]");
+        assert_eq!(session.locked, 0);
         assert_eq!(
             documents
                 .iter()
