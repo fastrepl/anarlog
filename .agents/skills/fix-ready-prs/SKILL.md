@@ -17,10 +17,11 @@ Drafts are out of scope unless the user names them.
 
 ```bash
 gh pr list --state open --limit 200 \
-  --json number,title,isDraft,headRefName,url,mergeStateStatus
+  --json number,title,isDraft,headRefName,headRepositoryOwner,isCrossRepository,url,mergeStateStatus
 ```
 
-Keep only `isDraft == false`. Record number, branch, and URL.
+Keep only `isDraft == false`. Record number, branch, URL, and whether the head
+is a fork (`isCrossRepository`).
 
 ## 2. Collect failures
 
@@ -60,23 +61,43 @@ Use review threads, not only the Bugbot check conclusion. A green Bugbot check
 can still leave unresolved comments, and an older finding may already be
 fixed.
 
+GitHub returns `reviewThreads` oldest-first with no unresolved-only filter.
+Page until `hasNextPage` is false. Do not stop at the first 50 threads.
+
 ```bash
-gh api graphql -f query='
-  query($n:Int!) {
-    repository(owner:"fastrepl", name:"anarlog") {
-      pullRequest(number:$n) {
-        reviewThreads(first:50) {
-          nodes {
-            isResolved
-            isOutdated
-            comments(first:5) {
-              nodes { author { login } path line body }
-            }
+after=""
+while :; do
+  if [ -n "$after" ]; then
+    page=$(gh api graphql -f query="$THREADS_QUERY" -F n=<n> -F after="$after")
+  else
+    page=$(gh api graphql -f query="$THREADS_QUERY" -F n=<n>)
+  fi
+  echo "$page" | jq '.data.repository.pullRequest.reviewThreads.nodes[]'
+  has_next=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')
+  after=$(echo "$page" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')
+  [ "$has_next" = true ] || break
+done
+```
+
+`$THREADS_QUERY` is:
+
+```graphql
+query($n: Int!, $after: String) {
+  repository(owner: "fastrepl", name: "anarlog") {
+    pullRequest(number: $n) {
+      reviewThreads(first: 50, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          isResolved
+          isOutdated
+          comments(first: 5) {
+            nodes { author { login } path line body }
           }
         }
       }
     }
-  }' -F n=<n>
+  }
+}
 ```
 
 Fix a thread when:
@@ -89,21 +110,38 @@ Fix a thread when:
 
 Skip resolved threads and outdated findings whose code already changed.
 
-Also read `gh pr view <n> --comments` and `gh api repos/fastrepl/anarlog/pulls/<n>/comments`
-in case Bugbot posted a review comment that is not yet a thread.
+Also paginate review comments in case Bugbot posted one that is not yet a
+thread:
+
+```bash
+gh api --paginate repos/fastrepl/anarlog/pulls/<n>/comments
+gh pr view <n> --comments
+```
 
 ## 3. Fix on the PR branch
 
-For each PR that has work:
+For each PR that has work, check out **that PR's head**, including fork heads:
 
-1. `git fetch origin <headRefName>`
-2. `git checkout -B <headRefName> origin/<headRefName>`
-3. Reproduce from the failing log or Bugbot location
-4. Make the smallest change that fixes the failure or finding
-5. Run the locally available checks from the CI workflows that the changed
+```bash
+gh pr checkout <n>
+```
+
+Do not `git fetch origin <headRefName>` or `git push origin <headRefName>`.
+Fork PRs keep the branch on the contributor remote; `origin/<headRefName>` is
+missing or is a different branch. Pushing to `origin` can create a stray
+branch that is not the PR head.
+
+Then:
+
+1. Reproduce from the failing log or Bugbot location
+2. Make the smallest change that fixes the failure or finding
+3. Run the locally available checks from the CI workflows that the changed
    paths trigger (`AGENTS.md` pre-commit verification)
-6. Commit on that branch (do not amend someone else's commit)
-7. `git push origin <headRefName>`
+4. Commit on that branch (do not amend someone else's commit)
+5. `git push` (uses the tracking remote from `gh pr checkout`)
+
+If `gh pr checkout` or `git push` cannot update a fork, stop and report that.
+Do not open a replacement PR on `origin`.
 
 Do not bundle unrelated PR fixes onto one branch. Do not retarget or close PRs.
 
