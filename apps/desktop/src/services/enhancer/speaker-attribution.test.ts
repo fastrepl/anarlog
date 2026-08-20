@@ -381,6 +381,9 @@ describe("inferAutomaticSpeakerAssignments", () => {
     });
 
     expect(mocks.generateText).toHaveBeenCalledTimes(2);
+    expect(mocks.generateText.mock.calls[0]![0]).not.toHaveProperty(
+      "temperature",
+    );
     expect(automaticHumanIds(updates[0]!)).toEqual([
       "human-lex",
       "human-george",

@@ -7,6 +7,7 @@ use sentry::protocol::{Context, Event, Value};
 
 const USER_ERROR_MARKERS: &[&str] = &[
     "billing_hard_limit_reached",
+    "cors requests are not allowed",
     "credit balance is too low",
     "exceeded your current quota",
     "incorrect api key",
@@ -22,6 +23,11 @@ const USER_ERROR_MARKERS: &[&str] = &[
     "plans & billing",
     "plans and billing",
     "quota exceeded",
+    "signature expired",
+    "temperature is deprecated",
+    "temperature` is deprecated",
+    "the model does not exist",
+    "unsupported value: 'temperature'",
     "upgrade or purchase credits",
 ];
 
@@ -76,6 +82,19 @@ mod tests {
         assert!(is_user_error_text(ANTHROPIC_CREDIT_ERROR));
         assert!(is_user_error_text(
             "{\"code\":\"insufficient_quota\",\"type\":\"invalid_request_error\"}"
+        ));
+        assert!(is_user_error_text(
+            "`temperature` is deprecated for this model."
+        ));
+        assert!(is_user_error_text(
+            "Unsupported value: 'temperature' does not support 0 with this model."
+        ));
+        assert!(is_user_error_text("The model does not exist."));
+        assert!(is_user_error_text(
+            "CORS requests are not allowed for this Organization because of its settings."
+        ));
+        assert!(is_user_error_text(
+            "Signature expired: 20260505T035233Z is now earlier than 20260819T144923Z"
         ));
         assert!(!is_user_error_text("failed to open database"));
     }

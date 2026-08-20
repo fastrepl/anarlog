@@ -16,6 +16,7 @@ let errorReportingConsentRevision = 0;
 // Sentry. Keep in sync with `crates/user-error`.
 const USER_ERROR_MARKERS = [
   "billing_hard_limit_reached",
+  "cors requests are not allowed",
   "credit balance is too low",
   "exceeded your current quota",
   "incorrect api key",
@@ -31,6 +32,11 @@ const USER_ERROR_MARKERS = [
   "plans & billing",
   "plans and billing",
   "quota exceeded",
+  "signature expired",
+  "temperature is deprecated",
+  "temperature` is deprecated",
+  "the model does not exist",
+  "unsupported value: 'temperature'",
   "upgrade or purchase credits",
 ];
 

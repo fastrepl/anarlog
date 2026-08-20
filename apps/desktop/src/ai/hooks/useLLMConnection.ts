@@ -13,6 +13,7 @@ import type { AIProviderStorage } from "@anlg/store";
 
 import { createAppleFoundationModel } from "../apple-foundation-model";
 import { createAuthFetch } from "../auth-fetch";
+import { omitTemperatureMiddleware } from "../omit-temperature-middleware";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
 
 import { useAuth } from "~/auth";
@@ -229,6 +230,7 @@ const wrapWithThinkingMiddleware = (
   return wrapLanguageModel({
     model,
     middleware: [
+      omitTemperatureMiddleware,
       extractReasoningMiddleware({ tagName: "think" }),
       extractReasoningMiddleware({ tagName: "thinking" }),
     ],

@@ -160,7 +160,7 @@ Return only JSON with this shape: {"mapping":{"cluster_id":"...","confidence":0.
               output: Output.object({
                 schema: candidateSpeakerAttributionOutputSchema,
               }),
-              temperature: 0,
+              ...(isAppleFoundationModel(model) ? { temperature: 0 } : {}),
               maxRetries: 2,
               maxOutputTokens: 200,
               abortSignal: signal,

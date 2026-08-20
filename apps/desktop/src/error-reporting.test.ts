@@ -246,6 +246,18 @@ describe("user-caused failures", () => {
         extra: { "error.code": "insufficient_quota" },
       }),
     ).toBeNull();
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        message: "`temperature` is deprecated for this model.",
+      }),
+    ).toBeNull();
+    expect(
+      sanitizeErrorEvent({
+        type: undefined,
+        message: "The model does not exist.",
+      }),
+    ).toBeNull();
   });
 
   it("keeps errors whose only match is an earlier breadcrumb", () => {
