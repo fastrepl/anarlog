@@ -172,6 +172,15 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     bundleIds: ["ai.plaud.desktop.plaud"],
   },
   {
+    id: "pocket",
+    name: "Pocket",
+    access: "MCP",
+    helpUrl: "https://docs.heypocketai.com/docs",
+    directImport: "mcp-oauth",
+    nativeNames: ["Pocket", "Pocket Desktop", "Pocket AI"],
+    bundleIds: ["com.heypocket.app", "com.heypocket.desktop"],
+  },
+  {
     id: "zoom",
     name: "Zoom",
     access: "OAuth",

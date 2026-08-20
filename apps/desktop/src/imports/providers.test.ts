@@ -7,7 +7,7 @@ import {
 
 describe("meeting import providers", () => {
   it("keeps every researched provider in the catalog", () => {
-    expect(MEETING_IMPORT_PROVIDERS).toHaveLength(30);
+    expect(MEETING_IMPORT_PROVIDERS).toHaveLength(31);
     expect(
       new Set(MEETING_IMPORT_PROVIDERS.map((provider) => provider.id)).size,
     ).toBe(MEETING_IMPORT_PROVIDERS.length);
@@ -30,6 +30,7 @@ describe("meeting import providers", () => {
       "tactiq",
       "jiminny",
       "plaud",
+      "pocket",
       "zoom",
       "microsoft-teams",
       "google-meet",
@@ -39,6 +40,12 @@ describe("meeting import providers", () => {
       MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "plaud"),
     ).toMatchObject({
       directImport: "cli",
+    });
+    expect(
+      MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "pocket"),
+    ).toMatchObject({
+      directImport: "mcp-oauth",
+      helpUrl: "https://docs.heypocketai.com/docs",
     });
     expect(
       MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "zoom"),
@@ -64,15 +71,18 @@ describe("meeting import providers", () => {
     const providers = detectMeetingImportProviders([
       { id: "com.granola.app", name: "Granola" },
       { id: "com.microsoft.teams2", name: "Microsoft Teams" },
+      { id: "com.heypocket.desktop", name: "Pocket" },
     ]);
 
     expect(providers.map((provider) => provider.id)).toEqual([
       "granola",
+      "pocket",
       "microsoft-teams",
       "google-meet",
     ]);
     expect(providers.map((provider) => provider.installedAppId)).toEqual([
       "com.granola.app",
+      "com.heypocket.desktop",
       "com.microsoft.teams2",
       "google-meet",
     ]);
