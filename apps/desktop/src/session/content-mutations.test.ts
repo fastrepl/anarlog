@@ -59,6 +59,32 @@ describe("session content SQLite corrections", () => {
     expect(statements[1].sql).toContain("memo = ?");
   });
 
+  it("guards a session title correction against a stale title", async () => {
+    await applySessionContentCorrections({
+      sessionId: "session-1",
+      summaries: [],
+      transcripts: [],
+      title: {
+        currentTitle: "Scratchpad Design and Analog vs Chyle Direction",
+        nextTitle: "Scratchpad Design and Anarlog vs Char Direction",
+      },
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(1);
+    expect(statements[0]).toMatchObject({
+      expectedRowsAffected: 1,
+      params: [
+        "Scratchpad Design and Anarlog vs Char Direction",
+        expect.any(String),
+        "session-1",
+        "Scratchpad Design and Analog vs Chyle Direction",
+      ],
+    });
+    expect(statements[0].sql).toContain("UPDATE sessions");
+    expect(statements[0].sql).toContain("AND title = ?");
+  });
+
   it("saves generated content and deterministic tag rows atomically", async () => {
     await persistGeneratedEnhancedNote({
       sessionId: "session-1",

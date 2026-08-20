@@ -15,7 +15,7 @@ import {
   type SessionContentSnapshot,
 } from "~/session/content-queries";
 import { updateSettingValue } from "~/settings/queries";
-import { normalizeKeywordList } from "~/stt/keywords";
+import { normalizeKeywordList, parseDictionaryTermsJson } from "~/stt/keywords";
 
 type CorrectionTarget = "summary" | "transcript" | "summary_and_transcript";
 
@@ -48,6 +48,11 @@ type TranscriptChange = {
 
 type DictionaryChange = {
   addedTerms: string[];
+};
+
+type TitleChange = {
+  replacements: number;
+  nextTitle: string;
 };
 
 type SummaryCorrectionPlan = {
@@ -396,19 +401,24 @@ function planTranscriptCorrections({
   return { changes, updates };
 }
 
-function parseStoredDictionaryTerms(value: unknown): string[] {
-  if (typeof value !== "string") {
-    return [];
+function planTitleCorrection({
+  title,
+  oldText,
+  newText,
+}: {
+  title: string;
+  oldText: string;
+  newText: string;
+}): TitleChange | null {
+  const replaced = replaceExact(title, oldText, newText);
+  if (replaced.count === 0 || replaced.text === title) {
+    return null;
   }
 
-  try {
-    const parsed = JSON.parse(value);
-    return Array.isArray(parsed)
-      ? normalizeKeywordList(parsed.filter((term) => typeof term === "string"))
-      : [];
-  } catch {
-    return [];
-  }
+  return {
+    replacements: replaced.count,
+    nextTitle: replaced.text,
+  };
 }
 
 function dictionaryKey(value: string): string {
@@ -426,7 +436,7 @@ async function saveDictionaryTerms(
   await updateSettingValue(
     "personalization_dictionary_terms",
     (storedValue) => {
-      const currentTerms = parseStoredDictionaryTerms(storedValue);
+      const currentTerms = parseDictionaryTermsJson(storedValue);
       const currentKeys = new Set(currentTerms.map(dictionaryKey));
       addedTerms = normalizeKeywordList(terms).filter(
         (term) => !currentKeys.has(dictionaryKey(term)),
@@ -453,7 +463,7 @@ export const buildApplySessionCorrectionTool = (
 ) =>
   tool({
     description:
-      "Apply a correction to a session summary and/or transcript. Use this when the user corrects note content, for example 'it's not X but Y'. Prefer summary_and_transcript for factual meeting corrections unless the user explicitly asks for one target only. Read the note first if you need exact summary text.",
+      "Apply a correction to a session summary, visible session title, and/or transcript. Use this when the user corrects note content, for example 'it's not X but Y'. Prefer summary_and_transcript for factual meeting corrections unless the user explicitly asks for one target only. Read the note first if you need exact summary text.",
     inputSchema: z.object({
       sessionId: z
         .string()
@@ -558,8 +568,19 @@ export const buildApplySessionCorrectionTool = (
         : { changes: [], updates: [] };
       const summaryChanges = summaryPlan.changes;
       const transcriptChanges = transcriptPlan.changes;
+      const titleChange = editSummary
+        ? planTitleCorrection({
+            title: snapshot.title,
+            oldText: params.oldText,
+            newText,
+          })
+        : null;
 
-      if (summaryChanges.length === 0 && transcriptChanges.length === 0) {
+      if (
+        summaryChanges.length === 0 &&
+        transcriptChanges.length === 0 &&
+        !titleChange
+      ) {
         return {
           status: "not_found",
           message:
@@ -573,6 +594,14 @@ export const buildApplySessionCorrectionTool = (
           sessionId,
           summaries: summaryPlan.updates,
           transcripts: transcriptPlan.updates,
+          ...(titleChange
+            ? {
+                title: {
+                  currentTitle: snapshot.title,
+                  nextTitle: titleChange.nextTitle,
+                },
+              }
+            : {}),
         });
       } catch (error) {
         console.error("Failed to apply session correction", error);
@@ -593,7 +622,9 @@ export const buildApplySessionCorrectionTool = (
         console.error("Failed to save correction dictionary terms", error);
       }
       const missingTargets = [
-        editSummary && summaryChanges.length === 0 ? "summary" : null,
+        editSummary && summaryChanges.length === 0 && !titleChange
+          ? "summary"
+          : null,
         editTranscript && transcriptChanges.length === 0 ? "transcript" : null,
       ].filter(Boolean);
 
@@ -612,6 +643,7 @@ export const buildApplySessionCorrectionTool = (
         sessionId,
         summaryChanges,
         transcriptChanges,
+        titleChange,
         dictionaryChanges,
       };
     },
@@ -620,6 +652,7 @@ export const buildApplySessionCorrectionTool = (
 export const sessionCorrectionTestInternals = {
   planSummaryCorrections,
   planTranscriptCorrections,
+  planTitleCorrection,
   replaceExact,
   replaceLoosePhrase,
   replaceTranscriptWords,

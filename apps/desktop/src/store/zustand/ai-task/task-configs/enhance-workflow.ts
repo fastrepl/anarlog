@@ -11,6 +11,7 @@ import { commands as templateCommands } from "@anlg/plugin-template";
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
 import type { EnhanceImageContext } from "./enhance-images";
 import { createEnhanceValidator } from "./enhance-validator";
+import { appendPreferredNamesGuidance } from "./preferred-names";
 
 import {
   formatSummaryLengthModeGuidance,
@@ -80,11 +81,14 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["enhance"]) {
     Boolean(args.template?.sections.length),
   );
 
-  return `${result.data}
+  return appendPreferredNamesGuidance(
+    `${result.data}
 
 # Summary Mode
 
-${modeGuidance}`;
+${modeGuidance}`,
+    args.dictionaryTerms,
+  );
 }
 
 async function getUserPrompt(args: TaskArgsMapTransformed["enhance"]) {

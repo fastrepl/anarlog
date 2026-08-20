@@ -60,14 +60,16 @@ function snapshot({
   notes = [],
   transcripts = [],
   sessionId = "session-1",
+  title = "Planning",
 }: {
   notes?: ReturnType<typeof summary>[];
   transcripts?: ReturnType<typeof transcript>[];
   sessionId?: string;
+  title?: string;
 } = {}) {
   return {
     sessionId,
-    title: "Planning",
+    title,
     createdAt: "2026-07-10T09:00:00.000Z",
     event: null,
     eventId: null,
@@ -419,6 +421,7 @@ describe("session correction chat tool", () => {
           memoReplacements: 1,
         },
       ],
+      titleChange: null,
       dictionaryChanges: { addedTerms: ["Erebor"] },
     });
     expect(mocks.applySessionContentCorrections).toHaveBeenCalledWith(
@@ -432,6 +435,40 @@ describe("session correction chat tool", () => {
       mocks.applySessionContentCorrections.mock.invocationCallOrder[0],
     ).toBeLessThan(mocks.updateSettingValue.mock.invocationCallOrder[0]);
     expect(persistedDictionary).toBe(JSON.stringify(["Anarlog", "Erebor"]));
+  });
+
+  it("updates the visible session title even when it is not in the summary body", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue(
+      snapshot({
+        title: "Scratchpad Design and Analog vs Chyle Direction",
+        notes: [summary("Pinning stays on the permanent page.")],
+      }),
+    );
+
+    const result = await (buildTool() as any).execute({
+      target: "summary",
+      oldText: "Analog",
+      newText: "Anarlog",
+    });
+
+    expect(result).toMatchObject({
+      status: "applied",
+      summaryChanges: [],
+      transcriptChanges: [],
+      titleChange: {
+        replacements: 1,
+        nextTitle: "Scratchpad Design and Anarlog vs Chyle Direction",
+      },
+    });
+    expect(mocks.applySessionContentCorrections).toHaveBeenCalledWith({
+      sessionId: "session-1",
+      summaries: [],
+      transcripts: [],
+      title: {
+        currentTitle: "Scratchpad Design and Analog vs Chyle Direction",
+        nextTitle: "Scratchpad Design and Anarlog vs Chyle Direction",
+      },
+    });
   });
 
   it("reports partial success when a requested target does not match", async () => {

@@ -2,6 +2,7 @@ import type { TaskArgsMap, TaskArgsMapTransformed, TaskConfig } from ".";
 
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import type { SettingValues } from "~/settings/schema";
+import { parseDictionaryTermsJson } from "~/stt/keywords";
 
 export const titleTransform: Pick<TaskConfig<"title">, "transformArgs"> = {
   transformArgs,
@@ -26,7 +27,13 @@ async function transformArgs(
       .join("\n\n") ??
     "";
   const language = getLanguage(settingsValues);
-  return { language, enhancedNote };
+  return {
+    language,
+    enhancedNote,
+    dictionaryTerms: parseDictionaryTermsJson(
+      settingsValues.personalization_dictionary_terms,
+    ),
+  };
 }
 
 function getLanguage(settingsValues: SettingValues): string | null {

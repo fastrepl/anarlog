@@ -258,6 +258,18 @@ describe("enhanceTransform.transformArgs", () => {
     expect(result.summaryLength).toBe("crisp");
   });
 
+  it("includes personalization dictionary terms for summary spelling", async () => {
+    const result = await enhanceTransform.transformArgs(
+      { sessionId: "session-1", enhancedNoteId: "note-1" },
+      {
+        ...settingsValues,
+        personalization_dictionary_terms: JSON.stringify(["Anarlog", "Char"]),
+      },
+    );
+
+    expect(result.dictionaryTerms).toEqual(["Anarlog", "Char"]);
+  });
+
   it("falls back to generic enhancement when template loading fails", async () => {
     mocks.getTemplateById.mockRejectedValue(new Error("Failed query"));
 

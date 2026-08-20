@@ -23,6 +23,7 @@ import {
 } from "~/session/content-queries";
 import { modelSupportsImageInput } from "~/settings/ai/shared/model-capabilities";
 import type { SettingValues } from "~/settings/schema";
+import { parseDictionaryTermsJson } from "~/stt/keywords";
 import {
   formatMeetingChatContext,
   loadMeetingChatRecords,
@@ -111,6 +112,9 @@ async function transformArgs(
     transcripts: formatTranscripts(segments, sessionContext.transcriptsMeta),
     imageContext,
     summaryLength: normalizeSummaryLengthMode(settingsValues.summary_length),
+    dictionaryTerms: parseDictionaryTermsJson(
+      settingsValues.personalization_dictionary_terms,
+    ),
   };
 }
 

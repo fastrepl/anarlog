@@ -95,6 +95,7 @@ function createTransformedArgs(): EnhanceSuccessParams["transformedArgs"] {
     transcripts: [],
     imageContext: [],
     summaryLength: "detailed",
+    dictionaryTerms: [],
   };
 }
 

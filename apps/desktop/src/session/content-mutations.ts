@@ -34,14 +34,21 @@ export type TranscriptSpeakerHintsUpdate = {
   expectedParticipantHumanIdsJson: string;
 };
 
+export type SessionTitleCorrection = {
+  currentTitle: string;
+  nextTitle: string;
+};
+
 export function applySessionContentCorrections({
   sessionId,
   summaries,
   transcripts,
+  title,
 }: {
   sessionId: string;
   summaries: SummaryContentCorrection[];
   transcripts: TranscriptContentCorrection[];
+  title?: SessionTitleCorrection;
 }): Promise<void> {
   return enqueueDatabaseWrite(`session:${sessionId}`, async () => {
     const now = new Date().toISOString();
@@ -50,6 +57,18 @@ export function applySessionContentCorrections({
       params: unknown[];
       expectedRowsAffected: number;
     }> = [];
+
+    if (title && title.currentTitle !== title.nextTitle) {
+      statements.push({
+        sql: `
+          UPDATE sessions
+          SET title = ?, updated_at = ?
+          WHERE id = ? AND title = ? AND deleted_at IS NULL
+        `,
+        params: [title.nextTitle, now, sessionId, title.currentTitle],
+        expectedRowsAffected: 1,
+      });
+    }
 
     for (const summary of summaries) {
       statements.push({

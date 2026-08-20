@@ -3,6 +3,7 @@ import { generateId, type LanguageModel, streamText } from "ai";
 import { commands as templateCommands } from "@anlg/plugin-template";
 
 import type { TaskArgsMapTransformed, TaskConfig } from ".";
+import { appendPreferredNamesGuidance } from "./preferred-names";
 
 const AI_GENERATION_MAX_RETRIES = 4;
 const TITLE_MAX_OUTPUT_TOKENS = 128;
@@ -58,7 +59,7 @@ async function getSystemPrompt(args: TaskArgsMapTransformed["title"]) {
     throw new Error(result.error);
   }
 
-  return result.data;
+  return appendPreferredNamesGuidance(result.data, args.dictionaryTerms);
 }
 
 async function getUserPrompt(args: TaskArgsMapTransformed["title"]) {

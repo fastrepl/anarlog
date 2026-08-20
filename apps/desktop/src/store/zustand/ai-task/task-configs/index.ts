@@ -46,8 +46,9 @@ export interface TaskArgsMapTransformed {
     EnhanceUser & {
       imageContext: EnhanceImageContext[];
       summaryLength: SummaryLengthMode;
+      dictionaryTerms: string[];
     };
-  title: TitleSystem & TitleUser;
+  title: TitleSystem & TitleUser & { dictionaryTerms: string[] };
 }
 
 export type TaskId<T extends TaskType = TaskType> = `${string}-${T}`;

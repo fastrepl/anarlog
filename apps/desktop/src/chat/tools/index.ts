@@ -254,6 +254,10 @@ type LocalTools = {
         wordReplacements: number;
         memoReplacements: number;
       }>;
+      titleChange?: {
+        replacements: number;
+        nextTitle: string;
+      };
       dictionaryChanges?: {
         addedTerms: string[];
       };

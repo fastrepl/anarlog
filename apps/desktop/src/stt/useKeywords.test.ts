@@ -10,6 +10,7 @@ vi.mock("~/db", () => ({
 import {
   formatDictionaryTerms,
   normalizeKeywordList,
+  parseDictionaryTermsJson,
   parseDictionaryTermsText,
 } from "./keywords";
 import {
@@ -234,6 +235,16 @@ describe("buildKeywords", () => {
 });
 
 describe("dictionary term helpers", () => {
+  it("parses stored JSON dictionary terms", () => {
+    expect(
+      parseDictionaryTermsJson(JSON.stringify(["Anarlog", "Char"])),
+    ).toEqual(["Anarlog", "Char"]);
+    expect(parseDictionaryTermsJson(["Anarlog", " anarlog "])).toEqual([
+      "Anarlog",
+    ]);
+    expect(parseDictionaryTermsJson("not-json")).toEqual([]);
+  });
+
   it("parses newline and comma separated terms", () => {
     expect(
       parseDictionaryTermsText("Anarlog\nFastConformer, Parakeet TDT"),

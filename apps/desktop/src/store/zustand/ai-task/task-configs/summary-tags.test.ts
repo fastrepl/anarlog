@@ -24,6 +24,7 @@ function createEnhanceArgs(
     transcripts: [],
     imageContext: [],
     summaryLength: "detailed",
+    dictionaryTerms: [],
     ...overrides,
   };
 }

@@ -27,3 +27,26 @@ export function parseDictionaryTermsText(value: string): string[] {
 export function formatDictionaryTerms(terms: string[]): string {
   return normalizeKeywordList(terms).join("\n");
 }
+
+export function parseDictionaryTermsJson(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return normalizeKeywordList(
+      value.filter((term): term is string => typeof term === "string"),
+    );
+  }
+
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? normalizeKeywordList(
+          parsed.filter((term): term is string => typeof term === "string"),
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
