@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(19);
 
 select tests.create_supabase_user('pro', 'pro@example.com');
 select tests.create_supabase_user('free', 'free@example.com');
@@ -220,6 +220,123 @@ select is(
   ),
   'false'::jsonb,
   'custom_access_token_hook reports a missing payment method'
+);
+
+select results_eq(
+  $$
+  select bool_and(has_column_privilege('supabase_auth_admin', 'stripe.subscription_items', column_name, 'SELECT'))
+  from unnest(array['subscription', 'current_period_end']) as required_columns(column_name)
+  $$,
+  array[true],
+  'supabase_auth_admin can read the subscription item columns used by the auth hook'
+);
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('active')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'cancel_at_period_end'
+  )::text
+  $$,
+  array['false'],
+  'custom_access_token_hook reports an active subscription that is not canceling'
+);
+
+select tests.create_supabase_user('canceling', 'canceling@example.com');
+
+update public.profiles
+set stripe_customer_id = 'cus_canceling'
+where id = tests.get_supabase_uid('canceling');
+
+insert into stripe.customers (id)
+values ('cus_canceling')
+on conflict (id) do nothing;
+
+insert into stripe.subscriptions (
+  id,
+  customer,
+  status,
+  cancel_at_period_end,
+  cancel_at,
+  current_period_end,
+  created
+)
+values (
+  'sub_canceling',
+  'cus_canceling',
+  'active',
+  true,
+  1789603200,
+  1789610000,
+  3000
+)
+on conflict (id) do nothing;
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('canceling')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'cancel_at_period_end'
+  )::text
+  $$,
+  array['true'],
+  'custom_access_token_hook sets cancel_at_period_end for a scheduled cancellation'
+);
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('canceling')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'current_period_end'
+  )::text
+  $$,
+  array['1789603200'],
+  'custom_access_token_hook prefers cancel_at over subscription current_period_end'
+);
+
+select tests.create_supabase_user('item_period', 'item-period@example.com');
+
+update public.profiles
+set stripe_customer_id = 'cus_item_period'
+where id = tests.get_supabase_uid('item_period');
+
+insert into stripe.customers (id)
+values ('cus_item_period')
+on conflict (id) do nothing;
+
+insert into stripe.subscriptions (id, customer, status, created)
+values ('sub_item_period', 'cus_item_period', 'active', 4000)
+on conflict (id) do nothing;
+
+insert into stripe.subscription_items (id, subscription, current_period_end)
+values ('si_item_period', 'sub_item_period', 1789700000)
+on conflict (id) do nothing;
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('item_period')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'current_period_end'
+  )::text
+  $$,
+  array['1789700000'],
+  'custom_access_token_hook falls back to subscription item current_period_end'
 );
 
 select * from finish();

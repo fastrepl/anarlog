@@ -20,6 +20,7 @@ import {
   getSupabaseAdminClient,
   getSupabaseServerClient,
 } from "@/functions/supabase";
+import { getSubscriptionAccessEnd } from "@/lib/account-plan";
 import {
   addInternalReturnPathSearch,
   sanitizeInternalReturnPath,
@@ -822,16 +823,7 @@ export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
       return { status: "none" };
     }
 
-    const subscriptions = await stripe.subscriptions.list({
-      customer: stripeCustomerId,
-      status: "all",
-    });
-
-    // Prioritize active subscriptions over trialing ones
-    // This ensures paid users see "active" status even if they had a previous trial
-    const subscription =
-      subscriptions.data.find((sub) => sub.status === "active") ||
-      subscriptions.data.find((sub) => sub.status === "trialing");
+    const subscription = await getCurrentSubscription(stripe, stripeCustomerId);
 
     if (!subscription) {
       return { status: "none" };
@@ -842,6 +834,42 @@ export const syncAfterSuccess = createServerFn({ method: "POST" }).handler(
       status: subscription.status,
       priceId: subscription.items.data[0]?.price.id ?? null,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodEnd: getSubscriptionAccessEnd(subscription),
+    };
+  },
+);
+
+export const getAccountSubscription = createServerFn({ method: "GET" }).handler(
+  async () => {
+    const supabase = getSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      throw new Error("Unauthorized");
+    }
+
+    const stripe = getStripeClient();
+    const stripeCustomerId = await getStripeCustomerIdForUser(
+      supabase,
+      stripe,
+      user,
+    );
+
+    if (!stripeCustomerId) {
+      return { cancelAtPeriodEnd: false, currentPeriodEnd: null };
+    }
+
+    const subscription = await getCurrentSubscription(stripe, stripeCustomerId);
+
+    if (!subscription) {
+      return { cancelAtPeriodEnd: false, currentPeriodEnd: null };
+    }
+
+    return {
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodEnd: getSubscriptionAccessEnd(subscription),
     };
   },
 );

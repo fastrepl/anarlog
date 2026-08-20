@@ -12,6 +12,8 @@ export type BillingInfo = {
   hasPaymentMethod: boolean;
   trialEnd: Date | null;
   trialDaysRemaining: number | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: Date | null;
   plan: Plan;
 };
 
@@ -48,6 +50,9 @@ export function deriveBillingInfo(
   const isPaid = hasPaidEntitlement;
 
   const plan: Plan = isTrialing ? "trial" : hasPaidEntitlement ? "pro" : "free";
+  const currentPeriodEnd = payload?.current_period_end
+    ? new Date(payload.current_period_end * 1000)
+    : null;
 
   return {
     entitlements,
@@ -59,6 +64,8 @@ export function deriveBillingInfo(
     hasPaymentMethod: payload?.has_payment_method === true,
     trialEnd,
     trialDaysRemaining,
+    cancelAtPeriodEnd: payload?.cancel_at_period_end === true,
+    currentPeriodEnd,
     plan,
   };
 }

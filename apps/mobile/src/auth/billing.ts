@@ -18,6 +18,8 @@ export type SupabaseJwtPayload = {
   subscription_status?: SubscriptionStatus | null;
   trial_end?: number | null;
   has_payment_method?: boolean | null;
+  cancel_at_period_end?: boolean | null;
+  current_period_end?: number | null;
 };
 
 export type Plan = "free" | "trial" | "pro";
@@ -31,6 +33,8 @@ export type BillingInfo = {
   isTrialing: boolean;
   trialEnd: Date | null;
   trialDaysRemaining: number | null;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: Date | null;
   plan: Plan;
 };
 
@@ -99,6 +103,9 @@ export function deriveBillingInfo(
   const hasPaidEntitlement = hasEffectiveProEntitlement || hasLiteEntitlement;
 
   const plan: Plan = isTrialing ? "trial" : hasPaidEntitlement ? "pro" : "free";
+  const currentPeriodEnd = payload?.current_period_end
+    ? new Date(payload.current_period_end * 1000)
+    : null;
 
   return {
     entitlements,
@@ -109,6 +116,8 @@ export function deriveBillingInfo(
     isTrialing,
     trialEnd,
     trialDaysRemaining,
+    cancelAtPeriodEnd: payload?.cancel_at_period_end === true,
+    currentPeriodEnd,
     plan,
   };
 }

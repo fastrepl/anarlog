@@ -18,6 +18,8 @@ export type SupabaseJwtPayload = {
   subscription_status?: SubscriptionStatus | null;
   trial_end?: number | null;
   has_payment_method?: boolean | null;
+  cancel_at_period_end?: boolean | null;
+  current_period_end?: number | null;
 };
 
 export type JwksVerifier = {

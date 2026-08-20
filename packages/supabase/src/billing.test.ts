@@ -62,4 +62,22 @@ test("a bare active subscription does not invent an entitlement", () => {
   expect(billing.isPro).toBe(false);
   expect(billing.isPaid).toBe(false);
   expect(billing.plan).toBe("free");
+  expect(billing.cancelAtPeriodEnd).toBe(false);
+  expect(billing.currentPeriodEnd).toBe(null);
+});
+
+test("a scheduled cancellation stays paid through the current period", () => {
+  const periodEnd = secondsFromNow(60 * 60 * 24 * 28);
+  const billing = deriveBillingInfo({
+    entitlements: ["hyprnote_pro"],
+    subscription_status: "active",
+    cancel_at_period_end: true,
+    current_period_end: periodEnd,
+  });
+
+  expect(billing.isPaid).toBe(true);
+  expect(billing.isPro).toBe(true);
+  expect(billing.plan).toBe("pro");
+  expect(billing.cancelAtPeriodEnd).toBe(true);
+  expect(billing.currentPeriodEnd?.getTime()).toBe(periodEnd * 1000);
 });

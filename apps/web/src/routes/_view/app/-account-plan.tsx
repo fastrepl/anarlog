@@ -1,4 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+
+import { getAccountSubscription } from "@/functions/billing";
+import { getAccountPlanCopy } from "@/lib/account-plan";
 
 import { useAccountSession } from "./-account-session";
 import {
@@ -10,32 +14,44 @@ import {
 export function PlanSection() {
   const { data, isPending } = useAccountSession();
   const billing = data?.billing;
+  const subscriptionQuery = useQuery({
+    queryKey: ["account-subscription"],
+    enabled:
+      typeof window !== "undefined" &&
+      (billing?.isPaid === true || billing?.isTrialing === true),
+    queryFn: () => getAccountSubscription(),
+  });
 
-  const planLabel = billing?.isTrialing
-    ? "Pro trial"
-    : billing?.isPaid
-      ? billing.isLite && !billing.isPro
-        ? "Lite"
-        : "Pro"
-      : "Free";
+  const cancelAtPeriodEnd =
+    subscriptionQuery.data?.cancelAtPeriodEnd ??
+    billing?.cancelAtPeriodEnd ??
+    false;
+  const currentPeriodEnd =
+    subscriptionQuery.data?.currentPeriodEnd != null
+      ? new Date(subscriptionQuery.data.currentPeriodEnd * 1000)
+      : (billing?.currentPeriodEnd ?? null);
 
-  const planDetail = billing?.isTrialing
-    ? billing.trialEnd
-      ? `${billing.trialDaysRemaining} ${
-          billing.trialDaysRemaining === 1 ? "day" : "days"
-        } left · ends ${billing.trialEnd.toLocaleDateString("en-US", {
-          month: "long",
-          day: "numeric",
-        })}.`
-      : "Your trial is running."
-    : billing?.isPaid
-      ? "Thanks for supporting Anarlog."
-      : "On-device basics, free forever.";
+  const { planLabel, planDetail } = getAccountPlanCopy({
+    isTrialing: billing?.isTrialing === true,
+    isPaid: billing?.isPaid === true,
+    isLite: billing?.isLite,
+    isPro: billing?.isPro,
+    trialDaysRemaining: billing?.trialDaysRemaining ?? null,
+    trialEnd: billing?.trialEnd ?? null,
+    cancelAtPeriodEnd,
+    currentPeriodEnd,
+  });
+
+  const isCheckingPlan =
+    isPending ||
+    (billing?.isPaid === true &&
+      billing.isTrialing !== true &&
+      subscriptionQuery.isPending);
 
   return (
     <div className={accountCardClassName}>
       <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-        {isPending ? (
+        {isCheckingPlan ? (
           <p className="text-sm leading-6 text-[#756b5d]">
             Checking your plan...
           </p>
