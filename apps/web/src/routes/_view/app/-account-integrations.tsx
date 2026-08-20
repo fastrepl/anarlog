@@ -134,7 +134,7 @@ export function IntegrationsSection() {
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-row items-center gap-2">
-                    {needsReconnect ? (
+                    {needsReconnect && (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
@@ -155,22 +155,21 @@ export function IntegrationsSection() {
                           {reconnectError}
                         </TooltipContent>
                       </Tooltip>
-                    ) : (
-                      <Link
-                        to="/app/integration/"
-                        search={{
-                          flow: "web",
-                          integration_id: connection.integration_id,
-                          connection_id: connection.connection_id,
-                          action: "disconnect",
-                        }}
-                        aria-label={`Disconnect ${name}`}
-                        title="Disconnect"
-                        className={cn([accountPillDangerClassName, "w-9 px-0"])}
-                      >
-                        <Plugs size={16} aria-hidden="true" />
-                      </Link>
                     )}
+                    <Link
+                      to="/app/integration/"
+                      search={{
+                        flow: "web",
+                        integration_id: connection.integration_id,
+                        connection_id: connection.connection_id,
+                        action: "disconnect",
+                      }}
+                      aria-label={`Disconnect ${name}`}
+                      title="Disconnect"
+                      className={cn([accountPillDangerClassName, "w-9 px-0"])}
+                    >
+                      <Plugs size={16} aria-hidden="true" />
+                    </Link>
                   </div>
                 </li>
               );
