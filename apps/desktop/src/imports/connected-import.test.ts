@@ -15,6 +15,11 @@ const mocks = vi.hoisted(() => ({
   openIntegrationUrl: vi.fn(),
   listConnections: vi.fn(),
   zoomImportMeetings: vi.fn(),
+  fathomImportMeetings: vi.fn(),
+  googleMeetImportMeetings: vi.fn(),
+  microsoftTeamsImportMeetings: vi.fn(),
+  notionImportMeetings: vi.fn(),
+  webexImportMeetings: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-importer", () => ({
@@ -50,6 +55,11 @@ vi.mock("~/shared/integration", () => ({
 vi.mock("@anlg/api-client", () => ({
   listConnections: mocks.listConnections,
   zoomImportMeetings: mocks.zoomImportMeetings,
+  fathomImportMeetings: mocks.fathomImportMeetings,
+  googleMeetImportMeetings: mocks.googleMeetImportMeetings,
+  microsoftTeamsImportMeetings: mocks.microsoftTeamsImportMeetings,
+  notionImportMeetings: mocks.notionImportMeetings,
+  webexImportMeetings: mocks.webexImportMeetings,
 }));
 
 vi.mock("@anlg/api-client/client", () => ({
@@ -302,5 +312,48 @@ describe("nango meeting imports", () => {
       },
     ]);
     expect(result.result.imported).toBe(1);
+  });
+
+  it("imports Fathom meetings through the Fathom endpoint", async () => {
+    const fathomProvider = {
+      id: "fathom",
+      name: "Fathom",
+      nangoIntegrationId: "fathom",
+    };
+    mocks.getImportedMeetingIds.mockResolvedValue([]);
+    mocks.fathomImportMeetings.mockResolvedValue({
+      data: {
+        files: [
+          {
+            path: "oauth://fathom/meeting-new.json",
+            name: "meeting-new.json",
+            content: "{}",
+          },
+        ],
+        warnings: [],
+      },
+      error: null,
+    });
+    mocks.importConnectedMeetings.mockResolvedValue({
+      discovered: 1,
+      imported: 1,
+      matched: 0,
+      conflicts: 0,
+      errors: 0,
+    });
+
+    const queryClient = new QueryClient();
+    await queryClient.fetchQuery(
+      nangoImportSyncQueryOptions(fathomProvider, "fathom-1", headers, true),
+    );
+
+    expect(mocks.fathomImportMeetings).toHaveBeenCalledWith({
+      client: {},
+      body: {
+        connection_id: "fathom-1",
+        known_meeting_ids: [],
+      },
+    });
+    expect(mocks.zoomImportMeetings).not.toHaveBeenCalled();
   });
 });

@@ -9,6 +9,7 @@ export type MeetingImportProvider = {
   nangoIntegrationId?: string;
   nativeNames?: string[];
   bundleIds?: string[];
+  alwaysAvailable?: boolean;
 };
 
 export type DetectedMeetingImportProvider = MeetingImportProvider & {
@@ -57,6 +58,8 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     name: "Fathom",
     access: "OAuth",
     helpUrl: "https://developers.fathom.ai/sdks/oauth",
+    directImport: "nango-oauth",
+    nangoIntegrationId: "fathom",
     nativeNames: ["Fathom"],
     bundleIds: ["Fathom"],
   },
@@ -74,6 +77,8 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     name: "Notion AI Meeting Notes",
     access: "OAuth",
     helpUrl: "https://developers.notion.com/reference/query-meeting-notes",
+    directImport: "nango-oauth",
+    nangoIntegrationId: "notion",
     nativeNames: ["Notion"],
     bundleIds: ["notion.id", "notion"],
   },
@@ -181,6 +186,8 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     access: "OAuth",
     helpUrl:
       "https://learn.microsoft.com/en-us/graph/api/onlinemeeting-list-transcripts?view=graph-rest-1.0",
+    directImport: "nango-oauth",
+    nangoIntegrationId: "microsoft-teams",
     nativeNames: ["Microsoft Teams", "Microsoft Teams (work or school)"],
     bundleIds: ["com.microsoft.teams", "com.microsoft.teams2"],
   },
@@ -190,6 +197,10 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     access: "OAuth",
     helpUrl:
       "https://developers.google.com/workspace/meet/api/guides/artifacts",
+    directImport: "nango-oauth",
+    nangoIntegrationId: "google-meet",
+    nativeNames: ["Google Meet"],
+    alwaysAvailable: true,
   },
   {
     id: "webex",
@@ -197,6 +208,8 @@ export const MEETING_IMPORT_PROVIDERS: MeetingImportProvider[] = [
     access: "OAuth",
     helpUrl:
       "https://developer.webex.com/meeting/docs/api/v1/meeting-transcripts",
+    directImport: "nango-oauth",
+    nangoIntegrationId: "webex",
     nativeNames: ["Webex", "Cisco Webex Meetings"],
     bundleIds: ["com.cisco.webex", "com.webex"],
   },
@@ -287,6 +300,8 @@ export function detectMeetingImportProviders(
 
     return installedApp
       ? [{ ...provider, installedAppId: installedApp.id }]
-      : [];
+      : provider.alwaysAvailable
+        ? [{ ...provider, installedAppId: provider.id }]
+        : [];
   });
 }

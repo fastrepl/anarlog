@@ -6,6 +6,7 @@ use serde_json::{Value, json};
 
 use crate::blocks::{heading_block, markdown_to_blocks};
 use crate::error::{NotionError, Result};
+use crate::import::{self, ImportFile};
 
 const NOTION_VERSION: &str = "2022-06-28";
 
@@ -166,6 +167,75 @@ pub async fn append_update(
         .map_err(|e| NotionError::Notion(e.to_string()))?;
 
     Ok(Json(NotionAppendUpdateResponse { block_count }))
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct NotionImportMeetingsRequest {
+    pub connection_id: String,
+    #[serde(default)]
+    pub known_meeting_ids: Vec<String>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NotionImportTextFile {
+    pub path: String,
+    pub name: String,
+    pub content: String,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NotionImportMeetingsResponse {
+    pub files: Vec<NotionImportTextFile>,
+    pub warnings: Vec<String>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/import-meetings",
+    operation_id = "notion_import_meetings",
+    request_body = NotionImportMeetingsRequest,
+    responses(
+        (status = 200, description = "Notion meeting notes fetched for import", body = NotionImportMeetingsResponse),
+        (status = 401, description = "Authentication required"),
+        (status = 500, description = "Notion connection unavailable"),
+    ),
+    tag = "notion",
+)]
+pub async fn import_meetings(
+    Extension(auth): Extension<AuthContext>,
+    Extension(nango_state): Extension<NangoConnectionState>,
+    Json(req): Json<NotionImportMeetingsRequest>,
+) -> Result<Json<NotionImportMeetingsResponse>> {
+    if req.connection_id.trim().is_empty() {
+        return Err(NotionError::BadRequest(
+            "connection_id is required".to_string(),
+        ));
+    }
+
+    let proxy = nango_state
+        .build_http_client(
+            &auth.token,
+            &auth.claims.sub,
+            Notion::ID,
+            &req.connection_id,
+        )
+        .await?
+        .into_proxy();
+    let imported = import::import_meetings(&proxy, &req.known_meeting_ids).await?;
+    Ok(Json(NotionImportMeetingsResponse {
+        files: imported.files.into_iter().map(into_file).collect(),
+        warnings: imported.warnings,
+    }))
+}
+
+fn into_file(file: ImportFile) -> NotionImportTextFile {
+    NotionImportTextFile {
+        path: file.path,
+        name: file.name,
+        content: file.content,
+    }
 }
 
 fn page_from_result(result: &Value) -> Option<NotionPage> {

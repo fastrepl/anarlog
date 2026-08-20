@@ -1122,6 +1122,63 @@
         ],
         "type": "object"
       },
+      "ImportMeetingsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "known_meeting_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "ImportMeetingsResponse": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ImportTextFile"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "files",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "ImportTextFile": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name",
+          "content"
+        ],
+        "type": "object"
+      },
       "Importance": {
         "enum": [
           "low",
@@ -1551,6 +1608,149 @@
           "unknown"
         ],
         "type": "string"
+      },
+      "NotionAppendUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "heading": {
+            "type": "string"
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "page_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id",
+          "page_id",
+          "heading",
+          "markdown"
+        ],
+        "type": "object"
+      },
+      "NotionAppendUpdateResponse": {
+        "properties": {
+          "block_count": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "block_count"
+        ],
+        "type": "object"
+      },
+      "NotionImportMeetingsRequest": {
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "known_meeting_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
+      },
+      "NotionImportMeetingsResponse": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/NotionImportTextFile"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "files",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "NotionImportTextFile": {
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name",
+          "content"
+        ],
+        "type": "object"
+      },
+      "NotionPage": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title"
+        ],
+        "type": "object"
+      },
+      "NotionPagesResponse": {
+        "properties": {
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/NotionPage"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "pages"
+        ],
+        "type": "object"
+      },
+      "NotionSearchPagesRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "query": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "connection_id"
+        ],
+        "type": "object"
       },
       "OfficeLocation": {
         "properties": {
@@ -3274,6 +3474,129 @@
         ]
       }
     },
+    "/fathom/import-meetings": {
+      "post": {
+        "operationId": "fathom_import_meetings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportMeetingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportMeetingsResponse"
+                }
+              }
+            },
+            "description": "Fathom meetings fetched for import"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "fathom"
+        ]
+      }
+    },
+    "/google-meet/import-meetings": {
+      "post": {
+        "operationId": "google_meet_import_meetings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportMeetingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportMeetingsResponse"
+                }
+              }
+            },
+            "description": "Google Meet meetings fetched for import"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "google-meet"
+        ]
+      }
+    },
+    "/microsoft-teams/import-meetings": {
+      "post": {
+        "operationId": "microsoft_teams_import_meetings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportMeetingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportMeetingsResponse"
+                }
+              }
+            },
+            "description": "Microsoft Teams meetings fetched for import"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "microsoft-teams"
+        ]
+      }
+    },
     "/nango/connections": {
       "delete": {
         "operationId": "delete_connection",
@@ -3442,6 +3765,132 @@
         ],
         "tags": [
           "nango"
+        ]
+      }
+    },
+    "/notion/append-update": {
+      "post": {
+        "operationId": "notion_append_update",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotionAppendUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionAppendUpdateResponse"
+                }
+              }
+            },
+            "description": "Update appended to the Notion page"
+          },
+          "400": {
+            "description": "Invalid update payload"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Notion connection unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "notion"
+        ]
+      }
+    },
+    "/notion/import-meetings": {
+      "post": {
+        "operationId": "notion_import_meetings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotionImportMeetingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionImportMeetingsResponse"
+                }
+              }
+            },
+            "description": "Notion meeting notes fetched for import"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Notion connection unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "notion"
+        ]
+      }
+    },
+    "/notion/search-pages": {
+      "post": {
+        "operationId": "notion_search_pages",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotionSearchPagesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotionPagesResponse"
+                }
+              }
+            },
+            "description": "Notion pages shared with the connected integration"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "500": {
+            "description": "Notion connection unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "notion"
         ]
       }
     },
@@ -4268,6 +4717,47 @@
         ]
       }
     },
+    "/webex/import-meetings": {
+      "post": {
+        "operationId": "webex_import_meetings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportMeetingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportMeetingsResponse"
+                }
+              }
+            },
+            "description": "Webex meetings fetched for import"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "webex"
+        ]
+      }
+    },
     "/zoom/import-meetings": {
       "post": {
         "operationId": "zoom_import_meetings",
@@ -4346,6 +4836,22 @@
     {
       "description": "Zoom meeting import",
       "name": "zoom"
+    },
+    {
+      "description": "Fathom meeting import",
+      "name": "fathom"
+    },
+    {
+      "description": "Webex meeting import",
+      "name": "webex"
+    },
+    {
+      "description": "Google Meet meeting import",
+      "name": "google-meet"
+    },
+    {
+      "description": "Microsoft Teams meeting import",
+      "name": "microsoft-teams"
     },
     {
       "description": "Integration management via Nango",

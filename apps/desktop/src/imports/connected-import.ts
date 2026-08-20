@@ -1,7 +1,12 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import {
+  fathomImportMeetings,
+  googleMeetImportMeetings,
   listConnections,
+  microsoftTeamsImportMeetings,
+  notionImportMeetings,
+  webexImportMeetings,
   zoomImportMeetings,
   type ConnectionItem,
 } from "@anlg/api-client";
@@ -277,12 +282,13 @@ async function syncNangoMeetings(
 ): Promise<ConnectedImportSyncSummary> {
   const knownMeetingIds = await getImportedMeetingIds(provider.id);
   const client = createClient({ baseUrl: env.VITE_API_URL, headers });
-  const { data, error } = await zoomImportMeetings({
+  const body = {
+    connection_id: connectionId,
+    known_meeting_ids: knownMeetingIds,
+  };
+  const { data, error } = await nangoImportMeetings(provider.id, {
     client,
-    body: {
-      connection_id: connectionId,
-      known_meeting_ids: knownMeetingIds,
-    },
+    body,
   });
   if (error || !data) {
     throw new Error(`Reconnect ${provider.name} to keep importing`);
@@ -360,4 +366,29 @@ async function writeConnectedImportCredentials(
 
 function connectedImportSecretKey(providerId: string) {
   return providerId === "granola" ? "granola-mcp" : `${providerId}-mcp`;
+}
+
+function nangoImportMeetings(
+  providerId: string,
+  options: {
+    client: ReturnType<typeof createClient>;
+    body: { connection_id: string; known_meeting_ids: string[] };
+  },
+) {
+  switch (providerId) {
+    case "fathom":
+      return fathomImportMeetings(options);
+    case "google-meet":
+      return googleMeetImportMeetings(options);
+    case "microsoft-teams":
+      return microsoftTeamsImportMeetings(options);
+    case "notion":
+      return notionImportMeetings(options);
+    case "webex":
+      return webexImportMeetings(options);
+    case "zoom":
+      return zoomImportMeetings(options);
+    default:
+      throw new Error(`${providerId} import is not available`);
+  }
 }

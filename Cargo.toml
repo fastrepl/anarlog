@@ -42,6 +42,7 @@ anlg-api-cloud = { path = "crates/api-cloud", package = "api-cloud" }
 anlg-api-env = { path = "crates/api-env", package = "api-env" }
 anlg-api-error = { path = "crates/api-error", package = "api-error" }
 anlg-api-mail = { path = "crates/api-mail", package = "api-mail" }
+anlg-api-meeting-import = { path = "crates/api-meeting-import", package = "api-meeting-import" }
 anlg-api-messenger = { path = "crates/api-messenger", package = "api-messenger" }
 anlg-api-nango = { path = "crates/api-nango", package = "api-nango" }
 anlg-api-notion = { path = "crates/api-notion", package = "api-notion" }
@@ -134,6 +135,7 @@ anlg-loops = { path = "crates/loops", package = "loops" }
 anlg-mac = { path = "crates/mac", package = "mac" }
 anlg-mcp = { path = "crates/mcp", package = "mcp" }
 anlg-meeting-capture = { path = "crates/meeting-capture", package = "meeting-capture" }
+anlg-meeting-import = { path = "crates/meeting-import", package = "meeting-import" }
 anlg-mobile-bridge = { path = "crates/mobile-bridge", package = "mobile-bridge" }
 anlg-model-downloader = { path = "crates/model-downloader", package = "model-downloader" }
 anlg-model-manager = { path = "crates/model-manager", package = "model-manager" }

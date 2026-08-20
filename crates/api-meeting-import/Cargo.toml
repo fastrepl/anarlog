@@ -1,5 +1,5 @@
 [package]
-name = "api-notion"
+name = "api-meeting-import"
 version = "0.1.0"
 edition = "2024"
 
@@ -11,8 +11,10 @@ anlg-meeting-import = { workspace = true }
 anlg-nango = { workspace = true }
 
 axum = { workspace = true }
-reqwest = { workspace = true, features = ["json"] }
+chrono = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+url = { workspace = true }
+urlencoding = { workspace = true }
 utoipa = { workspace = true }

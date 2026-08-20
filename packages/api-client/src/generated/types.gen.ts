@@ -884,6 +884,22 @@ export type IdentifyRequest = {
 
 export type IdentifyRequestModel = 'precision-2';
 
+export type ImportMeetingsRequest = {
+    connection_id: string;
+    known_meeting_ids?: Array<string>;
+};
+
+export type ImportMeetingsResponse = {
+    files: Array<ImportTextFile>;
+    warnings: Array<string>;
+};
+
+export type ImportTextFile = {
+    content: string;
+    name: string;
+    path: string;
+};
+
 export type Importance = 'low' | 'normal' | 'high' | 'unknown';
 
 export type Interval = 'monthly' | 'yearly';
@@ -1182,6 +1198,22 @@ export type NotionAppendUpdateRequest = {
 
 export type NotionAppendUpdateResponse = {
     block_count: number;
+};
+
+export type NotionImportMeetingsRequest = {
+    connection_id: string;
+    known_meeting_ids?: Array<string>;
+};
+
+export type NotionImportMeetingsResponse = {
+    files: Array<NotionImportTextFile>;
+    warnings: Array<string>;
+};
+
+export type NotionImportTextFile = {
+    content: string;
+    name: string;
+    path: string;
 };
 
 export type NotionPage = {
@@ -2223,6 +2255,60 @@ export type OutlookListEventsResponses = {
 
 export type OutlookListEventsResponse2 = OutlookListEventsResponses[keyof OutlookListEventsResponses];
 
+export type FathomImportMeetingsData = {
+    body: ImportMeetingsRequest;
+    path?: never;
+    query?: never;
+    url: '/fathom/import-meetings';
+};
+
+export type FathomImportMeetingsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type FathomImportMeetingsResponses = {
+    /**
+     * Fathom meetings fetched for import
+     */
+    200: ImportMeetingsResponse;
+};
+
+export type FathomImportMeetingsResponse = FathomImportMeetingsResponses[keyof FathomImportMeetingsResponses];
+
+export type GoogleMeetImportMeetingsData = {
+    body: ImportMeetingsRequest;
+    path?: never;
+    query?: never;
+    url: '/google-meet/import-meetings';
+};
+
+export type GoogleMeetImportMeetingsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type GoogleMeetImportMeetingsResponses = {
+    /**
+     * Google Meet meetings fetched for import
+     */
+    200: ImportMeetingsResponse;
+};
+
+export type GoogleMeetImportMeetingsResponse = GoogleMeetImportMeetingsResponses[keyof GoogleMeetImportMeetingsResponses];
+
 export type LlmChatCompletionsData = {
     body?: never;
     headers?: {
@@ -2536,6 +2622,33 @@ export type SendSlackMessageResponses = {
 
 export type SendSlackMessageResponse = SendSlackMessageResponses[keyof SendSlackMessageResponses];
 
+export type MicrosoftTeamsImportMeetingsData = {
+    body: ImportMeetingsRequest;
+    path?: never;
+    query?: never;
+    url: '/microsoft-teams/import-meetings';
+};
+
+export type MicrosoftTeamsImportMeetingsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type MicrosoftTeamsImportMeetingsResponses = {
+    /**
+     * Microsoft Teams meetings fetched for import
+     */
+    200: ImportMeetingsResponse;
+};
+
+export type MicrosoftTeamsImportMeetingsResponse = MicrosoftTeamsImportMeetingsResponses[keyof MicrosoftTeamsImportMeetingsResponses];
+
 export type DeleteConnectionData = {
     body: DeleteConnectionRequest;
     path?: never;
@@ -2705,6 +2818,33 @@ export type NotionAppendUpdateResponses = {
 };
 
 export type NotionAppendUpdateResponse2 = NotionAppendUpdateResponses[keyof NotionAppendUpdateResponses];
+
+export type NotionImportMeetingsData = {
+    body: NotionImportMeetingsRequest;
+    path?: never;
+    query?: never;
+    url: '/notion/import-meetings';
+};
+
+export type NotionImportMeetingsErrors = {
+    /**
+     * Authentication required
+     */
+    401: unknown;
+    /**
+     * Notion connection unavailable
+     */
+    500: unknown;
+};
+
+export type NotionImportMeetingsResponses = {
+    /**
+     * Notion meeting notes fetched for import
+     */
+    200: NotionImportMeetingsResponse;
+};
+
+export type NotionImportMeetingsResponse2 = NotionImportMeetingsResponses[keyof NotionImportMeetingsResponses];
 
 export type NotionSearchPagesData = {
     body: NotionSearchPagesRequest;
@@ -5178,6 +5318,33 @@ export type PublishSnapshotResponses = {
 };
 
 export type PublishSnapshotResponse = PublishSnapshotResponses[keyof PublishSnapshotResponses];
+
+export type WebexImportMeetingsData = {
+    body: ImportMeetingsRequest;
+    path?: never;
+    query?: never;
+    url: '/webex/import-meetings';
+};
+
+export type WebexImportMeetingsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Internal server error
+     */
+    500: unknown;
+};
+
+export type WebexImportMeetingsResponses = {
+    /**
+     * Webex meetings fetched for import
+     */
+    200: ImportMeetingsResponse;
+};
+
+export type WebexImportMeetingsResponse = WebexImportMeetingsResponses[keyof WebexImportMeetingsResponses];
 
 export type ZoomImportMeetingsData = {
     body: ZoomImportMeetingsRequest;

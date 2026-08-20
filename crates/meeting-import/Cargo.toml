@@ -1,0 +1,18 @@
+[package]
+name = "meeting-import"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anlg-http = { workspace = true }
+anlg-zoom = { workspace = true }
+
+chrono = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+urlencoding = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

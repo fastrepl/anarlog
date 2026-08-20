@@ -5,6 +5,7 @@ use utoipa::OpenApi;
     paths(
         crate::routes::notion::search_pages,
         crate::routes::notion::append_update,
+        crate::routes::notion::import_meetings,
     ),
     components(schemas(
         crate::routes::notion::NotionSearchPagesRequest,
@@ -12,6 +13,9 @@ use utoipa::OpenApi;
         crate::routes::notion::NotionPagesResponse,
         crate::routes::notion::NotionAppendUpdateRequest,
         crate::routes::notion::NotionAppendUpdateResponse,
+        crate::routes::notion::NotionImportMeetingsRequest,
+        crate::routes::notion::NotionImportMeetingsResponse,
+        crate::routes::notion::NotionImportTextFile,
     )),
     tags(
         (name = "notion", description = "Notion integration")

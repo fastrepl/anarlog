@@ -68,6 +68,31 @@ export const INTEGRATION_DISPLAY: Record<
       "Review how Anarlog uses Zoom cloud recordings, then continue to Zoom",
     connectingHint: "Finish authorization with Zoom, then return to Anarlog",
   },
+  fathom: {
+    name: "Fathom",
+    description:
+      "Review how Anarlog uses Fathom meeting recordings, then continue to Fathom",
+    connectingHint: "Finish authorization with Fathom, then return to Anarlog",
+  },
+  webex: {
+    name: "Webex",
+    description:
+      "Review how Anarlog uses Webex meeting transcripts, then continue to Webex",
+    connectingHint: "Finish authorization with Webex, then return to Anarlog",
+  },
+  "google-meet": {
+    name: "Google Meet",
+    description:
+      "Review how Anarlog uses Google Meet transcripts, then continue to Google",
+    connectingHint: "Finish authorization with Google, then return to Anarlog",
+  },
+  "microsoft-teams": {
+    name: "Microsoft Teams",
+    description:
+      "Review how Anarlog uses Teams meeting transcripts, then continue to Microsoft",
+    connectingHint:
+      "Finish authorization with Microsoft, then return to Anarlog",
+  },
 };
 
 export function getIntegrationDisplay(integrationId: string) {

@@ -566,6 +566,7 @@ dependencies = [
  "api-cloud",
  "api-env",
  "api-mail",
+ "api-meeting-import",
  "api-messenger",
  "api-nango",
  "api-notion",
@@ -748,6 +749,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "api-meeting-import"
+version = "0.1.0"
+dependencies = [
+ "api-auth",
+ "api-error",
+ "api-nango",
+ "axum 0.8.9",
+ "chrono",
+ "meeting-import",
+ "nango",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "url",
+ "urlencoding",
+ "utoipa",
+]
+
+[[package]]
 name = "api-messenger"
 version = "0.1.0"
 dependencies = [
@@ -795,6 +815,9 @@ dependencies = [
  "api-error",
  "api-nango",
  "axum 0.8.9",
+ "meeting-import",
+ "nango",
+ "reqwest 0.13.2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
@@ -11210,6 +11233,21 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "meeting-import"
+version = "0.1.0"
+dependencies = [
+ "anlg-http-utils",
+ "chrono",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "url",
+ "urlencoding",
+ "zoom",
 ]
 
 [[package]]

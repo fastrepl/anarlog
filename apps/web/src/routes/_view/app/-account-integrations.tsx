@@ -24,6 +24,10 @@ const INTEGRATION_NAMES: Record<string, string> = {
   slack: "Slack",
   notion: "Notion",
   zoom: "Zoom",
+  fathom: "Fathom",
+  webex: "Webex",
+  "google-meet": "Google Meet",
+  "microsoft-teams": "Microsoft Teams",
 };
 
 const INTEGRATION_ICONS: Record<string, ReactNode> = {
@@ -36,6 +40,12 @@ const INTEGRATION_ICONS: Record<string, ReactNode> = {
   slack: <Icon icon="logos:slack-icon" width="20" height="20" />,
   notion: <Icon icon="logos:notion-icon" width="20" height="20" />,
   zoom: <Icon icon="logos:zoom-icon" width="20" height="20" />,
+  fathom: <Icon icon="simple-icons:fathom" width="20" height="20" />,
+  webex: <Icon icon="simple-icons:cisco" width="20" height="20" />,
+  "google-meet": <Icon icon="logos:google-meet" width="20" height="20" />,
+  "microsoft-teams": (
+    <Icon icon="logos:microsoft-teams" width="20" height="20" />
+  ),
 };
 
 const connectionsQueryKey = ["account-integrations"];

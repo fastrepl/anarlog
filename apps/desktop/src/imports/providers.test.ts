@@ -13,7 +13,7 @@ describe("meeting import providers", () => {
     ).toBe(MEETING_IMPORT_PROVIDERS.length);
   });
 
-  it("enables direct OAuth imports for MCP providers and Zoom", () => {
+  it("enables direct OAuth imports for MCP providers and Nango meeting sources", () => {
     expect(
       MEETING_IMPORT_PROVIDERS.filter((provider) => provider.directImport).map(
         (provider) => provider.id,
@@ -23,11 +23,16 @@ describe("meeting import providers", () => {
       "circleback",
       "fireflies",
       "krisp",
+      "fathom",
       "read-ai",
+      "notion",
       "fellow",
       "tactiq",
       "jiminny",
       "zoom",
+      "microsoft-teams",
+      "google-meet",
+      "webex",
     ]);
     expect(
       MEETING_IMPORT_PROVIDERS.find((provider) => provider.id === "zoom"),
@@ -35,6 +40,18 @@ describe("meeting import providers", () => {
       directImport: "nango-oauth",
       nangoIntegrationId: "zoom",
     });
+    expect(
+      MEETING_IMPORT_PROVIDERS.filter(
+        (provider) => provider.directImport === "nango-oauth",
+      ).map((provider) => provider.nangoIntegrationId),
+    ).toEqual([
+      "fathom",
+      "notion",
+      "zoom",
+      "microsoft-teams",
+      "google-meet",
+      "webex",
+    ]);
   });
 
   it("detects exact native names and bundle identifiers", () => {
@@ -46,10 +63,12 @@ describe("meeting import providers", () => {
     expect(providers.map((provider) => provider.id)).toEqual([
       "granola",
       "microsoft-teams",
+      "google-meet",
     ]);
     expect(providers.map((provider) => provider.installedAppId)).toEqual([
       "com.granola.app",
       "com.microsoft.teams2",
+      "google-meet",
     ]);
   });
 
@@ -57,15 +76,15 @@ describe("meeting import providers", () => {
     expect(
       detectMeetingImportProviders([
         { id: "com.granola.app.helper", name: "Something Else" },
-      ]),
-    ).toEqual([]);
+      ]).map((provider) => provider.id),
+    ).toEqual(["google-meet"]);
   });
 
   it("does not infer extension-only products from a browser", () => {
     expect(
       detectMeetingImportProviders([
         { id: "com.google.Chrome", name: "Google Chrome" },
-      ]),
-    ).toEqual([]);
+      ]).map((provider) => provider.id),
+    ).toEqual(["google-meet"]);
   });
 });

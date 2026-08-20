@@ -21,6 +21,10 @@ use utoipa::{Modify, OpenApi};
         (name = "notion", description = "Notion integration"),
         (name = "ticket", description = "Ticket management"),
         (name = "zoom", description = "Zoom meeting import"),
+        (name = "fathom", description = "Fathom meeting import"),
+        (name = "webex", description = "Webex meeting import"),
+        (name = "google-meet", description = "Google Meet meeting import"),
+        (name = "microsoft-teams", description = "Microsoft Teams meeting import"),
         (name = "nango", description = "Integration management via Nango"),
         (name = "sync", description = "CloudSync credential management"),
         (name = "shared-notes", description = "Public shared-note delivery"),
@@ -43,6 +47,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let notion_doc = with_path_prefix(anlg_api_notion::openapi(), "/notion");
     let ticket_doc = with_path_prefix(anlg_api_ticket::openapi(), "/ticket");
     let zoom_doc = with_path_prefix(anlg_api_zoom::openapi(), "/zoom");
+    let meeting_import_doc = anlg_api_meeting_import::openapi();
     let nango_doc = with_path_prefix(anlg_api_nango::openapi(), "/nango");
     let subscription_doc = with_path_prefix(anlg_api_subscription::openapi(), "/subscription");
     let sync_doc = with_path_prefix(anlg_api_sync::openapi(), "/sync");
@@ -59,6 +64,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     doc.merge(notion_doc);
     doc.merge(ticket_doc);
     doc.merge(zoom_doc);
+    doc.merge(meeting_import_doc);
     doc.merge(nango_doc);
     doc.merge(subscription_doc);
     doc.merge(sync_doc);
@@ -140,6 +146,11 @@ fn apply_bearer_auth_to_protected_paths(doc: &mut utoipa::openapi::OpenApi) {
             || path.starts_with("/mail")
             || path.starts_with("/ticket")
             || path.starts_with("/zoom")
+            || path.starts_with("/fathom")
+            || path.starts_with("/webex")
+            || path.starts_with("/google-meet")
+            || path.starts_with("/microsoft-teams")
+            || path.starts_with("/notion")
             || path.starts_with("/subscription")
             || path.starts_with("/nango")
             || path.starts_with("/pyannote")
@@ -296,6 +307,20 @@ mod tests {
             doc.paths.paths.get("/zoom/import-meetings").unwrap(),
             "post",
         );
+    }
+
+    #[test]
+    fn nango_meeting_import_paths_are_protected() {
+        let doc = super::openapi();
+        for path in [
+            "/fathom/import-meetings",
+            "/webex/import-meetings",
+            "/google-meet/import-meetings",
+            "/microsoft-teams/import-meetings",
+            "/notion/import-meetings",
+        ] {
+            assert_bearer(doc.paths.paths.get(path).unwrap(), "post");
+        }
     }
 
     #[test]
