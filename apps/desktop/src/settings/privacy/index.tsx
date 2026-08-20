@@ -1,4 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
+import { platform } from "@tauri-apps/plugin-os";
 import { useEffect } from "react";
 
 import { DEVICE_AUTH_REASON } from "~/lock/auth";
@@ -43,6 +44,11 @@ export function SettingsPrivacy() {
   );
   const lockAppEnabled = resolveConfigValue("lock_app", settingsQuery.data);
   const authAvailable = available === true;
+  const lockAppDescription = !authAvailable
+    ? t`Device authentication is not available on this computer.`
+    : platform() === "windows"
+      ? t`Require Windows Hello face, PIN, or password when opening Anarlog.`
+      : t`Require Touch ID or your password when opening Anarlog.`;
 
   return (
     <div className="flex flex-col gap-8">
@@ -51,11 +57,7 @@ export function SettingsPrivacy() {
       <section className="flex flex-col gap-4">
         <SettingSwitchRow
           title={t`Lock app`}
-          description={
-            authAvailable
-              ? t`Require device authentication when opening Anarlog.`
-              : t`Device authentication is not available on this computer.`
-          }
+          description={lockAppDescription}
           checked={lockAppEnabled && authAvailable}
           disabled={!authAvailable || authenticating}
           onChange={(next) => {

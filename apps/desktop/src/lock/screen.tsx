@@ -8,11 +8,13 @@ import { cn } from "@anlg/utils";
 export function LockScreen({
   title,
   description,
+  action,
   authenticating,
   onUnlock,
 }: {
   title: string;
   description?: string;
+  action?: string;
   authenticating: boolean;
   onUnlock: () => void;
 }) {
@@ -40,6 +42,8 @@ export function LockScreen({
         >
           {authenticating ? (
             <Trans>Authenticating…</Trans>
+          ) : action ? (
+            action
           ) : (
             <Trans>Unlock</Trans>
           )}
@@ -53,9 +57,9 @@ export function useDeviceAuthHint() {
   const { t } = useLingui();
   switch (platform()) {
     case "macos":
-      return t`Touch ID or enter your password to allow this.`;
+      return t`Use Touch ID or enter your password to view.`;
     case "windows":
-      return t`Use Windows Hello to allow this.`;
+      return t`Use Windows Hello face, PIN, or password to view.`;
     default:
       return t`Authenticate to continue.`;
   }
@@ -74,8 +78,9 @@ export function NoteLockScreen({
   const hint = useDeviceAuthHint();
   return (
     <LockScreen
-      title={sessionTitle || t`Locked Note`}
+      title={sessionTitle || t`Note is Locked`}
       description={hint}
+      action={t`View Note`}
       authenticating={authenticating}
       onUnlock={onUnlock}
     />

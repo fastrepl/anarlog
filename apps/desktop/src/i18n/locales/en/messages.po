@@ -321,10 +321,6 @@ msgstr "Anagram"
 msgid "Analyzing structure..."
 msgstr "Analyzing structure..."
 
-#: src/lock/gate.tsx
-msgid "Anarlog"
-msgstr "Anarlog"
-
 #. placeholder {0}: update.version
 #: src/sidebar/toast/registry.tsx
 msgid "Anarlog {0} is available"
@@ -370,6 +366,10 @@ msgstr "Anarlog couldn't read cloud sync status. Your notes are still available 
 #: src/settings/general/account.tsx
 msgid "Anarlog couldn't sign you out. Try again."
 msgstr "Anarlog couldn't sign you out. Try again."
+
+#: src/lock/gate.tsx
+msgid "Anarlog is Locked"
+msgstr "Anarlog is Locked"
 
 #: src/main/sync-status.tsx
 msgid "Anarlog is repairing cloud sync in the background. Your notes remain available locally."
@@ -2390,10 +2390,6 @@ msgstr "Lock Note"
 msgid "Locked note"
 msgstr "Locked note"
 
-#: src/lock/screen.tsx
-msgid "Locked Note"
-msgstr "Locked Note"
-
 #: src/onboarding/account/before-login.tsx
 msgid "Login"
 msgstr "Login"
@@ -2822,6 +2818,10 @@ msgstr "not receiving events"
 #: src/sidebar/toast/undo-delete-toast.tsx
 msgid "note"
 msgstr "note"
+
+#: src/lock/screen.tsx
+msgid "Note is Locked"
+msgstr "Note is Locked"
 
 #: src/settings/appearance/app-icon.tsx
 msgid "Notepad"
@@ -3387,8 +3387,12 @@ msgid "Requested {0}"
 msgstr "Requested {0}"
 
 #: src/settings/privacy/index.tsx
-msgid "Require device authentication when opening Anarlog."
-msgstr "Require device authentication when opening Anarlog."
+msgid "Require Touch ID or your password when opening Anarlog."
+msgstr "Require Touch ID or your password when opening Anarlog."
+
+#: src/settings/privacy/index.tsx
+msgid "Require Windows Hello face, PIN, or password when opening Anarlog."
+msgstr "Require Windows Hello face, PIN, or password when opening Anarlog."
 
 #: src/settings/team/index.tsx
 msgid "Resend invitation"
@@ -4422,10 +4426,6 @@ msgstr "Tomorrow"
 msgid "Too many uploads are waiting. Open an existing upload and try again."
 msgstr "Too many uploads are waiting. Open an existing upload and try again."
 
-#: src/lock/screen.tsx
-msgid "Touch ID or enter your password to allow this."
-msgstr "Touch ID or enter your password to allow this."
-
 #: src/settings/general/spoken-languages.tsx
 msgid "Transcribe meetings that use more than one language."
 msgstr "Transcribe meetings that use more than one language."
@@ -4721,8 +4721,12 @@ msgid "Use this language for summaries and AI responses."
 msgstr "Use this language for summaries and AI responses."
 
 #: src/lock/screen.tsx
-msgid "Use Windows Hello to allow this."
-msgstr "Use Windows Hello to allow this."
+msgid "Use Touch ID or enter your password to view."
+msgstr "Use Touch ID or enter your password to view."
+
+#: src/lock/screen.tsx
+msgid "Use Windows Hello face, PIN, or password to view."
+msgstr "Use Windows Hello face, PIN, or password to view."
 
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
@@ -4736,9 +4740,17 @@ msgstr "Verifying the SQLite migration status"
 msgid "View"
 msgstr "View"
 
+#: src/lock/gate.tsx
+msgid "View Anarlog"
+msgstr "View Anarlog"
+
 #: src/contacts/organization-details.tsx
 msgid "View LinkedIn profile"
 msgstr "View LinkedIn profile"
+
+#: src/lock/screen.tsx
+msgid "View Note"
+msgstr "View Note"
 
 #: src/settings/sync/index.tsx
 msgid "View plans"
