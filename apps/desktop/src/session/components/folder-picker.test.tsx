@@ -32,6 +32,29 @@ describe("FolderPicker", () => {
     cleanup();
   });
 
+  it("shows only a standard-sized folder icon when no folder is selected", () => {
+    render(<FolderPicker sessionId="session-1" />);
+
+    const trigger = screen.getByRole("combobox", { name: "Select folder" });
+    const icons = trigger.querySelectorAll("svg");
+
+    expect(trigger.textContent).toBe("");
+    expect(trigger.className).toContain("w-7");
+    expect(icons).toHaveLength(1);
+    expect(icons[0]?.getAttribute("class")).toContain("size-4");
+  });
+
+  it("shows the selected folder name without a chevron", () => {
+    mocks.folderId = "work";
+
+    render(<FolderPicker sessionId="session-1" />);
+
+    const trigger = screen.getByRole("combobox", { name: "Folder: work" });
+
+    expect(trigger.textContent).toBe("work");
+    expect(trigger.querySelectorAll("svg")).toHaveLength(1);
+  });
+
   it("lets the user select an existing folder for the current note", async () => {
     render(<FolderPicker sessionId="session-1" />);
 

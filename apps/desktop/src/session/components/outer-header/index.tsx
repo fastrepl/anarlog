@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { CaretDown, Headset, Square, VideoCamera } from "@phosphor-icons/react";
+import { Headset, Square, VideoCamera } from "@phosphor-icons/react";
 import { useCallback, useRef, useState } from "react";
 
 import { commands as deeplinkCommands } from "@anlg/plugin-deeplink2";
@@ -73,7 +73,7 @@ export function OuterHeader({
         "h-12",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
+          (showWindowControlsGutter ? "pl-[116px]" : "pl-[48px]"),
       ])}
     >
       {viewSwitcher}
@@ -91,6 +91,7 @@ export function OuterHeader({
           hideStop={embedStopInViewSwitcher}
         />
         <FolderPicker sessionId={sessionId} align="end" />
+        <MetadataButton sessionId={sessionId} />
         <SessionShareButton key={sessionId} sessionId={sessionId} />
         <OverflowButton
           standaloneWindow={standaloneWindow}
@@ -134,15 +135,10 @@ function HeaderMeetingControl({
 
   if (canEditTranscript) {
     return (
-      <>
-        <TranscriptEditButton
-          editMode={transcriptEditMode}
-          onEditModeChange={onTranscriptEditModeChange}
-        />
-        <div className="shrink-0">
-          <MetadataButton sessionId={sessionId} />
-        </div>
-      </>
+      <TranscriptEditButton
+        editMode={transcriptEditMode}
+        onEditModeChange={onTranscriptEditModeChange}
+      />
     );
   }
 
@@ -155,11 +151,7 @@ function HeaderMeetingControl({
 
   if (!sessionEvent && !isRecording) {
     if (hasTranscript || audioExists) {
-      return (
-        <div className="shrink-0">
-          <MetadataButton sessionId={sessionId} />
-        </div>
-      );
+      return null;
     }
 
     if (sessionMode === "finalizing") {
@@ -183,19 +175,11 @@ function HeaderMeetingControl({
     sessionEvent &&
     (hasTranscript || audioExists)
   ) {
-    return (
-      <div className="shrink-0">
-        <MetadataButton sessionId={sessionId} />
-      </div>
-    );
+    return null;
   }
 
   if (ended && !isRecording) {
-    return (
-      <div className="shrink-0">
-        <MetadataButton sessionId={sessionId} />
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -355,59 +339,30 @@ function HeaderMeetingActionPill({
     <Popover open={showWelcomeDemoPrompt}>
       <div className="relative mr-1 flex min-w-0 shrink-0 items-center">
         <PopoverAnchor asChild>
-          <div
+          <button
+            type="button"
+            data-tauri-drag-region="false"
+            aria-label={action.label}
+            title={action.title}
+            disabled={disabled}
+            onClick={action.onClick}
             className={cn([
-              "flex h-7 max-w-56 shrink-0 items-center overflow-hidden rounded-full border",
+              "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border px-1.5",
+              "text-sm font-medium",
+              "transition-colors",
               isJoinAction
                 ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
                 : "border-border bg-card text-foreground",
+              !disabled &&
+                (isJoinAction
+                  ? "hover:bg-primary/90 dark:hover:bg-white/90"
+                  : "hover:bg-accent"),
+              disabled && "cursor-default opacity-60",
             ])}
           >
-            <button
-              type="button"
-              data-tauri-drag-region="false"
-              aria-label={action.label}
-              title={action.title}
-              disabled={disabled}
-              onClick={action.onClick}
-              className={cn([
-                "flex h-full min-w-0 items-center gap-1.5 py-0 pr-1.5 pl-1.5",
-                "text-sm font-medium",
-                "transition-colors",
-                !disabled &&
-                  (isJoinAction
-                    ? "hover:bg-primary/90 dark:hover:bg-white/90"
-                    : "hover:bg-accent"),
-                disabled && "cursor-default opacity-60",
-              ])}
-            >
-              {action.icon}
-              <span className="truncate">{action.label}</span>
-            </button>
-            <MetadataButton
-              sessionId={sessionId}
-              renderTrigger={({ open, label: metadataLabel }) => (
-                <button
-                  type="button"
-                  data-tauri-drag-region="false"
-                  aria-label={metadataLabel}
-                  title={metadataLabel}
-                  className={cn([
-                    "flex h-full w-5 shrink-0 items-center justify-center transition-colors",
-                    isJoinAction
-                      ? "text-primary-foreground/70 hover:bg-primary-foreground/14 hover:text-primary-foreground dark:text-black/70 dark:hover:bg-black/8 dark:hover:text-black"
-                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
-                    open &&
-                      (isJoinAction
-                        ? "bg-primary-foreground/14 text-primary-foreground dark:bg-black/8 dark:text-black"
-                        : "bg-accent text-foreground"),
-                  ])}
-                >
-                  <CaretDown size={14} />
-                </button>
-              )}
-            />
-          </div>
+            {action.icon}
+            <span className="truncate">{action.label}</span>
+          </button>
         </PopoverAnchor>
         {showWelcomeDemoPrompt ? (
           <PopoverContent

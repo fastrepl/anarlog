@@ -1,12 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
-import { CaretDown, Square } from "@phosphor-icons/react";
+import { Square } from "@phosphor-icons/react";
 import { useCallback } from "react";
-
-import { cn } from "@anlg/utils";
 
 import { iconHeaderViewClassName } from "./header-shared";
 
-import { MetadataButton } from "~/session/components/outer-header/metadata";
 import { useListener } from "~/stt/contexts";
 import {
   isMainWebviewWindow,
@@ -59,27 +56,6 @@ export function HeaderViewStop({ sessionId }: { sessionId: string }) {
         <Square className="size-3 text-red-500" weight="fill" />
         <span className="min-w-0 truncate text-xs font-medium">{label}</span>
       </button>
-      <MetadataButton
-        sessionId={sessionId}
-        renderTrigger={({ open, label: metadataLabel }) => (
-          <button
-            type="button"
-            data-tauri-drag-region="false"
-            aria-label={metadataLabel}
-            title={metadataLabel}
-            className={cn([
-              "flex h-full w-5 shrink-0 items-center justify-center rounded-full transition-colors",
-              "text-muted-foreground/70",
-              "hover:bg-background/60 hover:text-foreground",
-              "dark:hover:bg-accent/80 dark:hover:text-foreground",
-              open &&
-                "bg-background/60 text-foreground dark:bg-accent/80 dark:text-foreground",
-            ])}
-          >
-            <CaretDown size={14} />
-          </button>
-        )}
-      />
     </div>
   );
 }

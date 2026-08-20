@@ -1,5 +1,5 @@
 import { CalendarBlank, MapPin, VideoCamera } from "@phosphor-icons/react";
-import { forwardRef, type ReactElement, useState } from "react";
+import { forwardRef, useState } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -17,13 +17,7 @@ import { ParticipantsDisplay } from "./participants";
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useConfigValue } from "~/shared/config";
 
-export function MetadataButton({
-  sessionId,
-  renderTrigger,
-}: {
-  sessionId: string;
-  renderTrigger?: (props: { open: boolean; label: string }) => ReactElement;
-}) {
+export function MetadataButton({ sessionId }: { sessionId: string }) {
   const [open, setOpen] = useState(false);
   const sessionEvent = useSessionEvent(sessionId);
   const label = sessionEvent ? "Open event metadata" : "Open note metadata";
@@ -31,11 +25,7 @@ export function MetadataButton({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        {renderTrigger ? (
-          renderTrigger({ open, label })
-        ) : (
-          <TriggerInner label={label} open={open} />
-        )}
+        <TriggerInner label={label} open={open} />
       </PopoverTrigger>
       <PopoverContent
         variant="app"

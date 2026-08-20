@@ -5,7 +5,6 @@ import {
   render,
   screen,
 } from "@testing-library/react";
-import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -53,22 +52,15 @@ vi.mock("../folder-picker", () => ({
 }));
 
 vi.mock("./metadata", () => ({
-  MetadataButton: ({
-    renderTrigger,
-  }: {
-    renderTrigger?: (props: { open: boolean; label: string }) => ReactElement;
-  }) =>
-    renderTrigger ? (
-      renderTrigger({ open: false, label: "Open event metadata" })
-    ) : (
-      <button
-        type="button"
-        data-tauri-drag-region="false"
-        aria-label="Open event metadata"
-      >
-        <svg aria-hidden="true" data-testid="metadata-calendar-icon" />
-      </button>
-    ),
+  MetadataButton: () => (
+    <button
+      type="button"
+      data-tauri-drag-region="false"
+      aria-label="Open event metadata"
+    >
+      <svg aria-hidden="true" data-testid="metadata-calendar-icon" />
+    </button>
+  ),
 }));
 
 vi.mock("./overflow", () => ({
@@ -262,7 +254,7 @@ describe("OuterHeader", () => {
     const header = container.firstElementChild;
     const spacer = header?.firstElementChild;
 
-    expect(header?.className).toContain("pl-[156px]");
+    expect(header?.className).toContain("pl-[116px]");
     expect(header?.className).toContain("h-12");
     expect(header?.className).not.toContain("pb-1");
     expect(spacer?.className).toContain("flex-1");
@@ -324,7 +316,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
-    expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
   });
 
   it("keeps the session header at 48px tall", () => {
@@ -355,7 +347,7 @@ describe("OuterHeader", () => {
     expect(actionStrip?.hasAttribute("data-tauri-drag-region")).toBe(true);
   });
 
-  it("places tabs on the left and the folder picker after the calendar control", () => {
+  it("places the folder, calendar, and share controls in order", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     const { container } = render(
@@ -376,15 +368,22 @@ describe("OuterHeader", () => {
     const calendar = screen.getByRole("button", {
       name: "Open event metadata",
     });
+    const share = screen.getByRole("button", { name: "Share" });
     const actionStrip = header?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
 
     expect(header?.firstElementChild).toBe(views);
     expect(actionStrip?.contains(folder)).toBe(true);
     expect(actionStrip?.contains(calendar)).toBe(true);
-    expect(actionChildren.indexOf(folder)).toBeGreaterThan(
+    expect(actionStrip?.contains(share)).toBe(true);
+    expect(
+      actionChildren.findIndex((child) => child.contains(folder)),
+    ).toBeLessThan(
       actionChildren.findIndex((child) => child.contains(calendar)),
     );
+    expect(
+      actionChildren.findIndex((child) => child.contains(calendar)),
+    ).toBeLessThan(actionChildren.findIndex((child) => child.contains(share)));
   });
 
   it("keeps the dedicated stop button hidden while the sidebar is expanded", () => {
@@ -437,7 +436,7 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
 
-    expect(header?.className).not.toContain("pl-[156px]");
+    expect(header?.className).not.toContain("pl-[116px]");
     expect(header?.className).toContain("pl-[76px]");
   });
 
@@ -487,19 +486,17 @@ describe("OuterHeader", () => {
     const metadataButton = screen.getByRole("button", {
       name: "Open event metadata",
     });
-    const actionPill = joinButton.parentElement;
 
-    expect(actionPill?.className).toContain("bg-primary");
-    expect(actionPill?.className).toContain("dark:bg-white");
-    expect(actionPill?.className).toContain("dark:text-black");
+    expect(joinButton.className).toContain("bg-primary");
+    expect(joinButton.className).toContain("dark:bg-white");
+    expect(joinButton.className).toContain("dark:text-black");
     expect(joinButton.className).toContain("hover:bg-primary/90");
     expect(joinButton.className).toContain("dark:hover:bg-white/90");
-    expect(metadataButton.className).toContain("text-primary-foreground/70");
-    expect(metadataButton.className).toContain("dark:text-black/70");
     expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
     expect(joinButton.textContent).toContain("Join & record");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
+    expect(joinButton.parentElement?.contains(metadataButton)).toBe(false);
 
     fireEvent.click(joinButton);
 
@@ -843,8 +840,8 @@ describe("OuterHeader", () => {
 
     const recordButton = screen.getByRole("button", { name: "Record" });
 
-    expect(recordButton.parentElement?.className).toContain("bg-card");
-    expect(recordButton.parentElement?.className).not.toContain("bg-primary");
+    expect(recordButton.className).toContain("bg-card");
+    expect(recordButton.className).not.toContain("bg-primary");
     expect(recordButton.querySelector("span")?.className).not.toContain(
       "@max-[480px]:sr-only",
     );
@@ -905,6 +902,7 @@ describe("OuterHeader", () => {
 
     expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
     expect(screen.getByText("tabs")).not.toBeNull();
+    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
   });
 
   it("keeps stop available for an active ad hoc session", () => {
@@ -978,7 +976,7 @@ describe("OuterHeader", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
-    expect(screen.queryByTestId("metadata-calendar-icon")).toBeNull();
+    expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
     expect(mocks.stopListening).toHaveBeenCalledTimes(1);
   });
 

@@ -598,7 +598,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             sharePopoverOpen && "bg-accent text-foreground",
           ])}
         >
-          <ShareNetwork className="size-3.5" aria-hidden="true" />
+          <ShareNetwork className="size-4" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       {showUpgradePrompt ? (

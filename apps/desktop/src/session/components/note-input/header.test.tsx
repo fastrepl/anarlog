@@ -6,7 +6,6 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorView } from "~/store/zustand/tabs/schema";
@@ -159,21 +158,6 @@ vi.mock("~/ai/hooks", () => ({
 
 vi.mock("~/session/enhance-config", () => ({
   shouldShowEmptySummaryConfigError: () => false,
-}));
-
-vi.mock("~/session/components/outer-header/metadata", () => ({
-  MetadataButton: ({
-    renderTrigger,
-  }: {
-    renderTrigger?: (props: { open: boolean; label: string }) => ReactElement;
-  }) =>
-    renderTrigger ? (
-      renderTrigger({ open: false, label: "Open event metadata" })
-    ) : (
-      <button type="button" aria-label="Open event metadata">
-        Metadata
-      </button>
-    ),
 }));
 
 vi.mock("~/session/components/shared", () => ({
@@ -983,8 +967,8 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Memos" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
     expect(
-      screen.getByRole("button", { name: "Open event metadata" }),
-    ).not.toBeNull();
+      screen.queryByRole("button", { name: "Open event metadata" }),
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 

@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { CaretDown, Check, Folder, Plus } from "@phosphor-icons/react";
+import { Check, Folder, Plus } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -98,23 +98,21 @@ export function FolderPicker({
           }
           title={currentPath ? currentPath : t`Select folder`}
           className={cn([
-            "flex h-7 max-w-full min-w-0 items-center gap-1 rounded-full px-1.5",
+            "flex h-7 items-center rounded-full",
+            currentPath
+              ? "max-w-full min-w-0 gap-1 px-1.5"
+              : "w-7 justify-center",
             "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
             "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-hidden",
             open && "bg-accent text-foreground",
           ])}
         >
-          <Folder className="size-3.5 shrink-0" />
+          <Folder className="size-4 shrink-0" aria-hidden="true" />
           {currentPath ? (
             <span className="min-w-0 truncate text-xs text-neutral-600 dark:text-neutral-300">
               {currentPath}
             </span>
-          ) : (
-            <span className="text-muted-foreground truncate text-xs">
-              {t`Select folder`}
-            </span>
-          )}
-          <CaretDown className="size-3 shrink-0 opacity-70" />
+          ) : null}
         </button>
       </PopoverTrigger>
       <PopoverContent variant="app" align={align} className="w-64 p-0">
