@@ -33,6 +33,14 @@ test("falls back to the tab param, then Account", () => {
   assert.equal(resolveAccountTab({}), "account");
 });
 
+test("an empty hash after a tab click does not override the tab param", () => {
+  assert.equal(
+    resolveAccountTab({ tab: "connections", hash: "" }),
+    "connections",
+  );
+  assert.equal(resolveAccountTab({ tab: "developer", hash: "#" }), "developer");
+});
+
 test("lists the sections for a tab in page order", () => {
   assert.deepEqual(
     sectionsForAccountTab("account").map((section) => section.id),

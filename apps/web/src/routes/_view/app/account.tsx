@@ -131,18 +131,14 @@ function Component() {
   }, [activeTab, hash]);
 
   const selectTab = (tabId: AccountTabId) => {
-    if (window.location.hash) {
-      const url = new URL(window.location.href);
-      url.hash = "";
-      window.history.replaceState(null, "", `${url.pathname}${url.search}`);
-      setHash("");
-    }
-
+    setHash("");
     void navigate({
       search: (prev) => ({
         ...prev,
         tab: tabId === "account" ? undefined : tabId,
       }),
+      // Empty string is treated as omitted and would keep the current hash.
+      hash: () => "",
       replace: true,
     });
   };
