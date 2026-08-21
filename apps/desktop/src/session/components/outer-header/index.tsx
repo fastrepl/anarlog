@@ -62,6 +62,7 @@ export function OuterHeader({
   const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
+  const showExpandedSidebarTabInset = !standaloneWindow && leftsidebar.expanded;
   const embedStopInViewSwitcher =
     viewSwitcher != null && isMeetingStopAction(sessionMode);
 
@@ -73,7 +74,8 @@ export function OuterHeader({
         "h-12",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter ? "pl-[116px]" : "pl-[48px]"),
+          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
+        showExpandedSidebarTabInset && "pl-1",
       ])}
     >
       {viewSwitcher}
