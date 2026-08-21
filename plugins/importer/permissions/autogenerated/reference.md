@@ -8,9 +8,6 @@ Default permissions for the plugin
 - `allow-cancel-connected-import`
 - `allow-complete-connected-import`
 - `allow-sync-connected-import`
-- `allow-list-available-sources`
-- `allow-run-import`
-- `allow-run-import-dry`
 - `allow-read-text-files`
 
 ## Permission Table
@@ -103,32 +100,6 @@ Denies the complete_connected_import command without any pre-configured scope.
 <tr>
 <td>
 
-`importer:allow-list-available-sources`
-
-</td>
-<td>
-
-Enables the list_available_sources command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`importer:deny-list-available-sources`
-
-</td>
-<td>
-
-Denies the list_available_sources command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `importer:allow-read-text-files`
 
 </td>
@@ -148,58 +119,6 @@ Enables the read_text_files command without any pre-configured scope.
 <td>
 
 Denies the read_text_files command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`importer:allow-run-import`
-
-</td>
-<td>
-
-Enables the run_import command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`importer:deny-run-import`
-
-</td>
-<td>
-
-Denies the run_import command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`importer:allow-run-import-dry`
-
-</td>
-<td>
-
-Enables the run_import_dry command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`importer:deny-run-import-dry`
-
-</td>
-<td>
-
-Denies the run_import_dry command without any pre-configured scope.
 
 </td>
 </tr>

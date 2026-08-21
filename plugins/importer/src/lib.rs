@@ -1,16 +1,10 @@
-use tauri::{Manager, Wry};
+use tauri::Manager;
 
 mod commands;
 mod connected_cli;
 mod connected_mcp;
-mod error;
-mod ext;
-mod sources;
 mod types;
 
-pub use error::*;
-pub use ext::*;
-pub use sources::{AsIsData, all_sources, import_all, list_available_sources};
 pub use types::*;
 
 const PLUGIN_NAME: &str = "importer";
@@ -23,9 +17,6 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::cancel_connected_import,
             commands::complete_connected_import,
             commands::sync_connected_import,
-            commands::list_available_sources::<Wry>,
-            commands::run_import::<Wry>,
-            commands::run_import_dry::<Wry>,
             commands::read_text_files,
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Result)
@@ -63,36 +54,5 @@ mod test {
 
         let content = std::fs::read_to_string(OUTPUT_FILE).unwrap();
         std::fs::write(OUTPUT_FILE, format!("// @ts-nocheck\n{content}")).unwrap();
-    }
-
-    fn create_app<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::App<R> {
-        let mut ctx = tauri::test::mock_context(tauri::test::noop_assets());
-        ctx.config_mut().identifier = "com.hyprnote.dev".to_string();
-        ctx.config_mut().version = Some("0.0.1".to_string());
-
-        builder.plugin(init()).build(ctx).unwrap()
-    }
-
-    #[ignore]
-    #[tokio::test]
-    async fn test_run_import_dry() {
-        let app = create_app(tauri::test::mock_builder());
-        let importer = app.importer();
-
-        println!(
-            "{:?}",
-            importer
-                .run_import_dry(ImportSourceKind::HyprnoteV0Stable)
-                .await
-                .unwrap()
-        );
-
-        println!(
-            "{:?}",
-            importer
-                .run_import_dry(ImportSourceKind::HyprnoteV0Nightly)
-                .await
-                .unwrap()
-        );
     }
 }
