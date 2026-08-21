@@ -40,6 +40,7 @@ import { useTabs } from "~/store/zustand/tabs";
 
 const STATUS_QUERY_KEY = ["cloudsync-status-indicator"] as const;
 const STATUS_POLL_INTERVAL_MS = 10_000;
+const TRANSIENT_FAILURES_BEFORE_WARNING = 3;
 
 export function SyncStatusIndicator() {
   const { t } = useLingui();
@@ -178,14 +179,19 @@ export function SyncStatusIndicator() {
       };
     }
 
-    if (
-      status &&
-      (status.last_error_kind === "auth" || status.last_error_kind === "fatal")
-    ) {
+    if (status?.last_error_kind === "auth") {
+      return {
+        kind: "error" as const,
+        label: t`Sign in again`,
+        description: t`Sign out and sign in again to resume cloud sync.`,
+      };
+    }
+
+    if (status?.last_error_kind === "fatal" && status.running === false) {
       return {
         kind: "error" as const,
         label: t`Sync issue`,
-        description: status.last_error ?? t`Anarlog will keep retrying`,
+        description: t`Cloud sync could not start on this device. Open Sync settings to try again.`,
       };
     }
 
@@ -205,14 +211,14 @@ export function SyncStatusIndicator() {
       };
     }
 
-    if (status && status.consecutive_failures > 0) {
+    if (
+      status &&
+      status.consecutive_failures >= TRANSIENT_FAILURES_BEFORE_WARNING
+    ) {
       return {
         kind: "error" as const,
         label: t`Sync issue`,
-        description:
-          status.last_error_kind === "transient"
-            ? t`Anarlog will retry automatically. This does not affect your notes.`
-            : (status.last_error ?? t`Anarlog will keep retrying`),
+        description: t`Anarlog will retry automatically. This does not affect your notes.`,
       };
     }
 
