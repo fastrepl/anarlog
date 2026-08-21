@@ -415,10 +415,6 @@ msgid "Anarlog user"
 msgstr "Anarlog user"
 
 #: src/main/sync-status.tsx
-msgid "Anarlog will keep retrying"
-msgstr "Anarlog will keep retrying"
-
-#: src/main/sync-status.tsx
 msgid "Anarlog will keep retrying in the background. Your notes remain available locally."
 msgstr "Anarlog will keep retrying in the background. Your notes remain available locally."
 
@@ -4014,6 +4010,7 @@ msgid "Sign out"
 msgstr "Sign out"
 
 #: src/main/sync-status.tsx
+#: src/settings/sync/index.tsx
 msgid "Sign out and sign in again to resume cloud sync."
 msgstr "Sign out and sign in again to resume cloud sync."
 
