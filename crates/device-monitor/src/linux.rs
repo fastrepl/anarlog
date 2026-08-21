@@ -24,27 +24,30 @@ struct DefaultDeviceChanges {
 struct DefaultDevices {
     source: Option<String>,
     sink: Option<String>,
-    primed: bool,
 }
 
 impl DefaultDevices {
     fn observe(&mut self, source: Option<&str>, sink: Option<&str>) -> DefaultDeviceChanges {
-        let source = source.map(str::to_owned);
-        let sink = sink.map(str::to_owned);
-        if !self.primed {
-            self.source = source;
-            self.sink = sink;
-            self.primed = true;
-            return DefaultDeviceChanges::default();
-        }
-
-        let source_changed = source.is_some() && source != self.source;
-        let sink_changed = sink.is_some() && sink != self.sink;
-        self.source = source;
-        self.sink = sink;
         DefaultDeviceChanges {
-            source_changed,
-            sink_changed,
+            source_changed: Self::observe_name(&mut self.source, source),
+            sink_changed: Self::observe_name(&mut self.sink, sink),
+        }
+    }
+
+    fn observe_name(stored: &mut Option<String>, incoming: Option<&str>) -> bool {
+        let Some(incoming) = incoming else {
+            return false;
+        };
+        match stored.as_deref() {
+            Some(previous) if previous != incoming => {
+                *stored = Some(incoming.to_owned());
+                true
+            }
+            None => {
+                *stored = Some(incoming.to_owned());
+                false
+            }
+            Some(_) => false,
         }
     }
 }
@@ -329,5 +332,43 @@ mod tests {
         devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
 
         assert_eq!(devices.observe(None, None), DefaultDeviceChanges::default());
+    }
+
+    #[test]
+    fn null_defaults_do_not_clear_baseline() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
+        devices.observe(None, None);
+
+        assert_eq!(
+            devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
+            DefaultDeviceChanges::default()
+        );
+    }
+
+    #[test]
+    fn first_real_names_after_null_observation_are_baseline() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(None, None);
+
+        assert_eq!(
+            devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
+            DefaultDeviceChanges::default()
+        );
+    }
+
+    #[test]
+    fn default_change_after_null_refresh_still_emits() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
+        devices.observe(None, None);
+
+        assert_eq!(
+            devices.observe(Some("alsa_input.usb"), Some("qa_system")),
+            DefaultDeviceChanges {
+                source_changed: true,
+                sink_changed: false,
+            }
+        );
     }
 }
