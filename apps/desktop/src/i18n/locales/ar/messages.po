@@ -2978,6 +2978,7 @@ msgstr ""
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
 #: src/services/enhancer/summary-notification.ts
+#: src/services/event-notification/index.ts
 #: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr ""
@@ -2989,10 +2990,6 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Open Anarlog on a device that already has access, then approve this device."
-msgstr ""
-
-#: src/services/event-notification/index.ts
-msgid "Open brief"
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx

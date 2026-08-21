@@ -1,5 +1,9 @@
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
-import type { EventParticipant, SessionEvent } from "@anlg/store";
+import {
+  eventParticipantSchema,
+  type EventParticipant,
+  type SessionEvent,
+} from "@anlg/store";
 
 import type { SessionChanges } from "./types";
 
@@ -331,7 +335,12 @@ function parseEventParticipants(value: string | null): EventParticipant[] {
   if (!value) return [];
   try {
     const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) ? (parsed as EventParticipant[]) : [];
+    return Array.isArray(parsed)
+      ? parsed.flatMap((participant) => {
+          const result = eventParticipantSchema.safeParse(participant);
+          return result.success ? [result.data] : [];
+        })
+      : [];
   } catch {
     return [];
   }

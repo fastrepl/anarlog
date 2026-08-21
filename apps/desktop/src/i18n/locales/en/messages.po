@@ -2978,6 +2978,7 @@ msgstr "Open AI Settings"
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
 #: src/services/enhancer/summary-notification.ts
+#: src/services/event-notification/index.ts
 #: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr "Open Anarlog"
@@ -2990,10 +2991,6 @@ msgstr "Open Anarlog from the menu bar."
 #: src/settings/sync/index.tsx
 msgid "Open Anarlog on a device that already has access, then approve this device."
 msgstr "Open Anarlog on a device that already has access, then approve this device."
-
-#: src/services/event-notification/index.ts
-msgid "Open brief"
-msgstr "Open brief"
 
 #: src/sidebar/timeline/index.tsx
 msgid "Open calendar"

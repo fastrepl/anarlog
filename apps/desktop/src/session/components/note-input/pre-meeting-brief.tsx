@@ -5,13 +5,11 @@ import {
   Sparkle,
   UsersThree,
 } from "@phosphor-icons/react";
-import { useMemo } from "react";
 
 import { cn, safeParseDate } from "@anlg/utils";
 
 import { useNow } from "~/calendar/hooks";
-import { useSessionEventParticipants } from "~/calendar/queries";
-import { useSessionEvent } from "~/session/hooks/useSessionEvent";
+import { useSessionCalendarEvent } from "~/calendar/queries";
 import { usePastSessionNotes } from "~/session/insights/past-notes";
 import {
   compactBriefText,
@@ -20,6 +18,7 @@ import {
 import { useConfigValue } from "~/shared/config";
 
 const MAX_DESCRIPTION_LENGTH = 240;
+const AFTER_START_GRACE_MS = 5 * 60 * 1000;
 
 export function PreMeetingBrief({
   sessionId,
@@ -29,28 +28,23 @@ export function PreMeetingBrief({
   enabled?: boolean;
 }) {
   const { i18n } = useLingui();
-  const event = useSessionEvent(sessionId);
+  const event = useSessionCalendarEvent(sessionId, { enabled });
   const now = useNow();
   const timezone = useConfigValue("timezone") || undefined;
   const visible = enabled && shouldShowPreMeetingBrief(event, now.getTime());
   const pastNotes = usePastSessionNotes(sessionId, { enabled: visible });
-  const participants = useSessionEventParticipants(sessionId);
 
-  const participantNames = useMemo(
-    () =>
-      [
-        ...new Set(
-          participants
-            .filter((participant) => participant.is_current_user !== true)
-            .map(
-              (participant) =>
-                participant.name?.trim() || participant.email?.trim() || "",
-            )
-            .filter(Boolean),
-        ),
-      ].slice(0, 5),
-    [participants],
-  );
+  const participantNames = [
+    ...new Set(
+      (event?.participants ?? [])
+        .filter((participant) => participant.is_current_user !== true)
+        .map(
+          (participant) =>
+            participant.name?.trim() || participant.email?.trim() || "",
+        )
+        .filter(Boolean),
+    ),
+  ].slice(0, 5);
 
   if (!visible || !event) {
     return null;
@@ -69,6 +63,9 @@ export function PreMeetingBrief({
     timezone,
     i18n.locale,
   );
+  const relatedDate = latestNote
+    ? formatBriefDate(latestNote.occurredAt, timezone, i18n.locale)
+    : "";
 
   return (
     <section
@@ -123,7 +120,7 @@ export function PreMeetingBrief({
               ) : (
                 <Trans>Related meeting</Trans>
               )}
-              {latestNote.dateLabel ? ` · ${latestNote.dateLabel}` : ""}
+              {relatedDate ? ` · ${relatedDate}` : ""}
             </p>
             <ul className="space-y-1.5">
               {facts.map((fact) => (
@@ -171,7 +168,10 @@ export function shouldShowPreMeetingBrief(
   }
 
   const endMs = Date.parse(event.ended_at ?? "");
-  return Number.isFinite(endMs) && endMs > nowMs;
+  const hideAfterMs = Number.isFinite(endMs)
+    ? Math.max(endMs, startMs + AFTER_START_GRACE_MS)
+    : startMs + AFTER_START_GRACE_MS;
+  return hideAfterMs > nowMs;
 }
 
 function formatEventTime(
@@ -216,6 +216,21 @@ function formatEventTime(
     sameDay ? timeOptions : dateTimeOptions,
   );
   return `${startText}–${endText}`;
+}
+
+function formatBriefDate(
+  value: string,
+  timezone: string | undefined,
+  locale: string,
+): string {
+  const date = safeParseDate(value);
+  return date
+    ? formatDateTime(date, locale, timezone, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "";
 }
 
 function formatDateTime(

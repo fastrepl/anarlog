@@ -24,6 +24,7 @@ export type PastSessionNote = {
   sessionId: string;
   title: string;
   dateLabel: string;
+  occurredAt: string;
   participantNames?: string[];
   sourceSummary: string;
   relationship: "same_series" | "matching_title";
@@ -421,6 +422,7 @@ export function buildPastSessionNotes(
         sessionId: candidateSessionId,
         title,
         dateLabel,
+        occurredAt: candidateEvent?.started_at || candidateSession.created_at,
         participantNames,
         sourceSummary: source,
         relationship:
@@ -437,7 +439,12 @@ export function buildPastSessionNotes(
   }
 
   const selected = items
-    .sort((a, b) => b.note.dateMs - a.note.dateMs)
+    .sort((a, b) => {
+      const relationshipOrder =
+        Number(b.note.relationship === "same_series") -
+        Number(a.note.relationship === "same_series");
+      return relationshipOrder || b.note.dateMs - a.note.dateMs;
+    })
     .slice(0, MAX_PAST_NOTES);
 
   return {
@@ -757,7 +764,7 @@ function isRelatedPastSession({
   }
 
   if (currentParticipantIds.size === 0 || candidateParticipantIds.size === 0) {
-    return true;
+    return false;
   }
 
   for (const participantId of candidateParticipantIds) {

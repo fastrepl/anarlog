@@ -17,6 +17,7 @@ describe("pre-meeting brief text", () => {
       sessionId: "previous",
       title: "Weekly sync",
       dateLabel: "Aug 14, 2026",
+      occurredAt: "2026-08-14T09:00:00.000Z",
       participantNames: ["Ada"],
       sourceSummary: "The source summary remains available.",
       relationship: "same_series" as const,

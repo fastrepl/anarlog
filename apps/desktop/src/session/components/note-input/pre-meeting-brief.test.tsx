@@ -38,11 +38,8 @@ vi.mock("~/calendar/hooks", () => ({
 }));
 
 vi.mock("~/calendar/queries", () => ({
-  useSessionEventParticipants: () => mocks.participants,
-}));
-
-vi.mock("~/session/hooks/useSessionEvent", () => ({
-  useSessionEvent: () => mocks.event,
+  useSessionCalendarEvent: () =>
+    mocks.event ? { ...mocks.event, participants: mocks.participants } : null,
 }));
 
 vi.mock("~/session/insights/past-notes", () => ({
@@ -91,6 +88,7 @@ describe("PreMeetingBrief", () => {
         sessionId: "previous",
         title: "Weekly Product Sync",
         dateLabel: "Aug 14, 2026",
+        occurredAt: "2026-08-14T09:00:00.000Z",
         participantNames: ["Ada"],
         sourceSummary: "A longer raw summary.",
         relationship: "same_series",
@@ -120,6 +118,7 @@ describe("PreMeetingBrief", () => {
         sessionId: "previous",
         title: "Weekly Product Sync",
         dateLabel: "Aug 14, 2026",
+        occurredAt: "2026-08-14T09:00:00.000Z",
         sourceSummary: "Decided to ship the smaller onboarding experiment.",
         relationship: "matching_title",
         summary: null,
@@ -157,6 +156,16 @@ describe("PreMeetingBrief", () => {
     expect(
       shouldShowPreMeetingBrief(
         {
+          started_at: "2026-08-21T07:58:00.000Z",
+          ended_at: "",
+          is_all_day: false,
+        },
+        mocks.now.getTime(),
+      ),
+    ).toBe(true);
+    expect(
+      shouldShowPreMeetingBrief(
+        {
           started_at: "2026-08-22T07:00:00.000Z",
           ended_at: "2026-08-22T07:30:00.000Z",
           is_all_day: true,
@@ -171,6 +180,14 @@ describe("PreMeetingBrief", () => {
       ended_at: "2026-08-21T07:30:00.000Z",
       is_all_day: false,
     };
+    render(<PreMeetingBrief sessionId="current" />);
+
+    expect(screen.queryByText("Pre-meeting brief")).toBeNull();
+  });
+
+  it("stays hidden when the canonical calendar event was removed", () => {
+    mocks.event = null;
+
     render(<PreMeetingBrief sessionId="current" />);
 
     expect(screen.queryByText("Pre-meeting brief")).toBeNull();
