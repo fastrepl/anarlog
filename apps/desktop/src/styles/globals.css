@@ -9,7 +9,10 @@
 
 html[data-floating-bar],
 html[data-floating-bar] body,
-html[data-floating-bar] #root {
+html[data-floating-bar] #root,
+html[data-live-caption],
+html[data-live-caption] body,
+html[data-live-caption] #root {
   background: transparent !important;
 }
 

@@ -320,6 +320,19 @@ export const commands = {
       else return { status: "error", error: e as any };
     }
   },
+  async liveCaptionCurrentState(): Promise<
+    Result<LiveCaptionState | null, string>
+  > {
+    try {
+      return {
+        status: "ok",
+        data: await TAURI_INVOKE("plugin:windows|live_caption_current_state"),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: "error", error: e as any };
+    }
+  },
   async devtoolsPanelShow(): Promise<Result<null, string>> {
     try {
       return {
@@ -353,6 +366,7 @@ export const events = __makeEvents__<{
   floatingBarOverlayState: FloatingBarOverlayState;
   floatingBarSettingsChange: FloatingBarSettingsChange;
   floatingBarStop: FloatingBarStop;
+  liveCaptionOverlayState: LiveCaptionOverlayState;
   navigate: Navigate;
   openTab: OpenTab;
   visibilityEvent: VisibilityEvent;
@@ -365,6 +379,7 @@ export const events = __makeEvents__<{
   floatingBarOverlayState: "plugin:windows:floating-bar-overlay-state",
   floatingBarSettingsChange: "plugin:windows:floating-bar-settings-change",
   floatingBarStop: "plugin:windows:floating-bar-stop",
+  liveCaptionOverlayState: "plugin:windows:live-caption-overlay-state",
   navigate: "plugin:windows:navigate",
   openTab: "plugin:windows:open-tab",
   visibilityEvent: "plugin:windows:visibility-event",
@@ -444,6 +459,7 @@ export type JsonValue =
   | string
   | JsonValue[]
   | Partial<{ [key in string]: JsonValue }>;
+export type LiveCaptionOverlayState = { state: LiveCaptionState };
 export type LiveCaptionPosition =
   | "topCenter"
   | "topLeft"

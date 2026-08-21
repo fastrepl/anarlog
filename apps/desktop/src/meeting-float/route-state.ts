@@ -41,7 +41,7 @@ export type FloatingRouteState = {
   transcriptBubbles: FloatingTranscriptBubble[];
 };
 
-type LiveCaptionRouteState = {
+export type LiveCaptionRouteState = {
   sessionId: string;
   text: string;
   opacity: number;
@@ -334,6 +334,21 @@ export function getCurrentFloatingBarColorScheme(): FloatingBarColorScheme {
   }
 
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+export function isSameLiveCaptionRouteState(
+  left: LiveCaptionRouteState | null,
+  right: LiveCaptionRouteState | null,
+) {
+  return (
+    left?.sessionId === right?.sessionId &&
+    left?.text === right?.text &&
+    left?.opacity === right?.opacity &&
+    left?.width === right?.width &&
+    left?.lineCount === right?.lineCount &&
+    left?.position === right?.position &&
+    left?.minimized === right?.minimized
+  );
 }
 
 export function isSameFloatingRouteState(

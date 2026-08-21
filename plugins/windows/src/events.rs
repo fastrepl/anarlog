@@ -19,6 +19,17 @@ pub fn on_window_event(window: &tauri::Window<tauri::Wry>, event: &tauri::Window
         return;
     }
 
+    if window.label() == crate::window::live_caption::WINDOW_LABEL {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            let _ = crate::window::live_caption::hide();
+        }
+        if matches!(event, tauri::WindowEvent::Destroyed) {
+            crate::clear_window_state(app, window.label());
+        }
+        return;
+    }
+
     if matches!(event, tauri::WindowEvent::Destroyed) {
         crate::clear_window_state(app, window.label());
         return;
@@ -125,6 +136,12 @@ common_event_derives! {
 common_event_derives! {
     pub struct FloatingBarOverlayAmplitude {
         pub amplitude: f64,
+    }
+}
+
+common_event_derives! {
+    pub struct LiveCaptionOverlayState {
+        pub state: crate::window::live_caption::LiveCaptionState,
     }
 }
 

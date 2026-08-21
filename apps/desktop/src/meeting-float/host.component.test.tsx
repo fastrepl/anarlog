@@ -16,7 +16,9 @@ const mocks = vi.hoisted(() => ({
   floatingBarShow: vi.fn(async () => ({ status: "ok", data: null })),
   floatingBarHide: vi.fn(async () => ({ status: "ok", data: null })),
   floatingBarUpdate: vi.fn(async () => ({ status: "ok", data: null })),
+  liveCaptionShow: vi.fn(async () => ({ status: "ok", data: null })),
   liveCaptionHide: vi.fn(async () => ({ status: "ok", data: null })),
+  liveCaptionUpdate: vi.fn(async () => ({ status: "ok", data: null })),
   windowShow: vi.fn(async () => ({ status: "ok", data: null })),
   listen: vi.fn(async () => vi.fn()),
   setSettingValue: vi.fn(async () => undefined),
@@ -32,6 +34,7 @@ const mocks = vi.hoisted(() => ({
       liveTranscriptionActive: true,
     },
     liveSegments: [],
+    liveCaptionText: "we should ship this",
     stop: vi.fn(),
   },
   subscribeListener: vi.fn(() => vi.fn()),
@@ -46,7 +49,9 @@ vi.mock("@anlg/plugin-windows", () => ({
     floatingBarShow: mocks.floatingBarShow,
     floatingBarHide: mocks.floatingBarHide,
     floatingBarUpdate: mocks.floatingBarUpdate,
+    liveCaptionShow: mocks.liveCaptionShow,
     liveCaptionHide: mocks.liveCaptionHide,
+    liveCaptionUpdate: mocks.liveCaptionUpdate,
     windowShow: mocks.windowShow,
   },
   events: {
@@ -126,6 +131,13 @@ describe("FloatingMeetingWindowHost", () => {
           transcriptBubbles: null,
         }),
       );
+      expect(mocks.liveCaptionShow).toHaveBeenCalledOnce();
+      expect(mocks.liveCaptionUpdate).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          text: "we should ship this",
+          minimized: false,
+        }),
+      );
     });
     expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
     expect(mocks.floatingBarHide).not.toHaveBeenCalled();
@@ -140,6 +152,7 @@ describe("FloatingMeetingWindowHost", () => {
       expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
       expect(mocks.floatingBarUpdate).toHaveBeenCalled();
     });
-    expect(mocks.liveCaptionHide).toHaveBeenCalledOnce();
+    expect(mocks.liveCaptionHide).toHaveBeenCalled();
+    expect(mocks.liveCaptionShow).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
   hide: vi.fn(),
   update: vi.fn(),
   updateAmplitude: vi.fn(),
+  liveCaptionShow: vi.fn(),
+  liveCaptionHide: vi.fn(),
+  liveCaptionUpdate: vi.fn(),
 }));
 
 vi.mock("@anlg/plugin-windows", () => ({
@@ -13,11 +16,17 @@ vi.mock("@anlg/plugin-windows", () => ({
     floatingBarHide: mocks.hide,
     floatingBarUpdate: mocks.update,
     floatingBarUpdateAmplitude: mocks.updateAmplitude,
+    liveCaptionShow: mocks.liveCaptionShow,
+    liveCaptionHide: mocks.liveCaptionHide,
+    liveCaptionUpdate: mocks.liveCaptionUpdate,
   },
 }));
 
-import type { FloatingRouteState } from "./route-state";
-import { createFloatingMeetingWindowSynchronizer } from "./window-panel";
+import type { FloatingRouteState, LiveCaptionRouteState } from "./route-state";
+import {
+  createFloatingMeetingWindowSynchronizer,
+  createLiveCaptionWindowSynchronizer,
+} from "./window-panel";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -68,6 +77,9 @@ describe("floating meeting window synchronizer", () => {
     mocks.hide.mockResolvedValue({ status: "ok", data: null });
     mocks.update.mockResolvedValue({ status: "ok", data: null });
     mocks.updateAmplitude.mockResolvedValue({ status: "ok", data: null });
+    mocks.liveCaptionShow.mockResolvedValue({ status: "ok", data: null });
+    mocks.liveCaptionHide.mockResolvedValue({ status: "ok", data: null });
+    mocks.liveCaptionUpdate.mockResolvedValue({ status: "ok", data: null });
   });
 
   it("keeps one sync in flight and coalesces updates to the latest state", async () => {
@@ -181,5 +193,42 @@ describe("floating meeting window synchronizer", () => {
     expect(mocks.hide.mock.invocationCallOrder[0]).toBeGreaterThan(
       mocks.update.mock.invocationCallOrder[0]!,
     );
+  });
+});
+
+function captionState(text: string): LiveCaptionRouteState {
+  return {
+    sessionId: "session-1",
+    text,
+    opacity: 0.3,
+    width: 440,
+    lineCount: 1,
+    position: "topCenter",
+    minimized: false,
+  };
+}
+
+describe("live caption window synchronizer", () => {
+  it("shows and updates the caption overlay", async () => {
+    const synchronizer = createLiveCaptionWindowSynchronizer();
+
+    synchronizer.update(captionState("hello"));
+    await vi.waitFor(() => {
+      expect(mocks.liveCaptionShow).toHaveBeenCalledOnce();
+      expect(mocks.liveCaptionUpdate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ text: "hello", minimized: false }),
+      );
+    });
+
+    synchronizer.update(captionState("hello world"));
+    await vi.waitFor(() => {
+      expect(mocks.liveCaptionUpdate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ text: "hello world" }),
+      );
+    });
+    expect(mocks.liveCaptionShow).toHaveBeenCalledOnce();
+
+    await synchronizer.dispose();
+    expect(mocks.liveCaptionHide).toHaveBeenCalled();
   });
 });

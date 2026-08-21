@@ -27,6 +27,7 @@ Default permissions for the plugin
 - `allow-live-caption-show`
 - `allow-live-caption-hide`
 - `allow-live-caption-update`
+- `allow-live-caption-current-state`
 - `allow-devtools-panel-show`
 - `allow-devtools-panel-hide`
 
@@ -217,6 +218,32 @@ Enables the floating_bar_update_amplitude command without any pre-configured sco
 <td>
 
 Denies the floating_bar_update_amplitude command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:allow-live-caption-current-state`
+
+</td>
+<td>
+
+Enables the live_caption_current_state command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`windows:deny-live-caption-current-state`
+
+</td>
+<td>
+
+Denies the live_caption_current_state command without any pre-configured scope.
 
 </td>
 </tr>

@@ -441,6 +441,13 @@ pub async fn live_caption_update(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn live_caption_current_state()
+-> Result<Option<crate::window::live_caption::LiveCaptionState>, String> {
+    Ok(crate::window::live_caption::current_state())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn devtools_panel_show() -> Result<(), String> {
     crate::window::devtools_panel::show().map_err(|e| e.to_string())?;
     Ok(())
