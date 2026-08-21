@@ -138,6 +138,8 @@ describe("buildPastSessionNotes", () => {
         title: "Weekly Product Sync",
         dateLabel: "May 28, 2026",
         participantNames: ["alex", "jamie"],
+        sourceSummary:
+          "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
         summary: null,
         isGenerating: false,
       },
@@ -146,6 +148,7 @@ describe("buildPastSessionNotes", () => {
         title: "Weekly Product Sync",
         dateLabel: "May 27, 2026",
         participantNames: ["alex", "jamie"],
+        sourceSummary: "Confirmed notification copy and reviewed follow-ups.",
         summary: null,
         isGenerating: false,
       },

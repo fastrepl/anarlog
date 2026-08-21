@@ -25,6 +25,7 @@ export type PastSessionNote = {
   title: string;
   dateLabel: string;
   participantNames?: string[];
+  sourceSummary: string;
   summary: string | null;
   isGenerating: boolean;
   isRegenerateDisabled?: boolean;
@@ -419,6 +420,7 @@ export function buildPastSessionNotes(
         title,
         dateLabel,
         participantNames,
+        sourceSummary: source,
         summary: saved,
         isGenerating: false,
         dateMs: candidateTimestamp,

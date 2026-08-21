@@ -2308,6 +2308,10 @@ msgstr ""
 msgid "Last import: {0} added, {1} unchanged"
 msgstr ""
 
+#: src/session/components/note-input/pre-meeting-brief.tsx
+msgid "Last meeting"
+msgstr ""
+
 #. placeholder {0}: lastRun.detail
 #: src/settings/automations/starter-config.tsx
 msgid "Last run {relative}: {0}"
@@ -2327,6 +2331,10 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Last synced {0}"
+msgstr ""
+
+#: src/services/event-notification/index.ts
+msgid "Last time: {summary}"
 msgstr ""
 
 #. placeholder {0}: apiKey.last_used_at.slice(0, 10)
@@ -2816,6 +2824,10 @@ msgstr ""
 msgid "No people in this organization"
 msgstr ""
 
+#: src/session/components/note-input/pre-meeting-brief.tsx
+msgid "No previous meeting summary is available. Calendar details are shown above."
+msgstr ""
+
 #: src/settings/ai/llm/configure.tsx
 #: src/settings/ai/stt/configure.tsx
 msgid "No providers found."
@@ -3181,6 +3193,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Post to a channel"
+msgstr ""
+
+#: src/session/components/note-input/pre-meeting-brief.tsx
+msgid "Pre-meeting brief"
 msgstr ""
 
 #: src/settings/general/notification.tsx
@@ -4961,6 +4977,11 @@ msgstr ""
 
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
+msgstr ""
+
+#. placeholder {0}: names.join(", ")
+#: src/services/event-notification/index.ts
+msgid "With {0}"
 msgstr ""
 
 #: src/task/tab-content.tsx

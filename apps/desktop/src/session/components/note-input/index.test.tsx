@@ -13,6 +13,7 @@ const hoisted = vi.hoisted(() => ({
   focusAtTrailingEmptyLine: vi.fn(),
   flushPendingChanges: vi.fn(),
   onBeforeTabChange: vi.fn(),
+  preMeetingBriefProps: [] as Record<string, unknown>[],
   rawEditorProps: [] as Record<string, unknown>[],
   registerCanonicalSessionEditor: vi.fn(),
   sessionMode: "inactive",
@@ -87,6 +88,13 @@ vi.mock("./raw", async () => {
     }),
   };
 });
+
+vi.mock("./pre-meeting-brief", () => ({
+  PreMeetingBrief: (props: Record<string, unknown>) => {
+    hoisted.preMeetingBriefProps.push(props);
+    return <div data-testid="pre-meeting-brief" />;
+  },
+}));
 
 vi.mock("./search/bar", () => ({
   SearchBar: () => <div data-testid="search-bar" />,
@@ -215,6 +223,7 @@ describe("NoteInput tab selection", () => {
     hoisted.focusAtTrailingEmptyLine.mockClear();
     hoisted.flushPendingChanges.mockClear();
     hoisted.onBeforeTabChange.mockClear();
+    hoisted.preMeetingBriefProps = [];
     hoisted.rawEditorProps = [];
     hoisted.registerCanonicalSessionEditor.mockClear();
     hoisted.sessionMode = "inactive";
@@ -339,6 +348,28 @@ describe("NoteInput tab selection", () => {
       sessionTitle: "Stored title",
       eventTitle: "Customer discovery",
       eventDescription: "Learn about the prospect's workflow",
+    });
+  });
+
+  it("enables the pre-meeting brief only for inactive sessions", () => {
+    renderNoteInput();
+
+    expect(
+      hoisted.preMeetingBriefProps[hoisted.preMeetingBriefProps.length - 1],
+    ).toEqual({
+      enabled: true,
+      sessionId: "session-1",
+    });
+
+    cleanup();
+    hoisted.sessionMode = "active";
+    renderNoteInput();
+
+    expect(
+      hoisted.preMeetingBriefProps[hoisted.preMeetingBriefProps.length - 1],
+    ).toEqual({
+      enabled: false,
+      sessionId: "session-1",
     });
   });
 

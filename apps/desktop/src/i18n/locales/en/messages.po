@@ -2308,6 +2308,10 @@ msgstr "Last delivery {0}"
 msgid "Last import: {0} added, {1} unchanged"
 msgstr "Last import: {0} added, {1} unchanged"
 
+#: src/session/components/note-input/pre-meeting-brief.tsx
+msgid "Last meeting"
+msgstr "Last meeting"
+
 #. placeholder {0}: lastRun.detail
 #: src/settings/automations/starter-config.tsx
 msgid "Last run {relative}: {0}"
@@ -2328,6 +2332,10 @@ msgstr "Last seen {0}"
 #: src/settings/sync/index.tsx
 msgid "Last synced {0}"
 msgstr "Last synced {0}"
+
+#: src/services/event-notification/index.ts
+msgid "Last time: {summary}"
+msgstr "Last time: {summary}"
 
 #. placeholder {0}: apiKey.last_used_at.slice(0, 10)
 #: src/settings/developers/api-key-row.tsx
@@ -2816,6 +2824,10 @@ msgstr "No people"
 msgid "No people in this organization"
 msgstr "No people in this organization"
 
+#: src/session/components/note-input/pre-meeting-brief.tsx
+msgid "No previous meeting summary is available. Calendar details are shown above."
+msgstr "No previous meeting summary is available. Calendar details are shown above."
+
 #: src/settings/ai/llm/configure.tsx
 #: src/settings/ai/stt/configure.tsx
 msgid "No providers found."
@@ -3182,6 +3194,10 @@ msgstr "Post the meeting summary to a channel you can access."
 #: src/automations/starters.tsx
 msgid "Post to a channel"
 msgstr "Post to a channel"
+
+#: src/session/components/note-input/pre-meeting-brief.tsx
+msgid "Pre-meeting brief"
+msgstr "Pre-meeting brief"
 
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."
@@ -4962,6 +4978,11 @@ msgstr "What's new in {version}?"
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
 msgstr "Where your notes and recordings are stored"
+
+#. placeholder {0}: names.join(", ")
+#: src/services/event-notification/index.ts
+msgid "With {0}"
+msgstr "With {0}"
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"
