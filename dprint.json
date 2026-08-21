@@ -31,6 +31,7 @@
     "**/migrations/**/*.sql",
     "**/tests/*.sql",
     "**/charts/**",
+    "**/helm/**/templates/**",
     "**/schema.json",
     "**/netlify/edge-functions"
   ],

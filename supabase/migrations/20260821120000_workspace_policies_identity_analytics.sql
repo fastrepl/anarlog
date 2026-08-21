@@ -249,6 +249,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+#variable_conflict use_column
 BEGIN
   PERFORM private.require_workspace_manager(p_workspace_id);
   PERFORM private.require_hyprnote_pro_entitlement();
@@ -572,6 +573,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+#variable_conflict use_column
 DECLARE
   v_domain text := lower(btrim(p_domain));
   v_actor_id uuid;
@@ -713,6 +715,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+#variable_conflict use_column
 DECLARE
   v_provider public.workspace_identity_providers%ROWTYPE;
   v_user_id uuid;
@@ -754,21 +757,21 @@ BEGIN
     )
     ON CONFLICT DO NOTHING;
 
-    UPDATE public.workspace_memberships
+    UPDATE public.workspace_memberships AS membership
     SET
       deleted_at = NULL,
       updated_at = now()
-    WHERE workspace_id = v_provider.workspace_id
-      AND user_id = v_user_id
-      AND deleted_at IS NOT NULL;
+    WHERE membership.workspace_id = v_provider.workspace_id
+      AND membership.user_id = v_user_id
+      AND membership.deleted_at IS NOT NULL;
   ELSE
-    UPDATE public.workspace_memberships
+    UPDATE public.workspace_memberships AS membership
     SET
       deleted_at = now(),
       updated_at = now()
-    WHERE workspace_id = v_provider.workspace_id
-      AND user_id = v_user_id
-      AND deleted_at IS NULL;
+    WHERE membership.workspace_id = v_provider.workspace_id
+      AND membership.user_id = v_user_id
+      AND membership.deleted_at IS NULL;
 
     DELETE FROM public.sync_devices AS device
     WHERE device.user_id = v_user_id;
