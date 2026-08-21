@@ -27,9 +27,9 @@ export function getPreMeetingBriefFacts(note: PastSessionNote): string[] {
 export function compactBriefText(value: string, maxLength: number): string {
   const text = extractPlainText(value)
     .replace(/<[^>]*>/g, " ")
-    .replace(/https?:\/\/\S+/gi, " ")
     .replace(/!\[[^\]]*]\([^)]+\)/g, " ")
     .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/https?:\/\/\S+/gi, " ")
     .replace(/(^|\s)([-*+]|\d+[.)])\s+/g, " ")
     .replace(/[`_~>#]/g, "")
     .replace(SPACE_REGEX, " ")

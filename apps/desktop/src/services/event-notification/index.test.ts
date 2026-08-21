@@ -20,7 +20,7 @@ vi.mock("~/db", () => ({
   liveQueryClient: { execute: mocks.execute },
 }));
 
-import { buildPreMeetingNotificationMessage, checkEventNotifications } from ".";
+import { checkEventNotifications } from ".";
 
 describe("checkEventNotifications", () => {
   beforeEach(() => {
@@ -45,26 +45,6 @@ describe("checkEventNotifications", () => {
         recurrence_series_id: "series-1",
         title: "Design Review",
         is_all_day: 0,
-        location: "Studio",
-        description: "",
-        participants_json: JSON.stringify([
-          { name: "Ada", email: "ada@example.com" },
-        ]),
-      },
-    ]);
-    mocks.execute.mockResolvedValueOnce([
-      {
-        body: JSON.stringify({
-          type: "doc",
-          content: [
-            {
-              type: "paragraph",
-              content: [
-                { type: "text", text: "Ada will share the prototype." },
-              ],
-            },
-          ],
-        }),
       },
     ]);
 
@@ -73,22 +53,17 @@ describe("checkEventNotifications", () => {
     expect(mocks.showNotification).toHaveBeenCalledWith(
       expect.objectContaining({
         source: { type: "calendar_event", event_id: "event-1" },
-        action_label: "Open Anarlog",
+        action_label: "Open brief",
         participants: null,
         event_details: null,
         options: null,
         footer: null,
-        message:
-          "Starting in 2 minutes · Last time: Ada will share the prototype.",
-        start_time: null,
-        timeout: { secs: 420, nanos: 0 },
+        message: "Starting in 2 minutes",
+        start_time: new Date("2026-05-15T12:02:00.000Z").getTime() / 1000,
+        timeout: null,
       }),
     );
     expect(mocks.execute.mock.calls[0]?.[0]).toContain("is_all_day = 0");
-    expect(mocks.execute.mock.calls[1]?.[1]).toEqual([
-      "series-1",
-      "2026-05-15T12:02:00.000Z",
-    ]);
   });
 
   test("does not query or notify when event notifications are disabled", async () => {
@@ -111,9 +86,6 @@ describe("checkEventNotifications", () => {
         recurrence_series_id: "",
         title: "Design Review",
         is_all_day: 0,
-        location: "",
-        description: "",
-        participants_json: "[]",
       },
     ]);
 
@@ -131,36 +103,11 @@ describe("checkEventNotifications", () => {
         recurrence_series_id: "",
         title: "Company holiday",
         is_all_day: 1,
-        location: "",
-        description: "",
-        participants_json: "[]",
       },
     ]);
 
     await checkEventNotifications(true, new Map());
 
     expect(mocks.showNotification).not.toHaveBeenCalled();
-  });
-});
-
-describe("buildPreMeetingNotificationMessage", () => {
-  test("falls back through calendar context without requiring history", () => {
-    expect(
-      buildPreMeetingNotificationMessage({
-        minutesUntil: 5,
-        participantNames: ["Ada", "Lin"],
-      }),
-    ).toBe("Starting in 5 minutes · With Ada, Lin");
-
-    expect(
-      buildPreMeetingNotificationMessage({
-        minutesUntil: 1,
-        location: "Conference room A",
-      }),
-    ).toBe("Starting in 1 minute · Conference room A");
-
-    expect(buildPreMeetingNotificationMessage({ minutesUntil: 3 })).toBe(
-      "Starting in 3 minutes",
-    );
   });
 });

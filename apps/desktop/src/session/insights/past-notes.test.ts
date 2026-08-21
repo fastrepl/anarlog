@@ -140,6 +140,7 @@ describe("buildPastSessionNotes", () => {
         participantNames: ["alex", "jamie"],
         sourceSummary:
           "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
+        relationship: "same_series",
         summary: null,
         isGenerating: false,
       },
@@ -149,6 +150,7 @@ describe("buildPastSessionNotes", () => {
         dateLabel: "May 27, 2026",
         participantNames: ["alex", "jamie"],
         sourceSummary: "Confirmed notification copy and reviewed follow-ups.",
+        relationship: "matching_title",
         summary: null,
         isGenerating: false,
       },

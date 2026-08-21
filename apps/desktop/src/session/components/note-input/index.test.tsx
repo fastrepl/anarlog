@@ -92,7 +92,7 @@ vi.mock("./raw", async () => {
 vi.mock("./pre-meeting-brief", () => ({
   PreMeetingBrief: (props: Record<string, unknown>) => {
     hoisted.preMeetingBriefProps.push(props);
-    return <div data-testid="pre-meeting-brief" />;
+    return <div data-pre-meeting-brief data-testid="pre-meeting-brief" />;
   },
 }));
 
@@ -449,6 +449,14 @@ describe("NoteInput tab selection", () => {
     renderNoteInput();
 
     fireEvent.mouseDown(screen.getByTestId("mock-prosemirror"), { button: 0 });
+
+    expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
+  });
+
+  it("does not focus the editor when the pre-meeting brief is selected", () => {
+    renderNoteInput();
+
+    fireEvent.mouseDown(screen.getByTestId("pre-meeting-brief"), { button: 0 });
 
     expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
   });

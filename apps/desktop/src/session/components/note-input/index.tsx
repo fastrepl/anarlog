@@ -293,7 +293,7 @@ const NoteInputContent = forwardRef<
 
       if (
         target.closest(
-          "button, a, input, textarea, select, [role='button'], [contenteditable='true']",
+          "button, a, input, textarea, select, [role='button'], [contenteditable='true'], [data-pre-meeting-brief]",
         ) !== null
       ) {
         return;

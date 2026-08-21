@@ -1,4 +1,4 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import {
   CalendarBlank,
   MapPin,
@@ -7,7 +7,7 @@ import {
 } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
-import { cn, safeFormat, safeParseDate, TZDate } from "@anlg/utils";
+import { cn, safeParseDate } from "@anlg/utils";
 
 import { useNow } from "~/calendar/hooks";
 import { useSessionEventParticipants } from "~/calendar/queries";
@@ -28,6 +28,7 @@ export function PreMeetingBrief({
   sessionId: string;
   enabled?: boolean;
 }) {
+  const { i18n } = useLingui();
   const event = useSessionEvent(sessionId);
   const now = useNow();
   const timezone = useConfigValue("timezone") || undefined;
@@ -61,7 +62,13 @@ export function PreMeetingBrief({
     event.description ?? "",
     MAX_DESCRIPTION_LENGTH,
   );
-  const eventTime = formatEventTime(event.started_at, event.ended_at, timezone);
+  const location = compactBriefText(event.location ?? "", 120);
+  const eventTime = formatEventTime(
+    event.started_at,
+    event.ended_at,
+    timezone,
+    i18n.locale,
+  );
 
   return (
     <section
@@ -85,10 +92,10 @@ export function PreMeetingBrief({
             <span>{eventTime}</span>
           </span>
         ) : null}
-        {event.location ? (
+        {location ? (
           <span className="flex min-w-0 items-center gap-1.5">
             <MapPin aria-hidden className="size-3.5 shrink-0" />
-            <span className="max-w-64 truncate">{event.location}</span>
+            <span className="max-w-64 truncate">{location}</span>
           </span>
         ) : null}
         {participantNames.length > 0 ? (
@@ -111,7 +118,11 @@ export function PreMeetingBrief({
         {latestNote ? (
           <>
             <p className="text-muted-foreground mb-1.5 text-xs font-medium">
-              <Trans>Last meeting</Trans>
+              {latestNote.relationship === "same_series" ? (
+                <Trans>Last meeting</Trans>
+              ) : (
+                <Trans>Related meeting</Trans>
+              )}
               {latestNote.dateLabel ? ` · ${latestNote.dateLabel}` : ""}
             </p>
             <ul className="space-y-1.5">
@@ -167,23 +178,58 @@ function formatEventTime(
   startedAt: string,
   endedAt: string,
   timezone: string | undefined,
+  locale: string,
 ): string {
   const rawStart = safeParseDate(startedAt);
   if (!rawStart) {
     return "";
   }
 
-  const start = timezone ? new TZDate(rawStart, timezone) : rawStart;
   const rawEnd = safeParseDate(endedAt);
-  const end = rawEnd
-    ? timezone
-      ? new TZDate(rawEnd, timezone)
-      : rawEnd
-    : null;
-  const startText = safeFormat(start, "MMM d, h:mm a");
-  if (!end) {
+  const dateOptions = {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  } satisfies Intl.DateTimeFormatOptions;
+  const dateTimeOptions = {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  } satisfies Intl.DateTimeFormatOptions;
+  const timeOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+  } satisfies Intl.DateTimeFormatOptions;
+  const startText = formatDateTime(rawStart, locale, timezone, dateTimeOptions);
+  if (!rawEnd) {
     return startText;
   }
 
-  return `${startText}–${safeFormat(end, "h:mm a")}`;
+  const sameDay =
+    formatDateTime(rawStart, locale, timezone, dateOptions) ===
+    formatDateTime(rawEnd, locale, timezone, dateOptions);
+  const endText = formatDateTime(
+    rawEnd,
+    locale,
+    timezone,
+    sameDay ? timeOptions : dateTimeOptions,
+  );
+  return `${startText}–${endText}`;
+}
+
+function formatDateTime(
+  date: Date,
+  locale: string,
+  timezone: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+): string {
+  try {
+    return new Intl.DateTimeFormat(locale || undefined, {
+      ...options,
+      timeZone: timezone,
+    }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(undefined, options).format(date);
+  }
 }

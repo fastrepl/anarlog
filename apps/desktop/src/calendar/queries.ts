@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { EventParticipant } from "@anlg/store";
+import { eventParticipantSchema, type EventParticipant } from "@anlg/store";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -486,7 +486,10 @@ export function parseEventParticipants(
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed)
-      ? (parsed as EventParticipant[])
+      ? parsed.flatMap((participant) => {
+          const result = eventParticipantSchema.safeParse(participant);
+          return result.success ? [result.data] : [];
+        })
       : EMPTY_EVENT_PARTICIPANTS;
   } catch {
     return EMPTY_EVENT_PARTICIPANTS;

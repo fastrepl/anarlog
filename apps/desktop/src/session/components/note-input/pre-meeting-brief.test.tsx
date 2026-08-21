@@ -30,6 +30,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@lingui/react/macro", () => ({
   Trans: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  useLingui: () => ({ i18n: { locale: "en-US" } }),
 }));
 
 vi.mock("~/calendar/hooks", () => ({
@@ -92,6 +93,7 @@ describe("PreMeetingBrief", () => {
         dateLabel: "Aug 14, 2026",
         participantNames: ["Ada"],
         sourceSummary: "A longer raw summary.",
+        relationship: "same_series",
         summary:
           "- Ada will share the prototype.\n- Confirm launch timing with Sam.",
         isGenerating: false,
@@ -119,6 +121,7 @@ describe("PreMeetingBrief", () => {
         title: "Weekly Product Sync",
         dateLabel: "Aug 14, 2026",
         sourceSummary: "Decided to ship the smaller onboarding experiment.",
+        relationship: "matching_title",
         summary: null,
         isGenerating: false,
       },
@@ -129,6 +132,7 @@ describe("PreMeetingBrief", () => {
     expect(
       screen.getByText("Decided to ship the smaller onboarding experiment."),
     ).toBeTruthy();
+    expect(screen.getByText("Related meeting · Aug 14, 2026")).toBeTruthy();
   });
 
   it("handles meetings without prior summaries", () => {

@@ -2333,10 +2333,6 @@ msgstr "Last seen {0}"
 msgid "Last synced {0}"
 msgstr "Last synced {0}"
 
-#: src/services/event-notification/index.ts
-msgid "Last time: {summary}"
-msgstr "Last time: {summary}"
-
 #. placeholder {0}: apiKey.last_used_at.slice(0, 10)
 #: src/settings/developers/api-key-row.tsx
 msgid "Last used {0}"
@@ -2982,7 +2978,6 @@ msgstr "Open AI Settings"
 #: src/composer/index.tsx
 #: src/onboarding/final.tsx
 #: src/services/enhancer/summary-notification.ts
-#: src/services/event-notification/index.ts
 #: src/store/zustand/listener/general-batch.ts
 msgid "Open Anarlog"
 msgstr "Open Anarlog"
@@ -2995,6 +2990,10 @@ msgstr "Open Anarlog from the menu bar."
 #: src/settings/sync/index.tsx
 msgid "Open Anarlog on a device that already has access, then approve this device."
 msgstr "Open Anarlog on a device that already has access, then approve this device."
+
+#: src/services/event-notification/index.ts
+msgid "Open brief"
+msgstr "Open brief"
 
 #: src/sidebar/timeline/index.tsx
 msgid "Open calendar"
@@ -3366,6 +3365,10 @@ msgstr "Regenerate message"
 #: src/settings/developers/cli.tsx
 msgid "Reinstall"
 msgstr "Reinstall"
+
+#: src/session/components/note-input/pre-meeting-brief.tsx
+msgid "Related meeting"
+msgstr "Related meeting"
 
 #: src/contacts/related-notes.tsx
 msgid "Related Notes"
@@ -4978,11 +4981,6 @@ msgstr "What's new in {version}?"
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
 msgstr "Where your notes and recordings are stored"
-
-#. placeholder {0}: names.join(", ")
-#: src/services/event-notification/index.ts
-msgid "With {0}"
-msgstr "With {0}"
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"

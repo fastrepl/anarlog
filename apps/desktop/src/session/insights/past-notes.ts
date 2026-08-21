@@ -26,6 +26,7 @@ export type PastSessionNote = {
   dateLabel: string;
   participantNames?: string[];
   sourceSummary: string;
+  relationship: "same_series" | "matching_title";
   summary: string | null;
   isGenerating: boolean;
   isRegenerateDisabled?: boolean;
@@ -371,13 +372,14 @@ export function buildPastSessionNotes(
 
     const candidateEvent = getSessionEvent(candidateSession);
     const candidateParticipantIds = participantIdsFor(candidateSessionId);
+    const candidateSeriesId = getRecurrenceSeriesId(candidateEvent);
     if (
       !isRelatedPastSession({
         currentParticipantIds,
         currentSeriesId,
         currentTitleKey,
         candidateParticipantIds,
-        candidateSeriesId: getRecurrenceSeriesId(candidateEvent),
+        candidateSeriesId,
         candidateTitleKey: getSessionTitleKey(candidateSession),
       })
     ) {
@@ -421,6 +423,10 @@ export function buildPastSessionNotes(
         dateLabel,
         participantNames,
         sourceSummary: source,
+        relationship:
+          currentSeriesId && candidateSeriesId === currentSeriesId
+            ? "same_series"
+            : "matching_title",
         summary: saved,
         isGenerating: false,
         dateMs: candidateTimestamp,
