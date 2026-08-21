@@ -383,7 +383,7 @@ impl NotificationIcon {
             return None;
         }
 
-        if app_id.starts_with('/') || app_id.starts_with("~/") {
+        if is_filesystem_path(app_id) {
             return Some(Self::Path {
                 path: app_id.to_string(),
             });
@@ -397,6 +397,22 @@ impl NotificationIcon {
     pub fn system_symbol(name: impl Into<String>) -> Self {
         Self::SystemSymbol { name: name.into() }
     }
+}
+
+fn is_filesystem_path(value: &str) -> bool {
+    value.starts_with('/')
+        || value.starts_with("~/")
+        || value.starts_with("~\\")
+        || value.starts_with("\\\\")
+        || is_windows_drive_path(value)
+}
+
+fn is_windows_drive_path(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() >= 3
+        && bytes[0].is_ascii_alphabetic()
+        && bytes[1] == b':'
+        && (bytes[2] == b'\\' || bytes[2] == b'/')
 }
 
 #[derive(Default)]
@@ -548,6 +564,40 @@ mod tests {
             NotificationIcon::SystemSymbol {
                 name: "phone.fill".to_string(),
             }
+        );
+    }
+
+    #[test]
+    fn windows_and_unc_paths_are_path_icons() {
+        assert_eq!(
+            NotificationIcon::from_app_id(r"C:\Program Files\Zoom\Zoom.exe"),
+            Some(NotificationIcon::Path {
+                path: r"C:\Program Files\Zoom\Zoom.exe".to_string(),
+            })
+        );
+        assert_eq!(
+            NotificationIcon::from_app_id("D:/icons/zoom.png"),
+            Some(NotificationIcon::Path {
+                path: "D:/icons/zoom.png".to_string(),
+            })
+        );
+        assert_eq!(
+            NotificationIcon::from_app_id(r"\\server\share\app.exe"),
+            Some(NotificationIcon::Path {
+                path: r"\\server\share\app.exe".to_string(),
+            })
+        );
+        assert_eq!(
+            NotificationIcon::from_app_id(r"~\AppData\Local\Zoom.exe"),
+            Some(NotificationIcon::Path {
+                path: r"~\AppData\Local\Zoom.exe".to_string(),
+            })
+        );
+        assert_eq!(
+            NotificationIcon::from_app_id("us.zoom.xos"),
+            Some(NotificationIcon::BundleId {
+                bundle_id: "us.zoom.xos".to_string(),
+            })
         );
     }
 

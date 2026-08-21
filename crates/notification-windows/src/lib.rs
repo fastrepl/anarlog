@@ -1,6 +1,7 @@
 pub use anlg_notification_interface::*;
 
 mod callbacks;
+mod icon;
 mod layout;
 
 #[cfg(target_os = "windows")]

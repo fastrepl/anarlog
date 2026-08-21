@@ -9,42 +9,43 @@ use windows::Win32::Graphics::Dwm::{
     DwmSetWindowAttribute,
 };
 use windows::Win32::Graphics::Gdi::{
-    CLEARTYPE_QUALITY, CLIP_DEFAULT_PRECIS, CreateFontW, CreateSolidBrush, DEFAULT_CHARSET,
-    DEFAULT_PITCH, DRAW_TEXT_FORMAT, DT_END_ELLIPSIS, DT_LEFT, DT_SINGLELINE, DT_TOP, DT_VCENTER,
-    DT_WORDBREAK, DeleteObject, DrawTextW, FW_NORMAL, FW_SEMIBOLD, FillRect, HDC, HFONT,
-    InvalidateRect, OUT_DEFAULT_PRECIS, SelectObject, SetBkMode, SetTextColor, TRANSPARENT,
+    BeginPaint, CLEARTYPE_QUALITY, CLIP_DEFAULT_PRECIS, CreateFontW, CreateSolidBrush,
+    DEFAULT_CHARSET, DEFAULT_PITCH, DRAW_TEXT_FORMAT, DT_END_ELLIPSIS, DT_LEFT, DT_SINGLELINE,
+    DT_TOP, DT_VCENTER, DT_WORDBREAK, DeleteObject, DrawTextW, EndPaint, FW_NORMAL, FW_SEMIBOLD,
+    FillRect, HDC, HFONT, InvalidateRect, OUT_DEFAULT_PRECIS, PAINTSTRUCT, SelectObject, SetBkMode,
+    SetTextColor, TRANSPARENT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Threading::GetCurrentThreadId;
+use windows::Win32::UI::Controls::WM_MOUSELEAVE;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::{TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent};
-use windows::Win32::UI::Shell::ExtractIconExW;
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, BeginPaint, CS_HREDRAW, CS_VREDRAW, CreatePopupMenu, CreateWindowExW, DI_NORMAL,
-    DefWindowProcW, DestroyIcon, DestroyMenu, DestroyWindow, DispatchMessageW, DrawIconEx,
-    EndPaint, GetCursorPos, GetMessageW, HICON, IDC_ARROW, IDI_APPLICATION, IMAGE_ICON, KillTimer,
-    LR_LOADFROMFILE, LWA_ALPHA, LoadCursorW, LoadIconW, LoadImageW, MF_STRING, MSG, PAINTSTRUCT,
+    AppendMenuW, CS_HREDRAW, CS_VREDRAW, CreatePopupMenu, CreateWindowExW, DI_NORMAL,
+    DefWindowProcW, DestroyMenu, DestroyWindow, DispatchMessageW, DrawIconEx, GetCursorPos,
+    GetMessageW, HICON, IDC_ARROW, KillTimer, LWA_ALPHA, LoadCursorW, MF_STRING, MSG,
     PostThreadMessageW, RegisterClassExW, SPI_GETWORKAREA, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
     SWP_NOZORDER, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SetLayeredWindowAttributes, SetTimer,
     SetWindowPos, ShowWindow, SystemParametersInfoW, TPM_LEFTALIGN, TPM_RETURNCMD, TPM_RIGHTBUTTON,
-    TrackPopupMenu, TranslateMessage, WM_APP, WM_DESTROY, WM_LBUTTONUP, WM_MOUSELEAVE,
-    WM_MOUSEMOVE, WM_PAINT, WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE,
-    WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    TrackPopupMenu, TranslateMessage, WM_APP, WM_DESTROY, WM_LBUTTONUP, WM_MOUSEMOVE, WM_PAINT,
+    WM_TIMER, WNDCLASSEXW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    WS_POPUP,
 };
 use windows::core::{PCWSTR, w};
 
 use anlg_notification_interface::{
-    DismissTimer, Notification, NotificationIcon, PrimaryAction, expanded_schedule_text,
+    DismissTimer, Notification, PrimaryAction, expanded_schedule_text,
 };
 
 use crate::callbacks;
+use crate::icon::{destroy_icon, header_title, load_notification_icon};
 use crate::layout::{HitTarget, MAX_NOTIFICATIONS, NotificationLayout, stacked_origin};
 
 const CLASS_NAME: windows::core::PCWSTR = w!("AnarlogNotification");
 const TIMER_ID: usize = 1;
 
 enum Command {
-    Show(Notification),
+    Show(Box<Notification>),
     DismissAll,
 }
 
@@ -293,12 +294,7 @@ impl NotificationManager {
         for (index, option) in options.iter().enumerate() {
             let mut text = wide(option);
             unsafe {
-                let _ = AppendMenuW(
-                    menu,
-                    MF_STRING,
-                    index as usize + 1,
-                    PCWSTR(text.as_mut_ptr()),
-                );
+                let _ = AppendMenuW(menu, MF_STRING, index + 1, PCWSTR(text.as_mut_ptr()));
             }
         }
         let mut create_new = wide("Create New Note...");
@@ -375,7 +371,7 @@ fn ui_thread(rx: Receiver<Command>, ready: Sender<()>) {
             if msg.message == WM_APP {
                 while let Ok(command) = rx.try_recv() {
                     MANAGER.with(|manager| match command {
-                        Command::Show(notification) => manager.borrow_mut().show(notification),
+                        Command::Show(notification) => manager.borrow_mut().show(*notification),
                         Command::DismissAll => manager.borrow_mut().dismiss_all(),
                     });
                 }
@@ -407,17 +403,19 @@ fn send_command(command: Command) {
 }
 
 unsafe fn register_class() {
-    let hinstance = GetModuleHandleW(None).unwrap_or_default();
-    let class = WNDCLASSEXW {
-        cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
-        style: CS_HREDRAW | CS_VREDRAW,
-        lpfnWndProc: Some(wndproc),
-        hInstance: hinstance.into(),
-        hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(),
-        lpszClassName: CLASS_NAME,
-        ..Default::default()
-    };
-    let _ = RegisterClassExW(&class);
+    unsafe {
+        let hinstance = GetModuleHandleW(None).unwrap_or_default();
+        let class = WNDCLASSEXW {
+            cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
+            style: CS_HREDRAW | CS_VREDRAW,
+            lpfnWndProc: Some(wndproc),
+            hInstance: hinstance.into(),
+            hCursor: LoadCursorW(None, IDC_ARROW).unwrap_or_default(),
+            lpszClassName: CLASS_NAME,
+            ..Default::default()
+        };
+        let _ = RegisterClassExW(&class);
+    }
 }
 
 fn create_overlay_window(x: i32, y: i32, width: i32, height: i32) -> Option<HWND> {
@@ -475,7 +473,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                         hwndTrack: hwnd,
                         dwHoverTime: 0,
                     };
-                    let _ = TrackMouseEvent(&mut event);
+                    let _ = unsafe { TrackMouseEvent(&mut event) };
                 }
                 manager.set_hover(hwnd, true);
             });
@@ -553,7 +551,7 @@ fn draw_notification(hdc: HDC, instance: &NotificationInstance) {
         draw_label(
             hdc,
             instance.layout.title,
-            instance.payload.compact_title(),
+            header_title(&instance.payload, instance.is_expanded),
             DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS,
         );
         let _ = SelectObject(hdc, body_font.into());
@@ -609,27 +607,27 @@ fn draw_notification(hdc: HDC, instance: &NotificationInstance) {
             draw_label(hdc, collapse, "Show less", DT_VCENTER | DT_SINGLELINE);
         }
 
-        if let Some(footer) = instance.layout.footer_action {
-            if let Some(footer_payload) = &instance.payload.footer {
-                SetTextColor(hdc, rgb(26, 26, 26));
-                draw_label(
-                    hdc,
-                    crate::layout::Rect {
-                        x: 12,
-                        y: footer.y,
-                        width: footer.x - 20,
-                        height: footer.height,
-                    },
-                    &footer_payload.text,
-                    DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_VCENTER,
-                );
-                draw_label(
-                    hdc,
-                    footer,
-                    &footer_payload.action_label,
-                    DT_VCENTER | DT_SINGLELINE,
-                );
-            }
+        if let Some(footer) = instance.layout.footer_action
+            && let Some(footer_payload) = &instance.payload.footer
+        {
+            SetTextColor(hdc, rgb(26, 26, 26));
+            draw_label(
+                hdc,
+                crate::layout::Rect {
+                    x: 12,
+                    y: footer.y,
+                    width: footer.x - 20,
+                    height: footer.height,
+                },
+                &footer_payload.text,
+                DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS | DT_VCENTER,
+            );
+            draw_label(
+                hdc,
+                footer,
+                &footer_payload.action_label,
+                DT_VCENTER | DT_SINGLELINE,
+            );
         }
 
         if let Some(progress) = instance.layout.progress
@@ -801,54 +799,8 @@ fn work_area() -> (i32, i32, i32, i32) {
     )
 }
 
-fn load_notification_icon(icon: Option<&NotificationIcon>) -> Option<HICON> {
-    match icon {
-        Some(NotificationIcon::Hidden) => None,
-        Some(NotificationIcon::Path { path }) => load_icon_from_path(path).or_else(load_app_icon),
-        _ => load_app_icon(),
-    }
-}
-
-fn load_icon_from_path(path: &str) -> Option<HICON> {
-    let wide_path = wide(path);
-    unsafe {
-        LoadImageW(
-            None,
-            PCWSTR(wide_path.as_ptr()),
-            IMAGE_ICON,
-            28,
-            28,
-            LR_LOADFROMFILE,
-        )
-        .ok()
-        .map(|handle| HICON(handle.0))
-    }
-}
-
-fn load_app_icon() -> Option<HICON> {
-    let exe = std::env::current_exe().ok()?;
-    let wide_path = wide(&exe.to_string_lossy());
-    let mut large = HICON::default();
-    unsafe {
-        if ExtractIconExW(PCWSTR(wide_path.as_ptr()), 0, Some(&mut large), None, 1) > 0
-            && !large.is_invalid()
-        {
-            return Some(large);
-        }
-        LoadIconW(None, IDI_APPLICATION).ok()
-    }
-}
-
-fn destroy_icon(icon: Option<HICON>) {
-    if let Some(icon) = icon {
-        unsafe {
-            let _ = DestroyIcon(icon);
-        }
-    }
-}
-
 pub fn show(notification: &Notification) {
-    send_command(Command::Show(notification.clone()));
+    send_command(Command::Show(Box::new(notification.clone())));
 }
 
 pub fn dismiss_all() {
