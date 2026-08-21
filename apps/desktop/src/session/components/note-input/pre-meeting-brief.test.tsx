@@ -120,7 +120,7 @@ describe("PreMeetingBrief", () => {
         dateLabel: "Aug 14, 2026",
         occurredAt: "2026-08-14T09:00:00.000Z",
         sourceSummary: "Decided to ship the smaller onboarding experiment.",
-        relationship: "matching_title",
+        relationship: "same_series",
         summary: null,
         isGenerating: false,
       },
@@ -131,7 +131,30 @@ describe("PreMeetingBrief", () => {
     expect(
       screen.getByText("Decided to ship the smaller onboarding experiment."),
     ).toBeTruthy();
-    expect(screen.getByText("Related meeting · Aug 14, 2026")).toBeTruthy();
+  });
+
+  it("does not present title-only matches as prior meeting history", () => {
+    mocks.notes = [
+      {
+        sessionId: "possible-match",
+        title: "Weekly Product Sync",
+        dateLabel: "Aug 14, 2026",
+        occurredAt: "2026-08-14T09:00:00.000Z",
+        sourceSummary: "Context from a different recurring meeting.",
+        relationship: "matching_title",
+        summary: null,
+        isGenerating: false,
+      },
+    ];
+
+    render(<PreMeetingBrief sessionId="current" />);
+
+    expect(
+      screen.queryByText("Context from a different recurring meeting."),
+    ).toBeNull();
+    expect(
+      screen.getByText(/No previous meeting summary is available/),
+    ).toBeTruthy();
   });
 
   it("handles meetings without prior summaries", () => {

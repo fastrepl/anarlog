@@ -50,7 +50,8 @@ export function PreMeetingBrief({
     return null;
   }
 
-  const latestNote = pastNotes.notes[0] ?? null;
+  const latestNote =
+    pastNotes.notes.find((note) => note.relationship === "same_series") ?? null;
   const facts = latestNote ? getPreMeetingBriefFacts(latestNote) : [];
   const description = compactBriefText(
     event.description ?? "",
@@ -115,11 +116,7 @@ export function PreMeetingBrief({
         {latestNote ? (
           <>
             <p className="text-muted-foreground mb-1.5 text-xs font-medium">
-              {latestNote.relationship === "same_series" ? (
-                <Trans>Last meeting</Trans>
-              ) : (
-                <Trans>Related meeting</Trans>
-              )}
+              <Trans>Last meeting</Trans>
               {relatedDate ? ` · ${relatedDate}` : ""}
             </p>
             <ul className="space-y-1.5">

@@ -3363,10 +3363,6 @@ msgstr "Regenerate message"
 msgid "Reinstall"
 msgstr "Reinstall"
 
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "Related meeting"
-msgstr "Related meeting"
-
 #: src/contacts/related-notes.tsx
 msgid "Related Notes"
 msgstr "Related Notes"
