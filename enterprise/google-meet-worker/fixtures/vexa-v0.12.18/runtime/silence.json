@@ -1,0 +1,16 @@
+{
+  "id": "silence",
+  "kind": "runtime",
+  "elapsed_ms": 0,
+  "snapshot": {
+    "removal_indicator": null,
+    "meeting_ended_indicator": null,
+    "connection_problem_indicator": null,
+    "participant_tile_labels": [],
+    "self_name_nodes": 1,
+    "visible_meeting_controls": 1
+  },
+  "expected": {
+    "outcome": "active"
+  }
+}

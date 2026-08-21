@@ -313,6 +313,14 @@ msgstr ""
 msgid "All providers are connected."
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Allow anyone-with-the-link sharing"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Allow public indexing"
+msgstr ""
+
 #: src/shared/control.tsx
 msgid "An unexpected error occurred."
 msgstr ""
@@ -680,6 +688,10 @@ msgstr ""
 msgid "Calendar connected"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Calendar-scheduled capture jobs. Canceling stops the bot from joining."
+msgstr ""
+
 #: src/session-sharing/access-management.tsx
 msgid "Can comment"
 msgstr ""
@@ -706,6 +718,10 @@ msgstr ""
 #: src/shared/ui/destructive-confirmation-dialog.tsx
 #: src/templates/auto-format-examples-dialog.tsx
 msgid "Cancel"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Cancel bot"
 msgstr ""
 
 #: src/session/components/outer-header/metadata/date.tsx
@@ -886,6 +902,10 @@ msgstr ""
 
 #: src/settings/general/week-start.tsx
 msgid "Choose which day begins your calendar week."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Claim email domain"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -1594,6 +1614,7 @@ msgid "Device limit reached"
 msgstr ""
 
 #: src/settings/sync/index.tsx
+#: src/settings/team/index.tsx
 msgid "Devices"
 msgstr ""
 
@@ -2244,6 +2265,10 @@ msgstr ""
 msgid "Keep desktop edits"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Keep forever"
+msgstr ""
+
 #: src/settings/sync/index.tsx
 msgid "Keep notes current automatically."
 msgstr ""
@@ -2384,6 +2409,10 @@ msgstr ""
 
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Loading models..."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Loading scheduled captures…"
 msgstr ""
 
 #: src/settings/general/index.tsx
@@ -2536,6 +2565,10 @@ msgstr ""
 
 #: src/contacts/organization-details.tsx
 msgid "members"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Members"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -2829,6 +2862,10 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "No transcript available"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "No upcoming bots."
 msgstr ""
 
 #: src/settings/developers/cli.tsx
@@ -3128,6 +3165,10 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Play from here"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Policies"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -3430,6 +3471,10 @@ msgstr ""
 msgid "Requested {0}"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Require SSO"
+msgstr ""
+
 #: src/settings/privacy/index.tsx
 msgid "Require Touch ID or your password when opening Anarlog."
 msgstr ""
@@ -3496,6 +3541,10 @@ msgstr ""
 msgid "Resume sync"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Retention (days)"
+msgstr ""
+
 #: src/chat/components/message/error.tsx
 #: src/main/sync-status.tsx
 #: src/session/components/note-input/enhanced/enhance-error.tsx
@@ -3538,6 +3587,14 @@ msgstr ""
 msgid "Save draft"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Save policies"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Save SCIM token"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
 msgstr ""
@@ -3549,6 +3606,10 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Saved locally"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "SCIM bearer token"
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/index.tsx
@@ -3632,6 +3693,10 @@ msgstr ""
 #: src/session/components/note-input/search/bar.tsx
 #: src/settings/general/searchable-select.tsx
 msgid "Search..."
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Seats"
 msgstr ""
 
 #: src/templates/sections-editor.tsx
@@ -3854,6 +3919,10 @@ msgstr ""
 
 #: src/shared-notes/index.tsx
 msgid "Shared with me · View only"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Shares (30d)"
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -4424,6 +4493,10 @@ msgstr ""
 msgid "Theme"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "These rules apply to every member. Sharing changes fail closed on the server."
+msgstr ""
+
 #: src/chat/components/message/loading.tsx
 msgid "Thinking..."
 msgstr ""
@@ -4649,6 +4722,10 @@ msgstr ""
 msgid "Untitled Note"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Upcoming bot attendance"
+msgstr ""
+
 #: src/services/event-notification/index.ts
 msgid "Upcoming Event"
 msgstr ""
@@ -4752,6 +4829,10 @@ msgstr ""
 msgid "Uploads meeting content for remote access while Anarlog is closed."
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Usage"
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "Use a stable filename in the configured export directory."
 msgstr ""
@@ -4794,6 +4875,10 @@ msgstr ""
 
 #: src/onboarding/permissions.tsx
 msgid "Use your microphone to capture your voice"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Verify domain"
 msgstr ""
 
 #: src/settings/general/storage/legacy-cleanup.tsx
@@ -4887,6 +4972,10 @@ msgstr ""
 
 #: src/sidebar/settings.tsx
 msgid "Workspace"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Workspace activity from metadata only. Note content stays unreadable on the server."
 msgstr ""
 
 #: src/settings/team/index.tsx

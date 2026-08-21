@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createWorkspace,
   getSeatUsage,
+  getWorkspacePolicy,
+  intersectAllowedShareScopes,
   listWorkspaceInvitations,
   listWorkspaceMembers,
   removeMember,
@@ -95,6 +97,29 @@ describe("workspace reads", () => {
       usedSeats: 3,
       isBilled: false,
     });
+  });
+
+  it("intersects org share policies so clients hide disallowed scopes", async () => {
+    const { context: ctx } = context([
+      {
+        allowed_share_scopes: ["restricted", "workspace"],
+        default_share_scope: "restricted",
+        retention_days: 30,
+        model_training_opt_out: true,
+        consent_notification_enabled: true,
+        require_sso: false,
+      },
+    ]);
+
+    const policy = await getWorkspacePolicy(ctx, WORKSPACE_ID);
+    expect(
+      intersectAllowedShareScopes([
+        policy,
+        {
+          allowedShareScopes: ["restricted", "workspace", "link", "public"],
+        },
+      ]),
+    ).toEqual(["restricted", "workspace"]);
   });
 });
 

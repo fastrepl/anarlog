@@ -1,0 +1,93 @@
+name: anarlog-enterprise-capture
+
+services:
+  postgres:
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'pg_isready --username "$${POSTGRES_USER}" --dbname "$${POSTGRES_DB}"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  object-storage:
+    image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+    volumes:
+      - object-data:/data
+
+  control-plane:
+    image: ${ANARLOG_CONTROL_PLANE_IMAGE:-anarlog-enterprise-control-plane:release}
+    build:
+      context: ../..
+      dockerfile: enterprise/control-plane/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ANARLOG_ENTERPRISE_DATABASE_URL: ${ANARLOG_ENTERPRISE_DATABASE_URL:?set ANARLOG_ENTERPRISE_DATABASE_URL}
+      ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS: ${ANARLOG_ENTERPRISE_DATABASE_MAX_CONNECTIONS:-10}
+      ANARLOG_ENTERPRISE_WORKSPACE_TOKENS: ${ANARLOG_ENTERPRISE_WORKSPACE_TOKENS:?set ANARLOG_ENTERPRISE_WORKSPACE_TOKENS}
+      ANARLOG_ENTERPRISE_LICENSE: ${ANARLOG_ENTERPRISE_LICENSE:?set ANARLOG_ENTERPRISE_LICENSE}
+      ANARLOG_ENTERPRISE_LICENSE_KEY: ${ANARLOG_ENTERPRISE_LICENSE_KEY:?set ANARLOG_ENTERPRISE_LICENSE_KEY}
+      ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID: ${ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID:-}
+      ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET: ${ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET:-}
+      ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET: ${ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET:-}
+      ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES: ${ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES:-}
+      RUST_LOG: ${RUST_LOG:-info,tower_http=info}
+    ports:
+      - 127.0.0.1:${ANARLOG_ENTERPRISE_PORT:-8080}:8080
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+
+  google-meet-worker:
+    image: ${ANARLOG_GOOGLE_MEET_WORKER_IMAGE:-anarlog-enterprise-google-meet-worker:release}
+    build:
+      context: ../..
+      dockerfile: enterprise/google-meet-worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      control-plane:
+        condition: service_healthy
+    environment:
+      ANARLOG_ENTERPRISE_CONTROL_PLANE_URL: ${ANARLOG_ENTERPRISE_CONTROL_PLANE_URL:-http://control-plane:8080}
+      ANARLOG_ENTERPRISE_WORKSPACE_ID: ${ANARLOG_ENTERPRISE_WORKSPACE_ID:?set ANARLOG_ENTERPRISE_WORKSPACE_ID}
+      ANARLOG_ENTERPRISE_CAPTURE_JOB_ID: ${ANARLOG_ENTERPRISE_CAPTURE_JOB_ID:-}
+      ANARLOG_ENTERPRISE_WORKSPACE_TOKEN: ${ANARLOG_ENTERPRISE_WORKSPACE_TOKEN:?set ANARLOG_ENTERPRISE_WORKSPACE_TOKEN}
+      ANARLOG_ENTERPRISE_BOT_NAME: ${ANARLOG_ENTERPRISE_BOT_NAME:-Anarlog Notetaker}
+      ANARLOG_ENTERPRISE_STT_URL: ${ANARLOG_ENTERPRISE_STT_URL:-}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - recordings:/var/lib/anarlog/recordings
+    shm_size: 1gb
+
+volumes:
+  postgres-data:
+  object-data:
+  recordings:

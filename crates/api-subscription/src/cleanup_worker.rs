@@ -3,6 +3,7 @@ use std::time::Duration;
 use chrono::{DateTime, TimeDelta, Utc};
 use futures_util::{StreamExt, stream};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use stripe_core::customer::{DeleteCustomer, RetrieveCustomer, RetrieveCustomerReturned};
 use tokio::time::MissedTickBehavior;
 use tokio_util::sync::CancellationToken;
@@ -181,9 +182,23 @@ impl CleanupWorker {
                 0
             }
         };
+        if let Err(error) = self.run_retention_batch().await {
+            tracing::warn!(error = %error, "workspace_retention_batch_failed");
+        }
         attachment_count == ATTACHMENT_BATCH_SIZE
             || shared_attachment_count == ATTACHMENT_BATCH_SIZE
             || account_count == ACCOUNT_BATCH_SIZE
+    }
+
+    async fn run_retention_batch(&self) -> Result<i32> {
+        let deleted: i32 = self
+            .supabase
+            .admin_rpc("enforce_workspace_retention", &json!({}))
+            .await?;
+        if deleted < 0 {
+            return Err(invalid_upstream("workspace retention deleted count"));
+        }
+        Ok(deleted)
     }
 
     async fn run_attachment_batch(&self, cancellation: &CancellationToken) -> Result<usize> {

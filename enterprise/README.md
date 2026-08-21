@@ -5,3 +5,11 @@ This directory contains source-visible, commercially licensed Anarlog Enterprise
 Enterprise packages may depend on the MIT community layer. Community packages must never depend on this directory. Shared contracts and provider-neutral interfaces needed by independent clients belong in the community layer.
 
 Customer configuration, credentials, license-signing keys, and confidential deployment material must never be committed. Third-party material requires complete provenance and must retain its original notices.
+
+## Docs
+
+- Capture operations: `deploy/docs/operations.md`
+- Zoom RTMS: `docs/zoom-rtms.md`
+- Teams connector: `docs/teams-capture.md`
+- Owned-stack planning: `docs/planning/`
+

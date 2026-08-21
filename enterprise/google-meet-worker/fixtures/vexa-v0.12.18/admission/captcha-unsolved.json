@@ -1,0 +1,20 @@
+{
+  "id": "captcha-unsolved",
+  "kind": "admission",
+  "elapsed_ms": 120000,
+  "snapshot": {
+    "waiting_room_visible": false,
+    "consent_prompt_visible": false,
+    "explicit_denial_indicator": null,
+    "ambiguous_error_indicator": "Try again",
+    "visible_recaptcha_challenge": true,
+    "participant_tile_labels": [],
+    "self_name_nodes": 0,
+    "visible_admission_controls": 0
+  },
+  "expected": {
+    "outcome": "rejected",
+    "reason": "captcha_unsolved",
+    "indicator": "Try again"
+  }
+}

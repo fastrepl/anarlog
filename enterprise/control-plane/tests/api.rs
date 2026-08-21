@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anarlog_enterprise_control_plane::{
     api::{AppState, router},
@@ -8,6 +8,11 @@ use anarlog_enterprise_control_plane::{
         CaptureJobLeaseIdentity, CaptureJobStatus, ProjectionPublication,
     },
     config::{Config, ZoomConfigValues},
+    license::{License, LicenseClaims},
+    schedule::{
+        CalendarEventInput, CapturePolicy, ScheduleDecision, ScheduledCapture,
+        ScheduledCaptureStatus, decide_schedule, scheduled_job_id,
+    },
     serve,
     store::{ControlPlaneStore, StoreError},
     zoom::{
@@ -36,6 +41,8 @@ const TOKEN_B: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 struct MemoryStore {
     ready: bool,
+    policies: Mutex<HashMap<String, CapturePolicy>>,
+    scheduled: Mutex<HashMap<(String, String), ScheduledCapture>>,
 }
 
 #[derive(Default)]
@@ -210,6 +217,152 @@ impl ControlPlaneStore for MemoryStore {
     ) -> Result<SessionRead, StoreError> {
         Err(StoreError::NotFound)
     }
+
+    async fn get_capture_policy(&self, workspace_id: &str) -> Result<CapturePolicy, StoreError> {
+        Ok(self
+            .policies
+            .lock()
+            .unwrap()
+            .get(workspace_id)
+            .cloned()
+            .unwrap_or_else(|| CapturePolicy::default_off(workspace_id)))
+    }
+
+    async fn upsert_capture_policy(
+        &self,
+        policy: &CapturePolicy,
+    ) -> Result<CapturePolicy, StoreError> {
+        self.policies
+            .lock()
+            .unwrap()
+            .insert(policy.workspace_id.clone(), policy.clone());
+        Ok(policy.clone())
+    }
+
+    async fn upsert_calendar_events(
+        &self,
+        workspace_id: &str,
+        events: &[CalendarEventInput],
+    ) -> Result<Vec<ScheduledCapture>, StoreError> {
+        let policy = self.get_capture_policy(workspace_id).await?;
+        let mut scheduled = self.scheduled.lock().unwrap();
+        let mut out = Vec::new();
+        for event in events {
+            let key = (workspace_id.to_string(), event.calendar_event_id.clone());
+            if let Some(existing) = scheduled.get(&key) {
+                if existing.status == ScheduledCaptureStatus::Dispatched {
+                    out.push(existing.clone());
+                    continue;
+                }
+            }
+            let decision = decide_schedule(&policy, event);
+            let row = match decision {
+                ScheduleDecision::Pending => ScheduledCapture {
+                    workspace_id: workspace_id.into(),
+                    calendar_event_id: event.calendar_event_id.clone(),
+                    job_id: Some(scheduled_job_id(&event.calendar_event_id)),
+                    title: event.title.clone(),
+                    starts_at: event.starts_at,
+                    ends_at: event.ends_at,
+                    meeting: event.meeting.clone(),
+                    provider: event.provider,
+                    owner_user_id: event.owner_user_id.clone(),
+                    status: ScheduledCaptureStatus::Pending,
+                    skip_reason: None,
+                    bot_name: policy.bot_name.clone(),
+                    disclosure_text: policy.disclosure_text.clone(),
+                },
+                ScheduleDecision::Skipped(reason) => ScheduledCapture {
+                    workspace_id: workspace_id.into(),
+                    calendar_event_id: event.calendar_event_id.clone(),
+                    job_id: None,
+                    title: event.title.clone(),
+                    starts_at: event.starts_at,
+                    ends_at: event.ends_at,
+                    meeting: event.meeting.clone(),
+                    provider: event.provider,
+                    owner_user_id: event.owner_user_id.clone(),
+                    status: ScheduledCaptureStatus::Skipped,
+                    skip_reason: Some(reason.into()),
+                    bot_name: policy.bot_name.clone(),
+                    disclosure_text: policy.disclosure_text.clone(),
+                },
+                ScheduleDecision::Canceled(reason) => ScheduledCapture {
+                    workspace_id: workspace_id.into(),
+                    calendar_event_id: event.calendar_event_id.clone(),
+                    job_id: None,
+                    title: event.title.clone(),
+                    starts_at: event.starts_at,
+                    ends_at: event.ends_at,
+                    meeting: event.meeting.clone(),
+                    provider: event.provider,
+                    owner_user_id: event.owner_user_id.clone(),
+                    status: ScheduledCaptureStatus::Canceled,
+                    skip_reason: Some(reason.into()),
+                    bot_name: policy.bot_name.clone(),
+                    disclosure_text: policy.disclosure_text.clone(),
+                },
+            };
+            scheduled.insert(key, row.clone());
+            out.push(row);
+        }
+        Ok(out)
+    }
+
+    async fn list_scheduled_captures(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<ScheduledCapture>, StoreError> {
+        Ok(self
+            .scheduled
+            .lock()
+            .unwrap()
+            .values()
+            .filter(|row| row.workspace_id == workspace_id)
+            .cloned()
+            .collect())
+    }
+
+    async fn cancel_scheduled_capture(
+        &self,
+        workspace_id: &str,
+        calendar_event_id: &str,
+    ) -> Result<ScheduledCapture, StoreError> {
+        let mut scheduled = self.scheduled.lock().unwrap();
+        let row = scheduled
+            .get_mut(&(workspace_id.into(), calendar_event_id.into()))
+            .ok_or(StoreError::NotFound)?;
+        if row.status != ScheduledCaptureStatus::Dispatched {
+            row.status = ScheduledCaptureStatus::Canceled;
+            row.skip_reason = Some("canceled_by_user".into());
+        }
+        Ok(row.clone())
+    }
+
+    async fn dispatch_due_scheduled_captures(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Vec<CaptureJobStatus>, StoreError> {
+        let mut scheduled = self.scheduled.lock().unwrap();
+        let mut dispatched = Vec::new();
+        for row in scheduled.values_mut() {
+            if row.status != ScheduledCaptureStatus::Pending || row.starts_at > now {
+                continue;
+            }
+            let job_id = row
+                .job_id
+                .clone()
+                .unwrap_or_else(|| scheduled_job_id(&row.calendar_event_id));
+            row.job_id = Some(job_id.clone());
+            row.status = ScheduledCaptureStatus::Dispatched;
+            dispatched.push(CaptureJobStatus {
+                job_id,
+                created: true,
+                state: BotState::Queued,
+            });
+        }
+        Ok(dispatched)
+    }
 }
 
 fn state(ready: bool) -> AppState {
@@ -218,7 +371,14 @@ fn state(ready: bool) -> AppState {
         ("workspace-b".into(), TOKEN_B.into()),
     ])
     .unwrap();
-    AppState::new(Arc::new(MemoryStore { ready }), Arc::new(authenticator))
+    AppState::new(
+        Arc::new(MemoryStore {
+            ready,
+            policies: Mutex::new(HashMap::new()),
+            scheduled: Mutex::new(HashMap::new()),
+        }),
+        Arc::new(authenticator),
+    )
 }
 
 fn state_with_zoom(dispatcher: Arc<RecordingZoomDispatcher>) -> AppState {
@@ -696,4 +856,112 @@ fn capture_job() -> CaptureJob {
             .unwrap()
             .with_timezone(&chrono::Utc),
     }
+}
+
+#[tokio::test]
+async fn schedules_exactly_one_capture_job_and_allows_cancel() {
+    let app = router(state(true));
+    let policy = serde_json::json!({
+        "workspaceId": "workspace-a",
+        "captureEnabled": true,
+        "allowedProviders": ["anarlog"],
+        "botName": "Anarlog Notetaker",
+        "skipIfDesktopCapture": true
+    });
+    let saved = app
+        .clone()
+        .oneshot(json_request(
+            Method::PUT,
+            "/v1/workspaces/workspace-a/capture-policy",
+            Some(TOKEN_A),
+            &policy,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(saved.status(), StatusCode::OK);
+
+    let events = serde_json::json!([{
+        "calendarEventId": "evt-1",
+        "title": "Standup",
+        "startsAt": "2026-08-21T15:00:00Z",
+        "meeting": {
+            "platform": "google_meet",
+            "url": "https://meet.google.com/aaa-bbbb-ccc"
+        },
+        "provider": "anarlog",
+        "ownerUserId": "owner-a"
+    }]);
+    let first = app
+        .clone()
+        .oneshot(json_request(
+            Method::PUT,
+            "/v1/workspaces/workspace-a/calendar-events",
+            Some(TOKEN_A),
+            &events,
+        ))
+        .await
+        .unwrap();
+    let second = app
+        .clone()
+        .oneshot(json_request(
+            Method::PUT,
+            "/v1/workspaces/workspace-a/calendar-events",
+            Some(TOKEN_A),
+            &events,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(second.status(), StatusCode::OK);
+    let listed = response_json(first).await;
+    assert_eq!(listed.as_array().map(Vec::len), Some(1));
+    assert_eq!(listed[0]["jobId"], "cal-evt-1");
+    assert_eq!(listed[0]["status"], "pending");
+    assert_eq!(response_json(second).await[0]["jobId"], "cal-evt-1");
+
+    let canceled = app
+        .oneshot(
+            Request::delete("/v1/workspaces/workspace-a/scheduled-captures/evt-1")
+                .header(header::AUTHORIZATION, format!("Bearer {TOKEN_A}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(canceled.status(), StatusCode::OK);
+    assert_eq!(response_json(canceled).await["status"], "canceled");
+}
+
+#[tokio::test]
+async fn offline_license_forbids_unlicensed_workspaces() {
+    let claims = LicenseClaims {
+        customer_id: "acme".into(),
+        workspace_ids: vec!["workspace-b".into()],
+        not_before: chrono::DateTime::parse_from_rfc3339("2026-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc),
+        expires_at: None,
+        features: Default::default(),
+    };
+    let key = "0123456789abcdef0123456789abcdef";
+    let token = License::issue(&claims, key).unwrap();
+    let license = License::parse(
+        &token,
+        key,
+        chrono::DateTime::parse_from_rfc3339("2026-08-21T00:00:00Z")
+            .unwrap()
+            .with_timezone(&chrono::Utc),
+    )
+    .unwrap();
+    let app = router(state(true).with_license(license));
+    let denied = app
+        .oneshot(
+            Request::get("/v1/workspaces/workspace-a/scheduled-captures")
+                .header(header::AUTHORIZATION, format!("Bearer {TOKEN_A}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN);
 }

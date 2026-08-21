@@ -426,6 +426,10 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
             rate_limit::rate_limit,
         ));
 
+    let scim_routes = match subscription_config.clone() {
+        Some(config) => anlg_api_subscription::scim_router(config),
+        None => Router::new(),
+    };
     let subscription_routes = match subscription_config {
         Some(config) => {
             let router = anlg_api_subscription::router(config);
@@ -458,6 +462,7 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
         .nest("/sync", sync_routes)
         .merge(integration_routes)
         .merge(integration_management_routes)
+        .nest("/scim/v2", scim_routes)
         .merge(auth_routes)
         .layer(
             CorsLayer::new()

@@ -1,0 +1,59 @@
+replicaCount: 1
+
+image:
+  controlPlane: anarlog-enterprise-control-plane:release
+  googleMeetWorker: anarlog-enterprise-google-meet-worker:release
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8080
+
+postgres:
+  enabled: true
+  image: postgres:17-alpine
+  database: anarlog
+  user: anarlog
+  persistence:
+    size: 20Gi
+
+objectStorage:
+  enabled: true
+  image: minio/minio:RELEASE.2025-07-23T15-54-02Z
+  persistence:
+    size: 100Gi
+
+googleMeetWorker:
+  enabled: true
+  replicas: 1
+  # When empty, the worker polls dispatched calendar jobs for the workspace.
+  captureJobId: ""
+  sttUrl: ""
+  recordings:
+    persistence:
+      enabled: true
+      size: 200Gi
+
+zoom:
+  enabled: false
+
+observability:
+  # Customer-owned metrics scrape of /health/ready. No telemetry is exported.
+  serviceMonitor: false
+  extraLabels: {}
+
+license:
+  existingSecret: anarlog-enterprise-license
+
+workspaceTokens:
+  existingSecret: anarlog-enterprise-workspace-tokens
+
+resources:
+  controlPlane:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  worker:
+    requests:
+      cpu: 500m
+      memory: 1Gi

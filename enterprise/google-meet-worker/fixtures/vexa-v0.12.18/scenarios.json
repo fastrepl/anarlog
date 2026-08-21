@@ -1,0 +1,95 @@
+[
+  {
+    "id": "admitted-then-kicked",
+    "expected_state": "failed",
+    "expected_terminal": "removed_from_meeting",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "runtime", "fixture": "runtime/removed.json" }
+    ]
+  },
+  {
+    "id": "host-ended-meeting",
+    "expected_state": "completed",
+    "expected_terminal": "meeting_ended",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "runtime", "fixture": "runtime/meeting-ended.json" }
+    ]
+  },
+  {
+    "id": "host-denied-before-join",
+    "expected_state": "failed",
+    "expected_terminal": "admission_denied",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/host-denied.json" }
+    ]
+  },
+  {
+    "id": "lobby-timeout",
+    "expected_state": "failed",
+    "expected_terminal": "admission_timeout",
+    "retryable": true,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/waiting-room.json" },
+      { "action": "admission_timeout" }
+    ]
+  },
+  {
+    "id": "network-lost-after-grace",
+    "expected_state": "failed",
+    "expected_terminal": "network_lost",
+    "retryable": true,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "runtime", "fixture": "runtime/network-lost.json" }
+    ]
+  },
+  {
+    "id": "worker-crash-after-join",
+    "expected_state": "failed",
+    "expected_terminal": "worker_exited",
+    "retryable": true,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "worker_exited", "message": "chromium exited with status 1" }
+    ]
+  },
+  {
+    "id": "stt-outage",
+    "expected_state": "failed",
+    "expected_terminal": "provider_error",
+    "retryable": true,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "stt_unavailable", "message": "speech-to-text endpoint returned 503" }
+    ]
+  },
+  {
+    "id": "nobody-joined-timeout",
+    "expected_state": "failed",
+    "expected_terminal": "no_one_joined",
+    "retryable": true,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "runtime", "fixture": "runtime/nobody-joined.json" }
+    ]
+  }
+]

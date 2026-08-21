@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   acknowledgeSessionDelivery,
+  cancelScheduledCapture,
   EnterpriseCaptureClientError,
+  listScheduledCaptures,
   listSessionDeliveries,
 } from "./client";
 
@@ -103,6 +105,44 @@ describe("enterprise capture client", () => {
       revision: 2,
       contentHash: "a".repeat(64),
     });
+  });
+
+  it("lists and cancels upcoming scheduled captures", async () => {
+    const scheduled = {
+      calendarEventId: "evt-1",
+      title: "Standup",
+      startsAt: "2026-08-21T15:00:00Z",
+      status: "pending",
+      jobId: "cal-evt-1",
+    };
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse([scheduled]));
+
+    await expect(
+      listScheduledCaptures({
+        serverUrl: "https://capture.example.test/control/",
+        accessToken: "access-token",
+        workspaceId: "workspace 1",
+      }),
+    ).resolves.toEqual([scheduled]);
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toBe(
+      "https://capture.example.test/control/v1/workspaces/workspace%201/scheduled-captures",
+    );
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      jsonResponse({ ...scheduled, status: "canceled" }),
+    );
+    await expect(
+      cancelScheduledCapture({
+        serverUrl: "https://capture.example.test",
+        accessToken: "access-token",
+        workspaceId: "workspace-1",
+        calendarEventId: "evt/1",
+      }),
+    ).resolves.toMatchObject({ status: "canceled" });
+    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain(
+      "/scheduled-captures/evt%2F1",
+    );
+    expect(vi.mocked(fetch).mock.calls[1]?.[1]?.method).toBe("DELETE");
   });
 
   it("rejects an oversized response without a declared content length", async () => {

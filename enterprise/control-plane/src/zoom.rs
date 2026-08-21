@@ -1260,7 +1260,11 @@ impl ZoomCaptureWorkerError {
     fn can_reconcile_with_stop(&self) -> bool {
         matches!(
             self,
-            Self::Session(ZoomRtmsSessionError::ConnectionClosed(_))
+            Self::Session(
+                ZoomRtmsSessionError::ConnectionClosed(_)
+                    | ZoomRtmsSessionError::Websocket(_)
+                    | ZoomRtmsSessionError::HandshakeTimeout(_)
+            )
         )
     }
 
@@ -1535,6 +1539,50 @@ mod tests {
         ) -> Result<SessionRead, StoreError> {
             Err(StoreError::NotFound)
         }
+
+        async fn get_capture_policy(
+            &self,
+            workspace_id: &str,
+        ) -> Result<crate::schedule::CapturePolicy, StoreError> {
+            Ok(crate::schedule::CapturePolicy::default_off(workspace_id))
+        }
+
+        async fn upsert_capture_policy(
+            &self,
+            policy: &crate::schedule::CapturePolicy,
+        ) -> Result<crate::schedule::CapturePolicy, StoreError> {
+            Ok(policy.clone())
+        }
+
+        async fn upsert_calendar_events(
+            &self,
+            _workspace_id: &str,
+            _events: &[crate::schedule::CalendarEventInput],
+        ) -> Result<Vec<crate::schedule::ScheduledCapture>, StoreError> {
+            Ok(Vec::new())
+        }
+
+        async fn list_scheduled_captures(
+            &self,
+            _workspace_id: &str,
+        ) -> Result<Vec<crate::schedule::ScheduledCapture>, StoreError> {
+            Ok(Vec::new())
+        }
+
+        async fn cancel_scheduled_capture(
+            &self,
+            _workspace_id: &str,
+            _calendar_event_id: &str,
+        ) -> Result<crate::schedule::ScheduledCapture, StoreError> {
+            Err(StoreError::NotFound)
+        }
+
+        async fn dispatch_due_scheduled_captures(
+            &self,
+            _now: chrono::DateTime<Utc>,
+        ) -> Result<Vec<CaptureJobStatus>, StoreError> {
+            Ok(Vec::new())
+        }
     }
 
     fn zoom_checkpoint(external_id: &str) -> CaptureJobCheckpoint {
@@ -1645,7 +1693,7 @@ mod tests {
     }
 
     #[test]
-    fn only_connection_close_errors_can_reconcile_with_a_clean_stop() {
+    fn connection_failures_can_reconcile_with_a_clean_stop() {
         assert!(
             ZoomCaptureWorkerError::Session(ZoomRtmsSessionError::ConnectionClosed("media"))
                 .can_reconcile_with_stop()

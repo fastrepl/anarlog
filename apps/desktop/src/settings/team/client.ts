@@ -231,6 +231,153 @@ export async function deleteWorkspace(
   await callRpc(context, "delete_workspace", { p_workspace_id: workspaceId });
 }
 
+export type WorkspaceUsageOverview = {
+  memberCount: number;
+  pendingInvitations: number;
+  enrolledDevices: number;
+  sharesCreated30d: number;
+  shareAccessEvents30d: number;
+  seatLimit: number | null;
+  usedSeats: number;
+  isBilled: boolean;
+};
+
+export type WorkspacePolicy = {
+  allowedShareScopes: Array<"restricted" | "workspace" | "link" | "public">;
+  defaultShareScope: "restricted" | "workspace" | "link" | "public";
+  retentionDays: number | null;
+  modelTrainingOptOut: boolean;
+  consentNotificationEnabled: boolean;
+  requireSso: boolean;
+};
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" ? value : null;
+}
+
+function number(value: unknown): number {
+  return typeof value === "number" ? value : 0;
+}
+
+export async function getWorkspaceUsageOverview(
+  context: TeamContext,
+  workspaceId: string,
+): Promise<WorkspaceUsageOverview> {
+  assertWorkspaceId(workspaceId);
+  const row = rows(
+    await callRpc(context, "get_workspace_usage_overview", {
+      p_workspace_id: workspaceId,
+    }),
+  )[0];
+  if (!row) throw new TeamError();
+  return {
+    memberCount: number(row.member_count),
+    pendingInvitations: number(row.pending_invitations),
+    enrolledDevices: number(row.enrolled_devices),
+    sharesCreated30d: number(row.shares_created_30d),
+    shareAccessEvents30d: number(row.share_access_events_30d),
+    seatLimit: numberOrNull(row.seat_limit),
+    usedSeats: number(row.used_seats),
+    isBilled: row.is_billed === true,
+  };
+}
+
+function shareScope(
+  value: unknown,
+): "restricted" | "workspace" | "link" | "public" {
+  if (
+    value !== "restricted" &&
+    value !== "workspace" &&
+    value !== "link" &&
+    value !== "public"
+  ) {
+    throw new TeamError();
+  }
+  return value;
+}
+
+export async function getWorkspacePolicy(
+  context: TeamContext,
+  workspaceId: string,
+): Promise<WorkspacePolicy> {
+  assertWorkspaceId(workspaceId);
+  const row = rows(
+    await callRpc(context, "get_workspace_policy", {
+      p_workspace_id: workspaceId,
+    }),
+  )[0];
+  if (!row) throw new TeamError();
+  const scopes = Array.isArray(row.allowed_share_scopes)
+    ? row.allowed_share_scopes.map(shareScope)
+    : (["restricted"] as WorkspacePolicy["allowedShareScopes"]);
+  return {
+    allowedShareScopes: scopes,
+    defaultShareScope: shareScope(row.default_share_scope),
+    retentionDays: numberOrNull(row.retention_days),
+    modelTrainingOptOut: row.model_training_opt_out !== false,
+    consentNotificationEnabled: row.consent_notification_enabled !== false,
+    requireSso: row.require_sso === true,
+  };
+}
+
+export function intersectAllowedShareScopes(
+  policies: Array<Pick<WorkspacePolicy, "allowedShareScopes">>,
+): WorkspacePolicy["allowedShareScopes"] {
+  const scopes: WorkspacePolicy["allowedShareScopes"] = [
+    "restricted",
+    "workspace",
+    "link",
+    "public",
+  ];
+  if (policies.length === 0) return scopes;
+  return scopes.filter((scope) =>
+    policies.every((policy) => policy.allowedShareScopes.includes(scope)),
+  );
+}
+
+export async function claimWorkspaceDomain(
+  context: TeamContext,
+  workspaceId: string,
+  domain: string,
+) {
+  assertWorkspaceId(workspaceId);
+  await callRpc(context, "claim_workspace_domain", {
+    p_workspace_id: workspaceId,
+    p_domain: domain,
+  });
+}
+
+export async function rotateWorkspaceScimToken(
+  context: TeamContext,
+  workspaceId: string,
+  domain: string,
+  token: string,
+) {
+  assertWorkspaceId(workspaceId);
+  await callRpc(context, "rotate_workspace_scim_token", {
+    p_workspace_id: workspaceId,
+    p_domain: domain,
+    p_token: token,
+  });
+}
+
+export async function setWorkspacePolicy(
+  context: TeamContext,
+  workspaceId: string,
+  policy: WorkspacePolicy,
+) {
+  assertWorkspaceId(workspaceId);
+  await callRpc(context, "set_workspace_policy", {
+    p_workspace_id: workspaceId,
+    p_allowed_share_scopes: policy.allowedShareScopes,
+    p_default_share_scope: policy.defaultShareScope,
+    p_retention_days: policy.retentionDays,
+    p_model_training_opt_out: policy.modelTrainingOptOut,
+    p_consent_notification_enabled: policy.consentNotificationEnabled,
+    p_require_sso: policy.requireSso,
+  });
+}
+
 export async function listMyWorkspaces(context: TeamContext) {
   // RLS limits the embedded memberships to this account's own row, so the join
   // yields the caller's role without needing manager-only RPCs.

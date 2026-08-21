@@ -21,11 +21,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@anlg/ui/components/ui/select";
+import { Switch } from "@anlg/ui/components/ui/switch";
 import { cn } from "@anlg/utils";
 
 import {
+  claimWorkspaceDomain,
   createWorkspace,
   deleteWorkspace,
+  getWorkspacePolicy,
+  getWorkspaceUsageOverview,
   inviteMember,
   leaveWorkspace,
   listWorkspaceInvitations,
@@ -34,15 +38,23 @@ import {
   renameWorkspace,
   requireTeamContext,
   revokeInvitation,
+  rotateWorkspaceScimToken,
   setMemberRole,
+  setWorkspacePolicy,
   transferOwnership,
   type WorkspaceMember,
+  type WorkspacePolicy,
   type WorkspaceRole,
 } from "./client";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
+import {
+  cancelScheduledCapture,
+  listScheduledCaptures,
+} from "~/enterprise-capture/client";
+import { env } from "~/env";
 import { SettingsPageTitle } from "~/settings/page-title";
 
 export function SettingsTeam() {
@@ -267,6 +279,21 @@ function WorkspacePanel({
       listWorkspaceInvitations(requireTeamContext(auth), workspaceId),
     retry: false,
   });
+  const usage = useQuery({
+    queryKey: ["team-usage", workspaceId],
+    queryFn: () =>
+      getWorkspaceUsageOverview(requireTeamContext(auth), workspaceId),
+    retry: false,
+    enabled:
+      hasProAccess && (workspaceRole === "owner" || workspaceRole === "admin"),
+  });
+  const policy = useQuery({
+    queryKey: ["team-policy", workspaceId],
+    queryFn: () => getWorkspacePolicy(requireTeamContext(auth), workspaceId),
+    retry: false,
+    enabled:
+      hasProAccess && (workspaceRole === "owner" || workspaceRole === "admin"),
+  });
 
   const refresh = () => {
     void queryClient.invalidateQueries({
@@ -274,6 +301,12 @@ function WorkspacePanel({
     });
     void queryClient.invalidateQueries({
       queryKey: ["team-invitations", workspaceId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["team-usage", workspaceId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["team-policy", workspaceId],
     });
   };
 
@@ -527,6 +560,61 @@ function WorkspacePanel({
         )}
       </div>
 
+      {canManage && usage.data && (
+        <div>
+          <h3 className="text-sm font-medium">
+            <Trans>Usage</Trans>
+          </h3>
+          <p className="text-muted-foreground mt-1 text-xs leading-5">
+            <Trans>
+              Workspace activity from metadata only. Note content stays
+              unreadable on the server.
+            </Trans>
+          </p>
+          <dl className="mt-3 grid max-w-xl grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="text-muted-foreground text-xs">
+                <Trans>Members</Trans>
+              </dt>
+              <dd>{usage.data.memberCount}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">
+                <Trans>Seats</Trans>
+              </dt>
+              <dd>
+                {usage.data.usedSeats}
+                {usage.data.seatLimit != null
+                  ? ` / ${usage.data.seatLimit}`
+                  : ""}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">
+                <Trans>Devices</Trans>
+              </dt>
+              <dd>{usage.data.enrolledDevices}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground text-xs">
+                <Trans>Shares (30d)</Trans>
+              </dt>
+              <dd>{usage.data.sharesCreated30d}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
+
+      {canManage && policy.data && (
+        <WorkspacePolicyForm
+          workspaceId={workspaceId}
+          policy={policy.data}
+          onSaved={refresh}
+        />
+      )}
+
+      <UpcomingCaptureBots workspaceId={workspaceId} />
+
       <div className="border-destructive/30 bg-destructive/5 flex items-center justify-between gap-4 rounded-lg border px-4 py-3">
         <p className="text-muted-foreground text-xs">
           {viewerRole === "owner" ? (
@@ -565,6 +653,271 @@ function WorkspacePanel({
             <Trans>Leave workspace</Trans>
           </Button>
         )}
+      </div>
+    </div>
+  );
+}
+
+function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
+  const auth = useAuth();
+  const queryClient = useQueryClient();
+  const serverUrl = env.VITE_ENTERPRISE_API_URL;
+  const accessToken = auth.session?.access_token;
+  const upcoming = useQuery({
+    queryKey: ["scheduled-captures", workspaceId],
+    enabled: Boolean(serverUrl && accessToken),
+    retry: false,
+    queryFn: () =>
+      listScheduledCaptures({
+        serverUrl: serverUrl!,
+        accessToken: accessToken!,
+        workspaceId,
+      }),
+  });
+  const cancel = useMutation({
+    mutationFn: (calendarEventId: string) =>
+      cancelScheduledCapture({
+        serverUrl: serverUrl!,
+        accessToken: accessToken!,
+        workspaceId,
+        calendarEventId,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["scheduled-captures", workspaceId],
+      });
+    },
+  });
+
+  if (!serverUrl) return null;
+
+  const visible = (upcoming.data ?? []).filter(
+    (capture) =>
+      capture.status === "pending" || capture.status === "dispatched",
+  );
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium">
+        <Trans>Upcoming bot attendance</Trans>
+      </h3>
+      <p className="text-muted-foreground mt-1 text-xs leading-5">
+        <Trans>
+          Calendar-scheduled capture jobs. Canceling stops the bot from joining.
+        </Trans>
+      </p>
+      {upcoming.isPending ? (
+        <p className="text-muted-foreground mt-3 text-sm">
+          <Trans>Loading scheduled captures…</Trans>
+        </p>
+      ) : upcoming.error ? (
+        <p className="text-destructive mt-3 text-xs">
+          {upcoming.error.message}
+        </p>
+      ) : visible.length === 0 ? (
+        <p className="text-muted-foreground mt-3 text-sm">
+          <Trans>No upcoming bots.</Trans>
+        </p>
+      ) : (
+        <ul className="mt-3 max-w-xl divide-y rounded-lg border">
+          {visible.map((capture) => (
+            <li
+              key={capture.calendarEventId}
+              className="flex items-center justify-between gap-3 px-3 py-2.5"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm">{capture.title}</p>
+                <p className="text-muted-foreground text-xs">
+                  {new Date(capture.startsAt).toLocaleString()}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={cancel.isPending}
+                onClick={() => cancel.mutate(capture.calendarEventId)}
+              >
+                <Trans>Cancel bot</Trans>
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function WorkspacePolicyForm({
+  workspaceId,
+  policy,
+  onSaved,
+}: {
+  workspaceId: string;
+  policy: WorkspacePolicy;
+  onSaved: () => void;
+}) {
+  const auth = useAuth();
+  const { t } = useLingui();
+  const [retention, setRetention] = useState(
+    policy.retentionDays?.toString() ?? "",
+  );
+  const [allowLink, setAllowLink] = useState(
+    policy.allowedShareScopes.includes("link"),
+  );
+  const [allowPublic, setAllowPublic] = useState(
+    policy.allowedShareScopes.includes("public"),
+  );
+  const [requireSso, setRequireSso] = useState(policy.requireSso);
+  const [domain, setDomain] = useState("");
+  const [scimToken, setScimToken] = useState("");
+  const save = useMutation({
+    mutationFn: () => {
+      const allowedShareScopes: WorkspacePolicy["allowedShareScopes"] = [
+        "restricted",
+        "workspace",
+        ...(allowLink ? (["link"] as const) : []),
+        ...(allowPublic ? (["public"] as const) : []),
+      ];
+      const retentionDays = retention.trim() === "" ? null : Number(retention);
+      return setWorkspacePolicy(requireTeamContext(auth), workspaceId, {
+        ...policy,
+        allowedShareScopes,
+        retentionDays:
+          retentionDays != null && Number.isFinite(retentionDays)
+            ? retentionDays
+            : null,
+        requireSso,
+      });
+    },
+    onSuccess: onSaved,
+  });
+  const claimDomain = useMutation({
+    mutationFn: (value: string) =>
+      claimWorkspaceDomain(requireTeamContext(auth), workspaceId, value),
+    onSuccess: onSaved,
+  });
+  const rotateScim = useMutation({
+    mutationFn: () =>
+      rotateWorkspaceScimToken(
+        requireTeamContext(auth),
+        workspaceId,
+        domain.trim(),
+        scimToken.trim(),
+      ),
+    onSuccess: () => {
+      setScimToken("");
+      onSaved();
+    },
+  });
+
+  return (
+    <div>
+      <h3 className="text-sm font-medium">
+        <Trans>Policies</Trans>
+      </h3>
+      <p className="text-muted-foreground mt-1 text-xs leading-5">
+        <Trans>
+          These rules apply to every member. Sharing changes fail closed on the
+          server.
+        </Trans>
+      </p>
+      <div className="mt-3 flex max-w-xl flex-col gap-3">
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <Trans>Allow anyone-with-the-link sharing</Trans>
+          <Switch checked={allowLink} onCheckedChange={setAllowLink} />
+        </label>
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <Trans>Allow public indexing</Trans>
+          <Switch checked={allowPublic} onCheckedChange={setAllowPublic} />
+        </label>
+        <label className="flex items-center justify-between gap-4 text-sm">
+          <Trans>Require SSO</Trans>
+          <Switch checked={requireSso} onCheckedChange={setRequireSso} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <Trans>Retention (days)</Trans>
+          <Input
+            value={retention}
+            onChange={(event) => setRetention(event.target.value)}
+            placeholder={t`Keep forever`}
+            inputMode="numeric"
+            className="bg-card h-9 max-w-xs shadow-none"
+          />
+        </label>
+        <Button
+          type="button"
+          size="sm"
+          className="w-fit"
+          disabled={save.isPending}
+          onClick={() => save.mutate()}
+        >
+          {save.isPending ? (
+            <CircleNotch className="size-4 animate-spin" />
+          ) : null}
+          <Trans>Save policies</Trans>
+        </Button>
+        {save.error?.message ? (
+          <p className="text-destructive text-xs">{save.error.message}</p>
+        ) : null}
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (domain.trim()) claimDomain.mutate(domain.trim());
+          }}
+        >
+          <label className="flex flex-col gap-1 text-sm">
+            <Trans>Claim email domain</Trans>
+            <Input
+              value={domain}
+              onChange={(event) => setDomain(event.target.value)}
+              placeholder="company.com"
+              className="bg-card h-9 max-w-xs shadow-none"
+            />
+          </label>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            disabled={!domain.trim() || claimDomain.isPending}
+          >
+            <Trans>Verify domain</Trans>
+          </Button>
+        </form>
+        <form
+          className="flex flex-col gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (domain.trim() && scimToken.trim().length >= 32) {
+              rotateScim.mutate();
+            }
+          }}
+        >
+          <label className="flex flex-col gap-1 text-sm">
+            <Trans>SCIM bearer token</Trans>
+            <Input
+              value={scimToken}
+              onChange={(event) => setScimToken(event.target.value)}
+              type="password"
+              autoComplete="off"
+              className="bg-card h-9 max-w-xs shadow-none"
+            />
+          </label>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="w-fit"
+            disabled={
+              !domain.trim() ||
+              scimToken.trim().length < 32 ||
+              rotateScim.isPending
+            }
+          >
+            <Trans>Save SCIM token</Trans>
+          </Button>
+        </form>
       </div>
     </div>
   );

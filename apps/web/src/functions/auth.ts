@@ -270,6 +270,35 @@ export const doAuth = createServerFn({ method: "POST" })
     return { success: true, url: authData.url };
   });
 
+export const doSsoAuth = createServerFn({ method: "POST" })
+  .inputValidator(
+    shared.extend({
+      domain: z
+        .string()
+        .trim()
+        .min(1)
+        .max(253)
+        .regex(/^[a-z0-9.-]+$/i),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const supabase = getSupabaseServerClient();
+    const params = buildAuthCallbackParams(data);
+
+    const { data: authData, error } = await supabase.auth.signInWithSSO({
+      domain: data.domain.toLowerCase(),
+      options: {
+        redirectTo: buildAuthCallbackUrl(params),
+      },
+    });
+
+    if (error) {
+      return { error: true, message: error.message };
+    }
+
+    return { success: true, url: authData.url };
+  });
+
 export const doMagicLinkAuth = createServerFn({ method: "POST" })
   .inputValidator(
     shared.extend({

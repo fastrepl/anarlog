@@ -1,0 +1,18 @@
+{
+  "id": "consent",
+  "kind": "admission",
+  "elapsed_ms": 0,
+  "snapshot": {
+    "waiting_room_visible": false,
+    "consent_prompt_visible": true,
+    "explicit_denial_indicator": null,
+    "ambiguous_error_indicator": null,
+    "visible_recaptcha_challenge": false,
+    "participant_tile_labels": ["Ada Lovelace"],
+    "self_name_nodes": 0,
+    "visible_admission_controls": 0
+  },
+  "expected": {
+    "outcome": "consent"
+  }
+}

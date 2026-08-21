@@ -59,6 +59,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "base64",
  "chrono",
  "db-app",
  "db-core",
@@ -84,6 +85,7 @@ dependencies = [
 name = "anarlog-enterprise-google-meet-worker"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "async-trait",
  "base64",
  "chrono",
@@ -97,6 +99,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
  "url",
 ]
 
@@ -116,6 +120,7 @@ dependencies = [
 name = "anarlog-enterprise-zoom-rtms-worker"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "futures-util",
  "hmac",
  "meeting-capture",
@@ -125,6 +130,8 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-tungstenite",
+ "tracing",
+ "tracing-subscriber",
  "url",
 ]
 
@@ -606,6 +613,7 @@ name = "db-app"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "cloudsync",
  "db-core",
  "db-migrate",
  "e2ee",

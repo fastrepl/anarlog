@@ -63,6 +63,10 @@ vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => mocks.billing,
 }));
 
+vi.mock("~/env", () => ({
+  env: { VITE_ENTERPRISE_API_URL: undefined },
+}));
+
 vi.mock("./mirror", () => ({
   MY_WORKSPACES_QUERY_KEY: "team-workspaces",
   useMyWorkspacesWithMirror: () => mocks.workspaces,
@@ -83,6 +87,29 @@ vi.mock("./client", () => ({
   revokeInvitation: mocks.client.revokeInvitation,
   setMemberRole: vi.fn(() => Promise.resolve()),
   transferOwnership: vi.fn(() => Promise.resolve()),
+  getWorkspaceUsageOverview: () =>
+    Promise.resolve({
+      memberCount: 1,
+      pendingInvitations: 0,
+      enrolledDevices: 0,
+      sharesCreated30d: 0,
+      shareAccessEvents30d: 0,
+      seatLimit: null,
+      usedSeats: 1,
+      isBilled: false,
+    }),
+  getWorkspacePolicy: () =>
+    Promise.resolve({
+      allowedShareScopes: ["restricted", "workspace", "link", "public"],
+      defaultShareScope: "restricted",
+      retentionDays: null,
+      modelTrainingOptOut: true,
+      consentNotificationEnabled: true,
+      requireSso: false,
+    }),
+  setWorkspacePolicy: vi.fn(() => Promise.resolve()),
+  claimWorkspaceDomain: vi.fn(() => Promise.resolve()),
+  rotateWorkspaceScimToken: vi.fn(() => Promise.resolve()),
 }));
 
 import { SettingsTeam } from "./index";

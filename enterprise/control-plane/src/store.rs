@@ -14,6 +14,10 @@ use crate::{
         CaptureJobLeaseIdentity, CaptureJobStatus, ProjectionPublication,
     },
     projector,
+    schedule::{
+        CalendarEventInput, CapturePolicy, ScheduleDecision, ScheduledCapture,
+        ScheduledCaptureStatus, decide_schedule, scheduled_job_id,
+    },
 };
 
 static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
@@ -101,6 +105,35 @@ pub trait ControlPlaneStore: Send + Sync {
         workspace_id: &str,
         job_id: &str,
     ) -> Result<SessionRead, StoreError>;
+
+    async fn get_capture_policy(&self, workspace_id: &str) -> Result<CapturePolicy, StoreError>;
+
+    async fn upsert_capture_policy(
+        &self,
+        policy: &CapturePolicy,
+    ) -> Result<CapturePolicy, StoreError>;
+
+    async fn upsert_calendar_events(
+        &self,
+        workspace_id: &str,
+        events: &[CalendarEventInput],
+    ) -> Result<Vec<ScheduledCapture>, StoreError>;
+
+    async fn list_scheduled_captures(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<ScheduledCapture>, StoreError>;
+
+    async fn cancel_scheduled_capture(
+        &self,
+        workspace_id: &str,
+        calendar_event_id: &str,
+    ) -> Result<ScheduledCapture, StoreError>;
+
+    async fn dispatch_due_scheduled_captures(
+        &self,
+        now: DateTime<Utc>,
+    ) -> Result<Vec<CaptureJobStatus>, StoreError>;
 }
 
 #[derive(Clone)]
@@ -987,6 +1020,212 @@ impl ControlPlaneStore for PostgresStore {
             envelope,
         })
     }
+
+    async fn get_capture_policy(&self, workspace_id: &str) -> Result<CapturePolicy, StoreError> {
+        let row = sqlx::query(
+            r#"
+            SELECT workspace_id, capture_enabled, allowed_providers, bot_name,
+                   disclosure_text, skip_if_desktop_capture
+            FROM capture_policies
+            WHERE workspace_id = $1
+            "#,
+        )
+        .bind(workspace_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        match row {
+            Some(row) => capture_policy(row),
+            None => Ok(CapturePolicy::default_off(workspace_id)),
+        }
+    }
+
+    async fn upsert_capture_policy(
+        &self,
+        policy: &CapturePolicy,
+    ) -> Result<CapturePolicy, StoreError> {
+        validate_policy(policy)?;
+        let allowed_providers = serde_json::to_value(&policy.allowed_providers)?;
+        sqlx::query(
+            r#"
+            INSERT INTO capture_policies (
+                workspace_id,
+                capture_enabled,
+                allowed_providers,
+                bot_name,
+                disclosure_text,
+                skip_if_desktop_capture,
+                updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, clock_timestamp())
+            ON CONFLICT (workspace_id) DO UPDATE SET
+                capture_enabled = EXCLUDED.capture_enabled,
+                allowed_providers = EXCLUDED.allowed_providers,
+                bot_name = EXCLUDED.bot_name,
+                disclosure_text = EXCLUDED.disclosure_text,
+                skip_if_desktop_capture = EXCLUDED.skip_if_desktop_capture,
+                updated_at = clock_timestamp()
+            "#,
+        )
+        .bind(&policy.workspace_id)
+        .bind(policy.capture_enabled)
+        .bind(&allowed_providers)
+        .bind(&policy.bot_name)
+        .bind(&policy.disclosure_text)
+        .bind(policy.skip_if_desktop_capture)
+        .execute(&self.pool)
+        .await?;
+        self.get_capture_policy(&policy.workspace_id).await
+    }
+
+    async fn upsert_calendar_events(
+        &self,
+        workspace_id: &str,
+        events: &[CalendarEventInput],
+    ) -> Result<Vec<ScheduledCapture>, StoreError> {
+        let policy = self.get_capture_policy(workspace_id).await?;
+        let mut transaction = self.pool.begin().await?;
+        let mut stored = Vec::with_capacity(events.len());
+        for event in events {
+            stored.push(upsert_scheduled_capture(&mut transaction, &policy, event).await?);
+        }
+        transaction.commit().await?;
+        Ok(stored)
+    }
+
+    async fn list_scheduled_captures(
+        &self,
+        workspace_id: &str,
+    ) -> Result<Vec<ScheduledCapture>, StoreError> {
+        let rows = sqlx::query(
+            r#"
+            SELECT workspace_id, calendar_event_id, job_id, title, starts_at, ends_at,
+                   meeting, provider, owner_user_id, status, skip_reason, bot_name,
+                   disclosure_text
+            FROM scheduled_captures
+            WHERE workspace_id = $1
+            ORDER BY starts_at ASC, calendar_event_id ASC
+            "#,
+        )
+        .bind(workspace_id)
+        .fetch_all(&self.pool)
+        .await?;
+        rows.into_iter().map(scheduled_capture).collect()
+    }
+
+    async fn cancel_scheduled_capture(
+        &self,
+        workspace_id: &str,
+        calendar_event_id: &str,
+    ) -> Result<ScheduledCapture, StoreError> {
+        let row = sqlx::query(
+            r#"
+            UPDATE scheduled_captures
+            SET
+                status = CASE
+                    WHEN status = 'dispatched' THEN status
+                    ELSE 'canceled'
+                END,
+                skip_reason = CASE
+                    WHEN status = 'dispatched' THEN skip_reason
+                    ELSE 'canceled_by_user'
+                END,
+                updated_at = clock_timestamp()
+            WHERE workspace_id = $1 AND calendar_event_id = $2
+            RETURNING workspace_id, calendar_event_id, job_id, title, starts_at, ends_at,
+                      meeting, provider, owner_user_id, status, skip_reason, bot_name,
+                      disclosure_text
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(calendar_event_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        row.map(scheduled_capture)
+            .transpose()?
+            .ok_or(StoreError::NotFound)
+    }
+
+    async fn dispatch_due_scheduled_captures(
+        &self,
+        now: DateTime<Utc>,
+    ) -> Result<Vec<CaptureJobStatus>, StoreError> {
+        let mut transaction = self.pool.begin().await?;
+        let rows = sqlx::query(
+            r#"
+            SELECT workspace_id, calendar_event_id, job_id, title, starts_at, ends_at,
+                   meeting, provider, owner_user_id, status, skip_reason, bot_name,
+                   disclosure_text
+            FROM scheduled_captures
+            WHERE status = 'pending' AND starts_at <= $1
+            ORDER BY starts_at ASC, workspace_id ASC, calendar_event_id ASC
+            FOR UPDATE SKIP LOCKED
+            "#,
+        )
+        .bind(now)
+        .fetch_all(&mut *transaction)
+        .await?;
+        let mut dispatched = Vec::new();
+        for row in rows {
+            let scheduled = scheduled_capture(row)?;
+            let job_id = scheduled
+                .job_id
+                .clone()
+                .unwrap_or_else(|| scheduled_job_id(&scheduled.calendar_event_id));
+            let bot_id = format!("bot-{job_id}");
+            let created = sqlx::query(
+                r#"
+                INSERT INTO capture_jobs (
+                    workspace_id,
+                    job_id,
+                    bot_id,
+                    owner_user_id,
+                    requesting_actor_id,
+                    session_id,
+                    session_title,
+                    provider,
+                    meeting,
+                    created_at,
+                    updated_at
+                ) VALUES ($1, $2, $3, $4, $4, $2, $5, $6, $7, $8, $8)
+                ON CONFLICT DO NOTHING
+                "#,
+            )
+            .bind(&scheduled.workspace_id)
+            .bind(&job_id)
+            .bind(&bot_id)
+            .bind(&scheduled.owner_user_id)
+            .bind(&scheduled.title)
+            .bind(enum_name(scheduled.provider)?)
+            .bind(serde_json::to_value(&scheduled.meeting)?)
+            .bind(now)
+            .execute(&mut *transaction)
+            .await?
+            .rows_affected()
+                == 1;
+            sqlx::query(
+                r#"
+                UPDATE scheduled_captures
+                SET
+                    job_id = $3,
+                    status = 'dispatched',
+                    skip_reason = NULL,
+                    updated_at = clock_timestamp()
+                WHERE workspace_id = $1 AND calendar_event_id = $2
+                "#,
+            )
+            .bind(&scheduled.workspace_id)
+            .bind(&scheduled.calendar_event_id)
+            .bind(&job_id)
+            .execute(&mut *transaction)
+            .await?;
+            dispatched.push(CaptureJobStatus {
+                job_id,
+                created,
+                state: BotState::Queued,
+            });
+        }
+        transaction.commit().await?;
+        Ok(dispatched)
+    }
 }
 
 fn delivery_item(
@@ -1052,6 +1291,163 @@ fn capture_checkpoint(row: sqlx::postgres::PgRow) -> Result<CaptureJobCheckpoint
         state,
         next_sequence: from_i64(next_sequence, "capture event sequence")?,
     })
+}
+
+fn validate_policy(policy: &CapturePolicy) -> Result<(), StoreError> {
+    if policy.bot_name.is_empty()
+        || policy.bot_name.len() > 80
+        || policy.bot_name.chars().any(char::is_control)
+    {
+        return Err(StoreError::InvalidCaptureEvent(
+            "capture bot name must contain 1-80 non-control characters".into(),
+        ));
+    }
+    if policy.allowed_providers.is_empty() {
+        return Err(StoreError::InvalidCaptureEvent(
+            "capture policy must allow at least one provider".into(),
+        ));
+    }
+    if let Some(disclosure) = &policy.disclosure_text
+        && (disclosure.is_empty() || disclosure.len() > 2048)
+    {
+        return Err(StoreError::InvalidCaptureEvent(
+            "disclosure text must contain 1-2048 bytes".into(),
+        ));
+    }
+    Ok(())
+}
+
+fn capture_policy(row: sqlx::postgres::PgRow) -> Result<CapturePolicy, StoreError> {
+    Ok(CapturePolicy {
+        workspace_id: row.try_get("workspace_id")?,
+        capture_enabled: row.try_get("capture_enabled")?,
+        allowed_providers: serde_json::from_value(row.try_get("allowed_providers")?)?,
+        bot_name: row.try_get("bot_name")?,
+        disclosure_text: row.try_get("disclosure_text")?,
+        skip_if_desktop_capture: row.try_get("skip_if_desktop_capture")?,
+    })
+}
+
+fn scheduled_capture(row: sqlx::postgres::PgRow) -> Result<ScheduledCapture, StoreError> {
+    Ok(ScheduledCapture {
+        workspace_id: row.try_get("workspace_id")?,
+        calendar_event_id: row.try_get("calendar_event_id")?,
+        job_id: row.try_get("job_id")?,
+        title: row.try_get("title")?,
+        starts_at: row.try_get("starts_at")?,
+        ends_at: row.try_get("ends_at")?,
+        meeting: serde_json::from_value(row.try_get("meeting")?)?,
+        provider: parse_enum(&row.try_get::<String, _>("provider")?)?,
+        owner_user_id: row.try_get("owner_user_id")?,
+        status: parse_enum(&row.try_get::<String, _>("status")?)?,
+        skip_reason: row.try_get("skip_reason")?,
+        bot_name: row.try_get("bot_name")?,
+        disclosure_text: row.try_get("disclosure_text")?,
+    })
+}
+
+async fn upsert_scheduled_capture(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    policy: &CapturePolicy,
+    event: &CalendarEventInput,
+) -> Result<ScheduledCapture, StoreError> {
+    if event.calendar_event_id.is_empty()
+        || event.calendar_event_id.len() > 512
+        || event.calendar_event_id.chars().any(char::is_control)
+    {
+        return Err(StoreError::InvalidCaptureEvent(
+            "calendar event id must contain 1-512 non-control characters".into(),
+        ));
+    }
+    if event.title.trim().is_empty() || event.title.len() > 1024 {
+        return Err(StoreError::InvalidCaptureEvent(
+            "calendar event title must contain 1-1024 bytes".into(),
+        ));
+    }
+    let decision = decide_schedule(policy, event);
+    let (status, skip_reason, job_id) = match decision {
+        ScheduleDecision::Pending => (
+            ScheduledCaptureStatus::Pending,
+            None,
+            Some(scheduled_job_id(&event.calendar_event_id)),
+        ),
+        ScheduleDecision::Skipped(reason) => (ScheduledCaptureStatus::Skipped, Some(reason), None),
+        ScheduleDecision::Canceled(reason) => {
+            (ScheduledCaptureStatus::Canceled, Some(reason), None)
+        }
+    };
+    let meeting = serde_json::to_value(&event.meeting)?;
+    sqlx::query(
+        r#"
+        INSERT INTO scheduled_captures (
+            workspace_id,
+            calendar_event_id,
+            job_id,
+            title,
+            starts_at,
+            ends_at,
+            meeting,
+            provider,
+            owner_user_id,
+            status,
+            skip_reason,
+            bot_name,
+            disclosure_text,
+            updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, clock_timestamp())
+        ON CONFLICT (workspace_id, calendar_event_id) DO UPDATE SET
+            job_id = CASE
+                WHEN scheduled_captures.status = 'dispatched' THEN scheduled_captures.job_id
+                ELSE EXCLUDED.job_id
+            END,
+            title = EXCLUDED.title,
+            starts_at = EXCLUDED.starts_at,
+            ends_at = EXCLUDED.ends_at,
+            meeting = EXCLUDED.meeting,
+            provider = EXCLUDED.provider,
+            owner_user_id = EXCLUDED.owner_user_id,
+            status = CASE
+                WHEN scheduled_captures.status = 'dispatched' THEN scheduled_captures.status
+                ELSE EXCLUDED.status
+            END,
+            skip_reason = CASE
+                WHEN scheduled_captures.status = 'dispatched' THEN scheduled_captures.skip_reason
+                ELSE EXCLUDED.skip_reason
+            END,
+            bot_name = EXCLUDED.bot_name,
+            disclosure_text = EXCLUDED.disclosure_text,
+            updated_at = clock_timestamp()
+        "#,
+    )
+    .bind(&policy.workspace_id)
+    .bind(&event.calendar_event_id)
+    .bind(&job_id)
+    .bind(&event.title)
+    .bind(event.starts_at)
+    .bind(event.ends_at)
+    .bind(&meeting)
+    .bind(enum_name(event.provider)?)
+    .bind(&event.owner_user_id)
+    .bind(enum_name(status)?)
+    .bind(skip_reason)
+    .bind(&policy.bot_name)
+    .bind(&policy.disclosure_text)
+    .execute(&mut **transaction)
+    .await?;
+    let row = sqlx::query(
+        r#"
+        SELECT workspace_id, calendar_event_id, job_id, title, starts_at, ends_at,
+               meeting, provider, owner_user_id, status, skip_reason, bot_name,
+               disclosure_text
+        FROM scheduled_captures
+        WHERE workspace_id = $1 AND calendar_event_id = $2
+        "#,
+    )
+    .bind(&policy.workspace_id)
+    .bind(&event.calendar_event_id)
+    .fetch_one(&mut **transaction)
+    .await?;
+    scheduled_capture(row)
 }
 
 async fn read_publication(

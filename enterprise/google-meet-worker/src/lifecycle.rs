@@ -1,4 +1,4 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use anlg_meeting_capture::{
     BotState, CaptureEvent, CaptureEventPayload, LifecycleTransition, ProviderMetadata,
@@ -11,6 +11,9 @@ use crate::{
     RuntimeClassifier, RuntimeOutcome, RuntimeSnapshot,
 };
 
+pub const DEFAULT_NOBODY_JOINED_GRACE: Duration = Duration::from_secs(10 * 60);
+pub const DEFAULT_EVERYONE_LEFT_GRACE: Duration = Duration::from_secs(2 * 60);
+
 #[derive(Debug)]
 pub struct WorkerLifecycle {
     bot_id: String,
@@ -18,16 +21,36 @@ pub struct WorkerLifecycle {
     next_sequence: u64,
     admission: AdmissionClassifier,
     runtime: RuntimeClassifier,
+    nobody_joined_grace: Duration,
+    everyone_left_grace: Duration,
+    saw_other_participants: bool,
+    empty_since: Option<Instant>,
 }
 
 impl WorkerLifecycle {
     pub fn new(bot_id: impl Into<String>) -> Self {
+        Self::with_empty_meeting_grace(
+            bot_id,
+            DEFAULT_NOBODY_JOINED_GRACE,
+            DEFAULT_EVERYONE_LEFT_GRACE,
+        )
+    }
+
+    pub fn with_empty_meeting_grace(
+        bot_id: impl Into<String>,
+        nobody_joined_grace: Duration,
+        everyone_left_grace: Duration,
+    ) -> Self {
         Self {
             bot_id: bot_id.into(),
             state: BotState::Queued,
             next_sequence: 0,
             admission: AdmissionClassifier::default(),
             runtime: RuntimeClassifier::default(),
+            nobody_joined_grace,
+            everyone_left_grace,
+            saw_other_participants: false,
+            empty_since: None,
         }
     }
 
@@ -52,6 +75,10 @@ impl WorkerLifecycle {
             next_sequence,
             admission: AdmissionClassifier::default(),
             runtime: RuntimeClassifier::default(),
+            nobody_joined_grace: DEFAULT_NOBODY_JOINED_GRACE,
+            everyone_left_grace: DEFAULT_EVERYONE_LEFT_GRACE,
+            saw_other_participants: false,
+            empty_since: None,
         })
     }
 
@@ -153,16 +180,106 @@ impl WorkerLifecycle {
         )
     }
 
+    pub fn nobody_joined(
+        &mut self,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<CaptureEvent, TransitionError> {
+        self.transition(
+            BotState::Failed,
+            Some(TerminalReason {
+                kind: TerminalReasonKind::NoOneJoined,
+                message: Some(
+                    "no other participants joined the Google Meet before the deadline".into(),
+                ),
+                retryable: true,
+            }),
+            occurred_at,
+        )
+    }
+
+    pub fn everyone_left(
+        &mut self,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<CaptureEvent, TransitionError> {
+        self.transition(
+            BotState::Completed,
+            Some(TerminalReason {
+                kind: TerminalReasonKind::EveryoneLeft,
+                message: Some("all other Google Meet participants left".into()),
+                retryable: false,
+            }),
+            occurred_at,
+        )
+    }
+
+    pub fn stt_unavailable(
+        &mut self,
+        message: impl Into<String>,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<CaptureEvent, TransitionError> {
+        self.transition(
+            BotState::Failed,
+            Some(TerminalReason {
+                kind: TerminalReasonKind::ProviderError,
+                message: Some(message.into()),
+                retryable: true,
+            }),
+            occurred_at,
+        )
+    }
+
     pub fn observe_runtime(
         &mut self,
         snapshot: &RuntimeSnapshot,
         observed_at: Instant,
         occurred_at: DateTime<Utc>,
     ) -> Result<Option<CaptureEvent>, TransitionError> {
+        if let Some(event) = self.observe_empty_meeting(snapshot, observed_at, occurred_at)? {
+            return Ok(Some(event));
+        }
         let Some(outcome) = self.classify_runtime(snapshot, observed_at) else {
             return Ok(None);
         };
         self.apply_runtime_outcome(outcome, occurred_at).map(Some)
+    }
+
+    fn observe_empty_meeting(
+        &mut self,
+        snapshot: &RuntimeSnapshot,
+        observed_at: Instant,
+        occurred_at: DateTime<Utc>,
+    ) -> Result<Option<CaptureEvent>, TransitionError> {
+        if !matches!(self.state, BotState::Joined | BotState::Capturing) {
+            return Ok(None);
+        }
+        if snapshot.removal_indicator.is_some()
+            || snapshot.meeting_ended_indicator.is_some()
+            || snapshot.connection_problem_indicator.is_some()
+        {
+            self.empty_since = None;
+            return Ok(None);
+        }
+        if other_participant_count(snapshot) > 0 {
+            self.saw_other_participants = true;
+            self.empty_since = None;
+            return Ok(None);
+        }
+        let since = *self.empty_since.get_or_insert(observed_at);
+        let elapsed = observed_at.saturating_duration_since(since);
+        let grace = if self.saw_other_participants {
+            self.everyone_left_grace
+        } else {
+            self.nobody_joined_grace
+        };
+        if elapsed < grace {
+            return Ok(None);
+        }
+        self.empty_since = None;
+        if self.saw_other_participants {
+            self.everyone_left(occurred_at).map(Some)
+        } else {
+            self.nobody_joined(occurred_at).map(Some)
+        }
     }
 
     pub(crate) fn classify_runtime(
@@ -289,6 +406,19 @@ impl WorkerLifecycle {
             metadata: ProviderMetadata::default(),
         }
     }
+}
+
+fn other_participant_count(snapshot: &RuntimeSnapshot) -> usize {
+    snapshot
+        .participant_tile_labels
+        .iter()
+        .filter(|label| {
+            let label = label.trim().to_lowercase();
+            !label.is_empty()
+                && !label.contains("visual_effects")
+                && !label.contains("backgrounds and effects")
+        })
+        .count()
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -542,5 +672,149 @@ mod tests {
         let events = lifecycle.stopped_by_request(now()).unwrap();
         assert_eq!(events.len(), 2);
         assert_eq!(lifecycle.state(), BotState::Completed);
+    }
+
+    #[test]
+    fn nobody_joined_timeout_is_distinct_from_admission_timeout() {
+        let started = Instant::now();
+        let mut lifecycle = WorkerLifecycle::with_empty_meeting_grace(
+            "bot-1",
+            Duration::from_secs(1),
+            Duration::from_secs(1),
+        );
+        lifecycle.launch_started(now()).unwrap();
+        lifecycle
+            .observe_admission(
+                &AdmissionSnapshot {
+                    self_name_nodes: 1,
+                    ..Default::default()
+                },
+                started,
+                now(),
+            )
+            .unwrap();
+        lifecycle.capture_started(now()).unwrap();
+
+        assert!(
+            lifecycle
+                .observe_runtime(
+                    &RuntimeSnapshot {
+                        self_name_nodes: 1,
+                        visible_meeting_controls: 1,
+                        ..Default::default()
+                    },
+                    started,
+                    now(),
+                )
+                .unwrap()
+                .is_none()
+        );
+
+        let event = lifecycle
+            .observe_runtime(
+                &RuntimeSnapshot {
+                    self_name_nodes: 1,
+                    visible_meeting_controls: 1,
+                    ..Default::default()
+                },
+                started + Duration::from_secs(1),
+                now(),
+            )
+            .unwrap()
+            .unwrap();
+        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
+            panic!("expected lifecycle event")
+        };
+        assert_eq!(
+            transition.reason.unwrap().kind,
+            TerminalReasonKind::NoOneJoined
+        );
+        assert_eq!(lifecycle.state(), BotState::Failed);
+    }
+
+    #[test]
+    fn everyone_left_after_other_participants_were_seen() {
+        let started = Instant::now();
+        let mut lifecycle = WorkerLifecycle::with_empty_meeting_grace(
+            "bot-1",
+            Duration::from_secs(30),
+            Duration::from_secs(1),
+        );
+        lifecycle.launch_started(now()).unwrap();
+        lifecycle
+            .observe_admission(
+                &AdmissionSnapshot {
+                    participant_tile_labels: vec!["Ada Lovelace".into()],
+                    ..Default::default()
+                },
+                started,
+                now(),
+            )
+            .unwrap();
+        lifecycle.capture_started(now()).unwrap();
+        lifecycle
+            .observe_runtime(
+                &RuntimeSnapshot {
+                    participant_tile_labels: vec!["Ada Lovelace".into()],
+                    self_name_nodes: 1,
+                    visible_meeting_controls: 1,
+                    ..Default::default()
+                },
+                started,
+                now(),
+            )
+            .unwrap();
+        let empty = RuntimeSnapshot {
+            self_name_nodes: 1,
+            visible_meeting_controls: 1,
+            ..Default::default()
+        };
+        assert!(
+            lifecycle
+                .observe_runtime(&empty, started, now())
+                .unwrap()
+                .is_none()
+        );
+
+        let event = lifecycle
+            .observe_runtime(&empty, started + Duration::from_secs(1), now())
+            .unwrap()
+            .unwrap();
+        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
+            panic!("expected lifecycle event")
+        };
+        assert_eq!(
+            transition.reason.unwrap().kind,
+            TerminalReasonKind::EveryoneLeft
+        );
+        assert_eq!(lifecycle.state(), BotState::Completed);
+    }
+
+    #[test]
+    fn stt_outage_is_retryable_provider_error() {
+        let mut lifecycle = WorkerLifecycle::new("bot-1");
+        lifecycle.launch_started(now()).unwrap();
+        lifecycle
+            .observe_admission(
+                &AdmissionSnapshot {
+                    self_name_nodes: 1,
+                    ..Default::default()
+                },
+                Instant::now(),
+                now(),
+            )
+            .unwrap();
+        lifecycle.capture_started(now()).unwrap();
+
+        let event = lifecycle
+            .stt_unavailable("speech-to-text endpoint returned 503", now())
+            .unwrap();
+        let CaptureEventPayload::Lifecycle(transition) = event.payload else {
+            panic!("expected lifecycle event")
+        };
+        let reason = transition.reason.unwrap();
+        assert_eq!(reason.kind, TerminalReasonKind::ProviderError);
+        assert!(reason.retryable);
+        assert_eq!(lifecycle.state(), BotState::Failed);
     }
 }

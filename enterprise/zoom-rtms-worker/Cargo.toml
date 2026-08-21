@@ -7,12 +7,19 @@ license-file.workspace = true
 [dependencies]
 anlg-meeting-capture.workspace = true
 
+anyhow.workspace = true
 futures-util.workspace = true
 hmac.workspace = true
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 sha2 = "0.10"
 thiserror.workspace = true
-tokio = { workspace = true, features = ["macros", "net", "rt", "sync", "time"] }
+tokio = { workspace = true, features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-tungstenite = { workspace = true, features = ["rustls-tls-webpki-roots"] }
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 url = { workspace = true, features = ["serde"] }
+
+[[bin]]
+name = "anarlog-enterprise-zoom-rtms-worker"
+path = "src/bin/worker.rs"

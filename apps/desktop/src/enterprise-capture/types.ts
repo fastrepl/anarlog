@@ -36,3 +36,11 @@ export type PendingCompletion = {
   sessionId: string;
   revision: number;
 };
+
+export type ScheduledCapture = {
+  calendarEventId: string;
+  title: string;
+  startsAt: string;
+  status: "pending" | "skipped" | "canceled" | "dispatched";
+  jobId: string | null;
+};

@@ -1,6 +1,6 @@
 import { fetch } from "@tauri-apps/plugin-http";
 
-import type { DeliveryItem, DeliveryPage } from "./types";
+import type { DeliveryItem, DeliveryPage, ScheduledCapture } from "./types";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MAX_PAGE_BYTES = 24 * 1024 * 1024;
@@ -64,6 +64,45 @@ export async function acknowledgeSessionDelivery(input: {
       "The capture server returned an invalid acknowledgement.",
     );
   }
+}
+
+export async function listScheduledCaptures(input: {
+  serverUrl: string;
+  accessToken: string;
+  workspaceId: string;
+}): Promise<ScheduledCapture[]> {
+  const body = await request(
+    endpoint(
+      input.serverUrl,
+      `v1/workspaces/${encodeURIComponent(input.workspaceId)}/scheduled-captures`,
+    ),
+    input.accessToken,
+  );
+  if (!Array.isArray(body)) {
+    throw new EnterpriseCaptureClientError(
+      "invalid_response",
+      "The capture server returned an invalid scheduled capture list.",
+    );
+  }
+  return body.map(parseScheduledCapture);
+}
+
+export async function cancelScheduledCapture(input: {
+  serverUrl: string;
+  accessToken: string;
+  workspaceId: string;
+  calendarEventId: string;
+}): Promise<ScheduledCapture> {
+  return parseScheduledCapture(
+    await request(
+      endpoint(
+        input.serverUrl,
+        `v1/workspaces/${encodeURIComponent(input.workspaceId)}/scheduled-captures/${encodeURIComponent(input.calendarEventId)}`,
+      ),
+      input.accessToken,
+      { method: "DELETE" },
+    ),
+  );
 }
 
 async function request(
@@ -212,6 +251,34 @@ function parseDeliveryItem(value: unknown): DeliveryItem {
     acknowledged: value.acknowledged,
     createdAt: value.createdAt,
     envelope: envelope as DeliveryItem["envelope"],
+  };
+}
+
+function parseScheduledCapture(value: unknown): ScheduledCapture {
+  if (
+    !isObject(value) ||
+    typeof value.calendarEventId !== "string" ||
+    value.calendarEventId.length === 0 ||
+    typeof value.title !== "string" ||
+    typeof value.startsAt !== "string" ||
+    !Number.isFinite(Date.parse(value.startsAt)) ||
+    (value.status !== "pending" &&
+      value.status !== "skipped" &&
+      value.status !== "canceled" &&
+      value.status !== "dispatched") ||
+    (value.jobId !== null && typeof value.jobId !== "string")
+  ) {
+    throw new EnterpriseCaptureClientError(
+      "invalid_response",
+      "The capture server returned an invalid scheduled capture.",
+    );
+  }
+  return {
+    calendarEventId: value.calendarEventId,
+    title: value.title,
+    startsAt: value.startsAt,
+    status: value.status,
+    jobId: value.jobId,
   };
 }
 

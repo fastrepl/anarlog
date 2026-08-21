@@ -1,7 +1,10 @@
 use std::{collections::BTreeMap, env, net::SocketAddr, time::Duration};
 
 use anarlog_enterprise_zoom_rtms_worker::{ZoomRtmsCredentials, ZoomWebhookVerifier};
+use chrono::Utc;
 use serde::Deserialize;
+
+use crate::license::{LICENSE_ENV, LICENSE_KEY_ENV, License, LicenseError};
 
 pub const DATABASE_URL_ENV: &str = "ANARLOG_ENTERPRISE_DATABASE_URL";
 pub const WORKSPACE_TOKENS_ENV: &str = "ANARLOG_ENTERPRISE_WORKSPACE_TOKENS";
@@ -22,6 +25,7 @@ pub struct Config {
     pub database_acquire_timeout: Duration,
     pub workspace_tokens: BTreeMap<String, String>,
     pub zoom: Option<ZoomConfig>,
+    pub license: Option<License>,
 }
 
 #[derive(Clone)]
@@ -112,6 +116,7 @@ impl Config {
             .0;
         validate_workspace_tokens(&workspace_tokens)?;
         let zoom = parse_zoom_config(zoom, &workspace_tokens)?;
+        let license = parse_license(LicenseConfigValues::from_env(), &workspace_tokens)?;
 
         Ok(Self {
             database_url,
@@ -120,6 +125,7 @@ impl Config {
             database_acquire_timeout: Duration::from_secs(10),
             workspace_tokens,
             zoom,
+            license,
         })
     }
 }
@@ -220,6 +226,43 @@ fn parse_zoom_config(
     }))
 }
 
+#[derive(Default)]
+pub struct LicenseConfigValues {
+    pub token: Option<String>,
+    pub key: Option<String>,
+}
+
+impl LicenseConfigValues {
+    fn from_env() -> Self {
+        Self {
+            token: env::var(LICENSE_ENV).ok(),
+            key: env::var(LICENSE_KEY_ENV).ok(),
+        }
+    }
+}
+
+fn parse_license(
+    values: LicenseConfigValues,
+    workspace_tokens: &BTreeMap<String, String>,
+) -> Result<Option<License>, ConfigError> {
+    match (values.token, values.key) {
+        (None, None) => Ok(None),
+        (Some(_), None) | (None, Some(_)) => Err(ConfigError::IncompleteLicenseConfiguration),
+        (Some(token), Some(key)) => {
+            let license = License::parse(&token, &key, Utc::now())?;
+            if license
+                .claims
+                .workspace_ids
+                .iter()
+                .any(|workspace_id| !workspace_tokens.contains_key(workspace_id))
+            {
+                return Err(ConfigError::UnknownLicenseWorkspace);
+            }
+            Ok(Some(license))
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum ConfigError {
     #[error("missing required configuration: {0}")]
@@ -256,6 +299,24 @@ pub enum ConfigError {
     InvalidZoomAccountId,
     #[error("Zoom account registry references an unconfigured workspace: {0}")]
     UnknownZoomWorkspace(String),
+    #[error("offline license validation requires {LICENSE_ENV} and {LICENSE_KEY_ENV} together")]
+    IncompleteLicenseConfiguration,
+    #[error("offline license is invalid")]
+    InvalidLicense,
+    #[error("offline license references an unconfigured workspace")]
+    UnknownLicenseWorkspace,
+}
+
+impl From<LicenseError> for ConfigError {
+    fn from(error: LicenseError) -> Self {
+        match error {
+            LicenseError::InvalidKey => Self::IncompleteLicenseConfiguration,
+            LicenseError::InvalidToken
+            | LicenseError::InvalidSignature
+            | LicenseError::NotYetValid
+            | LicenseError::Expired => Self::InvalidLicense,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -278,6 +339,7 @@ mod tests {
         assert_eq!(config.database_max_connections, 10);
         assert_eq!(config.workspace_tokens["workspace-a"], TOKEN);
         assert!(config.zoom.is_none());
+        assert!(config.license.is_none());
     }
 
     #[test]

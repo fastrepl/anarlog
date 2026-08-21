@@ -1,0 +1,8 @@
+Third-party software in the customer-hosted capture data plane:
+
+- PostgreSQL (postgres:17-alpine), PostgreSQL License
+- MinIO (minio/minio), GNU AGPLv3 — object storage is an optional bundled dependency; customers may substitute any S3-compatible store
+- Chromium and fonts-liberation in the Google Meet worker image, BSD/MIT/LGPL as shipped by Debian
+- Vexa Apache-2.0 reference material: see `enterprise/google-meet-worker/THIRD_PARTY_NOTICES.md`
+
+Pinned image digests live in Compose files. Helm `values.yaml` uses the same tagged images; production installs should pin digests in an overlay.

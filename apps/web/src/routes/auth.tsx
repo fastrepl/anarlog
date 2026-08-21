@@ -20,6 +20,7 @@ import {
   doMagicLinkAuth,
   doPasswordSignIn,
   doPasswordSignUp,
+  doSsoAuth,
   fetchUser,
 } from "@/functions/auth";
 import {
@@ -86,7 +87,7 @@ export const Route = createFileRoute("/auth")({
   },
 });
 
-type AuthView = "main" | "email";
+type AuthView = "main" | "email" | "sso";
 type OAuthProvider = "azure" | "github" | "google";
 
 function getOAuthProviderName(provider: OAuthProvider) {
@@ -180,12 +181,28 @@ function Component() {
                 Sign in with Email
               </button>
             )}
+            {showEmail && (
+              <button
+                onClick={() => setView("sso")}
+                className={authSecondaryButtonClassName}
+              >
+                Sign in with SSO
+              </button>
+            )}
           </div>
           <LegalText />
         </>
       )}
       {view === "email" && (
         <EmailAuthView
+          flow={flow}
+          scheme={scheme}
+          redirect={redirect}
+          onBack={() => setView("main")}
+        />
+      )}
+      {view === "sso" && (
+        <SsoAuthView
           flow={flow}
           scheme={scheme}
           redirect={redirect}
@@ -260,6 +277,7 @@ function DesktopReauthView({
             <OAuthButton flow="desktop" scheme={scheme} provider="google" />
             <OAuthButton flow="desktop" scheme={scheme} provider="azure" />
             <OAuthButton flow="desktop" scheme={scheme} provider="github" />
+            <SsoAuthView flow="desktop" scheme={scheme} />
           </div>
         </>
       )}
@@ -347,6 +365,97 @@ function EmailAuthView({
       )}
 
       <LegalText />
+    </div>
+  );
+}
+
+function SsoAuthView({
+  flow,
+  scheme,
+  redirect,
+  onBack,
+}: {
+  flow: "desktop" | "web";
+  scheme?: DesktopScheme;
+  redirect?: string;
+  onBack?: () => void;
+}) {
+  const [domain, setDomain] = useState("");
+  const ssoMutation = useMutation({
+    mutationFn: () => {
+      capturePrivateRouteEvent("auth_started", {
+        method: "sso",
+        flow,
+      });
+      return doSsoAuth({
+        data: {
+          domain,
+          flow,
+          scheme,
+          redirect,
+        },
+      });
+    },
+    onSuccess: (result) => {
+      if (result?.url) {
+        window.location.href = result.url;
+        return;
+      }
+      capturePrivateRouteEvent("auth_failed", {
+        method: "sso",
+        flow,
+        failure_stage: "provider",
+      });
+    },
+    onError: () => {
+      capturePrivateRouteEvent("auth_failed", {
+        method: "sso",
+        flow,
+        failure_stage: "request",
+      });
+    },
+  });
+
+  return (
+    <div className="flex flex-col gap-5">
+      {onBack ? (
+        <button
+          onClick={onBack}
+          className="flex cursor-pointer items-center gap-1 self-start text-sm text-[#756b5d] transition-colors hover:text-[#181613]"
+        >
+          <ArrowLeft className="size-3.5" />
+          Back
+        </button>
+      ) : null}
+      <form
+        className="flex flex-col gap-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (domain.trim()) ssoMutation.mutate();
+        }}
+      >
+        <input
+          type="text"
+          autoComplete="organization"
+          placeholder="company.com"
+          value={domain}
+          onChange={(event) => setDomain(event.target.value)}
+          className={authInputClassName}
+        />
+        <button
+          type="submit"
+          disabled={!domain.trim() || ssoMutation.isPending}
+          className={authPrimaryButtonClassName}
+        >
+          Continue with SSO
+        </button>
+        {ssoMutation.data &&
+        "error" in ssoMutation.data &&
+        ssoMutation.data.error ? (
+          <p className="text-sm text-red-700">{ssoMutation.data.message}</p>
+        ) : null}
+      </form>
+      {onBack ? <LegalText /> : null}
     </div>
   );
 }

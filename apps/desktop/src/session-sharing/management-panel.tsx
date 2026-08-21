@@ -62,6 +62,7 @@ import { createPublishLatestSessionShare } from "./management-publish";
 import type { AvailableShareWorkspace } from "./source";
 import { useSessionShareSyncStatus } from "./sync-state";
 import { buildAccountSessionShareUrl } from "./urls";
+import { useWorkspaceShareScopes } from "./workspace-policy";
 
 import { trackAnalyticsEvent } from "~/analytics";
 import { useAuth } from "~/auth";
@@ -104,6 +105,7 @@ export function SessionSharePopoverContent({
 }) {
   const auth = useAuth();
   const humans = useHumans();
+  const allowedScopes = useWorkspaceShareScopes(workspaces);
   const { operationLifecycleRef, runOperation, requireActiveContext } =
     useShareOperationLifecycle({ auth, identity, pendingRef });
   const management = data?.management;
@@ -580,6 +582,7 @@ export function SessionSharePopoverContent({
                   disabled={!management}
                   canExpand={canPublish}
                   pending={scopeMutation.isPending}
+                  allowedScopes={allowedScopes}
                   onValueChange={(target) => {
                     setOptimisticScope(target);
                     scopeMutation.mutate(target);

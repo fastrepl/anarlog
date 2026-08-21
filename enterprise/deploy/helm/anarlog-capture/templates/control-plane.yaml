@@ -1,0 +1,204 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}-control-plane
+  labels:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: control-plane
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: anarlog-capture
+      app.kubernetes.io/component: control-plane
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anarlog-capture
+        app.kubernetes.io/component: control-plane
+    spec:
+      containers:
+        - name: control-plane
+          image: {{ .Values.image.controlPlane | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: ANARLOG_ENTERPRISE_BIND_ADDRESS
+              value: 0.0.0.0:8080
+            - name: ANARLOG_ENTERPRISE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: databaseUrl
+            - name: ANARLOG_ENTERPRISE_WORKSPACE_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: workspaceTokens
+            - name: ANARLOG_ENTERPRISE_LICENSE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.license.existingSecret }}
+                  key: license
+            - name: ANARLOG_ENTERPRISE_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.license.existingSecret }}
+                  key: licenseKey
+            {{- if .Values.zoom.enabled }}
+            - name: ANARLOG_ENTERPRISE_ZOOM_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: zoomClientId
+            - name: ANARLOG_ENTERPRISE_ZOOM_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: zoomClientSecret
+            - name: ANARLOG_ENTERPRISE_ZOOM_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: zoomWebhookSecret
+            - name: ANARLOG_ENTERPRISE_ZOOM_ACCOUNT_WORKSPACES
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: zoomAccountWorkspaces
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources.controlPlane | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}
+  labels:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: control-plane
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      name: http
+  selector:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: control-plane
+{{- if .Values.googleMeetWorker.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}-google-meet-worker
+  labels:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: google-meet-worker
+spec:
+  replicas: {{ .Values.googleMeetWorker.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: anarlog-capture
+      app.kubernetes.io/component: google-meet-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anarlog-capture
+        app.kubernetes.io/component: google-meet-worker
+    spec:
+      containers:
+        - name: google-meet-worker
+          image: {{ .Values.image.googleMeetWorker | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: ANARLOG_ENTERPRISE_CONTROL_PLANE_URL
+              value: http://{{ include "anarlog-capture.fullname" . }}:{{ .Values.service.port }}
+            - name: ANARLOG_ENTERPRISE_WORKSPACE_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: workspaceId
+            - name: ANARLOG_ENTERPRISE_WORKSPACE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.workspaceTokens.existingSecret }}
+                  key: workspaceToken
+            - name: ANARLOG_ENTERPRISE_RECORDING_ROOT
+              value: /var/lib/anarlog/recordings
+            {{- if .Values.googleMeetWorker.sttUrl }}
+            - name: ANARLOG_ENTERPRISE_STT_URL
+              value: {{ .Values.googleMeetWorker.sttUrl | quote }}
+            {{- end }}
+            {{- if .Values.googleMeetWorker.captureJobId }}
+            - name: ANARLOG_ENTERPRISE_CAPTURE_JOB_ID
+              value: {{ .Values.googleMeetWorker.captureJobId | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources.worker | nindent 12 }}
+          volumeMounts:
+            - name: recordings
+              mountPath: /var/lib/anarlog/recordings
+      volumes:
+        - name: recordings
+          {{- if .Values.googleMeetWorker.recordings.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "anarlog-capture.fullname" . }}-recordings
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+{{- end }}
+{{- if and .Values.googleMeetWorker.enabled .Values.googleMeetWorker.recordings.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}-recordings
+  labels:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: google-meet-worker
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: {{ .Values.googleMeetWorker.recordings.persistence.size }}
+{{- end }}
+{{- if .Values.observability.serviceMonitor }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}
+  labels:
+    app.kubernetes.io/name: anarlog-capture
+    {{- with .Values.observability.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: anarlog-capture
+      app.kubernetes.io/component: control-plane
+  endpoints:
+    - port: http
+      path: /health/ready
+      interval: 30s
+{{- end }}

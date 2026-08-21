@@ -7,7 +7,7 @@ use axum::{
     extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
@@ -19,6 +19,8 @@ use crate::{
         CaptureJobStatus, ClaimCaptureJobRequest, CreateCaptureJobRequest, ProjectionPublication,
         RenewCaptureJobLeaseRequest,
     },
+    license::License,
+    schedule::{CalendarEventInput, CapturePolicy, ScheduledCapture},
     store::{ControlPlaneStore, StoreError},
     zoom::{ZoomDispatchError, ZoomWebhookError, ZoomWebhookOutcome, ZoomWebhookService},
 };
@@ -33,6 +35,7 @@ pub struct AppState {
     store: Arc<dyn ControlPlaneStore>,
     authenticator: Arc<dyn WorkspaceAuthenticator>,
     zoom: Option<Arc<ZoomWebhookService>>,
+    license: Option<License>,
 }
 
 impl AppState {
@@ -44,11 +47,17 @@ impl AppState {
             store,
             authenticator,
             zoom: None,
+            license: None,
         }
     }
 
     pub fn with_zoom(mut self, zoom: Arc<ZoomWebhookService>) -> Self {
         self.zoom = Some(zoom);
+        self
+    }
+
+    pub fn with_license(mut self, license: License) -> Self {
+        self.license = Some(license);
         self
     }
 }
@@ -84,6 +93,22 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/v1/workspaces/{workspace_id}/sessions/{job_id}",
             get(read_session),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/capture-policy",
+            get(read_capture_policy).put(write_capture_policy),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/calendar-events",
+            put(upsert_calendar_events),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/scheduled-captures",
+            get(list_scheduled_captures).post(dispatch_scheduled_captures),
+        )
+        .route(
+            "/v1/workspaces/{workspace_id}/scheduled-captures/{calendar_event_id}",
+            delete(cancel_scheduled_capture),
         );
     if state.zoom.is_some() {
         router = router.route("/webhooks/zoom", post(zoom_webhook));
@@ -369,6 +394,116 @@ async fn read_session(
     Ok(Json(session))
 }
 
+async fn read_capture_policy(
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<CapturePolicy>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    let policy = state
+        .store
+        .get_capture_policy(&workspace_id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(policy))
+}
+
+async fn write_capture_policy(
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+    headers: HeaderMap,
+    Json(mut policy): Json<CapturePolicy>,
+) -> Result<Json<CapturePolicy>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    policy.workspace_id = workspace_id;
+    let policy = state
+        .store
+        .upsert_capture_policy(&policy)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(policy))
+}
+
+async fn upsert_calendar_events(
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+    headers: HeaderMap,
+    Json(events): Json<Vec<CalendarEventInput>>,
+) -> Result<Json<Vec<ScheduledCapture>>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    if events.len() > 500 {
+        return Err(ApiError::bad_request(
+            "invalid_calendar_events",
+            "calendar event batches are limited to 500 events",
+        ));
+    }
+    let scheduled = state
+        .store
+        .upsert_calendar_events(&workspace_id, &events)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(scheduled))
+}
+
+async fn list_scheduled_captures(
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<ScheduledCapture>>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    let scheduled = state
+        .store
+        .list_scheduled_captures(&workspace_id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(scheduled))
+}
+
+async fn cancel_scheduled_capture(
+    State(state): State<AppState>,
+    Path((workspace_id, calendar_event_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Result<Json<ScheduledCapture>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    if calendar_event_id.is_empty() || calendar_event_id.len() > 512 {
+        return Err(ApiError::bad_request(
+            "invalid_calendar_event_id",
+            "calendarEventId must contain 1-512 bytes",
+        ));
+    }
+    let scheduled = state
+        .store
+        .cancel_scheduled_capture(&workspace_id, &calendar_event_id)
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(scheduled))
+}
+
+async fn dispatch_scheduled_captures(
+    State(state): State<AppState>,
+    Path(workspace_id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<CaptureJobStatus>>, ApiError> {
+    authorize(&state, &headers, &workspace_id)?;
+    validate_identifier(&workspace_id, "workspace_id")?;
+    let dispatched = state
+        .store
+        .dispatch_due_scheduled_captures(chrono::Utc::now())
+        .await
+        .map_err(ApiError::from_store)?;
+    Ok(Json(
+        dispatched
+            .into_iter()
+            .filter(|job| job.job_id.starts_with("cal-"))
+            .collect(),
+    ))
+}
+
 fn authorize(
     state: &AppState,
     headers: &HeaderMap,
@@ -389,6 +524,13 @@ fn authorize(
                 }
             })?;
     if authenticated.workspace_id.as_ref() != requested_workspace_id {
+        return Err(ApiError::forbidden());
+    }
+    if state
+        .license
+        .as_ref()
+        .is_some_and(|license| !license.authorizes_workspace(requested_workspace_id))
+    {
         return Err(ApiError::forbidden());
     }
     Ok(())

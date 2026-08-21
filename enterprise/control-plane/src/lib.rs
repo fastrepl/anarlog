@@ -4,7 +4,9 @@ pub mod api;
 pub mod auth;
 pub mod capture;
 pub mod config;
+pub mod license;
 pub mod projector;
+pub mod schedule;
 pub mod store;
 pub mod zoom;
 
@@ -49,9 +51,12 @@ pub async fn configured_state(config: &Config) -> anyhow::Result<api::AppState> 
         .context("failed to apply database migrations")?;
     let store = store.into_shared();
     let mut state = api::AppState::new(store.clone(), Arc::new(authenticator));
+    if let Some(license) = config.license.clone() {
+        state = state.with_license(license);
+    }
     if let Some(zoom) = &config.zoom {
         let dispatcher = Arc::new(ZoomCaptureDispatcher::new(
-            store,
+            store.clone(),
             zoom.credentials().clone(),
         ));
         dispatcher
@@ -61,7 +66,29 @@ pub async fn configured_state(config: &Config) -> anyhow::Result<api::AppState> 
         dispatcher.clone().spawn_recovery();
         state = state.with_zoom(Arc::new(ZoomWebhookService::new(zoom.clone(), dispatcher)));
     }
+    spawn_schedule_dispatcher(store);
     Ok(state)
+}
+
+fn spawn_schedule_dispatcher(store: Arc<dyn crate::store::ControlPlaneStore>) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            match store
+                .dispatch_due_scheduled_captures(chrono::Utc::now())
+                .await
+            {
+                Ok(jobs) if !jobs.is_empty() => {
+                    tracing::info!(count = jobs.len(), "dispatched due calendar capture jobs");
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    tracing::warn!(error = %error, "failed to dispatch due calendar capture jobs");
+                }
+            }
+        }
+    });
 }
 
 pub async fn serve(

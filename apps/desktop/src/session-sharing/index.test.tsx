@@ -67,6 +67,10 @@ const mocks = vi.hoisted(() => ({
   workspaces: [] as { id: string; name: string }[],
 }));
 
+vi.mock("./workspace-policy", () => ({
+  useWorkspaceShareScopes: () => ["restricted", "workspace", "link", "public"],
+}));
+
 vi.mock("~/auth", () => ({
   useAuth: () => mocks.auth,
 }));

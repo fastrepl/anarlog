@@ -22,6 +22,7 @@ export function GeneralAccessSelector({
   disabled,
   canExpand,
   pending,
+  allowedScopes = ["restricted", "workspace", "link", "public"],
   onValueChange,
 }: {
   value: GeneralAccessValue;
@@ -29,6 +30,7 @@ export function GeneralAccessSelector({
   disabled: boolean;
   canExpand: boolean;
   pending: boolean;
+  allowedScopes?: Array<"restricted" | "workspace" | "link" | "public">;
   onValueChange: (value: GeneralAccessTarget) => void;
 }) {
   const AccessIcon =
@@ -69,18 +71,24 @@ export function GeneralAccessSelector({
             <SelectItem
               key={workspace.id}
               value={`workspace:${workspace.id}`}
-              disabled={!canExpand}
+              disabled={!canExpand || !allowedScopes.includes("workspace")}
             >
               <Trans>Everyone in {workspace.name}</Trans>
             </SelectItem>
           ))}
-          <SelectItem value="link" disabled={!canExpand}>
+          <SelectItem
+            value="link"
+            disabled={!canExpand || !allowedScopes.includes("link")}
+          >
             <Trans>Anyone with the link</Trans>
           </SelectItem>
           {value === "public" ? (
             <>
               <SelectSeparator />
-              <SelectItem value="public" disabled>
+              <SelectItem
+                value="public"
+                disabled={!allowedScopes.includes("public")}
+              >
                 <Trans>Public on the web</Trans>
               </SelectItem>
             </>

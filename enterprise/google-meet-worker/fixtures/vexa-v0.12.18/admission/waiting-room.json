@@ -1,0 +1,18 @@
+{
+  "id": "waiting-room",
+  "kind": "admission",
+  "elapsed_ms": 0,
+  "snapshot": {
+    "waiting_room_visible": true,
+    "consent_prompt_visible": false,
+    "explicit_denial_indicator": null,
+    "ambiguous_error_indicator": null,
+    "visible_recaptcha_challenge": false,
+    "participant_tile_labels": [],
+    "self_name_nodes": 0,
+    "visible_admission_controls": 2
+  },
+  "expected": {
+    "outcome": "waiting"
+  }
+}

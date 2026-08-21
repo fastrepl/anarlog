@@ -1,0 +1,117 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}-postgres
+  labels:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: postgres
+spec:
+  serviceName: {{ include "anarlog-capture.fullname" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: anarlog-capture
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anarlog-capture
+        app.kubernetes.io/component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image | quote }}
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "anarlog-capture.secretName" . }}
+                  key: postgresPassword
+          ports:
+            - containerPort: 5432
+              name: postgres
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}]
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.postgres.persistence.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}-postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: postgres
+  selector:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: postgres
+{{- end }}
+{{- if .Values.objectStorage.enabled }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "anarlog-capture.fullname" . }}-object-storage
+  labels:
+    app.kubernetes.io/name: anarlog-capture
+    app.kubernetes.io/component: object-storage
+spec:
+  serviceName: {{ include "anarlog-capture.fullname" . }}-object-storage
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: anarlog-capture
+      app.kubernetes.io/component: object-storage
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: anarlog-capture
+        app.kubernetes.io/component: object-storage
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.objectStorage.image | quote }}
+          args: ["server", "/data", "--console-address", ":9001"]
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "anarlog-capture.secretName" . }}
+                  key: minioRootUser
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "anarlog-capture.secretName" . }}
+                  key: minioRootPassword
+          ports:
+            - containerPort: 9000
+              name: s3
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.objectStorage.persistence.size }}
+{{- end }}

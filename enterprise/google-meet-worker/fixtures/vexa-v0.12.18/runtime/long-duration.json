@@ -1,0 +1,16 @@
+{
+  "id": "long-duration",
+  "kind": "runtime",
+  "elapsed_ms": 7200000,
+  "snapshot": {
+    "removal_indicator": null,
+    "meeting_ended_indicator": null,
+    "connection_problem_indicator": null,
+    "participant_tile_labels": ["Ada Lovelace"],
+    "self_name_nodes": 1,
+    "visible_meeting_controls": 2
+  },
+  "expected": {
+    "outcome": "active"
+  }
+}
