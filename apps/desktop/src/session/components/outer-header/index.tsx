@@ -72,8 +72,9 @@ export function OuterHeader({
         "relative flex w-full items-center",
         "h-12",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
+        !standaloneWindow && leftsidebar.expanded && "pl-2",
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter ? "pl-[116px]" : "pl-[48px]"),
+          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
       ])}
     >
       {viewSwitcher}

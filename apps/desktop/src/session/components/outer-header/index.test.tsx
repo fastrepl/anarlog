@@ -265,7 +265,7 @@ describe("OuterHeader", () => {
     const header = container.firstElementChild;
     const spacer = header?.firstElementChild;
 
-    expect(header?.className).toContain("pl-[116px]");
+    expect(header?.className).toContain("pl-[156px]");
     expect(header?.className).toContain("h-12");
     expect(header?.className).not.toContain("pb-1");
     expect(spacer?.className).toContain("flex-1");
@@ -274,6 +274,22 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
+  });
+
+  it("uses the collapsed sidebar gutter without native window controls", () => {
+    mocks.leftsidebar.expanded = false;
+    mocks.windowControlsGutter = false;
+
+    const { container } = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    expect(container.firstElementChild?.className).toContain("pl-[80px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-2");
   });
 
   it("does not add a title offset while the sidebar is expanded", () => {
@@ -291,7 +307,9 @@ describe("OuterHeader", () => {
     expect(spacer?.className).toContain("flex-1");
     expect(spacer?.className).not.toContain("right-[140px]");
     expect(spacer?.className).not.toContain("justify-center");
+    expect(container.firstElementChild?.className).toContain("pl-2");
     expect(container.firstElementChild?.className).not.toContain("pl-[114px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
   });
 
   it.each([
@@ -327,7 +345,8 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
-    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
+    expect(container.firstElementChild?.className).toContain("pl-2");
+    expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
   });
 
   it("keeps the session header at 48px tall", () => {
@@ -447,7 +466,7 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
 
-    expect(header?.className).not.toContain("pl-[116px]");
+    expect(header?.className).not.toContain("pl-[156px]");
     expect(header?.className).toContain("pl-[76px]");
   });
 
