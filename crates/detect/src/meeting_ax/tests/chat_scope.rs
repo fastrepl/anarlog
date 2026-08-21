@@ -24,6 +24,39 @@ fn test_chat_mutation_is_fail_closed_for_unvalidated_platforms() {
 }
 
 #[test]
+fn test_linux_and_windows_process_aliases_map_to_meeting_apps() {
+    for (alias, platform, browser) in [
+        ("slack", MeetingPlatform::Slack, false),
+        ("/usr/bin/slack", MeetingPlatform::Slack, false),
+        ("Slack.exe", MeetingPlatform::Slack, false),
+        ("zoom", MeetingPlatform::Zoom, false),
+        ("teams-for-linux", MeetingPlatform::MicrosoftTeams, false),
+        ("google-chrome", MeetingPlatform::Unknown, true),
+        ("chrome", MeetingPlatform::Unknown, true),
+        ("firefox", MeetingPlatform::Unknown, true),
+    ] {
+        assert!(
+            is_meeting_app_bundle(alias),
+            "{alias} should be a recognized meeting app alias"
+        );
+        assert_eq!(classify_bundle(alias), platform);
+        assert_eq!(is_browser_bundle(alias), browser);
+    }
+
+    assert_eq!(
+        unique_recognized_meeting_bundle(&["slack".to_string()]).unwrap(),
+        "slack"
+    );
+    assert_eq!(
+        select_active_bundle_ids(
+            MEETING_APP_BUNDLES.iter().map(|bundle| bundle.id),
+            &["slack".to_string(), "google-chrome".to_string()],
+        ),
+        vec!["com.tinyspeck.slackmacgap", "com.google.Chrome"]
+    );
+}
+
+#[test]
 fn test_established_native_bundle_aliases_are_classified() {
     for (bundle_id, platform) in [
         ("com.slack.Slack", MeetingPlatform::Slack),

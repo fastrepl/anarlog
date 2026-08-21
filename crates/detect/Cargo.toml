@@ -49,6 +49,8 @@ required-features = ["mic", "list", "zoom", "sleep", "app", "language"]
 
 [target."cfg(target_os = \"linux\")".dependencies]
 libpulse-binding = "2.30"
+atspi = { version = "0.25", default-features = false, features = ["tokio"] }
+zbus = { version = "5", default-features = false, features = ["tokio"] }
 
 [target."cfg(target_os = \"windows\")".dependencies]
 winreg = "0.55"

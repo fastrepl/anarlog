@@ -16,6 +16,9 @@ export const MAX_SENT_MEETING_DISCLOSURE_SESSIONS = 256;
 const SLACK_BUNDLE_IDS = new Set([
   "com.slack.Slack",
   "com.tinyspeck.slackmacgap",
+  "slack",
+  "slack-desktop",
+  "Slack.exe",
 ]);
 
 type MeetingDisclosureOutcome =

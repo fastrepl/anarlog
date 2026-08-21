@@ -639,6 +639,35 @@ describe("startMeetingChatCapture", () => {
     );
   });
 
+  test("surfaces a missing Linux accessibility bus once", async () => {
+    captureMeetingChatMessagesMock.mockResolvedValue({
+      status: "ok",
+      data: {
+        app: null,
+        contextId: null,
+        platform: "unknown",
+        surface: "unknown",
+        messages: [],
+        warnings: ["AT-SPI accessibility bus is not available"],
+      },
+    });
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(5_000);
+    stop();
+
+    expect(sonnerToastWarningMock).toHaveBeenCalledOnce();
+    expect(sonnerToastWarningMock).toHaveBeenCalledWith(
+      "Meeting chat capture needs the desktop accessibility bus",
+      {
+        id: "meeting-chat-capture-warning",
+        duration: Infinity,
+      },
+    );
+  });
+
   test("stops listening after an explicit chat decline without treating disclosure as consent", async () => {
     const onParticipantDeclined = vi.fn();
     const stop = startMeetingChatCapture({

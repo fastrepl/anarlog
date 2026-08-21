@@ -1,7 +1,6 @@
-use super::analysis::{
-    chat_scope_label, is_explicit_chat_input, is_zoom_chat_scope_node,
-    meeting_chat_surface_is_visible,
-};
+#[cfg(target_os = "macos")]
+use super::analysis::meeting_chat_surface_is_visible;
+use super::analysis::{chat_scope_label, is_explicit_chat_input, is_zoom_chat_scope_node};
 use super::{
     AxNode, BrowserMeetingRoot, MeetingPlatform, NativeMeetingRoot, browser_platform_from_url,
     is_platform_active_call_control, is_slack_huddle_composer, is_slack_thread_container_label,
