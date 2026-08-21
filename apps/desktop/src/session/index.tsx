@@ -83,32 +83,34 @@ function LockedNoteGate({
     Boolean(state.revealedNoteIds[tab.id]),
   );
   const authenticating = useAppLock((state) => state.authenticating);
-
-  if (session && locked && !revealed) {
-    return (
-      <SessionSurface>
-        <NoteLockScreen
-          sessionTitle={session.title}
-          authenticating={authenticating}
-          onUnlock={() => {
-            void revealLockedNote(tab.id);
-          }}
-        />
-      </SessionSurface>
-    );
-  }
+  const lockOverlay =
+    session && locked && !revealed ? (
+      <NoteLockScreen
+        sessionTitle={session.title}
+        authenticating={authenticating}
+        onUnlock={() => {
+          void revealLockedNote(tab.id);
+        }}
+      />
+    ) : null;
 
   return (
-    <UnlockedTabContentNote tab={tab} standaloneWindow={standaloneWindow} />
+    <UnlockedTabContentNote
+      tab={tab}
+      standaloneWindow={standaloneWindow}
+      lockOverlay={lockOverlay}
+    />
   );
 }
 
 function UnlockedTabContentNote({
   standaloneWindow,
   tab,
+  lockOverlay,
 }: {
   standaloneWindow: boolean;
   tab: Extract<Tab, { type: "sessions" }>;
+  lockOverlay: React.ReactNode;
 }) {
   const sessionMode = useListener((state) => state.getSessionMode(tab.id));
   const audioExists = AudioPlayer.useAudioExists(tab.id);
@@ -128,7 +130,7 @@ function UnlockedTabContentNote({
 
   return (
     <>
-      {tab.state.autoStart && !standaloneWindow ? (
+      {tab.state.autoStart && !standaloneWindow && !lockOverlay ? (
         <AutoStartListening tab={tab} />
       ) : null}
       <SearchProvider>
@@ -138,6 +140,7 @@ function UnlockedTabContentNote({
             standaloneWindow={standaloneWindow}
             audioUrlReady={Boolean(audioUrl)}
             audioExists={audioExists}
+            lockOverlay={lockOverlay}
           />
         </AudioPlayer.Provider>
       </SearchProvider>
@@ -211,11 +214,13 @@ function TabContentNoteInner({
   standaloneWindow,
   audioUrlReady,
   audioExists,
+  lockOverlay,
 }: {
   tab: Extract<Tab, { type: "sessions" }>;
   standaloneWindow: boolean;
   audioUrlReady: boolean;
   audioExists: boolean;
+  lockOverlay: React.ReactNode;
 }) {
   const noteInputRef = React.useRef<NoteInputHandle>(null);
 
@@ -223,7 +228,7 @@ function TabContentNoteInner({
   const [editingTranscriptSessionId, setEditingTranscriptSessionId] =
     React.useState<string | null>(null);
   const transcriptEditMode = editingTranscriptSessionId === sessionId;
-  usePendingUpload(sessionId);
+  usePendingUpload(sessionId, !lockOverlay);
 
   const hasTranscript = useHasTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -245,7 +250,7 @@ function TabContentNoteInner({
   const contentHydrated = session !== null;
   useEnsureDefaultSummaryFromState({
     batchError: Boolean(batchError),
-    enabled: contentHydrated,
+    enabled: contentHydrated && !lockOverlay,
     enhancedNoteCount: enhancedNoteIds.length,
     hasTranscript,
     memoTemplateId: session?.raw_template_id,
@@ -274,7 +279,11 @@ function TabContentNoteInner({
       canShowTranscript,
     );
   }, [tab.state.view, isLiveSessionActive, enhancedNoteIds, canShowTranscript]);
-  useAutoFocusTitle({ sessionId, noteInputRef });
+  useAutoFocusTitle({
+    sessionId,
+    noteInputRef,
+    enabled: !lockOverlay,
+  });
 
   const showTopAudioPlayer = shouldShowSessionTopAudioPlayer({
     audioExists,
@@ -306,36 +315,41 @@ function TabContentNoteInner({
   return (
     <>
       <SessionSurface
+        overlay={lockOverlay}
         header={
-          <OuterHeader
-            sessionId={sessionId}
-            currentView={currentView}
-            standaloneWindow={standaloneWindow}
-            transcriptEditMode={transcriptEditMode}
-            onTranscriptEditModeChange={handleTranscriptEditModeChange}
-            viewSwitcher={
-              <SessionViewSwitcher
-                sessionId={sessionId}
-                editorTabs={editorTabs}
-                currentTab={currentView}
-                handleTabChange={handleTabChange}
-                isTranscribing={isTranscribing}
-              />
-            }
-          />
+          lockOverlay ? undefined : (
+            <OuterHeader
+              sessionId={sessionId}
+              currentView={currentView}
+              standaloneWindow={standaloneWindow}
+              transcriptEditMode={transcriptEditMode}
+              onTranscriptEditModeChange={handleTranscriptEditModeChange}
+              viewSwitcher={
+                <SessionViewSwitcher
+                  sessionId={sessionId}
+                  editorTabs={editorTabs}
+                  currentTab={currentView}
+                  handleTabChange={handleTabChange}
+                  isTranscribing={isTranscribing}
+                />
+              }
+            />
+          )
         }
         floatingButton={
-          <FloatingActionButton
-            allowListening={!standaloneWindow}
-            audioExists={audioExists}
-            currentView={currentView}
-            skipReason={skipReason}
-            tab={tab}
-          />
+          lockOverlay ? undefined : (
+            <FloatingActionButton
+              allowListening={!standaloneWindow}
+              audioExists={audioExists}
+              currentView={currentView}
+              skipReason={skipReason}
+              tab={tab}
+            />
+          )
         }
       >
         <div className="flex h-full min-h-0 flex-col">
-          {showTopAudioPlayer ? (
+          {showTopAudioPlayer && !lockOverlay ? (
             <div
               data-session-top-audio-player
               className="shrink-0 px-1 pt-1 pb-2"
@@ -391,35 +405,39 @@ function SessionContentLoading() {
   );
 }
 
-function usePendingUpload(sessionId: string) {
+function usePendingUpload(sessionId: string, enabled = true) {
   const { processFile } = useUploadFile(sessionId);
   const processFileRef = useRef(processFile);
   processFileRef.current = processFile;
 
   useEffect(() => {
+    if (!enabled) return;
     const pending = consumePendingUpload(sessionId);
     if (pending) {
       processFileRef.current(pending.filePath, pending.kind);
     }
-  }, [sessionId]);
+  }, [enabled, sessionId]);
 }
 
 function useAutoFocusTitle({
   sessionId,
   noteInputRef,
+  enabled = true,
 }: {
   sessionId: string;
   noteInputRef: React.RefObject<NoteInputHandle | null>;
+  enabled?: boolean;
 }) {
   const autoFocusedSessionRef = useRef<string | null>(null);
   const title = useSession(sessionId)?.title;
 
   useEffect(() => {
+    if (!enabled) return;
     if (autoFocusedSessionRef.current === sessionId) return;
 
     if (!title) {
       noteInputRef.current?.focusAtStart();
       autoFocusedSessionRef.current = sessionId;
     }
-  }, [sessionId, title]);
+  }, [enabled, sessionId, title]);
 }
