@@ -52,7 +52,7 @@ fn start_authentication(reason: &str, tx: mpsc::Sender<Result<bool, Error>>) {
     let keep_alive = context.clone();
     let localized_reason = NSString::from_str(reason);
     let reply = RcBlock::new(move |success: Bool, _error: *mut NSError| {
-        drop(keep_alive);
+        let _keep_alive = &keep_alive;
         let _ = tx.send(Ok(success.as_bool()));
     });
 
