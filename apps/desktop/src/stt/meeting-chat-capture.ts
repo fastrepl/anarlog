@@ -5,6 +5,13 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import { getStoredSettingValues } from "~/settings/queries";
 import { resolveConfigValue } from "~/shared/config";
 import { persistMeetingChatRecords } from "~/stt/meeting-chat-records";
+import {
+  interpretChatAsConsentResponse,
+  sessionListeningPolicy,
+  type ParticipantConsent,
+} from "~/stt/meeting-consent";
+import { persistParticipantConsent } from "~/stt/meeting-consent-store";
+import { MEETING_DISCLOSURE_MESSAGE } from "~/stt/meeting-disclosure";
 
 const MEETING_CHAT_CAPTURE_INTERVAL_MS = 5_000;
 const MAX_CAPTURED_CHAT_WINDOW = 1_000;
@@ -13,10 +20,12 @@ export function startMeetingChatCapture({
   sessionId,
   isEnabled,
   excludedTexts = [],
+  onParticipantDeclined,
 }: {
   sessionId: string;
   isEnabled?: () => boolean | Promise<boolean>;
   excludedTexts?: string[];
+  onParticipantDeclined?: () => void;
 }) {
   sonnerToast.dismiss("meeting-chat-capture-warning");
   const excludedMessages = new Set(excludedTexts.map(normalizeMessageText));
@@ -155,6 +164,39 @@ export function startMeetingChatCapture({
       }
       for (const signature of persistedSignatures) {
         rememberSignature(seenSignatures, signature);
+      }
+
+      const consents: ParticipantConsent[] = [];
+      for (const entry of entries) {
+        if (!persistedSignatures.includes(entry.sourceSignature)) {
+          continue;
+        }
+        const response = interpretChatAsConsentResponse(
+          entry.message.text,
+          MEETING_DISCLOSURE_MESSAGE,
+        );
+        if (!response) {
+          continue;
+        }
+        const consent: ParticipantConsent = {
+          sessionId,
+          participantKey: entry.message.sender?.trim() || "unidentified",
+          status: response,
+          source: "explicit_chat_reply",
+          updatedAt: new Date().toISOString(),
+        };
+        consents.push(consent);
+        try {
+          await persistParticipantConsent(consent);
+        } catch (error) {
+          console.warn(
+            "[listener] failed to persist participant consent",
+            error,
+          );
+        }
+      }
+      if (sessionListeningPolicy(consents) === "stop_declined" && !stopped) {
+        onParticipantDeclined?.();
       }
     } catch (error) {
       console.warn("[listener] failed to capture meeting chat", error);

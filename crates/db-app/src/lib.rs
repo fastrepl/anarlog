@@ -389,6 +389,11 @@ pub const APP_MIGRATION_STEPS: &[anlg_db_migrate::MigrationStep] = &[
         },
         sql: include_str!("../migrations/20260820120000_session_locked.sql"),
     },
+    anlg_db_migrate::MigrationStep {
+        id: "20260821140000_session_consent_evidence",
+        scope: anlg_db_migrate::MigrationScope::Plain,
+        sql: include_str!("../migrations/20260821140000_session_consent_evidence.sql"),
+    },
 ];
 
 pub fn schema() -> anlg_db_migrate::DbSchema {

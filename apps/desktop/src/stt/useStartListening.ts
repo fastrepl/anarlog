@@ -54,6 +54,7 @@ export function useStartListening(sessionId: string) {
   );
 
   const start = useListener((state) => state.start);
+  const stop = useListener((state) => state.stop);
   const { leftsidebar } = useShell();
   const setLeftSidebarExpanded = leftsidebar.setExpanded;
   const openNew = useTabs((state) => state.openNew);
@@ -220,6 +221,13 @@ export function useStartListening(sessionId: string) {
       startMeetingChatCapture({
         sessionId,
         excludedTexts: [MEETING_DISCLOSURE_MESSAGE],
+        onParticipantDeclined: () => {
+          sonnerToast.warning(
+            "A participant declined recording. Anarlog stopped listening.",
+            { id: "meeting-consent-declined", duration: Infinity },
+          );
+          stop();
+        },
       }),
     );
 
@@ -259,6 +267,7 @@ export function useStartListening(sessionId: string) {
     meetingDisclosureAutoSendChat,
     spokenLanguages,
     start,
+    stop,
     stopMeetingChatTasks,
   ]);
 

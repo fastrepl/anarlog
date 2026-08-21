@@ -26,6 +26,7 @@ const {
   finishCaptureRecoveryFinalizationMock,
   canStartLiveSessionMock,
   startMock,
+  stopMock,
   getSessionModeMock,
   setBatchTranscriptionPendingMock,
   runBatchMock,
@@ -77,6 +78,7 @@ const {
   finishCaptureRecoveryFinalizationMock: vi.fn(),
   canStartLiveSessionMock: vi.fn(),
   startMock: vi.fn(),
+  stopMock: vi.fn(),
   getSessionModeMock: vi.fn(),
   setBatchTranscriptionPendingMock: vi.fn(),
   runBatchMock: vi.fn(),
@@ -144,6 +146,11 @@ vi.mock("@anlg/plugin-detect", () => ({
     listMicUsingApplications: listMicUsingApplicationsMock,
     sendMeetingChatMessage: sendMeetingChatMessageMock,
   },
+}));
+
+vi.mock("./meeting-consent-store", () => ({
+  persistDisclosureAttempt: vi.fn(async () => {}),
+  persistParticipantConsent: vi.fn(async () => {}),
 }));
 
 vi.mock("@anlg/plugin-fs-sync", () => ({
@@ -451,6 +458,7 @@ describe("useStartListening", () => {
         getSessionMode: getSessionModeMock,
         setBatchTranscriptionPending: setBatchTranscriptionPendingMock,
         start: startMock,
+        stop: stopMock,
       }),
     );
     beginCaptureRecoveryFinalizationMock.mockReturnValue(true);
@@ -3668,6 +3676,7 @@ describe("useStartListening", () => {
         excludedTexts: [
           "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
         ],
+        onParticipantDeclined: expect.any(Function),
       });
     });
 
@@ -3706,6 +3715,7 @@ describe("useStartListening", () => {
         excludedTexts: [
           "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
         ],
+        onParticipantDeclined: expect.any(Function),
       });
     });
 

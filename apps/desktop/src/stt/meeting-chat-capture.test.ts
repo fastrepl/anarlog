@@ -8,6 +8,7 @@ const {
   captureMeetingChatMessagesMock,
   listMicUsingApplicationsMock,
   persistMeetingChatRecordsMock,
+  persistParticipantConsentMock,
   sonnerToastWarningMock,
   sonnerToastDismissMock,
   captureSettingState,
@@ -15,6 +16,7 @@ const {
   captureMeetingChatMessagesMock: vi.fn(),
   listMicUsingApplicationsMock: vi.fn(),
   persistMeetingChatRecordsMock: vi.fn(),
+  persistParticipantConsentMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
   sonnerToastDismissMock: vi.fn(),
   captureSettingState: { value: true },
@@ -29,6 +31,10 @@ vi.mock("@anlg/plugin-detect", () => ({
 
 vi.mock("~/stt/meeting-chat-records", () => ({
   persistMeetingChatRecords: persistMeetingChatRecordsMock,
+}));
+
+vi.mock("~/stt/meeting-consent-store", () => ({
+  persistParticipantConsent: persistParticipantConsentMock,
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({
@@ -72,6 +78,7 @@ describe("startMeetingChatCapture", () => {
       async ({ entries }: { entries: Array<{ sourceSignature: string }> }) =>
         entries.map((entry) => entry.sourceSignature),
     );
+    persistParticipantConsentMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -630,6 +637,38 @@ describe("startMeetingChatCapture", () => {
         duration: Infinity,
       },
     );
+  });
+
+  test("stops listening after an explicit chat decline without treating disclosure as consent", async () => {
+    const onParticipantDeclined = vi.fn();
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+      onParticipantDeclined,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    const decline = {
+      ...capturedMessage,
+      id: "msg-decline",
+      text: "I do not consent",
+      links: [],
+    };
+    captureMeetingChatMessagesMock.mockResolvedValue(
+      captureResult([capturedMessage, decline]),
+    );
+    await vi.advanceTimersByTimeAsync(5_000);
+    stop();
+
+    expect(persistParticipantConsentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-1",
+        participantKey: "Ada",
+        status: "declined",
+        source: "explicit_chat_reply",
+      }),
+    );
+    expect(onParticipantDeclined).toHaveBeenCalledOnce();
   });
 });
 

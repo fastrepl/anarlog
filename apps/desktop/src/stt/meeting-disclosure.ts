@@ -1,6 +1,12 @@
 import { commands as detectCommands } from "@anlg/plugin-detect";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
+import {
+  MEETING_DISCLOSURE_MESSAGE_VERSION,
+  type DisclosureAttempt,
+} from "./meeting-consent";
+import { persistDisclosureAttempt } from "./meeting-consent-store";
+
 export const MEETING_DISCLOSURE_MESSAGE =
   "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so";
 
@@ -53,6 +59,42 @@ function rememberSentMeetingDisclosure(sessionId: string) {
       break;
     }
     sentMeetingDisclosureSessionIds.delete(oldestSessionId);
+  }
+}
+
+async function recordDisclosureAttempt(input: {
+  sessionId?: string;
+  delivery: DisclosureAttempt["delivery"];
+  failureReason?: unknown;
+  surface?: string;
+}) {
+  if (!input.sessionId) {
+    return;
+  }
+
+  const failureReason =
+    input.failureReason instanceof Error
+      ? input.failureReason.message
+      : input.failureReason
+        ? String(input.failureReason)
+        : "";
+
+  try {
+    await persistDisclosureAttempt({
+      id:
+        globalThis.crypto?.randomUUID?.() ??
+        `disclosure-${Date.now()}-${Math.random()}`,
+      sessionId: input.sessionId,
+      attemptedAt: new Date().toISOString(),
+      platform: "slack_huddle",
+      surface: input.surface ?? "huddle",
+      messageVersion: MEETING_DISCLOSURE_MESSAGE_VERSION,
+      message: MEETING_DISCLOSURE_MESSAGE,
+      delivery: input.delivery,
+      failureReason,
+    });
+  } catch (error) {
+    console.warn("[listener] failed to persist disclosure attempt", error);
   }
 }
 
@@ -142,10 +184,12 @@ async function attemptMeetingRecordingDisclosure(
 }
 
 export async function sendMeetingRecordingDisclosure({
+  sessionId,
   isCancelled = () => false,
   maxAttempts = MEETING_DISCLOSURE_MAX_ATTEMPTS,
   retryIntervalMs = MEETING_DISCLOSURE_RETRY_INTERVAL_MS,
 }: {
+  sessionId?: string;
   isCancelled?: () => boolean;
   maxAttempts?: number;
   retryIntervalMs?: number;
@@ -155,6 +199,10 @@ export async function sendMeetingRecordingDisclosure({
   for (let attempt = 0; attempt < Math.max(1, maxAttempts); attempt += 1) {
     const outcome = await attemptMeetingRecordingDisclosure(isCancelled);
     if (outcome.status !== "notSent") {
+      await recordDisclosureAttempt({
+        sessionId,
+        delivery: outcome.status === "sent" ? "sent" : "cancelled",
+      });
       return outcome;
     }
 
@@ -164,11 +212,20 @@ export async function sendMeetingRecordingDisclosure({
         setTimeout(resolve, retryIntervalMs);
       });
       if (isCancelled()) {
+        await recordDisclosureAttempt({
+          sessionId,
+          delivery: "cancelled",
+        });
         return { status: "cancelled" };
       }
     }
   }
 
+  await recordDisclosureAttempt({
+    sessionId,
+    delivery: "not_sent",
+    failureReason: lastFailureReason,
+  });
   return meetingDisclosureFailure(lastFailureReason);
 }
 
@@ -194,6 +251,7 @@ export function startMeetingRecordingDisclosure(
   meetingDisclosureTasks.set(sessionId, task);
 
   void sendMeetingRecordingDisclosure({
+    sessionId,
     isCancelled: () => task.cancelled || !isListening(),
   }).then(
     (outcome) => {

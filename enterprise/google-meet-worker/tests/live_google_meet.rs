@@ -11,12 +11,62 @@ use anarlog_enterprise_google_meet_worker::{
     ChunkedRecordingSink, FilesystemRecordingStore, GoogleMeetRuntime, GoogleMeetRuntimeConfig,
     GoogleMeetUrl, WorkerCheckpoint, WorkerLifecycle, X11InputConfig,
 };
-use anlg_meeting_capture::{BotState, CaptureEventPayload};
+use anlg_meeting_capture::{BotState, CaptureEvent, CaptureEventPayload, TerminalReasonKind};
 use tokio::sync::mpsc;
 
 #[tokio::test]
 #[ignore = "requires a disposable live Google Meet and a Linux desktop runtime"]
 async fn captures_a_live_google_meet_and_cleans_up() -> Result<(), Box<dyn std::error::Error>> {
+    let run = run_live_google_meet().await?;
+    assert!(run.lifecycle.state().is_terminal());
+    assert!(run.events.iter().any(|event| {
+        matches!(
+            &event.payload,
+            CaptureEventPayload::Lifecycle(transition) if transition.to == BotState::Joined
+        )
+    }));
+    assert!(run.events.iter().any(|event| {
+        matches!(
+            &event.payload,
+            CaptureEventPayload::Lifecycle(transition) if transition.to == BotState::Capturing
+        )
+    }));
+    assert!(
+        run.events
+            .iter()
+            .any(|event| { matches!(event.payload, CaptureEventPayload::RecordingChunkReady(_)) })
+    );
+    assert!(run.recording_root.join("live-google-meet").is_dir());
+    Ok(())
+}
+
+#[tokio::test]
+#[ignore = "requires a disposable live Google Meet and a Linux desktop runtime"]
+async fn live_google_meet_emits_actionable_terminal_reason_and_cleans_up()
+-> Result<(), Box<dyn std::error::Error>> {
+    let run = run_live_google_meet().await?;
+    assert!(
+        run.lifecycle.state().is_terminal(),
+        "live Meet must finish in a terminal bot state, got {:?}",
+        run.lifecycle.state()
+    );
+    let reason = run.events.iter().find_map(|event| match &event.payload {
+        CaptureEventPayload::Lifecycle(transition) => transition.reason.clone(),
+        _ => None,
+    });
+    let reason = reason.expect("live Meet must emit a terminal reason");
+    assert_ne!(reason.kind, TerminalReasonKind::Unknown);
+    println!("ANLG_LIVE_TERMINAL_REASON {reason:?}");
+    Ok(())
+}
+
+struct LiveRun {
+    events: Vec<CaptureEvent>,
+    lifecycle: WorkerLifecycle,
+    recording_root: PathBuf,
+}
+
+async fn run_live_google_meet() -> Result<LiveRun, Box<dyn std::error::Error>> {
     let meeting_url = GoogleMeetUrl::parse(&env::var("ANLG_LIVE_GOOGLE_MEET_URL")?)?;
     let run_timeout = Duration::from_secs(env_u64("ANLG_LIVE_RUN_SECONDS", 300)?);
     let directory = tempfile::tempdir()?;
@@ -54,7 +104,7 @@ async fn captures_a_live_google_meet_and_cleans_up() -> Result<(), Box<dyn std::
             },
             bot_name: "Anarlog Reliability Bot".into(),
             admission: AdmissionMonitorConfig {
-                timeout: Duration::from_secs(120),
+                timeout: Duration::from_secs(env_u64("ANLG_LIVE_ADMISSION_SECONDS", 120)?),
                 poll_interval: Duration::from_millis(500),
             },
             runtime_poll_interval: Duration::from_secs(1),
@@ -96,28 +146,12 @@ async fn captures_a_live_google_meet_and_cleans_up() -> Result<(), Box<dyn std::
     }
     drop(events_tx);
     let events = event_collector.await?;
-
     run_result??;
-    assert!(lifecycle.state().is_terminal());
-    assert!(events.iter().any(|event| {
-        matches!(
-            &event.payload,
-            CaptureEventPayload::Lifecycle(transition) if transition.to == BotState::Joined
-        )
-    }));
-    assert!(events.iter().any(|event| {
-        matches!(
-            &event.payload,
-            CaptureEventPayload::Lifecycle(transition) if transition.to == BotState::Capturing
-        )
-    }));
-    assert!(
-        events
-            .iter()
-            .any(|event| { matches!(event.payload, CaptureEventPayload::RecordingChunkReady(_)) })
-    );
-    assert!(recording_root.join("live-google-meet").is_dir());
-    Ok(())
+    Ok(LiveRun {
+        events,
+        lifecycle,
+        recording_root,
+    })
 }
 
 fn env_u64(name: &str, default: u64) -> Result<u64, Box<dyn std::error::Error>> {
