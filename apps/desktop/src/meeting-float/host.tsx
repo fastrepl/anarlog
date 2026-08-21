@@ -1,4 +1,3 @@
-import { platform } from "@tauri-apps/plugin-os";
 import { useRef } from "react";
 
 import {
@@ -27,6 +26,7 @@ import {
   getSettingsValuesFromNativeChange,
   type FloatingOverlaySettings,
 } from "./settings";
+import { isFloatingBarSupported } from "./support";
 import {
   createFloatingMeetingWindowSynchronizer,
   hideFloatingMeetingPanel,
@@ -59,7 +59,7 @@ export function FloatingMeetingWindowHost() {
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
   const storedSettings = useConfigValues(FLOATING_OVERLAY_SETTING_KEYS);
   const overlaySettings = getFloatingOverlaySettings(storedSettings);
-  const floatingOverlaySupported = platform() === "macos";
+  const floatingOverlaySupported = isFloatingBarSupported();
 
   return (
     <>

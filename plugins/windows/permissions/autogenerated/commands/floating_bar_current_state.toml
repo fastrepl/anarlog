@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-floating-bar-current-state"
+description = "Enables the floating_bar_current_state command without any pre-configured scope."
+commands.allow = ["floating_bar_current_state"]
+
+[[permission]]
+identifier = "deny-floating-bar-current-state"
+description = "Denies the floating_bar_current_state command without any pre-configured scope."
+commands.deny = ["floating_bar_current_state"]

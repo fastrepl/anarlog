@@ -13,6 +13,7 @@ import { Route as AppRouteRouteImport } from './routes/app/route'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppOnboardingRouteImport } from './routes/app/onboarding'
 import { Route as AppInstructionRouteImport } from './routes/app/instruction'
+import { Route as AppFloatingBarRouteImport } from './routes/app/floating-bar'
 import { Route as AppComposerRouteImport } from './routes/app/composer'
 import { Route as AppNoteSessionIdRouteImport } from './routes/app/note.$sessionId'
 import { Route as AppMainLayoutRouteImport } from './routes/app/main/_layout'
@@ -36,6 +37,11 @@ const AppOnboardingRoute = AppOnboardingRouteImport.update({
 const AppInstructionRoute = AppInstructionRouteImport.update({
   id: '/instruction',
   path: '/instruction',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppFloatingBarRoute = AppFloatingBarRouteImport.update({
+  id: '/floating-bar',
+  path: '/floating-bar',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppComposerRoute = AppComposerRouteImport.update({
@@ -62,6 +68,7 @@ const AppMainLayoutIndexRoute = AppMainLayoutIndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/app': typeof AppRouteRouteWithChildren
   '/app/composer': typeof AppComposerRoute
+  '/app/floating-bar': typeof AppFloatingBarRoute
   '/app/instruction': typeof AppInstructionRoute
   '/app/onboarding': typeof AppOnboardingRoute
   '/app/': typeof AppIndexRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/app/composer': typeof AppComposerRoute
+  '/app/floating-bar': typeof AppFloatingBarRoute
   '/app/instruction': typeof AppInstructionRoute
   '/app/onboarding': typeof AppOnboardingRoute
   '/app': typeof AppIndexRoute
@@ -81,6 +89,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/app': typeof AppRouteRouteWithChildren
   '/app/composer': typeof AppComposerRoute
+  '/app/floating-bar': typeof AppFloatingBarRoute
   '/app/instruction': typeof AppInstructionRoute
   '/app/onboarding': typeof AppOnboardingRoute
   '/app/': typeof AppIndexRoute
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/app'
     | '/app/composer'
+    | '/app/floating-bar'
     | '/app/instruction'
     | '/app/onboarding'
     | '/app/'
@@ -102,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/app/composer'
+    | '/app/floating-bar'
     | '/app/instruction'
     | '/app/onboarding'
     | '/app'
@@ -111,6 +122,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/app'
     | '/app/composer'
+    | '/app/floating-bar'
     | '/app/instruction'
     | '/app/onboarding'
     | '/app/'
@@ -151,6 +163,13 @@ declare module '@tanstack/react-router' {
       path: '/instruction'
       fullPath: '/app/instruction'
       preLoaderRoute: typeof AppInstructionRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/app/floating-bar': {
+      id: '/app/floating-bar'
+      path: '/floating-bar'
+      fullPath: '/app/floating-bar'
+      preLoaderRoute: typeof AppFloatingBarRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/app/composer': {
@@ -198,6 +217,7 @@ const AppMainLayoutRouteWithChildren = AppMainLayoutRoute._addFileChildren(
 
 interface AppRouteRouteChildren {
   AppComposerRoute: typeof AppComposerRoute
+  AppFloatingBarRoute: typeof AppFloatingBarRoute
   AppInstructionRoute: typeof AppInstructionRoute
   AppOnboardingRoute: typeof AppOnboardingRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -207,6 +227,7 @@ interface AppRouteRouteChildren {
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppComposerRoute: AppComposerRoute,
+  AppFloatingBarRoute: AppFloatingBarRoute,
   AppInstructionRoute: AppInstructionRoute,
   AppOnboardingRoute: AppOnboardingRoute,
   AppIndexRoute: AppIndexRoute,

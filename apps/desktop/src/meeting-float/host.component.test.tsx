@@ -131,17 +131,15 @@ describe("FloatingMeetingWindowHost", () => {
     expect(mocks.floatingBarHide).not.toHaveBeenCalled();
   });
 
-  it("keeps unsupported floating overlays disabled outside macOS", async () => {
+  it("shows the floating bar on Windows and Linux", async () => {
     mocks.platform.mockReturnValue("linux");
 
     render(<FloatingMeetingWindowHost />);
 
     await waitFor(() => {
-      expect(mocks.floatingBarHide).toHaveBeenCalledOnce();
-      expect(mocks.liveCaptionHide).toHaveBeenCalledOnce();
+      expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
+      expect(mocks.floatingBarUpdate).toHaveBeenCalled();
     });
-    expect(mocks.floatingBarShow).not.toHaveBeenCalled();
-    expect(mocks.floatingBarUpdate).not.toHaveBeenCalled();
-    expect(mocks.listen).not.toHaveBeenCalled();
+    expect(mocks.liveCaptionHide).toHaveBeenCalledOnce();
   });
 });

@@ -57,6 +57,7 @@ describe("app entry path resolution", () => {
     expect(shouldCheckOnboarding("/app/onboarding")).toBe(true);
     expect(shouldCheckOnboarding("/app/note/session-1")).toBe(false);
     expect(shouldCheckOnboarding("/app/composer")).toBe(false);
+    expect(shouldCheckOnboarding("/app/floating-bar")).toBe(false);
     expect(shouldCheckOnboarding("/app/instruction")).toBe(false);
   });
 });

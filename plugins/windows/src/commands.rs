@@ -411,6 +411,13 @@ pub async fn floating_bar_update_amplitude(amplitude: f64) -> Result<(), String>
 
 #[tauri::command]
 #[specta::specta]
+pub async fn floating_bar_current_state()
+-> Result<Option<crate::window::floating_bar::FloatingBarState>, String> {
+    Ok(crate::window::floating_bar::current_state())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn live_caption_show() -> Result<(), String> {
     crate::window::live_caption::show().map_err(|e| e.to_string())?;
     Ok(())

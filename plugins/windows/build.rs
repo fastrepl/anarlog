@@ -18,6 +18,7 @@ const COMMANDS: &[&str] = &[
     "floating_bar_hide",
     "floating_bar_update",
     "floating_bar_update_amplitude",
+    "floating_bar_current_state",
     "live_caption_show",
     "live_caption_hide",
     "live_caption_update",

@@ -8,7 +8,6 @@ import {
   PictureInPicture,
   Waveform,
 } from "@phosphor-icons/react";
-import { platform } from "@tauri-apps/plugin-os";
 import { useState } from "react";
 
 import { Button } from "@anlg/ui/components/ui/button";
@@ -29,6 +28,7 @@ import { ShowInFolder } from "./misc";
 
 import { useAudioPlayer } from "~/audio-player";
 import { openFloatingMeetingPanel } from "~/meeting-float/host";
+import { isFloatingBarSupported } from "~/meeting-float/support";
 import { useRegenerateTranscript } from "~/session/components/note-input/transcript/actions";
 import {
   useCurrentNoteHasContent,
@@ -64,7 +64,7 @@ export function OverflowButton({
   const regenerateTranscript = useRegenerateTranscript(sessionId);
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
   const floatingBarEnabled = useConfigValue("floating_bar_enabled");
-  const floatingBarSupported = platform() === "macos";
+  const floatingBarSupported = isFloatingBarSupported();
   const isMeetingInProgress =
     sessionMode === "active" || sessionMode === "finalizing";
   const showListeningAction = allowListening;

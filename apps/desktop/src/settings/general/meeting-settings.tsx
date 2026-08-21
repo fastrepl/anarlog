@@ -77,16 +77,16 @@ export function MeetingSettingsView({
             checked={captureMeetingChat.value}
             onChange={captureMeetingChat.onChange}
           />
-          <SettingSwitchRow
-            title={<Trans>Show floating bar</Trans>}
-            description={
-              <Trans>Control listening without reopening Anarlog.</Trans>
-            }
-            checked={floatingBar.value}
-            onChange={floatingBar.onChange}
-          />
         </>
       )}
+      <SettingSwitchRow
+        title={<Trans>Show floating bar</Trans>}
+        description={
+          <Trans>Control listening without reopening Anarlog.</Trans>
+        }
+        checked={floatingBar.value}
+        onChange={floatingBar.onChange}
+      />
     </div>
   );
 }

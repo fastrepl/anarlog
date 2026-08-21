@@ -7,6 +7,12 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+html[data-floating-bar],
+html[data-floating-bar] body,
+html[data-floating-bar] #root {
+  background: transparent !important;
+}
+
 .undo-delete-toast-gauge {
   animation: undo-delete-toast-gauge var(--undo-delete-duration) linear
     forwards;

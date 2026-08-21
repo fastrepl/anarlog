@@ -432,7 +432,7 @@ describe("OverflowButton", () => {
     );
   });
 
-  it("hides the unsupported floating panel action outside macOS", () => {
+  it("opens the floating panel on Windows and Linux", () => {
     platformMock.mockReturnValue("linux");
     useConfigValueMock.mockReturnValue(true);
     useListenerMock.mockImplementation((selector) =>
@@ -448,9 +448,16 @@ describe("OverflowButton", () => {
       />,
     );
 
-    expect(
-      screen.queryByRole("button", { name: "Open floating panel" }),
-    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open floating panel" }),
+    );
+
+    expect(openFloatingMeetingPanel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "session-1",
+        enabled: true,
+      }),
+    );
   });
 
   it("opens the current note in a standalone window", () => {
