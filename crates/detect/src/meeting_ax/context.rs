@@ -1,6 +1,8 @@
 #[cfg(target_os = "macos")]
 use super::analysis::meeting_chat_surface_is_visible;
-use super::analysis::{chat_scope_label, is_explicit_chat_input, is_zoom_chat_scope_node};
+use super::analysis::{
+    candidate_chat_target, chat_scope_label, is_explicit_chat_input, is_zoom_chat_scope_node,
+};
 use super::{
     AxNode, BrowserMeetingRoot, MeetingPlatform, NativeMeetingRoot, browser_platform_from_url,
     is_platform_active_call_control, is_slack_huddle_composer, is_slack_thread_container_label,
@@ -130,7 +132,7 @@ fn is_platform_chat_message_list(platform: &MeetingPlatform, node: &AxNode) -> b
     is_chat_message_list(node) && is_platform_chat_scope_container(platform, node)
 }
 
-fn is_platform_chat_composer(platform: &MeetingPlatform, node: &AxNode) -> bool {
+pub(super) fn is_platform_chat_composer(platform: &MeetingPlatform, node: &AxNode) -> bool {
     if !matches!(
         node.role.as_deref(),
         Some("AXTextArea") | Some("AXTextField")
@@ -160,6 +162,42 @@ fn is_platform_chat_composer(platform: &MeetingPlatform, node: &AxNode) -> bool 
             MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
         }
     })
+}
+
+pub(super) fn is_platform_send_button(
+    platform: &MeetingPlatform,
+    node: &AxNode,
+    scope_path: &[usize],
+) -> bool {
+    if !matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
+        || node.enabled == Some(false)
+        || !(node.tree_path == scope_path || path_is_ancestor(scope_path, &node.tree_path))
+    {
+        return false;
+    }
+
+    node_labels(node).any(|label| {
+        let label = label.trim().to_ascii_lowercase();
+        match platform {
+            MeetingPlatform::Slack => label == "send now",
+            MeetingPlatform::Zoom
+            | MeetingPlatform::GoogleMeet
+            | MeetingPlatform::MicrosoftTeams
+            | MeetingPlatform::Webex => {
+                matches!(
+                    label.as_str(),
+                    "send" | "send now" | "send message" | "send a message"
+                )
+            }
+            MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
+        }
+    })
+}
+
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub(super) fn is_open_meeting_chat_control(node: &AxNode) -> bool {
+    candidate_chat_target(node).is_some_and(|target| target.kind == "openChatControl")
+        && node.enabled != Some(false)
 }
 
 pub(super) fn validated_chat_scope(

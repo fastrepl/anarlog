@@ -14,7 +14,8 @@ use super::analysis::{
     extract_chat_messages, find_participant_streams, meeting_chat_surface_is_visible,
 };
 use super::context::{
-    browser_capture_context_id, native_capture_context_id, slack_capture_context_id,
+    browser_capture_context_id, is_platform_chat_composer, is_platform_send_button,
+    native_capture_context_id, slack_capture_context_id, validated_chat_scope,
     zoom_capture_context_id,
 };
 use super::node::{node_labels, searchable_node_text};
@@ -420,15 +421,18 @@ fn web_area_url(nodes: &[LiveNode]) -> Option<String> {
 fn native_roots_from_windows(
     windows: Vec<(Option<String>, Vec<LiveNode>)>,
     platform: &MeetingPlatform,
-) -> Vec<NativeMeetingRoot> {
+) -> Vec<(NativeMeetingRoot, Vec<LiveNode>)> {
     windows
         .into_iter()
         .filter_map(|(window_title, live)| {
             let nodes = ax_nodes(&live);
-            native_meeting_window_is_validated(platform, &nodes).then_some(NativeMeetingRoot {
-                window_title,
-                nodes,
-            })
+            native_meeting_window_is_validated(platform, &nodes).then_some((
+                NativeMeetingRoot {
+                    window_title,
+                    nodes,
+                },
+                live,
+            ))
         })
         .collect()
 }
@@ -449,7 +453,7 @@ fn slack_roots_from_windows(
 fn browser_roots_from_windows(
     windows: Vec<(Option<String>, Vec<LiveNode>)>,
     warnings: &mut Vec<String>,
-) -> (Vec<BrowserMeetingRoot>, bool) {
+) -> (Vec<(BrowserMeetingRoot, Vec<LiveNode>)>, bool) {
     let mut roots = Vec::new();
     let mut poisoned = false;
     for (window_title, live) in windows {
@@ -479,12 +483,15 @@ fn browser_roots_from_windows(
         if platform == MeetingPlatform::Unknown {
             continue;
         }
-        roots.push(BrowserMeetingRoot {
-            platform,
-            window_title,
-            web_area_url: url,
-            nodes,
-        });
+        roots.push((
+            BrowserMeetingRoot {
+                platform,
+                window_title,
+                web_area_url: url,
+                nodes,
+            },
+            live,
+        ));
     }
     (roots, poisoned)
 }
@@ -603,7 +610,7 @@ async fn inspect_app_async(
         };
         return match root_match {
             UniqueMatch::One(index) => {
-                let root = roots.remove(index);
+                let (root, _) = roots.remove(index);
                 inspection_from_nodes(
                     app,
                     pid,
@@ -635,7 +642,7 @@ async fn inspect_app_async(
         let mut roots = native_roots_from_windows(windows, &bundle_platform);
         return match unique_scope_for_count(roots.len()) {
             UniqueMatch::One(index) => {
-                let root = roots.remove(index);
+                let (root, _) = roots.remove(index);
                 inspection_from_nodes(
                     app,
                     pid,
@@ -763,14 +770,213 @@ fn slack_failure(
     input_label: Option<String>,
     warnings: Vec<String>,
 ) -> MeetingChatSendResult {
+    chat_send_failure(app, &MeetingPlatform::Slack, surface, input_label, warnings)
+}
+
+fn chat_send_failure(
+    app: &MeetingApp,
+    platform: &MeetingPlatform,
+    surface: &MeetingSurface,
+    input_label: Option<String>,
+    warnings: Vec<String>,
+) -> MeetingChatSendResult {
     MeetingChatSendResult {
         sent: false,
         app: Some(app.clone()),
-        platform: MeetingPlatform::Slack,
+        platform: platform.clone(),
         surface: surface.clone(),
         input_label,
         send_action: None,
         warnings,
+    }
+}
+
+async fn send_slack_from_live(
+    connection: &AccessibilityConnection,
+    app: MeetingApp,
+    surface: MeetingSurface,
+    channel: String,
+    live: &[LiveNode],
+    message: &str,
+    mut warnings: Vec<String>,
+) -> MeetingChatSendResult {
+    let mut composers: Vec<&LiveNode> = live
+        .iter()
+        .filter(|node| is_slack_huddle_composer_in_thread(&node.node, &node.ancestors, &channel))
+        .collect();
+    if composers.is_empty() {
+        let controls: Vec<&LiveNode> = live
+            .iter()
+            .filter(|node| is_slack_thread_control(&node.node))
+            .collect();
+        if let Some(control) = (controls.len() == 1).then_some(controls[0]) {
+            if press(connection, &control.bus_name, &control.path)
+                .await
+                .is_err()
+            {
+                warnings.push("failed to open Slack Huddle thread via AT-SPI".to_string());
+                return slack_failure(&app, &surface, None, warnings);
+            }
+        }
+        return slack_failure(&app, &surface, None, {
+            warnings.push(
+                "validated Slack Huddle did not expose its composer or thread control".to_string(),
+            );
+            warnings
+        });
+    }
+    if composers.len() != 1 {
+        warnings.push(format!(
+            "Slack Huddle exposed multiple composers for {channel}; refusing to choose one"
+        ));
+        return slack_failure(&app, &surface, None, warnings);
+    }
+    let composer = composers.remove(0);
+    let Some(thread_path) =
+        slack_thread_container_path(&composer.ancestors, &channel).map(<[usize]>::to_vec)
+    else {
+        warnings.push("Slack Huddle composer lost its thread container before send".to_string());
+        return slack_failure(&app, &surface, None, warnings);
+    };
+    send_from_composer(
+        connection,
+        app,
+        MeetingPlatform::Slack,
+        surface,
+        composer,
+        live.iter()
+            .filter(|node| {
+                is_slack_send_now_in_thread(&node.node, &node.ancestors, &channel, &thread_path)
+            })
+            .collect(),
+        message,
+        warnings,
+    )
+    .await
+}
+
+async fn send_scoped_from_live(
+    connection: &AccessibilityConnection,
+    app: MeetingApp,
+    platform: MeetingPlatform,
+    surface: MeetingSurface,
+    live: &[LiveNode],
+    message: &str,
+    mut warnings: Vec<String>,
+) -> MeetingChatSendResult {
+    let nodes = ax_nodes(live);
+    let Some((scope_path, _)) = validated_chat_scope(&platform, &nodes) else {
+        warnings.push(
+            "no uniquely validated meeting chat composer is visible after inspecting the meeting window"
+                .to_string(),
+        );
+        return chat_send_failure(&app, &platform, &surface, None, warnings);
+    };
+    let composers = live
+        .iter()
+        .filter(|node| is_platform_chat_composer(&platform, &node.node))
+        .collect::<Vec<_>>();
+    if composers.len() != 1 {
+        warnings.push(if composers.is_empty() {
+            "the meeting chat surface did not expose its composer".to_string()
+        } else {
+            "the meeting chat surface exposed multiple composers; refusing to choose one"
+                .to_string()
+        });
+        return chat_send_failure(&app, &platform, &surface, None, warnings);
+    }
+    let send_buttons = live
+        .iter()
+        .filter(|node| is_platform_send_button(&platform, &node.node, &scope_path))
+        .collect();
+    send_from_composer(
+        connection,
+        app,
+        platform,
+        surface,
+        composers[0],
+        send_buttons,
+        message,
+        warnings,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn send_from_composer(
+    connection: &AccessibilityConnection,
+    app: MeetingApp,
+    platform: MeetingPlatform,
+    surface: MeetingSurface,
+    composer: &LiveNode,
+    send_buttons: Vec<&LiveNode>,
+    message: &str,
+    mut warnings: Vec<String>,
+) -> MeetingChatSendResult {
+    let input_label = inspection_label(&composer.node);
+    match text_value(connection, &composer.bus_name, &composer.path).await {
+        Ok(value) if value.trim().is_empty() => {}
+        Ok(_) => {
+            warnings.push("refusing to overwrite an existing meeting chat draft".to_string());
+            return chat_send_failure(&app, &platform, &surface, input_label, warnings);
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not verify that the meeting chat composer was empty: {error}"
+            ));
+            return chat_send_failure(&app, &platform, &surface, input_label, warnings);
+        }
+    }
+
+    if let Err(error) = set_text(connection, &composer.bus_name, &composer.path, message).await {
+        warnings.push(format!(
+            "failed to set meeting chat composer value: {error}"
+        ));
+        return chat_send_failure(&app, &platform, &surface, input_label, warnings);
+    }
+
+    if send_buttons.len() != 1 {
+        let _ = set_text(connection, &composer.bus_name, &composer.path, "").await;
+        warnings.push(
+            "the meeting chat composer did not expose a unique enabled send button".to_string(),
+        );
+        return chat_send_failure(&app, &platform, &surface, input_label, warnings);
+    }
+
+    match text_value(connection, &composer.bus_name, &composer.path).await {
+        Ok(current) if chat_input_is_owned(&current, message) => {}
+        Ok(_) => {
+            warnings.push(
+                "the meeting chat composer changed while preparing the disclosure message; nothing was sent or cleared"
+                    .to_string(),
+            );
+            return chat_send_failure(&app, &platform, &surface, input_label, warnings);
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not revalidate the meeting chat composer before send: {error}"
+            ));
+            return chat_send_failure(&app, &platform, &surface, input_label, warnings);
+        }
+    }
+
+    match press(connection, &send_buttons[0].bus_name, &send_buttons[0].path).await {
+        Ok(()) => MeetingChatSendResult {
+            sent: true,
+            app: Some(app),
+            platform,
+            surface,
+            input_label,
+            send_action: Some("sendButton".to_string()),
+            warnings,
+        },
+        Err(error) => {
+            let _ = set_text(connection, &composer.bus_name, &composer.path, "").await;
+            warnings.push(format!(
+                "failed to press the meeting chat send button: {error}"
+            ));
+            chat_send_failure(&app, &platform, &surface, input_label, warnings)
+        }
     }
 }
 
@@ -833,176 +1039,135 @@ pub(super) fn send_meeting_chat_message(
             };
         };
 
-        let mut validated = Vec::new();
+        enum SendCandidate {
+            SlackHuddle {
+                app: MeetingApp,
+                channel: String,
+                live: Vec<LiveNode>,
+            },
+            Scoped {
+                app: MeetingApp,
+                platform: MeetingPlatform,
+                surface: MeetingSurface,
+                live: Vec<LiveNode>,
+            },
+        }
+
+        let mut candidates = Vec::new();
         let mut warnings = Vec::new();
         for (app, pid) in running_apps_for_bundle(&scoped_bundle_id) {
             let Some(ax_app) = find_application_for_pid(&connection, pid, &app.name).await else {
                 continue;
             };
             let windows = collect_window_snapshots(&connection, &ax_app, &mut warnings).await;
-            let mut roots = slack_roots_from_windows(windows);
-            if roots.len() > 1 {
-                warnings.push(format!(
-                    "refusing to send because Slack exposed {} active Huddle windows",
-                    roots.len()
-                ));
-                return slack_failure(&app, &scoped_surface, None, warnings);
+            if is_browser_bundle(&scoped_bundle_id) {
+                let (roots, poisoned) = browser_roots_from_windows(windows, &mut warnings);
+                if poisoned || roots.len() > 1 {
+                    warnings.push(format!(
+                        "refusing to send because the browser exposed {} meeting chat surfaces",
+                        roots.len()
+                    ));
+                    return chat_send_failure(
+                        &app,
+                        &scoped_platform,
+                        &MeetingSurface::Web,
+                        None,
+                        warnings,
+                    );
+                }
+                if let Some((root, live)) = roots.into_iter().next() {
+                    candidates.push(SendCandidate::Scoped {
+                        app,
+                        platform: root.platform,
+                        surface: MeetingSurface::Web,
+                        live,
+                    });
+                }
+                continue;
             }
-            if let Some(root) = roots.pop() {
-                validated.push((app, root));
-            }
-        }
 
-        if validated.len() > 1 {
-            return MeetingChatSendResult {
-                sent: false,
-                app: None,
-                platform: MeetingPlatform::Slack,
-                surface: MeetingSurface::Unknown,
-                input_label: None,
-                send_action: None,
-                warnings: vec![
-                    "refusing to send because multiple running Slack apps expose active Huddles"
-                        .to_string(),
-                ],
-            };
-        }
-
-        let Some((app, (channel, label, live))) = validated.pop() else {
-            return MeetingChatSendResult {
-                sent: false,
-                app: None,
-                platform: MeetingPlatform::Unknown,
-                surface: MeetingSurface::Unknown,
-                input_label: None,
-                send_action: None,
-                warnings: vec![
-                    "no uniquely validated Slack Huddle is active; AX chat mutation for other meeting platforms is disabled until their window and composer can be paired safely"
-                        .to_string(),
-                ],
-            };
-        };
-        let _ = label;
-
-        let mut composers: Vec<&LiveNode> = live
-            .iter()
-            .filter(|node| {
-                is_slack_huddle_composer_in_thread(&node.node, &node.ancestors, &channel)
-            })
-            .collect();
-        if composers.is_empty() {
-            let controls: Vec<&LiveNode> = live
-                .iter()
-                .filter(|node| is_slack_thread_control(&node.node))
-                .collect();
-            if let Some(control) = (controls.len() == 1).then_some(controls[0]) {
-                if press(&connection, &control.bus_name, &control.path)
-                    .await
-                    .is_err()
-                {
-                    warnings.push("failed to open Slack Huddle thread via AT-SPI".to_string());
+            if scoped_platform == MeetingPlatform::Slack {
+                let mut roots = slack_roots_from_windows(windows);
+                if roots.len() > 1 {
+                    warnings.push(format!(
+                        "refusing to send because Slack exposed {} active Huddle windows",
+                        roots.len()
+                    ));
                     return slack_failure(&app, &scoped_surface, None, warnings);
                 }
+                if let Some((channel, _, live)) = roots.pop() {
+                    candidates.push(SendCandidate::SlackHuddle { app, channel, live });
+                }
+                continue;
             }
-            return slack_failure(&app, &scoped_surface, None, {
-                warnings.push(
-                    "validated Slack Huddle did not expose its composer or thread control"
-                        .to_string(),
-                );
-                warnings
-            });
-        }
-        if composers.len() != 1 {
-            warnings.push(format!(
-                "Slack Huddle exposed multiple composers for {}; refusing to choose one",
-                channel
-            ));
-            return slack_failure(&app, &scoped_surface, None, warnings);
-        }
-        let composer = composers.remove(0);
-        let Some(thread_path) =
-            slack_thread_container_path(&composer.ancestors, &channel).map(<[usize]>::to_vec)
-        else {
-            warnings
-                .push("Slack Huddle composer lost its thread container before send".to_string());
-            return slack_failure(&app, &scoped_surface, None, warnings);
-        };
-        let input_label = inspection_label(&composer.node);
-        match text_value(&connection, &composer.bus_name, &composer.path).await {
-            Ok(value) if value.trim().is_empty() => {}
-            Ok(_) => {
-                warnings.push("refusing to overwrite an existing Slack Huddle draft".to_string());
-                return slack_failure(&app, &scoped_surface, input_label, warnings);
-            }
-            Err(error) => {
+
+            let mut roots = native_roots_from_windows(windows, &scoped_platform);
+            if roots.len() > 1 {
                 warnings.push(format!(
-                    "could not verify that the Slack Huddle composer was empty: {error}"
+                    "refusing to send because the meeting app exposed {} meeting windows",
+                    roots.len()
                 ));
-                return slack_failure(&app, &scoped_surface, input_label, warnings);
+                return chat_send_failure(&app, &scoped_platform, &scoped_surface, None, warnings);
+            }
+            if let Some((_, live)) = roots.pop() {
+                candidates.push(SendCandidate::Scoped {
+                    app,
+                    platform: scoped_platform.clone(),
+                    surface: scoped_surface.clone(),
+                    live,
+                });
             }
         }
 
-        if let Err(error) =
-            set_text(&connection, &composer.bus_name, &composer.path, &message).await
-        {
-            warnings.push(format!(
-                "failed to set Slack Huddle composer value: {error}"
-            ));
-            return slack_failure(&app, &scoped_surface, input_label, warnings);
-        }
-
-        let send_buttons = live
-            .iter()
-            .filter(|node| {
-                is_slack_send_now_in_thread(&node.node, &node.ancestors, &channel, &thread_path)
-            })
-            .collect::<Vec<_>>();
-        if send_buttons.len() != 1 {
-            let _ = set_text(&connection, &composer.bus_name, &composer.path, "").await;
-            warnings.push(
-                "Slack Huddle composer did not expose a unique enabled Send now button".to_string(),
-            );
-            return slack_failure(&app, &scoped_surface, input_label, warnings);
-        }
-
-        match text_value(&connection, &composer.bus_name, &composer.path).await {
-            Ok(current) if chat_input_is_owned(&current, &message) => {}
-            Ok(_) => {
-                warnings.push(
-                    "Slack Huddle composer changed while preparing the disclosure message; nothing was sent or cleared"
-                        .to_string(),
-                );
-                return slack_failure(&app, &scoped_surface, input_label, warnings);
-            }
-            Err(error) => {
-                warnings.push(format!(
-                    "could not revalidate the Slack Huddle composer before send: {error}"
-                ));
-                return slack_failure(&app, &scoped_surface, input_label, warnings);
-            }
-        }
-
-        match press(
-            &connection,
-            &send_buttons[0].bus_name,
-            &send_buttons[0].path,
-        )
-        .await
-        {
-            Ok(()) => MeetingChatSendResult {
-                sent: true,
-                app: Some(app),
-                platform: MeetingPlatform::Slack,
+        if candidates.len() > 1 {
+            return MeetingChatSendResult {
+                sent: false,
+                app: None,
+                platform: scoped_platform,
                 surface: scoped_surface,
-                input_label,
-                send_action: Some("sendButton".to_string()),
-                warnings,
-            },
-            Err(error) => {
-                let _ = set_text(&connection, &composer.bus_name, &composer.path, "").await;
-                warnings.push(format!("failed to press Slack Huddle Send now: {error}"));
-                slack_failure(&app, &scoped_surface, input_label, warnings)
+                input_label: None,
+                send_action: None,
+                warnings: vec![
+                    "refusing to send because multiple running meeting apps expose a chat composer"
+                        .to_string(),
+                ],
+            };
+        }
+
+        match candidates.pop() {
+            Some(SendCandidate::SlackHuddle { app, channel, live }) => {
+                send_slack_from_live(
+                    &connection,
+                    app,
+                    scoped_surface,
+                    channel,
+                    &live,
+                    &message,
+                    warnings,
+                )
+                .await
             }
+            Some(SendCandidate::Scoped {
+                app,
+                platform,
+                surface,
+                live,
+            }) => {
+                send_scoped_from_live(&connection, app, platform, surface, &live, &message, warnings)
+                    .await
+            }
+            None => MeetingChatSendResult {
+                sent: false,
+                app: None,
+                platform: scoped_platform,
+                surface: scoped_surface,
+                input_label: None,
+                send_action: None,
+                warnings: vec![
+                    "no uniquely validated meeting chat composer is visible; AX chat mutation stays fail-closed until the window, composer, and send control can be paired"
+                        .to_string(),
+                ],
+            },
         }
     })
 }
@@ -1058,7 +1223,7 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
                 let windows = collect_window_snapshots(&connection, &ax_app, &mut warnings).await;
                 let (roots, window_poisoned) = browser_roots_from_windows(windows, &mut warnings);
                 poisoned |= window_poisoned;
-                browser_roots.extend(roots.into_iter().filter_map(|root| {
+                browser_roots.extend(roots.into_iter().filter_map(|(root, _)| {
                     let context_id = browser_capture_context_id(&root)?;
                     Some((app.clone(), root, context_id))
                 }));
@@ -1088,7 +1253,8 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
                 let windows = collect_window_snapshots(&connection, &ax_app, &mut warnings).await;
                 match &bundle_platform {
                     MeetingPlatform::Zoom => {
-                        for root in native_roots_from_windows(windows, &MeetingPlatform::Zoom) {
+                        for (root, _) in native_roots_from_windows(windows, &MeetingPlatform::Zoom)
+                        {
                             if meeting_chat_surface_is_visible(&MeetingPlatform::Zoom, &root.nodes)
                                 && let Some(context_id) = zoom_capture_context_id(&root)
                             {
@@ -1130,7 +1296,7 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
                         }
                     }
                     MeetingPlatform::MicrosoftTeams | MeetingPlatform::Webex => {
-                        for root in native_roots_from_windows(windows, &bundle_platform) {
+                        for (root, _) in native_roots_from_windows(windows, &bundle_platform) {
                             if let Some(context_id) =
                                 native_capture_context_id(&bundle_platform, &root)
                             {
