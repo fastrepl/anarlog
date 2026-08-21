@@ -4,6 +4,16 @@ pub(crate) mod floating_bar;
 pub(crate) mod live_caption;
 mod v1;
 
+pub(crate) fn exclude_from_capture(window: &tauri::WebviewWindow<tauri::Wry>) {
+    if let Err(error) = window.set_content_protected(true) {
+        tracing::debug!(
+            %error,
+            label = window.label(),
+            "failed to exclude overlay from screen capture"
+        );
+    }
+}
+
 pub type AppWindow = v1::AppWindow;
 
 pub trait WindowImpl:

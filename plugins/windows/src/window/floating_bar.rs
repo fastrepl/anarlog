@@ -285,6 +285,7 @@ mod platform {
         let state = current_state();
         apply_layout(&window, state.as_ref(), true)?;
         window.show()?;
+        crate::window::exclude_from_capture(&window);
         Ok(())
     }
 
@@ -354,9 +355,12 @@ mod platform {
         .closable(false)
         .always_on_top(true)
         .skip_taskbar(true)
+        .content_protected(true)
         .background_color(Color(0, 0, 0, 0))
         .disable_drag_drop_handler()
         .build()?;
+
+        crate::window::exclude_from_capture(&window);
 
         Ok(window)
     }
