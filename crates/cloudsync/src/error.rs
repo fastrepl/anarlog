@@ -95,7 +95,7 @@ fn classify_error_message(message: &str) -> Option<ErrorKind> {
     if message.contains("\"status\":\"409\"") && message.contains("\"code\":\"already_exists\"") {
         return Some(ErrorKind::Transient);
     }
-    // Turso/SQLite Cloud wraps HTTP JSON in SQLITE_ERROR (code 1). A 404 here is
+    // SQLite Cloud wraps HTTP JSON in SQLITE_ERROR (code 1). A 404 here is
     // usually a startup race ("managed database not found") that the next retry wins.
     if message.contains("\"status\":\"404\"") && message.contains("\"code\":\"not_found\"") {
         return Some(ErrorKind::Transient);
