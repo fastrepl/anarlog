@@ -70,19 +70,17 @@ function App() {
   const aiTaskStore = useMemo(() => createAITaskStore(), []);
 
   return (
-    <AppThemeProvider>
-      <AppI18nProvider>
-        <AITaskWindowSyncBridge store={aiTaskStore} />
-        <RouterProvider
-          router={router}
-          context={{
-            listenerStore,
-            aiTaskStore,
-            toolRegistry,
-          }}
-        />
-      </AppI18nProvider>
-    </AppThemeProvider>
+    <>
+      <AITaskWindowSyncBridge store={aiTaskStore} />
+      <RouterProvider
+        router={router}
+        context={{
+          listenerStore,
+          aiTaskStore,
+          toolRegistry,
+        }}
+      />
+    </>
   );
 }
 
@@ -108,18 +106,22 @@ function ReadyApp() {
   }, []);
 
   return (
-    <TaskSchedulerProvider scheduler={scheduler}>
-      <AppLockGate>
-        <App />
-        {isMainWindow ? <TaskManager /> : null}
-        {isMainWindow ? <FloatingMeetingWindowHost /> : null}
-        {isMainWindow ? <EventListeners /> : null}
-        {isMainWindow ? <TrayScheduleSync /> : null}
-        {isMainWindow ? <TrayRecordingSync /> : null}
-        {isMainWindow ? <UpdaterMeetingSync /> : null}
-        <Toaster position="bottom-right" theme={theme} />
-      </AppLockGate>
-    </TaskSchedulerProvider>
+    <AppThemeProvider>
+      <AppI18nProvider>
+        <TaskSchedulerProvider scheduler={scheduler}>
+          <AppLockGate>
+            <App />
+            {isMainWindow ? <TaskManager /> : null}
+            {isMainWindow ? <FloatingMeetingWindowHost /> : null}
+            {isMainWindow ? <EventListeners /> : null}
+            {isMainWindow ? <TrayScheduleSync /> : null}
+            {isMainWindow ? <TrayRecordingSync /> : null}
+            {isMainWindow ? <UpdaterMeetingSync /> : null}
+            <Toaster position="bottom-right" theme={theme} />
+          </AppLockGate>
+        </TaskSchedulerProvider>
+      </AppI18nProvider>
+    </AppThemeProvider>
   );
 }
 
