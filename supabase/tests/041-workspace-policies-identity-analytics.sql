@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(14);
 
 select tests.create_supabase_user('policy_owner', 'policy-owner@example.com');
 select tests.create_supabase_user('policy_member', 'policy-member@example.com');
