@@ -110,6 +110,24 @@ EOF
   exec dbus-run-session -- "$script_path" "$deb_path"
 fi
 
+# dbus-run-session / systemd --user can reset XDG_RUNTIME_DIR back to the
+# host session. Pin the fixture again so pw-cli/pactl never talk to the
+# runner's system PipeWire, which answers load-module with "Failure: Not supported".
+qa_root=${QA_ROOT:?QA_ROOT is required inside the dbus session}
+export XDG_RUNTIME_DIR="$qa_root/runtime"
+export PIPEWIRE_RUNTIME_DIR="$qa_root/runtime"
+export PULSE_RUNTIME_PATH="$qa_root/runtime/pulse"
+export PULSE_SERVER="unix:$qa_root/runtime/pulse/native"
+unset PIPEWIRE_REMOTE
+mkdir -p "$XDG_RUNTIME_DIR" "$PULSE_RUNTIME_PATH"
+{
+  echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+  echo "PIPEWIRE_RUNTIME_DIR=$PIPEWIRE_RUNTIME_DIR"
+  echo "PULSE_RUNTIME_PATH=$PULSE_RUNTIME_PATH"
+  echo "PULSE_SERVER=$PULSE_SERVER"
+  echo "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-}"
+} > "$artifact_dir/audio-runtime-env.txt"
+
 for command in arecord pactl paplay pipewire pipewire-pulse pw-cli wireplumber; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Missing required audio command: $command" >&2
@@ -144,6 +162,19 @@ wait_for() {
   return 1
 }
 
+load_null_sink() {
+  local sink_name=$1
+  local module
+  if ! module=$(pactl load-module module-null-sink \
+    sink_name="$sink_name" rate=48000 channels=1); then
+    echo "Failed to load module-null-sink $sink_name" >&2
+    pactl info > "$artifact_dir/pactl-info.txt" 2>&1 || true
+    exit 1
+  fi
+  printf '%s\n' "$module"
+}
+
+wait_for "isolated PipeWire socket" test -S "$XDG_RUNTIME_DIR/pipewire-0"
 wait_for "PipeWire core" pw-cli info 0
 
 wireplumber > "$artifact_dir/wireplumber.log" 2>&1 &
@@ -151,12 +182,11 @@ service_pids+=("$!")
 pipewire-pulse > "$artifact_dir/pipewire-pulse.log" 2>&1 &
 service_pids+=("$!")
 
+wait_for "isolated Pulse socket" test -S "$PULSE_RUNTIME_PATH/native"
 wait_for "PipeWire Pulse server" pactl info
 
-system_module=$(pactl load-module module-null-sink \
-  sink_name=qa_system rate=48000 channels=1)
-mic_module=$(pactl load-module module-null-sink \
-  sink_name=qa_mic_bus rate=48000 channels=1)
+system_module=$(load_null_sink qa_system)
+mic_module=$(load_null_sink qa_mic_bus)
 pactl set-default-sink qa_system
 pactl set-default-source qa_mic_bus.monitor
 

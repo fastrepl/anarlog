@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::Once;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
@@ -274,8 +275,7 @@ fn pipewire_capture_setup(
     shutdown_rx: pw::channel::Receiver<()>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
 ) -> Result<()> {
-    pw::init();
-    let _deinit_guard = PipeWireDeinitGuard;
+    ensure_pipewire_initialized();
 
     let mainloop =
         pw::main_loop::MainLoopRc::new(None).context("Failed to create PipeWire main loop")?;
@@ -438,12 +438,12 @@ fn pipewire_capture_setup(
     Ok(())
 }
 
-struct PipeWireDeinitGuard;
-
-impl Drop for PipeWireDeinitGuard {
-    fn drop(&mut self) {
-        unsafe { pw::deinit() };
-    }
+fn ensure_pipewire_initialized() {
+    // Permission probes and capture restarts create a second main loop in the
+    // same process. pw_deinit() is not safely reversible, so init once and leave
+    // the library loaded.
+    static INIT: Once = Once::new();
+    INIT.call_once(pw::init);
 }
 
 fn pulseaudio_capture_loop(

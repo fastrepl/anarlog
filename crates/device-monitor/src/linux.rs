@@ -12,6 +12,42 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 type PulseAudioHandles = (Rc<RefCell<Mainloop>>, Rc<RefCell<Context>>);
+type DeviceSwitchEmit = Rc<dyn Fn(DeviceSwitch)>;
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct DefaultDeviceChanges {
+    source_changed: bool,
+    sink_changed: bool,
+}
+
+#[derive(Debug, Default)]
+struct DefaultDevices {
+    source: Option<String>,
+    sink: Option<String>,
+    primed: bool,
+}
+
+impl DefaultDevices {
+    fn observe(&mut self, source: Option<&str>, sink: Option<&str>) -> DefaultDeviceChanges {
+        let source = source.map(str::to_owned);
+        let sink = sink.map(str::to_owned);
+        if !self.primed {
+            self.source = source;
+            self.sink = sink;
+            self.primed = true;
+            return DefaultDeviceChanges::default();
+        }
+
+        let source_changed = source.is_some() && source != self.source;
+        let sink_changed = sink.is_some() && sink != self.sink;
+        self.source = source;
+        self.sink = sink;
+        DefaultDeviceChanges {
+            source_changed,
+            sink_changed,
+        }
+    }
+}
 
 fn is_headphone_from_default_output_device() -> Option<bool> {
     anlg_audio_device::linux::is_headphone_from_default_output_device()
@@ -106,13 +142,44 @@ fn cleanup_pulseaudio(mainloop: Rc<RefCell<Mainloop>>, context: Rc<RefCell<Conte
     mainloop.borrow_mut().stop();
 }
 
-pub(crate) fn monitor_device_change(
-    event_tx: mpsc::SyncSender<DeviceSwitch>,
-    stop_rx: mpsc::Receiver<()>,
+fn refresh_default_devices(
+    context: &Rc<RefCell<Context>>,
+    tracker: &Rc<RefCell<DefaultDevices>>,
+    emit: &DeviceSwitchEmit,
 ) {
-    let Some((mainloop, context)) = setup_pulseaudio(&stop_rx) else {
+    let Ok(ctx) = context.try_borrow() else {
         return;
     };
+    let tracker = Rc::clone(tracker);
+    let emit = Rc::clone(emit);
+    ctx.introspect().get_server_info(move |info| {
+        let source = info.default_source_name.as_deref();
+        let sink = info.default_sink_name.as_deref();
+        let changes = tracker.borrow_mut().observe(source, sink);
+        if changes.source_changed {
+            tracing::info!(
+                anarlog.audio.default_source = source.unwrap_or(""),
+                "default_source_changed"
+            );
+            emit(DeviceSwitch::DefaultInputChanged);
+        }
+        if changes.sink_changed {
+            tracing::info!(
+                anarlog.audio.default_sink = sink.unwrap_or(""),
+                "default_sink_changed"
+            );
+            emit(DeviceSwitch::DefaultOutputChanged {
+                headphone: is_headphone_from_default_output_device(),
+            });
+        }
+    });
+}
+
+fn subscribe_pulse_device_events(context: &Rc<RefCell<Context>>, emit: DeviceSwitchEmit) {
+    let tracker = Rc::new(RefCell::new(DefaultDevices::default()));
+    let context_for_callback = Rc::clone(context);
+    let emit_for_callback = Rc::clone(&emit);
+    let tracker_for_callback = Rc::clone(&tracker);
 
     context.borrow_mut().subscribe(
         InterestMaskSet::SINK | InterestMaskSet::SOURCE | InterestMaskSet::SERVER,
@@ -123,32 +190,45 @@ pub(crate) fn monitor_device_change(
         },
     );
 
-    let event_tx_for_callback = event_tx.clone();
     context.borrow_mut().set_subscribe_callback(Some(Box::new(
         move |facility, operation, _index| match (facility, operation) {
-            (Some(Facility::Server), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultInputChanged);
-                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultOutputChanged {
-                    headphone: is_headphone_from_default_output_device(),
-                });
+            (Some(Facility::Sink), Some(Operation::New | Operation::Removed))
+            | (Some(Facility::Source), Some(Operation::New | Operation::Removed)) => {
+                emit_for_callback(DeviceSwitch::DeviceListChanged);
+                refresh_default_devices(
+                    &context_for_callback,
+                    &tracker_for_callback,
+                    &emit_for_callback,
+                );
             }
-            (Some(Facility::Sink), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultOutputChanged {
-                    headphone: is_headphone_from_default_output_device(),
-                });
-            }
-            (Some(Facility::Sink), Some(Operation::New | Operation::Removed)) => {
-                let _ = event_tx_for_callback.try_send(DeviceSwitch::DeviceListChanged);
-            }
-            (Some(Facility::Source), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.try_send(DeviceSwitch::DefaultInputChanged);
-            }
-            (Some(Facility::Source), Some(Operation::New | Operation::Removed)) => {
-                let _ = event_tx_for_callback.try_send(DeviceSwitch::DeviceListChanged);
+            (Some(Facility::Server), Some(Operation::Changed))
+            | (Some(Facility::Sink), Some(Operation::Changed))
+            | (Some(Facility::Source), Some(Operation::Changed)) => {
+                refresh_default_devices(
+                    &context_for_callback,
+                    &tracker_for_callback,
+                    &emit_for_callback,
+                );
             }
             _ => {}
         },
     )));
+
+    refresh_default_devices(context, &tracker, &emit);
+}
+
+pub(crate) fn monitor_device_change(
+    event_tx: mpsc::SyncSender<DeviceSwitch>,
+    stop_rx: mpsc::Receiver<()>,
+) {
+    let Some((mainloop, context)) = setup_pulseaudio(&stop_rx) else {
+        return;
+    };
+
+    let emit: DeviceSwitchEmit = Rc::new(move |switch| {
+        let _ = event_tx.try_send(switch);
+    });
+    subscribe_pulse_device_events(&context, emit);
 
     mainloop.borrow_mut().unlock();
 
@@ -174,49 +254,10 @@ pub(crate) fn monitor(event_tx: mpsc::SyncSender<DeviceEvent>, stop_rx: mpsc::Re
         return;
     };
 
-    context.borrow_mut().subscribe(
-        InterestMaskSet::SINK | InterestMaskSet::SOURCE | InterestMaskSet::SERVER,
-        |success| {
-            if !success {
-                tracing::error!("Failed to subscribe to PulseAudio events");
-            }
-        },
-    );
-
-    let event_tx_for_callback = event_tx.clone();
-    context.borrow_mut().set_subscribe_callback(Some(Box::new(
-        move |facility, operation, _index| match (facility, operation) {
-            (Some(Facility::Server), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback
-                    .try_send(DeviceEvent::Switch(DeviceSwitch::DefaultInputChanged));
-                let _ = event_tx_for_callback.try_send(DeviceEvent::Switch(
-                    DeviceSwitch::DefaultOutputChanged {
-                        headphone: is_headphone_from_default_output_device(),
-                    },
-                ));
-            }
-            (Some(Facility::Sink), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback.try_send(DeviceEvent::Switch(
-                    DeviceSwitch::DefaultOutputChanged {
-                        headphone: is_headphone_from_default_output_device(),
-                    },
-                ));
-            }
-            (Some(Facility::Sink), Some(Operation::New | Operation::Removed)) => {
-                let _ = event_tx_for_callback
-                    .try_send(DeviceEvent::Switch(DeviceSwitch::DeviceListChanged));
-            }
-            (Some(Facility::Source), Some(Operation::Changed)) => {
-                let _ = event_tx_for_callback
-                    .try_send(DeviceEvent::Switch(DeviceSwitch::DefaultInputChanged));
-            }
-            (Some(Facility::Source), Some(Operation::New | Operation::Removed)) => {
-                let _ = event_tx_for_callback
-                    .try_send(DeviceEvent::Switch(DeviceSwitch::DeviceListChanged));
-            }
-            _ => {}
-        },
-    )));
+    let emit: DeviceSwitchEmit = Rc::new(move |switch| {
+        let _ = event_tx.try_send(DeviceEvent::Switch(switch));
+    });
+    subscribe_pulse_device_events(&context, emit);
 
     mainloop.borrow_mut().unlock();
 
@@ -227,4 +268,66 @@ pub(crate) fn monitor(event_tx: mpsc::SyncSender<DeviceEvent>, stop_rx: mpsc::Re
     cleanup_pulseaudio(mainloop, context);
 
     tracing::info!("monitor_stopped");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_observe_establishes_baseline_without_emitting() {
+        let mut devices = DefaultDevices::default();
+
+        assert_eq!(
+            devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
+            DefaultDeviceChanges::default()
+        );
+    }
+
+    #[test]
+    fn source_property_change_does_not_count_as_default_input_change() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
+
+        assert_eq!(
+            devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system")),
+            DefaultDeviceChanges::default()
+        );
+    }
+
+    #[test]
+    fn default_source_change_emits_only_source() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
+
+        assert_eq!(
+            devices.observe(Some("alsa_input.usb"), Some("qa_system")),
+            DefaultDeviceChanges {
+                source_changed: true,
+                sink_changed: false,
+            }
+        );
+    }
+
+    #[test]
+    fn default_sink_change_emits_only_sink() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
+
+        assert_eq!(
+            devices.observe(Some("qa_mic_bus.monitor"), Some("alsa_output.usb")),
+            DefaultDeviceChanges {
+                source_changed: false,
+                sink_changed: true,
+            }
+        );
+    }
+
+    #[test]
+    fn missing_defaults_after_baseline_do_not_emit() {
+        let mut devices = DefaultDevices::default();
+        devices.observe(Some("qa_mic_bus.monitor"), Some("qa_system"));
+
+        assert_eq!(devices.observe(None, None), DefaultDeviceChanges::default());
+    }
 }
