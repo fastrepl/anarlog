@@ -2,7 +2,10 @@ pub(crate) fn patch_parakeet_streaming_source(source: &str) -> Result<String, &'
     const SIGNATURE: &str = "    public static func fromPretrained(\n        modelId: String? = nil,\n        progressHandler: ((Double, String) -> Void)? = nil\n    ) async throws -> ParakeetStreamingASRModel {";
     const PATCHED_SIGNATURE: &str = "    public static func fromPretrained(\n        modelId: String? = nil,\n        offlineMode: Bool = false,\n        progressHandler: ((Double, String) -> Void)? = nil\n    ) async throws -> ParakeetStreamingASRModel {";
     const DOWNLOAD: &str = "            try await HuggingFaceDownloader.downloadWeights(\n                modelId: effectiveModelId,\n                to: cacheDir,\n                additionalFiles: [";
-    const PATCHED_DOWNLOAD: &str = "            try await HuggingFaceDownloader.downloadWeights(\n                modelId: effectiveModelId,\n                to: cacheDir,\n                offlineMode: offlineMode,\n                additionalFiles: [";
+    const MISORDERED_DOWNLOAD: &str = "            try await HuggingFaceDownloader.downloadWeights(\n                modelId: effectiveModelId,\n                to: cacheDir,\n                offlineMode: offlineMode,\n                additionalFiles: [";
+    const DOWNLOAD_CLOSE: &str =
+        "                    \"config.json\",\n                ]\n            ) { fraction in";
+    const PATCHED_DOWNLOAD_CLOSE: &str = "                    \"config.json\",\n                ],\n                offlineMode: offlineMode\n            ) { fraction in";
 
     let mut patched = source.to_string();
 
@@ -13,12 +16,16 @@ pub(crate) fn patch_parakeet_streaming_source(source: &str) -> Result<String, &'
         patched = patched.replacen(SIGNATURE, PATCHED_SIGNATURE, 1);
     }
 
-    if patched.contains(PATCHED_DOWNLOAD) {
+    if patched.contains(MISORDERED_DOWNLOAD) {
+        patched = patched.replacen(MISORDERED_DOWNLOAD, DOWNLOAD, 1);
+    }
+
+    if patched.contains(PATCHED_DOWNLOAD_CLOSE) {
         return Ok(patched);
     }
 
-    if patched.contains(DOWNLOAD) {
-        return Ok(patched.replacen(DOWNLOAD, PATCHED_DOWNLOAD, 1));
+    if patched.contains(DOWNLOAD_CLOSE) {
+        return Ok(patched.replacen(DOWNLOAD_CLOSE, PATCHED_DOWNLOAD_CLOSE, 1));
     }
 
     Err("ParakeetStreamingASR downloadWeights call not found")
@@ -39,6 +46,29 @@ mod tests {
                 to: cacheDir,
                 additionalFiles: [
                     "encoder.mlmodelc/**",
+                    "config.json",
+                ]
+            ) { fraction in
+                progressHandler?(fraction * 0.7, "Downloading model...")
+            }
+        }
+    }
+"#;
+
+    const MISORDERED: &str = r#"    public static func fromPretrained(
+        modelId: String? = nil,
+        offlineMode: Bool = false,
+        progressHandler: ((Double, String) -> Void)? = nil
+    ) async throws -> ParakeetStreamingASRModel {
+        progressHandler?(0.0, "Downloading model...")
+        do {
+            try await HuggingFaceDownloader.downloadWeights(
+                modelId: effectiveModelId,
+                to: cacheDir,
+                offlineMode: offlineMode,
+                additionalFiles: [
+                    "encoder.mlmodelc/**",
+                    "config.json",
                 ]
             ) { fraction in
                 progressHandler?(fraction * 0.7, "Downloading model...")
@@ -52,10 +82,23 @@ mod tests {
         let patched = patch_parakeet_streaming_source(SOURCE).unwrap();
 
         assert!(patched.contains("offlineMode: Bool = false"));
-        assert!(patched.contains("offlineMode: offlineMode"));
+        assert!(patched.contains(
+            "                ],\n                offlineMode: offlineMode\n            ) { fraction in"
+        ));
         assert!(!patched.contains(
             "        modelId: String? = nil,\n        progressHandler: ((Double, String) -> Void)? = nil"
         ));
+        assert!(!patched.contains("offlineMode: offlineMode,\n                additionalFiles:"));
+    }
+
+    #[test]
+    fn rewrites_misordered_download_weights_arguments() {
+        let patched = patch_parakeet_streaming_source(MISORDERED).unwrap();
+
+        assert!(patched.contains(
+            "                ],\n                offlineMode: offlineMode\n            ) { fraction in"
+        ));
+        assert!(!patched.contains("offlineMode: offlineMode,\n                additionalFiles:"));
     }
 
     #[test]
