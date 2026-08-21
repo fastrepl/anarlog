@@ -1,3 +1,5 @@
+#![cfg_attr(not(target_os = "windows"), allow(dead_code))]
+
 use std::sync::Mutex;
 
 type NotificationCallback = Mutex<Option<Box<dyn Fn(String) + Send + Sync>>>;
@@ -95,9 +97,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn routes_each_linux_notification_action_to_its_registered_handler() {
+    fn routes_each_windows_notification_action_to_its_registered_handler() {
         let events = Arc::new(Mutex::new(Vec::new()));
-
         let record = |event: &'static str| {
             let events = events.clone();
             move |key: String| events.lock().unwrap().push(format!("{event}:{key}"))
@@ -108,7 +109,6 @@ mod tests {
         setup_notification_dismiss_handler(record("dismiss"));
         setup_notification_timeout_handler(record("timeout"));
         setup_notification_footer_action_handler(record("footer"));
-
         let option_events = events.clone();
         setup_notification_option_selected_handler(move |key, index| {
             option_events

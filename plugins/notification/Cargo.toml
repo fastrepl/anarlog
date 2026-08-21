@@ -28,7 +28,6 @@ specta = { workspace = true }
 strum = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 
-tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
 
 tauri = { workspace = true, features = ["test"] }
@@ -37,7 +36,3 @@ tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 apalis = { workspace = true }
 apalis-cron = { workspace = true }
 chrono = { workspace = true }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-notify-rust = { workspace = true }
-windows = { workspace = true, features = ["UI_Notifications"] }

@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum NotificationEvent {
@@ -177,6 +178,76 @@ pub struct Notification {
     pub icon: Option<NotificationIcon>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrimaryAction<'a> {
+    Accept { label: &'a str, destructive: bool },
+    Options(&'a [String]),
+}
+
+#[derive(Debug, Clone)]
+pub struct DismissTimer {
+    total: Duration,
+    remaining: Duration,
+    running_since: Option<Instant>,
+}
+
+impl DismissTimer {
+    pub fn new(total: Duration) -> Self {
+        Self::at(total, Instant::now())
+    }
+
+    pub fn at(total: Duration, now: Instant) -> Self {
+        Self {
+            total,
+            remaining: total,
+            running_since: Some(now),
+        }
+    }
+
+    pub fn total(&self) -> Duration {
+        self.total
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.running_since.is_some()
+    }
+
+    pub fn remaining(&self, now: Instant) -> Duration {
+        match self.running_since {
+            Some(started) => self
+                .remaining
+                .saturating_sub(now.saturating_duration_since(started)),
+            None => self.remaining,
+        }
+    }
+
+    pub fn progress_ratio(&self, now: Instant) -> f64 {
+        if self.total.is_zero() {
+            return 0.0;
+        }
+
+        self.remaining(now).as_secs_f64() / self.total.as_secs_f64()
+    }
+
+    pub fn is_expired(&self, now: Instant) -> bool {
+        self.remaining(now).is_zero()
+    }
+
+    pub fn pause(&mut self, now: Instant) {
+        if let Some(started) = self.running_since.take() {
+            self.remaining = self
+                .remaining
+                .saturating_sub(now.saturating_duration_since(started));
+        }
+    }
+
+    pub fn resume(&mut self, now: Instant) {
+        if self.running_since.is_none() && !self.remaining.is_zero() {
+            self.running_since = Some(now);
+        }
+    }
+}
+
 impl Notification {
     pub fn builder() -> NotificationBuilder {
         NotificationBuilder::default()
@@ -185,6 +256,110 @@ impl Notification {
     pub fn is_persistent(&self) -> bool {
         self.timeout.is_none()
     }
+
+    pub fn is_destructive_action(&self) -> bool {
+        matches!(
+            self.action_variant,
+            Some(NotificationActionVariant::Destructive)
+        )
+    }
+
+    pub fn shows_stop_countdown(&self) -> bool {
+        self.is_destructive_action()
+            && self.action_label.as_deref() == Some("Stop")
+            && self.timeout.is_some_and(|timeout| !timeout.is_zero())
+    }
+
+    pub fn has_options(&self) -> bool {
+        self.options
+            .as_deref()
+            .is_some_and(|options| !options.is_empty())
+    }
+
+    pub fn has_expandable_content(&self) -> bool {
+        if matches!(self.source, Some(NotificationSource::CalendarEvent { .. })) {
+            return false;
+        }
+
+        self.participants
+            .as_ref()
+            .is_some_and(|participants| !participants.is_empty())
+            || self.event_details.is_some()
+    }
+
+    pub fn default_action_label(&self) -> &str {
+        self.action_label.as_deref().unwrap_or("Open Anarlog")
+    }
+
+    pub fn expanded_action_label(&self) -> &str {
+        self.action_label.as_deref().unwrap_or("Accept")
+    }
+
+    pub fn primary_action(&self) -> PrimaryAction<'_> {
+        if let Some(options) = self
+            .options
+            .as_deref()
+            .filter(|options| !options.is_empty())
+        {
+            return PrimaryAction::Options(options);
+        }
+
+        PrimaryAction::Accept {
+            label: self.default_action_label(),
+            destructive: self.is_destructive_action(),
+        }
+    }
+
+    pub fn compact_title(&self) -> &str {
+        self.title.as_str()
+    }
+
+    pub fn expanded_title(&self) -> &str {
+        self.event_details
+            .as_ref()
+            .map(|details| details.what.as_str())
+            .filter(|title| !title.is_empty())
+            .unwrap_or(self.title.as_str())
+    }
+
+    pub fn compact_message(&self, remaining: Option<Duration>) -> String {
+        if self.start_time.is_some() {
+            return match remaining {
+                Some(value) if value.is_zero() => "Started".to_string(),
+                Some(value) => compact_schedule_text(value),
+                None => "Starting soon".to_string(),
+            };
+        }
+
+        if self.shows_stop_countdown() {
+            return stop_countdown_text(remaining.unwrap_or(Duration::ZERO));
+        }
+
+        self.message.clone()
+    }
+}
+
+pub fn compact_schedule_text(remaining: Duration) -> String {
+    let minutes = (remaining.as_secs_f64() / 60.0).ceil().max(1.0) as u64;
+    if minutes == 1 {
+        "Starting in 1 minute".to_string()
+    } else {
+        format!("Starting in {minutes} minutes")
+    }
+}
+
+pub fn expanded_schedule_text(remaining: Duration) -> String {
+    if remaining.is_zero() {
+        return "Started".to_string();
+    }
+
+    let total_seconds = remaining.as_secs();
+    format!("Begins in {}:{:02}", total_seconds / 60, total_seconds % 60)
+}
+
+pub fn stop_countdown_text(remaining: Duration) -> String {
+    let seconds = remaining.as_secs_f64().ceil() as u64;
+    format!("Anarlog will stop listening in {seconds} seconds.")
 }
 
 impl NotificationSource {
@@ -429,5 +604,112 @@ mod tests {
                 .map(|footer| footer.action_label.as_str()),
             Some("YES")
         );
+    }
+
+    #[test]
+    fn calendar_events_are_not_expandable() {
+        let notification = Notification::builder()
+            .title("Standup")
+            .message("Starting soon")
+            .source(NotificationSource::CalendarEvent {
+                event_id: "evt-1".to_string(),
+            })
+            .participants(vec![Participant {
+                name: Some("Ada".to_string()),
+                email: "ada@example.com".to_string(),
+                status: ParticipantStatus::Accepted,
+            }])
+            .event_details(EventDetails {
+                what: "Standup".to_string(),
+                timezone: None,
+                location: None,
+            })
+            .build();
+
+        assert!(!notification.has_expandable_content());
+    }
+
+    #[test]
+    fn session_notifications_expand_when_event_details_are_present() {
+        let notification = Notification::builder()
+            .title("Design sync")
+            .message("")
+            .source(NotificationSource::Session {
+                session_id: "sess-1".to_string(),
+            })
+            .event_details(EventDetails {
+                what: "Design sync".to_string(),
+                timezone: Some("America/Los_Angeles".to_string()),
+                location: Some("Zoom".to_string()),
+            })
+            .build();
+
+        assert!(notification.has_expandable_content());
+        assert_eq!(notification.expanded_title(), "Design sync");
+    }
+
+    #[test]
+    fn options_override_the_accept_action() {
+        let notification = Notification::builder()
+            .title("Choose a meeting")
+            .message("")
+            .action_label("Ignored")
+            .options(vec!["Design sync".to_string(), "Planning".to_string()])
+            .build();
+
+        assert_eq!(
+            notification.primary_action(),
+            PrimaryAction::Options(&["Design sync".to_string(), "Planning".to_string()])
+        );
+    }
+
+    #[test]
+    fn stop_countdown_copy_matches_macos() {
+        let notification = Notification::builder()
+            .title("Did your meeting end?")
+            .message("Anarlog will stop listening soon.")
+            .action_label("Stop")
+            .action_variant(NotificationActionVariant::Destructive)
+            .timeout(Duration::from_secs(30))
+            .build();
+
+        assert!(notification.shows_stop_countdown());
+        assert_eq!(
+            notification.compact_message(Some(Duration::from_secs_f64(4.2))),
+            "Anarlog will stop listening in 5 seconds."
+        );
+        assert_eq!(
+            compact_schedule_text(Duration::from_secs(90)),
+            "Starting in 2 minutes"
+        );
+        assert_eq!(
+            expanded_schedule_text(Duration::from_secs(75)),
+            "Begins in 1:15"
+        );
+    }
+
+    #[test]
+    fn dismiss_timer_pauses_and_resumes_without_losing_progress() {
+        let start = Instant::now();
+        let mut timer = DismissTimer::at(Duration::from_secs(10), start);
+
+        assert!((timer.progress_ratio(start) - 1.0).abs() < f64::EPSILON);
+
+        let halfway = start + Duration::from_secs(4);
+        timer.pause(halfway);
+        assert!(!timer.is_running());
+        assert_eq!(
+            timer.remaining(halfway + Duration::from_secs(30)),
+            Duration::from_secs(6)
+        );
+
+        let resumed = halfway + Duration::from_secs(8);
+        timer.resume(resumed);
+        assert_eq!(
+            timer.remaining(resumed + Duration::from_secs(2)),
+            Duration::from_secs(4)
+        );
+        assert!((timer.progress_ratio(resumed + Duration::from_secs(2)) - 0.4).abs() < 1e-9);
+        assert!(timer.is_expired(resumed + Duration::from_secs(6)));
     }
 }

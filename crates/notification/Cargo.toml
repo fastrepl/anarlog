@@ -5,7 +5,7 @@ edition = "2024"
 
 [features]
 default = ["legacy"]
-legacy = ["dep:anlg-notification-macos", "dep:anlg-notification-linux"]
+legacy = ["dep:anlg-notification-macos", "dep:anlg-notification-linux", "dep:anlg-notification-windows"]
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
@@ -18,3 +18,6 @@ anlg-notification-macos = { path = "../notification-macos", package = "notificat
 
 [target.'cfg(target_os = "linux")'.dependencies]
 anlg-notification-linux = { path = "../notification-linux", package = "notification-linux", optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+anlg-notification-windows = { path = "../notification-windows", package = "notification-windows", optional = true }
