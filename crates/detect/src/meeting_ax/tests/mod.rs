@@ -75,3 +75,9 @@ mod inspection;
 mod message_parsing;
 mod participant_streams;
 mod slack_huddle;
+
+#[cfg(not(target_os = "macos"))]
+#[test]
+fn inspect_meeting_accessibility_is_empty_off_macos() {
+    assert!(inspect_meeting_accessibility().is_empty());
+}

@@ -1,10 +1,11 @@
 use std::collections::HashSet;
 
+#[cfg(target_os = "macos")]
 use cidre::ns;
 
-use super::{
-    AxNode, MeetingApp, MeetingPlatform, MeetingSurface, is_platform_meeting_control, node_labels,
-};
+#[cfg(target_os = "macos")]
+use super::MeetingApp;
+use super::{AxNode, MeetingPlatform, MeetingSurface, is_platform_meeting_control, node_labels};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum MeetingAppBundleKind {
@@ -92,6 +93,7 @@ pub(super) fn unique_recognized_meeting_bundle(
     Ok(recognized.into_iter().next().unwrap())
 }
 
+#[cfg(target_os = "macos")]
 pub(super) fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)> {
     let mut apps = Vec::new();
     let bundle = ns::String::with_str(bundle_id);
@@ -114,6 +116,7 @@ pub(super) fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)>
     apps
 }
 
+#[cfg(target_os = "macos")]
 pub(super) fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
     let mut seen = HashSet::new();
 

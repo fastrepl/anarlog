@@ -379,6 +379,7 @@ pub(super) fn zoom_capture_context_id(root: &NativeMeetingRoot) -> Option<String
     ))
 }
 
+#[cfg(target_os = "macos")]
 pub(super) fn zoom_chat_surface_is_visible(nodes: &[AxNode]) -> bool {
     meeting_chat_surface_is_visible(&MeetingPlatform::Zoom, nodes)
 }

@@ -57,7 +57,7 @@ pub struct MeetingParticipantStream {
     pub signals: Vec<String>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 #[derive(Debug, Clone)]
 pub(super) struct MeetingChatTarget {
     pub(super) kind: String,
@@ -118,7 +118,7 @@ pub struct MeetingChatCaptureResult {
     pub warnings: Vec<String>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 #[derive(Debug, Clone)]
 pub(super) struct AxNode {
     pub(super) index: usize,
@@ -146,7 +146,7 @@ pub(super) struct AxChatElement {
     pub(super) element: arc::R<ax::UiElement>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 #[derive(Debug, Clone)]
 pub(super) struct AxAncestor {
     pub(super) path: Vec<usize>,
@@ -161,21 +161,22 @@ pub(super) struct SlackHuddleRoot {
     pub(super) element: arc::R<ax::UiElement>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 pub(super) struct BrowserMeetingRoot {
     pub(super) platform: MeetingPlatform,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     pub(super) window_title: Option<String>,
     pub(super) web_area_url: Option<String>,
     pub(super) nodes: Vec<AxNode>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 pub(super) struct NativeMeetingRoot {
     pub(super) window_title: Option<String>,
     pub(super) nodes: Vec<AxNode>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum UniqueMatch {
     Missing,

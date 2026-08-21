@@ -1,73 +1,78 @@
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 use std::collections::HashSet;
 
 #[cfg(target_os = "macos")]
 use cidre::{arc, ax, cf, cg};
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 mod analysis;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 mod context;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 mod node;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 mod platform;
 mod types;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 use analysis::{
     candidate_chat_target, extract_chat_messages, find_participant_streams,
     is_slack_huddle_scope_node, is_zoom_chat_scope_node, is_zoom_meeting_evidence,
     is_zoom_meeting_scope_node,
 };
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 use analysis::{
     candidate_stream, extract_links, looks_like_time, meeting_chat_direction,
     meeting_chat_surface_is_visible, parse_chat_message, participant_name_from_evidence,
     slack_huddle_is_active,
 };
 #[cfg(target_os = "macos")]
+use context::zoom_chat_surface_is_visible;
+#[cfg(any(test, target_os = "macos"))]
 use context::{
     browser_capture_context_id, native_capture_context_id, path_is_ancestor,
     slack_capture_context_id, validated_chat_scope, zoom_capture_context_id,
-    zoom_chat_surface_is_visible,
 };
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 use node::node_text;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 use node::{
     is_platform_active_call_control, is_platform_meeting_control, node_has_positive_bounds,
     node_labels, searchable_node_text,
 };
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 use platform::{
     MEETING_APP_BUNDLES, browser_platform_from_url, browser_title_platform_signals,
     classify_browser_context, classify_bundle, classify_platform, classify_surface,
-    is_browser_bundle, running_apps_for_bundle, running_meeting_apps, select_active_bundle_ids,
-    supports_meeting_chat_mutation, unique_recognized_meeting_bundle,
+    is_browser_bundle, select_active_bundle_ids, supports_meeting_chat_mutation,
+    unique_recognized_meeting_bundle,
 };
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 use platform::{MeetingAppBundleKind, is_meeting_app_bundle};
 #[cfg(target_os = "macos")]
+use platform::{running_apps_for_bundle, running_meeting_apps};
+#[cfg(any(test, target_os = "macos"))]
 use types::{
-    AxAncestor, AxChatElement, AxNode, BrowserMeetingRoot, MeetingChatTarget, NativeMeetingRoot,
-    SlackHuddleRoot, UniqueMatch,
+    AxAncestor, AxNode, BrowserMeetingRoot, MeetingChatTarget, NativeMeetingRoot, UniqueMatch,
 };
+#[cfg(target_os = "macos")]
+use types::{AxChatElement, SlackHuddleRoot};
 pub use types::{
     AxRect, MeetingAccessibilityInspection, MeetingApp, MeetingCapturedChatMessage,
     MeetingChatCaptureResult, MeetingChatDirection, MeetingChatSendResult,
     MeetingParticipantStream, MeetingPlatform, MeetingSurface,
 };
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 const MAX_TREE_DEPTH: usize = 18;
 #[cfg(target_os = "macos")]
 const MAX_NODES: usize = 1800;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 const MIN_VIDEO_AREA: f64 = 18_000.0;
+#[cfg(any(test, target_os = "macos"))]
 const MAX_MEETING_CHAT_MESSAGE_CHARS: usize = 2_000;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn unique_scope_for_count(count: usize) -> UniqueMatch {
     match count {
         0 => UniqueMatch::Missing,
@@ -76,7 +81,7 @@ fn unique_scope_for_count(count: usize) -> UniqueMatch {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn unique_scope_for_search(count: usize, complete: bool) -> UniqueMatch {
     if complete {
         unique_scope_for_count(count)
@@ -99,6 +104,7 @@ pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
     Vec::new()
 }
 
+#[cfg(any(test, target_os = "macos"))]
 fn validate_meeting_chat_message(message: &str) -> Result<(), &'static str> {
     if message.trim().is_empty() {
         return Err("meeting chat message must not be empty");
@@ -817,7 +823,7 @@ fn collect_native_meeting_roots(
         .collect()
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn native_meeting_window_is_validated(platform: &MeetingPlatform, nodes: &[AxNode]) -> bool {
     match platform {
         MeetingPlatform::Zoom => nodes.iter().any(is_zoom_meeting_evidence),
@@ -930,7 +936,7 @@ fn collect_browser_meeting_roots(
     (roots, has_unscoped_meeting_window)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn browser_window_has_provider_signal(url: Option<&str>, title: Option<&str>) -> bool {
     browser_platform_from_url(url).is_some()
         || title.is_some_and(|title| !browser_title_platform_signals(title).is_empty())
@@ -1065,7 +1071,7 @@ fn ax_role_may_have_children(role: &str) -> bool {
     )
 }
 
-#[cfg(all(target_os = "macos", test))]
+#[cfg(test)]
 fn unique_matching_index<'a>(
     nodes: impl Iterator<Item = (usize, &'a AxNode)>,
     predicate: impl Fn(&AxNode) -> bool,
@@ -1188,7 +1194,7 @@ fn chat_element_score(node: &AxNode) -> f32 {
         .unwrap_or(0.0)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn inspection_label(node: &AxNode) -> Option<String> {
     node.title
         .clone()
@@ -1468,7 +1474,7 @@ fn rect_from_position_and_size(element: &ax::UiElement) -> Option<cg::Rect> {
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
     let has_leave_control = nodes.iter().any(is_enabled_slack_leave_control);
     if !has_leave_control {
@@ -1482,7 +1488,7 @@ fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn slack_huddle_channel_from_label(label: &str) -> Option<String> {
     const PREFIX: &str = "huddle in ";
 
@@ -1501,14 +1507,14 @@ fn slack_huddle_channel_from_label(label: &str) -> Option<String> {
     (!channel.is_empty()).then_some(channel.to_string())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn is_enabled_slack_leave_control(node: &AxNode) -> bool {
     matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
         && node.enabled != Some(false)
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("leave huddle"))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn is_slack_huddle_composer(node: &AxNode, channel: &str) -> bool {
     let expected = format!("message to {channel}");
     matches!(
@@ -1519,7 +1525,7 @@ fn is_slack_huddle_composer(node: &AxNode, channel: &str) -> bool {
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case(&expected))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn slack_thread_container_path<'a>(
     ancestors: &'a [AxAncestor],
     channel: &str,
@@ -1533,14 +1539,14 @@ fn slack_thread_container_path<'a>(
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn is_slack_thread_container_label(label: &str, channel: &str) -> bool {
     let label = label.trim().to_ascii_lowercase();
     let expected = format!("thread in {}", channel.trim()).to_ascii_lowercase();
     label == expected || label.starts_with(&format!("{expected} ("))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn is_slack_huddle_composer_in_thread(
     node: &AxNode,
     ancestors: &[AxAncestor],
@@ -1550,7 +1556,7 @@ fn is_slack_huddle_composer_in_thread(
         && slack_thread_container_path(ancestors, channel).is_some()
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn is_slack_send_now_in_thread(
     node: &AxNode,
     ancestors: &[AxAncestor],
@@ -1561,31 +1567,31 @@ fn is_slack_send_now_in_thread(
         && slack_thread_container_path(ancestors, channel) == Some(thread_path)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn is_slack_thread_control(node: &AxNode) -> bool {
     matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
         && node.enabled != Some(false)
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("show/hide thread"))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn is_slack_send_now_button(node: &AxNode) -> bool {
     matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
         && node.enabled != Some(false)
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("send now"))
 }
 
-#[cfg(all(target_os = "macos", test))]
+#[cfg(test)]
 fn has_nonempty_draft(node: &AxNode) -> bool {
     node.value
         .as_ref()
         .is_some_and(|value| !value.trim().is_empty())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn chat_input_is_owned(current_value: &str, injected_message: &str) -> bool {
     current_value == injected_message
 }
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 mod tests;
