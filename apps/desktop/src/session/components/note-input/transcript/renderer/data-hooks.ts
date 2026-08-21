@@ -99,6 +99,30 @@ export function useRenderedTranscriptData(
   return { maxSpeakerNumber, request, segments: data };
 }
 
+export function getTranscriptTimelineOffsetMs(
+  transcriptStartedAt: number,
+  sessionTranscripts: ReadonlyArray<{
+    startedAt: number;
+    hasWords: boolean;
+  }>,
+): number {
+  const candidates = sessionTranscripts.filter(
+    (current) => Number.isFinite(current.startedAt) && current.startedAt > 0,
+  );
+  const withWords = candidates.filter((current) => current.hasWords);
+  const pool = withWords.length > 0 ? withWords : candidates;
+  if (pool.length === 0) {
+    return 0;
+  }
+
+  const earliestStartedAt = Math.min(
+    ...pool.map((current) => current.startedAt),
+  );
+  return Number.isFinite(earliestStartedAt)
+    ? Math.max(0, transcriptStartedAt - earliestStartedAt)
+    : 0;
+}
+
 export function useTranscriptTimelineMetadata(transcriptId: string): {
   offsetMs: number;
   sessionId?: string;
@@ -111,14 +135,11 @@ export function useTranscriptTimelineMetadata(transcriptId: string): {
       return { offsetMs: 0 };
     }
 
-    const earliestStartedAt = Math.min(
-      ...transcripts.map((current) => current.startedAt),
-    );
-
     return {
-      offsetMs: Number.isFinite(earliestStartedAt)
-        ? transcript.startedAt - earliestStartedAt
-        : 0,
+      offsetMs: getTranscriptTimelineOffsetMs(
+        transcript.startedAt,
+        transcripts,
+      ),
       sessionId: transcript.sessionId,
     };
   }, [transcript, transcripts]);

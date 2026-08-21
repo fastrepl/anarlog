@@ -2,7 +2,10 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TRANSCRIPT_RENDER_CACHE_TIME_MS } from "../cache";
-import { useRenderedTranscriptData } from "./data-hooks";
+import {
+  getTranscriptTimelineOffsetMs,
+  useRenderedTranscriptData,
+} from "./data-hooks";
 
 const mocks = vi.hoisted(() => ({
   getRenderTranscriptRequestKey: vi.fn((_request: unknown) => "request-key"),
@@ -236,5 +239,34 @@ describe("useRenderedTranscriptData", () => {
     ]);
     await nextCaptureQuery.queryFn();
     expect(mocks.renderTranscriptSegments).toHaveBeenLastCalledWith(requestD);
+  });
+});
+
+describe("getTranscriptTimelineOffsetMs", () => {
+  it("keeps a single transcript at audio time zero", () => {
+    expect(
+      getTranscriptTimelineOffsetMs(1_700_000_000_000, [
+        { startedAt: 1_700_000_000_000, hasWords: true },
+      ]),
+    ).toBe(0);
+  });
+
+  it("ignores empty leftover rows that default started_at_ms to zero", () => {
+    expect(
+      getTranscriptTimelineOffsetMs(1_700_000_000_500, [
+        { startedAt: 0, hasWords: false },
+        { startedAt: 1_700_000_000_500, hasWords: true },
+      ]),
+    ).toBe(0);
+  });
+
+  it("offsets later captures from the earliest transcript that has words", () => {
+    expect(
+      getTranscriptTimelineOffsetMs(1_700_000_060_000, [
+        { startedAt: 0, hasWords: false },
+        { startedAt: 1_700_000_000_000, hasWords: true },
+        { startedAt: 1_700_000_060_000, hasWords: true },
+      ]),
+    ).toBe(60_000);
   });
 });
