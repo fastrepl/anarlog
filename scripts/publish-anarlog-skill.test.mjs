@@ -74,13 +74,11 @@ test("repository marketplaces resolve the Anarlog plugin package", async () => {
 
 test("every MCP configuration starts the Anarlog stdio server", async () => {
   const portable = await readJson(`${PLUGIN_ROOT}/mcp.json`);
-  const claude = await readJson(`${PLUGIN_ROOT}/config/claude-mcp.json`);
-  const codex = await readJson(`${PLUGIN_ROOT}/config/codex-mcp.json`);
+  const native = await readJson(`${PLUGIN_ROOT}/.mcp.json`);
   const cursor = await readJson(`${PLUGIN_ROOT}/.cursor-plugin/plugin.json`);
   const servers = [
     portable.mcpServers.anarlog,
-    claude.mcpServers.anarlog,
-    codex.anarlog,
+    native.mcpServers.anarlog,
     cursor.mcpServers.anarlog,
   ];
 
@@ -89,6 +87,14 @@ test("every MCP configuration starts the Anarlog stdio server", async () => {
     assert.deepEqual(server.args, ["mcp"]);
   }
   assert.equal(portable.mcpServers.anarlog.type, "stdio");
+
+  for (const manifestPath of [
+    `${PLUGIN_ROOT}/.claude-plugin/plugin.json`,
+    `${PLUGIN_ROOT}/.codex-plugin/plugin.json`,
+  ]) {
+    const manifest = await readJson(manifestPath);
+    assert.equal(manifest.mcpServers, "./.mcp.json");
+  }
 });
 
 test("marketplace icon is a 400px square PNG", async () => {

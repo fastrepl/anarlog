@@ -14,5 +14,5 @@
   "license": "MIT",
   "keywords": ["meetings", "notes", "transcripts", "productivity", "mcp"],
   "skills": "./skills/",
-  "mcpServers": "./config/claude-mcp.json"
+  "mcpServers": "./.mcp.json"
 }

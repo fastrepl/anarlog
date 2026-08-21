@@ -12,7 +12,7 @@
   "license": "MIT",
   "keywords": ["meetings", "notes", "transcripts", "productivity", "mcp"],
   "skills": "./skills/",
-  "mcpServers": "./config/codex-mcp.json",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Anarlog",
     "shortDescription": "Query your meeting notes",
@@ -28,7 +28,6 @@
     "websiteURL": "https://anarlog.so",
     "privacyPolicyURL": "https://anarlog.so/privacy",
     "termsOfServiceURL": "https://anarlog.so/terms",
-    "supportURL": "https://docs.anarlog.so/help",
     "defaultPrompt": [
       "Summarize my latest Anarlog meeting.",
       "What action items came out of my planning meeting?",
