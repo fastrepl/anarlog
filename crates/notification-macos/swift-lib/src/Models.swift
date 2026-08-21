@@ -207,6 +207,14 @@ enum NotificationActionVariant: String, Codable {
   case destructive = "destructive"
 }
 
+enum NotificationSchedule {
+  static let startedLinger: TimeInterval = 5 * 60
+
+  static func dismissDelay(afterStart startTime: Date, now: Date = Date()) -> TimeInterval {
+    startTime.addingTimeInterval(startedLinger).timeIntervalSince(now)
+  }
+}
+
 struct NotificationPayload: Codable {
   let key: String
   let title: String

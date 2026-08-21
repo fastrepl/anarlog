@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use gdk::prelude::*;
 use gtk::gdk::NotifyType;
@@ -11,7 +11,7 @@ use gtk::{
 use indexmap::IndexMap;
 
 use anlg_notification_interface::{
-    DismissTimer, ParticipantStatus, PrimaryAction, expanded_schedule_text,
+    DismissTimer, ParticipantStatus, PrimaryAction, expanded_schedule_text, unix_now,
 };
 
 use crate::callbacks;
@@ -65,12 +65,8 @@ impl NotificationInstance {
 
     fn schedule_remaining(&self) -> Option<Duration> {
         let start_time = self.payload.start_time?;
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
         Some(Duration::from_secs(
-            start_time.saturating_sub(now).max(0) as u64
+            start_time.saturating_sub(unix_now()).max(0) as u64,
         ))
     }
 
@@ -528,6 +524,15 @@ impl NotificationManager {
             .and_then(|instance| instance.dismiss_timer.as_ref())
             .is_some_and(|timer| timer.is_running() && timer.is_expired(now));
         if expired {
+            self.dismiss_key(key, DismissReason::Timeout);
+            return;
+        }
+
+        let started_expired = self
+            .active_notifications
+            .get(key)
+            .is_some_and(|instance| instance.payload.should_dismiss_started(unix_now()));
+        if started_expired {
             self.dismiss_key(key, DismissReason::Timeout);
             return;
         }
