@@ -7,23 +7,14 @@ exclude = ["/node_modules"]
 links = "tauri-plugin-importer"
 description = ""
 
-[features]
-default = ["legacy-import"]
-legacy-import = ["dep:legacy-db-parser"]
-
 [build-dependencies]
 tauri-plugin = { workspace = true, features = ["build"] }
 
 [dev-dependencies]
-dirs = { workspace = true }
 specta-typescript = { workspace = true }
 
 [dependencies]
-anlg-importer-core = { workspace = true }
 anlg-meeting-import = { workspace = true }
-legacy-db-parser = { workspace = true, optional = true }
-
-tauri-plugin-settings = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
@@ -32,10 +23,6 @@ tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 url = { workspace = true }
 
-chrono = { workspace = true }
-dirs = { workspace = true }
 rmcp = { workspace = true, features = ["auth", "client", "transport-streamable-http-client-reqwest"] }
-thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "process", "rt-multi-thread", "macros", "sync", "time"] }
 tokio-util = { workspace = true }
-uuid = { workspace = true, features = ["v4", "v5"] }

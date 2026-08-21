@@ -95,6 +95,11 @@ fn classify_error_message(message: &str) -> Option<ErrorKind> {
     if message.contains("\"status\":\"409\"") && message.contains("\"code\":\"already_exists\"") {
         return Some(ErrorKind::Transient);
     }
+    // SQLite Cloud wraps HTTP JSON in SQLITE_ERROR (code 1). A 404 here is
+    // usually a startup race ("managed database not found") that the next retry wins.
+    if message.contains("\"status\":\"404\"") && message.contains("\"code\":\"not_found\"") {
+        return Some(ErrorKind::Transient);
+    }
 
     let message = message.to_ascii_lowercase();
     [
@@ -149,6 +154,20 @@ mod tests {
 
         assert_eq!(
             classify_database_error(Some("1"), message),
+            ErrorKind::Transient
+        );
+    }
+
+    #[test]
+    fn managed_database_not_found_is_transient() {
+        let message = r#"error returned from database: (code: 1) {"errors": [{"status":"404","code":"not_found","title":"Not Found","detail":"managed database not found"}]}"#;
+
+        assert_eq!(
+            classify_database_error(Some("1"), message),
+            ErrorKind::Transient
+        );
+        assert_eq!(
+            classify_io_error(&std::io::Error::other(format!("sqlx error: {message}"))),
             ErrorKind::Transient
         );
     }

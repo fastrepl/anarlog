@@ -14,7 +14,6 @@ members = [
   "apps/cli",
   "apps/desktop/src-tauri",
   "crates/*",
-  "legacy/*",
   "plugins/*",
 ]
 exclude = [
@@ -197,9 +196,6 @@ anlg-ws-client = { path = "crates/ws-client", package = "ws-client" }
 anlg-ws-utils = { path = "crates/ws-utils", package = "ws-utils" }
 anlg-zoom = { path = "crates/zoom", package = "zoom" }
 keyring = "4.1.4"
-legacy-db-core = { path = "legacy/db-core", package = "legacy-db-core" }
-legacy-db-parser = { path = "legacy/db-parser", package = "db-parser" }
-legacy-db-user = { path = "legacy/db-user", package = "db-user" }
 posthog-rs = "0.5"
 progenitor-client = "0.13"
 
@@ -247,7 +243,7 @@ tauri-plugin-fs2 = { path = "plugins/fs2" }
 tauri-plugin-git = { path = "plugins/git" }
 tauri-plugin-hooks = { path = "plugins/hooks" }
 tauri-plugin-icon = { path = "plugins/icon" }
-tauri-plugin-importer = { path = "plugins/importer", default-features = false }
+tauri-plugin-importer = { path = "plugins/importer" }
 tauri-plugin-js = { path = "plugins/js" }
 tauri-plugin-local-api = { path = "plugins/local-api" }
 tauri-plugin-local-auth = { path = "plugins/local-auth" }
@@ -418,7 +414,6 @@ vorbis_rs = "0.5.5"
 deepgram = { version = "0.7", default-features = false }
 hf-hub = { git = "https://github.com/huggingface/hf-hub", rev = "5510260", default-features = false, features = ["tokio"] }
 hidapi = { version = "2.6.5", features = ["macos-shared-device"] }
-libsql = "0.9.24"
 
 block2 = "0.6"
 core-foundation = "0.10"

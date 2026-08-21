@@ -397,9 +397,10 @@ describe("SyncStatusIndicator", () => {
     expect(mocks.getCloudsyncStatus).toHaveBeenCalledTimes(3);
   });
 
-  it("shows a sync issue with the last error", async () => {
+  it("shows a sign-in error without exposing the server message", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
+        running: false,
         last_error: "token rejected",
         last_error_kind: "auth",
         consecutive_failures: 2,
@@ -411,8 +412,11 @@ describe("SyncStatusIndicator", () => {
     renderIndicator();
     await openMenu();
 
-    expect(await screen.findByText("Sync issue")).toBeTruthy();
-    expect(screen.getByText("token rejected")).toBeTruthy();
+    expect(await screen.findByText("Sign in again")).toBeTruthy();
+    expect(
+      screen.getByText("Sign out and sign in again to resume cloud sync."),
+    ).toBeTruthy();
+    expect(screen.queryByText("token rejected")).toBeNull();
   });
 
   it("hides capture deferral instead of showing a transient sync issue during recording", async () => {
@@ -595,13 +599,77 @@ describe("SyncStatusIndicator", () => {
     ).toBeNull();
   });
 
-  it("makes a transient sync issue retryable without exposing the server error", async () => {
+  it("keeps a startup handshake miss as syncing instead of a sync issue", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        last_error:
+          'sqlx error: error returned from database: (code: 1) {"errors": [{"status":"404","code":"not_found","title":"Not Found","detail":"managed database not found"}]}',
+        last_error_kind: "fatal",
+        consecutive_failures: 1,
+        last_sync_at_ms: null,
+        has_unsent_changes: null,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Syncing...")).toBeTruthy();
+    expect(screen.queryByText("Sync issue")).toBeNull();
+    expect(screen.queryByText(/managed database not found/)).toBeNull();
+    expect(screen.queryByText(/sqlx error/)).toBeNull();
+  });
+
+  it("does not surface a single retryable miss after a successful sync", async () => {
     mocks.getCloudsyncStatus.mockResolvedValue(
       syncedStatus({
         last_error:
           'sqlx error: {"errors":[{"status":"409","code":"already_exists"}]}',
         last_error_kind: "transient",
         consecutive_failures: 1,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Synced")).toBeTruthy();
+    expect(screen.queryByText("Sync issue")).toBeNull();
+    expect(screen.queryByText(/already_exists/)).toBeNull();
+  });
+
+  it("surfaces a stopped sync with a user-facing message instead of the server error", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        running: false,
+        last_error:
+          'sqlx error: error returned from database: (code: 1) {"errors": [{"status":"404","code":"not_found","detail":"managed database not found"}]}',
+        last_error_kind: "fatal",
+        consecutive_failures: 1,
+        last_sync_at_ms: null,
+        has_unsent_changes: null,
+      }),
+    );
+
+    renderIndicator();
+    await openMenu();
+
+    expect(await screen.findByText("Sync issue")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Cloud sync could not start on this device. Open Sync settings to try again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/sqlx error/)).toBeNull();
+  });
+
+  it("makes a persistent transient sync issue retryable without exposing the server error", async () => {
+    mocks.getCloudsyncStatus.mockResolvedValue(
+      syncedStatus({
+        last_error:
+          'sqlx error: {"errors":[{"status":"409","code":"already_exists"}]}',
+        last_error_kind: "transient",
+        consecutive_failures: 3,
       }),
     );
 

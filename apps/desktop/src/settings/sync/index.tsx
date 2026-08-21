@@ -615,9 +615,11 @@ export function SettingsSync() {
         kind: "error" as const,
         label: t`Sync needs attention`,
         description:
-          status.last_error_kind === "transient"
-            ? t`Anarlog will retry automatically.`
-            : (status.last_error ?? t`Anarlog will keep retrying.`),
+          status.last_error_kind === "auth"
+            ? t`Sign out and sign in again to resume cloud sync.`
+            : status.last_error_kind === "transient"
+              ? t`Anarlog will retry automatically.`
+              : t`Anarlog will keep retrying.`,
       };
     }
     if (status?.activity_paused) {
