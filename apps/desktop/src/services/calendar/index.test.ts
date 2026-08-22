@@ -120,6 +120,15 @@ describe("syncCalendarEventsForRange", () => {
     expect(ctxMocks.getProviderConnections).not.toHaveBeenCalled();
   });
 
+  test("removes the apple calendar connection", async () => {
+    await removeDisconnectedCalendarConnection("apple", "apple");
+
+    expect(storageMocks.tombstoneCalendarConnection).toHaveBeenCalledWith(
+      "apple",
+      "apple",
+    );
+  });
+
   test("allows recovery sync when disconnect persistence fails", async () => {
     storageMocks.tombstoneCalendarConnection.mockRejectedValueOnce(
       new Error("write failed"),

@@ -258,5 +258,7 @@ function calendarProviderForIntegration(
     ? "google"
     : integrationId === "outlook"
       ? "outlook"
-      : null;
+      : integrationId === "apple" || integrationId === "apple-calendar"
+        ? "apple"
+        : null;
 }

@@ -1,5 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
-import { CaretRight, CircleNotch, Plus } from "@phosphor-icons/react";
+import {
+  CaretRight,
+  CircleNotch,
+  DotsThree,
+  Plus,
+} from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import { useCallback, useMemo, useState, type MouseEvent } from "react";
 
@@ -24,6 +29,10 @@ import { type CalendarProvider, PROVIDERS } from "./shared";
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
+import {
+  allowReconnectedCalendarConnections,
+  removeDisconnectedCalendarConnection,
+} from "~/services/calendar";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { useOpenIntegrationUrl } from "~/shared/integration";
@@ -185,13 +194,21 @@ function ProviderAccordionItem({
   const shouldConnectOnClick =
     canAddAccount && providerConnections.length === 0;
 
+  const canDisconnectApple =
+    provider.id === "apple" && calendar.status === "authorized";
+
   const handleAppleConnect = useCallback(() => {
     if (calendar.isPending) return;
+    allowReconnectedCalendarConnections("apple");
     if (calendar.status === "denied") {
       setIsApplePermissionDialogOpen(true);
     } else {
       calendar.request();
     }
+  }, [calendar]);
+  const handleAppleDisconnect = useCallback(() => {
+    void removeDisconnectedCalendarConnection("apple", "apple");
+    calendar.reset();
   }, [calendar]);
   const handleTriggerClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
@@ -258,9 +275,28 @@ function ProviderAccordionItem({
                 }),
             },
           ]
-        : [],
+        : canDisconnectApple
+          ? [
+              {
+                id: "reconnect-apple-calendar",
+                text: t`Reconnect`,
+                action: handleAppleConnect,
+                disabled: calendar.isPending,
+              },
+              {
+                id: "disconnect-apple-calendar",
+                text: t`Disconnect`,
+                action: handleAppleDisconnect,
+                disabled: calendar.isPending,
+              },
+            ]
+          : [],
     [
+      calendar.isPending,
       canAddAccount,
+      canDisconnectApple,
+      handleAppleConnect,
+      handleAppleDisconnect,
       provider.displayName,
       provider.id,
       provider.nangoIntegrationId,
@@ -271,6 +307,7 @@ function ProviderAccordionItem({
   );
   const showProviderMenu = useNativeContextMenu(providerMenuItems);
   const hasAddAccountButton = canAddAccount && !requiresPro;
+  const hasProviderMenuButton = canDisconnectApple;
 
   return (
     <AccordionItem value={provider.id} className="group/provider border-none">
@@ -280,7 +317,7 @@ function ProviderAccordionItem({
         }
         className={cn([
           "group/row hover:bg-accent relative -mx-2 grid items-center gap-1 rounded-full px-2",
-          hasAddAccountButton
+          hasAddAccountButton || hasProviderMenuButton
             ? "grid-cols-[minmax(0,1fr)_auto_auto]"
             : "grid-cols-[minmax(0,1fr)_auto]",
         ])}
@@ -354,6 +391,19 @@ function ProviderAccordionItem({
             ) : (
               <Plus className="size-4" />
             )}
+          </button>
+        ) : hasProviderMenuButton ? (
+          <button
+            type="button"
+            onClick={showProviderMenu}
+            className={cn([
+              "text-muted-foreground shrink-0 rounded-full p-1 transition-colors",
+              "pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100",
+              "hover:bg-accent hover:text-muted-foreground",
+            ])}
+            aria-label={t`Open calendar account actions`}
+          >
+            <DotsThree className="size-4" />
           </button>
         ) : null}
 
