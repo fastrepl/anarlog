@@ -156,6 +156,8 @@ fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actu
 
 #[tokio::main]
 pub async fn main() {
+    startup::apply_linux_webkit_env();
+
     // Sentry minidump reporting re-execs this binary with --crash-reporter-server.
     // That helper must reach minidump::init instead of the launch lock, or it
     // shows "Anarlog is already starting" on every launch and never serves dumps.

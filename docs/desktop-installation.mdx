@@ -74,6 +74,20 @@ chmod +x ./anarlog-*.AppImage
 ./anarlog-*.AppImage
 ```
 
+On Wayland with an NVIDIA GPU, if the window is black or only audio plays, launch with:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 ./anarlog-*.AppImage
+```
+
+If the window is still black, also disable compositing:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./anarlog-*.AppImage
+```
+
+Current builds apply the DMA-BUF workaround automatically. Set the variables yourself only if a black window remains.
+
 ## Platform differences
 
 - Apple Calendar integration is available on macOS. Google Calendar works through your Anarlog account on every supported platform.

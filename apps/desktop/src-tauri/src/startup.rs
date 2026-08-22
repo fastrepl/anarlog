@@ -24,6 +24,24 @@ pub fn is_crash_reporter_process() -> bool {
     std::env::args().any(|arg| is_crash_reporter_arg(&arg))
 }
 
+const WEBKIT_DISABLE_DMABUF_RENDERER: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
+
+pub fn apply_linux_webkit_env() {
+    if cfg!(target_os = "linux")
+        && should_set_webkit_disable_dmabuf(
+            std::env::var_os(WEBKIT_DISABLE_DMABUF_RENDERER).as_deref(),
+        )
+    {
+        unsafe {
+            std::env::set_var(WEBKIT_DISABLE_DMABUF_RENDERER, "1");
+        }
+    }
+}
+
+fn should_set_webkit_disable_dmabuf(current: Option<&std::ffi::OsStr>) -> bool {
+    current.is_none()
+}
+
 fn is_crash_reporter_arg(arg: &str) -> bool {
     arg.starts_with(CRASH_REPORTER_SERVER_ARG)
 }
@@ -144,6 +162,17 @@ fn spawn_indicator_alert() -> Option<std::process::Child> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn applies_webkit_dmabuf_workaround_only_when_unset() {
+        assert!(should_set_webkit_disable_dmabuf(None));
+        assert!(!should_set_webkit_disable_dmabuf(Some(
+            std::ffi::OsStr::new("1")
+        )));
+        assert!(!should_set_webkit_disable_dmabuf(Some(
+            std::ffi::OsStr::new("0")
+        )));
+    }
 
     #[test]
     fn crash_reporter_args_are_detected() {

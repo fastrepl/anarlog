@@ -22,6 +22,7 @@ pub enum AppSounds {
 pub(crate) fn to_speaker(
     bytes: &'static [u8],
     looping: bool,
+    initial_volume: f32,
 ) -> std::sync::mpsc::Sender<SoundControl> {
     use rodio::source::Source;
     use rodio::{Decoder, Player, stream::DeviceSinkBuilder};
@@ -39,6 +40,7 @@ pub(crate) fn to_speaker(
         };
 
         let player = Player::connect_new(stream.mixer());
+        player.set_volume(initial_volume);
 
         if looping {
             player.append(source.repeat_infinite());
@@ -72,12 +74,19 @@ pub(crate) fn to_speaker(
 }
 
 impl AppSounds {
+    pub(crate) fn initial_volume(&self) -> f32 {
+        match self {
+            AppSounds::BGM => 0.2,
+            AppSounds::StartRecording | AppSounds::StopRecording => 1.0,
+        }
+    }
+
     pub fn play(&self) {
         self.stop();
 
         let bytes = self.get_sound_bytes();
         let looping = matches!(self, AppSounds::BGM);
-        let control_tx = to_speaker(bytes, looping);
+        let control_tx = to_speaker(bytes, looping, self.initial_volume());
 
         {
             let mut sounds = PLAYING_SOUNDS.lock().unwrap();

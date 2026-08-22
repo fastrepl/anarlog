@@ -94,6 +94,18 @@ chmod +x ./anarlog-*.AppImage
 
 For Debian or Ubuntu, install the DEB with `sudo apt install ./anarlog-*.deb` so the package manager can resolve dependencies. See [Install the desktop app](/desktop-installation).
 
+## Linux opens a black window and plays music
+
+First launch opens the setup screen and plays quiet background music. A black window with loud or looping audio usually means WebKitGTK failed to paint, most often on Wayland with NVIDIA.
+
+Current builds disable the WebKit DMA-BUF renderer automatically. If the window is still black, launch with:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./anarlog-*.AppImage
+```
+
+The same variables work for the installed `anarlog` command. See [Install the desktop app](/desktop-installation).
+
 ## Get more help
 
 Email [founders@anarlog.so](mailto:founders@anarlog.so), [join Discord](https://anarlog.so/discord), or [open a GitHub issue](https://github.com/fastrepl/anarlog/issues).

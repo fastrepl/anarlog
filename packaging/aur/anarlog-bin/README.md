@@ -17,8 +17,9 @@ verifies its checksum, and installs it through pacman.
 ## Notes
 
 - Tray icons need `libayatana-appindicator`, which is an optional dependency.
-- On Wayland with NVIDIA, a blank window is a known WebKitGTK issue. Launch with
-  `WEBKIT_DISABLE_DMABUF_RENDERER=1 anarlog`.
+- On Wayland with NVIDIA, a blank window is a known WebKitGTK issue. Current
+  builds disable the DMA-BUF renderer automatically. If a window is still blank,
+  launch with `WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 anarlog`.
 
 ## Updating
 
