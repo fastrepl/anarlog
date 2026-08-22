@@ -75,7 +75,8 @@ export function OuterHeader({
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
   const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
-  const showTitleInput = Boolean(tab) && !meetingOver;
+  const showTitleInput =
+    Boolean(tab) && !(meetingOver && currentView.type === "enhanced");
 
   return (
     <div

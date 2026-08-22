@@ -499,6 +499,59 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
+  it("keeps the title input on the memo tab after the meeting is over", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "raw" } },
+          type: "sessions",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Session title" }),
+    ).not.toBeNull();
+  });
+
+  it("keeps the title input on the transcript tab after a recording", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "transcript" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "transcript" } },
+          type: "sessions",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Session title" }),
+    ).not.toBeNull();
+  });
+
   it("keeps the title input while listening", () => {
     mocks.sessionModes = { "session-1": "active" };
     mocks.hasTranscriptBySession = { "session-1": true };
