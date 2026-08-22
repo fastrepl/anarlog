@@ -14,6 +14,8 @@ export {
   AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS,
   AUTO_STOP_CONFIRM_DELAY_MS,
   AUTO_STOP_EVENT_END_GRACE_MS,
+  AUTO_STOP_NETWORK_HOLD_MS,
+  AUTO_STOP_RECENT_OFFLINE_MS,
 } from "./auto-stop";
 
 const ListenerContext = createContext<ListenerStore | null>(null);

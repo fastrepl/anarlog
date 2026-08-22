@@ -15,6 +15,8 @@ export const AUTO_STOP_CONFIRM_DELAY_MS = 5_000;
 export const AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS = 3 * 60_000;
 export const AUTO_STOP_CALENDAR_EARLY_START_BUFFER_MS = 5 * 60_000;
 export const AUTO_STOP_EVENT_END_GRACE_MS = 10 * 60_000;
+export const AUTO_STOP_NETWORK_HOLD_MS = 8 * 60_000;
+export const AUTO_STOP_RECENT_OFFLINE_MS = 60_000;
 
 const UNRELIABLE_AUTO_STOP_APP_IDS = new Set(["com.kakao.KakaoTalkMac"]);
 
@@ -90,6 +92,30 @@ export async function getNetworkInterruptionDeadlineMs({
 
   const deadlineMs = endMs + AUTO_STOP_EVENT_END_GRACE_MS;
   return deadlineMs > nowMs ? deadlineMs : null;
+}
+
+export function resolveNetworkHoldUntilMs({
+  calendarDeadlineMs,
+  nowMs,
+}: {
+  calendarDeadlineMs: number | null;
+  nowMs: number;
+}) {
+  if (calendarDeadlineMs != null && calendarDeadlineMs > nowMs) {
+    return calendarDeadlineMs;
+  }
+
+  return nowMs + AUTO_STOP_NETWORK_HOLD_MS;
+}
+
+export function isRecentNetworkDrop(
+  lastOfflineAtMs: number | null,
+  nowMs: number,
+) {
+  return (
+    lastOfflineAtMs != null &&
+    nowMs - lastOfflineAtMs <= AUTO_STOP_RECENT_OFFLINE_MS
+  );
 }
 
 function getPrimaryStoppedApp(

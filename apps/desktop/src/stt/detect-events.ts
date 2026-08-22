@@ -12,6 +12,8 @@ import {
   getAutoStopActiveCheckAppIds,
   getAutoStopCandidateAppIds,
   getNetworkInterruptionDeadlineMs,
+  isRecentNetworkDrop,
+  resolveNetworkHoldUntilMs,
   shouldPromptBeforeAutoStopping,
   showMeetingEndedPrompt,
 } from "./auto-stop";
@@ -42,6 +44,7 @@ type PendingAutoStop = {
   requireMicSnapshot: boolean;
   sessionId: string | null;
   networkInterrupted: boolean;
+  networkHoldUntilMs?: number;
 };
 
 function getMicDetectedNotificationTitle(event: NearbyEvent | null): string {
@@ -71,6 +74,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
   const notificationDetectRef = useRef(notificationDetect);
   notificationDetectRef.current = notificationDetect;
   const isOnlineRef = useRef(true);
+  const lastOfflineAtMsRef = useRef<number | null>(null);
   const pendingAutoStopRef = useRef<PendingAutoStop | null>(null);
   const pendingMicDetectedPromptRef = useRef(false);
 
@@ -78,6 +82,9 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
     let unlistenDetect: (() => void) | undefined;
     let cancelled = false;
     isOnlineRef.current = navigator.onLine;
+    if (!navigator.onLine) {
+      lastOfflineAtMsRef.current = Date.now();
+    }
     const clearNotificationsIfActive = () => {
       if (store.getState().live.status === "active") {
         void notificationCommands.clearNotifications();
@@ -128,6 +135,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
       requireMicSnapshot: boolean,
       sessionId: string | null,
       networkInterrupted: boolean,
+      networkHoldUntilMs?: number,
     ) {
       clearPendingAutoStop();
 
@@ -135,6 +143,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
         requireMicSnapshot,
         sessionId,
         networkInterrupted,
+        networkHoldUntilMs,
       };
       pending.timeout = setTimeout(
         () => {
@@ -195,24 +204,40 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
       }
 
       if (pending.networkInterrupted || !isOnlineRef.current) {
-        const deadlineMs = await getNetworkInterruptionDeadlineMs({
-          sessionId: pending.sessionId,
-          nowMs: Date.now(),
-        });
+        const nowMs = Date.now();
+        const holdUntilMs =
+          pending.networkHoldUntilMs ??
+          resolveNetworkHoldUntilMs({
+            calendarDeadlineMs: await getNetworkInterruptionDeadlineMs({
+              sessionId: pending.sessionId,
+              nowMs,
+            }),
+            nowMs,
+          });
         if (pendingAutoStopRef.current !== pending) {
           return;
         }
-        if (deadlineMs) {
+        if (holdUntilMs > Date.now()) {
           scheduleAutoStop(
-            deadlineMs - Date.now(),
+            holdUntilMs - Date.now(),
             candidateAppIds,
             stoppedApps,
             pending.requireMicSnapshot,
             pending.sessionId,
             true,
+            holdUntilMs,
           );
           return;
         }
+
+        if (pending.sessionId) {
+          await showMeetingEndedPrompt({
+            sessionId: pending.sessionId,
+            stoppedTriggerAppIds: candidateAppIds,
+            stoppedApps,
+          });
+        }
+        return;
       }
 
       const shouldPrompt = await shouldPromptBeforeAutoStopping({
@@ -248,6 +273,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
 
     const handleOffline = () => {
       isOnlineRef.current = false;
+      lastOfflineAtMsRef.current = Date.now();
       if (pendingAutoStopRef.current) {
         pendingAutoStopRef.current.networkInterrupted = true;
       }
@@ -379,7 +405,8 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
               payload.apps,
               requireMicSnapshot,
               store.getState().live.sessionId,
-              !isOnlineRef.current,
+              !isOnlineRef.current ||
+                isRecentNetworkDrop(lastOfflineAtMsRef.current, Date.now()),
             );
           }
         } else if (payload.type === "sleepStateChanged") {

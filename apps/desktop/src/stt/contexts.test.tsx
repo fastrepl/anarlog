@@ -7,6 +7,8 @@ import {
   AUTO_STOP_CALENDAR_EARLY_END_THRESHOLD_MS,
   AUTO_STOP_CONFIRM_DELAY_MS,
   AUTO_STOP_EVENT_END_GRACE_MS,
+  AUTO_STOP_NETWORK_HOLD_MS,
+  AUTO_STOP_RECENT_OFFLINE_MS,
   ListenerProvider,
 } from "./contexts";
 
@@ -404,9 +406,15 @@ describe("ListenerProvider detect events", () => {
 
     await vi.advanceTimersByTimeAsync(deadlineMs - Date.now() - 1);
     expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(1);
-    expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "auto-stop-ended:session-1",
+      }),
+    );
   });
 
   test("cancels a network interruption hold when the meeting resumes during event grace", async () => {
@@ -505,7 +513,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
   });
 
-  test("keeps standard auto-stop behavior for offline ad-hoc meetings", async () => {
+  test("holds an offline ad-hoc meeting, then prompts instead of stopping", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
 
@@ -532,7 +540,89 @@ describe("ListenerProvider detect events", () => {
     });
 
     await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_NETWORK_HOLD_MS - 1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "auto-stop-ended:session-1",
+      }),
+    );
+  });
+
+  test("holds auto-stop when micStopped arrives shortly after coming back online", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    vi.useFakeTimers();
+    window.dispatchEvent(new Event("offline"));
+    window.dispatchEvent(new Event("online"));
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_NETWORK_HOLD_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not hold auto-stop after the recent-offline window expires", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    vi.useFakeTimers();
+    window.dispatchEvent(new Event("offline"));
+    window.dispatchEvent(new Event("online"));
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_RECENT_OFFLINE_MS + 1);
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
     expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(showNotificationMock).not.toHaveBeenCalled();
   });
 
   test("does not let an interrupted meeting timer stop a replacement session", async () => {
@@ -580,7 +670,7 @@ describe("ListenerProvider detect events", () => {
     expect(stopSpy).not.toHaveBeenCalled();
   });
 
-  test("does not hold for a future linked event outside the early-start buffer", async () => {
+  test("uses the default network hold when a linked event is outside the early-start buffer", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
 
@@ -615,7 +705,16 @@ describe("ListenerProvider detect events", () => {
     });
 
     await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
-    expect(stopSpy).toHaveBeenCalledTimes(1);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_NETWORK_HOLD_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "auto-stop-ended:session-1",
+      }),
+    );
   });
 
   test("does not stop on MicStopped when auto-stop is disabled", async () => {
