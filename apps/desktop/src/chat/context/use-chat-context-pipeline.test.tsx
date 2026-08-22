@@ -113,7 +113,7 @@ describe("chat context display pipeline", () => {
     expect(queryMocks.organizationIds).toHaveBeenCalledWith([]);
   });
 
-  it("keeps organization lookups from the last humans while they refetch empty", () => {
+  it("drops derived organization lookups when humans resolve empty", () => {
     const pendingHuman = {
       kind: "human" as const,
       key: "human:manual:human-1",
@@ -137,13 +137,6 @@ describe("chat context display pipeline", () => {
     rerender({ pendingManualRefs: [pendingHuman] });
 
     expect(queryMocks.humanIds).toHaveBeenLastCalledWith(["human-1"]);
-    expect(queryMocks.organizationIds).toHaveBeenLastCalledWith([
-      "organization-1",
-    ]);
-
-    rerender({ pendingManualRefs: [] });
-
-    expect(queryMocks.humanIds).toHaveBeenLastCalledWith([]);
     expect(queryMocks.organizationIds).toHaveBeenLastCalledWith([]);
   });
 });

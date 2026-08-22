@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 
 import {
   type ContextEntity,
@@ -154,25 +154,15 @@ export function useChatContextPipeline({
 
   const sessions = useSessionSummariesByIds(referencedIds.sessionIds);
   const humans = useHumanDisplayRecordsByIds(referencedIds.humanIds);
-  const previousHumans = useRef(humans);
-  if (humans.length > 0) {
-    previousHumans.current = humans;
-  } else if (referencedIds.humanIds.length === 0) {
-    previousHumans.current = humans;
-  }
-  const humansForOrgIds =
-    humans.length > 0 || referencedIds.humanIds.length === 0
-      ? humans
-      : previousHumans.current;
   const organizationIds = useMemo(() => {
     const ids = new Set(referencedIds.organizationIds);
-    for (const human of humansForOrgIds) {
+    for (const human of humans) {
       if (human.organizationId) {
         ids.add(human.organizationId);
       }
     }
     return [...ids].sort();
-  }, [humansForOrgIds, referencedIds.organizationIds]);
+  }, [humans, referencedIds.organizationIds]);
   const organizations = useOrganizationDisplayRecordsByIds(organizationIds);
 
   const committedEntities = useMemo(
