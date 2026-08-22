@@ -79,7 +79,8 @@ export function OuterHeader({
   const showTitleInput =
     Boolean(tab) &&
     !isLiveMeeting &&
-    !(meetingOver && currentView.type === "enhanced");
+    currentView.type === "enhanced" &&
+    !meetingOver;
 
   return (
     <div

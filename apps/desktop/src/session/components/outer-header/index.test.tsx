@@ -420,17 +420,17 @@ describe("OuterHeader", () => {
     ).toBeLessThan(actionChildren.findIndex((child) => child.contains(share)));
   });
 
-  it("shows an editable title in the header", () => {
+  it("shows an editable title in the header on the summary tab", () => {
     render(
       <OuterHeader
         sessionId="session-1"
-        currentView={{ type: "raw" } as EditorView}
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
         tab={{
           active: true,
           id: "session-1",
           pinned: false,
           slotId: "slot-1",
-          state: { autoStart: null, view: { type: "raw" } },
+          state: { autoStart: null, view: { type: "enhanced", id: "note-1" } },
           type: "sessions",
         }}
       />,
@@ -499,16 +499,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
-  it("keeps the title input on the memo tab after the meeting is over", () => {
-    mocks.sessionEvents = {
-      "session-1": {
-        title: "Design Review",
-        started_at: "2026-06-05T10:00:00.000Z",
-        ended_at: "2026-06-05T10:30:00.000Z",
-      },
-    };
-    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
-
+  it("hides the title input on the memo tab", () => {
     render(
       <OuterHeader
         sessionId="session-1"
@@ -524,12 +515,10 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("textbox", { name: "Session title" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
-  it("keeps the title input on the transcript tab after a recording", () => {
+  it("hides the title input on the transcript tab", () => {
     mocks.hasTranscriptBySession = { "session-1": true };
 
     render(
@@ -547,9 +536,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("textbox", { name: "Session title" }),
-    ).not.toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
   it.each(["active", "running_batch", "finalizing"] as const)(
