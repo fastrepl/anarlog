@@ -5,6 +5,7 @@ const queryMocks = vi.hoisted(() => ({
   sessionIds: vi.fn(),
   humanIds: vi.fn(),
   organizationIds: vi.fn(),
+  emptyHumans: false,
 }));
 
 vi.mock("~/session/queries", () => ({
@@ -25,16 +26,16 @@ vi.mock("~/session/queries", () => ({
 vi.mock("~/contacts/queries", () => ({
   useHumanDisplayRecordsByIds: (ids: string[]) => {
     queryMocks.humanIds(ids);
-    return ids.includes("human-1")
-      ? [
+    return queryMocks.emptyHumans || !ids.includes("human-1")
+      ? []
+      : [
           {
             id: "human-1",
             name: "Alice",
             email: "alice@example.com",
             organizationId: "organization-1",
           },
-        ]
-      : [];
+        ];
   },
   useOrganizationDisplayRecordsByIds: (ids: string[]) => {
     queryMocks.organizationIds(ids);
@@ -49,6 +50,7 @@ import { useChatContextPipeline } from "./use-chat-context-pipeline";
 describe("chat context display pipeline", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    queryMocks.emptyHumans = false;
   });
 
   it("resolves pending entity labels from live SQLite records", () => {
@@ -109,5 +111,39 @@ describe("chat context display pipeline", () => {
     expect(queryMocks.sessionIds).toHaveBeenCalledWith([]);
     expect(queryMocks.humanIds).toHaveBeenCalledWith([]);
     expect(queryMocks.organizationIds).toHaveBeenCalledWith([]);
+  });
+
+  it("keeps organization lookups from the last humans while they refetch empty", () => {
+    const pendingHuman = {
+      kind: "human" as const,
+      key: "human:manual:human-1",
+      source: "manual" as const,
+      humanId: "human-1",
+    };
+    const { rerender } = renderHook(
+      ({ pendingManualRefs }) =>
+        useChatContextPipeline({
+          messages: [],
+          pendingManualRefs,
+        }),
+      { initialProps: { pendingManualRefs: [pendingHuman] } },
+    );
+
+    expect(queryMocks.organizationIds).toHaveBeenLastCalledWith([
+      "organization-1",
+    ]);
+
+    queryMocks.emptyHumans = true;
+    rerender({ pendingManualRefs: [pendingHuman] });
+
+    expect(queryMocks.humanIds).toHaveBeenLastCalledWith(["human-1"]);
+    expect(queryMocks.organizationIds).toHaveBeenLastCalledWith([
+      "organization-1",
+    ]);
+
+    rerender({ pendingManualRefs: [] });
+
+    expect(queryMocks.humanIds).toHaveBeenLastCalledWith([]);
+    expect(queryMocks.organizationIds).toHaveBeenLastCalledWith([]);
   });
 });

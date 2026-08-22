@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 
 import { md2json } from "@anlg/editor/markdown";
 import type { SessionEvent } from "@anlg/store";
@@ -114,10 +114,8 @@ export function useSessionSummariesByIds(
 ): SessionSummaryRecord[] {
   const uniqueIds = [...new Set(sessionIds.filter(Boolean))].sort();
   const placeholders = uniqueIds.map(() => "?").join(", ");
-  const { data = EMPTY_SESSION_SUMMARIES } = useLiveQuery<
-    SessionSummarySqlRow,
-    SessionSummaryRecord[]
-  >({
+  const enabled = uniqueIds.length > 0;
+  const { data } = useLiveQuery<SessionSummarySqlRow, SessionSummaryRecord[]>({
     sql: `
       SELECT id, title, created_at
       FROM sessions
@@ -126,9 +124,9 @@ export function useSessionSummariesByIds(
       ORDER BY id
     `,
     params: uniqueIds,
-    enabled: uniqueIds.length > 0,
+    enabled,
   });
-  return uniqueIds.length > 0 ? data : EMPTY_SESSION_SUMMARIES;
+  return useHeldLiveQueryRows(data, EMPTY_SESSION_SUMMARIES, enabled);
 }
 
 export async function loadSessionEvent(
@@ -259,6 +257,22 @@ export function updateSession(
 
     if (statements.length > 0) await executeTransaction(statements);
   });
+}
+
+function useHeldLiveQueryRows<T>(
+  data: T[] | undefined,
+  empty: T[],
+  enabled: boolean,
+): T[] {
+  const previous = useRef(empty);
+  if (data !== undefined) {
+    previous.current = data;
+  }
+  if (!enabled) {
+    previous.current = empty;
+    return empty;
+  }
+  return data ?? previous.current;
 }
 
 function mapSessionRow(row: SessionSqlRow): SessionRecord {

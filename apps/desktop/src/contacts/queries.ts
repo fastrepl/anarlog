@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import { trackAnalyticsEvent } from "~/analytics";
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -189,10 +191,8 @@ export function useHumanDisplayRecordsByIds(
 ): HumanDisplayRecord[] {
   const uniqueIds = [...new Set(humanIds.filter(Boolean))].sort();
   const placeholders = uniqueIds.map(() => "?").join(", ");
-  const { data = EMPTY_HUMAN_DISPLAY_RECORDS } = useLiveQuery<
-    HumanDisplaySqlRow,
-    HumanDisplayRecord[]
-  >({
+  const enabled = uniqueIds.length > 0;
+  const { data } = useLiveQuery<HumanDisplaySqlRow, HumanDisplayRecord[]>({
     sql: `
       SELECT id, organization_id, name, email
       FROM humans
@@ -201,7 +201,7 @@ export function useHumanDisplayRecordsByIds(
       ORDER BY id
     `,
     params: uniqueIds,
-    enabled: uniqueIds.length > 0,
+    enabled,
     mapRows: (rows) =>
       rows.map((row) => ({
         id: row.id,
@@ -210,7 +210,7 @@ export function useHumanDisplayRecordsByIds(
         email: row.email,
       })),
   });
-  return uniqueIds.length > 0 ? data : EMPTY_HUMAN_DISPLAY_RECORDS;
+  return useHeldLiveQueryRows(data, EMPTY_HUMAN_DISPLAY_RECORDS, enabled);
 }
 
 export function useOrganizationDisplayRecordsByIds(
@@ -218,7 +218,8 @@ export function useOrganizationDisplayRecordsByIds(
 ): OrganizationDisplayRecord[] {
   const uniqueIds = [...new Set(organizationIds.filter(Boolean))].sort();
   const placeholders = uniqueIds.map(() => "?").join(", ");
-  const { data = EMPTY_ORGANIZATION_DISPLAY_RECORDS } = useLiveQuery<
+  const enabled = uniqueIds.length > 0;
+  const { data } = useLiveQuery<
     OrganizationDisplaySqlRow,
     OrganizationDisplayRecord[]
   >({
@@ -230,9 +231,13 @@ export function useOrganizationDisplayRecordsByIds(
       ORDER BY id
     `,
     params: uniqueIds,
-    enabled: uniqueIds.length > 0,
+    enabled,
   });
-  return uniqueIds.length > 0 ? data : EMPTY_ORGANIZATION_DISPLAY_RECORDS;
+  return useHeldLiveQueryRows(
+    data,
+    EMPTY_ORGANIZATION_DISPLAY_RECORDS,
+    enabled,
+  );
 }
 
 export async function loadHuman(humanId: string): Promise<HumanRecord | null> {
@@ -853,6 +858,22 @@ export function applyContactEnhancement({
 
     if (statements.length > 0) await executeTransaction(statements);
   });
+}
+
+function useHeldLiveQueryRows<T>(
+  data: T[] | undefined,
+  empty: T[],
+  enabled: boolean,
+): T[] {
+  const previous = useRef(empty);
+  if (data !== undefined) {
+    previous.current = data;
+  }
+  if (!enabled) {
+    previous.current = empty;
+    return empty;
+  }
+  return data ?? previous.current;
 }
 
 function mapHumanRow(row: HumanSqlRow): HumanRecord {
