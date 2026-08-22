@@ -25,17 +25,12 @@ exclude = [
 [workspace.dependencies]
 anlg-aec = { path = "crates/aec", package = "aec" }
 anlg-afconvert = { path = "crates/afconvert", package = "afconvert" }
-anlg-agc = { path = "crates/agc", package = "agc" }
 anlg-agent-access = { path = "crates/agent-access", package = "agent-access" }
 anlg-agent-core = { path = "crates/agent-core", package = "agent-core" }
 anlg-am = { path = "crates/am", package = "am" }
-anlg-amp = { path = "crates/amp", package = "amp" }
 anlg-analytics = { path = "crates/analytics", package = "analytics" }
-anlg-api-agent = { path = "crates/api-agent", package = "api-agent" }
 anlg-api-auth = { path = "crates/api-auth", package = "api-auth" }
-anlg-api-bot = { path = "crates/api-bot", package = "api-bot" }
 anlg-api-calendar = { path = "crates/api-calendar", package = "api-calendar" }
-anlg-api-claw = { path = "crates/api-claw", package = "api-claw" }
 anlg-api-client = { path = "crates/api-client", package = "api-client" }
 anlg-api-cloud = { path = "crates/api-cloud", package = "api-cloud" }
 anlg-api-env = { path = "crates/api-env", package = "api-env" }
@@ -47,7 +42,6 @@ anlg-api-nango = { path = "crates/api-nango", package = "api-nango" }
 anlg-api-notion = { path = "crates/api-notion", package = "api-notion" }
 anlg-api-pyannote = { path = "crates/api-pyannote", package = "api-pyannote" }
 anlg-api-research = { path = "crates/api-research", package = "api-research" }
-anlg-api-storage = { path = "crates/api-storage", package = "api-storage" }
 anlg-api-subscription = { path = "crates/api-subscription", package = "api-subscription" }
 anlg-api-sync = { path = "crates/api-sync", package = "api-sync" }
 anlg-api-ticket = { path = "crates/api-ticket", package = "api-ticket" }
@@ -77,11 +71,9 @@ anlg-claude = { path = "crates/claude", package = "claude" }
 anlg-cli-process = { path = "crates/cli-process", package = "cli-process" }
 anlg-cloudsync = { path = "crates/cloudsync", package = "cloudsync" }
 anlg-codex = { path = "crates/codex", package = "codex" }
-anlg-cursor = { path = "crates/cursor", package = "cursor" }
 anlg-data = { path = "crates/data", package = "data" }
 anlg-db-app = { path = "crates/db-app", package = "db-app" }
 anlg-db-change = { path = "crates/db-change", package = "db-change" }
-anlg-db-cli = { path = "crates/db-cli", package = "db-cli" }
 anlg-db-core = { path = "crates/db-core", package = "db-core" }
 anlg-db-execute = { path = "crates/db-execute", package = "db-execute" }
 anlg-db-migrate = { path = "crates/db-migrate", package = "db-migrate" }
@@ -90,14 +82,12 @@ anlg-db-sync = { path = "crates/db-sync", package = "db-sync" }
 anlg-denoise = { path = "crates/denoise", package = "denoise" }
 anlg-detect = { path = "crates/detect", package = "detect" }
 anlg-device-monitor = { path = "crates/device-monitor", package = "device-monitor" }
-anlg-devin = { path = "crates/devin", package = "devin" }
 anlg-dictation-ui-macos = { path = "crates/dictation-ui-macos", package = "dictation-ui-macos" }
 anlg-docs = { path = "crates/docs", package = "docs" }
 anlg-download-interface = { path = "crates/download-interface", package = "download-interface" }
 anlg-e2ee = { path = "crates/e2ee", package = "e2ee" }
 anlg-embedding = { path = "crates/embedding", package = "embedding" }
 anlg-exa = { path = "crates/exa", package = "exa" }
-anlg-exedev = { path = "crates/exedev", package = "exedev" }
 anlg-export-core = { path = "crates/export-core", package = "export-core" }
 anlg-file = { path = "crates/file", package = "file" }
 anlg-frontmatter = { path = "crates/frontmatter", package = "frontmatter" }
@@ -107,16 +97,10 @@ anlg-gbnf = { path = "crates/gbnf", package = "gbnf" }
 anlg-gguf = { path = "crates/gguf", package = "gguf" }
 anlg-github-issues = { path = "crates/github-issues", package = "github-issues" }
 anlg-google-calendar = { path = "crates/google-calendar", package = "google-calendar" }
-anlg-google-drive = { path = "crates/google-drive", package = "google-drive" }
 anlg-google-mail = { path = "crates/google-mail", package = "google-mail" }
-anlg-granola = { path = "crates/granola", package = "granola" }
-anlg-hf = { path = "crates/hf", package = "hf" }
-anlg-hid-host = { path = "crates/hid-host", package = "hid-host" }
-anlg-hid-interface = { path = "crates/hid-interface", package = "hid-interface" }
 anlg-hooks = { path = "crates/hooks", package = "hooks" }
 anlg-host = { path = "crates/host", package = "host" }
 anlg-http = { path = "crates/http", package = "anlg-http-utils" }
-anlg-importer-core = { path = "crates/importer-core", package = "importer-core" }
 anlg-intercept = { path = "crates/intercept", package = "intercept" }
 anlg-jina = { path = "crates/jina", package = "jina" }
 anlg-language = { path = "crates/language", package = "language" }
@@ -124,12 +108,10 @@ anlg-linear = { path = "crates/linear", package = "linear" }
 anlg-listener-core = { path = "crates/listener-core", package = "listener-core" }
 anlg-listener2-core = { path = "crates/listener2-core", package = "listener2-core" }
 anlg-llm-proxy = { path = "crates/llm-proxy", package = "llm-proxy" }
-anlg-llm-types = { path = "crates/llm-types", package = "llm-types" }
 anlg-lmstudio = { path = "crates/lmstudio", package = "lmstudio" }
 anlg-local-llm-core = { path = "crates/local-llm-core", package = "local-llm-core" }
 anlg-local-model = { path = "crates/local-model", package = "local-model" }
 anlg-local-stt-core = { path = "crates/local-stt-core", package = "local-stt-core" }
-anlg-local-stt-server = { path = "crates/local-stt-server", package = "local-stt-server" }
 anlg-loops = { path = "crates/loops", package = "loops" }
 anlg-mac = { path = "crates/mac", package = "mac" }
 anlg-mcp = { path = "crates/mcp", package = "mcp" }
@@ -148,18 +130,14 @@ anlg-observability = { path = "crates/observability", package = "observability" 
 anlg-onnx = { path = "crates/onnx", package = "onnx" }
 anlg-opencode = { path = "crates/opencode", package = "opencode" }
 anlg-openrouter = { path = "crates/openrouter", package = "openrouter" }
-anlg-openstatus = { path = "crates/openstatus", package = "openstatus" }
 anlg-outlook-calendar = { path = "crates/outlook-calendar", package = "outlook-calendar" }
 anlg-overlay-kit = { path = "crates/overlay-kit", package = "overlay-kit" }
-anlg-porkbun = { path = "crates/porkbun", package = "porkbun" }
 anlg-power = { path = "crates/power", package = "power" }
 anlg-pyannote-cloud = { path = "crates/pyannote-cloud", package = "pyannote-cloud" }
 anlg-pyannote-local = { path = "crates/pyannote-local", package = "pyannote-local" }
-anlg-recall = { path = "crates/recall", package = "recall" }
 anlg-resampler = { path = "crates/resampler", package = "resampler" }
 anlg-s3 = { path = "crates/s3", package = "s3" }
 anlg-screen-core = { path = "crates/screen-core", package = "screen-core" }
-anlg-segmentation = { path = "crates/segmentation", package = "segmentation" }
 anlg-session-ingest = { path = "crates/session-ingest", package = "session-ingest" }
 anlg-shortcut-macos = { path = "crates/shortcut-macos", package = "shortcut-macos" }
 anlg-slack-web = { path = "crates/slack-web", package = "slack-web" }
@@ -167,12 +145,9 @@ anlg-storage = { path = "crates/storage", package = "storage" }
 anlg-supabase-auth = { path = "crates/supabase-auth", package = "supabase-auth" }
 anlg-supabase-storage = { path = "crates/supabase-storage", package = "supabase-storage" }
 anlg-tantivy-core = { path = "crates/tantivy", package = "tantivy-core" }
-anlg-tauri-utils = { path = "crates/tauri-utils", package = "tauri-utils" }
 anlg-tcc = { path = "crates/tcc", package = "tcc" }
-anlg-teems = { path = "crates/teems", package = "teems" }
 anlg-template-app = { path = "crates/template-app", package = "template-app" }
 anlg-template-app-legacy = { path = "crates/template-app-legacy", package = "template-app-legacy" }
-anlg-template-cli = { path = "crates/template-cli", package = "template-cli" }
 anlg-template-eval = { path = "crates/template-eval", package = "template-eval" }
 anlg-ticket-interface = { path = "crates/ticket-interface", package = "ticket-interface" }
 anlg-tiptap = { path = "crates/tiptap", package = "tiptap" }
@@ -187,7 +162,6 @@ anlg-updater-core = { path = "crates/updater-core", package = "updater-core" }
 anlg-user-error = { path = "crates/user-error", package = "user-error" }
 anlg-vad = { path = "crates/vad", package = "vad" }
 anlg-vad-masking = { path = "crates/vad-masking", package = "vad-masking" }
-anlg-version = { path = "crates/version", package = "version" }
 anlg-voiceprint = { path = "crates/voiceprint", package = "voiceprint" }
 anlg-whisper = { path = "crates/whisper", package = "whisper" }
 anlg-whisper-local = { path = "crates/whisper-local", package = "whisper-local" }
@@ -202,7 +176,6 @@ progenitor-client = "0.13"
 notify-rust = "=4.11.7"
 openai-transcription = { path = "crates/openai-transcription", package = "openai-transcription" }
 owhisper-client = { path = "crates/owhisper-client", package = "owhisper-client" }
-owhisper-config = { path = "crates/owhisper-config", package = "owhisper-config" }
 owhisper-interface = { path = "crates/owhisper-interface", package = "owhisper-interface" }
 soniox = { path = "crates/soniox", package = "soniox" }
 
