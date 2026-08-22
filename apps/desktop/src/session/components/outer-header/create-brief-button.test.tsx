@@ -43,8 +43,10 @@ describe("CreateBriefButton", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Create brief" }));
+    const button = screen.getByRole("button", { name: "Create brief" });
+    fireEvent.click(button);
 
+    expect(button.className).not.toContain("ml-1");
     expect(mocks.createBrief).toHaveBeenCalledOnce();
   });
 

@@ -135,6 +135,33 @@ describe("useCreatePreMeetingBrief", () => {
     expect(result.current.visible).toBe(false);
   });
 
+  it("hides after the memo has content and returns when the memo is cleared", () => {
+    const { result, rerender } = renderHook(
+      () =>
+        useCreatePreMeetingBrief({
+          sessionId: "current",
+          sessionMode: "inactive",
+          isMemoView: true,
+          onSwitchToMemos: () => {},
+          getMemoEditor: () => null,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.visible).toBe(true);
+
+    mocks.rawMd = "## Brief\n\nAda will share the prototype.";
+    rerender();
+    expect(result.current.visible).toBe(false);
+
+    mocks.rawMd = JSON.stringify({
+      type: "doc",
+      content: [{ type: "paragraph" }],
+    });
+    rerender();
+    expect(result.current.visible).toBe(true);
+  });
+
   it("writes the generated brief into the memo editor", async () => {
     const replaceContent = vi.fn();
     const flushPendingChanges = vi.fn();

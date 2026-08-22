@@ -9,6 +9,7 @@ import { useLanguageModel } from "~/ai/hooks";
 import { useNow } from "~/calendar/hooks";
 import { useSessionCalendarEvent } from "~/calendar/queries";
 import { getStoredNoteMarkdown } from "~/session/components/note-input/header-shared";
+import { hasStoredNoteContent } from "~/session/components/shared";
 import { usePastSessionNotes } from "~/session/insights/past-notes";
 import {
   canCreatePreMeetingBrief,
@@ -49,9 +50,11 @@ export function useCreatePreMeetingBrief({
     enabled: enabled && upcoming,
   });
   const session = useSession(sessionId);
-  const visible =
+  const memoEmpty = !hasStoredNoteContent(session?.raw_md);
+  const available =
     enabled &&
     Boolean(model) &&
+    memoEmpty &&
     canCreatePreMeetingBrief({
       event,
       nowMs: now.getTime(),
@@ -123,15 +126,15 @@ export function useCreatePreMeetingBrief({
   });
 
   const createBrief = useCallback(() => {
-    if (!visible || isPending) {
+    if (!available || isPending) {
       return;
     }
 
     mutate();
-  }, [isPending, mutate, visible]);
+  }, [available, isPending, mutate]);
 
   return {
-    visible,
+    visible: available || isPending,
     isGenerating: isPending,
     createBrief,
   };

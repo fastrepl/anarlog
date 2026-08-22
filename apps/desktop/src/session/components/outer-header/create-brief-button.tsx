@@ -46,7 +46,7 @@ export function CreateBriefButton({
       disabled={isGenerating}
       onClick={createBrief}
       className={cn([
-        "ml-1 flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border px-2",
+        "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border px-2",
         "text-sm font-medium",
         "border-border bg-card text-foreground",
         "transition-colors",

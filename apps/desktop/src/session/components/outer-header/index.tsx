@@ -72,7 +72,7 @@ export function OuterHeader({
     <div
       data-tauri-drag-region
       className={cn([
-        "relative flex w-full items-center",
+        "relative flex w-full items-center gap-[2px]",
         "h-12",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         !standaloneWindow && leftsidebar.expanded && "pl-2",
