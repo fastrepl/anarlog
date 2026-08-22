@@ -522,6 +522,7 @@ describe("OuterHeader", () => {
     expect(joinButton.className).toContain("dark:text-black");
     expect(joinButton.className).toContain("hover:bg-primary/90");
     expect(joinButton.className).toContain("dark:hover:bg-white/90");
+    expect(joinButton.querySelector("img")?.className).toContain("size-3.5");
     expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
     expect(joinButton.textContent).toContain("Join & record");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
@@ -559,6 +560,7 @@ describe("OuterHeader", () => {
 
     expect(logo?.getAttribute("src")).toBe("/assets/anarlog-icon.png");
     expect(logo?.getAttribute("alt")).toBe("");
+    expect(logo?.className).toContain("size-3.5");
     expect(mocks.startListening).toHaveBeenCalledOnce();
     await vi.waitFor(() => {
       expect(mocks.startCallbackServer).toHaveBeenCalledWith("anarlog-dev");
@@ -870,8 +872,11 @@ describe("OuterHeader", () => {
 
     const recordButton = screen.getByRole("button", { name: "Record" });
 
-    expect(recordButton.className).toContain("bg-card");
-    expect(recordButton.className).not.toContain("bg-primary");
+    expect(recordButton.className).toContain("bg-primary");
+    expect(recordButton.className).toContain("dark:bg-white");
+    expect(recordButton.className).toContain("dark:text-black");
+    expect(recordButton.className).toContain("hover:bg-primary/90");
+    expect(recordButton.className).toContain("dark:hover:bg-white/90");
     expect(recordButton.querySelector("span")?.className).not.toContain(
       "@max-[480px]:sr-only",
     );

@@ -302,7 +302,11 @@ function HeaderMeetingActionPill({
         label: t`Join & record`,
         title: t`Join meeting and record`,
         icon: isWelcomeDemo ? (
-          <img src="/assets/anarlog-icon.png" alt="" className="size-4" />
+          <img
+            src="/assets/anarlog-icon.png"
+            alt=""
+            className="size-3.5 shrink-0"
+          />
         ) : remote ? (
           getMeetingDisplay(remote.type).icon
         ) : undefined,
@@ -320,7 +324,7 @@ function HeaderMeetingActionPill({
     };
   })();
   const disabled = sessionMode === "finalizing" || joiningMeeting;
-  const isJoinAction = canJoinFromHeader && sessionMode === "inactive";
+  const isPrimaryCta = sessionMode === "inactive";
   const showCountdown =
     Boolean(countdown.label) &&
     sessionMode !== "active" &&
@@ -344,14 +348,14 @@ function HeaderMeetingActionPill({
             disabled={disabled}
             onClick={action.onClick}
             className={cn([
-              "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border px-1.5",
+              "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border pr-2.5 pl-1.5",
               "text-sm font-medium",
               "transition-colors",
-              isJoinAction
+              isPrimaryCta
                 ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
                 : "border-border bg-card text-foreground",
               !disabled &&
-                (isJoinAction
+                (isPrimaryCta
                   ? "hover:bg-primary/90 dark:hover:bg-white/90"
                   : "hover:bg-accent"),
               disabled && "cursor-default opacity-60",
@@ -402,34 +406,48 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
     case "zoom":
       return {
         name: "Zoom",
-        icon: <img src="/assets/zoom-icon.svg" alt="" width={18} height={18} />,
+        icon: (
+          <img
+            src="/assets/zoom-icon.svg"
+            alt=""
+            className="size-3.5 shrink-0"
+          />
+        ),
       };
     case "google-meet":
       return {
         name: "Meet",
         icon: (
-          <img src="/assets/google-meet.svg" alt="" width={18} height={18} />
+          <img
+            src="/assets/google-meet.svg"
+            alt=""
+            className="size-3.5 shrink-0"
+          />
         ),
       };
     case "webex":
       return {
         name: "Webex",
-        icon: <img src="/assets/webex.png" alt="" width={18} height={18} />,
+        icon: (
+          <img src="/assets/webex.png" alt="" className="size-3.5 shrink-0" />
+        ),
       };
     case "teams":
       return {
         name: "Teams",
-        icon: <img src="/assets/teams.png" alt="" width={18} height={18} />,
+        icon: (
+          <img src="/assets/teams.png" alt="" className="size-3.5 shrink-0" />
+        ),
       };
     case "cal-com":
       return {
         name: "Cal.com",
-        icon: <VideoCamera size={18} />,
+        icon: <VideoCamera className="size-3.5 shrink-0" />,
       };
     default:
       return {
         name: "Meeting",
-        icon: <Headset size={18} />,
+        icon: <Headset className="size-3.5 shrink-0" />,
       };
   }
 }
