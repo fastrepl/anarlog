@@ -1,3 +1,15 @@
+export function getNangoAuthErrorType(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "type" in error &&
+    typeof error.type === "string"
+  ) {
+    return error.type;
+  }
+  return "unknown_error";
+}
+
 export function getConnectionErrorMessage(
   errorType: string,
   providerName: string,

@@ -1,7 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getConnectionErrorMessage } from "./integration-connection-error.ts";
+import {
+  getConnectionErrorMessage,
+  getNangoAuthErrorType,
+} from "./integration-connection-error.ts";
+
+test("reads Nango AuthError types and falls back for unknown values", () => {
+  assert.equal(
+    getNangoAuthErrorType({ type: "blocked_by_browser" }),
+    "blocked_by_browser",
+  );
+  assert.equal(getNangoAuthErrorType(new Error("nope")), "unknown_error");
+  assert.equal(getNangoAuthErrorType("window_closed"), "unknown_error");
+});
 
 test("explains Google’s blocked-app page when Calendar connect is closed", () => {
   assert.match(

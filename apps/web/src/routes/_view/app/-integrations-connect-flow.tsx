@@ -1,4 +1,5 @@
 import Nango, { type ConnectUI } from "@nangohq/frontend";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
@@ -10,7 +11,11 @@ import { getAccessToken } from "@/functions/access-token";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { captureOperationalError } from "@/lib/error-reporting";
-import { getConnectionErrorMessage } from "@/lib/integration-connection-error";
+import {
+  getConnectionErrorMessage,
+  getNangoAuthErrorType,
+} from "@/lib/integration-connection-error";
+import { usesHeadlessOAuth } from "@/lib/integration-headless-auth";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -22,7 +27,7 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
   const isGoogleCalendar = search.integration_id === "google-calendar";
   const isOutlookCalendar = search.integration_id === "outlook";
   const isConnectedCalendar = isGoogleCalendar || isOutlookCalendar;
-  const [nango] = useState(() => new Nango());
+  const skipConnectUI = usesHeadlessOAuth(search.integration_id);
   const [status, setStatus] = useState<
     "idle" | "loading" | "connecting" | "success" | "error"
   >("idle");
@@ -30,11 +35,50 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
     "idle" | "loading" | "connecting" | "success" | "error"
   >("idle");
   const inFlightRef = useRef(false);
+  const nangoRef = useRef<Nango | null>(null);
   const connectUIRef = useRef<ConnectUI | null>(null);
   const disposedRef = useRef(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const display = getIntegrationDisplay(search.integration_id);
+
+  const sessionQuery = useQuery({
+    queryKey: [
+      "nango-connect-session",
+      search.integration_id,
+      search.action,
+      search.connection_id ?? "",
+    ],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      const apiClient = createClient({
+        baseUrl: env.VITE_API_URL,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const { data, error } = await createSession({
+        client: apiClient,
+        body: {
+          integration_id: search.integration_id,
+          mode: search.action as "connect" | "reconnect",
+          connection_id: search.connection_id,
+        },
+      });
+      if (error || !data) {
+        throw error ?? new Error("Integration session was not created");
+      }
+      return data;
+    },
+    enabled: !sessionToken,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  const connectSessionToken = sessionToken ?? sessionQuery.data?.token;
+  const sessionFailed = !sessionToken && sessionQuery.isError;
+  const sessionLoading =
+    !sessionToken && (sessionQuery.isPending || sessionQuery.isFetching);
 
   const updateStatus = (
     nextStatus: "idle" | "loading" | "connecting" | "success" | "error",
@@ -43,81 +87,109 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
     setStatus(nextStatus);
   };
 
-  const handleConnect = async () => {
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-    setConnectionError(null);
-    updateStatus("loading");
-    track("integration_connection_started", {
+  const finishWithSessionError = () => {
+    if (disposedRef.current) return;
+    captureOperationalError(
+      sessionQuery.error ?? new Error("Integration session was not created"),
+      {
+        operation: "integration_connection_session",
+        tags: {
+          integration: search.integration_id,
+          mode: search.action,
+        },
+      },
+    );
+    inFlightRef.current = false;
+    updateStatus("error");
+    track("integration_connection_failed", {
+      integration: search.integration_id,
+      mode: search.action,
+      flow: search.flow,
+      failure_stage: "session",
+    });
+  };
+
+  const finishWithAuthError = (error: unknown) => {
+    if (disposedRef.current) return;
+    const errorType = getNangoAuthErrorType(error);
+    captureOperationalError(
+      error instanceof Error
+        ? error
+        : new Error("Integration authorization failed"),
+      {
+        operation: "integration_connection_authorization",
+        tags: {
+          integration: search.integration_id,
+          mode: search.action,
+          error_type: errorType,
+        },
+      },
+    );
+    inFlightRef.current = false;
+    setConnectionError(
+      getConnectionErrorMessage(errorType, display.name, search.integration_id),
+    );
+    updateStatus("error");
+    connectUIRef.current?.close();
+    track("integration_connection_failed", {
+      integration: search.integration_id,
+      mode: search.action,
+      flow: search.flow,
+      failure_stage: "authorization",
+      error_type: errorType,
+    });
+    if (!sessionToken) {
+      void sessionQuery.refetch();
+    }
+  };
+
+  const finishWithSuccess = () => {
+    if (disposedRef.current) return;
+    inFlightRef.current = false;
+    updateStatus("success");
+    track("integration_connection_succeeded", {
       integration: search.integration_id,
       mode: search.action,
       flow: search.flow,
     });
-
-    let connectSessionToken = sessionToken;
-
-    if (!connectSessionToken) {
-      try {
-        const token = await getAccessToken();
-        const apiClient = createClient({
-          baseUrl: env.VITE_API_URL,
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        const { data, error } = await createSession({
-          client: apiClient,
-          body: {
+    const callbackSearch =
+      search.flow === "desktop"
+        ? {
             integration_id: search.integration_id,
-            mode: search.action as "connect" | "reconnect",
-            connection_id: search.connection_id,
-          },
-        });
-        if (error || !data) {
-          captureOperationalError(
-            error ?? new Error("Integration session was not created"),
-            {
-              operation: "integration_connection_session",
-              tags: {
-                integration: search.integration_id,
-                mode: search.action,
-              },
-            },
-          );
-          inFlightRef.current = false;
-          updateStatus("error");
-          track("integration_connection_failed", {
-            integration: search.integration_id,
-            mode: search.action,
-            flow: search.flow,
-            failure_stage: "session",
-          });
-          return;
-        }
-        connectSessionToken = data.token;
-      } catch (error) {
-        captureOperationalError(error, {
-          operation: "integration_connection_session",
-          tags: {
-            integration: search.integration_id,
-            mode: search.action,
-          },
-        });
-        inFlightRef.current = false;
-        updateStatus("error");
-        track("integration_connection_failed", {
-          integration: search.integration_id,
-          mode: search.action,
-          flow: search.flow,
-          failure_stage: "session",
-        });
-        return;
-      }
-    }
+            status: "success" as const,
+            flow: "desktop" as const,
+            scheme: search.scheme,
+            return_to: search.return_to,
+          }
+        : {
+            integration_id: search.integration_id,
+            status: "success" as const,
+            flow: "web" as const,
+            return_to: search.return_to,
+          };
+    void navigate({
+      to: "/callback/integration/",
+      search: callbackSearch,
+    });
+  };
 
-    if (disposedRef.current) return;
+  const startHeadlessAuth = (token: string) => {
+    // nango.auth() opens the popup synchronously. Do not await before this
+    // call or browsers will block the provider window.
+    const nango = new Nango({ connectSessionToken: token });
+    nangoRef.current = nango;
+    const options = { detectClosedAuthWindow: true };
+    const auth = search.connection_id
+      ? nango.auth(search.integration_id, search.connection_id, options)
+      : nango.auth(search.integration_id, options);
 
     updateStatus("connecting");
+    void auth.then(finishWithSuccess).catch(finishWithAuthError);
+  };
 
+  const startConnectUI = (token: string) => {
+    const nango = new Nango();
+    nangoRef.current = nango;
     const connect = nango.openConnectUI({
       detectClosedAuthWindow: true,
       onEvent: (event) => {
@@ -136,87 +208,55 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
             });
           }
         } else if (event.type === "error") {
-          const { errorType } = event.payload;
-          captureOperationalError(
-            new Error("Integration authorization failed"),
-            {
-              operation: "integration_connection_authorization",
-              tags: {
-                integration: search.integration_id,
-                mode: search.action,
-                error_type: errorType,
-              },
-            },
-          );
-          inFlightRef.current = false;
-          setConnectionError(
-            getConnectionErrorMessage(
-              errorType,
-              display.name,
-              search.integration_id,
-            ),
-          );
-          updateStatus("error");
-          connectUIRef.current?.close();
-          track("integration_connection_failed", {
-            integration: search.integration_id,
-            mode: search.action,
-            flow: search.flow,
-            failure_stage: "authorization",
-            error_type: errorType,
-          });
+          finishWithAuthError({ type: event.payload.errorType });
         } else if (event.type === "connect") {
-          inFlightRef.current = false;
-          updateStatus("success");
-          track("integration_connection_succeeded", {
-            integration: search.integration_id,
-            mode: search.action,
-            flow: search.flow,
-          });
-          const callbackSearch =
-            search.flow === "desktop"
-              ? {
-                  integration_id: search.integration_id,
-                  status: "success" as const,
-                  flow: "desktop" as const,
-                  scheme: search.scheme,
-                  return_to: search.return_to,
-                }
-              : {
-                  integration_id: search.integration_id,
-                  status: "success" as const,
-                  flow: "web" as const,
-                  return_to: search.return_to,
-                };
-          void navigate({
-            to: "/callback/integration/",
-            search: callbackSearch,
-          });
+          finishWithSuccess();
         }
       },
     });
 
     connectUIRef.current = connect;
-    connect.setSessionToken(connectSessionToken);
+    updateStatus("connecting");
+    connect.setSessionToken(token);
   };
 
-  // Nango's Connect UI repeats the connect prompt, so only calendars (which
-  // must show the OAuth data-use disclosure first) wait for a manual click.
-  // The Connect UI lives outside the React tree, so unmount must close it and
-  // stop in-flight session work from opening one on a stale view.
+  const handleConnect = () => {
+    if (inFlightRef.current) return;
+    if (sessionLoading) return;
+    if (sessionFailed || !connectSessionToken) {
+      finishWithSessionError();
+      return;
+    }
+
+    inFlightRef.current = true;
+    setConnectionError(null);
+    updateStatus("loading");
+    track("integration_connection_started", {
+      integration: search.integration_id,
+      mode: search.action,
+      flow: search.flow,
+    });
+
+    if (skipConnectUI) {
+      startHeadlessAuth(connectSessionToken);
+      return;
+    }
+
+    startConnectUI(connectSessionToken);
+  };
+
   useMountEffect(() => {
     disposedRef.current = false;
-    if (!isConnectedCalendar) {
-      void handleConnect();
-    }
     return () => {
       disposedRef.current = true;
+      nangoRef.current?.clear();
+      nangoRef.current = null;
       connectUIRef.current?.close();
       connectUIRef.current = null;
     };
   });
 
-  const isLoading = status === "loading";
+  const isLoading = status === "loading" || sessionLoading;
   const isConnecting = status === "connecting";
   const consentProvider = isGoogleCalendar ? "Google" : "Microsoft";
 
@@ -271,9 +311,12 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
         </div>
       )}
 
-      {(status === "idle" || isLoading) && (
-        <IntegrationButton onClick={handleConnect} disabled={isLoading}>
-          {isLoading && (
+      {!sessionFailed && (status === "idle" || isLoading) && (
+        <IntegrationButton
+          onClick={handleConnect}
+          disabled={isLoading || !connectSessionToken}
+        >
+          {(status === "loading" || sessionLoading) && (
             <svg
               className="h-4 w-4 animate-spin text-white"
               xmlns="http://www.w3.org/2000/svg"
@@ -295,7 +338,7 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
               />
             </svg>
           )}
-          {isLoading
+          {status === "loading"
             ? "Connecting…"
             : isConnectedCalendar
               ? `Continue to ${consentProvider}`
@@ -303,12 +346,23 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
         </IntegrationButton>
       )}
 
-      {status === "error" && (
+      {(status === "error" || (sessionFailed && status === "idle")) && (
         <div className="flex flex-col gap-4">
           <p className="text-red-600">
             {connectionError ?? "Something went wrong. Please try again."}
           </p>
-          <IntegrationButton onClick={handleConnect}>
+          <IntegrationButton
+            disabled={sessionQuery.isFetching}
+            onClick={() => {
+              setConnectionError(null);
+              updateStatus("idle");
+              if (sessionFailed) {
+                void sessionQuery.refetch();
+                return;
+              }
+              handleConnect();
+            }}
+          >
             Try again
           </IntegrationButton>
         </div>
