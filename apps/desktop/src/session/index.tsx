@@ -267,9 +267,8 @@ function TabContentNoteInner({
       createEditorTabs({
         enhancedNoteIds,
         canShowTranscript,
-        isLiveSessionActive,
       }),
-    [enhancedNoteIds, canShowTranscript, isLiveSessionActive],
+    [enhancedNoteIds, canShowTranscript],
   );
   const currentView = React.useMemo(() => {
     return computeCurrentNoteTab(
@@ -321,6 +320,7 @@ function TabContentNoteInner({
             <OuterHeader
               sessionId={sessionId}
               currentView={currentView}
+              tab={tab}
               standaloneWindow={standaloneWindow}
               transcriptEditMode={transcriptEditMode}
               onTranscriptEditModeChange={handleTranscriptEditModeChange}
@@ -436,7 +436,14 @@ function useAutoFocusTitle({
     if (autoFocusedSessionRef.current === sessionId) return;
 
     if (!title) {
-      noteInputRef.current?.focusAtStart();
+      const titleInput = document.querySelector<HTMLInputElement>(
+        `input[data-session-title-input][id^="title-input-${sessionId}-"]`,
+      );
+      if (titleInput) {
+        titleInput.focus();
+      } else {
+        noteInputRef.current?.focusAtStart();
+      }
       autoFocusedSessionRef.current = sessionId;
     }
   }, [enabled, sessionId, title]);

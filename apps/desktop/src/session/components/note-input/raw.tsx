@@ -14,6 +14,7 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { cn } from "@anlg/utils";
 
 import { AudioDropTarget } from "./audio-drop-target";
+import { CreateBriefSuggestion } from "./create-brief-suggestion";
 import { useNoteFileHandlerConfig } from "./file-handler";
 import { MeetingChatHighlights } from "./meeting-chat-highlights";
 
@@ -28,8 +29,10 @@ import { SessionNodeView } from "~/editor-bridge/session-view";
 import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
 import { useCanShowTranscript } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
+import { useCreatePreMeetingBrief } from "~/session/hooks/useCreatePreMeetingBrief";
 import { useUpdateSession } from "~/session/queries";
 import { removeDocumentTitle } from "~/session/title-content";
+import { useListener } from "~/stt/contexts";
 import {
   TemplateIconGlyph,
   type UserTemplate,
@@ -39,6 +42,7 @@ import {
 } from "~/templates";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
+const noop = () => {};
 const defaultSuggestedTemplateIds = [
   "default-project-kickoff",
   "default-daily-standup",
@@ -200,6 +204,34 @@ export const RawEditor = forwardRef<
       [sessionId],
     );
 
+    const getMemoBriefEditor = useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) {
+        return null;
+      }
+      return {
+        replaceContent: (content: JSONContent) => {
+          editor.commands.replaceContent(content);
+        },
+        flushPendingChanges: () => {
+          editor.flushPendingChanges();
+        },
+      };
+    }, []);
+    const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+    const {
+      visible: briefVisible,
+      isGenerating,
+      createBrief,
+    } = useCreatePreMeetingBrief({
+      sessionId,
+      sessionMode,
+      isMemoView: true,
+      isMemoEmpty,
+      onSwitchToMemos: noop,
+      getMemoEditor: getMemoBriefEditor,
+    });
+
     const handleApplyTemplate = useCallback((template: UserTemplate) => {
       const content = template.sections.flatMap((section) => {
         const title = section.title.trim();
@@ -242,7 +274,10 @@ export const RawEditor = forwardRef<
           : undefined,
       [syncTasks, sessionId],
     );
-    const placeholderComponent = useMemo(() => () => t`Start writing...`, [t]);
+    const placeholderComponent = useMemo(
+      () => () => (isGenerating ? t`Creating brief...` : t`Start writing...`),
+      [isGenerating, t],
+    );
     return (
       <AudioDropTarget
         targetProps={audioDropTargetProps}
@@ -259,6 +294,7 @@ export const RawEditor = forwardRef<
               handleChange={handleChange}
               onDocumentChange={handleDocumentChange}
               placeholderComponent={placeholderComponent}
+              readOnly={isGenerating}
               mentionConfig={mentionConfig}
               sessionMentionDropConfig={sessionMentionDropConfig}
               onNavigateToTitle={onNavigateToTitle}
@@ -278,13 +314,20 @@ export const RawEditor = forwardRef<
                 onViewDisposed?.(view);
               }}
             />
-            {isMemoEmpty && audioExistsResolved && !canShowTranscript ? (
-              <TemplateEmptyState
-                sessionId={sessionId}
-                eventTitle={eventTitle ?? sessionTitle}
-                eventDescription={eventDescription}
-                onApply={handleApplyTemplate}
-              />
+            {isMemoEmpty && !isGenerating ? (
+              <div className="pointer-events-none absolute inset-x-0 top-8 z-10 flex flex-col">
+                {briefVisible ? (
+                  <CreateBriefSuggestion onCreate={createBrief} />
+                ) : null}
+                {audioExistsResolved && !canShowTranscript ? (
+                  <TemplateEmptyState
+                    sessionId={sessionId}
+                    eventTitle={eventTitle ?? sessionTitle}
+                    eventDescription={eventDescription}
+                    onApply={handleApplyTemplate}
+                  />
+                ) : null}
+              </div>
             ) : null}
           </div>
           <MeetingChatHighlights sessionId={sessionId} />
@@ -415,7 +458,7 @@ function TemplateEmptyState({
   }, [createTemplate, openTemplatesTab]);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex flex-col">
+    <>
       <TemplateSection
         label={t`Start with a favorite template`}
         templates={favoriteTemplates}
@@ -437,7 +480,7 @@ function TemplateEmptyState({
         <Plus aria-hidden className="size-4" />
         <span className="text-sm font-medium">{t`New template`}</span>
       </button>
-    </div>
+    </>
   );
 }
 

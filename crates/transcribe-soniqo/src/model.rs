@@ -100,7 +100,7 @@ impl SoniqoModel {
     pub const fn repo(self) -> &'static str {
         match self {
             Self::ParakeetStreaming => "aufklarer/Parakeet-EOU-120M-CoreML-INT8",
-            Self::ParakeetBatch => "aufklarer/Parakeet-TDT-v3-CoreML-INT8",
+            Self::ParakeetBatch => "aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s",
             Self::Omnilingual => "aufklarer/Omnilingual-ASR-CTC-300M-CoreML-INT8-10s",
             Self::Qwen3Small => "aufklarer/Qwen3-ASR-0.6B-MLX-4bit",
             Self::Qwen3Large => "aufklarer/Qwen3-ASR-1.7B-MLX-8bit",
@@ -176,6 +176,15 @@ impl SoniqoModel {
             .iter()
             .all(|language| self.supports_language(language))
     }
+
+    fn matches_identifier(self, value: &str) -> bool {
+        value == self.as_str()
+            || value == self.repo()
+            || matches!(
+                (self, value),
+                (Self::ParakeetBatch, "aufklarer/Parakeet-TDT-v3-CoreML-INT8")
+            )
+    }
 }
 
 impl std::fmt::Display for SoniqoModel {
@@ -191,7 +200,7 @@ impl FromStr for SoniqoModel {
         Self::KNOWN
             .iter()
             .copied()
-            .find(|model| value == model.as_str() || value == model.repo())
+            .find(|model| model.matches_identifier(value))
             .ok_or_else(|| Error::UnsupportedModel(value.to_string()))
     }
 }

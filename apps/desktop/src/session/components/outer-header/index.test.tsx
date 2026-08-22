@@ -63,6 +63,10 @@ vi.mock("./metadata", () => ({
   ),
 }));
 
+vi.mock("./create-brief-button", () => ({
+  CreateBriefButton: () => null,
+}));
+
 vi.mock("./overflow", () => ({
   OverflowButton: (props: {
     allowListening?: boolean;
@@ -265,7 +269,7 @@ describe("OuterHeader", () => {
     const header = container.firstElementChild;
     const spacer = header?.firstElementChild;
 
-    expect(header?.className).toContain("pl-[156px]");
+    expect(header?.className).toContain("pl-[116px]");
     expect(header?.className).toContain("h-12");
     expect(header?.className).not.toContain("pb-1");
     expect(spacer?.className).toContain("flex-1");
@@ -287,8 +291,8 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(container.firstElementChild?.className).toContain("pl-[80px]");
-    expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
+    expect(container.firstElementChild?.className).toContain("pl-[40px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
     expect(container.firstElementChild?.className).not.toContain("pl-2");
   });
 
@@ -309,7 +313,7 @@ describe("OuterHeader", () => {
     expect(spacer?.className).not.toContain("justify-center");
     expect(container.firstElementChild?.className).toContain("pl-2");
     expect(container.firstElementChild?.className).not.toContain("pl-[114px]");
-    expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
   });
 
   it.each([
@@ -346,7 +350,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
     expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[156px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
   });
 
   it("keeps the session header at 48px tall", () => {
@@ -416,7 +420,38 @@ describe("OuterHeader", () => {
     ).toBeLessThan(actionChildren.findIndex((child) => child.contains(share)));
   });
 
-  it("keeps the dedicated stop button hidden while the sidebar is expanded", () => {
+  it("places stop immediately before the folder while listening", () => {
+    mocks.sessionModes = { "session-1": "active" };
+
+    const { container } = render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        viewSwitcher={
+          <div role="group" aria-label="Session note views">
+            Tabs
+          </div>
+        }
+      />,
+    );
+
+    const stop = screen.getByRole("button", { name: "Stop" });
+    const folder = screen.getByRole("combobox", { name: "Select folder" });
+    const actionStrip = container.firstElementChild?.lastElementChild;
+    const actionChildren = [...(actionStrip?.children ?? [])];
+    const stopIndex = actionChildren.findIndex((child) => child.contains(stop));
+    const folderIndex = actionChildren.findIndex((child) =>
+      child.contains(folder),
+    );
+
+    expect(actionStrip?.contains(stop)).toBe(true);
+    expect(stopIndex).toBe(folderIndex - 1);
+    expect(screen.getByRole("group", { name: "Session note views" })).not.toBe(
+      stop.closest("[role='group']"),
+    );
+  });
+
+  it("keeps the dedicated stop button visible while the sidebar is expanded", () => {
     mocks.sessionModes = { "session-1": "active" };
 
     render(
@@ -426,10 +461,10 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
   });
 
-  it("does not show a separate stop button in standalone windows", () => {
+  it("shows stop next to folder in standalone windows", () => {
     mocks.leftsidebar.expanded = true;
     mocks.sessionModes = { "session-1": "active" };
 
@@ -442,15 +477,42 @@ describe("OuterHeader", () => {
     );
 
     const header = container.firstElementChild;
+    const stop = screen.getByRole("button", { name: "Stop" });
+    const folder = screen.getByRole("combobox", { name: "Select folder" });
+    const actionStrip = header?.lastElementChild;
+    const actionChildren = [...(actionStrip?.children ?? [])];
 
     expect(header?.className).toContain("pl-[76px]");
     expect(header?.className).not.toContain("right-[153px]");
-    expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
+    expect(
+      actionChildren.findIndex((child) => child.contains(stop)),
+    ).toBeLessThan(actionChildren.findIndex((child) => child.contains(folder)));
 
     const overflowProps = mocks.overflowProps[mocks.overflowProps.length - 1];
     expect(overflowProps?.standaloneWindow).toBe(true);
     expect(overflowProps?.allowListening).toBeUndefined();
     expect(mocks.shareSessionIds).toContain("session-1");
+  });
+
+  it("delegates live meeting stop from the header pill in standalone windows", () => {
+    mocks.sessionModes = { "session-1": "active" };
+    mocks.isMainWebviewWindow = false;
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        standaloneWindow
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+
+    expect(mocks.requestMainListenerControl).toHaveBeenCalledWith(
+      "stop",
+      "session-1",
+    );
+    expect(mocks.stopListening).not.toHaveBeenCalled();
   });
 
   it("does not reserve collapsed sidebar gutter in standalone windows", () => {
@@ -466,7 +528,7 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
 
-    expect(header?.className).not.toContain("pl-[156px]");
+    expect(header?.className).not.toContain("pl-[116px]");
     expect(header?.className).toContain("pl-[76px]");
   });
 
@@ -522,6 +584,7 @@ describe("OuterHeader", () => {
     expect(joinButton.className).toContain("dark:text-black");
     expect(joinButton.className).toContain("hover:bg-primary/90");
     expect(joinButton.className).toContain("dark:hover:bg-white/90");
+    expect(joinButton.querySelector("img")?.className).toContain("size-3.5");
     expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
     expect(joinButton.textContent).toContain("Join & record");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
@@ -559,6 +622,7 @@ describe("OuterHeader", () => {
 
     expect(logo?.getAttribute("src")).toBe("/assets/anarlog-icon.png");
     expect(logo?.getAttribute("alt")).toBe("");
+    expect(logo?.className).toContain("size-3.5");
     expect(mocks.startListening).toHaveBeenCalledOnce();
     await vi.waitFor(() => {
       expect(mocks.startCallbackServer).toHaveBeenCalledWith("anarlog-dev");
@@ -870,8 +934,11 @@ describe("OuterHeader", () => {
 
     const recordButton = screen.getByRole("button", { name: "Record" });
 
-    expect(recordButton.className).toContain("bg-card");
-    expect(recordButton.className).not.toContain("bg-primary");
+    expect(recordButton.className).toContain("bg-primary");
+    expect(recordButton.className).toContain("dark:bg-white");
+    expect(recordButton.className).toContain("dark:text-black");
+    expect(recordButton.className).toContain("hover:bg-primary/90");
+    expect(recordButton.className).toContain("dark:hover:bg-white/90");
     expect(recordButton.querySelector("span")?.className).not.toContain(
       "@max-[480px]:sr-only",
     );
@@ -919,7 +986,7 @@ describe("OuterHeader", () => {
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
-  it("hides the separate stop pill when the view switcher owns stop", () => {
+  it("keeps the separate stop pill next to folder when the view switcher is present", () => {
     mocks.sessionModes = { "session-1": "active" };
 
     render(
@@ -930,9 +997,15 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    const stop = screen.getByRole("button", { name: "Stop" });
+    const folder = screen.getByRole("combobox", { name: "Select folder" });
+
+    expect(stop).not.toBeNull();
     expect(screen.getByText("tabs")).not.toBeNull();
     expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
+    expect(
+      stop.compareDocumentPosition(folder) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("keeps stop available for an active ad hoc session", () => {

@@ -786,6 +786,34 @@ mod tests {
         ));
     }
 
+    #[tokio::test]
+    async fn successor_supervisor_does_not_relaunch_after_interrupted_checkpoint() {
+        let first = harness(BotState::Capturing, 7, RuntimeMode::Wait, false);
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let first_outcome = first.supervisor.run(shutdown_rx).await.unwrap();
+        assert_eq!(
+            first_outcome,
+            CaptureJobSupervisorOutcome::Terminal(BotState::Failed)
+        );
+        let reason_kind = {
+            let events = first.events.lock().unwrap();
+            let CaptureEventPayload::Lifecycle(transition) = &events[0].payload else {
+                panic!("expected lifecycle event");
+            };
+            transition.reason.as_ref().unwrap().kind
+        };
+        assert_eq!(reason_kind, TerminalReasonKind::WorkerExited);
+
+        let second = harness(BotState::Failed, 8, RuntimeMode::Wait, false);
+        let (_shutdown_tx, shutdown_rx) = watch::channel(false);
+        let second_outcome = second.supervisor.run(shutdown_rx).await.unwrap();
+        assert_eq!(
+            second_outcome,
+            CaptureJobSupervisorOutcome::AlreadyTerminal(BotState::Failed)
+        );
+        assert!(second.events.lock().unwrap().is_empty());
+    }
+
     #[test]
     fn rejects_an_unsafe_renewal_configuration() {
         assert!(valid_identifier("worker-a.1"));

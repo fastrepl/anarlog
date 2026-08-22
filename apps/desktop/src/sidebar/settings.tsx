@@ -29,9 +29,9 @@ import { cn } from "@anlg/utils";
 
 import { CustomSidebarHeader } from "./custom-sidebar-header";
 
-import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { privacyMessages } from "~/settings/general/app-settings";
+import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { type SettingsTab, type TabInput, useTabs } from "~/store/zustand/tabs";
 
 type SettingsNavItem =
@@ -53,8 +53,9 @@ type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 
 export function SettingsNav() {
   const { i18n, t } = useLingui();
-  const signedIn = Boolean(useAuth().session);
   const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const workspaces = useMyWorkspacesWithMirror();
+  const hasExistingWorkspace = (workspaces.data?.length ?? 0) > 0;
   const [search, setSearch] = useState("");
   const currentTab = useTabs((state) => state.currentTab);
   const updateSettingsTabState = useTabs(
@@ -81,15 +82,12 @@ export function SettingsNav() {
       items: [
         { id: "app", label: t`General`, icon: Gear },
         { id: "account", label: t`Account`, icon: User },
-        ...(signedIn
-          ? [
-              {
-                id: "team" as const,
-                label: t`Team`,
-                icon: UsersThree,
-              },
-            ]
-          : []),
+        {
+          id: "team",
+          label: t`Team`,
+          icon: UsersThree,
+          requiresPro: !workspaces.isLoading && !hasExistingWorkspace,
+        },
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },
       ],

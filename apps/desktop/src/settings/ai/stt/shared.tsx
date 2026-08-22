@@ -271,6 +271,14 @@ export function displayModelLabel(model: string, displayName?: string) {
   return displayName ?? displayModelId(model);
 }
 
+export function formatDownloadProgress(progress?: number | null) {
+  if (progress == null || progress <= 0) {
+    return null;
+  }
+
+  return `${Math.round(progress)}%`;
+}
+
 export function formatModelSize(sizeBytes?: number | null) {
   if (!sizeBytes) {
     return null;

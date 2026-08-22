@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { displayModelLabel, PROVIDERS } from "./shared";
+import { displayModelLabel, formatDownloadProgress, PROVIDERS } from "./shared";
 
 describe("STT providers", () => {
   test("orders providers by popularity", () => {
@@ -130,5 +130,12 @@ describe("STT model display labels", () => {
     expect(displayModelLabel("apple-speech")).toBe("Apple Speech");
     expect(displayModelLabel("soniqo-parakeet-batch")).toBe("Parakeet Batch");
     expect(displayModelLabel("soniqo-omnilingual")).toBe("Omnilingual ASR");
+  });
+
+  test("hides unknown or zero download percent", () => {
+    expect(formatDownloadProgress(null)).toBeNull();
+    expect(formatDownloadProgress(0)).toBeNull();
+    expect(formatDownloadProgress(12.4)).toBe("12%");
+    expect(formatDownloadProgress(100)).toBe("100%");
   });
 });

@@ -83,7 +83,7 @@ export function createToastRegistry({
       toast: {
         id: "downloading-model",
         description: downloadTitle,
-        lifecycle: { type: "condition-bound" },
+        lifecycle: { type: "persistent", dismissal: "session" },
         loading: true,
       },
       condition: () => hasActiveDownload,
@@ -237,7 +237,7 @@ export function createDesktopUpdateToast(
     return {
       id: `${id}:downloading`,
       description: t`Downloading Anarlog ${update.version}${progress}`,
-      lifecycle: { type: "condition-bound" },
+      lifecycle: { type: "persistent", dismissal: "session" },
       loading: true,
     };
   }
@@ -322,7 +322,7 @@ export function createDevtoolsToastPreview({
       return {
         id: "devtools-downloading-model",
         description: t`Downloading model`,
-        lifecycle: { type: "condition-bound" },
+        lifecycle: { type: "persistent", dismissal: "session" },
         loading: true,
       };
     case "pro":

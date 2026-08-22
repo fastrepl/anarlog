@@ -52,6 +52,14 @@ fn session_locale_requires_a_system_settings_language() {
 
         // No requested language falls back to the primary System Settings language.
         assert_eq!(resolve_session_locale(&[]).as_deref(), Some(first.as_str()));
+        assert_eq!(settings_locale().unwrap(), *first);
+    }
+}
+
+#[test]
+fn settings_locale_requires_macos_system_languages() {
+    if !cfg!(target_os = "macos") {
+        assert!(matches!(settings_locale(), Err(Error::UnsupportedPlatform)));
     }
 }
 
