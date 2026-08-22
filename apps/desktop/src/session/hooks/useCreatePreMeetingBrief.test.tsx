@@ -1,6 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PastSessionNote } from "~/session/insights/past-notes";
@@ -81,13 +79,22 @@ vi.mock("@anlg/editor/markdown", () => ({
   md2json: (markdown: string) => ({ type: "doc", content: [{ markdown }] }),
 }));
 
+import { resetPreMeetingBriefJobs } from "./pre-meeting-brief-job";
 import { useCreatePreMeetingBrief } from "./useCreatePreMeetingBrief";
 
-function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({
-    defaultOptions: { mutations: { retry: false } },
-  });
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+function renderBriefHook(
+  overrides: Partial<Parameters<typeof useCreatePreMeetingBrief>[0]> = {},
+) {
+  return renderHook(() =>
+    useCreatePreMeetingBrief({
+      sessionId: "current",
+      sessionMode: "inactive",
+      isMemoView: true,
+      onSwitchToMemos: () => {},
+      getMemoEditor: () => null,
+      ...overrides,
+    }),
+  );
 }
 
 describe("useCreatePreMeetingBrief", () => {
@@ -126,23 +133,17 @@ describe("useCreatePreMeetingBrief", () => {
       },
     );
     mocks.updateSession.mockReset();
+    mocks.updateSession.mockResolvedValue(undefined);
     mocks.toastError.mockReset();
   });
 
-  afterEach(cleanup);
+  afterEach(() => {
+    resetPreMeetingBriefJobs();
+    cleanup();
+  });
 
   it("is available only for upcoming meetings with prior notes", () => {
-    const { result, rerender } = renderHook(
-      () =>
-        useCreatePreMeetingBrief({
-          sessionId: "current",
-          sessionMode: "inactive",
-          isMemoView: true,
-          onSwitchToMemos: () => {},
-          getMemoEditor: () => null,
-        }),
-      { wrapper },
-    );
+    const { result, rerender } = renderBriefHook();
 
     expect(result.current.visible).toBe(true);
 
@@ -155,17 +156,7 @@ describe("useCreatePreMeetingBrief", () => {
     mocks.event = null;
     mocks.title = "";
 
-    const { result, rerender } = renderHook(
-      () =>
-        useCreatePreMeetingBrief({
-          sessionId: "current",
-          sessionMode: "inactive",
-          isMemoView: true,
-          onSwitchToMemos: () => {},
-          getMemoEditor: () => null,
-        }),
-      { wrapper },
-    );
+    const { result, rerender } = renderBriefHook();
 
     expect(result.current.visible).toBe(false);
 
@@ -182,17 +173,7 @@ describe("useCreatePreMeetingBrief", () => {
   });
 
   it("hides after the memo has content and returns when the memo is cleared", () => {
-    const { result, rerender } = renderHook(
-      () =>
-        useCreatePreMeetingBrief({
-          sessionId: "current",
-          sessionMode: "inactive",
-          isMemoView: true,
-          onSwitchToMemos: () => {},
-          getMemoEditor: () => null,
-        }),
-      { wrapper },
-    );
+    const { result, rerender } = renderBriefHook();
 
     expect(result.current.visible).toBe(true);
 
@@ -213,17 +194,10 @@ describe("useCreatePreMeetingBrief", () => {
     const flushPendingChanges = vi.fn();
     const onSwitchToMemos = vi.fn();
 
-    const { result } = renderHook(
-      () =>
-        useCreatePreMeetingBrief({
-          sessionId: "current",
-          sessionMode: "inactive",
-          isMemoView: true,
-          onSwitchToMemos,
-          getMemoEditor: () => ({ replaceContent, flushPendingChanges }),
-        }),
-      { wrapper },
-    );
+    const { result } = renderBriefHook({
+      onSwitchToMemos,
+      getMemoEditor: () => ({ replaceContent, flushPendingChanges }),
+    });
 
     act(() => {
       result.current.createBrief();
@@ -234,6 +208,79 @@ describe("useCreatePreMeetingBrief", () => {
       expect(replaceContent).toHaveBeenCalledWith({
         type: "doc",
         content: [{ markdown: "## Brief" }],
+      });
+      expect(flushPendingChanges).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("persists the brief when the memo editor is not mounted", async () => {
+    const { result } = renderBriefHook();
+
+    act(() => {
+      result.current.createBrief();
+    });
+
+    await waitFor(() => {
+      expect(mocks.updateSession).toHaveBeenCalledWith("current", {
+        raw_md: JSON.stringify({
+          type: "doc",
+          content: [{ markdown: "## Brief" }],
+        }),
+      });
+    });
+  });
+
+  it("keeps generating after leaving the note and resumes in the remounted editor", async () => {
+    let releaseStream: (() => void) | undefined;
+    mocks.streamPreMeetingBrief.mockImplementation(
+      async ({ onText }: { onText?: (text: string) => void }) => {
+        onText?.("partial");
+        await new Promise<void>((resolve) => {
+          releaseStream = resolve;
+        });
+        onText?.("final");
+        return "final";
+      },
+    );
+
+    const { result, unmount } = renderBriefHook();
+
+    act(() => {
+      result.current.createBrief();
+    });
+
+    expect(result.current.isGenerating).toBe(true);
+    await waitFor(() => {
+      expect(mocks.updateSession).toHaveBeenCalledWith("current", {
+        raw_md: JSON.stringify({
+          type: "doc",
+          content: [{ markdown: "partial" }],
+        }),
+      });
+    });
+
+    unmount();
+
+    const replaceContent = vi.fn();
+    const flushPendingChanges = vi.fn();
+    const { result: otherNote } = renderBriefHook({ sessionId: "other" });
+    expect(otherNote.current.isGenerating).toBe(false);
+
+    const { result: resumed } = renderBriefHook({
+      getMemoEditor: () => ({ replaceContent, flushPendingChanges }),
+    });
+    expect(resumed.current.isGenerating).toBe(true);
+    expect(resumed.current.visible).toBe(true);
+
+    await act(async () => {
+      releaseStream?.();
+    });
+
+    await waitFor(() => {
+      expect(resumed.current.isGenerating).toBe(false);
+      expect(replaceContent).toHaveBeenCalledWith({
+        type: "doc",
+        content: [{ markdown: "final" }],
       });
       expect(flushPendingChanges).toHaveBeenCalledOnce();
     });
