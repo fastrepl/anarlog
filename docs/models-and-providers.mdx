@@ -1,0 +1,94 @@
+---
+title: "Models and providers"
+description: "See which models Anarlog uses for transcription, summaries, and chat."
+---
+
+Anarlog does not hide one model behind the whole app. It keeps two independent selections:
+
+- **Transcription** turns meeting audio into text.
+- **Intelligence** turns text into summaries, titles, and chat responses.
+
+Open **Settings → Transcription** and **Settings → Intelligence** to see the exact provider and model active on your computer. Changing one selection does not change the other.
+
+## How a meeting moves through AI
+
+| Stage | Input | Output | Controlled by |
+| --- | --- | --- | --- |
+| Capture | Microphone and computer audio | A local recording | **Settings → Meetings** |
+| Transcription | Meeting audio | Live or after-recording transcript | **Settings → Transcription** |
+| Intelligence | Transcript, memo, meeting details, and your instructions | Summary, title, or chat response | **Settings → Intelligence** |
+
+Recording, editing, and local storage do not require an AI model. A hosted Transcription provider receives audio. A hosted Intelligence provider receives the text and other context needed for that request.
+
+## Anarlog Cloud
+
+Anarlog Cloud uses managed routes. The **Cloud** and **Auto** labels let Anarlog choose a suitable upstream model and retry a compatible provider when needed.
+
+<Note>
+  The routes below describe the current implementation, not a permanently pinned model contract. Anarlog may update a managed route to improve quality, language coverage, latency, or availability. Select your own provider and model when you need a fixed model ID.
+</Note>
+
+### Cloud transcription
+
+The managed Transcription route chooses a provider from the meeting's languages and whether Anarlog needs live or after-recording transcription.
+
+- Deepgram currently resolves the route to **Nova 3** or **Nova 2**, depending on language support.
+- Soniox currently resolves it to **Soniox 5**: `stt-rt-v5` for live transcription and `stt-async-v5` after recording.
+- After-recording transcription prefers Soniox when it supports the selected languages.
+- The eligible fallback pool also includes configured routes for AssemblyAI, Gladia, ElevenLabs, Fireworks, OpenAI, Mistral, and Alibaba Cloud Model Studio.
+
+Only configured providers that support the requested mode and languages enter the route. If one returns a retryable error, Anarlog can try the next eligible provider.
+
+### Cloud Intelligence
+
+For text tasks, **Anarlog → Auto** currently routes summaries, chat, and generated titles through the `~anthropic/claude-sonnet-latest` alias on OpenRouter.
+
+The alias tracks the current Claude Sonnet release instead of pinning a dated model. OpenRouter receives the prompt and chooses an available endpoint for that model.
+
+Hosted Intelligence requests that contain audio use a separate ordered model pool:
+
+1. `google/gemini-3.1-pro-preview`
+2. `google/gemini-3.6-flash`
+3. `mistralai/voxtral-small-24b-2507`
+
+This audio-capable Intelligence route is separate from normal meeting transcription.
+
+## On-device models
+
+Built-in on-device transcription currently requires an Apple Silicon Mac. Anarlog shows only models available for your computer and release.
+
+| Model | When it runs | Notes |
+| --- | --- | --- |
+| Parakeet Streaming | During the meeting | Live transcription for 25 European languages |
+| Parakeet Batch | After recording | Speaker-labeled transcription for 25 European languages |
+| Apple Speech | During the meeting | Uses the system model and language assets built into macOS 26 |
+| Parakeet V2 | After recording | English-focused |
+| Parakeet V3 | After recording | English and European languages |
+| Whisper Large V3 | After recording | Broad multilingual coverage |
+
+If you select Parakeet Streaming and also download Parakeet Batch, Anarlog can refine speaker labels on-device after a meeting with multiple remote participants.
+
+For local summaries and chat, connect **LM Studio**, **Ollama**, or **Unsloth** and choose any compatible model they serve. Anarlog does not silently substitute another model. **Apple Intelligence** is also available as an experimental, text-only Intelligence provider on eligible Macs running macOS 26 or later.
+
+If a selected local model or server is unavailable, Anarlog reports a connection error instead of sending the request to Anarlog Cloud.
+
+## Your own provider
+
+When you configure a provider with your own API key:
+
+- Anarlog sends requests directly from the desktop app to the configured base URL.
+- The provider and exact model shown in Settings handle the request.
+- Anarlog stores the API key in your operating system's secure credential store, not in the app's SQLite database.
+- The provider's pricing, retention, and training policies apply.
+
+Anarlog supports dedicated provider integrations and OpenAI-compatible endpoints. Intelligence model lists are loaded from the provider when its API supports discovery, so **Settings → Intelligence** is the current source of truth for available model IDs.
+
+## Choose a setup
+
+| Goal | Transcription | Intelligence |
+| --- | --- | --- |
+| Keep meeting content on your computer | Download an on-device model | Use LM Studio, Ollama, Unsloth, or eligible Apple Intelligence |
+| Pin exact model IDs | Configure your own provider | Configure your own provider |
+| Minimize setup | Anarlog Cloud | Anarlog Cloud |
+
+For a fully local checklist, see [Use Anarlog offline](/offline). For the data sent by each feature, see [Data, privacy, and retention](/data-and-privacy).
