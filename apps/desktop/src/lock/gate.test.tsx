@@ -59,7 +59,8 @@ type VisibilityPayload = {
 };
 
 function getVisibilityHandler() {
-  const listener = mocks.visibilityListen.mock.calls.at(-1)?.[0] as
+  const calls = mocks.visibilityListen.mock.calls;
+  const listener = calls[calls.length - 1]?.[0] as
     | ((event: { payload: VisibilityPayload }) => void)
     | undefined;
   if (!listener) {
