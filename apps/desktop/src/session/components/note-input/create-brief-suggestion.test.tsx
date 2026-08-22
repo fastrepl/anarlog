@@ -17,13 +17,13 @@ describe("CreateBriefSuggestion", () => {
 
     render(<CreateBriefSuggestion onCreate={onCreate} />);
 
-    const heading = screen.getByText("Prepare for this meeting");
-    expect(heading.parentElement?.className).toContain("mb-6");
+    expect(screen.queryByText("Prepare for this meeting")).toBeNull();
     const button = screen.getByRole("button", {
-      name: "Want me to create a brief to help you prepare?",
+      name: "Create a brief to prepare this meeting",
     });
     expect(button.className).toContain("-ml-2");
     expect(button.className).toContain("h-8");
+    expect(button.className).toContain("mb-6");
     expect(button.className).toContain("text-muted-foreground");
     fireEvent.click(button);
 

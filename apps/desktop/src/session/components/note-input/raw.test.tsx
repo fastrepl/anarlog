@@ -687,18 +687,23 @@ describe("RawEditor", () => {
 
     render(<RawEditor sessionId="session-1" />);
 
-    expect(screen.getByText("Prepare for this meeting")).not.toBeNull();
+    expect(screen.queryByText("Prepare for this meeting")).toBeNull();
+    const briefButton = screen.getByRole("button", {
+      name: "Create a brief to prepare this meeting",
+    });
+    expect(briefButton.parentElement?.className).toContain("top-8");
+    expect(briefButton.parentElement?.className).not.toContain("top-16");
     expect(
       screen.getAllByRole("button").map((button) => button.textContent),
     ).toEqual([
-      "Want me to create a brief to help you prepare?",
+      "Create a brief to prepare this meeting",
       "Template iconProject Kickoff",
       "New template",
     ]);
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Want me to create a brief to help you prepare?",
+        name: "Create a brief to prepare this meeting",
       }),
     );
     expect(hoisted.createBrief).toHaveBeenCalledOnce();
@@ -721,7 +726,7 @@ describe("RawEditor", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Want me to create a brief to help you prepare?",
+        name: "Create a brief to prepare this meeting",
       }),
     ).not.toBeNull();
     expect(screen.queryByText("Suggested templates")).toBeNull();

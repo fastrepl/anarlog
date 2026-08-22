@@ -314,7 +314,7 @@ export const RawEditor = forwardRef<
               }}
             />
             {isMemoEmpty && !isGenerating ? (
-              <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex flex-col">
+              <div className="pointer-events-none absolute inset-x-0 top-8 z-10 flex flex-col">
                 {briefVisible ? (
                   <CreateBriefSuggestion onCreate={createBrief} />
                 ) : null}
