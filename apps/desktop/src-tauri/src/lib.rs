@@ -172,6 +172,7 @@ pub fn main() {
         .build()
         .expect("tokio runtime");
     tauri::async_runtime::set(runtime.handle().clone());
+    anlg_db_sync::set_runtime_handle(runtime.handle().clone());
 
     let context = tauri::generate_context!();
     let identifier = context.config().identifier.clone();

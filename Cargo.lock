@@ -4890,6 +4890,7 @@ dependencies = [
  "chrono",
  "db-app",
  "db-core",
+ "db-sync",
  "dirs 6.0.0",
  "host",
  "intercept",

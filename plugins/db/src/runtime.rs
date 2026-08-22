@@ -188,8 +188,22 @@ impl CloudsyncOperationCancellation<'_> {
     }
 }
 
+fn ensure_db_sync_runtime() {
+    if tokio::runtime::Handle::try_current().is_ok() {
+        return;
+    }
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    tauri::async_runtime::spawn(async move {
+        let _ = tx.send(tokio::runtime::Handle::current());
+    });
+    if let Ok(handle) = rx.recv_timeout(std::time::Duration::from_secs(2)) {
+        anlg_db_sync::set_runtime_handle(handle);
+    }
+}
+
 impl PluginDbRuntime {
     pub fn new(db: std::sync::Arc<Db>) -> Self {
+        ensure_db_sync_runtime();
         let e2ee_sync_hook = std::sync::Arc::new(E2eeSyncHook::default());
         db.set_cloudsync_sync_hook(e2ee_sync_hook.clone());
         let witness_watch = witness_watch::spawn_witness_watch(

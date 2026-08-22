@@ -14,7 +14,7 @@ pub struct ReplicaSyncTask {
 
 pub fn spawn_replica_sync(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> ReplicaSyncTask {
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    tokio::spawn(async move {
+    super::spawn_background(async move {
         loop {
             let witness_changed = hook.witness_changed.notified();
             tokio::pin!(witness_changed);

@@ -20,7 +20,7 @@ pub struct WitnessWatchTask {
 /// hook's change notifications; dropping the returned handle stops it.
 pub fn spawn_witness_watch(db: Arc<Db>, hook: Arc<E2eeSyncHook>) -> WitnessWatchTask {
     let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    tokio::spawn(async move {
+    super::spawn_background(async move {
         loop {
             let witness_changed = hook.witness_changed.notified();
             tokio::pin!(witness_changed);

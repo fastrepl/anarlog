@@ -90,6 +90,7 @@ anlg-audio-actual = { workspace = true }
 anlg-audio-mock = { workspace = true, optional = true }
 anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
+anlg-db-sync = { workspace = true }
 anlg-host = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-supervisor = { workspace = true }
