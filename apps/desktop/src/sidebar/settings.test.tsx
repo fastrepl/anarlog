@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  session: { user: { id: "user-1" } } as { user: { id: string } } | null,
   currentTab: { type: "settings", state: { tab: "app" } } as {
     type: "settings";
     state: { tab?: string };
@@ -77,10 +76,6 @@ vi.mock("./custom-sidebar-header", () => ({
   CustomSidebarHeader: () => <div />,
 }));
 
-vi.mock("~/auth", () => ({
-  useAuth: () => ({ session: mocks.session }),
-}));
-
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => ({
     isPro: mocks.isPro,
@@ -115,7 +110,6 @@ describe("SettingsNav", () => {
   afterEach(cleanup);
 
   beforeEach(() => {
-    mocks.session = { user: { id: "user-1" } };
     mocks.currentTab = { type: "settings", state: { tab: "app" } };
     mocks.tabs = [];
     mocks.isPro = true;
@@ -269,7 +263,6 @@ describe("SettingsNav", () => {
 
   it("shows locked Pro features and opens the upgrade flow", () => {
     mocks.isPro = false;
-    mocks.session = null;
 
     render(<SettingsNav />);
 
@@ -284,7 +277,7 @@ describe("SettingsNav", () => {
     expect(mocks.updateSettingsTabState).not.toHaveBeenCalled();
   });
 
-  it.each(["Automations", "Dictionary", "Sync"])(
+  it.each(["Team", "Automations", "Dictionary", "Sync"])(
     "does not open locked %s navigation",
     (label) => {
       mocks.isPro = false;
@@ -298,17 +291,15 @@ describe("SettingsNav", () => {
     },
   );
 
-  it("opens Team navigation for non-Pro members", () => {
+  it("shows Team with the Pro lock on the free plan", () => {
     mocks.isPro = false;
 
     render(<SettingsNav />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Team" }));
-
-    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
-      mocks.currentTab,
-      { tab: "team" },
-    );
+    expect(screen.getByRole("button", { name: "Team" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Upgrade to Pro for Team" }),
+    ).toBeTruthy();
   });
 
   it("opens Imports inside settings", () => {
