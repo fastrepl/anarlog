@@ -178,6 +178,19 @@ describe("trimPreMeetingBrief", () => {
 - Artem left the Korea workshop dates open.`);
   });
 
+  it("drops a meeting-justification opener and keeps real bullets", () => {
+    expect(
+      trimPreMeetingBrief(`**Design Sync is crucial for aligning the team's vision.**
+
+- Artem and John will discuss the single-surface scratchpad.
+- John will report on suggestions UI.
+- John will propose a Linear ticket chip.
+`),
+    ).toBe(`- Artem and John will discuss the single-surface scratchpad.
+- John will report on suggestions UI.
+- John will propose a Linear ticket chip.`);
+  });
+
   it("drops copied prompt instructions and keeps real bullets", () => {
     expect(
       trimPreMeetingBrief(`**One sentence: why this conversation matters.**

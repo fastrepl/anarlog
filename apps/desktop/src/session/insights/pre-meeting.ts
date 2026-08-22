@@ -23,7 +23,7 @@ const BRIEF_MAX_OUTPUT_TOKENS = 140;
 const SECTION_LABEL_REGEX =
   /^(quick\s+)?(recap|summary|overview|agenda|insights?|upcoming|next steps|prepare|brief)\b/i;
 const INSTRUCTION_LEFTOVER_REGEX =
-  /one sentence|why this conversation matters|would not immediately remember|open loop or commitment|thing to listen for or decide/i;
+  /one sentence|why this conversation matters|would not immediately remember|open loop or commitment|thing to listen for or decide|this (meeting|sync|conversation) is (crucial|important|needed|essential)|aligning the team's vision/i;
 const SPACE_REGEX = /\s+/g;
 
 export type PreMeetingBriefEvent = {
