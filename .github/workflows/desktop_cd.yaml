@@ -509,6 +509,7 @@ jobs:
             --env DEB_PATH="/workspace/$deb" \
             --env BINARY_PATH="/usr/bin/$binary_name" \
             --env ANARLOG_DISABLE_SENTRY=1 \
+            --env RUST_BACKTRACE=1 \
             ubuntu:24.04 \
             bash -euxo pipefail -c '
               export DEBIAN_FRONTEND=noninteractive

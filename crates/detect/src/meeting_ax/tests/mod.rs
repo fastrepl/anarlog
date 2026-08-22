@@ -87,3 +87,11 @@ fn inspect_meeting_accessibility_is_empty_without_ax_backend() {
 fn inspect_meeting_accessibility_does_not_panic_without_meeting_apps() {
     let _ = inspect_meeting_accessibility();
 }
+
+#[cfg(target_os = "linux")]
+#[tokio::test(flavor = "multi_thread")]
+async fn meeting_ax_sync_entrypoints_do_not_panic_inside_tokio_runtime() {
+    let _ = inspect_meeting_accessibility();
+    let _ = capture_meeting_chat_messages(vec!["us.zoom.Zoom".to_string()]);
+    let _ = send_meeting_chat_message("hello".to_string(), vec!["us.zoom.Zoom".to_string()]);
+}

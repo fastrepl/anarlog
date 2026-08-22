@@ -43,15 +43,25 @@ struct LiveNode {
     path: String,
 }
 
-fn block_on_atspi<T>(future: impl Future<Output = T>) -> T {
-    match tokio::runtime::Handle::try_current() {
-        Ok(handle) => tokio::task::block_in_place(|| handle.block_on(future)),
-        Err(_) => tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("linux AT-SPI runtime")
-            .block_on(future),
-    }
+fn block_on_atspi<T>(future: impl Future<Output = T> + Send) -> T
+where
+    T: Send,
+{
+    // These sync entrypoints are invoked from async Tauri commands that already
+    // run on the desktop Tokio runtime. Handle::block_on / Runtime::block_on on
+    // that thread panics with "Cannot start a runtime from within a runtime".
+    std::thread::scope(|scope| {
+        scope
+            .spawn(|| {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("linux AT-SPI runtime")
+                    .block_on(future)
+            })
+            .join()
+            .expect("linux AT-SPI thread panicked")
+    })
 }
 
 fn ax_role(role: Role) -> &'static str {
