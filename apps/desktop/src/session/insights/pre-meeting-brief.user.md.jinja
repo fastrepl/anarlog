@@ -1,3 +1,5 @@
+Write a new brief from these notes only. Do not reuse any example. Use the upcoming meeting only to know who and what this is — do not dump those fields into the brief.
+
 # Upcoming meeting
 
 Title: {{ meeting.title }}
@@ -9,7 +11,9 @@ Description: {{ meeting.description }}
 # Recent meetings
 
 {% for note in past_meetings %}
+
 ## {{ note.title }} ({{ note.date }})
+
 Participants: {{ note.participants | join(", ") }}
 
 {{ note.notes }}

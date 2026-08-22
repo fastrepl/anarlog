@@ -17,7 +17,7 @@ const AFTER_START_GRACE_MS = 5 * 60 * 1000;
 const MAX_FACTS = 3;
 const MAX_SUMMARY_LENGTH = 320;
 const BRIEF_GENERATION_TIMEOUT_MS = 45_000;
-const BRIEF_MAX_OUTPUT_TOKENS = 800;
+const BRIEF_MAX_OUTPUT_TOKENS = 280;
 const SPACE_REGEX = /\s+/g;
 
 export type PreMeetingBriefEvent = {

@@ -182,7 +182,7 @@ describe("streamPreMeetingBrief", () => {
     expect(hoisted.streamText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: { id: "model-1" },
-        maxOutputTokens: 800,
+        maxOutputTokens: 280,
       }),
     );
     expect(hoisted.renderCustom).toHaveBeenCalled();
