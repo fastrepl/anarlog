@@ -292,6 +292,38 @@ describe("session SQLite operations", () => {
     ).toBe(true);
   });
 
+  it("ignores malformed calendar participants when creating an event note", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([
+        {
+          ...event,
+          participants_json: JSON.stringify([
+            null,
+            { name: 42, email: "invalid@example.com" },
+          ]),
+        },
+      ])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ id: "session-created" }]);
+    mocks.executeTransaction.mockResolvedValueOnce([1]);
+
+    await expect(getOrCreateSessionForEventId("event-1")).resolves.toBe(
+      "session-created",
+    );
+
+    const statements = mocks.executeTransaction.mock.calls[0][0] as Array<{
+      sql: string;
+    }>;
+    expect(
+      statements.some((statement) => statement.sql.includes("humans")),
+    ).toBe(false);
+    expect(
+      statements.some((statement) =>
+        statement.sql.includes("session_participants"),
+      ),
+    ).toBe(false);
+  });
+
   it("does not wait for analytics before returning a newly created event note", async () => {
     mocks.analyticsEventFireAndForget.mockImplementationOnce(
       () => new Promise<never>(() => {}),

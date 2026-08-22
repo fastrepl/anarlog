@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { EventParticipant } from "@anlg/store";
+import { eventParticipantSchema, type EventParticipant } from "@anlg/store";
 
 import { executeTransaction, liveQueryClient, useLiveQuery } from "~/db";
 import { enqueueDatabaseWrite } from "~/db/write-queue";
@@ -35,7 +35,16 @@ type CalendarSqlRow = {
   created_at: string;
 };
 
-type EventParticipantsSqlRow = { participants_json: string };
+type SessionCalendarEventSqlRow = {
+  title: string;
+  started_at: string;
+  ended_at: string;
+  is_all_day: boolean | number;
+  location: string;
+  meeting_link: string;
+  description: string;
+  participants_json: string;
+};
 
 type CalendarEventStartSqlRow = { started_at: string };
 
@@ -80,6 +89,14 @@ export type NearbyCalendarEvent = {
   location?: string;
   description?: string;
   participantNames: string[];
+};
+
+export type SessionCalendarEvent = Omit<
+  SessionCalendarEventSqlRow,
+  "is_all_day" | "participants_json"
+> & {
+  is_all_day: boolean;
+  participants: EventParticipant[];
 };
 
 export type CalendarRow = Omit<CalendarSqlRow, "enabled"> & {
@@ -418,12 +435,29 @@ export async function getNearbyCalendarEvents(
 export function useSessionEventParticipants(
   sessionId: string,
 ): EventParticipant[] {
-  const { data = EMPTY_EVENT_PARTICIPANTS } = useLiveQuery<
-    EventParticipantsSqlRow,
-    EventParticipant[]
+  return (
+    useSessionCalendarEvent(sessionId)?.participants ?? EMPTY_EVENT_PARTICIPANTS
+  );
+}
+
+export function useSessionCalendarEvent(
+  sessionId: string,
+  { enabled = true }: { enabled?: boolean } = {},
+): SessionCalendarEvent | null {
+  const { data = null } = useLiveQuery<
+    SessionCalendarEventSqlRow,
+    SessionCalendarEvent | null
   >({
     sql: `
-      SELECT event.participants_json
+      SELECT
+        event.title,
+        event.started_at,
+        event.ended_at,
+        event.is_all_day,
+        event.location,
+        event.meeting_link,
+        event.description,
+        event.participants_json
       FROM sessions AS session
       JOIN events AS event
         ON event.deleted_at IS NULL
@@ -447,10 +481,24 @@ export function useSessionEventParticipants(
       LIMIT 1
     `,
     params: [sessionId],
-    enabled: Boolean(sessionId),
-    mapRows: (rows) => parseEventParticipants(rows[0]?.participants_json),
+    enabled: enabled && Boolean(sessionId),
+    mapRows: (rows) => {
+      const row = rows[0];
+      return row
+        ? {
+            title: row.title,
+            started_at: row.started_at,
+            ended_at: row.ended_at,
+            is_all_day: Boolean(row.is_all_day),
+            location: row.location,
+            meeting_link: row.meeting_link,
+            description: row.description,
+            participants: parseEventParticipants(row.participants_json),
+          }
+        : null;
+    },
   });
-  return sessionId ? data : EMPTY_EVENT_PARTICIPANTS;
+  return sessionId && enabled ? data : null;
 }
 
 export function mapTimelineEventRows(
@@ -486,7 +534,10 @@ export function parseEventParticipants(
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed)
-      ? (parsed as EventParticipant[])
+      ? parsed.flatMap((participant) => {
+          const result = eventParticipantSchema.safeParse(participant);
+          return result.success ? [result.data] : [];
+        })
       : EMPTY_EVENT_PARTICIPANTS;
   } catch {
     return EMPTY_EVENT_PARTICIPANTS;

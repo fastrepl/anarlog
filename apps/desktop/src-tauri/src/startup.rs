@@ -5,6 +5,29 @@ use std::sync::{Arc, Mutex};
 const LAUNCH_LOCK_FILENAME: &str = "launch.lock";
 const SLOW_STARTUP_INDICATOR_DELAY: std::time::Duration = std::time::Duration::from_secs(3);
 const CRASH_REPORTER_SERVER_ARG: &str = "--crash-reporter-server";
+const WEBKIT_DISABLE_DMABUF_RENDERER: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
+
+// WebKitGTK's DMA-BUF renderer leaves a blank window on NVIDIA/Wayland and
+// some other GPU/compositor combinations. Set the fallback before Tokio or
+// the webview start, and leave an explicit user override alone.
+pub(crate) fn apply_linux_webkit_workarounds() {
+    if !cfg!(target_os = "linux") {
+        return;
+    }
+
+    if let Some(value) =
+        linux_webkit_dmabuf_override(std::env::var_os(WEBKIT_DISABLE_DMABUF_RENDERER).as_deref())
+    {
+        // SAFETY: called from the process entrypoint before other threads start.
+        unsafe {
+            std::env::set_var(WEBKIT_DISABLE_DMABUF_RENDERER, value);
+        }
+    }
+}
+
+fn linux_webkit_dmabuf_override(existing: Option<&std::ffi::OsStr>) -> Option<&'static str> {
+    existing.is_none().then_some("1")
+}
 
 // Startup migrations can hold the database for minutes before any window or
 // plugin exists, so single-instance semantics are enforced with an OS file
@@ -22,24 +45,6 @@ pub enum LaunchLockState {
 
 pub fn is_crash_reporter_process() -> bool {
     std::env::args().any(|arg| is_crash_reporter_arg(&arg))
-}
-
-const WEBKIT_DISABLE_DMABUF_RENDERER: &str = "WEBKIT_DISABLE_DMABUF_RENDERER";
-
-pub fn apply_linux_webkit_env() {
-    if cfg!(target_os = "linux")
-        && should_set_webkit_disable_dmabuf(
-            std::env::var_os(WEBKIT_DISABLE_DMABUF_RENDERER).as_deref(),
-        )
-    {
-        unsafe {
-            std::env::set_var(WEBKIT_DISABLE_DMABUF_RENDERER, "1");
-        }
-    }
-}
-
-fn should_set_webkit_disable_dmabuf(current: Option<&std::ffi::OsStr>) -> bool {
-    current.is_none()
 }
 
 fn is_crash_reporter_arg(arg: &str) -> bool {
@@ -164,14 +169,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn applies_webkit_dmabuf_workaround_only_when_unset() {
-        assert!(should_set_webkit_disable_dmabuf(None));
-        assert!(!should_set_webkit_disable_dmabuf(Some(
-            std::ffi::OsStr::new("1")
-        )));
-        assert!(!should_set_webkit_disable_dmabuf(Some(
-            std::ffi::OsStr::new("0")
-        )));
+    fn linux_webkit_workaround_defaults_dmabuf_off_when_unset() {
+        assert_eq!(linux_webkit_dmabuf_override(None), Some("1"));
+    }
+
+    #[test]
+    fn linux_webkit_workaround_preserves_an_explicit_override() {
+        assert_eq!(
+            linux_webkit_dmabuf_override(Some(std::ffi::OsStr::new("0"))),
+            None
+        );
+        assert_eq!(
+            linux_webkit_dmabuf_override(Some(std::ffi::OsStr::new("1"))),
+            None
+        );
     }
 
     #[test]

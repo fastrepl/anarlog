@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@anlg/utils";
 
-import { AiIconSlot } from "~/settings/ai/shared";
+import { AiIconSlot, ProviderLobeIcon } from "~/settings/ai/shared";
 
 type ModelIconSpec = {
   title: string;
@@ -31,7 +31,7 @@ export function getLocalModelIcon(model: string): ModelIconSpec | null {
   if (value === "apple-speech") {
     return {
       title: "Apple Speech",
-      node: <Apple />,
+      node: <ProviderLobeIcon icon={Apple} />,
     };
   }
 

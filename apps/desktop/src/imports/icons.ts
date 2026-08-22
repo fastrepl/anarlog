@@ -9,6 +9,12 @@ export const PROVIDER_BRAND_ICONS: Record<string, string> = {
 // Meet has no desktop app icon. Zoom's native icon is the wordmark, not the camera.
 const BRAND_ICON_OVERRIDES = new Set(["google-meet", "zoom"]);
 
+// Line-art marks read smaller than filled app icons in the same 32px slot.
+const BRAND_ICON_OPTICAL_CLASS: Record<string, string> = {
+  "chatgpt-record": "scale-[1.22]",
+  "slack-huddles": "scale-[1.12]",
+};
+
 export function providerIconSrc(provider: {
   id: string;
   iconUrl?: string;
@@ -21,4 +27,13 @@ export function providerIconSrc(provider: {
     return brandIcon;
   }
   return provider.iconUrl ?? brandIcon;
+}
+
+export function providerIconOpticalClass(provider: {
+  id: string;
+  iconUrl?: string;
+}): string | undefined {
+  const src = providerIconSrc(provider);
+  if (src !== PROVIDER_BRAND_ICONS[provider.id]) return undefined;
+  return BRAND_ICON_OPTICAL_CLASS[provider.id];
 }

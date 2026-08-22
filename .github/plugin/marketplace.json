@@ -1,0 +1,28 @@
+{
+  "name": "fastrepl",
+  "owner": {
+    "name": "Fastrepl",
+    "email": "founders@anarlog.so"
+  },
+  "metadata": {
+    "description": "Official plugins from Fastrepl",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "anarlog",
+      "source": "./agent-plugins/anarlog",
+      "description": "Query Anarlog meeting notes, summaries, transcripts, participants, action items, and recurring history.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Fastrepl",
+        "email": "founders@anarlog.so",
+        "url": "https://anarlog.so"
+      },
+      "homepage": "https://docs.anarlog.so/agents/overview",
+      "repository": "https://github.com/fastrepl/anarlog/tree/main/agent-plugins/anarlog",
+      "license": "MIT",
+      "keywords": ["meetings", "notes", "transcripts", "productivity", "mcp"]
+    }
+  ]
+}

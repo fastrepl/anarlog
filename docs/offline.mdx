@@ -10,31 +10,34 @@ Anarlog can record meetings and manage notes without an internet connection. To 
 - Create and edit notes.
 - Record and play meeting audio.
 - Export memos, summaries, and transcripts already on your computer.
-- Transcribe with a downloaded on-device model on a supported Apple Silicon Mac.
-- Generate summaries and chat with a local LM Studio or Ollama server.
+- Transcribe with Soniqo on a supported Apple Silicon Mac or Apple Speech when available on macOS 26.
+- Generate summaries and chat with LM Studio, Ollama, Unsloth, or eligible Apple Intelligence.
 
 Hosted models, Google and Outlook calendar sync, cloud sync, and share links need a network connection.
 
 ## Prepare offline transcription
 
 1. Open **Settings → Transcription**.
-2. Download a supported on-device model.
-3. Select it under **Model being used**.
-4. Run a short test recording before going offline.
+2. Choose Soniqo, or choose Apple Speech if it appears.
+3. Download the Soniqo model. For Apple Speech, add the supported language in macOS System Settings.
+4. Select the model under **Model being used**.
+5. Run a short test recording before going offline.
 
 The model's **Live** or **After recording** label tells you when text will appear. On-device model availability depends on your Mac and the current Anarlog release.
 
 ## Prepare offline summaries and chat
 
-Use [LM Studio](https://lmstudio.ai/download) or [Ollama](https://ollama.com/download) as your local Intelligence provider. Download the model in advance, start the local server, and select that model in **Settings → Intelligence**.
+Use [LM Studio](https://lmstudio.ai/download), [Ollama](https://ollama.com/download), or [Unsloth](https://unsloth.ai/docs/desktop) as your local Intelligence provider. Download the model in advance, start the local server, and select that model in **Settings → Intelligence**.
 
 Anarlog must be able to reach the local server while you work. The server can run on the same computer without internet access.
+
+On an eligible Mac running macOS 26 or later, you can instead select the experimental **Apple Intelligence → System Language Model** after its system model finishes downloading.
 
 ## Check that nothing uses a hosted provider
 
 Before a sensitive meeting, confirm both selections:
 
 - **Settings → Transcription → Model being used** points to an on-device model.
-- **Settings → Intelligence → Model being used** points to LM Studio or Ollama.
+- **Settings → Intelligence → Model being used** points to LM Studio, Ollama, Unsloth, or Apple Intelligence.
 
-Choosing a local model for only one setting does not make the other setting local. See [Data, privacy, and retention](/data-and-privacy) for what each provider receives.
+Choosing a local model for only one setting does not make the other setting local. See [Models and providers](/models-and-providers) for the current model paths and [Data, privacy, and retention](/data-and-privacy) for what each provider receives.

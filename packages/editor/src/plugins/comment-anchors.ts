@@ -134,28 +134,30 @@ export function commentAnchorsPlugin(options?: {
   });
 }
 
+function dispatchCommentAnchorsMeta(
+  view: EditorView,
+  meta: CommentAnchorsMeta,
+) {
+  // Callers push these from useEffect / callback refs. react-prosemirror
+  // wrap view.dispatch in flushSync unless the transaction is marked async;
+  // decorations do not need a synchronous React flush.
+  view.dispatch(
+    view.state.tr.setMeta("async", true).setMeta(commentAnchorsPluginKey, meta),
+  );
+}
+
 export function setCommentAnchors(
   view: EditorView,
   anchors: CommentAnchorInput[],
 ): void {
-  view.dispatch(
-    view.state.tr.setMeta(commentAnchorsPluginKey, {
-      type: "set",
-      anchors,
-    } satisfies CommentAnchorsMeta),
-  );
+  dispatchCommentAnchorsMeta(view, { type: "set", anchors });
 }
 
 export function setActiveCommentAnchor(
   view: EditorView,
   commentId: string | null,
 ): void {
-  view.dispatch(
-    view.state.tr.setMeta(commentAnchorsPluginKey, {
-      type: "active",
-      commentId,
-    } satisfies CommentAnchorsMeta),
-  );
+  dispatchCommentAnchorsMeta(view, { type: "active", commentId });
 }
 
 /** Current anchor ranges, mapped through any edits since they were set. */

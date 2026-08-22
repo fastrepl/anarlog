@@ -137,7 +137,11 @@ describe("buildPastSessionNotes", () => {
         sessionId: "previous",
         title: "Weekly Product Sync",
         dateLabel: "May 28, 2026",
+        occurredAt: "2026-05-28T10:00:00.000Z",
         participantNames: ["alex", "jamie"],
+        sourceSummary:
+          "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
+        relationship: "same_series",
         summary: null,
         isGenerating: false,
       },
@@ -145,7 +149,10 @@ describe("buildPastSessionNotes", () => {
         sessionId: "same_title",
         title: "Weekly Product Sync",
         dateLabel: "May 27, 2026",
+        occurredAt: "2026-05-27T10:00:00.000Z",
         participantNames: ["alex", "jamie"],
+        sourceSummary: "Confirmed notification copy and reviewed follow-ups.",
+        relationship: "matching_title",
         summary: null,
         isGenerating: false,
       },
@@ -157,6 +164,65 @@ describe("buildPastSessionNotes", () => {
     expect(result.requests.map((request) => request.sourceText)).toEqual([
       "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
       "Confirmed notification copy and reviewed follow-ups.",
+    ]);
+  });
+
+  it("prioritizes recurring-series history over newer title matches", () => {
+    const participant = {
+      human_id: "alex",
+      user_id: "self",
+      source: "auto",
+    };
+    const data = makeData({
+      sessions: {
+        current: {
+          title: "Weekly Product Sync",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-06-03T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
+        },
+        recurring: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-20T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-05-20T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
+        },
+        title_match: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-30T10:00:00.000Z",
+          event_json: "",
+        },
+      },
+      mapping_session_participant: {
+        current_alex: { ...participant, session_id: "current" },
+        recurring_alex: { ...participant, session_id: "recurring" },
+        title_match_alex: { ...participant, session_id: "title_match" },
+      },
+      enhanced_notes: {
+        recurring_summary: {
+          session_id: "recurring",
+          content: "Recurring context.",
+          position: 0,
+        },
+        title_summary: {
+          session_id: "title_match",
+          content: "Title-match context.",
+          position: 0,
+        },
+      },
+    });
+
+    const result = buildPastSessionNotes(data, "current", "self");
+
+    expect(
+      result.notes.map((note) => [note.sessionId, note.relationship]),
+    ).toEqual([
+      ["recurring", "same_series"],
+      ["title_match", "matching_title"],
     ]);
   });
 
@@ -272,6 +338,13 @@ describe("past note relationship indexing", () => {
         current: session("current", "2026-06-03T10:00:00.000Z"),
         no_relations: session("no_relations", "2026-05-28T10:00:00.000Z"),
       },
+      enhanced_notes: {
+        unrelated: {
+          session_id: "no_relations",
+          content: "Same title but no participant evidence.",
+          position: 0,
+        },
+      },
     });
 
     const result = buildPastSessionNotes(data, "current", "self");
@@ -286,6 +359,26 @@ describe("past note relationship indexing", () => {
         current: session("current", "2026-06-03T10:00:00.000Z"),
         tie_a: session("tie_a", "2026-05-28T10:00:00.000Z"),
         tie_b: session("tie_b", "2026-05-28T10:00:00.000Z"),
+      },
+      mapping_session_participant: {
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        tie_a_alex: {
+          session_id: "tie_a",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        tie_b_alex: {
+          session_id: "tie_b",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
       },
       enhanced_notes: {
         a: { session_id: "tie_a", content: "Summary A", position: 0 },

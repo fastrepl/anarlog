@@ -154,10 +154,13 @@ fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actu
     std::sync::Arc::new(anlg_audio_actual::ActualAudio)
 }
 
-#[tokio::main]
-pub async fn main() {
-    startup::apply_linux_webkit_env();
+pub fn main() {
+    startup::apply_linux_webkit_workarounds();
+    async_main();
+}
 
+#[tokio::main]
+async fn async_main() {
     // Sentry minidump reporting re-execs this binary with --crash-reporter-server.
     // That helper must reach minidump::init instead of the launch lock, or it
     // shows "Anarlog is already starting" on every launch and never serves dumps.
@@ -340,7 +343,8 @@ pub async fn main() {
         .plugin(tauri_plugin_js::init())
         .plugin(
             tauri_plugin_window_state::Builder::default()
-                .skip_initial_state("main")
+                .with_state_flags(tauri_plugin_windows::persisted_window_state_flags())
+                .with_denylist(&["composer"])
                 .build(),
         )
         .plugin(tauri_plugin_transcription::init())

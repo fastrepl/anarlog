@@ -1,5 +1,4 @@
-import { Icon } from "@iconify-icon/react";
-import { ArrowRight } from "@phosphor-icons/react";
+import { ArrowRight, XLogo } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { type CSSProperties, useState } from "react";
 
@@ -273,12 +272,7 @@ function TestimonialTweetCard({
             onClick={(event) => event.stopPropagation()}
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-[#181613] transition-colors hover:bg-[#f7f4ef]"
           >
-            <Icon
-              icon="simple-icons:x"
-              width={15}
-              height={15}
-              aria-hidden="true"
-            />
+            <XLogo size={15} aria-hidden="true" />
           </a>
         </figcaption>
 

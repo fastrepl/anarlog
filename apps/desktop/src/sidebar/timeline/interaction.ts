@@ -35,6 +35,27 @@ export function hasSidebarNoteSelectionContext({
   return anchorId === currentSessionKey || selectedIds.some(isSessionItemKey);
 }
 
+const TIMELINE_SELECTION_PRESERVE_SELECTOR = [
+  "[data-sidebar-timeline-root]",
+  "[role='dialog']",
+  "[data-dialog-overlay]",
+].join(",");
+
+export function shouldClearTimelineSelectionOnPointerDown(
+  target: EventTarget | null,
+) {
+  const element =
+    target instanceof Element
+      ? target
+      : target instanceof Node
+        ? target.parentElement
+        : null;
+
+  return (
+    element === null || !element.closest(TIMELINE_SELECTION_PRESERVE_SELECTOR)
+  );
+}
+
 export function isTextEditingShortcutTarget(target: EventTarget | null) {
   const element =
     target instanceof Element

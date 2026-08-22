@@ -16,6 +16,7 @@ import { cn } from "@anlg/utils";
 
 import { Enhanced } from "./enhanced";
 import { Header, SessionViewSwitcher, useEditorTabs } from "./header";
+import { PreMeetingBrief } from "./pre-meeting-brief";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
@@ -292,7 +293,7 @@ const NoteInputContent = forwardRef<
 
       if (
         target.closest(
-          "button, a, input, textarea, select, [role='button'], [contenteditable='true']",
+          "button, a, input, textarea, select, [role='button'], [contenteditable='true'], [data-pre-meeting-brief]",
         ) !== null
       ) {
         return;
@@ -370,17 +371,23 @@ const NoteInputContent = forwardRef<
               />
             )}
             {renderedCurrentTab.type === "raw" && (
-              <RawEditor
-                ref={internalEditorRef}
-                sessionId={sessionId}
-                rawMd={rawMd}
-                sessionTitle={sessionTitle}
-                eventTitle={eventTitle}
-                eventDescription={eventDescription}
-                onNavigateToTitle={onNavigateToTitle}
-                onViewReady={handleSessionViewReady}
-                onViewDisposed={handleSessionViewDisposed}
-              />
+              <>
+                <PreMeetingBrief
+                  sessionId={sessionId}
+                  enabled={sessionMode === "inactive"}
+                />
+                <RawEditor
+                  ref={internalEditorRef}
+                  sessionId={sessionId}
+                  rawMd={rawMd}
+                  sessionTitle={sessionTitle}
+                  eventTitle={eventTitle}
+                  eventDescription={eventDescription}
+                  onNavigateToTitle={onNavigateToTitle}
+                  onViewReady={handleSessionViewReady}
+                  onViewDisposed={handleSessionViewDisposed}
+                />
+              </>
             )}
             {renderedCurrentTab.type === "transcript" && (
               <Transcript
