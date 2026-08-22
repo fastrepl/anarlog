@@ -74,10 +74,24 @@ chmod +x ./anarlog-*.AppImage
 ./anarlog-*.AppImage
 ```
 
+On Wayland with an NVIDIA GPU, if the window is black or only audio plays, launch with:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 ./anarlog-*.AppImage
+```
+
+If the window is still black, also disable compositing:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./anarlog-*.AppImage
+```
+
+Current builds apply the DMA-BUF workaround automatically. Set the variables yourself only if a black window remains.
+
 ## Platform differences
 
 - Apple Calendar integration is available on macOS. Google Calendar works through your Anarlog account on every supported platform.
-- Built-in on-device transcription is currently available only on Apple Silicon. On other platforms, choose Anarlog Cloud or configure a supported transcription provider.
+- Soniqo on-device transcription requires Apple Silicon. Apple Speech appears only when a compatible Mac running macOS 26 reports the required system assets. On other systems, choose Anarlog Cloud or configure a supported transcription provider.
 - Windows and Linux support are in beta. Include your operating system and Anarlog version when you report a platform-specific problem.
 - Anarlog does not currently offer a mobile app.
 

@@ -9,18 +9,58 @@ fn test_meeting_chat_message_validation() {
 }
 
 #[test]
-fn test_chat_mutation_is_fail_closed_for_unvalidated_platforms() {
-    assert!(supports_meeting_chat_mutation("com.tinyspeck.slackmacgap"));
-    assert!(supports_meeting_chat_mutation("com.slack.Slack"));
+fn test_chat_mutation_is_enabled_for_recognized_meeting_apps() {
     for bundle_id in [
+        "com.tinyspeck.slackmacgap",
+        "com.slack.Slack",
         "us.zoom.xos",
         "com.microsoft.teams2",
-        "com.hnc.Discord",
         "Cisco-Systems.Spark",
         "com.google.Chrome",
+        "com.hnc.Discord",
+        "slack",
+        "zoom",
+        "google-chrome",
     ] {
-        assert!(!supports_meeting_chat_mutation(bundle_id));
+        assert!(
+            supports_meeting_chat_mutation(bundle_id),
+            "{bundle_id} should be eligible for AX chat mutation"
+        );
     }
+    assert!(!supports_meeting_chat_mutation("com.anarlog.dev"));
+}
+
+#[test]
+fn test_linux_and_windows_process_aliases_map_to_meeting_apps() {
+    for (alias, platform, browser) in [
+        ("slack", MeetingPlatform::Slack, false),
+        ("/usr/bin/slack", MeetingPlatform::Slack, false),
+        ("Slack.exe", MeetingPlatform::Slack, false),
+        ("zoom", MeetingPlatform::Zoom, false),
+        ("teams-for-linux", MeetingPlatform::MicrosoftTeams, false),
+        ("google-chrome", MeetingPlatform::Unknown, true),
+        ("chrome", MeetingPlatform::Unknown, true),
+        ("firefox", MeetingPlatform::Unknown, true),
+    ] {
+        assert!(
+            is_meeting_app_bundle(alias),
+            "{alias} should be a recognized meeting app alias"
+        );
+        assert_eq!(classify_bundle(alias), platform);
+        assert_eq!(is_browser_bundle(alias), browser);
+    }
+
+    assert_eq!(
+        unique_recognized_meeting_bundle(&["slack".to_string()]).unwrap(),
+        "slack"
+    );
+    assert_eq!(
+        select_active_bundle_ids(
+            MEETING_APP_BUNDLES.iter().map(|bundle| bundle.id),
+            &["slack".to_string(), "google-chrome".to_string()],
+        ),
+        vec!["com.tinyspeck.slackmacgap", "com.google.Chrome"]
+    );
 }
 
 #[test]
@@ -115,7 +155,7 @@ fn test_zoom_scope_does_not_fall_back_to_an_unrelated_slack_huddle() {
     let scoped_bundle = unique_recognized_meeting_bundle(&bundle_ids).unwrap();
 
     assert_eq!(scoped_bundle, "us.zoom.xos");
-    assert!(!supports_meeting_chat_mutation(scoped_bundle));
+    assert!(supports_meeting_chat_mutation(scoped_bundle));
 }
 
 #[test]
@@ -255,6 +295,17 @@ fn test_platform_chat_adapters_validate_the_requested_provider_matrix() {
             validated_chat_scope(&platform, &nodes),
             Some((vec![1], vec![1, 0])),
             "adapter did not validate {platform:?}"
+        );
+
+        let mut send = fixture_node(4, "AXButton", "Send", &[1, 1]);
+        assert!(
+            is_platform_send_button(&platform, &send, &[1]),
+            "send button was not accepted for {platform:?}"
+        );
+        send.tree_path = vec![2, 0];
+        assert!(
+            !is_platform_send_button(&platform, &send, &[1]),
+            "out-of-scope send button was accepted for {platform:?}"
         );
     }
 

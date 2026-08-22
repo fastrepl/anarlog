@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -8,6 +8,26 @@ import { pathToFileURL } from "node:url";
 // other drift between the two files fails CI (--check).
 export const CANONICAL_SKILL_PATH = "skills/anarlog/SKILL.md";
 export const PUBLISHED_SKILL_PATH = "docs/skill.md";
+export const PLUGIN_PACKAGE_MIRRORS = [
+  ["skills/anarlog/SKILL.md", "agent-plugins/anarlog/skills/anarlog/SKILL.md"],
+  [
+    "skills/anarlog/references/cli.md",
+    "agent-plugins/anarlog/skills/anarlog/references/cli.md",
+  ],
+  [
+    "skills/anarlog/references/errors.md",
+    "agent-plugins/anarlog/skills/anarlog/references/errors.md",
+  ],
+  [
+    "skills/anarlog/references/mcp.md",
+    "agent-plugins/anarlog/skills/anarlog/references/mcp.md",
+  ],
+  [
+    "skills/anarlog/references/setup.md",
+    "agent-plugins/anarlog/skills/anarlog/references/setup.md",
+  ],
+  ["LICENSE", "agent-plugins/anarlog/LICENSE"],
+];
 
 export const REFERENCE_LINK_REWRITES = {
   "references/cli.md": "https://docs.anarlog.so/reference/cli",
@@ -37,20 +57,44 @@ function main() {
   const published = publishSkill(canonical);
 
   if (check) {
-    const current = readFileSync(PUBLISHED_SKILL_PATH, "utf8");
-    if (current !== published) {
+    const drifted = [];
+    if (readFileIfPresent(PUBLISHED_SKILL_PATH) !== published) {
+      drifted.push(PUBLISHED_SKILL_PATH);
+    }
+    for (const [source, target] of PLUGIN_PACKAGE_MIRRORS) {
+      if (readFileIfPresent(target) !== readFileSync(source, "utf8")) {
+        drifted.push(target);
+      }
+    }
+
+    if (drifted.length > 0) {
       console.error(
-        `${PUBLISHED_SKILL_PATH} drifted from ${CANONICAL_SKILL_PATH}; run: node scripts/publish-anarlog-skill.mjs`,
+        `${drifted.join(", ")} drifted from the Anarlog skill package; run: node scripts/publish-anarlog-skill.mjs`,
       );
       process.exitCode = 1;
       return;
     }
-    console.log(`${PUBLISHED_SKILL_PATH} matches ${CANONICAL_SKILL_PATH}`);
+    console.log("Published Anarlog skill files are current");
     return;
   }
 
   writeFileSync(PUBLISHED_SKILL_PATH, published);
-  console.log(`Published ${PUBLISHED_SKILL_PATH} from ${CANONICAL_SKILL_PATH}`);
+  for (const [source, target] of PLUGIN_PACKAGE_MIRRORS) {
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, readFileSync(source, "utf8"));
+  }
+  console.log("Published Anarlog skill files");
+}
+
+function readFileIfPresent(filePath) {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
 }
 
 const isMain = process.argv[1]

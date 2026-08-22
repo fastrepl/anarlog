@@ -610,6 +610,78 @@ describe("TimelineView", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("clears selected notes when clicking main pane actions", () => {
+    mocks.timelineSelectionSelectedIds = [
+      "session-selected-note",
+      "session-other-note",
+    ];
+
+    render(
+      <>
+        <TimelineView />
+        <button type="button">Transcript</button>
+      </>,
+    );
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Transcript" }));
+
+    expect(mocks.clearSelection).toHaveBeenCalledOnce();
+  });
+
+  it("keeps selected notes when clicking inside the timeline", () => {
+    mocks.timelineSelectionSelectedIds = [
+      "session-selected-note",
+      "session-other-note",
+    ];
+
+    const { container } = render(<TimelineView />);
+    const timelineRoot = container.querySelector(
+      "[data-sidebar-timeline-root]",
+    );
+
+    expect(timelineRoot).not.toBeNull();
+    fireEvent.pointerDown(timelineRoot!);
+
+    expect(mocks.clearSelection).not.toHaveBeenCalled();
+  });
+
+  it("keeps selected notes when clicking the delete confirmation dialog", () => {
+    mocks.timelineSelectionSelectedIds = ["session-selected-note"];
+    mocks.timelineSessionsTable = {
+      "selected-note": {
+        title: "Selected note",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView />);
+
+    fireEvent.keyDown(window, { key: "Backspace" });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(mocks.clearSelection).not.toHaveBeenCalled();
+  });
+
+  it("keeps selected notes when dismissing the delete confirmation overlay", () => {
+    mocks.timelineSelectionSelectedIds = ["session-selected-note"];
+    mocks.timelineSessionsTable = {
+      "selected-note": {
+        title: "Selected note",
+        created_at: "2024-01-15T12:00:00.000Z",
+      },
+    };
+
+    render(<TimelineView />);
+
+    fireEvent.keyDown(window, { key: "Backspace" });
+    const overlay = document.querySelector("[data-dialog-overlay]");
+
+    expect(overlay).not.toBeNull();
+    fireEvent.pointerDown(overlay!);
+
+    expect(mocks.clearSelection).not.toHaveBeenCalled();
+  });
+
   it("shows Backspace beside Delete Selected in the context menu", () => {
     mocks.timelineSelectionSelectedIds = [
       "session-selected-note",

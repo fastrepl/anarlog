@@ -1,7 +1,19 @@
 import { useLingui } from "@lingui/react/macro";
-import { CaretRight, CircleNotch, Plus } from "@phosphor-icons/react";
+import {
+  CaretRight,
+  CircleNotch,
+  DotsThree,
+  Plus,
+} from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
-import { useCallback, useMemo, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 
 import type { ConnectionItem } from "@anlg/api-client";
 import {
@@ -19,12 +31,24 @@ import {
   TroubleShootingLink,
 } from "./apple/permission";
 import { OAuthProviderContent } from "./oauth/provider-content";
-import { type CalendarProvider, PROVIDERS } from "./shared";
+import {
+  type CalendarProvider,
+  getCalendarConnectionKey,
+  PROVIDERS,
+} from "./shared";
 
 import { useAuth } from "~/auth";
 import { useBillingAccess } from "~/auth/billing-context";
 import { useConnections } from "~/auth/useConnections";
-import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
+import {
+  allowReconnectedCalendarConnections,
+  removeDisconnectedCalendarConnection,
+  syncCalendarEvents,
+} from "~/services/calendar";
+import {
+  type MenuItemDef,
+  useNativeContextMenu,
+} from "~/shared/hooks/useNativeContextMenu";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
@@ -80,6 +104,9 @@ function getProviderAccordionKey(
     .join("|");
 }
 
+const CONNECTION_POLL_MS = 45_000;
+const CONNECTION_POLL_INTERVAL_MS = 1_500;
+
 function ProviderIcon({ provider }: { provider: CalendarProvider }) {
   return (
     <span className="flex size-5 shrink-0 items-center justify-center">
@@ -96,7 +123,44 @@ export function CalendarSidebarContent({
   const isMacos = platform() === "macos";
   const calendar = usePermission("calendar");
   const { isPaid } = useBillingAccess();
-  const { data: connections } = useConnections(isPaid);
+  const [connectionPollUntil, setConnectionPollUntil] = useState<number | null>(
+    null,
+  );
+  const connectionKeyWhenPollStartedRef = useRef("");
+  const isPollingConnections = connectionPollUntil !== null;
+  const { data: connections } = useConnections(isPaid, {
+    refetchInterval: isPollingConnections ? CONNECTION_POLL_INTERVAL_MS : false,
+  });
+  const connectionKey = getCalendarConnectionKey(connections);
+  const watchForNewConnection = useCallback(() => {
+    connectionKeyWhenPollStartedRef.current = connectionKey;
+    setConnectionPollUntil(Date.now() + CONNECTION_POLL_MS);
+  }, [connectionKey]);
+
+  useEffect(() => {
+    if (connectionPollUntil === null) {
+      return;
+    }
+    const remaining = connectionPollUntil - Date.now();
+    if (remaining <= 0) {
+      setConnectionPollUntil(null);
+      return;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setConnectionPollUntil(null);
+    }, remaining);
+    return () => window.clearTimeout(timeoutId);
+  }, [connectionPollUntil]);
+
+  useEffect(() => {
+    if (
+      !isPollingConnections ||
+      connectionKey === connectionKeyWhenPollStartedRef.current
+    ) {
+      return;
+    }
+    setConnectionPollUntil(null);
+  }, [connectionKey, isPollingConnections]);
 
   const visibleProviders = useMemo(
     () =>
@@ -144,6 +208,7 @@ export function CalendarSidebarContent({
             provider={provider}
             calendar={calendar}
             returnTo={returnTo}
+            onConnectStarted={watchForNewConnection}
           />
         ),
       )}
@@ -155,10 +220,12 @@ function ProviderAccordionItem({
   provider,
   calendar,
   returnTo,
+  onConnectStarted,
 }: {
   provider: CalendarProvider;
   calendar: ReturnType<typeof usePermission>;
   returnTo: string;
+  onConnectStarted: () => void;
 }) {
   const { t } = useLingui();
   const auth = useAuth();
@@ -185,13 +252,33 @@ function ProviderAccordionItem({
   const shouldConnectOnClick =
     canAddAccount && providerConnections.length === 0;
 
-  const handleAppleConnect = useCallback(() => {
+  const canDisconnectApple =
+    provider.id === "apple" && calendar.status === "authorized";
+
+  const handleAppleConnect = useCallback((): void => {
     if (calendar.isPending) return;
+    allowReconnectedCalendarConnections("apple");
     if (calendar.status === "denied") {
       setIsApplePermissionDialogOpen(true);
     } else {
       calendar.request();
     }
+  }, [calendar]);
+  const handleAppleDisconnect = useCallback((): void => {
+    void removeDisconnectedCalendarConnection("apple", "apple")
+      .then(() => {
+        calendar.reset();
+      })
+      .catch((error) => {
+        console.error(
+          "[calendar] failed to remove disconnected calendar data",
+          error,
+        );
+      })
+      .then(() => syncCalendarEvents())
+      .catch((error) => {
+        console.error("[calendar] failed to sync after disconnect", error);
+      });
   }, [calendar]);
   const handleTriggerClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
@@ -206,6 +293,7 @@ function ProviderAccordionItem({
       }
       if (!shouldConnectOnClick) return;
       event.preventDefault();
+      onConnectStarted();
       openIntegration({
         nangoIntegrationId: provider.nangoIntegrationId,
         action: "connect",
@@ -215,6 +303,7 @@ function ProviderAccordionItem({
     [
       appleNeedsPermission,
       handleAppleConnect,
+      onConnectStarted,
       openIntegration,
       provider.nangoIntegrationId,
       requiresPro,
@@ -227,13 +316,20 @@ function ProviderAccordionItem({
       if (!canAddAccount) return;
       event.preventDefault();
       event.stopPropagation();
+      onConnectStarted();
       openIntegration({
         nangoIntegrationId: provider.nangoIntegrationId,
         action: "connect",
         returnTo,
       });
     },
-    [canAddAccount, openIntegration, provider.nangoIntegrationId, returnTo],
+    [
+      canAddAccount,
+      onConnectStarted,
+      openIntegration,
+      provider.nangoIntegrationId,
+      returnTo,
+    ],
   );
   const handleUpgradeToPro = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
@@ -244,23 +340,49 @@ function ProviderAccordionItem({
     [upgradeToPro],
   );
   const providerMenuItems = useMemo(
-    () =>
+    (): MenuItemDef[] =>
       canAddAccount
         ? [
             {
               id: `add-${provider.id}-account`,
               text: t`Add ${provider.displayName} account`,
-              action: () =>
+              action: () => {
+                onConnectStarted();
                 void openIntegration({
                   nangoIntegrationId: provider.nangoIntegrationId,
                   action: "connect",
                   returnTo,
-                }),
+                });
+              },
             },
           ]
-        : [],
+        : canDisconnectApple
+          ? [
+              {
+                id: "reconnect-apple-calendar",
+                text: t`Reconnect`,
+                action: () => {
+                  handleAppleConnect();
+                },
+                disabled: calendar.isPending,
+              },
+              {
+                id: "disconnect-apple-calendar",
+                text: t`Disconnect`,
+                action: () => {
+                  handleAppleDisconnect();
+                },
+                disabled: calendar.isPending,
+              },
+            ]
+          : [],
     [
+      calendar.isPending,
       canAddAccount,
+      canDisconnectApple,
+      handleAppleConnect,
+      handleAppleDisconnect,
+      onConnectStarted,
       provider.displayName,
       provider.id,
       provider.nangoIntegrationId,
@@ -271,6 +393,7 @@ function ProviderAccordionItem({
   );
   const showProviderMenu = useNativeContextMenu(providerMenuItems);
   const hasAddAccountButton = canAddAccount && !requiresPro;
+  const hasProviderMenuButton = canDisconnectApple;
 
   return (
     <AccordionItem value={provider.id} className="group/provider border-none">
@@ -280,7 +403,7 @@ function ProviderAccordionItem({
         }
         className={cn([
           "group/row hover:bg-accent relative -mx-2 grid items-center gap-1 rounded-full px-2",
-          hasAddAccountButton
+          hasAddAccountButton || hasProviderMenuButton
             ? "grid-cols-[minmax(0,1fr)_auto_auto]"
             : "grid-cols-[minmax(0,1fr)_auto]",
         ])}
@@ -355,6 +478,19 @@ function ProviderAccordionItem({
               <Plus className="size-4" />
             )}
           </button>
+        ) : hasProviderMenuButton ? (
+          <button
+            type="button"
+            onClick={showProviderMenu}
+            className={cn([
+              "text-muted-foreground shrink-0 rounded-full p-1 transition-colors",
+              "pointer-events-none opacity-0 group-hover/row:pointer-events-auto group-hover/row:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100",
+              "hover:bg-accent hover:text-muted-foreground",
+            ])}
+            aria-label={t`Open calendar account actions`}
+          >
+            <DotsThree className="size-4" />
+          </button>
         ) : null}
 
         {!requiresPro && !appleNeedsPermission && (
@@ -383,7 +519,11 @@ function ProviderAccordionItem({
             </div>
           )}
           {provider.nangoIntegrationId && (
-            <OAuthProviderContent config={provider} returnTo={returnTo} />
+            <OAuthProviderContent
+              config={provider}
+              returnTo={returnTo}
+              onConnectStarted={onConnectStarted}
+            />
           )}
         </AccordionContent>
       )}

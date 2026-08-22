@@ -11,14 +11,19 @@ pub use ext::{Windows, WindowsPluginExt};
 pub use tab::*;
 pub use window::*;
 
-const PLUGIN_NAME: &str = "windows";
-
 use std::collections::HashMap;
 use std::sync::{
     Mutex,
     atomic::{AtomicBool, AtomicU64, Ordering},
 };
 use std::time::{Duration, Instant};
+
+const PLUGIN_NAME: &str = "windows";
+
+pub fn persisted_window_state_flags() -> tauri_plugin_window_state::StateFlags {
+    use tauri_plugin_window_state::StateFlags;
+    StateFlags::SIZE | StateFlags::POSITION | StateFlags::MAXIMIZED
+}
 
 const WEBVIEW_RECOVERY_GRACE_PERIOD: Duration = Duration::from_secs(10);
 
@@ -314,8 +319,8 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
         })
         .on_event(move |app, event| {
             if let tauri::RunEvent::ExitRequested { .. } = event {
-                use tauri_plugin_window_state::{AppHandleExt, StateFlags};
-                let _ = app.save_window_state(StateFlags::SIZE);
+                use tauri_plugin_window_state::AppHandleExt;
+                let _ = app.save_window_state(persisted_window_state_flags());
             }
         })
         .build()
@@ -399,6 +404,19 @@ mod test {
 
         assert_eq!(expansions.pop("note-1"), Some((100.0, 120.0, false)));
         assert!(expansions.0.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn persisted_window_state_includes_size_and_position() {
+        use tauri_plugin_window_state::StateFlags;
+
+        let flags = persisted_window_state_flags();
+        assert!(flags.contains(StateFlags::SIZE));
+        assert!(flags.contains(StateFlags::POSITION));
+        assert!(flags.contains(StateFlags::MAXIMIZED));
+        assert!(!flags.contains(StateFlags::VISIBLE));
+        assert!(!flags.contains(StateFlags::DECORATIONS));
+        assert!(!flags.contains(StateFlags::FULLSCREEN));
     }
 
     #[test]

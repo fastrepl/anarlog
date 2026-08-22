@@ -190,7 +190,7 @@ describe("Transcript", () => {
     expect(
       screen.getByTestId("transcript-viewer").getAttribute("data-edit-mode"),
     ).toBe("false");
-    expect(screen.queryByRole("button", { name: "Write" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
 
     view.rerender(
       <Transcript sessionId={sessionId} scrollRef={createRef()} editMode />,

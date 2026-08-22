@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Lock, Square, Users } from "@phosphor-icons/react";
+import { Lock, LockOpen, Square, Users } from "@phosphor-icons/react";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   createContext,
@@ -59,6 +59,7 @@ type ItemBaseProps = {
   showSpinner?: boolean;
   isShared?: boolean;
   isLocked?: boolean;
+  isLockRevealed?: boolean;
   selected: boolean;
   ignored?: boolean;
   muted?: boolean;
@@ -149,6 +150,7 @@ const ItemBase = memo(function ItemBase({
   showSpinner,
   isShared,
   isLocked,
+  isLockRevealed,
   selected,
   ignored,
   muted,
@@ -247,11 +249,19 @@ const ItemBase = memo(function ItemBase({
             )}
           </div>
           {isLocked ? (
-            <Lock
-              aria-label={t`Locked note`}
-              className="text-muted-foreground size-3.5 shrink-0"
-              weight="fill"
-            />
+            isLockRevealed ? (
+              <LockOpen
+                aria-label={t`Unlock Note`}
+                className="text-muted-foreground size-3.5 shrink-0"
+                weight="fill"
+              />
+            ) : (
+              <Lock
+                aria-label={t`Locked note`}
+                className="text-muted-foreground size-3.5 shrink-0"
+                weight="fill"
+              />
+            )
           ) : null}
           {isShared ? (
             <Users
@@ -331,6 +341,7 @@ function itemBasePropsAreEqual(prev: ItemBaseProps, next: ItemBaseProps) {
     prev.showSpinner === next.showSpinner &&
     prev.isShared === next.isShared &&
     prev.isLocked === next.isLocked &&
+    prev.isLockRevealed === next.isLockRevealed &&
     prev.selected === next.selected &&
     prev.ignored === next.ignored &&
     prev.muted === next.muted &&
@@ -549,6 +560,9 @@ const SessionItem = memo(
     const sessionId = item.id;
     const title = useSessionTitle(sessionId, item.data.title ?? undefined);
     const noteLocked = isLockedFlag(item.data.locked);
+    const noteRevealed = useAppLock((state) =>
+      Boolean(state.revealedNoteIds[sessionId]),
+    );
     const authAvailable = useAppLock((state) => state.available) === true;
 
     const { sessionMode, stop, amplitude } = useListener((state) => {
@@ -690,6 +704,7 @@ const SessionItem = memo(
         showSpinner={showSpinner}
         isShared={managedSharedSessionIds.has(sessionId)}
         isLocked={noteLocked}
+        isLockRevealed={noteRevealed}
         selected={selected}
         muted={muted}
         multiSelected={multiSelected}

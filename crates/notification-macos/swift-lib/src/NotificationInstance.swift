@@ -99,10 +99,27 @@ class NotificationInstance {
       timerLabel?.stringValue = "Started"
       countdownTimer?.invalidate()
       countdownTimer = nil
+      scheduleStartedDismiss()
     } else {
       compactMessageLabel?.stringValue = compactScheduleText(remaining)
       timerLabel?.stringValue = expandedScheduleText(remaining)
     }
+  }
+
+  private func scheduleStartedDismiss() {
+    guard timeoutSeconds <= 0 else { return }
+    guard dismissTimer == nil else { return }
+    guard let startTime = meetingStartTime else { return }
+
+    let delay = NotificationSchedule.dismissDelay(afterStart: startTime)
+    if delay <= 0 {
+      DispatchQueue.main.async { [weak self] in
+        self?.dismissWithTimeout()
+      }
+      return
+    }
+
+    scheduleDismissTimer(after: delay)
   }
 
   private func compactScheduleText(_ remaining: TimeInterval) -> String {

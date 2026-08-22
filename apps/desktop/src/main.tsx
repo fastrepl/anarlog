@@ -112,9 +112,9 @@ function ReadyApp() {
   }, []);
 
   return (
-    <TaskSchedulerProvider scheduler={scheduler}>
-      <AppThemeProvider>
-        <AppI18nProvider>
+    <AppThemeProvider>
+      <AppI18nProvider>
+        <TaskSchedulerProvider scheduler={scheduler}>
           <AppLockGate>
             <App />
             {isMainWindow ? <TaskManager /> : null}
@@ -125,9 +125,9 @@ function ReadyApp() {
             {isMainWindow ? <UpdaterMeetingSync /> : null}
             <Toaster position="bottom-right" theme={theme} />
           </AppLockGate>
-        </AppI18nProvider>
-      </AppThemeProvider>
-    </TaskSchedulerProvider>
+        </TaskSchedulerProvider>
+      </AppI18nProvider>
+    </AppThemeProvider>
   );
 }
 

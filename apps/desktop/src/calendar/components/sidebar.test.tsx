@@ -1,7 +1,20 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PermissionStatus } from "@anlg/plugin-permissions";
+
+type ContextMenuItem = {
+  id?: string;
+  text?: string;
+  action?: () => void;
+  separator?: true;
+};
 
 const mocks = vi.hoisted(() => ({
   calendar: {
@@ -14,6 +27,10 @@ const mocks = vi.hoisted(() => ({
     error: null as string | null,
   },
   openIntegration: vi.fn(),
+  removeDisconnectedCalendarConnection: vi.fn(),
+  allowReconnectedCalendarConnections: vi.fn(),
+  syncCalendarEvents: vi.fn(),
+  contextMenus: [] as ContextMenuItem[][],
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -42,7 +59,10 @@ vi.mock("~/auth/useConnections", () => ({
 }));
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
-  useNativeContextMenu: () => vi.fn(),
+  useNativeContextMenu: (items: ContextMenuItem[]) => {
+    mocks.contextMenus.push(items);
+    return vi.fn();
+  },
 }));
 
 vi.mock("~/shared/hooks/usePermissions", () => ({
@@ -57,15 +77,47 @@ vi.mock("~/shared/integration", () => ({
   }),
 }));
 
+vi.mock("~/services/calendar", () => ({
+  removeDisconnectedCalendarConnection:
+    mocks.removeDisconnectedCalendarConnection,
+  allowReconnectedCalendarConnections:
+    mocks.allowReconnectedCalendarConnections,
+  syncCalendarEvents: mocks.syncCalendarEvents,
+}));
+
+vi.mock("./apple/calendar-selection", () => ({
+  AppleCalendarSelection: () => null,
+}));
+
 import { CalendarSidebarContent } from "./sidebar";
+
+function findContextMenuItem(id: string) {
+  for (const items of mocks.contextMenus) {
+    const match = items.find(
+      (item) => !("separator" in item) && item.id === id,
+    );
+    if (match && !("separator" in match)) {
+      return match;
+    }
+  }
+  return undefined;
+}
 
 describe("CalendarSidebarContent", () => {
   afterEach(() => {
     cleanup();
     mocks.calendar.status = "denied";
     mocks.calendar.confirmedStatus = "denied";
+    mocks.calendar.isPending = false;
     mocks.calendar.open.mockClear();
     mocks.calendar.request.mockClear();
+    mocks.calendar.reset.mockClear();
+    mocks.removeDisconnectedCalendarConnection.mockReset();
+    mocks.removeDisconnectedCalendarConnection.mockResolvedValue(undefined);
+    mocks.allowReconnectedCalendarConnections.mockClear();
+    mocks.syncCalendarEvents.mockReset();
+    mocks.syncCalendarEvents.mockResolvedValue(undefined);
+    mocks.contextMenus = [];
   });
 
   it("explains how to recover after Apple Calendar access is denied", () => {
@@ -95,5 +147,57 @@ describe("CalendarSidebarContent", () => {
 
     expect(mocks.calendar.request).toHaveBeenCalledOnce();
     expect(screen.queryByText("Apple Calendar access is off")).toBeNull();
+  });
+
+  it("offers reconnect and disconnect on the Apple Calendar row", async () => {
+    mocks.calendar.status = "authorized";
+    mocks.calendar.confirmedStatus = "authorized";
+
+    render(<CalendarSidebarContent />);
+
+    expect(
+      screen.getByRole("button", { name: "Open calendar account actions" }),
+    ).toBeTruthy();
+
+    const disconnect = findContextMenuItem("disconnect-apple-calendar");
+    const reconnect = findContextMenuItem("reconnect-apple-calendar");
+    expect(disconnect?.text).toBe("Disconnect");
+    expect(reconnect?.text).toBe("Reconnect");
+
+    disconnect?.action?.();
+
+    expect(mocks.removeDisconnectedCalendarConnection).toHaveBeenCalledWith(
+      "apple",
+      "apple",
+    );
+    await waitFor(() => {
+      expect(mocks.calendar.reset).toHaveBeenCalledOnce();
+    });
+    expect(mocks.syncCalendarEvents).toHaveBeenCalledOnce();
+
+    reconnect?.action?.();
+
+    expect(mocks.allowReconnectedCalendarConnections).toHaveBeenCalledWith(
+      "apple",
+    );
+    expect(mocks.calendar.request).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Apple Calendar connected when disconnect persistence fails", async () => {
+    mocks.calendar.status = "authorized";
+    mocks.calendar.confirmedStatus = "authorized";
+    mocks.removeDisconnectedCalendarConnection.mockRejectedValueOnce(
+      new Error("write failed"),
+    );
+
+    render(<CalendarSidebarContent />);
+
+    const disconnect = findContextMenuItem("disconnect-apple-calendar");
+    disconnect?.action?.();
+
+    await waitFor(() => {
+      expect(mocks.syncCalendarEvents).toHaveBeenCalledOnce();
+    });
+    expect(mocks.calendar.reset).not.toHaveBeenCalled();
   });
 });

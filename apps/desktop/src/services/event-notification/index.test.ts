@@ -25,6 +25,8 @@ import { checkEventNotifications } from ".";
 describe("checkEventNotifications", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.execute.mockReset();
+    mocks.execute.mockResolvedValue([]);
     vi.spyOn(Date, "now").mockReturnValue(
       new Date("2026-05-15T12:00:00.000Z").getTime(),
     );
@@ -40,8 +42,9 @@ describe("checkEventNotifications", () => {
         id: "event-1",
         started_at: "2026-05-15T12:02:00.000Z",
         tracking_id_event: "tracking-1",
-        recurrence_series_id: "",
+        recurrence_series_id: "series-1",
         title: "Design Review",
+        is_all_day: 0,
       },
     ]);
 
@@ -55,8 +58,12 @@ describe("checkEventNotifications", () => {
         event_details: null,
         options: null,
         footer: null,
+        message: "Starting in 2 minutes",
+        start_time: new Date("2026-05-15T12:02:00.000Z").getTime() / 1000,
+        timeout: null,
       }),
     );
+    expect(mocks.execute.mock.calls[0]?.[0]).toContain("is_all_day = 0");
   });
 
   test("does not query or notify when event notifications are disabled", async () => {
@@ -78,6 +85,24 @@ describe("checkEventNotifications", () => {
         tracking_id_event: "tracking-1",
         recurrence_series_id: "",
         title: "Design Review",
+        is_all_day: 0,
+      },
+    ]);
+
+    await checkEventNotifications(true, new Map());
+
+    expect(mocks.showNotification).not.toHaveBeenCalled();
+  });
+
+  test("skips all-day events even if the query returns one", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        id: "event-1",
+        started_at: "2026-05-15T12:02:00.000Z",
+        tracking_id_event: "tracking-1",
+        recurrence_series_id: "",
+        title: "Company holiday",
+        is_all_day: 1,
       },
     ]);
 

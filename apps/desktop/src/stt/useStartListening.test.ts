@@ -3308,6 +3308,34 @@ describe("useStartListening", () => {
     });
   });
 
+  test("posts the recording disclosure into Zoom without requiring Slack", async () => {
+    useConfigValueMock.mockImplementation((key: string) =>
+      key === "ai_language"
+        ? "en"
+        : key === "consent_auto_send_chat"
+          ? true
+          : [],
+    );
+    listMicUsingApplicationsMock.mockResolvedValue({
+      status: "ok",
+      data: [{ id: "us.zoom.xos", name: "zoom.us" }],
+    });
+    const sessionId = nextDisclosureSessionId();
+
+    const { result } = renderHook(() => useStartListening(sessionId));
+
+    await act(async () => {
+      await result.current();
+    });
+
+    await waitFor(() => {
+      expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
+        "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so",
+        ["us.zoom.xos"],
+      );
+    });
+  });
+
   test("posts the recording disclosure once across repeated successful starts", async () => {
     useConfigValueMock.mockImplementation((key: string) =>
       key === "ai_language"
@@ -3411,15 +3439,31 @@ describe("useStartListening", () => {
     });
   });
 
-  test("retries until Slack becomes mic-active without reporting intermediate failures", async () => {
+  test("retries until a conferencing app is mic-active without reporting intermediate failures", async () => {
     listMicUsingApplicationsMock
       .mockResolvedValueOnce({
         status: "ok",
-        data: [{ id: "us.zoom.xos", name: "zoom.us" }],
+        data: [{ id: "com.anarlog.dev", name: "Anarlog Dev" }],
       })
       .mockResolvedValueOnce({
         status: "ok",
-        data: [{ id: "com.tinyspeck.slackmacgap", name: "Slack" }],
+        data: [{ id: "us.zoom.xos", name: "zoom.us" }],
+      });
+    sendMeetingChatMessageMock
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: {
+          sent: false,
+          platform: "unknown",
+          surface: "unknown",
+          warnings: [
+            "refusing to send because the mic-active apps contain 0 recognized meeting app bundles; expected exactly one",
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        status: "ok",
+        data: { sent: true, platform: "zoom", surface: "native", warnings: [] },
       });
 
     await expect(
@@ -3430,9 +3474,15 @@ describe("useStartListening", () => {
     ).resolves.toEqual({ status: "sent" });
 
     expect(listMicUsingApplicationsMock).toHaveBeenCalledTimes(2);
-    expect(sendMeetingChatMessageMock).toHaveBeenCalledWith(
+    expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
+      1,
       expect.stringContaining("https://anarlog.so"),
-      ["com.tinyspeck.slackmacgap"],
+      ["com.anarlog.dev"],
+    );
+    expect(sendMeetingChatMessageMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("https://anarlog.so"),
+      ["us.zoom.xos"],
     );
     expect(sonnerToastWarningMock).not.toHaveBeenCalled();
   });

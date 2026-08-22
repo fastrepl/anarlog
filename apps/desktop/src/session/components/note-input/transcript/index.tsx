@@ -41,7 +41,7 @@ export function TranscriptEditButton({
           <PencilSimple aria-hidden className="size-3.5" />
         )}
         <span className="@max-[480px]:sr-only">
-          {editMode ? <Trans>Done writing</Trans> : <Trans>Write</Trans>}
+          {editMode ? <Trans>Done</Trans> : <Trans>Edit</Trans>}
         </span>
       </button>
     </div>

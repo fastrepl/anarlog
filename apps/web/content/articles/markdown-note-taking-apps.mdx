@@ -5,7 +5,7 @@ author:
   - "John Jeong"
 featured: false
 category: "Comparisons"
-date: "2026-02-18"
+date: "2026-08-22"
 ---
 
 Markdown note-taking apps have quietly become the default for anyone serious about owning their knowledge long-term. The format is future-proof, the files are portable, and you're never one pricing change away from losing access to years of work.
@@ -58,8 +58,8 @@ This list covers five apps, each strong for a specific use case, so you can find
 
 #### Cons:
 
-- Currently available for macOS; check the download page for the latest platform availability
-- No mobile app yet
+- macOS is the most mature platform; Windows and Linux builds are still in beta
+- No mobile app yet (iOS and Android are on the roadmap)
 - No video recording
 
 #### Pricing:
@@ -80,7 +80,8 @@ Opening one note pulls you into three others you forgot existed but suddenly nee
 - Graph view - Visual, interactive map of how all your notes connect
 - Canvas - Infinite whiteboard for brainstorming, diagramming, and laying out ideas spatially
 - Local markdown files - Everything stored as .md files on your device. Open them in any editor, any time
-- 1,000+ community plugins - Extend Obsidian into basically whatever you need it to be
+- Bases - Turn any set of notes into a sortable, filterable database view using note properties. No plugin required
+- 4,300+ community plugins - Extend Obsidian into basically whatever you need it to be
 - Obsidian Sync - Optional end-to-end encrypted sync across devices with one year of version history and shared vault collaboration
 - Obsidian Publish - Turn your notes into a public wiki, knowledge base, or digital garden
 - Works completely offline - No internet required for core functionality
@@ -104,7 +105,7 @@ Opening one note pulls you into three others you forgot existed but suddenly nee
 
 #### Pricing:
 
-Free for personal use, no limits, no sign-up. Obsidian Sync is $4/user/month billed annually. Obsidian Publish is $8/site/month. Commercial use requires a $50/user/year license.
+Free for everyone, no limits, no sign-up - including commercial use, which has been free since February 2025. Obsidian Sync is $4/user/month billed annually. Obsidian Publish is $8/site/month. The $50/user/year commercial license still exists but is now optional, for companies that want to support development.
 
 ### 3. Logseq - best markdown note-taking app for daily journaling & outlining
 
@@ -138,11 +139,11 @@ Every bullet point is a block that can be linked, referenced, and surfaced anywh
 
 #### Cons:
 
-- Performance degrades with large graphs - slow startup, laggy rendering, real complaints at scale
-- Mobile app is rough, sync is still beta, and reliability issues have frustrated longtime users
-- Development has stalled. The team has been deep in a database rewrite for years, the plugin ecosystem has quieted, and community momentum has noticeably dropped
-- The upcoming database version moves away from pure markdown, which is a genuine concern for anyone who picked Logseq specifically for file portability
-- Advanced queries have a steep learning curve and poor documentation
+- The project is mid-transition. After years of rewrite, Logseq 2.0 (the "DB version") finally hit beta in July 2026, and Logseq is officially splitting into two versions: the file-based 1.x you know, and a database-backed 2.0
+- The DB version stores canonical data in a database, with markdown available as a mirror rather than the source of truth - a genuine shift for anyone who picked Logseq specifically for plain-file portability
+- The file-based 1.x version is effectively in maintenance mode while the team focuses on 2.0
+- Performance degrades with large graphs on 1.x - slow startup, laggy rendering, real complaints at scale
+- Mobile app is rough, sync is still beta, and advanced queries have a steep learning curve with poor documentation
 
 #### Pricing:
 
@@ -207,6 +208,7 @@ Where Obsidian gives you a blank canvas to build whatever system you want, Inkdr
 - Distraction-free mode - clean writing environment that hides everything but the text
 - Web clipper - Chrome and Firefox extensions to clip articles directly into your notes
 - MCP server - lets AI tools search your notes, understand context, and generate new notes from existing content
+- Inline AI assistant - select text, describe the change in plain language, and let the editor apply it
 - Revision history - every note version saved automatically
 - Raycast and Alfred integration - access notes without ever opening the app
 - Available on macOS, Windows, Linux, iOS, and Android
@@ -228,23 +230,35 @@ Where Obsidian gives you a blank canvas to build whatever system you want, Inkdr
 
 #### Pricing:
 
-$8.31/month billed annually. 30-day free trial, no credit card required.
+$8.31/month billed annually ($99.80/year), or $9.98 billed monthly. 30-day free trial, no credit card required.
 
 ## Other markdown note-taker apps worth knowing
 
-### 1. Zettlr
+### 1. Typora
+
+**[Typora](https://typora.io/)** is the markdown editor people recommend when someone asks for "just an editor." No sidebar of features, no graph view - the markdown renders in place as you type, and your files stay wherever you put them. It is a $14.99 one-time purchase (up to 3 devices, macOS/Windows/Linux) with a 15-day trial. It did not make the main list because it is an editor, not a note system: no linking, no sync, no organization beyond your file tree. As a front-end for a folder of markdown files synced however you like, it is excellent.
+
+### 2. Bear
+
+**[Bear](https://bear.app/)** is the polished option for Apple users. Beautiful typography, fast, tag-based organization, and a markdown-compatible editor. The free version is local-only; Bear Pro ($2.99/month or $29.99/year) adds iCloud sync, note encryption, and full export options. Two caveats keep it off the main list: it is Apple-only, and notes live in Bear's database rather than as plain files on disk - you export markdown rather than own it directly.
+
+### 3. iA Writer
+
+**[iA Writer](https://ia.net/writer)** is built for writing, not note management. Focus mode, clean typography, and an Authorship feature that tracks which text came from AI versus you. It is a one-time purchase per platform ($49.99 Mac, $29.99 Windows, $49.99 iOS/iPad) with no subscription. Files are plain markdown on disk, which is a real ownership win. If your notes are mostly drafts, essays, and long-form writing, it deserves a look; for linked or structured note-taking, the apps above do more.
+
+### 4. Zettlr
 
 **[Zettlr](https://www.zettlr.com/)** is a strong app with a specific audience: academics and researchers doing citation-heavy writing. The Zotero integration, reference manager support, and export pipeline to LaTeX and PDF work well for that workflow. If you're writing papers with footnotes and bibliographies, Zettlr deserves a serious look. For everyone else, it's more tool than needed.
 
-### 2. MarkText
+### 5. MarkText
 
 **[MarkText](https://github.com/marktext/marktext)** has one of the cleanest writing experiences in this list - distraction-free, real-time preview, good theme selection. Development has stalled though, which is a real concern for a tool you're trusting with long-term notes. Worth trying if you need a focused writing editor, but not somewhere to plant your entire knowledge base.
 
-### 3. Notable
+### 6. Notable
 
 **[Notable](https://github.com/notable/notable)** is deliberately minimal: tag-based organization, split-pane editor, no frills. For users who find Obsidian overwhelming and just want a clean place to write and find notes quickly, that simplicity is appealing. It didn't make the cut because the feature set hasn't kept pace with the alternatives, and development has been sparse in recent years.
 
-### 4. Zim
+### 7. Zim
 
 **[Zim](https://zim-wiki.org/)** is the oldest app on this list and quietly one of the most reliable. Long-time users describe it as bulletproof - fast, stable, and does exactly what it claims. The interface looks like it was built in 2008 because it was, and that puts off a lot of people. But if you run Linux and want a desktop wiki that just works forever without surprises, Zim has a loyal following.
 
@@ -254,7 +268,7 @@ If you're in back-to-back meetings and losing track of what was said and decided
 
 If you want to build a knowledge base that gets more valuable the longer you use it, **Obsidian** is the answer. It takes investment to set up, but nothing compounds like a well-linked vault over years.
 
-If you hate deciding where to put things and just want to write, **Logseq** removes that friction entirely. Open it and start. The graph does the organizing for you. Go in aware of the development uncertainty though.
+If you hate deciding where to put things and just want to write, **Logseq** removes that friction entirely. Open it and start. The graph does the organizing for you. Go in aware of the 2.0 database transition though - the markdown-first story is changing.
 
 If you need your notes on every device, encrypted, without paying anyone a monthly fee, **Joplin** is the most practical choice here. The desktop app is rock solid. Manage your expectations on mobile.
 

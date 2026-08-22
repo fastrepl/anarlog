@@ -137,7 +137,11 @@ describe("buildPastSessionNotes", () => {
         sessionId: "previous",
         title: "Weekly Product Sync",
         dateLabel: "May 28, 2026",
+        occurredAt: "2026-05-28T10:00:00.000Z",
         participantNames: ["alex", "jamie"],
+        sourceSummary:
+          "Aligned on transcript panel behavior. Past notes should stay short and scannable.",
+        relationship: "same_series",
         summary: null,
         isGenerating: false,
       },
@@ -145,7 +149,10 @@ describe("buildPastSessionNotes", () => {
         sessionId: "same_title",
         title: "Weekly Product Sync",
         dateLabel: "May 27, 2026",
+        occurredAt: "2026-05-27T10:00:00.000Z",
         participantNames: ["alex", "jamie"],
+        sourceSummary: "Confirmed notification copy and reviewed follow-ups.",
+        relationship: "matching_title",
         summary: null,
         isGenerating: false,
       },
@@ -160,54 +167,204 @@ describe("buildPastSessionNotes", () => {
     ]);
   });
 
-  it("does not treat matching participants alone as related past notes", () => {
+  it("prioritizes recurring-series history over newer title matches", () => {
+    const participant = {
+      human_id: "alex",
+      user_id: "self",
+      source: "auto",
+    };
     const data = makeData({
       sessions: {
         current: {
-          title: "Design sync",
+          title: "Weekly Product Sync",
           created_at: "2026-06-03T10:00:00.000Z",
-          event_json: "",
-          raw_md: "",
+          event_json: JSON.stringify({
+            started_at: "2026-06-03T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
         },
-        different_topic: {
-          title: "Dev sync",
-          created_at: "2026-06-01T10:00:00.000Z",
+        recurring: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-20T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-05-20T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
+        },
+        title_match: {
+          title: "Weekly Product Sync",
+          created_at: "2026-05-30T10:00:00.000Z",
           event_json: "",
-          raw_md: "Discussed release branch status.",
         },
       },
       mapping_session_participant: {
-        current_alex: {
-          session_id: "current",
-          human_id: "alex",
-          user_id: "self",
-          source: "auto",
+        current_alex: { ...participant, session_id: "current" },
+        recurring_alex: { ...participant, session_id: "recurring" },
+        title_match_alex: { ...participant, session_id: "title_match" },
+      },
+      enhanced_notes: {
+        recurring_summary: {
+          session_id: "recurring",
+          content: "Recurring context.",
+          position: 0,
         },
-        current_jamie: {
-          session_id: "current",
-          human_id: "jamie",
-          user_id: "self",
-          source: "auto",
-        },
-        different_topic_alex: {
-          session_id: "different_topic",
-          human_id: "alex",
-          user_id: "self",
-          source: "auto",
-        },
-        different_topic_jamie: {
-          session_id: "different_topic",
-          human_id: "jamie",
-          user_id: "self",
-          source: "auto",
+        title_summary: {
+          session_id: "title_match",
+          content: "Title-match context.",
+          position: 0,
         },
       },
     });
 
     const result = buildPastSessionNotes(data, "current", "self");
 
-    expect(result.notes).toEqual([]);
-    expect(result.missing).toEqual([]);
+    expect(
+      result.notes.map((note) => [note.sessionId, note.relationship]),
+    ).toEqual([
+      ["recurring", "same_series"],
+      ["title_match", "matching_title"],
+    ]);
+  });
+
+  it("uses shared participants when the meeting is not recurring or same-title", () => {
+    const data = makeData({
+      sessions: {
+        current: {
+          title: "Untitled",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-06-03T20:00:00.000Z",
+          }),
+          raw_md: "",
+        },
+        coffee_chat: {
+          title: "Coffee with Yujong",
+          created_at: "2026-05-20T10:00:00.000Z",
+          event_json: "",
+          raw_md: "",
+        },
+        other_person: {
+          title: "Hiring loop",
+          created_at: "2026-05-22T10:00:00.000Z",
+          event_json: "",
+          raw_md: "",
+        },
+      },
+      mapping_session_participant: {
+        current_yujong: {
+          session_id: "current",
+          human_id: "yujong",
+          user_id: "self",
+          source: "calendar",
+          name: "Yujong Lee",
+        },
+        coffee_yujong: {
+          session_id: "coffee_chat",
+          human_id: "yujong",
+          user_id: "self",
+          source: "calendar",
+          name: "Yujong Lee",
+        },
+        other_sam: {
+          session_id: "other_person",
+          human_id: "sam",
+          user_id: "self",
+          source: "calendar",
+          name: "Sam",
+        },
+      },
+      enhanced_notes: {
+        coffee_summary: {
+          session_id: "coffee_chat",
+          content: "Yujong wants a tighter launch checklist before Friday.",
+          position: 0,
+        },
+        other_summary: {
+          session_id: "other_person",
+          content: "Sam will schedule the next interview.",
+          position: 0,
+        },
+      },
+    });
+
+    const result = buildPastSessionNotes(data, "current", "self");
+
+    expect(
+      result.notes.map((note) => [note.sessionId, note.relationship]),
+    ).toEqual([["coffee_chat", "shared_participants"]]);
+    expect(result.notes[0]?.participantNames).toEqual(["Yujong Lee"]);
+  });
+
+  it("ranks series and title matches ahead of other meetings with the same people", () => {
+    const participant = {
+      human_id: "yujong",
+      user_id: "self",
+      source: "auto",
+      name: "Yujong Lee",
+    };
+    const data = makeData({
+      sessions: {
+        current: {
+          title: "Founders sync",
+          created_at: "2026-06-03T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-06-03T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
+        },
+        series: {
+          title: "Founders sync",
+          created_at: "2026-05-20T10:00:00.000Z",
+          event_json: JSON.stringify({
+            started_at: "2026-05-20T10:00:00.000Z",
+            recurrence_series_id: "series-1",
+          }),
+        },
+        titled: {
+          title: "Founders sync",
+          created_at: "2026-05-27T10:00:00.000Z",
+          event_json: "",
+        },
+        other_meeting: {
+          title: "Coffee chat",
+          created_at: "2026-05-30T10:00:00.000Z",
+          event_json: "",
+        },
+      },
+      mapping_session_participant: {
+        current_yujong: { ...participant, session_id: "current" },
+        series_yujong: { ...participant, session_id: "series" },
+        titled_yujong: { ...participant, session_id: "titled" },
+        other_yujong: { ...participant, session_id: "other_meeting" },
+      },
+      enhanced_notes: {
+        series_summary: {
+          session_id: "series",
+          content: "Series context.",
+          position: 0,
+        },
+        titled_summary: {
+          session_id: "titled",
+          content: "Title context.",
+          position: 0,
+        },
+        other_summary: {
+          session_id: "other_meeting",
+          content: "Coffee context.",
+          position: 0,
+        },
+      },
+    });
+
+    const result = buildPastSessionNotes(data, "current", "self");
+
+    expect(
+      result.notes.map((note) => [note.sessionId, note.relationship]),
+    ).toEqual([
+      ["series", "same_series"],
+      ["titled", "matching_title"],
+      ["other_meeting", "shared_participants"],
+    ]);
   });
 });
 
@@ -272,6 +429,13 @@ describe("past note relationship indexing", () => {
         current: session("current", "2026-06-03T10:00:00.000Z"),
         no_relations: session("no_relations", "2026-05-28T10:00:00.000Z"),
       },
+      enhanced_notes: {
+        unrelated: {
+          session_id: "no_relations",
+          content: "Same title but no participant evidence.",
+          position: 0,
+        },
+      },
     });
 
     const result = buildPastSessionNotes(data, "current", "self");
@@ -286,6 +450,26 @@ describe("past note relationship indexing", () => {
         current: session("current", "2026-06-03T10:00:00.000Z"),
         tie_a: session("tie_a", "2026-05-28T10:00:00.000Z"),
         tie_b: session("tie_b", "2026-05-28T10:00:00.000Z"),
+      },
+      mapping_session_participant: {
+        current_alex: {
+          session_id: "current",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        tie_a_alex: {
+          session_id: "tie_a",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
+        tie_b_alex: {
+          session_id: "tie_b",
+          human_id: "alex",
+          user_id: "self",
+          source: "auto",
+        },
       },
       enhanced_notes: {
         a: { session_id: "tie_a", content: "Summary A", position: 0 },

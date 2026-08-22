@@ -4,6 +4,7 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 import {
   MEETING_DISCLOSURE_MESSAGE_VERSION,
   type DisclosureAttempt,
+  type DisclosurePlatform,
 } from "./meeting-consent";
 import { persistDisclosureAttempt } from "./meeting-consent-store";
 
@@ -13,10 +14,6 @@ export const MEETING_DISCLOSURE_MESSAGE =
 const MEETING_DISCLOSURE_MAX_ATTEMPTS = 30;
 const MEETING_DISCLOSURE_RETRY_INTERVAL_MS = 1_000;
 export const MAX_SENT_MEETING_DISCLOSURE_SESSIONS = 256;
-const SLACK_BUNDLE_IDS = new Set([
-  "com.slack.Slack",
-  "com.tinyspeck.slackmacgap",
-]);
 
 type MeetingDisclosureOutcome =
   | { status: "sent" }
@@ -24,8 +21,13 @@ type MeetingDisclosureOutcome =
   | { status: "cancelled" };
 
 type MeetingDisclosureAttemptOutcome =
-  | { status: "sent" }
-  | { status: "notSent"; reason: unknown }
+  | { status: "sent"; platform: DisclosurePlatform; surface: string }
+  | {
+      status: "notSent";
+      reason: unknown;
+      platform: DisclosurePlatform;
+      surface: string;
+    }
   | { status: "cancelled" };
 
 type MeetingDisclosureTask = {
@@ -35,6 +37,38 @@ type MeetingDisclosureTask = {
 
 const meetingDisclosureTasks = new Map<string, MeetingDisclosureTask>();
 const sentMeetingDisclosureSessionIds = new Set<string>();
+
+function disclosurePlatformFromSend(
+  platform: string | undefined,
+): DisclosurePlatform {
+  switch (platform) {
+    case "zoom":
+      return "zoom";
+    case "googleMeet":
+      return "google_meet";
+    case "microsoftTeams":
+      return "teams";
+    case "slack":
+      return "slack_huddle";
+    case "webex":
+      return "webex";
+    default:
+      return "unknown";
+  }
+}
+
+function disclosureSurfaceFromSend(input: {
+  platform: DisclosurePlatform;
+  surface?: string;
+}): string {
+  if (
+    input.platform === "slack_huddle" &&
+    (input.surface === "native" || !input.surface)
+  ) {
+    return "huddle";
+  }
+  return input.surface || "unknown";
+}
 
 function hasSentMeetingDisclosure(sessionId: string) {
   if (!sentMeetingDisclosureSessionIds.has(sessionId)) {
@@ -66,6 +100,7 @@ async function recordDisclosureAttempt(input: {
   sessionId?: string;
   delivery: DisclosureAttempt["delivery"];
   failureReason?: unknown;
+  platform?: DisclosurePlatform;
   surface?: string;
 }) {
   if (!input.sessionId) {
@@ -78,6 +113,7 @@ async function recordDisclosureAttempt(input: {
       : input.failureReason
         ? String(input.failureReason)
         : "";
+  const platform = input.platform ?? "unknown";
 
   try {
     await persistDisclosureAttempt({
@@ -86,8 +122,11 @@ async function recordDisclosureAttempt(input: {
         `disclosure-${Date.now()}-${Math.random()}`,
       sessionId: input.sessionId,
       attemptedAt: new Date().toISOString(),
-      platform: "slack_huddle",
-      surface: input.surface ?? "huddle",
+      platform,
+      surface: disclosureSurfaceFromSend({
+        platform,
+        surface: input.surface,
+      }),
       messageVersion: MEETING_DISCLOSURE_MESSAGE_VERSION,
       message: MEETING_DISCLOSURE_MESSAGE,
       delivery: input.delivery,
@@ -124,7 +163,12 @@ async function attemptMeetingRecordingDisclosure(
   } catch (error) {
     return isCancelled()
       ? { status: "cancelled" }
-      : { status: "notSent", reason: error };
+      : {
+          status: "notSent",
+          reason: error,
+          platform: "unknown",
+          surface: "unknown",
+        };
   }
 
   if (isCancelled()) {
@@ -132,18 +176,17 @@ async function attemptMeetingRecordingDisclosure(
   }
 
   if (micAppsResult.status === "error") {
-    return { status: "notSent", reason: micAppsResult.error };
+    return {
+      status: "notSent",
+      reason: micAppsResult.error,
+      platform: "unknown",
+      surface: "unknown",
+    };
   }
 
   const micActiveBundleIds = [
     ...new Set(micAppsResult.data.map((app) => app.id.trim()).filter(Boolean)),
   ];
-  if (!micActiveBundleIds.some((bundleId) => SLACK_BUNDLE_IDS.has(bundleId))) {
-    return {
-      status: "notSent",
-      reason: "no mic-active Slack app was found",
-    };
-  }
 
   if (isCancelled()) {
     return { status: "cancelled" };
@@ -159,17 +202,33 @@ async function attemptMeetingRecordingDisclosure(
   } catch (error) {
     return isCancelled()
       ? { status: "cancelled" }
-      : { status: "notSent", reason: error };
+      : {
+          status: "notSent",
+          reason: error,
+          platform: "unknown",
+          surface: "unknown",
+        };
   }
 
   if (result.status === "error") {
     return isCancelled()
       ? { status: "cancelled" }
-      : { status: "notSent", reason: result.error };
+      : {
+          status: "notSent",
+          reason: result.error,
+          platform: "unknown",
+          surface: "unknown",
+        };
   }
 
+  const platform = disclosurePlatformFromSend(result.data.platform);
+  const surface = disclosureSurfaceFromSend({
+    platform,
+    surface: result.data.surface,
+  });
+
   if (result.data.sent) {
-    return { status: "sent" };
+    return { status: "sent", platform, surface };
   }
 
   if (isCancelled()) {
@@ -180,6 +239,8 @@ async function attemptMeetingRecordingDisclosure(
     status: "notSent",
     reason:
       result.data.warnings.join("; ") || "meeting chat mutation was rejected",
+    platform,
+    surface,
   };
 }
 
@@ -195,6 +256,8 @@ export async function sendMeetingRecordingDisclosure({
   retryIntervalMs?: number;
 } = {}): Promise<MeetingDisclosureOutcome> {
   let lastFailureReason: unknown = "meeting chat disclosure was not sent";
+  let lastPlatform: DisclosurePlatform = "unknown";
+  let lastSurface = "unknown";
 
   for (let attempt = 0; attempt < Math.max(1, maxAttempts); attempt += 1) {
     const outcome = await attemptMeetingRecordingDisclosure(isCancelled);
@@ -202,11 +265,17 @@ export async function sendMeetingRecordingDisclosure({
       await recordDisclosureAttempt({
         sessionId,
         delivery: outcome.status === "sent" ? "sent" : "cancelled",
+        platform: outcome.status === "sent" ? outcome.platform : lastPlatform,
+        surface: outcome.status === "sent" ? outcome.surface : lastSurface,
       });
-      return outcome;
+      return outcome.status === "sent"
+        ? { status: "sent" }
+        : { status: "cancelled" };
     }
 
     lastFailureReason = outcome.reason;
+    lastPlatform = outcome.platform;
+    lastSurface = outcome.surface;
     if (attempt + 1 < Math.max(1, maxAttempts)) {
       await new Promise<void>((resolve) => {
         setTimeout(resolve, retryIntervalMs);
@@ -215,6 +284,8 @@ export async function sendMeetingRecordingDisclosure({
         await recordDisclosureAttempt({
           sessionId,
           delivery: "cancelled",
+          platform: lastPlatform,
+          surface: lastSurface,
         });
         return { status: "cancelled" };
       }
@@ -225,6 +296,8 @@ export async function sendMeetingRecordingDisclosure({
     sessionId,
     delivery: "not_sent",
     failureReason: lastFailureReason,
+    platform: lastPlatform,
+    surface: lastSurface,
   });
   return meetingDisclosureFailure(lastFailureReason);
 }

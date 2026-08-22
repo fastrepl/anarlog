@@ -24,7 +24,8 @@ export function MeetingSettingsView({
   captureMeetingChat: SettingItem;
 }) {
   const currentPlatform = platform();
-  const isMacos = currentPlatform === "macos";
+  const supportsMeetingAx =
+    currentPlatform === "macos" || currentPlatform === "linux";
   const supportsMicDetection = currentPlatform !== "windows";
 
   return (
@@ -54,7 +55,7 @@ export function MeetingSettingsView({
           onChange={autoStopMeetings.onChange}
         />
       )}
-      {isMacos && (
+      {supportsMeetingAx && (
         <>
           <SettingSwitchRow
             title={<Trans>Post recording disclosure in meeting chat</Trans>}

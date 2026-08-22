@@ -177,10 +177,18 @@ function useNoteSurfaceWindowWidthGuard({
   useLayoutEffect(() => {
     const previousState = previousStateRef.current;
     const hasOpenPanel = enabled && (leftPanelOpen || rightPanelOpen);
+    const rightPanelJustClosed =
+      previousState.rightPanelOpen && !rightPanelOpen;
+
+    if (
+      rightPanelJustClosed ||
+      (enabled && !leftPanelOpen && !rightPanelOpen)
+    ) {
+      restoreWidthExpansions();
+    }
 
     if (!hasOpenPanel) {
       previousStateRef.current = { enabled, leftPanelOpen, rightPanelOpen };
-      restoreWidthExpansions();
       return;
     }
 

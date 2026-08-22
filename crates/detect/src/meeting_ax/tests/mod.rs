@@ -75,3 +75,15 @@ mod inspection;
 mod message_parsing;
 mod participant_streams;
 mod slack_huddle;
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[test]
+fn inspect_meeting_accessibility_is_empty_without_ax_backend() {
+    assert!(inspect_meeting_accessibility().is_empty());
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn inspect_meeting_accessibility_does_not_panic_without_meeting_apps() {
+    let _ = inspect_meeting_accessibility();
+}

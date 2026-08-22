@@ -120,6 +120,7 @@ export const TitleInput = forwardRef<
 
     return (
       <TitleInputInner
+        key={sessionId}
         ref={inputRef}
         sessionId={sessionId}
         editorId={editorId}
@@ -425,13 +426,14 @@ const TitleInputInner = memo(
             onKeyDown={handleKeyDown}
             onKeyUp={(e) => updateOverflowState(e.currentTarget)}
             onFocus={() => {
-              setDraftTitle(title);
               setIsTitleFocused(true);
               updateOverflowState();
             }}
             onBlur={(e) => {
               setIsTitleFocused(false);
-              void persistTitle(e.target.value);
+              if (draftTitle !== null) {
+                void persistTitle(e.target.value);
+              }
               updateOverflowState(e.target);
             }}
             onScroll={(e) => updateOverflowState(e.currentTarget)}

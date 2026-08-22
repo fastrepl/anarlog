@@ -1,5 +1,7 @@
 use crate::WindowImpl;
 
+const MAIN_WINDOW_WIDTH: f64 = 910.0;
+const MAIN_WINDOW_HEIGHT: f64 = 600.0;
 const NOTE_WINDOW_WIDTH: f64 = 720.0;
 const NOTE_WINDOW_HEIGHT: f64 = 820.0;
 const NOTE_WINDOW_POSITION_TOLERANCE: f64 = 1.0;
@@ -201,10 +203,9 @@ impl WindowImpl for AppWindow {
                     .window_builder(app, "/app")
                     .maximizable(true)
                     .minimizable(true)
-                    .min_inner_size(500.0, 500.0);
-                let window = builder.build()?;
-                window.set_size(LogicalSize::new(910.0, 600.0))?;
-                window
+                    .min_inner_size(500.0, 500.0)
+                    .inner_size(MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT);
+                builder.build()?
             }
             Self::Composer => {
                 let builder = self
@@ -226,10 +227,9 @@ impl WindowImpl for AppWindow {
                     .window_builder(app, format!("/app/note/{encoded_id}"))
                     .maximizable(true)
                     .minimizable(true)
-                    .min_inner_size(420.0, 500.0);
-                let window = builder.build()?;
-                window.set_size(LogicalSize::new(NOTE_WINDOW_WIDTH, NOTE_WINDOW_HEIGHT))?;
-                window
+                    .min_inner_size(420.0, 500.0)
+                    .inner_size(NOTE_WINDOW_WIDTH, NOTE_WINDOW_HEIGHT);
+                builder.build()?
             }
         };
 

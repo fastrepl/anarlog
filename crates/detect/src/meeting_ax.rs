@@ -1,73 +1,86 @@
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 use std::collections::HashSet;
 
 #[cfg(target_os = "macos")]
 use cidre::{arc, ax, cf, cg};
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 mod analysis;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 mod context;
-#[cfg(target_os = "macos")]
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 mod node;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 mod platform;
 mod types;
 
-#[cfg(target_os = "macos")]
+#[cfg_attr(target_os = "linux", allow(unused_imports))]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use analysis::{
     candidate_chat_target, extract_chat_messages, find_participant_streams,
     is_slack_huddle_scope_node, is_zoom_chat_scope_node, is_zoom_meeting_evidence,
     is_zoom_meeting_scope_node,
 };
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 use analysis::{
     candidate_stream, extract_links, looks_like_time, meeting_chat_direction,
     meeting_chat_surface_is_visible, parse_chat_message, participant_name_from_evidence,
     slack_huddle_is_active,
 };
 #[cfg(target_os = "macos")]
+use context::zoom_chat_surface_is_visible;
+#[cfg_attr(target_os = "linux", allow(unused_imports))]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use context::{
-    browser_capture_context_id, native_capture_context_id, path_is_ancestor,
-    slack_capture_context_id, validated_chat_scope, zoom_capture_context_id,
-    zoom_chat_surface_is_visible,
+    browser_capture_context_id, is_open_meeting_chat_control, is_platform_chat_composer,
+    is_platform_send_button, native_capture_context_id, path_is_ancestor, slack_capture_context_id,
+    validated_chat_scope, zoom_capture_context_id,
 };
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 use node::node_text;
-#[cfg(target_os = "macos")]
+#[cfg_attr(target_os = "linux", allow(unused_imports))]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use node::{
     is_platform_active_call_control, is_platform_meeting_control, node_has_positive_bounds,
     node_labels, searchable_node_text,
 };
-#[cfg(target_os = "macos")]
+#[cfg_attr(target_os = "linux", allow(unused_imports))]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use platform::{
     MEETING_APP_BUNDLES, browser_platform_from_url, browser_title_platform_signals,
     classify_browser_context, classify_bundle, classify_platform, classify_surface,
-    is_browser_bundle, running_apps_for_bundle, running_meeting_apps, select_active_bundle_ids,
-    supports_meeting_chat_mutation, unique_recognized_meeting_bundle,
+    is_browser_bundle, select_active_bundle_ids, supports_meeting_chat_mutation,
+    unique_recognized_meeting_bundle,
 };
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 use platform::{MeetingAppBundleKind, is_meeting_app_bundle};
-#[cfg(target_os = "macos")]
+#[cfg_attr(target_os = "linux", allow(unused_imports))]
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+use platform::{running_apps_for_bundle, running_meeting_apps};
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use types::{
-    AxAncestor, AxChatElement, AxNode, BrowserMeetingRoot, MeetingChatTarget, NativeMeetingRoot,
-    SlackHuddleRoot, UniqueMatch,
+    AxAncestor, AxNode, BrowserMeetingRoot, MeetingChatTarget, NativeMeetingRoot, UniqueMatch,
 };
+#[cfg(target_os = "macos")]
+use types::{AxChatElement, SlackHuddleRoot};
 pub use types::{
     AxRect, MeetingAccessibilityInspection, MeetingApp, MeetingCapturedChatMessage,
     MeetingChatCaptureResult, MeetingChatDirection, MeetingChatSendResult,
     MeetingParticipantStream, MeetingPlatform, MeetingSurface,
 };
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MAX_TREE_DEPTH: usize = 18;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MAX_NODES: usize = 1800;
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MIN_VIDEO_AREA: f64 = 18_000.0;
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MAX_MEETING_CHAT_MESSAGE_CHARS: usize = 2_000;
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn unique_scope_for_count(count: usize) -> UniqueMatch {
     match count {
         0 => UniqueMatch::Missing,
@@ -76,7 +89,7 @@ fn unique_scope_for_count(count: usize) -> UniqueMatch {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos"))]
 fn unique_scope_for_search(count: usize, complete: bool) -> UniqueMatch {
     if complete {
         unique_scope_for_count(count)
@@ -94,11 +107,17 @@ pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
         .collect()
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
+    linux::inspect_meeting_accessibility()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
     Vec::new()
 }
 
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn validate_meeting_chat_message(message: &str) -> Result<(), &'static str> {
     if message.trim().is_empty() {
         return Err("meeting chat message must not be empty");
@@ -171,64 +190,140 @@ pub fn send_meeting_chat_message(
         };
     }
 
-    let mut validated_apps = Vec::new();
+    enum SendCandidate {
+        SlackHuddle {
+            app: MeetingApp,
+            root: SlackHuddleRoot,
+        },
+        Scoped {
+            app: MeetingApp,
+            platform: MeetingPlatform,
+            surface: MeetingSurface,
+            element: arc::R<ax::UiElement>,
+        },
+    }
+
+    let mut candidates = Vec::new();
     let mut warnings = Vec::new();
     for (app, pid) in running_apps_for_bundle(scoped_bundle_id) {
         let ax_app = ax::UiElement::with_app_pid(pid);
         let _ = ax_app.set_messaging_timeout_secs(0.6);
-        let mut roots = collect_slack_huddle_roots(&ax_app, &mut warnings);
+        if is_browser_bundle(scoped_bundle_id) {
+            let (roots, poisoned) = collect_browser_meeting_windows(&ax_app, &mut warnings);
+            if poisoned || roots.len() > 1 {
+                warnings.push(format!(
+                    "refusing to send because the browser exposed {} meeting chat surfaces",
+                    roots.len()
+                ));
+                return MeetingChatSendResult {
+                    sent: false,
+                    app: Some(app),
+                    platform: scoped_platform,
+                    surface: MeetingSurface::Web,
+                    input_label: None,
+                    send_action: None,
+                    warnings,
+                };
+            }
+            if let Some((root, element)) = roots.into_iter().next() {
+                candidates.push(SendCandidate::Scoped {
+                    app,
+                    platform: root.platform,
+                    surface: MeetingSurface::Web,
+                    element,
+                });
+            }
+            continue;
+        }
+
+        if scoped_platform == MeetingPlatform::Slack {
+            let mut roots = collect_slack_huddle_roots(&ax_app, &mut warnings);
+            if roots.len() > 1 {
+                warnings.push(format!(
+                    "refusing to send because Slack exposed {} active Huddle windows",
+                    roots.len()
+                ));
+                return slack_chat_failure(
+                    &app,
+                    &classify_surface(&app.id, &MeetingPlatform::Slack),
+                    None,
+                    warnings,
+                );
+            }
+            if let Some(root) = roots.pop() {
+                candidates.push(SendCandidate::SlackHuddle { app, root });
+            }
+            continue;
+        }
+
+        let mut roots = collect_native_meeting_windows(&ax_app, &scoped_platform, &mut warnings);
         if roots.len() > 1 {
             warnings.push(format!(
-                "refusing to send because Slack exposed {} active Huddle windows",
+                "refusing to send because the meeting app exposed {} meeting windows",
                 roots.len()
             ));
-            return slack_chat_failure(
-                &app,
-                &classify_surface(&app.id, &MeetingPlatform::Slack),
-                None,
-                warnings,
-            );
+            return chat_send_failure(&app, &scoped_platform, &scoped_surface, None, warnings);
         }
-        if let Some(root) = roots.pop() {
-            validated_apps.push((app, root));
+        if let Some((_, element)) = roots.pop() {
+            candidates.push(SendCandidate::Scoped {
+                app,
+                platform: scoped_platform.clone(),
+                surface: scoped_surface.clone(),
+                element,
+            });
         }
     }
 
-    if validated_apps.len() > 1 {
+    if candidates.len() > 1 {
         return MeetingChatSendResult {
             sent: false,
             app: None,
-            platform: MeetingPlatform::Slack,
-            surface: MeetingSurface::Unknown,
+            platform: scoped_platform,
+            surface: scoped_surface,
             input_label: None,
             send_action: None,
             warnings: vec![
-                "refusing to send because multiple running Slack apps expose active Huddles"
+                "refusing to send because multiple running meeting apps expose a chat composer"
                     .to_string(),
             ],
         };
     }
 
-    if let Some((app, root)) = validated_apps.pop() {
-        let surface = classify_surface(&app.id, &MeetingPlatform::Slack);
-        return send_slack_huddle_chat_message(&app, &surface, root, &message, warnings);
-    }
-
-    MeetingChatSendResult {
-        sent: false,
-        app: None,
-        platform: MeetingPlatform::Unknown,
-        surface: MeetingSurface::Unknown,
-        input_label: None,
-        send_action: None,
-        warnings: vec![
-            "no uniquely validated Slack Huddle is active; AX chat mutation for other meeting platforms is disabled until their window and composer can be paired safely"
-                .to_string(),
-        ],
+    match candidates.pop() {
+        Some(SendCandidate::SlackHuddle { app, root }) => {
+            let surface = classify_surface(&app.id, &MeetingPlatform::Slack);
+            send_slack_huddle_chat_message(&app, &surface, root, &message, warnings)
+        }
+        Some(SendCandidate::Scoped {
+            app,
+            platform,
+            surface,
+            element,
+        }) => send_scoped_chat_message(&app, &platform, &surface, &element, &message, warnings),
+        None => MeetingChatSendResult {
+            sent: false,
+            app: None,
+            platform: scoped_platform,
+            surface: scoped_surface,
+            input_label: None,
+            send_action: None,
+            warnings: vec![
+                "no uniquely validated meeting chat composer is visible; AX chat mutation stays fail-closed until the window, composer, and send control can be paired"
+                    .to_string(),
+            ],
+        },
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+pub fn send_meeting_chat_message(
+    message: String,
+    mic_active_bundle_ids: Vec<String>,
+) -> MeetingChatSendResult {
+    linux::send_meeting_chat_message(message, mic_active_bundle_ids)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn send_meeting_chat_message(
     _message: String,
     _mic_active_bundle_ids: Vec<String>,
@@ -240,7 +335,7 @@ pub fn send_meeting_chat_message(
         surface: MeetingSurface::Unknown,
         input_label: None,
         send_action: None,
-        warnings: vec!["meeting chat AX send is only available on macOS".to_string()],
+        warnings: vec!["meeting chat AX send is only available on macOS and Linux".to_string()],
     }
 }
 
@@ -483,7 +578,12 @@ pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCapt
     }
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCaptureResult {
+    linux::capture_meeting_chat_messages(bundle_ids)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn capture_meeting_chat_messages(_bundle_ids: Vec<String>) -> MeetingChatCaptureResult {
     MeetingChatCaptureResult {
         app: None,
@@ -491,7 +591,7 @@ pub fn capture_meeting_chat_messages(_bundle_ids: Vec<String>) -> MeetingChatCap
         surface: MeetingSurface::Unknown,
         context_id: None,
         messages: Vec::new(),
-        warnings: vec!["meeting chat AX capture is only available on macOS".to_string()],
+        warnings: vec!["meeting chat AX capture is only available on macOS and Linux".to_string()],
     }
 }
 
@@ -703,8 +803,193 @@ fn send_slack_huddle_chat_message(
 }
 
 #[cfg(target_os = "macos")]
+fn send_scoped_chat_message(
+    app: &MeetingApp,
+    platform: &MeetingPlatform,
+    surface: &MeetingSurface,
+    root: &ax::UiElement,
+    message: &str,
+    mut warnings: Vec<String>,
+) -> MeetingChatSendResult {
+    let mut refreshed_nodes = Vec::new();
+    if !collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings) {
+        warnings.push("refusing to send from an incomplete meeting AX snapshot".to_string());
+        return chat_send_failure(app, platform, surface, None, warnings);
+    }
+
+    let mut chat_elements = collect_sorted_chat_elements(root);
+    if validated_chat_scope(platform, &refreshed_nodes).is_none() {
+        match unique_matching_chat_element_index(&chat_elements, |element| {
+            is_open_meeting_chat_control(&element.node)
+        }) {
+            UniqueMatch::One(control_index) => {
+                let control = &chat_elements[control_index];
+                let label = inspection_label(&control.node)
+                    .unwrap_or_else(|| "meeting chat control".to_string());
+                match control.element.perform_action(ax::action::press()) {
+                    Ok(_) => {
+                        warnings.push(format!("opened meeting chat via AX: {label}"));
+                        refreshed_nodes.clear();
+                        if !collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings) {
+                            warnings.push(
+                                "refusing to send from an incomplete meeting AX snapshot after opening chat"
+                                    .to_string(),
+                            );
+                            return chat_send_failure(app, platform, surface, None, warnings);
+                        }
+                        chat_elements = collect_sorted_chat_elements(root);
+                    }
+                    Err(error) => {
+                        warnings.push(format!("failed to open meeting chat via AX: {error:?}"));
+                        return chat_send_failure(app, platform, surface, None, warnings);
+                    }
+                }
+            }
+            UniqueMatch::Missing | UniqueMatch::Ambiguous => {}
+        }
+    }
+
+    let Some((scope_path, _)) = validated_chat_scope(platform, &refreshed_nodes) else {
+        warnings.push(
+            "no uniquely validated meeting chat composer is visible after inspecting the meeting window"
+                .to_string(),
+        );
+        return chat_send_failure(app, platform, surface, None, warnings);
+    };
+
+    let input_index = match unique_matching_chat_element_index(&chat_elements, |element| {
+        is_platform_chat_composer(platform, &element.node)
+    }) {
+        UniqueMatch::One(index) => index,
+        UniqueMatch::Missing => {
+            warnings.push("the meeting chat surface did not expose its composer".to_string());
+            return chat_send_failure(app, platform, surface, None, warnings);
+        }
+        UniqueMatch::Ambiguous => {
+            warnings.push(
+                "the meeting chat surface exposed multiple composers; refusing to choose one"
+                    .to_string(),
+            );
+            return chat_send_failure(app, platform, surface, None, warnings);
+        }
+    };
+
+    let input = &chat_elements[input_index];
+    let label = inspection_label(&input.node);
+    let mut input_element = input.element.retained();
+    let _ = input_element.perform_action(ax::action::press());
+    let original_value = match chat_input_value(&input_element) {
+        Ok(value) if value.trim().is_empty() => value,
+        Ok(_) => {
+            warnings.push("refusing to overwrite an existing meeting chat draft".to_string());
+            return chat_send_failure(app, platform, surface, label, warnings);
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not verify that the meeting chat composer was empty: {error}"
+            ));
+            return chat_send_failure(app, platform, surface, label, warnings);
+        }
+    };
+
+    let message_value = cf::String::from_str(message);
+    if let Err(error) = input_element.set_attr(ax::attr::value(), message_value.as_type_ref()) {
+        restore_chat_input_if_owned(&mut input_element, message, &original_value, &mut warnings);
+        warnings.push(format!(
+            "failed to set meeting chat composer value: {error:?}"
+        ));
+        return chat_send_failure(app, platform, surface, label, warnings);
+    }
+
+    let (refreshed_elements, send_button_match) = collect_until_unique_match(root, |element| {
+        is_platform_send_button(platform, &element.node, &scope_path)
+    });
+    let button_index = match send_button_match {
+        UniqueMatch::One(index) => index,
+        UniqueMatch::Missing => {
+            restore_chat_input_if_owned(
+                &mut input_element,
+                message,
+                &original_value,
+                &mut warnings,
+            );
+            warnings.push(
+                "the meeting chat composer did not expose a unique enabled send button".to_string(),
+            );
+            return chat_send_failure(app, platform, surface, label, warnings);
+        }
+        UniqueMatch::Ambiguous => {
+            restore_chat_input_if_owned(
+                &mut input_element,
+                message,
+                &original_value,
+                &mut warnings,
+            );
+            warnings.push(
+                "the meeting chat surface exposed multiple send buttons; refusing to choose one"
+                    .to_string(),
+            );
+            return chat_send_failure(app, platform, surface, label, warnings);
+        }
+    };
+
+    match chat_input_value(&input_element) {
+        Ok(current) if chat_input_is_owned(&current, message) => {}
+        Ok(_) => {
+            warnings.push(
+                "the meeting chat composer changed while preparing the disclosure message; nothing was sent or cleared"
+                    .to_string(),
+            );
+            return chat_send_failure(app, platform, surface, label, warnings);
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "could not revalidate the meeting chat composer before send: {error}"
+            ));
+            return chat_send_failure(app, platform, surface, label, warnings);
+        }
+    }
+
+    let button = &refreshed_elements[button_index];
+    match button.element.perform_action(ax::action::press()) {
+        Ok(_) => MeetingChatSendResult {
+            sent: true,
+            app: Some(app.clone()),
+            platform: platform.clone(),
+            surface: surface.clone(),
+            input_label: label,
+            send_action: Some("sendButton".to_string()),
+            warnings,
+        },
+        Err(error) => {
+            restore_chat_input_if_owned(
+                &mut input_element,
+                message,
+                &original_value,
+                &mut warnings,
+            );
+            warnings.push(format!(
+                "failed to press the meeting chat send button: {error:?}"
+            ));
+            chat_send_failure(app, platform, surface, label, warnings)
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
 fn slack_chat_failure(
     app: &MeetingApp,
+    surface: &MeetingSurface,
+    input_label: Option<String>,
+    warnings: Vec<String>,
+) -> MeetingChatSendResult {
+    chat_send_failure(app, &MeetingPlatform::Slack, surface, input_label, warnings)
+}
+
+#[cfg(target_os = "macos")]
+fn chat_send_failure(
+    app: &MeetingApp,
+    platform: &MeetingPlatform,
     surface: &MeetingSurface,
     input_label: Option<String>,
     warnings: Vec<String>,
@@ -712,7 +997,7 @@ fn slack_chat_failure(
     MeetingChatSendResult {
         sent: false,
         app: Some(app.clone()),
-        platform: MeetingPlatform::Slack,
+        platform: platform.clone(),
         surface: surface.clone(),
         input_label,
         send_action: None,
@@ -743,16 +1028,16 @@ fn restore_chat_input_if_owned(
             let original = cf::String::from_str(original_value);
             if let Err(error) = input.set_attr(ax::attr::value(), original.as_type_ref()) {
                 warnings.push(format!(
-                    "failed to restore the unsent Slack Huddle composer: {error:?}"
+                    "failed to restore the unsent meeting chat composer: {error:?}"
                 ));
             }
         }
         Ok(_) => warnings.push(
-            "Slack Huddle composer changed concurrently; its current value was left untouched"
+            "meeting chat composer changed concurrently; its current value was left untouched"
                 .to_string(),
         ),
         Err(error) => warnings.push(format!(
-            "could not verify ownership of the Slack Huddle composer during cleanup: {error}"
+            "could not verify ownership of the meeting chat composer during cleanup: {error}"
         )),
     }
 }
@@ -793,6 +1078,18 @@ fn collect_native_meeting_roots(
     platform: &MeetingPlatform,
     warnings: &mut Vec<String>,
 ) -> Vec<NativeMeetingRoot> {
+    collect_native_meeting_windows(ax_app, platform, warnings)
+        .into_iter()
+        .map(|(root, _)| root)
+        .collect()
+}
+
+#[cfg(target_os = "macos")]
+fn collect_native_meeting_windows(
+    ax_app: &ax::UiElement,
+    platform: &MeetingPlatform,
+    warnings: &mut Vec<String>,
+) -> Vec<(NativeMeetingRoot, arc::R<ax::UiElement>)> {
     let mut windows = Vec::new();
     let mut visited = 0;
     if !collect_window_elements(ax_app, 0, &mut visited, &mut windows) {
@@ -809,15 +1106,18 @@ fn collect_native_meeting_roots(
             if !collect_nodes(&element, 0, &mut nodes, warnings) {
                 return None;
             }
-            native_meeting_window_is_validated(platform, &nodes).then_some(NativeMeetingRoot {
-                window_title,
-                nodes,
-            })
+            native_meeting_window_is_validated(platform, &nodes).then_some((
+                NativeMeetingRoot {
+                    window_title,
+                    nodes,
+                },
+                element,
+            ))
         })
         .collect()
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn native_meeting_window_is_validated(platform: &MeetingPlatform, nodes: &[AxNode]) -> bool {
     match platform {
         MeetingPlatform::Zoom => nodes.iter().any(is_zoom_meeting_evidence),
@@ -837,6 +1137,15 @@ fn collect_browser_meeting_roots(
     ax_app: &ax::UiElement,
     warnings: &mut Vec<String>,
 ) -> (Vec<BrowserMeetingRoot>, bool) {
+    let (roots, poisoned) = collect_browser_meeting_windows(ax_app, warnings);
+    (roots.into_iter().map(|(root, _)| root).collect(), poisoned)
+}
+
+#[cfg(target_os = "macos")]
+fn collect_browser_meeting_windows(
+    ax_app: &ax::UiElement,
+    warnings: &mut Vec<String>,
+) -> (Vec<(BrowserMeetingRoot, arc::R<ax::UiElement>)>, bool) {
     let focused_web_area = focused_web_area_element(ax_app);
     let mut windows = Vec::new();
     let mut visited = 0;
@@ -918,19 +1227,22 @@ fn collect_browser_meeting_roots(
                 return None;
             }
 
-            Some(BrowserMeetingRoot {
-                platform,
-                window_title,
-                web_area_url,
-                nodes,
-            })
+            Some((
+                BrowserMeetingRoot {
+                    platform,
+                    window_title,
+                    web_area_url,
+                    nodes,
+                },
+                web_area,
+            ))
         })
         .collect();
 
     (roots, has_unscoped_meeting_window)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn browser_window_has_provider_signal(url: Option<&str>, title: Option<&str>) -> bool {
     browser_platform_from_url(url).is_some()
         || title.is_some_and(|title| !browser_title_platform_signals(title).is_empty())
@@ -1065,7 +1377,7 @@ fn ax_role_may_have_children(role: &str) -> bool {
     )
 }
 
-#[cfg(all(target_os = "macos", test))]
+#[cfg(test)]
 fn unique_matching_index<'a>(
     nodes: impl Iterator<Item = (usize, &'a AxNode)>,
     predicate: impl Fn(&AxNode) -> bool,
@@ -1188,7 +1500,7 @@ fn chat_element_score(node: &AxNode) -> f32 {
         .unwrap_or(0.0)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn inspection_label(node: &AxNode) -> Option<String> {
     node.title
         .clone()
@@ -1468,7 +1780,7 @@ fn rect_from_position_and_size(element: &ax::UiElement) -> Option<cg::Rect> {
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
     let has_leave_control = nodes.iter().any(is_enabled_slack_leave_control);
     if !has_leave_control {
@@ -1482,7 +1794,7 @@ fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn slack_huddle_channel_from_label(label: &str) -> Option<String> {
     const PREFIX: &str = "huddle in ";
 
@@ -1501,14 +1813,14 @@ fn slack_huddle_channel_from_label(label: &str) -> Option<String> {
     (!channel.is_empty()).then_some(channel.to_string())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn is_enabled_slack_leave_control(node: &AxNode) -> bool {
     matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
         && node.enabled != Some(false)
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("leave huddle"))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn is_slack_huddle_composer(node: &AxNode, channel: &str) -> bool {
     let expected = format!("message to {channel}");
     matches!(
@@ -1519,7 +1831,7 @@ fn is_slack_huddle_composer(node: &AxNode, channel: &str) -> bool {
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case(&expected))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn slack_thread_container_path<'a>(
     ancestors: &'a [AxAncestor],
     channel: &str,
@@ -1533,14 +1845,14 @@ fn slack_thread_container_path<'a>(
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn is_slack_thread_container_label(label: &str, channel: &str) -> bool {
     let label = label.trim().to_ascii_lowercase();
     let expected = format!("thread in {}", channel.trim()).to_ascii_lowercase();
     label == expected || label.starts_with(&format!("{expected} ("))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn is_slack_huddle_composer_in_thread(
     node: &AxNode,
     ancestors: &[AxAncestor],
@@ -1550,7 +1862,7 @@ fn is_slack_huddle_composer_in_thread(
         && slack_thread_container_path(ancestors, channel).is_some()
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn is_slack_send_now_in_thread(
     node: &AxNode,
     ancestors: &[AxAncestor],
@@ -1561,31 +1873,31 @@ fn is_slack_send_now_in_thread(
         && slack_thread_container_path(ancestors, channel) == Some(thread_path)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn is_slack_thread_control(node: &AxNode) -> bool {
     matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
         && node.enabled != Some(false)
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("show/hide thread"))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn is_slack_send_now_button(node: &AxNode) -> bool {
     matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
         && node.enabled != Some(false)
         && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("send now"))
 }
 
-#[cfg(all(target_os = "macos", test))]
+#[cfg(test)]
 fn has_nonempty_draft(node: &AxNode) -> bool {
     node.value
         .as_ref()
         .is_some_and(|value| !value.trim().is_empty())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn chat_input_is_owned(current_value: &str, injected_message: &str) -> bool {
     current_value == injected_message
 }
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(test)]
 mod tests;

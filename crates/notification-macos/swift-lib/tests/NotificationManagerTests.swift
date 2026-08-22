@@ -75,6 +75,25 @@ final class NotificationManagerTests: XCTestCase {
     XCTAssertNil(manager.hoverStates[original.key])
   }
 
+  func testStartedNotificationsLingerFiveMinutesAfterStart() {
+    let start = Date(timeIntervalSince1970: 1_700_000_000)
+
+    XCTAssertEqual(
+      NotificationSchedule.dismissDelay(
+        afterStart: start, now: start.addingTimeInterval(2 * 60)),
+      3 * 60,
+      accuracy: 0.001)
+    XCTAssertEqual(
+      NotificationSchedule.dismissDelay(
+        afterStart: start, now: start.addingTimeInterval(5 * 60)),
+      0,
+      accuracy: 0.001)
+    XCTAssertLessThan(
+      NotificationSchedule.dismissDelay(
+        afterStart: start, now: start.addingTimeInterval(6 * 60)),
+      0)
+  }
+
   private func makeNotification(index: Int, key: String? = nil) -> NotificationInstance {
     let payload = NotificationPayload(
       key: key ?? "notification-\(index)",

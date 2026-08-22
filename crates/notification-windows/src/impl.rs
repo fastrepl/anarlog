@@ -1,6 +1,6 @@
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use indexmap::IndexMap;
 use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
@@ -34,7 +34,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{PCWSTR, w};
 
 use anlg_notification_interface::{
-    DismissTimer, Notification, PrimaryAction, expanded_schedule_text,
+    DismissTimer, Notification, PrimaryAction, expanded_schedule_text, unix_now,
 };
 
 use crate::callbacks;
@@ -190,6 +190,16 @@ impl NotificationManager {
                 .map(|_| instance.key.clone())
         });
         if let Some(key) = key {
+            self.dismiss(&key, DismissReason::Timeout);
+            return;
+        }
+        let started_key = self.instance_by_hwnd_mut(hwnd).and_then(|instance| {
+            instance
+                .payload
+                .should_dismiss_started(unix_now())
+                .then(|| instance.key.clone())
+        });
+        if let Some(key) = started_key {
             self.dismiss(&key, DismissReason::Timeout);
             return;
         }
@@ -696,12 +706,8 @@ fn expanded_body(notification: &Notification, remaining: Option<Duration>) -> St
 impl NotificationInstance {
     fn schedule_remaining(&self) -> Option<Duration> {
         let start_time = self.payload.start_time?;
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as i64;
         Some(Duration::from_secs(
-            start_time.saturating_sub(now).max(0) as u64
+            start_time.saturating_sub(unix_now()).max(0) as u64,
         ))
     }
 

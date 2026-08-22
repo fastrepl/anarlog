@@ -1,0 +1,42 @@
+name: enterprise_ci
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/enterprise_ci.yaml
+      - crates/meeting-capture/**
+      - enterprise/**
+      - rust-toolchain.toml
+  pull_request:
+    paths:
+      - .github/workflows/enterprise_ci.yaml
+      - crates/meeting-capture/**
+      - enterprise/**
+      - rust-toolchain.toml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  capture_gate:
+    if: ${{ !startsWith(github.head_ref || '', 'blog/') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust_install
+        with:
+          platform: linux
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: enterprise
+          prefix-key: v0-enterprise-capture-gate
+      - run: cargo test --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-google-meet-worker --test reliability_gate --test fixture_replay
+      - run: cargo test --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-google-meet-worker --lib
+      - run: cargo test --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-control-plane --test upgrade
+      - run: cargo clippy --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-google-meet-worker --tests --lib -- -D warnings

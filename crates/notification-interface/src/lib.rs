@@ -1,5 +1,23 @@
 use std::collections::BTreeSet;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+pub const STARTED_NOTIFICATION_LINGER: Duration = Duration::from_secs(5 * 60);
+
+pub fn unix_now() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+}
+
+pub fn started_notification_remaining(start_time: i64, now_unix: i64) -> Duration {
+    let deadline = start_time.saturating_add(STARTED_NOTIFICATION_LINGER.as_secs() as i64);
+    Duration::from_secs(deadline.saturating_sub(now_unix).max(0) as u64)
+}
+
+pub fn should_dismiss_started_notification(start_time: i64, now_unix: i64) -> bool {
+    started_notification_remaining(start_time, now_unix).is_zero()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, specta::Type)]
 pub enum NotificationEvent {
@@ -320,6 +338,11 @@ impl Notification {
             .map(|details| details.what.as_str())
             .filter(|title| !title.is_empty())
             .unwrap_or(self.title.as_str())
+    }
+
+    pub fn should_dismiss_started(&self, now_unix: i64) -> bool {
+        self.start_time
+            .is_some_and(|start_time| should_dismiss_started_notification(start_time, now_unix))
     }
 
     pub fn compact_message(&self, remaining: Option<Duration>) -> String {
@@ -761,5 +784,32 @@ mod tests {
         );
         assert!((timer.progress_ratio(resumed + Duration::from_secs(2)) - 0.4).abs() < 1e-9);
         assert!(timer.is_expired(resumed + Duration::from_secs(6)));
+    }
+
+    #[test]
+    fn started_notifications_linger_five_minutes_after_start() {
+        let start_time = 1_700_000_000;
+        let notification = Notification::builder()
+            .title("Standup")
+            .message("Starting soon")
+            .source(NotificationSource::CalendarEvent {
+                event_id: "evt-1".to_string(),
+            })
+            .start_time(start_time)
+            .build();
+
+        assert!(!notification.should_dismiss_started(start_time + 4 * 60));
+        assert!(notification.should_dismiss_started(start_time + 5 * 60));
+        assert_eq!(
+            started_notification_remaining(start_time, start_time + 2 * 60),
+            Duration::from_secs(3 * 60)
+        );
+        assert!(
+            !Notification::builder()
+                .title("Mic")
+                .message("")
+                .build()
+                .should_dismiss_started(start_time + 5 * 60)
+        );
     }
 }

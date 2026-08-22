@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+#[cfg(target_os = "macos")]
 use cidre::ns;
 
 use super::{
@@ -73,14 +74,75 @@ pub(super) const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
     MeetingAppBundle::browser("com.nousresearch.hermes"),
 ];
 
+pub(super) fn meeting_app_alias_key(id: &str) -> String {
+    let basename = id
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(id)
+        .trim()
+        .trim_end_matches(".exe")
+        .trim_end_matches(".desktop");
+    basename.to_ascii_lowercase()
+}
+
+pub(super) fn canonicalize_meeting_app_id(id: &str) -> String {
+    let trimmed = id.trim();
+    if MEETING_APP_BUNDLES
+        .iter()
+        .any(|bundle| bundle.id == trimmed)
+    {
+        return trimmed.to_string();
+    }
+
+    match meeting_app_alias_key(trimmed).as_str() {
+        "zoom" | "zoomlinux" => "us.zoom.xos".to_string(),
+        "teams" | "teams-for-linux" | "ms-teams" | "msteams" => "com.microsoft.teams2".to_string(),
+        "slack" | "slack-desktop" => "com.slack.Slack".to_string(),
+        "discord" => "com.discordapp.Discord".to_string(),
+        "webex" | "ciscocollabhost" => "com.cisco.webex".to_string(),
+        "google-chrome" | "google-chrome-stable" | "google-chrome-beta" | "chrome" => {
+            "com.google.Chrome".to_string()
+        }
+        "chromium" | "chromium-browser" => "org.chromium.Chromium".to_string(),
+        "firefox" => "org.mozilla.firefox".to_string(),
+        "microsoft-edge" | "microsoft-edge-stable" | "msedge" => {
+            "com.microsoft.edgemac".to_string()
+        }
+        "brave" | "brave-browser" => "com.brave.Browser".to_string(),
+        "vivaldi" | "vivaldi-stable" => "com.vivaldi.Vivaldi".to_string(),
+        "opera" => "com.operasoftware.Opera".to_string(),
+        _ => trimmed.to_string(),
+    }
+}
+
+pub(super) fn meeting_app_family(id: &str) -> Option<&'static str> {
+    match canonicalize_meeting_app_id(id).as_str() {
+        "us.zoom.xos" => Some("zoom"),
+        "com.microsoft.teams2" | "com.microsoft.teams" => Some("teams"),
+        "com.tinyspeck.slackmacgap" | "com.slack.Slack" => Some("slack"),
+        "com.hnc.Discord" | "com.discordapp.Discord" => Some("discord"),
+        "Cisco-Systems.Spark" | "com.cisco.webex" | "com.cisco.webexmeetingsapp" => Some("webex"),
+        other if is_browser_bundle(other) => MEETING_APP_BUNDLES
+            .iter()
+            .find(|bundle| bundle.id == other)
+            .map(|bundle| bundle.id),
+        _ => None,
+    }
+}
+
 pub(super) fn unique_recognized_meeting_bundle(
     mic_active_bundle_ids: &[String],
 ) -> Result<&str, String> {
-    let recognized = mic_active_bundle_ids
-        .iter()
-        .map(String::as_str)
-        .filter(|bundle_id| is_meeting_app_bundle(bundle_id))
-        .collect::<HashSet<_>>();
+    let mut recognized = Vec::new();
+    let mut families = HashSet::new();
+    for bundle_id in mic_active_bundle_ids {
+        let Some(family) = meeting_app_family(bundle_id) else {
+            continue;
+        };
+        if families.insert(family) {
+            recognized.push(bundle_id.as_str());
+        }
+    }
 
     if recognized.len() != 1 {
         return Err(format!(
@@ -89,9 +151,10 @@ pub(super) fn unique_recognized_meeting_bundle(
         ));
     }
 
-    Ok(recognized.into_iter().next().unwrap())
+    Ok(recognized[0])
 }
 
+#[cfg(target_os = "macos")]
 pub(super) fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)> {
     let mut apps = Vec::new();
     let bundle = ns::String::with_str(bundle_id);
@@ -114,6 +177,66 @@ pub(super) fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)>
     apps
 }
 
+#[cfg(target_os = "macos")]
+pub(super) fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
+    let mut seen = HashSet::new();
+
+    MEETING_APP_BUNDLES
+        .iter()
+        .flat_map(|bundle| running_apps_for_bundle(bundle.id))
+        .filter(|(_, pid)| seen.insert(*pid))
+        .collect()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub(super) fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)> {
+    let Some(family) = meeting_app_family(bundle_id) else {
+        return Vec::new();
+    };
+
+    let mut system = sysinfo::System::new();
+    system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+    let mut seen = HashSet::new();
+    system
+        .processes()
+        .iter()
+        .filter_map(|(pid, process)| {
+            let process_name = process.name().to_string_lossy().into_owned();
+            let exe_name = process
+                .exe()
+                .and_then(|path| path.file_name())
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let command = process
+                .cmd()
+                .first()
+                .map(|part| part.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let matches = [process_name.as_str(), exe_name.as_str(), command.as_str()]
+                .into_iter()
+                .any(|candidate| meeting_app_family(candidate) == Some(family));
+            if !matches {
+                return None;
+            }
+
+            let pid = i32::try_from(pid.as_u32()).ok()?;
+            if !seen.insert(pid) {
+                return None;
+            }
+
+            Some((
+                MeetingApp {
+                    id: bundle_id.to_string(),
+                    name: process_name,
+                },
+                pid,
+            ))
+        })
+        .collect()
+}
+
+#[cfg(not(target_os = "macos"))]
 pub(super) fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
     let mut seen = HashSet::new();
 
@@ -128,19 +251,24 @@ pub(super) fn select_active_bundle_ids<'a>(
     supported_bundle_ids: impl IntoIterator<Item = &'a str>,
     active_bundle_ids: &[String],
 ) -> Vec<&'a str> {
-    let active_bundle_ids = active_bundle_ids
+    let active_families = active_bundle_ids
         .iter()
-        .map(String::as_str)
+        .filter_map(|bundle_id| meeting_app_family(bundle_id))
         .collect::<HashSet<_>>();
+    let mut seen_families = HashSet::new();
 
     supported_bundle_ids
         .into_iter()
-        .filter(|bundle_id| active_bundle_ids.contains(bundle_id))
+        .filter(|bundle_id| {
+            meeting_app_family(bundle_id).is_some_and(|family| {
+                active_families.contains(family) && seen_families.insert(family)
+            })
+        })
         .collect()
 }
 
 pub(super) fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
-    match bundle_id {
+    match canonicalize_meeting_app_id(bundle_id).as_str() {
         "us.zoom.xos" => MeetingPlatform::Zoom,
         "com.microsoft.teams2" | "com.microsoft.teams" => MeetingPlatform::MicrosoftTeams,
         "com.tinyspeck.slackmacgap" | "com.slack.Slack" => MeetingPlatform::Slack,
@@ -153,7 +281,7 @@ pub(super) fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
 }
 
 pub(super) fn supports_meeting_chat_mutation(bundle_id: &str) -> bool {
-    classify_bundle(bundle_id) == MeetingPlatform::Slack
+    meeting_app_family(bundle_id).is_some()
 }
 
 pub(super) fn classify_browser_context(
@@ -264,11 +392,13 @@ pub(super) fn classify_surface(bundle_id: &str, platform: &MeetingPlatform) -> M
 }
 
 fn meeting_app_bundle(bundle_id: &str) -> Option<&MeetingAppBundle> {
+    let canonical = canonicalize_meeting_app_id(bundle_id);
     MEETING_APP_BUNDLES
         .iter()
-        .find(|bundle| bundle.id == bundle_id)
+        .find(|bundle| bundle.id == canonical || bundle.id == bundle_id)
 }
 
+#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn is_meeting_app_bundle(bundle_id: &str) -> bool {
     meeting_app_bundle(bundle_id).is_some()
 }

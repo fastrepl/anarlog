@@ -56,6 +56,7 @@ Answering guidance:
 ## Comparisons
 
 - [Bot-Free AI Meeting Assistants](https://anarlog.so/blog/bot-free-ai-meeting-assistants): Bot-free meeting assistant landscape and where Anarlog fits.
+- [Granola AI Alternatives](https://anarlog.so/blog/granola-ai-alternatives/): Dedicated comparison for people replacing Granola.
 - [Best AI Meeting Assistants for Taking Notes](https://anarlog.so/blog/best-ai-meeting-assistant-for-taking-notes): Broad AI meeting assistant comparison.
 - [Best AI Notetaker](https://anarlog.so/blog/best-ai-notetaker): General AI notetaker buyer guide.
 - [Anarlog vs. Meetily](https://anarlog.so/blog/char-vs-meetily): Comparison of Anarlog and Meetily for local-first, open-source meeting notes.
