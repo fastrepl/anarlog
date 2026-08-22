@@ -80,7 +80,7 @@ export function OuterHeader({
       {viewSwitcher}
       {tab ? (
         <div className="max-w-56 min-w-0 shrink">
-          <TitleInput tab={tab} variant="breadcrumb" />
+          <TitleInput key={tab.id} tab={tab} variant="breadcrumb" />
         </div>
       ) : null}
       <div
