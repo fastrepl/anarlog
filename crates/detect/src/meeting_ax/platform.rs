@@ -34,6 +34,9 @@ impl MeetingAppBundle {
     }
 }
 
+// Recognition list. Live-acceptance grouping is native, then tier-1 browsers
+// (Chrome, Edge, Firefox, Safari, Aside), then secondary. Close gates live on
+// ANLG-297 (chat / speaker / disclosure share one host matrix).
 pub(super) const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
     MeetingAppBundle::native("us.zoom.xos"),
     MeetingAppBundle::native("com.microsoft.teams2"),
@@ -46,15 +49,16 @@ pub(super) const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
     MeetingAppBundle::native("com.cisco.webex"),
     MeetingAppBundle::native("com.cisco.webexmeetingsapp"),
     MeetingAppBundle::browser("com.google.Chrome"),
-    MeetingAppBundle::browser("com.google.Chrome.canary"),
     MeetingAppBundle::browser("com.microsoft.edgemac"),
+    MeetingAppBundle::browser("org.mozilla.firefox"),
+    MeetingAppBundle::browser("com.apple.Safari"),
+    MeetingAppBundle::browser("at.studio.AsideBrowser"),
+    MeetingAppBundle::browser("com.google.Chrome.canary"),
     MeetingAppBundle::browser("com.microsoft.edgemac.Beta"),
     MeetingAppBundle::browser("com.microsoft.edgemac.Canary"),
     MeetingAppBundle::browser("com.microsoft.edgemac.Dev"),
-    MeetingAppBundle::browser("org.mozilla.firefox"),
     MeetingAppBundle::browser("org.mozilla.firefoxdeveloperedition"),
     MeetingAppBundle::browser("org.mozilla.nightly"),
-    MeetingAppBundle::browser("com.apple.Safari"),
     MeetingAppBundle::browser("com.apple.SafariTechnologyPreview"),
     MeetingAppBundle::browser("com.brave.Browser"),
     MeetingAppBundle::browser("com.brave.Browser.beta"),
@@ -67,7 +71,6 @@ pub(super) const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
     MeetingAppBundle::browser("com.operasoftware.OperaNext"),
     MeetingAppBundle::browser("company.thebrowser.Browser"),
     MeetingAppBundle::browser("ai.perplexity.comet"),
-    MeetingAppBundle::browser("at.studio.AsideBrowser"),
     MeetingAppBundle::browser("company.thebrowser.dia"),
     MeetingAppBundle::browser("com.sigmaos.sigmaos.macos"),
     MeetingAppBundle::browser("net.imput.helium"),
