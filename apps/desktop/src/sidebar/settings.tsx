@@ -86,7 +86,7 @@ export function SettingsNav() {
           id: "team",
           label: t`Team`,
           icon: UsersThree,
-          requiresPro: !hasExistingWorkspace,
+          requiresPro: !workspaces.isLoading && !hasExistingWorkspace,
         },
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },

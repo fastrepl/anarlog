@@ -27,7 +27,8 @@ const mocks = vi.hoisted(() => ({
   upgradeToPro: vi.fn(),
   updateSettingsTabState: vi.fn(),
   updateTemplatesTabState: vi.fn(),
-  workspaces: [] as Array<{ workspaceId: string }>,
+  workspaces: [] as Array<{ workspaceId: string }> | undefined,
+  workspacesLoading: false,
 }));
 
 const lingui = vi.hoisted(() => {
@@ -88,7 +89,8 @@ vi.mock("~/auth/billing-context", () => ({
 vi.mock("~/settings/team/mirror", () => ({
   useMyWorkspacesWithMirror: () => ({
     data: mocks.workspaces,
-    isPending: false,
+    isLoading: mocks.workspacesLoading,
+    isPending: mocks.workspacesLoading,
   }),
 }));
 
@@ -129,6 +131,7 @@ describe("SettingsNav", () => {
     mocks.updateSettingsTabState.mockClear();
     mocks.updateTemplatesTabState.mockClear();
     mocks.workspaces = [];
+    mocks.workspacesLoading = false;
   });
 
   it("renders every settings menu label", () => {
@@ -314,6 +317,24 @@ describe("SettingsNav", () => {
   it("opens Team for free members of an existing workspace", () => {
     mocks.isPro = false;
     mocks.workspaces = [{ workspaceId: "ws-1" }];
+
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Team" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "team" },
+    );
+    expect(
+      screen.queryByRole("button", { name: "Upgrade to Pro for Team" }),
+    ).toBeNull();
+  });
+
+  it("does not lock Team while workspaces are still loading", () => {
+    mocks.isPro = false;
+    mocks.workspaces = undefined;
+    mocks.workspacesLoading = true;
 
     render(<SettingsNav />);
 
