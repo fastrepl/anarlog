@@ -30,11 +30,15 @@ import { cn } from "@anlg/utils";
 
 import { useSync } from "./context";
 import { DayCell } from "./day-cell";
+import { getCalendarConnectionKey } from "./shared";
 
+import { useBillingAccess } from "~/auth/billing-context";
+import { useConnections } from "~/auth/useConnections";
 import {
   useCalendarData,
   useEnabledCalendars,
   useNow,
+  useSyncWhenCalendarConnectionsChange,
   useWeekStartsOn,
 } from "~/calendar/hooks";
 import type { CalendarSyncRange } from "~/services/calendar";
@@ -78,6 +82,13 @@ function useVisibleCols(ref: React.RefObject<HTMLDivElement | null>) {
 
 export function CalendarView() {
   const { scheduleSync } = useSync();
+  const { isPaid } = useBillingAccess();
+  const { data: connections } = useConnections(isPaid);
+  const connectionKey = useMemo(
+    () => getCalendarConnectionKey(connections),
+    [connections],
+  );
+  useSyncWhenCalendarConnectionsChange(connectionKey, scheduleSync);
   const now = useNow();
   const weekStartsOn = useWeekStartsOn();
   const weekOpts = useMemo(() => ({ weekStartsOn }), [weekStartsOn]);

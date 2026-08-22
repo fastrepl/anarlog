@@ -24,9 +24,11 @@ import { useOpenIntegrationUrl } from "~/shared/integration";
 export function OAuthProviderContent({
   config,
   returnTo = "calendar",
+  onConnectStarted,
 }: {
   config: CalendarProvider;
   returnTo?: string;
+  onConnectStarted?: () => void;
 }) {
   const auth = useAuth();
   const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
@@ -40,15 +42,14 @@ export function OAuthProviderContent({
     [connections, config.nangoIntegrationId],
   );
 
-  const handleAddAccount = useCallback(
-    () =>
-      openIntegration({
-        nangoIntegrationId: config.nangoIntegrationId,
-        action: "connect",
-        returnTo,
-      }),
-    [config.nangoIntegrationId, openIntegration, returnTo],
-  );
+  const handleAddAccount = useCallback(() => {
+    onConnectStarted?.();
+    openIntegration({
+      nangoIntegrationId: config.nangoIntegrationId,
+      action: "connect",
+      returnTo,
+    });
+  }, [config.nangoIntegrationId, onConnectStarted, openIntegration, returnTo]);
 
   if (!auth.session) {
     return (
@@ -98,14 +99,15 @@ export function OAuthProviderContent({
           <ReconnectRequiredContent
             key={connection.connection_id}
             config={config}
-            onReconnect={() =>
+            onReconnect={() => {
+              onConnectStarted?.();
               openIntegration({
                 nangoIntegrationId: config.nangoIntegrationId,
                 connectionId: connection.connection_id,
                 action: "reconnect",
                 returnTo,
-              })
-            }
+              });
+            }}
             onDisconnect={() =>
               openIntegration({
                 nangoIntegrationId: config.nangoIntegrationId,
@@ -123,6 +125,7 @@ export function OAuthProviderContent({
           config={config}
           connections={providerConnections}
           returnTo={returnTo}
+          onConnectStarted={onConnectStarted}
         />
       </div>
     );
@@ -209,10 +212,12 @@ function ConnectedContent({
   config,
   connections,
   returnTo,
+  onConnectStarted,
 }: {
   config: CalendarProvider;
   connections: ConnectionItem[];
   returnTo: string;
+  onConnectStarted?: () => void;
 }) {
   const { openIntegration } = useOpenIntegrationUrl();
   const {
@@ -240,13 +245,15 @@ function ConnectedContent({
             {
               id: `reconnect-${connection.connection_id}`,
               text: t`Reconnect`,
-              action: () =>
+              action: () => {
+                onConnectStarted?.();
                 void openIntegration({
                   nangoIntegrationId: config.nangoIntegrationId,
                   connectionId: connection.connection_id,
                   action: "reconnect",
                   returnTo,
-                }),
+                });
+              },
             },
             {
               id: `disconnect-${connection.connection_id}`,
@@ -267,6 +274,7 @@ function ConnectedContent({
       connectionSourceMap,
       connections,
       groups,
+      onConnectStarted,
       openIntegration,
       returnTo,
     ],

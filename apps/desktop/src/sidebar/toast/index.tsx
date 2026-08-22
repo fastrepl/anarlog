@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { sonnerToast, TOAST_DURATIONS } from "@anlg/ui/components/ui/toast";
 
@@ -52,6 +52,22 @@ export function ToastNotifications() {
       );
     }
   }
+
+  useEffect(() => {
+    if (hasActiveDownload) {
+      return;
+    }
+
+    setSessionDismissedToastIds((current) => {
+      if (!current.has("downloading-model")) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete("downloading-model");
+      return next;
+    });
+  }, [hasActiveDownload]);
 
   const isAuthenticated = !!auth?.session;
   const isAuthLoading = auth.session === undefined;

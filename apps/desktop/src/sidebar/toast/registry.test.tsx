@@ -240,6 +240,27 @@ describe("sidebar toast registry", () => {
     expect(toast).toBeNull();
   });
 
+  it("lets users dismiss a model download toast for the current download", () => {
+    const toast = getToastToShow(
+      createToastRegistry({
+        ...baseParams,
+        hasActiveDownload: true,
+        downloadingModel: "apple-speech",
+        activeDownloads: [
+          { model: "apple-speech", displayName: "apple-speech", progress: 0 },
+        ],
+      }),
+      () => false,
+    );
+
+    expect(toast).toMatchObject({
+      id: "downloading-model",
+      description: "Downloading apple-speech",
+      lifecycle: { type: "persistent", dismissal: "session" },
+      loading: true,
+    });
+  });
+
   it("keeps desktop update progress in the toast", () => {
     const toast = getToastToShow(
       createToastRegistry({
@@ -257,7 +278,7 @@ describe("sidebar toast registry", () => {
     expect(toast).toMatchObject({
       id: "desktop-update:1.0.34:downloading",
       description: "Downloading Anarlog 1.0.34 (58%)",
-      lifecycle: { type: "condition-bound" },
+      lifecycle: { type: "persistent", dismissal: "session" },
       loading: true,
     });
     expect(toast?.primaryAction).toBeUndefined();
@@ -317,5 +338,9 @@ describe("sidebar toast registry", () => {
     });
     expect(downloadToast.id).toBe("devtools-downloading-model");
     expect(downloadToast.loading).toBe(true);
+    expect(downloadToast.lifecycle).toEqual({
+      type: "persistent",
+      dismissal: "session",
+    });
   });
 });
