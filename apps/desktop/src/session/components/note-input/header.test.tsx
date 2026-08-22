@@ -944,7 +944,7 @@ describe("Header", () => {
     expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
   });
 
-  it("hides the transcript tab and shows stop in the view switcher while listening", () => {
+  it("shows the transcript tab next to a separate stop button while listening", () => {
     hoisted.sessionMode = "active";
     const handleTabChange = vi.fn();
     const editorTabs: EditorView[] = [
@@ -962,22 +962,32 @@ describe("Header", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Transcript" })).toBeNull();
-    expect(screen.queryByTestId("dancing-sticks")).toBeNull();
+    const transcriptTab = screen.getByRole("button", { name: "Transcript" });
+    const stop = screen.getByRole("button", { name: "Stop" });
+
+    expect(transcriptTab).not.toBeNull();
+    expect(
+      transcriptTab.querySelector("[data-testid='dancing-sticks']"),
+    ).not.toBeNull();
     expect(screen.getByRole("button", { name: "Memos" })).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
+    expect(stop).not.toBeNull();
     expect(
       screen.queryByRole("button", { name: "Open event metadata" }),
     ).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
+    fireEvent.click(transcriptTab);
 
-    expect(handleTabChange).not.toHaveBeenCalled();
+    expect(handleTabChange).toHaveBeenCalledWith({ type: "transcript" });
+    expect(hoisted.stopListening).not.toHaveBeenCalled();
+
+    fireEvent.click(stop);
+
+    expect(handleTabChange).toHaveBeenCalledTimes(1);
     expect(hoisted.stopListening).toHaveBeenCalledTimes(1);
     expect(hoisted.requestMainListenerControl).not.toHaveBeenCalled();
   });
 
-  it("keeps memos and stop grouped when transcript is the only extra view", () => {
+  it("keeps memos, transcript, and stop grouped when transcript is the only extra view", () => {
     hoisted.sessionMode = "active";
 
     render(
@@ -993,12 +1003,14 @@ describe("Header", () => {
       name: "Session note views",
     });
     const memos = screen.getByRole("button", { name: "Memos" });
+    const transcript = screen.getByRole("button", { name: "Transcript" });
     const stop = screen.getByRole("button", { name: "Stop" });
 
-    expect(screen.queryByRole("button", { name: "Transcript" })).toBeNull();
     expect(viewSwitcher.contains(memos)).toBe(true);
+    expect(viewSwitcher.contains(transcript)).toBe(true);
     expect(viewSwitcher.contains(stop)).toBe(true);
-    expect(memos.nextElementSibling).toBe(stop.parentElement);
+    expect(memos.nextElementSibling).toBe(transcript);
+    expect(transcript.nextElementSibling).toBe(stop.parentElement);
   });
 
   it("delegates live meeting stop from the view switcher in standalone windows", () => {
@@ -1111,7 +1123,7 @@ describe("Header", () => {
     ]);
   });
 
-  it("omits the transcript tab for active meetings before transcript evidence arrives", () => {
+  it("includes the transcript tab for active meetings before transcript evidence arrives", () => {
     hoisted.hasTranscript = false;
     hoisted.sessionMode = "active";
     hoisted.liveSessionId = "session-1";
@@ -1123,10 +1135,11 @@ describe("Header", () => {
     expect(result.current).toEqual([
       { type: "enhanced", id: "note-1" },
       { type: "raw" },
+      { type: "transcript" },
     ]);
   });
 
-  it("omits the transcript tab for active meetings with live segments", () => {
+  it("includes the transcript tab for active meetings with live segments", () => {
     hoisted.hasTranscript = false;
     hoisted.liveSegments = [{ id: "segment-1" }];
     hoisted.liveSessionId = "session-1";
@@ -1139,6 +1152,7 @@ describe("Header", () => {
     expect(result.current).toEqual([
       { type: "enhanced", id: "note-1" },
       { type: "raw" },
+      { type: "transcript" },
     ]);
   });
 

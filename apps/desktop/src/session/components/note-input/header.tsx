@@ -33,16 +33,12 @@ export function SessionViewSwitcher({
 }) {
   const { t } = useLingui();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const hideTranscriptTab = sessionMode === "active";
   const showStop = isMeetingStopAction(sessionMode);
-  const visibleTabs = hideTranscriptTab
-    ? editorTabs.filter((view) => view.type !== "transcript")
-    : editorTabs;
-  const primaryEnhancedTabId = visibleTabs.find(
+  const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
   )?.id;
-  const shouldUseViewSwitcher = visibleTabs.length > 1 || showStop;
+  const shouldUseViewSwitcher = editorTabs.length > 1 || showStop;
 
   if (!shouldUseViewSwitcher) {
     return null;
@@ -58,7 +54,7 @@ export function SessionViewSwitcher({
         "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] [corner-shape:round]",
       ])}
     >
-      {visibleTabs.map((view, index) => {
+      {editorTabs.map((view, index) => {
         if (view.type === "enhanced") {
           return (
             <HeaderViewEnhanced
@@ -69,7 +65,7 @@ export function SessionViewSwitcher({
               onRemove={
                 view.id !== primaryEnhancedTabId
                   ? () => {
-                      const previousView = visibleTabs[index - 1];
+                      const previousView = editorTabs[index - 1];
                       if (
                         currentTab.type === "enhanced" &&
                         currentTab.id === view.id &&
@@ -138,9 +134,6 @@ export function useEditorTabs({
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
   const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
-  const isLiveSessionActive = useListener(
-    (state) => state.getSessionMode(sessionId) === "active",
-  );
 
   const enhancedNoteIds = useEnhancedNoteRecords(sessionId).map(
     (note) => note.id,
@@ -149,18 +142,15 @@ export function useEditorTabs({
   return createEditorTabs({
     enhancedNoteIds,
     canShowTranscript,
-    isLiveSessionActive,
   });
 }
 
 export function createEditorTabs({
   enhancedNoteIds,
   canShowTranscript,
-  isLiveSessionActive = false,
 }: {
   enhancedNoteIds: string[];
   canShowTranscript: boolean;
-  isLiveSessionActive?: boolean;
 }): EditorView[] {
   const enhancedTabs: EditorView[] = enhancedNoteIds.map((id) => ({
     type: "enhanced",
@@ -170,8 +160,6 @@ export function createEditorTabs({
   return [
     ...enhancedTabs,
     { type: "raw" },
-    ...(canShowTranscript && !isLiveSessionActive
-      ? [{ type: "transcript" } as const]
-      : []),
+    ...(canShowTranscript ? [{ type: "transcript" } as const] : []),
   ];
 }

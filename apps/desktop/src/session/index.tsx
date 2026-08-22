@@ -267,9 +267,8 @@ function TabContentNoteInner({
       createEditorTabs({
         enhancedNoteIds,
         canShowTranscript,
-        isLiveSessionActive,
       }),
-    [enhancedNoteIds, canShowTranscript, isLiveSessionActive],
+    [enhancedNoteIds, canShowTranscript],
   );
   const currentView = React.useMemo(() => {
     return computeCurrentNoteTab(
