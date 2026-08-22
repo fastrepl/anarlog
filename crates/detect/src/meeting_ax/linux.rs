@@ -519,6 +519,18 @@ fn browser_roots_from_windows(
     (roots, poisoned)
 }
 
+fn browser_mutation_roots_from_windows(
+    windows: Vec<(Option<String>, Vec<LiveNode>, bool)>,
+    warnings: &mut Vec<String>,
+) -> (Vec<(BrowserMeetingRoot, Vec<LiveNode>)>, bool) {
+    if windows.iter().any(|(_, _, complete)| !complete) {
+        warnings.push("refusing to send from an incomplete browser AT-SPI snapshot".to_string());
+        return (Vec::new(), true);
+    }
+
+    browser_roots_from_windows(windows, warnings)
+}
+
 async fn collect_window_snapshots(
     connection: &AccessibilityConnection,
     app: &AccessibleProxy<'_>,
@@ -1082,7 +1094,7 @@ pub(super) fn send_meeting_chat_message(
             };
             let windows = collect_window_snapshots(&connection, &ax_app, &mut warnings).await;
             if is_browser_bundle(&scoped_bundle_id) {
-                let (roots, poisoned) = browser_roots_from_windows(windows, &mut warnings);
+                let (roots, poisoned) = browser_mutation_roots_from_windows(windows, &mut warnings);
                 if poisoned || roots.len() > 1 {
                     warnings.push(format!(
                         "refusing to send because the browser exposed {} meeting chat surfaces",
@@ -1362,4 +1374,26 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
             warnings,
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn browser_mutation_rejects_incomplete_window_snapshots() {
+        let mut warnings = Vec::new();
+        let (roots, poisoned) = browser_mutation_roots_from_windows(
+            vec![(Some("Meet - abc-defg-hij".to_string()), Vec::new(), false)],
+            &mut warnings,
+        );
+
+        assert!(roots.is_empty());
+        assert!(poisoned);
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.contains("refusing to send"))
+        );
+    }
 }

@@ -1013,7 +1013,10 @@ fn send_scoped_chat_message(
     mut warnings: Vec<String>,
 ) -> MeetingChatSendResult {
     let mut refreshed_nodes = Vec::new();
-    let _ = collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings);
+    if !collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings) {
+        warnings.push("refusing to send from an incomplete meeting AX snapshot".to_string());
+        return chat_send_failure(app, platform, surface, None, warnings);
+    }
 
     let mut chat_elements = collect_sorted_chat_elements(root);
     if validated_chat_scope(platform, &refreshed_nodes).is_none() {
@@ -1028,7 +1031,13 @@ fn send_scoped_chat_message(
                     Ok(_) => {
                         warnings.push(format!("opened meeting chat via AX: {label}"));
                         refreshed_nodes.clear();
-                        let _ = collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings);
+                        if !collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings) {
+                            warnings.push(
+                                "refusing to send from an incomplete meeting AX snapshot after opening chat"
+                                    .to_string(),
+                            );
+                            return chat_send_failure(app, platform, surface, None, warnings);
+                        }
                         chat_elements = collect_sorted_chat_elements(root);
                     }
                     Err(error) => {
