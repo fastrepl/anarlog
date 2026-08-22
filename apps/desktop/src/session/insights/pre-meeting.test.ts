@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PastSessionNote } from "./past-notes";
 import {
@@ -9,6 +9,7 @@ import {
   selectBriefSourceNotes,
   shouldShowPreMeetingBrief,
   streamPreMeetingBrief,
+  trimPreMeetingBrief,
 } from "./pre-meeting";
 
 const hoisted = vi.hoisted(() => ({
@@ -160,6 +161,42 @@ describe("brief source notes", () => {
   });
 });
 
+describe("trimPreMeetingBrief", () => {
+  it("keeps a one-liner and the first three bullets", () => {
+    expect(
+      trimPreMeetingBrief(`**Ada slipped the prototype date.**
+
+- John still owns the scratchpad rewrite.
+- CI cost gating is unresolved.
+- Artem left the Korea workshop dates open.
+- Extra fact should not appear.
+`),
+    ).toBe(`**Ada slipped the prototype date.**
+
+- John still owns the scratchpad rewrite.
+- CI cost gating is unresolved.
+- Artem left the Korea workshop dates open.`);
+  });
+
+  it("drops a recap list and its mirrored preview", () => {
+    expect(
+      trimPreMeetingBrief(`Quick Recap for Founders Sync Meeting:
+- John proposed a single-surface scratchpad.
+- Sungbin has been focusing on Linear tickets.
+- John raised CI cost gating.
+- Artem mentioned October workshop dates.
+- John asked Granola about the waitlist.
+
+Upcoming Meeting Insight:
+- Expect John to discuss the scratchpad.
+- Sungbin might present Linear progress.
+`),
+    ).toBe(`- John proposed a single-surface scratchpad.
+- Sungbin has been focusing on Linear tickets.
+- John raised CI cost gating.`);
+  });
+});
+
 describe("mergeBriefMarkdown", () => {
   it("replaces empty memos and prepends when notes already exist", () => {
     expect(mergeBriefMarkdown("## Brief", "")).toBe("## Brief");
@@ -170,11 +207,47 @@ describe("mergeBriefMarkdown", () => {
 });
 
 describe("streamPreMeetingBrief", () => {
+  beforeEach(() => {
+    hoisted.renderCustom.mockClear();
+    hoisted.streamText.mockReset();
+  });
+
+  it("sends only a few facts so the model cannot list every thread twice", async () => {
+    hoisted.streamText.mockReturnValue({
+      textStream: (async function* () {
+        yield "- Follow up with Ada.";
+      })(),
+    });
+
+    await streamPreMeetingBrief({
+      model: { id: "model-1" } as never,
+      language: "en",
+      event: { title: "Weekly Product Sync" },
+      notes: Array.from({ length: 3 }, (_, index) =>
+        makeNote({
+          sessionId: `meeting-${index}`,
+          summary: `- Fact ${index}a.\n- Fact ${index}b.`,
+        }),
+      ),
+    });
+
+    const promptContext = hoisted.renderCustom.mock.calls.find((call) => {
+      const ctx = call[1] as { past_meetings?: Array<{ notes: string }> };
+      return Array.isArray(ctx.past_meetings);
+    })?.[1] as { past_meetings: Array<{ notes: string }> };
+
+    expect(
+      promptContext.past_meetings.flatMap((meeting) =>
+        meeting.notes.split("\n"),
+      ),
+    ).toEqual(["Fact 0a.", "Fact 0b.", "Fact 1a.", "Fact 1b."]);
+  });
+
   it("streams a brief from the latest related meetings", async () => {
     hoisted.streamText.mockReturnValue({
       textStream: (async function* () {
-        yield "## Brief\n";
-        yield "- Follow up with Ada.";
+        yield "**Follow up with Ada on launch timing.**\n\n";
+        yield "- Ada owns the prototype.";
       })(),
     });
 
@@ -193,12 +266,17 @@ describe("streamPreMeetingBrief", () => {
       onText: (value) => chunks.push(value),
     });
 
-    expect(text).toBe("## Brief\n- Follow up with Ada.");
-    expect(chunks).toEqual(["## Brief\n", "## Brief\n- Follow up with Ada."]);
+    expect(text).toBe(
+      "**Follow up with Ada on launch timing.**\n\n- Ada owns the prototype.",
+    );
+    expect(chunks).toEqual([
+      "**Follow up with Ada on launch timing.**",
+      "**Follow up with Ada on launch timing.**\n\n- Ada owns the prototype.",
+    ]);
     expect(hoisted.streamText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: { id: "model-1" },
-        maxOutputTokens: 280,
+        maxOutputTokens: 140,
       }),
     );
     expect(hoisted.renderCustom).toHaveBeenCalled();

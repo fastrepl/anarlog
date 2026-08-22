@@ -15,9 +15,13 @@ export const MAX_BRIEF_MEETINGS = 5;
 
 const AFTER_START_GRACE_MS = 5 * 60 * 1000;
 const MAX_FACTS = 3;
+const MAX_PROMPT_FACTS = 4;
+const MAX_BRIEF_BULLETS = 3;
 const MAX_SUMMARY_LENGTH = 320;
 const BRIEF_GENERATION_TIMEOUT_MS = 45_000;
-const BRIEF_MAX_OUTPUT_TOKENS = 280;
+const BRIEF_MAX_OUTPUT_TOKENS = 140;
+const SECTION_LABEL_REGEX =
+  /^(quick\s+)?(recap|summary|overview|agenda|insights?|upcoming|next steps|prepare|brief)\b/i;
 const SPACE_REGEX = /\s+/g;
 
 export type PreMeetingBriefEvent = {
@@ -141,6 +145,73 @@ export function compactBriefText(value: string, maxLength: number): string {
   return `${slice.slice(0, end).trim()}…`;
 }
 
+export function trimPreMeetingBrief(text: string): string {
+  const openerParts: string[] = [];
+  const bullets: string[] = [];
+
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+
+    const heading = line.match(/^#{1,6}\s+(.+)$/);
+    const bullet = line.match(/^(?:[-*+]|\d+[.)])\s+(.+)$/);
+    if (bullet) {
+      if (bullets.length < MAX_BRIEF_BULLETS) {
+        bullets.push(`- ${bullet[1].trim()}`);
+      }
+      continue;
+    }
+
+    if (bullets.length > 0 || openerParts.length > 0) {
+      continue;
+    }
+
+    const body = (heading?.[1] ?? line).replace(/\*+/g, "").trim();
+    if (!body || isBriefSectionLabel(body)) {
+      continue;
+    }
+
+    openerParts.push(`**${body}**`);
+  }
+
+  return [openerParts[0], bullets.join("\n")].filter(Boolean).join("\n\n");
+}
+
+function isBriefSectionLabel(text: string): boolean {
+  const plain = text.replace(/[#*_]/g, "").trim();
+  if (!plain) {
+    return true;
+  }
+  if (plain.length < 48 && /:$/.test(plain)) {
+    return true;
+  }
+  return SECTION_LABEL_REGEX.test(plain);
+}
+
+function getBriefPromptMeetings(notes: PastSessionNote[]) {
+  let remaining = MAX_PROMPT_FACTS;
+  return notes.flatMap((note) => {
+    if (remaining <= 0) {
+      return [];
+    }
+    const facts = getPreMeetingBriefFacts(note).slice(0, remaining);
+    remaining -= facts.length;
+    if (facts.length === 0) {
+      return [];
+    }
+    return [
+      {
+        title: note.title,
+        date: note.dateLabel,
+        participants: note.participantNames ?? [],
+        notes: facts.join("\n"),
+      },
+    ];
+  });
+}
+
 export function mergeBriefMarkdown(brief: string, existing: string): string {
   const nextBrief = brief.trim();
   const nextExisting = existing.trim();
@@ -185,12 +256,7 @@ export async function streamPreMeetingBrief({
       participants: getBriefEventParticipantNames(event),
       description: compactBriefText(event.description ?? "", 400),
     },
-    past_meetings: sourceNotes.map((note) => ({
-      title: note.title,
-      date: note.dateLabel,
-      participants: note.participantNames ?? [],
-      notes: getPreMeetingBriefFacts(note).join("\n"),
-    })),
+    past_meetings: getBriefPromptMeetings(sourceNotes),
   });
 
   const result = streamText({
@@ -206,9 +272,9 @@ export async function streamPreMeetingBrief({
   let text = "";
   for await (const chunk of result.textStream) {
     text += chunk;
-    onText?.(text);
+    onText?.(trimPreMeetingBrief(text));
   }
-  return text.trim();
+  return trimPreMeetingBrief(text);
 }
 
 type TemplateContext = Partial<{ [key: string]: JsonValue }>;
