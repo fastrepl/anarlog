@@ -25,6 +25,7 @@ import {
   isTextEditingShortcutTarget,
   isTimelineItemVisible,
   scrollTimelineItemIntoView,
+  shouldClearTimelineSelectionOnPointerDown,
 } from "./interaction";
 import { ManagedSharedSessionIdsContext } from "./item";
 import { useCurrentTimeMs } from "./realtime";
@@ -189,6 +190,7 @@ export const TimelineView = memo(function TimelineView({
   );
   const shortcutStateRef = useRef({
     anchorId,
+    clearSelection,
     flatSessionItemKeys,
     handleRequestDeleteSelected,
     selectedIds,
@@ -197,6 +199,7 @@ export const TimelineView = memo(function TimelineView({
   });
   shortcutStateRef.current = {
     anchorId,
+    clearSelection,
     flatSessionItemKeys,
     handleRequestDeleteSelected,
     selectedIds,
@@ -363,9 +366,28 @@ export const TimelineView = memo(function TimelineView({
       }
     };
 
+    const handlePointerDown = (event: PointerEvent) => {
+      const { clearSelection, selectedIds } = shortcutStateRef.current;
+
+      if (
+        selectedIds.length === 0 ||
+        !shouldClearTimelineSelectionOnPointerDown(event.target)
+      ) {
+        return;
+      }
+
+      clearSelection();
+    };
+
     window.addEventListener("keydown", handleKeyDown, { capture: true });
+    window.addEventListener("pointerdown", handlePointerDown, {
+      capture: true,
+    });
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      window.removeEventListener("pointerdown", handlePointerDown, {
+        capture: true,
+      });
     };
   });
 
