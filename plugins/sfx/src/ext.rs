@@ -19,9 +19,19 @@ pub enum AppSounds {
     BGM,
 }
 
+const BGM_VOLUME: f32 = 0.2;
+
+fn initial_volume(sound: &AppSounds) -> f32 {
+    match sound {
+        AppSounds::BGM => BGM_VOLUME,
+        AppSounds::StartRecording | AppSounds::StopRecording => 1.0,
+    }
+}
+
 pub(crate) fn to_speaker(
     bytes: &'static [u8],
     looping: bool,
+    volume: f32,
 ) -> std::sync::mpsc::Sender<SoundControl> {
     use rodio::source::Source;
     use rodio::{Decoder, Player, stream::DeviceSinkBuilder};
@@ -39,6 +49,7 @@ pub(crate) fn to_speaker(
         };
 
         let player = Player::connect_new(stream.mixer());
+        player.set_volume(volume);
 
         if looping {
             player.append(source.repeat_infinite());
@@ -77,7 +88,7 @@ impl AppSounds {
 
         let bytes = self.get_sound_bytes();
         let looping = matches!(self, AppSounds::BGM);
-        let control_tx = to_speaker(bytes, looping);
+        let control_tx = to_speaker(bytes, looping, initial_volume(self));
 
         {
             let mut sounds = PLAYING_SOUNDS.lock().unwrap();
@@ -145,5 +156,17 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> SfxPluginExt<R> for T {
             manager: self,
             _runtime: std::marker::PhantomData,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bgm_starts_quiet_and_one_shots_stay_full() {
+        assert_eq!(initial_volume(&AppSounds::BGM), 0.2);
+        assert_eq!(initial_volume(&AppSounds::StartRecording), 1.0);
+        assert_eq!(initial_volume(&AppSounds::StopRecording), 1.0);
     }
 }
