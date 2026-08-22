@@ -26,12 +26,6 @@ pub enum Template {
     #[strum(serialize = "title.user")]
     #[serde(rename = "title.user")]
     TitleUser,
-    #[strum(serialize = "suggest_tags.system")]
-    #[serde(rename = "suggest_tags.system")]
-    SuggestTagsSystem,
-    #[strum(serialize = "suggest_tags.user")]
-    #[serde(rename = "suggest_tags.user")]
-    SuggestTagsUser,
     #[strum(serialize = "chat.system")]
     #[serde(rename = "chat.system")]
     ChatSystem,

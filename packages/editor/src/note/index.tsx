@@ -72,7 +72,6 @@ import {
   setSearchState,
   taskIdentityPlugin,
 } from "../plugins";
-import { TaskSourceProvider } from "../task-source";
 import { useTaskStorageOptional } from "../task-storage";
 import {
   extractTasksFromContent,
@@ -923,59 +922,57 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     );
 
     return (
-      <TaskSourceProvider source={taskSource ?? null}>
-        <AttachmentEditingContext.Provider value={!readOnly}>
-          <AttachmentResolverContext.Provider value={resolveAttachment ?? null}>
-            <LinkedItemOpenBehaviorContext.Provider
-              value={linkedItemOpenBehavior}
+      <AttachmentEditingContext.Provider value={!readOnly}>
+        <AttachmentResolverContext.Provider value={resolveAttachment ?? null}>
+          <LinkedItemOpenBehaviorContext.Provider
+            value={linkedItemOpenBehavior}
+          >
+            <EditorErrorBoundary
+              resetKey={
+                taskSource ? `${taskSource.type}:${taskSource.id}` : "note"
+              }
             >
-              <EditorErrorBoundary
-                resetKey={
-                  taskSource ? `${taskSource.type}:${taskSource.id}` : "note"
-                }
+              <ProseMirror
+                defaultState={defaultState}
+                nodeViewComponents={nodeViews}
+                editable={() => !readOnly}
+                attributes={{
+                  spellCheck: "false",
+                  autoComplete: "off",
+                  autoCorrect: "off",
+                  autoCapitalize: "off",
+                  role: readOnly ? "document" : "textbox",
+                  "aria-readonly": readOnly ? "true" : "false",
+                  class: cn([
+                    "prosemirror-editor",
+                    "note-typography",
+                    enforceTitleHeading && "note-title-editor",
+                    className,
+                  ]),
+                }}
               >
-                <ProseMirror
-                  defaultState={defaultState}
-                  nodeViewComponents={nodeViews}
-                  editable={() => !readOnly}
-                  attributes={{
-                    spellCheck: "false",
-                    autoComplete: "off",
-                    autoCorrect: "off",
-                    autoCapitalize: "off",
-                    role: readOnly ? "document" : "textbox",
-                    "aria-readonly": readOnly ? "true" : "false",
-                    class: cn([
-                      "prosemirror-editor",
-                      "note-typography",
-                      enforceTitleHeading && "note-title-editor",
-                      className,
-                    ]),
-                  }}
-                >
-                  <ProseMirrorDoc />
-                  <ViewCapture
-                    viewRef={viewRef}
-                    onViewReady={onViewReady}
-                    onViewDisposed={handleViewDisposed}
+                <ProseMirrorDoc />
+                <ViewCapture
+                  viewRef={viewRef}
+                  onViewReady={onViewReady}
+                  onViewDisposed={handleViewDisposed}
+                />
+                <EditorCommandsBridge commandsRef={commandsRef} />
+                {((showFormatToolbar && !readOnly) || onCommentSelection) && (
+                  <FormatToolbar
+                    onComment={onCommentSelection}
+                    showFormatting={showFormatToolbar && !readOnly}
                   />
-                  <EditorCommandsBridge commandsRef={commandsRef} />
-                  {((showFormatToolbar && !readOnly) || onCommentSelection) && (
-                    <FormatToolbar
-                      onComment={onCommentSelection}
-                      showFormatting={showFormatToolbar && !readOnly}
-                    />
-                  )}
-                  {showSlashCommand && !readOnly && <SlashCommandMenu />}
-                  {mentionConfig && !readOnly && (
-                    <MentionSuggestion config={mentionConfig} />
-                  )}
-                </ProseMirror>
-              </EditorErrorBoundary>
-            </LinkedItemOpenBehaviorContext.Provider>
-          </AttachmentResolverContext.Provider>
-        </AttachmentEditingContext.Provider>
-      </TaskSourceProvider>
+                )}
+                {showSlashCommand && !readOnly && <SlashCommandMenu />}
+                {mentionConfig && !readOnly && (
+                  <MentionSuggestion config={mentionConfig} />
+                )}
+              </ProseMirror>
+            </EditorErrorBoundary>
+          </LinkedItemOpenBehaviorContext.Provider>
+        </AttachmentResolverContext.Provider>
+      </AttachmentEditingContext.Provider>
     );
   },
 );
