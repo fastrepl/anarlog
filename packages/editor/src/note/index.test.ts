@@ -8,6 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { Node as PMNode } from "prosemirror-model";
 import { EditorState, TextSelection } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 import { createElement, createRef } from "react";
@@ -34,6 +35,7 @@ const nextDoc: JSONContent = {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
 });
 
@@ -280,6 +282,98 @@ describe("browser-safe editor controls", () => {
       ],
     });
     expect(handleChange).not.toHaveBeenCalled();
+  });
+
+  it("reuses immediate document serialization for persistence", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const handleChange = vi.fn();
+    const onDocumentChange = vi.fn();
+    render(
+      createElement(NoteEditor, {
+        ref,
+        initialContent: baseDoc,
+        handleChange,
+        onDocumentChange,
+        enforceTitleHeading: false,
+      }),
+    );
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+    vi.useFakeTimers();
+    const toJSON = vi.spyOn(PMNode.prototype, "toJSON");
+
+    act(() => {
+      const view = ref.current?.view;
+      view?.dispatch(view.state.tr.insertText("!", 4));
+    });
+
+    const rootSerializationCount = () =>
+      toJSON.mock.instances.filter((node) => node.type.name === "doc").length;
+    expect(rootSerializationCount()).toBe(1);
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(rootSerializationCount()).toBe(1);
+    expect(handleChange).toHaveBeenCalledWith(
+      onDocumentChange.mock.calls[0]?.[0],
+    );
+    toJSON.mockRestore();
+  });
+
+  it("defers serialization when no immediate listener is registered", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const handleChange = vi.fn();
+    render(
+      createElement(NoteEditor, {
+        ref,
+        initialContent: baseDoc,
+        handleChange,
+        enforceTitleHeading: false,
+      }),
+    );
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+    vi.useFakeTimers();
+    const toJSON = vi.spyOn(PMNode.prototype, "toJSON");
+
+    act(() => {
+      const view = ref.current?.view;
+      view?.dispatch(view.state.tr.insertText("!", 4));
+    });
+
+    expect(toJSON).not.toHaveBeenCalled();
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(
+      toJSON.mock.instances.filter((node) => node.type.name === "doc"),
+    ).toHaveLength(1);
+    expect(handleChange).toHaveBeenCalledOnce();
+    toJSON.mockRestore();
+  });
+
+  it("does not serialize ignored content echoes while focused", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const props = {
+      ref,
+      handleChange: vi.fn(),
+      enforceTitleHeading: false,
+    };
+    const rendered = render(
+      createElement(NoteEditor, {
+        ...props,
+        initialContent: baseDoc,
+      }),
+    );
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+    act(() => ref.current?.view?.focus());
+    expect(ref.current?.view?.hasFocus()).toBe(true);
+    const toJSON = vi.spyOn(PMNode.prototype, "toJSON");
+
+    rendered.rerender(
+      createElement(NoteEditor, {
+        ...props,
+        initialContent: nextDoc,
+      }),
+    );
+
+    expect(ref.current?.view?.state.doc.textContent).toBe("old");
+    expect(toJSON).not.toHaveBeenCalled();
+    toJSON.mockRestore();
   });
 
   it("flushes the current document through the change handler immediately", async () => {

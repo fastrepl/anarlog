@@ -76,6 +76,37 @@ describe("normalizePortableAttachmentUrls", () => {
       ],
     };
 
-    expect(normalizePortableAttachmentUrls(document)).toEqual(document);
+    const normalized = normalizePortableAttachmentUrls(document);
+    expect(normalized).toBe(document);
+    expect(normalized).toEqual(document);
+  });
+
+  it("clones only branches containing local attachment locations", () => {
+    const unchangedParagraph = {
+      type: "paragraph",
+      content: [{ type: "text", text: "Notes" }],
+    };
+    const document = {
+      type: "doc",
+      content: [
+        unchangedParagraph,
+        {
+          type: "image",
+          attrs: {
+            attachmentId: "diagram.png",
+            src: "asset://localhost/diagram.png",
+          },
+        },
+      ],
+    };
+
+    const normalized = normalizePortableAttachmentUrls(document);
+
+    expect(normalized).not.toBe(document);
+    expect(normalized.content?.[0]).toBe(unchangedParagraph);
+    expect(normalized.content?.[1]).toEqual({
+      type: "image",
+      attrs: { attachmentId: "diagram.png" },
+    });
   });
 });

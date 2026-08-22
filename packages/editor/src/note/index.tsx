@@ -231,6 +231,11 @@ const COMPOSITION_SYNC_GRACE_MS = 500;
 const CHANGE_FLUSH_DEBOUNCE_MS = 500;
 const CHANGE_FLUSH_OPTIONS = { maxWait: 10_000, trailing: true } as const;
 
+type PendingDocumentChange = {
+  doc: PMNode;
+  content?: JSONContent;
+};
+
 export type CompositionState = {
   active: boolean;
   endedAt: number;
@@ -671,8 +676,8 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     );
 
     const flushChange = useCallback(
-      (doc: PMNode) => {
-        const content = doc.toJSON() as JSONContent;
+      ({ doc, content: serializedContent }: PendingDocumentChange) => {
+        const content = serializedContent ?? (doc.toJSON() as JSONContent);
         syncTasks(content);
         if (!handleChange) {
           return;
@@ -686,7 +691,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     const flushChangeRef = useRef(flushChange);
     flushChangeRef.current = flushChange;
     const flushLatestChange = useCallback(
-      (doc: PMNode) => flushChangeRef.current(doc),
+      (change: PendingDocumentChange) => flushChangeRef.current(change),
       [],
     );
     const onUpdate = useDebounceCallback(
@@ -697,7 +702,14 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     const onUpdateRef = useRef(onUpdate);
     onUpdateRef.current = onUpdate;
     const notifyDocumentChange = useCallback((doc: PMNode) => {
-      onDocumentChangeRef.current?.(doc.toJSON() as JSONContent);
+      const callback = onDocumentChangeRef.current;
+      if (!callback) {
+        return undefined;
+      }
+
+      const content = doc.toJSON() as JSONContent;
+      callback(content);
+      return content;
     }, []);
 
     useImperativeHandle(
@@ -712,7 +724,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         flushPendingChanges: () => {
           const view = viewRef.current;
           onUpdate.cancel();
-          if (view) flushChangeRef.current(view.state.doc);
+          if (view) flushChangeRef.current({ doc: view.state.doc });
         },
       }),
       [onUpdate],
@@ -731,8 +743,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         createCompositionStatePlugin(setCompositionActive),
         ...(readOnly ? [createReadOnlyPlugin()] : []),
         docChangeListenerPlugin((doc) => {
-          notifyDocumentChange(doc);
-          onUpdateRef.current(doc);
+          const content = notifyDocumentChange(doc);
+          onUpdateRef.current({
+            doc,
+            ...(content ? { content } : {}),
+          });
         }),
         buildInputRules(),
         ...(enforceTitleHeading ? [titleHeadingPlugin()] : []),
@@ -820,6 +835,10 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
           return;
         }
 
+        if (view.hasFocus() && !syncContentWhenFocused) {
+          return;
+        }
+
         const currentContent = view.state.doc.toJSON() as JSONContent;
         if (isSameContent(currentContent, reconciledInitialContent)) {
           previousContentRef.current = reconciledInitialContent;
@@ -883,14 +902,17 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
     const onViewReady = useCallback(
       (view: EditorView) => {
         onViewReadyProp?.(view);
-        syncTasks(view.state.doc.toJSON() as JSONContent);
+        if (!readOnly && taskSource && taskStorage) {
+          syncTasks(view.state.doc.toJSON() as JSONContent);
+        }
       },
-      [onViewReadyProp, syncTasks],
+      [onViewReadyProp, readOnly, syncTasks, taskSource, taskStorage],
     );
 
     const handleViewDisposed = useCallback(
       (view: EditorView) => {
         onUpdate.flush();
+        onUpdate.cancel();
         compositionStateRef.current = {
           active: false,
           endedAt: 0,

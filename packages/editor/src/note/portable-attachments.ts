@@ -13,15 +13,25 @@ export function normalizePortableAttachmentUrls<T extends AttachmentContent>(
 }
 
 function normalizeNode(node: AttachmentContent): AttachmentContent {
-  const content = node.content?.map(normalizeNode);
+  let contentChanged = false;
+  const content = node.content?.map((child) => {
+    const normalized = normalizeNode(child);
+    contentChanged ||= normalized !== child;
+    return normalized;
+  });
   const attachmentId = node.attrs?.attachmentId;
-  const shouldNormalize =
+  const isAttachment =
     (node.type === "image" || node.type === "fileAttachment") &&
     typeof attachmentId === "string" &&
     attachmentId.length > 0;
+  const shouldNormalize =
+    isAttachment &&
+    (isLocalFileUrl(node.attrs?.src) ||
+      (node.attrs !== undefined &&
+        Object.prototype.hasOwnProperty.call(node.attrs, "path")));
 
   if (!shouldNormalize) {
-    return content ? { ...node, content } : node;
+    return contentChanged ? { ...node, content } : node;
   }
 
   const attrs = { ...node.attrs };
@@ -29,7 +39,11 @@ function normalizeNode(node: AttachmentContent): AttachmentContent {
     delete attrs.src;
   }
   delete attrs.path;
-  return { ...node, attrs, ...(content ? { content } : {}) };
+  return {
+    ...node,
+    attrs,
+    ...(contentChanged ? { content } : {}),
+  };
 }
 
 function isLocalFileUrl(value: unknown): boolean {
