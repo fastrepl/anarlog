@@ -37,7 +37,7 @@ export function CreateBriefSuggestion({
     : t`Want me to create a brief to help you prepare?`;
 
   return (
-    <>
+    <div className="mb-6">
       <p className="text-muted-foreground flex h-8 items-center text-xs">
         {t`Prepare for this meeting`}
       </p>
@@ -65,6 +65,6 @@ export function CreateBriefSuggestion({
           {label}
         </span>
       </button>
-    </>
+    </div>
   );
 }

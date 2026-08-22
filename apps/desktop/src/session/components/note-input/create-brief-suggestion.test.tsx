@@ -42,7 +42,8 @@ describe("CreateBriefSuggestion", () => {
       <CreateBriefSuggestion sessionId="current" getMemoEditor={() => null} />,
     );
 
-    expect(screen.getByText("Prepare for this meeting")).not.toBeNull();
+    const heading = screen.getByText("Prepare for this meeting");
+    expect(heading.parentElement?.className).toContain("mb-6");
     const button = screen.getByRole("button", {
       name: "Want me to create a brief to help you prepare?",
     });
