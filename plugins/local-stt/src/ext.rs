@@ -12,7 +12,7 @@ use anlg_model_downloader::{DownloadStatus, ModelDownloadManager, ModelDownloade
 use crate::server::internal;
 use crate::{
     download_pollers::{DownloadPoller, DownloadPollers},
-    model::{APPLE_SPEECH_DEFAULT_LOCALE, LocalModel},
+    model::LocalModel,
     server::{ServerInfo, ServerStatus, ServerType, external, supervisor},
     types::DownloadProgressPayload,
 };
@@ -369,6 +369,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
         }
 
         if matches!(model, LocalModel::AppleSpeech(_)) {
+            let locale = apple_speech_settings_locale()?;
             let pollers = self.download_pollers().await;
             let Some(poller) = pollers.reserve(model.clone()) else {
                 return Ok(());
@@ -376,19 +377,22 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             let Some(native_job) = poller.acquire_native_job().await else {
                 return Ok(());
             };
-
             run_apple_speech_blocking_with_permit(
                 native_job,
-                move || {
-                    anlg_transcribe_speechanalyzer::start_model_download(
-                        APPLE_SPEECH_DEFAULT_LOCALE,
-                    )
+                {
+                    let locale = locale.clone();
+                    move || anlg_transcribe_speechanalyzer::start_model_download(&locale)
                 },
                 crate::Error::ServerStartFailed,
             )
             .await?;
 
-            spawn_apple_speech_progress_poller(self.manager.app_handle().clone(), model, poller);
+            spawn_apple_speech_progress_poller(
+                self.manager.app_handle().clone(),
+                model,
+                locale,
+                poller,
+            );
             return Ok(());
         }
 
@@ -456,8 +460,9 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
 
         if matches!(model, LocalModel::AppleSpeech(_)) {
             self.download_pollers().await.cancel(model);
+            let locale = apple_speech_settings_locale()?;
             return run_apple_speech_blocking(
-                move || anlg_transcribe_speechanalyzer::release_locale(APPLE_SPEECH_DEFAULT_LOCALE),
+                move || anlg_transcribe_speechanalyzer::release_locale(&locale),
                 crate::Error::ServerStopFailed,
             )
             .await;
@@ -543,10 +548,39 @@ where
     .map_err(|e| map_error(e.to_string()))
 }
 
+fn apple_speech_settings_locale() -> Result<String, crate::Error> {
+    anlg_transcribe_speechanalyzer::settings_locale()
+        .map_err(|error| crate::Error::ServerStartFailed(error.to_string()))
+}
+
 async fn apple_speech_download_state()
 -> Result<anlg_transcribe_speechanalyzer::ModelDownloadState, crate::Error> {
+    let locale = match anlg_transcribe_speechanalyzer::settings_locale() {
+        Ok(locale) => locale,
+        Err(anlg_transcribe_speechanalyzer::Error::NoSupportedSystemLanguage) => {
+            return Ok(anlg_transcribe_speechanalyzer::ModelDownloadState {
+                status: "error".to_string(),
+                current_file: None,
+                progress_percent: None,
+                local_path: String::new(),
+                error: Some(
+                    anlg_transcribe_speechanalyzer::Error::NoSupportedSystemLanguage.to_string(),
+                ),
+            });
+        }
+        Err(anlg_transcribe_speechanalyzer::Error::UnsupportedPlatform) => {
+            return Ok(anlg_transcribe_speechanalyzer::ModelDownloadState {
+                status: "idle".to_string(),
+                current_file: None,
+                progress_percent: None,
+                local_path: String::new(),
+                error: None,
+            });
+        }
+        Err(error) => return Err(crate::Error::ServerStartFailed(error.to_string())),
+    };
     run_apple_speech_blocking(
-        move || anlg_transcribe_speechanalyzer::model_download_state(APPLE_SPEECH_DEFAULT_LOCALE),
+        move || anlg_transcribe_speechanalyzer::model_download_state(&locale),
         crate::Error::ServerStartFailed,
     )
     .await
@@ -555,6 +589,7 @@ async fn apple_speech_download_state()
 fn spawn_apple_speech_progress_poller<R: Runtime>(
     app_handle: tauri::AppHandle<R>,
     model: LocalModel,
+    locale: String,
     poller: DownloadPoller,
 ) {
     tokio::spawn(async move {
@@ -566,9 +601,10 @@ fn spawn_apple_speech_progress_poller<R: Runtime>(
             let Some(native_job) = poller.acquire_native_job().await else {
                 return;
             };
+            let locale = locale.clone();
             let status = tokio::task::spawn_blocking(move || {
                 let _native_job = native_job;
-                anlg_transcribe_speechanalyzer::model_download_state(APPLE_SPEECH_DEFAULT_LOCALE)
+                anlg_transcribe_speechanalyzer::model_download_state(&locale)
             })
             .await;
 
