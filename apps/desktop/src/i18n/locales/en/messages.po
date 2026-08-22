@@ -1636,6 +1636,7 @@ msgid "Disable"
 msgstr "Disable"
 
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/todo/provider-content.tsx
@@ -2989,6 +2990,7 @@ msgid "Open calendar"
 msgstr "Open calendar"
 
 #: src/calendar/components/calendar-selection.tsx
+#: src/calendar/components/sidebar.tsx
 msgid "Open calendar account actions"
 msgstr "Open calendar account actions"
 
@@ -3289,6 +3291,7 @@ msgid "Recipient email"
 msgstr "Recipient email"
 
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/calendar/components/sidebar.tsx
 msgid "Reconnect"
 msgstr "Reconnect"
 

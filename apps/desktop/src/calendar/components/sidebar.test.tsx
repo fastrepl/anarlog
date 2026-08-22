@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PermissionStatus } from "@anlg/plugin-permissions";
@@ -23,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   openIntegration: vi.fn(),
   removeDisconnectedCalendarConnection: vi.fn(),
   allowReconnectedCalendarConnections: vi.fn(),
+  syncCalendarEvents: vi.fn(),
   contextMenus: [] as ContextMenuItem[][],
 }));
 
@@ -75,6 +82,7 @@ vi.mock("~/services/calendar", () => ({
     mocks.removeDisconnectedCalendarConnection,
   allowReconnectedCalendarConnections:
     mocks.allowReconnectedCalendarConnections,
+  syncCalendarEvents: mocks.syncCalendarEvents,
 }));
 
 vi.mock("./apple/calendar-selection", () => ({
@@ -104,8 +112,11 @@ describe("CalendarSidebarContent", () => {
     mocks.calendar.open.mockClear();
     mocks.calendar.request.mockClear();
     mocks.calendar.reset.mockClear();
-    mocks.removeDisconnectedCalendarConnection.mockClear();
+    mocks.removeDisconnectedCalendarConnection.mockReset();
+    mocks.removeDisconnectedCalendarConnection.mockResolvedValue(undefined);
     mocks.allowReconnectedCalendarConnections.mockClear();
+    mocks.syncCalendarEvents.mockReset();
+    mocks.syncCalendarEvents.mockResolvedValue(undefined);
     mocks.contextMenus = [];
   });
 
@@ -138,7 +149,7 @@ describe("CalendarSidebarContent", () => {
     expect(screen.queryByText("Apple Calendar access is off")).toBeNull();
   });
 
-  it("offers reconnect and disconnect on the Apple Calendar row", () => {
+  it("offers reconnect and disconnect on the Apple Calendar row", async () => {
     mocks.calendar.status = "authorized";
     mocks.calendar.confirmedStatus = "authorized";
 
@@ -159,7 +170,10 @@ describe("CalendarSidebarContent", () => {
       "apple",
       "apple",
     );
-    expect(mocks.calendar.reset).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(mocks.calendar.reset).toHaveBeenCalledOnce();
+    });
+    expect(mocks.syncCalendarEvents).toHaveBeenCalledOnce();
 
     reconnect?.action?.();
 
@@ -167,5 +181,23 @@ describe("CalendarSidebarContent", () => {
       "apple",
     );
     expect(mocks.calendar.request).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Apple Calendar connected when disconnect persistence fails", async () => {
+    mocks.calendar.status = "authorized";
+    mocks.calendar.confirmedStatus = "authorized";
+    mocks.removeDisconnectedCalendarConnection.mockRejectedValueOnce(
+      new Error("write failed"),
+    );
+
+    render(<CalendarSidebarContent />);
+
+    const disconnect = findContextMenuItem("disconnect-apple-calendar");
+    disconnect?.action?.();
+
+    await waitFor(() => {
+      expect(mocks.syncCalendarEvents).toHaveBeenCalledOnce();
+    });
+    expect(mocks.calendar.reset).not.toHaveBeenCalled();
   });
 });

@@ -32,6 +32,7 @@ import { useConnections } from "~/auth/useConnections";
 import {
   allowReconnectedCalendarConnections,
   removeDisconnectedCalendarConnection,
+  syncCalendarEvents,
 } from "~/services/calendar";
 import {
   type MenuItemDef,
@@ -210,8 +211,20 @@ function ProviderAccordionItem({
     }
   }, [calendar]);
   const handleAppleDisconnect = useCallback((): void => {
-    void removeDisconnectedCalendarConnection("apple", "apple");
-    calendar.reset();
+    void removeDisconnectedCalendarConnection("apple", "apple")
+      .then(() => {
+        calendar.reset();
+      })
+      .catch((error) => {
+        console.error(
+          "[calendar] failed to remove disconnected calendar data",
+          error,
+        );
+      })
+      .then(() => syncCalendarEvents())
+      .catch((error) => {
+        console.error("[calendar] failed to sync after disconnect", error);
+      });
   }, [calendar]);
   const handleTriggerClick = useCallback(
     (event: MouseEvent<HTMLButtonElement>) => {
