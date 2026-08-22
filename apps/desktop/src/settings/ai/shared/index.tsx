@@ -3,7 +3,7 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowSquareOut, CircleNotch } from "@phosphor-icons/react";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQueries } from "@tanstack/react-query";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ComponentType, type ReactNode, useMemo, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -81,6 +81,37 @@ export function AnarlogProviderIcon() {
       className="size-full object-contain object-center"
     />
   );
+}
+
+type LobeIconComponent = ComponentType<{
+  color?: string;
+  size?: number | string;
+}> & {
+  Color?: ComponentType<{ size?: number | string }>;
+  colorPrimary?: string;
+};
+
+const THEME_TINTED_BRAND_COLORS = new Set([
+  "#000",
+  "#000000",
+  "#fff",
+  "#ffffff",
+  "#141413",
+  "#16191e",
+  "#f1f0e8",
+]);
+
+export function ProviderLobeIcon({ icon: Icon }: { icon: LobeIconComponent }) {
+  if (Icon.Color) {
+    return <Icon.Color />;
+  }
+
+  const brandColor = Icon.colorPrimary?.toLowerCase();
+  if (brandColor && !THEME_TINTED_BRAND_COLORS.has(brandColor)) {
+    return <Icon color={Icon.colorPrimary} />;
+  }
+
+  return <Icon />;
 }
 
 export function ProviderBrandImage({
@@ -241,6 +272,8 @@ export function NonAnarlogProviderCard({
   providerContext,
   currentProvider,
   onConnect,
+  onConnectSubscription,
+  subscriptionProviderId,
 }: {
   config: ProviderConfig;
   providerType: ProviderType;
@@ -248,6 +281,8 @@ export function NonAnarlogProviderCard({
   providerContext?: ReactNode;
   currentProvider?: string;
   onConnect?: () => void;
+  onConnectSubscription?: () => void;
+  subscriptionProviderId?: string;
 }) {
   const { t } = useLingui();
   const billing = useBillingAccess();
@@ -256,6 +291,13 @@ export function NonAnarlogProviderCard({
     config.id,
   );
   const clearProvider = useClearAiProvider(providerType, config.id);
+  const clearSubscription = useClearAiProvider(
+    providerType,
+    subscriptionProviderId ?? config.id,
+  );
+  const subscriptionProvider = providers.find(
+    (provider) => provider.id === subscriptionProviderId,
+  );
   const [hasUnresolvedKeychainError, setHasUnresolvedKeychainError] =
     useState(false);
   const [isKeychainRecoveryInProgress, setIsKeychainRecoveryInProgress] =
@@ -263,6 +305,14 @@ export function NonAnarlogProviderCard({
   const locked =
     requiresEntitlement(config.requirements, "pro") && !billing.isPaid;
   const isReady = useIsProviderReady(config.id, providerType, providers);
+  const configuredProviders = useAiProviders(providerType);
+  const subscriptionReady = Boolean(
+    subscriptionProviderId &&
+    configuredProviders[
+      providerRowId(providerType, subscriptionProviderId)
+    ]?.api_key?.trim(),
+  );
+  const looksReady = isReady || subscriptionReady;
 
   const requiredFields = getRequiredConfigFields(config.requirements);
   const isSubscription = config.authKind === "subscription";
@@ -341,6 +391,26 @@ export function NonAnarlogProviderCard({
       provider.base_url.trim() !== (config.baseUrl ?? "").trim(),
     );
 
+  const handleResetSubscription = async () => {
+    if (!subscriptionProviderId || clearSubscription.isPending) {
+      return;
+    }
+
+    try {
+      await clearSubscription.mutateAsync();
+
+      if (currentProvider === subscriptionProviderId) {
+        await setSettingValues(
+          providerType === "llm"
+            ? { current_llm_provider: "", current_llm_model: "" }
+            : { current_stt_provider: "", current_stt_model: "" },
+        );
+      }
+    } catch {
+      return;
+    }
+  };
+
   const handleReset = async () => {
     if (clearProvider.isPending) {
       return;
@@ -393,7 +463,7 @@ export function NonAnarlogProviderCard({
       value={config.id}
       className={cn([
         "bg-muted rounded-[22px] border-2",
-        isReady ? "border-border border-solid" : "border-dashed",
+        looksReady ? "border-border border-solid" : "border-dashed",
       ])}
     >
       <SettingsAlertToast
@@ -428,7 +498,7 @@ export function NonAnarlogProviderCard({
       <AccordionContent
         className={cn([
           "px-4",
-          providerType === "llm" && "flex flex-col gap-6",
+          providerType === "llm" && "flex flex-col gap-3",
         ])}
       >
         {providerContext}
@@ -476,6 +546,50 @@ export function NonAnarlogProviderCard({
               )}
             </form.Field>
           )}
+          {subscriptionProvider && onConnectSubscription ? (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className="bg-border h-px flex-1" />
+                <span className="text-muted-foreground text-xs">
+                  <Trans>or</Trans>
+                </span>
+                <div className="bg-border h-px flex-1" />
+              </div>
+              {subscriptionReady ? (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-muted-foreground text-xs">
+                    {t`Connected with your ${subscriptionProvider.displayName} subscription.`}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleResetSubscription()}
+                    disabled={clearSubscription.isPending}
+                    className="text-destructive hover:text-destructive/80 h-7 shrink-0 px-0 hover:bg-transparent"
+                  >
+                    {clearSubscription.isPending ? (
+                      <CircleNotch
+                        className="size-3 animate-spin"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <Trans>Reset</Trans>
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={onConnectSubscription}
+                  className="self-start"
+                >
+                  {t`Connect ${subscriptionProvider.displayName}`}
+                </Button>
+              )}
+            </div>
+          ) : null}
           {config.links && (
             <div className="flex items-center gap-4 text-xs">
               {config.links.download && (

@@ -309,10 +309,6 @@ msgstr "All events"
 msgid "All Notes"
 msgstr "All Notes"
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "All providers are connected."
-msgstr "All providers are connected."
-
 #: src/settings/team/index.tsx
 msgid "Allow anyone-with-the-link sharing"
 msgstr "Allow anyone-with-the-link sharing"
@@ -455,10 +451,6 @@ msgstr "Anyone with the link"
 #: src/session-sharing/management-panel.tsx
 msgid "Anyone with the link can view. Link copied."
 msgstr "Anyone with the link can view. Link copied."
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "API"
-msgstr "API"
 
 #: src/settings/ai/shared/index.tsx
 msgid "API Key"
@@ -1152,6 +1144,7 @@ msgstr "Connect"
 #: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"
 msgstr "Connect {0}"
@@ -1211,6 +1204,11 @@ msgstr "Connect your integration"
 #: src/imports/screen.tsx
 msgid "Connected · New meetings are imported automatically while Anarlog is running."
 msgstr "Connected · New meetings are imported automatically while Anarlog is running."
+
+#. placeholder {0}: subscriptionProvider.displayName
+#: src/settings/ai/shared/index.tsx
+msgid "Connected with your {0} subscription."
+msgstr "Connected with your {0} subscription."
 
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your existing subscription."
@@ -3059,6 +3057,7 @@ msgstr "Opens System Settings and guides you to add Anarlog to the {0} list."
 
 #: src/calendar/components/apple/permission.tsx
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr "or"
@@ -4296,10 +4295,6 @@ msgstr "Storage Updated"
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
 msgstr "Submit callback URL"
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Subscription"
-msgstr "Subscription"
 
 #: src/main/windows-title-bar.tsx
 msgid "Suggest a Feature"

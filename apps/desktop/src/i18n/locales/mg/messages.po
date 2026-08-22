@@ -309,10 +309,6 @@ msgstr ""
 msgid "All Notes"
 msgstr ""
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "All providers are connected."
-msgstr ""
-
 #: src/settings/team/index.tsx
 msgid "Allow anyone-with-the-link sharing"
 msgstr ""
@@ -454,10 +450,6 @@ msgstr ""
 #: src/session-sharing/index.tsx
 #: src/session-sharing/management-panel.tsx
 msgid "Anyone with the link can view. Link copied."
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "API"
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -1152,6 +1144,7 @@ msgstr ""
 #: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"
 msgstr ""
@@ -1210,6 +1203,11 @@ msgstr ""
 
 #: src/imports/screen.tsx
 msgid "Connected · New meetings are imported automatically while Anarlog is running."
+msgstr ""
+
+#. placeholder {0}: subscriptionProvider.displayName
+#: src/settings/ai/shared/index.tsx
+msgid "Connected with your {0} subscription."
 msgstr ""
 
 #: src/settings/ai/shared/index.tsx
@@ -3059,6 +3057,7 @@ msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr ""
@@ -4295,10 +4294,6 @@ msgstr ""
 
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
-msgstr ""
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Subscription"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx

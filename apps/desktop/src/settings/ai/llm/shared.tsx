@@ -29,7 +29,7 @@ import { Shuffle } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { env } from "~/env";
-import { AnarlogProviderIcon } from "~/settings/ai/shared";
+import { AnarlogProviderIcon, ProviderLobeIcon } from "~/settings/ai/shared";
 import { type ProviderRequirement } from "~/settings/ai/shared/eligibility";
 import { checkAppleFoundationModelAvailability } from "~/settings/ai/shared/list-apple-foundation";
 import {
@@ -72,7 +72,7 @@ const _PROVIDERS = [
     id: "claude",
     displayName: "Claude",
     badge: "Subscription",
-    icon: <Anthropic />,
+    icon: <ProviderLobeIcon icon={Anthropic} />,
     baseUrl: "https://api.anthropic.com/v1",
     authKind: "subscription",
     hideAdvanced: true,
@@ -88,7 +88,7 @@ const _PROVIDERS = [
     id: "chatgpt",
     displayName: "ChatGPT",
     badge: "Subscription",
-    icon: <OpenAI />,
+    icon: <ProviderLobeIcon icon={OpenAI} />,
     baseUrl: "https://chatgpt.com/backend-api/codex",
     authKind: "subscription",
     hideAdvanced: true,
@@ -104,7 +104,7 @@ const _PROVIDERS = [
     id: "grok",
     displayName: "Grok",
     badge: "Subscription",
-    icon: <XAI />,
+    icon: <ProviderLobeIcon icon={XAI} />,
     baseUrl: "https://api.x.ai/v1",
     authKind: "subscription",
     hideAdvanced: true,
@@ -120,7 +120,7 @@ const _PROVIDERS = [
     id: "github_copilot",
     displayName: "GitHub Copilot",
     badge: "Subscription",
-    icon: <GithubCopilot />,
+    icon: <ProviderLobeIcon icon={GithubCopilot} />,
     baseUrl: "https://api.githubcopilot.com",
     authKind: "subscription",
     hideAdvanced: true,
@@ -136,7 +136,7 @@ const _PROVIDERS = [
     id: "kimi_code",
     displayName: "Kimi Code",
     badge: "Subscription",
-    icon: <Moonshot />,
+    icon: <ProviderLobeIcon icon={Moonshot} />,
     baseUrl: "https://api.kimi.com/coding/v1",
     authKind: "subscription",
     hideAdvanced: true,
@@ -152,7 +152,7 @@ const _PROVIDERS = [
     id: "apple_foundation",
     displayName: "Apple Intelligence",
     badge: "Experimental",
-    icon: <Apple />,
+    icon: <ProviderLobeIcon icon={Apple} />,
     baseUrl: undefined,
     requirements: [],
     checkAvailability: checkAppleFoundationModelAvailability,
@@ -162,7 +162,7 @@ const _PROVIDERS = [
     id: "lmstudio",
     displayName: "LM Studio",
     badge: null,
-    icon: <LmStudio />,
+    icon: <ProviderLobeIcon icon={LmStudio} />,
     baseUrl: "http://127.0.0.1:1234/v1",
     requirements: [],
     checkAvailability: checkLMStudioAvailability,
@@ -182,7 +182,7 @@ const _PROVIDERS = [
     id: "ollama",
     displayName: "Ollama",
     badge: null,
-    icon: <Ollama />,
+    icon: <ProviderLobeIcon icon={Ollama} />,
     baseUrl: "http://127.0.0.1:11434/v1",
     requirements: [],
     checkAvailability: checkOllamaAvailability,
@@ -233,23 +233,43 @@ const _PROVIDERS = [
     id: "openrouter",
     displayName: "OpenRouter",
     badge: null,
-    icon: <OpenRouter />,
+    icon: <ProviderLobeIcon icon={OpenRouter} />,
     baseUrl: "https://openrouter.ai/api/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://openrouter.ai/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://openrouter.ai/settings/keys",
+      },
+    },
   },
   {
     id: "openai",
     displayName: "OpenAI",
     badge: null,
-    icon: <OpenAI />,
+    icon: <ProviderLobeIcon icon={OpenAI} />,
     baseUrl: "https://api.openai.com/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://platform.openai.com/docs/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://platform.openai.com/api-keys",
+      },
+    },
   },
   {
     id: "moonshot",
     displayName: "Moonshot AI",
     badge: null,
-    icon: <Moonshot />,
+    icon: <ProviderLobeIcon icon={Moonshot} />,
     baseUrl: "https://api.moonshot.ai/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -258,7 +278,7 @@ const _PROVIDERS = [
         url: "https://platform.kimi.ai/docs/api/list-models",
       },
       setup: {
-        label: "Quickstart",
+        label: "API setup",
         url: "https://platform.kimi.ai/docs/overview",
       },
     },
@@ -267,7 +287,7 @@ const _PROVIDERS = [
     id: "zai",
     displayName: "Z.AI",
     badge: null,
-    icon: <ZAI />,
+    icon: <ProviderLobeIcon icon={ZAI} />,
     baseUrl: "https://api.z.ai/api/paas/v4",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -285,7 +305,7 @@ const _PROVIDERS = [
     id: "deepseek",
     displayName: "DeepSeek",
     badge: null,
-    icon: <DeepSeek />,
+    icon: <ProviderLobeIcon icon={DeepSeek} />,
     baseUrl: "https://api.deepseek.com",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -294,7 +314,7 @@ const _PROVIDERS = [
         url: "https://api-docs.deepseek.com/quick_start/pricing",
       },
       setup: {
-        label: "API keys",
+        label: "API setup",
         url: "https://platform.deepseek.com/api_keys",
       },
     },
@@ -303,7 +323,7 @@ const _PROVIDERS = [
     id: "alibaba_cloud",
     displayName: "Alibaba Cloud Model Studio",
     badge: null,
-    icon: <AlibabaCloud />,
+    icon: <ProviderLobeIcon icon={AlibabaCloud} />,
     baseUrl: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -312,7 +332,7 @@ const _PROVIDERS = [
         url: "https://www.alibabacloud.com/help/en/model-studio/getting-started/models",
       },
       setup: {
-        label: "Regional endpoints",
+        label: "API setup",
         url: "https://www.alibabacloud.com/help/en/model-studio/base-url",
       },
     },
@@ -321,7 +341,7 @@ const _PROVIDERS = [
     id: "siliconflow",
     displayName: "SiliconFlow",
     badge: null,
-    icon: <SiliconCloud />,
+    icon: <ProviderLobeIcon icon={SiliconCloud} />,
     baseUrl: "https://api.siliconflow.com/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -330,7 +350,7 @@ const _PROVIDERS = [
         url: "https://docs.siliconflow.com/en/userguide/introduction",
       },
       setup: {
-        label: "Quickstart",
+        label: "API setup",
         url: "https://docs.siliconflow.com/en/userguide/quickstart",
       },
     },
@@ -339,7 +359,7 @@ const _PROVIDERS = [
     id: "cohere",
     displayName: "Cohere",
     badge: null,
-    icon: <Cohere />,
+    icon: <ProviderLobeIcon icon={Cohere} />,
     baseUrl: "https://api.cohere.ai/compatibility/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -348,7 +368,7 @@ const _PROVIDERS = [
         url: "https://docs.cohere.com/docs/models",
       },
       setup: {
-        label: "OpenAI compatibility",
+        label: "API setup",
         url: "https://docs.cohere.com/docs/compatibility-api",
       },
     },
@@ -357,7 +377,7 @@ const _PROVIDERS = [
     id: "groq",
     displayName: "Groq",
     badge: null,
-    icon: <Groq />,
+    icon: <ProviderLobeIcon icon={Groq} />,
     baseUrl: "https://api.groq.com/openai/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -366,7 +386,7 @@ const _PROVIDERS = [
         url: "https://console.groq.com/docs/models",
       },
       setup: {
-        label: "API keys",
+        label: "API setup",
         url: "https://console.groq.com/keys",
       },
     },
@@ -375,7 +395,7 @@ const _PROVIDERS = [
     id: "xai",
     displayName: "xAI",
     badge: null,
-    icon: <XAI />,
+    icon: <ProviderLobeIcon icon={XAI} />,
     baseUrl: "https://api.x.ai/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -384,7 +404,7 @@ const _PROVIDERS = [
         url: "https://docs.x.ai/developers/models",
       },
       setup: {
-        label: "API keys",
+        label: "API setup",
         url: "https://console.x.ai/",
       },
     },
@@ -393,7 +413,7 @@ const _PROVIDERS = [
     id: "together",
     displayName: "Together AI",
     badge: null,
-    icon: <Together />,
+    icon: <ProviderLobeIcon icon={Together} />,
     baseUrl: "https://api.together.xyz/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -402,7 +422,7 @@ const _PROVIDERS = [
         url: "https://docs.together.ai/docs/serverless-models",
       },
       setup: {
-        label: "API keys",
+        label: "API setup",
         url: "https://api.together.ai/settings/api-keys",
       },
     },
@@ -411,7 +431,7 @@ const _PROVIDERS = [
     id: "fireworks",
     displayName: "Fireworks AI",
     badge: null,
-    icon: <Fireworks />,
+    icon: <ProviderLobeIcon icon={Fireworks} />,
     baseUrl: "https://api.fireworks.ai/inference/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -420,7 +440,7 @@ const _PROVIDERS = [
         url: "https://fireworks.ai/models",
       },
       setup: {
-        label: "API keys",
+        label: "API setup",
         url: "https://fireworks.ai/account/api-keys",
       },
     },
@@ -429,7 +449,7 @@ const _PROVIDERS = [
     id: "cerebras",
     displayName: "Cerebras",
     badge: null,
-    icon: <Cerebras />,
+    icon: <ProviderLobeIcon icon={Cerebras} />,
     baseUrl: "https://api.cerebras.ai/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
@@ -438,7 +458,7 @@ const _PROVIDERS = [
         url: "https://inference-docs.cerebras.ai/models/overview",
       },
       setup: {
-        label: "API keys",
+        label: "API setup",
         url: "https://cloud.cerebras.ai/",
       },
     },
@@ -447,18 +467,18 @@ const _PROVIDERS = [
     id: "amazon_bedrock",
     displayName: "Amazon Bedrock",
     badge: "Beta",
-    icon: <Aws />,
+    icon: <ProviderLobeIcon icon={Aws} />,
     baseUrl: undefined,
     requirements: [
       { kind: "requires_config", fields: ["base_url", "api_key"] },
     ],
     links: {
       models: {
-        label: "Supported models",
+        label: "Available models",
         url: "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html",
       },
       setup: {
-        label: "OpenAI-compatible APIs",
+        label: "API setup",
         url: "https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html",
       },
     },
@@ -467,7 +487,7 @@ const _PROVIDERS = [
     id: "google_vertex_ai",
     displayName: "Google Vertex AI",
     badge: "Beta",
-    icon: <GoogleCloud />,
+    icon: <ProviderLobeIcon icon={GoogleCloud} />,
     baseUrl: undefined,
     requirements: [
       { kind: "requires_config", fields: ["base_url", "api_key"] },
@@ -478,7 +498,7 @@ const _PROVIDERS = [
         url: "https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models",
       },
       setup: {
-        label: "OpenAI compatibility",
+        label: "API setup",
         url: "https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/call-vertex-using-openai-library",
       },
     },
@@ -487,7 +507,7 @@ const _PROVIDERS = [
     id: "cloudflare_workers_ai",
     displayName: "Cloudflare Workers AI",
     badge: null,
-    icon: <Cloudflare />,
+    icon: <ProviderLobeIcon icon={Cloudflare} />,
     baseUrl: undefined,
     requirements: [
       { kind: "requires_config", fields: ["base_url", "api_key"] },
@@ -498,7 +518,7 @@ const _PROVIDERS = [
         url: "https://developers.cloudflare.com/workers-ai/models/",
       },
       setup: {
-        label: "Setup guide",
+        label: "API setup",
         url: "https://developers.cloudflare.com/workers-ai/configuration/open-ai-compatibility/",
       },
     },
@@ -507,45 +527,95 @@ const _PROVIDERS = [
     id: "anthropic",
     displayName: "Anthropic",
     badge: null,
-    icon: <Anthropic />,
+    icon: <ProviderLobeIcon icon={Anthropic} />,
     baseUrl: "https://api.anthropic.com/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://docs.anthropic.com/en/docs/about-claude/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://console.anthropic.com/settings/keys",
+      },
+    },
   },
   {
     id: "mistral",
     displayName: "Mistral",
     badge: null,
-    icon: <Mistral />,
+    icon: <ProviderLobeIcon icon={Mistral} />,
     baseUrl: "https://api.mistral.ai/v1",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://docs.mistral.ai/getting-started/models/",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://console.mistral.ai/api-keys",
+      },
+    },
   },
   {
     id: "azure_openai",
     displayName: "Azure OpenAI",
     badge: "Beta",
-    icon: <Azure />,
+    icon: <ProviderLobeIcon icon={Azure} />,
     baseUrl: undefined,
     requirements: [
       { kind: "requires_config", fields: ["base_url", "api_key"] },
     ],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://learn.microsoft.com/azure/ai-foundry/openai/concepts/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://learn.microsoft.com/azure/ai-foundry/openai/how-to/create-resource",
+      },
+    },
   },
   {
     id: "azure_ai",
     displayName: "Azure AI Foundry",
     badge: "Beta",
-    icon: <AzureAI />,
+    icon: <ProviderLobeIcon icon={AzureAI} />,
     baseUrl: undefined,
     requirements: [
       { kind: "requires_config", fields: ["base_url", "api_key"] },
     ],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://learn.microsoft.com/azure/ai-foundry/how-to/model-catalog-overview",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://ai.azure.com/",
+      },
+    },
   },
   {
     id: "google_generative_ai",
     displayName: "Google Gemini",
     badge: null,
-    icon: <Gemini />,
+    icon: <ProviderLobeIcon icon={Gemini} />,
     baseUrl: "https://generativelanguage.googleapis.com/v1beta",
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
+    links: {
+      models: {
+        label: "Available models",
+        url: "https://ai.google.dev/gemini-api/docs/models",
+      },
+      setup: {
+        label: "API setup",
+        url: "https://aistudio.google.com/api-keys",
+      },
+    },
   },
   {
     id: "custom",
