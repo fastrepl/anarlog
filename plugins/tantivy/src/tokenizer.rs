@@ -1,8 +1,8 @@
 use anlg_language::ISO639;
 use tantivy::Index;
 use tantivy::tokenizer::{
-    AsciiFoldingFilter, Language, LowerCaser, NgramTokenizer, RemoveLongFilter, Stemmer,
-    TextAnalyzer,
+    AsciiFoldingFilter, Language, LowerCaser, NgramTokenizer, RemoveLongFilter, SimpleTokenizer,
+    Stemmer, TextAnalyzer,
 };
 
 fn to_tantivy_language(lang: &anlg_language::Language) -> Option<Language> {
@@ -85,7 +85,7 @@ pub fn register_tokenizers(index: &Index) {
     ];
 
     for (name, lang) in languages {
-        let tokenizer = TextAnalyzer::builder(NgramTokenizer::new(1, 3, false).unwrap())
+        let tokenizer = TextAnalyzer::builder(SimpleTokenizer::default())
             .filter(RemoveLongFilter::limit(40))
             .filter(LowerCaser)
             .filter(AsciiFoldingFilter)

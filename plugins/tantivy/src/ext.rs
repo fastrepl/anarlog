@@ -1,4 +1,5 @@
 use tantivy::collector::{Count, TopDocs};
+use tantivy::indexer::IndexWriterOptions;
 use tantivy::query::{
     AllQuery, BooleanQuery, BoostQuery, FuzzyTermQuery, Occur, PhraseQuery, Query, QueryParser,
     TermQuery,
@@ -15,6 +16,15 @@ use crate::{
     CollectionConfig, CollectionIndex, HighlightRange, IndexState, SearchDocument, SearchHit,
     SearchRequest, SearchResult, Snippet,
 };
+
+fn create_index_writer(index: &Index) -> tantivy::Result<tantivy::IndexWriter> {
+    index.writer_with_options(
+        IndexWriterOptions::builder()
+            .num_worker_threads(1)
+            .num_merge_threads(1)
+            .build(),
+    )
+}
 
 pub fn detect_language(text: &str) -> anlg_language::Language {
     anlg_language::detect(text)
@@ -126,7 +136,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Tantivy<'a, R, M> {
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
             .try_into()?;
 
-        let writer = index.writer(50_000_000)?;
+        let writer = create_index_writer(&index)?;
 
         let collection_index = CollectionIndex {
             schema,
@@ -673,6 +683,7 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> TantivyPluginExt<R> for T {
 mod tests {
     use super::*;
     use crate::tokenizer::get_tokenizer_name_for_language;
+    use tantivy::schema::{STORED, Schema, TEXT};
 
     #[test]
     fn test_detect_language_tokenizer_integration() {
@@ -680,5 +691,14 @@ mod tests {
         let lang = detect_language(text);
         let tokenizer_name = get_tokenizer_name_for_language(&lang);
         assert_eq!(tokenizer_name, "lang_en");
+    }
+
+    #[test]
+    fn creates_a_minimum_budget_single_threaded_writer() {
+        let mut schema = Schema::builder();
+        schema.add_text_field("content", TEXT | STORED);
+        let index = Index::create_in_ram(schema.build());
+
+        create_index_writer(&index).unwrap();
     }
 }
