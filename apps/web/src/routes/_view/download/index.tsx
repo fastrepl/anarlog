@@ -116,6 +116,18 @@ function Component() {
                     </li>
                   ))}
                 </ul>
+                {section.platform === "linux" && (
+                  <p className="text-color-muted mt-4 text-sm leading-6">
+                    If the window is black on Wayland with NVIDIA, see{" "}
+                    <a
+                      href="https://docs.anarlog.so/desktop-installation#appimage"
+                      className="text-color underline underline-offset-4"
+                    >
+                      Linux install notes
+                    </a>
+                    .
+                  </p>
+                )}
               </section>
             );
           })}

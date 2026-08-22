@@ -91,5 +91,74 @@
       { "action": "capture_started" },
       { "action": "runtime", "fixture": "runtime/nobody-joined.json" }
     ]
+  },
+  {
+    "id": "everyone-left-after-participants",
+    "expected_state": "completed",
+    "expected_terminal": "everyone_left",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "runtime", "fixture": "runtime/overlapping-speakers.json" },
+      { "action": "runtime", "fixture": "runtime/nobody-joined.json" }
+    ]
+  },
+  {
+    "id": "silence-then-nobody-joined",
+    "expected_state": "failed",
+    "expected_terminal": "no_one_joined",
+    "retryable": true,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "runtime", "fixture": "runtime/silence.json" },
+      { "action": "runtime", "fixture": "runtime/nobody-joined.json" }
+    ]
+  },
+  {
+    "id": "host-ended-after-long-capture",
+    "expected_state": "completed",
+    "expected_terminal": "meeting_ended",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/admitted.json" },
+      { "action": "capture_started" },
+      { "action": "runtime", "fixture": "runtime/long-duration.json" },
+      { "action": "runtime", "fixture": "runtime/meeting-ended.json" }
+    ]
+  },
+  {
+    "id": "captcha-unsolved",
+    "expected_state": "failed",
+    "expected_terminal": "authentication_failed",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/captcha-unsolved.json" }
+    ]
+  },
+  {
+    "id": "error-page-before-join",
+    "expected_state": "failed",
+    "expected_terminal": "provider_error",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "admission", "fixture": "admission/error-page.json" }
+    ]
+  },
+  {
+    "id": "stopped-by-request",
+    "expected_state": "completed",
+    "expected_terminal": "stopped_by_request",
+    "retryable": false,
+    "steps": [
+      { "action": "launch" },
+      { "action": "stopped_by_request" }
+    ]
   }
 ]

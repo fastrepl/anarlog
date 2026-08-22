@@ -175,6 +175,14 @@ fn replays_lifecycle_scenarios_to_provider_neutral_terminal_reasons() {
         let started = Instant::now();
         let mut last_terminal = None;
         for step in &scenario.steps {
+            if step.action == "stopped_by_request" {
+                for event in lifecycle.stopped_by_request(now()).unwrap() {
+                    if let CaptureEventPayload::Lifecycle(transition) = event.payload {
+                        last_terminal = transition.reason;
+                    }
+                }
+                continue;
+            }
             let event = match step.action.as_str() {
                 "launch" => Some(lifecycle.launch_started(now()).unwrap()),
                 "admission" => {
@@ -182,8 +190,14 @@ fn replays_lifecycle_scenarios_to_provider_neutral_terminal_reasons() {
                         load_json(step.fixture.as_ref().expect("admission fixture"));
                     let snapshot: AdmissionSnapshot =
                         serde_json::from_value(fixture.snapshot).unwrap();
+                    let observed_at = started + Duration::from_millis(fixture.elapsed_ms);
+                    if fixture.elapsed_ms > 0 {
+                        let _ = lifecycle
+                            .observe_admission(&snapshot, started, now())
+                            .unwrap();
+                    }
                     lifecycle
-                        .observe_admission(&snapshot, started, now())
+                        .observe_admission(&snapshot, observed_at, now())
                         .unwrap()
                 }
                 "capture_started" => Some(lifecycle.capture_started(now()).unwrap()),
@@ -223,10 +237,10 @@ fn replays_lifecycle_scenarios_to_provider_neutral_terminal_reasons() {
                 ),
                 other => panic!("{}: unknown action {other}", scenario.id),
             };
-            if let Some(event) = event {
-                if let CaptureEventPayload::Lifecycle(transition) = event.payload {
-                    last_terminal = transition.reason;
-                }
+            if let Some(event) = event
+                && let CaptureEventPayload::Lifecycle(transition) = event.payload
+            {
+                last_terminal = transition.reason;
             }
         }
 
