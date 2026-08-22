@@ -552,29 +552,40 @@ describe("OuterHeader", () => {
     ).not.toBeNull();
   });
 
-  it("keeps the title input while listening", () => {
-    mocks.sessionModes = { "session-1": "active" };
-    mocks.hasTranscriptBySession = { "session-1": true };
+  it.each(["active", "running_batch", "finalizing"] as const)(
+    "hides the title input during a live meeting (%s)",
+    (sessionMode) => {
+      mocks.sessionModes = { "session-1": sessionMode };
+      mocks.hasTranscriptBySession = { "session-1": true };
 
-    render(
-      <OuterHeader
-        sessionId="session-1"
-        currentView={{ type: "raw" } as EditorView}
-        tab={{
-          active: true,
-          id: "session-1",
-          pinned: false,
-          slotId: "slot-1",
-          state: { autoStart: null, view: { type: "raw" } },
-          type: "sessions",
-        }}
-      />,
-    );
+      render(
+        <OuterHeader
+          sessionId="session-1"
+          currentView={{ type: "raw" } as EditorView}
+          tab={{
+            active: true,
+            id: "session-1",
+            pinned: false,
+            slotId: "slot-1",
+            state: { autoStart: null, view: { type: "raw" } },
+            type: "sessions",
+          }}
+          viewSwitcher={
+            <div role="group" aria-label="Session note views">
+              Tabs
+            </div>
+          }
+        />,
+      );
 
-    expect(
-      screen.getByRole("textbox", { name: "Session title" }),
-    ).not.toBeNull();
-  });
+      expect(
+        screen.queryByRole("textbox", { name: "Session title" }),
+      ).toBeNull();
+      expect(
+        screen.getByRole("group", { name: "Session note views" }),
+      ).not.toBe(null);
+    },
+  );
 
   it("places stop immediately before the folder while listening", () => {
     mocks.sessionModes = { "session-1": "active" };

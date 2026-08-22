@@ -74,9 +74,12 @@ export function OuterHeader({
   const ended = !!endedAt && endedAt.getTime() <= now.getTime();
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
+  const isLiveMeeting = isRecording || sessionMode === "finalizing";
   const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
   const showTitleInput =
-    Boolean(tab) && !(meetingOver && currentView.type === "enhanced");
+    Boolean(tab) &&
+    !isLiveMeeting &&
+    !(meetingOver && currentView.type === "enhanced");
 
   return (
     <div
