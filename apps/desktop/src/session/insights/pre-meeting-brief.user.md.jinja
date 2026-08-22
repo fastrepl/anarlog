@@ -1,0 +1,16 @@
+# Upcoming meeting
+
+Title: {{ meeting.title }}
+When: {{ meeting.when }}
+Location: {{ meeting.location }}
+Participants: {{ meeting.participants | join(", ") }}
+Description: {{ meeting.description }}
+
+# Recent meetings
+
+{% for note in past_meetings %}
+## {{ note.title }} ({{ note.date }})
+
+{{ note.notes }}
+
+{% endfor %}

@@ -1,6 +1,49 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { compactBriefText, getPreMeetingBriefFacts } from "./pre-meeting";
+import type { PastSessionNote } from "./past-notes";
+import {
+  canCreatePreMeetingBrief,
+  compactBriefText,
+  getPreMeetingBriefFacts,
+  mergeBriefMarkdown,
+  selectBriefSourceNotes,
+  shouldShowPreMeetingBrief,
+  streamPreMeetingBrief,
+} from "./pre-meeting";
+
+const hoisted = vi.hoisted(() => ({
+  renderCustom: vi.fn(async (_template: string, ctx: unknown) => ({
+    status: "ok" as const,
+    data: JSON.stringify(ctx),
+  })),
+  streamText: vi.fn(),
+}));
+
+vi.mock("ai", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("ai")>()),
+  streamText: hoisted.streamText,
+}));
+
+vi.mock("@anlg/plugin-template", () => ({
+  commands: {
+    renderCustom: hoisted.renderCustom,
+  },
+}));
+
+function makeNote(
+  overrides: Partial<PastSessionNote> & Pick<PastSessionNote, "sessionId">,
+): PastSessionNote {
+  return {
+    title: "Weekly sync",
+    dateLabel: "Aug 14, 2026",
+    occurredAt: "2026-08-14T09:00:00.000Z",
+    sourceSummary: "The source summary remains available.",
+    relationship: "same_series",
+    summary: "- Confirm launch timing.\n- Ada owns the prototype.",
+    isGenerating: false,
+    ...overrides,
+  };
+}
 
 describe("pre-meeting brief text", () => {
   it("keeps useful link labels without exposing raw URLs", () => {
@@ -13,17 +56,7 @@ describe("pre-meeting brief text", () => {
   });
 
   it("prefers generated facts and falls back to the source summary", () => {
-    const note = {
-      sessionId: "previous",
-      title: "Weekly sync",
-      dateLabel: "Aug 14, 2026",
-      occurredAt: "2026-08-14T09:00:00.000Z",
-      participantNames: ["Ada"],
-      sourceSummary: "The source summary remains available.",
-      relationship: "same_series" as const,
-      summary: "- Confirm launch timing.\n- Ada owns the prototype.",
-      isGenerating: false,
-    };
+    const note = makeNote({ sessionId: "previous" });
 
     expect(getPreMeetingBriefFacts(note)).toEqual([
       "Confirm launch timing.",
@@ -35,5 +68,123 @@ describe("pre-meeting brief text", () => {
         summary: null,
       }),
     ).toEqual(["The source summary remains available."]);
+  });
+});
+
+describe("pre-meeting brief visibility", () => {
+  const nowMs = Date.parse("2026-08-21T08:00:00.000Z");
+
+  it("stays hidden for past and all-day events", () => {
+    expect(
+      shouldShowPreMeetingBrief(
+        {
+          started_at: "2026-08-21T07:00:00.000Z",
+          ended_at: "2026-08-21T07:30:00.000Z",
+          is_all_day: false,
+        },
+        nowMs,
+      ),
+    ).toBe(false);
+    expect(
+      shouldShowPreMeetingBrief(
+        {
+          started_at: "2026-08-21T07:58:00.000Z",
+          ended_at: "",
+          is_all_day: false,
+        },
+        nowMs,
+      ),
+    ).toBe(true);
+    expect(
+      shouldShowPreMeetingBrief(
+        {
+          started_at: "2026-08-22T07:00:00.000Z",
+          ended_at: "2026-08-22T07:30:00.000Z",
+          is_all_day: true,
+        },
+        nowMs,
+      ),
+    ).toBe(false);
+  });
+
+  it("requires an upcoming event and usable prior meetings", () => {
+    const event = {
+      started_at: "2026-08-21T09:00:00.000Z",
+      ended_at: "2026-08-21T10:00:00.000Z",
+      is_all_day: false,
+    };
+    const notes = [makeNote({ sessionId: "previous" })];
+
+    expect(canCreatePreMeetingBrief({ event, nowMs, notes })).toBe(true);
+    expect(canCreatePreMeetingBrief({ event, nowMs, notes: [] })).toBe(false);
+    expect(
+      canCreatePreMeetingBrief({
+        event: null,
+        nowMs,
+        notes,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("brief source notes", () => {
+  it("keeps the five most recent meetings with usable notes", () => {
+    const notes = Array.from({ length: 6 }, (_, index) =>
+      makeNote({
+        sessionId: `meeting-${index}`,
+        title: `Meeting ${index}`,
+        sourceSummary: index === 2 ? "" : `Notes from meeting ${index}`,
+        summary: index === 2 ? null : `Fact ${index}`,
+      }),
+    );
+
+    expect(selectBriefSourceNotes(notes).map((note) => note.sessionId)).toEqual(
+      ["meeting-0", "meeting-1", "meeting-3", "meeting-4", "meeting-5"],
+    );
+  });
+});
+
+describe("mergeBriefMarkdown", () => {
+  it("replaces empty memos and prepends when notes already exist", () => {
+    expect(mergeBriefMarkdown("## Brief", "")).toBe("## Brief");
+    expect(mergeBriefMarkdown("## Brief", "Existing notes")).toBe(
+      "## Brief\n\nExisting notes",
+    );
+  });
+});
+
+describe("streamPreMeetingBrief", () => {
+  it("streams a brief from the latest related meetings", async () => {
+    hoisted.streamText.mockReturnValue({
+      textStream: (async function* () {
+        yield "## Brief\n";
+        yield "- Follow up with Ada.";
+      })(),
+    });
+
+    const chunks: string[] = [];
+    const text = await streamPreMeetingBrief({
+      model: { id: "model-1" } as never,
+      language: "en",
+      event: {
+        title: "Weekly Product Sync",
+        started_at: "2026-08-21T09:00:00.000Z",
+        ended_at: "2026-08-21T10:00:00.000Z",
+        description: "Review the launch plan.",
+        participants: [{ name: "Ada" }],
+      },
+      notes: [makeNote({ sessionId: "previous" })],
+      onText: (value) => chunks.push(value),
+    });
+
+    expect(text).toBe("## Brief\n- Follow up with Ada.");
+    expect(chunks).toEqual(["## Brief\n", "## Brief\n- Follow up with Ada."]);
+    expect(hoisted.streamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: { id: "model-1" },
+        maxOutputTokens: 800,
+      }),
+    );
+    expect(hoisted.renderCustom).toHaveBeenCalled();
   });
 });
