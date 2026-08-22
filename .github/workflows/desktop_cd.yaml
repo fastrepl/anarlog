@@ -757,6 +757,13 @@ jobs:
             throw "Expected app version $env:EXPECTED_VERSION, got $($config.version)"
           }
 
+          if ($env:RELEASE_CHANNEL -eq "stable") {
+            $stableConfig = Get-Content "apps/desktop/src-tauri/tauri.conf.stable.json" | ConvertFrom-Json
+            if ($stableConfig.bundle.windows.webviewInstallMode.type -ne "offlineInstaller") {
+              throw "Stable Windows releases must bundle the offline WebView2 installer for Microsoft Store compatibility"
+            }
+          }
+
           $bundleDir = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis"
           $installers = @(Get-ChildItem $bundleDir -Filter "*.exe")
           if ($installers.Count -ne 1) {

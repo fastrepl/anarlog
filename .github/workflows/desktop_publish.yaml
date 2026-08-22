@@ -546,6 +546,19 @@ jobs:
           allowUpdates: true
           makeLatest: true
           replacesArtifacts: true
+      - name: Summarize Microsoft Store submission
+        if: ${{ needs.parse.outputs.include_windows == 'true' }}
+        env:
+          VERSION: ${{ needs.parse.outputs.version }}
+        run: |
+          package_url="https://github.com/$GITHUB_REPOSITORY/releases/download/desktop_v$VERSION/anarlog-windows-x86_64-setup.exe"
+          package_sha256=$(sha256sum anarlog-windows-x86_64-setup.exe | cut -d ' ' -f 1)
+          {
+            echo "## Microsoft Store submission"
+            echo "- Package URL: \`$package_url\`"
+            echo "- SHA-256: \`$package_sha256\`"
+            echo "- Silent install argument: \`/S\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   linux-package-bump:
     needs: [parse, gh-release]

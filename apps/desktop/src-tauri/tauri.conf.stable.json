@@ -22,6 +22,11 @@
       "files": {
         "Resources/AppIcon.icns": "resources/stable/AppIcon.icns"
       }
+    },
+    "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      }
     }
   },
   "plugins": {
