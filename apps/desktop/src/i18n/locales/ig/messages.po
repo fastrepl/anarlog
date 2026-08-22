@@ -4246,12 +4246,10 @@ msgid "Stone"
 msgstr ""
 
 #: src/composer/index.tsx
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr ""
 
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
@@ -4265,7 +4263,6 @@ msgstr ""
 msgid "Stop response"
 msgstr ""
 
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop transcription"

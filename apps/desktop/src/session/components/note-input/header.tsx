@@ -4,7 +4,6 @@ import { cn } from "@anlg/utils";
 
 import { HeaderViewEnhanced } from "./header-enhanced";
 import { HeaderViewRaw } from "./header-raw";
-import { HeaderViewStop, isMeetingStopAction } from "./header-stop";
 import { HeaderViewTranscript } from "./header-transcript";
 
 import { FolderPicker } from "~/session/components/folder-picker";
@@ -12,7 +11,6 @@ import { useCanShowTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import { deleteEnhancedNote, useEnhancedNoteRecords } from "~/session/queries";
 import { type EditorView } from "~/store/zustand/tabs/schema";
-import { useListener } from "~/stt/contexts";
 
 export function Header({ sessionId }: { sessionId: string }) {
   return <FolderPicker sessionId={sessionId} align="end" />;
@@ -32,13 +30,11 @@ export function SessionViewSwitcher({
   isTranscribing?: boolean;
 }) {
   const { t } = useLingui();
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const showStop = isMeetingStopAction(sessionMode);
   const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
   )?.id;
-  const shouldUseViewSwitcher = editorTabs.length > 1 || showStop;
+  const shouldUseViewSwitcher = editorTabs.length > 1;
 
   if (!shouldUseViewSwitcher) {
     return null;
@@ -120,7 +116,6 @@ export function SessionViewSwitcher({
 
         return null;
       })}
-      {showStop ? <HeaderViewStop sessionId={sessionId} /> : null}
     </div>
   );
 }

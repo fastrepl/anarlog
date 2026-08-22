@@ -12,7 +12,6 @@ import {
 import { cn, safeParseDate } from "@anlg/utils";
 
 import { FolderPicker } from "../folder-picker";
-import { isMeetingStopAction } from "../note-input/header-stop";
 import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
 import { MetadataButton } from "./metadata";
@@ -62,8 +61,6 @@ export function OuterHeader({
   const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
-  const embedStopInViewSwitcher =
-    viewSwitcher != null && isMeetingStopAction(sessionMode);
 
   return (
     <div
@@ -89,7 +86,6 @@ export function OuterHeader({
           currentView={currentView}
           transcriptEditMode={transcriptEditMode}
           onTranscriptEditModeChange={onTranscriptEditModeChange}
-          hideStop={embedStopInViewSwitcher}
         />
         <FolderPicker sessionId={sessionId} align="end" />
         <MetadataButton sessionId={sessionId} />
@@ -110,14 +106,12 @@ function HeaderMeetingControl({
   currentView,
   transcriptEditMode,
   onTranscriptEditModeChange,
-  hideStop = false,
 }: {
   sessionId: string;
   sessionMode: string;
   currentView: EditorView;
   transcriptEditMode: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
-  hideStop?: boolean;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
@@ -146,7 +140,7 @@ function HeaderMeetingControl({
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
 
-  if (sessionMode === "finalizing" || (hideStop && isRecording)) {
+  if (sessionMode === "finalizing") {
     return null;
   }
 
