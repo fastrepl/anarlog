@@ -48,6 +48,7 @@ import {
 } from "./selection";
 import {
   displayModelLabel,
+  formatDownloadProgress,
   formatModelSize,
   type ProviderId,
   PROVIDERS,
@@ -863,7 +864,7 @@ function ModelSelectItem({
         >
           <CircleNotch className="size-3 animate-spin" />
           {downloadInfo ? (
-            <span>{Math.round(downloadInfo.progress)}%</span>
+            formatDownloadProgress(downloadInfo.progress)
           ) : (
             <Trans>Starting</Trans>
           )}

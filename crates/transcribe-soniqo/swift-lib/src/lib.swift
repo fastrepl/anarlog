@@ -124,8 +124,8 @@ private enum SpeechModelKind: String, CaseIterable {
     case .omnilingual:
       return Self.regularFileExists(at: directory.appendingPathComponent("config.json"))
         && Self.regularFileExists(at: directory.appendingPathComponent("tokenizer.model"))
-        && Self.directoryContainsRegularFile(
-          at: directory.appendingPathComponent("omnilingual-ctc-300m-int8.mlpackage")
+        && Self.compiledCoreMLModelReady(
+          at: directory.appendingPathComponent("omnilingual-ctc-300m-int8.mlmodelc")
         )
     case .qwen3Small, .qwen3Large:
       return Self.regularFileExists(at: directory.appendingPathComponent("vocab.json"))
@@ -179,6 +179,68 @@ private enum SpeechModelKind: String, CaseIterable {
       )
     case .qwen3Small, .qwen3Large:
       throw SoniqoBridgeError.message("\(label) requires macOS 15 or newer.")
+    }
+  }
+
+  func downloadAssets(progressHandler: ((Double, String) -> Void)?) async throws {
+    let directory = try cacheDirectoryURL()
+    let speechWeight = self == .parakeetBatch ? 0.9 : 1.0
+    try await HuggingFaceDownloader.downloadWeights(
+      modelId: repo,
+      to: directory,
+      additionalFiles: additionalDownloadFiles,
+      offlineMode: speechFilesReady()
+    ) { fraction in
+      progressHandler?(fraction * speechWeight, "Downloading \(label)...")
+    }
+
+    if self == .parakeetBatch {
+      let diarizationDirectory = try HuggingFaceDownloader.getCacheDirectory(
+        for: community1DiarizationRepo
+      )
+      try await HuggingFaceDownloader.downloadWeights(
+        modelId: community1DiarizationRepo,
+        to: diarizationDirectory,
+        additionalFiles: [
+          "segmentation.mlmodelc/**",
+          "embedding.mlmodelc/**",
+          "plda.safetensors",
+          "config.json",
+        ],
+        offlineMode: Self.community1FilesReady()
+      ) { fraction in
+        progressHandler?(0.9 + fraction * 0.1, "Downloading speaker model...")
+      }
+    }
+
+    guard filesReady() else {
+      throw SoniqoBridgeError.message("Downloaded \(label) files are incomplete.")
+    }
+  }
+
+  private var additionalDownloadFiles: [String] {
+    switch self {
+    case .parakeetStreaming, .parakeetBatch:
+      return [
+        "encoder.mlmodelc/**",
+        "decoder.mlmodelc/**",
+        "joint.mlmodelc/**",
+        "vocab.json",
+        "config.json",
+      ]
+    case .omnilingual:
+      return [
+        "omnilingual-ctc-300m-int8.mlmodelc/**",
+        "omnilingual-ctc-300m-int8.mlpackage/**",
+        "tokenizer.model",
+        "config.json",
+      ]
+    case .qwen3Small, .qwen3Large:
+      return [
+        "vocab.json",
+        "merges.txt",
+        "tokenizer_config.json",
+      ]
     }
   }
 
@@ -527,12 +589,24 @@ private actor SoniqoBridge {
     nextModelLoadGeneration &+= 1
     let generation = nextModelLoadGeneration
     let task = Task.detached(priority: .utility) {
-      try await kind.load { fraction, status in
+      try await kind.downloadAssets { fraction, status in
         Task {
           await SoniqoBridge.shared.updateDownloadProgress(
             kind: kind,
             generation: generation,
             fraction: fraction,
+            status: status
+          )
+        }
+      }
+      // Files are enough for the settings download to succeed. Loading
+      // warms CoreML; a compile failure must not look like a download miss.
+      return try await kind.load { fraction, status in
+        Task {
+          await SoniqoBridge.shared.updateDownloadProgress(
+            kind: kind,
+            generation: generation,
+            fraction: max(fraction, 0.99),
             status: status
           )
         }
@@ -1038,7 +1112,9 @@ private actor SoniqoBridge {
 
     let percent = Int(max(0.0, min(1.0, fraction)) * 100.0)
     let statusText = status.trimmingCharacters(in: .whitespacesAndNewlines)
-    state.progressPercent = percent
+    if percent > 0 {
+      state.progressPercent = percent
+    }
     state.currentFile = statusText.isEmpty ? "Preparing \(kind.label)..." : statusText
     downloadStates[kind] = state
   }
@@ -1074,10 +1150,15 @@ private actor SoniqoBridge {
 
     var state = downloadState(for: kind)
     state.localPath = kind.cacheDirectoryPath()
-    state.status = "error"
     state.currentFile = nil
     state.progressPercent = nil
-    state.error = error.localizedDescription
+    if kind.filesReady() {
+      state.status = "ready"
+      state.error = nil
+    } else {
+      state.status = "error"
+      state.error = error.localizedDescription
+    }
     downloadStates[kind] = state
   }
 

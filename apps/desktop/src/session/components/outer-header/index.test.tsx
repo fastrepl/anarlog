@@ -63,6 +63,10 @@ vi.mock("./metadata", () => ({
   ),
 }));
 
+vi.mock("./create-brief-button", () => ({
+  CreateBriefButton: () => null,
+}));
+
 vi.mock("./overflow", () => ({
   OverflowButton: (props: {
     allowListening?: boolean;

@@ -245,7 +245,47 @@ describe("ToastNotifications", () => {
       expect.objectContaining({
         id: "downloading-model",
         duration: Infinity,
-        closeButton: false,
+        closeButton: true,
+      }),
+    );
+  });
+
+  it("lets users dismiss a model download toast until the next download", () => {
+    mocks.notifications.hasActiveDownload = true;
+    mocks.notifications.downloadingModel = "apple-speech";
+    mocks.notifications.activeDownloads = [
+      { model: "apple-speech", displayName: "apple-speech", progress: 0 },
+    ];
+
+    const view = render(<ToastNotifications />);
+    act(() => vi.advanceTimersByTime(500));
+
+    const options = mocks.loading.mock.calls[0][1];
+    expect(options.closeButton).toBe(true);
+    act(() => options.onDismiss());
+
+    mocks.loading.mockClear();
+    view.rerender(<ToastNotifications />);
+    expect(mocks.loading).not.toHaveBeenCalled();
+
+    mocks.notifications.hasActiveDownload = false;
+    mocks.notifications.downloadingModel = null;
+    mocks.notifications.activeDownloads = [];
+    view.rerender(<ToastNotifications />);
+
+    mocks.notifications.hasActiveDownload = true;
+    mocks.notifications.downloadingModel = "apple-speech";
+    mocks.notifications.activeDownloads = [
+      { model: "apple-speech", displayName: "apple-speech", progress: 12 },
+    ];
+    mocks.loading.mockClear();
+    view.rerender(<ToastNotifications />);
+
+    expect(mocks.loading).toHaveBeenCalledWith(
+      "Downloading apple-speech",
+      expect.objectContaining({
+        id: "downloading-model",
+        closeButton: true,
       }),
     );
   });

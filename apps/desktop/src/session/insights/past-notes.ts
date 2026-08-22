@@ -27,7 +27,7 @@ export type PastSessionNote = {
   occurredAt: string;
   participantNames?: string[];
   sourceSummary: string;
-  relationship: "same_series" | "matching_title";
+  relationship: "same_series" | "matching_title" | "shared_participants";
   summary: string | null;
   isGenerating: boolean;
   isRegenerateDisabled?: boolean;
@@ -345,7 +345,11 @@ export function buildPastSessionNotes(
   const currentEvent = getSessionEvent(currentSession);
   const currentSeriesId = getRecurrenceSeriesId(currentEvent);
   const currentTitleKey = getSessionTitleKey(currentSession);
-  if (!currentSeriesId && !currentTitleKey) {
+  if (
+    !currentSeriesId &&
+    !currentTitleKey &&
+    currentParticipantIds.size === 0
+  ) {
     return { notes: [], missing: [], requests: [] };
   }
 
@@ -374,16 +378,15 @@ export function buildPastSessionNotes(
     const candidateEvent = getSessionEvent(candidateSession);
     const candidateParticipantIds = participantIdsFor(candidateSessionId);
     const candidateSeriesId = getRecurrenceSeriesId(candidateEvent);
-    if (
-      !isRelatedPastSession({
-        currentParticipantIds,
-        currentSeriesId,
-        currentTitleKey,
-        candidateParticipantIds,
-        candidateSeriesId,
-        candidateTitleKey: getSessionTitleKey(candidateSession),
-      })
-    ) {
+    const relationship = getPastSessionRelationship({
+      currentParticipantIds,
+      currentSeriesId,
+      currentTitleKey,
+      candidateParticipantIds,
+      candidateSeriesId,
+      candidateTitleKey: getSessionTitleKey(candidateSession),
+    });
+    if (!relationship) {
       continue;
     }
 
@@ -425,10 +428,7 @@ export function buildPastSessionNotes(
         occurredAt: candidateEvent?.started_at || candidateSession.created_at,
         participantNames,
         sourceSummary: source,
-        relationship:
-          currentSeriesId && candidateSeriesId === currentSeriesId
-            ? "same_series"
-            : "matching_title",
+        relationship,
         summary: saved,
         isGenerating: false,
         dateMs: candidateTimestamp,
@@ -440,10 +440,11 @@ export function buildPastSessionNotes(
 
   const selected = items
     .sort((a, b) => {
-      const relationshipOrder =
-        Number(b.note.relationship === "same_series") -
-        Number(a.note.relationship === "same_series");
-      return relationshipOrder || b.note.dateMs - a.note.dateMs;
+      return (
+        getRelationshipRank(b.note.relationship) -
+          getRelationshipRank(a.note.relationship) ||
+        b.note.dateMs - a.note.dateMs
+      );
     })
     .slice(0, MAX_PAST_NOTES);
 
@@ -740,7 +741,7 @@ function getSessionParticipantNames(
   return names.sort((a, b) => a.localeCompare(b));
 }
 
-function isRelatedPastSession({
+function getPastSessionRelationship({
   currentParticipantIds,
   currentSeriesId,
   currentTitleKey,
@@ -754,15 +755,34 @@ function isRelatedPastSession({
   candidateParticipantIds: Set<string>;
   candidateSeriesId: string | null;
   candidateTitleKey: string;
-}) {
+}): PastSessionNote["relationship"] | null {
   if (currentSeriesId && candidateSeriesId === currentSeriesId) {
-    return true;
+    return "same_series";
   }
 
-  if (!currentTitleKey || currentTitleKey !== candidateTitleKey) {
-    return false;
+  const sharesParticipants = hasSharedParticipants(
+    currentParticipantIds,
+    candidateParticipantIds,
+  );
+  if (
+    currentTitleKey &&
+    currentTitleKey === candidateTitleKey &&
+    sharesParticipants
+  ) {
+    return "matching_title";
   }
 
+  if (sharesParticipants) {
+    return "shared_participants";
+  }
+
+  return null;
+}
+
+function hasSharedParticipants(
+  currentParticipantIds: Set<string>,
+  candidateParticipantIds: Set<string>,
+) {
   if (currentParticipantIds.size === 0 || candidateParticipantIds.size === 0) {
     return false;
   }
@@ -774,6 +794,17 @@ function isRelatedPastSession({
   }
 
   return false;
+}
+
+function getRelationshipRank(relationship: PastSessionNote["relationship"]) {
+  switch (relationship) {
+    case "same_series":
+      return 2;
+    case "matching_title":
+      return 1;
+    case "shared_participants":
+      return 0;
+  }
 }
 
 function getSessionTitle(session: { title?: string }): string {

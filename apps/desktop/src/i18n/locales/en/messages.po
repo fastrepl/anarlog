@@ -1298,6 +1298,10 @@ msgstr "Could not copy the share link."
 msgid "Could not copy to clipboard"
 msgstr "Could not copy to clipboard"
 
+#: src/session/hooks/useCreatePreMeetingBrief.ts
+msgid "Could not create the pre-meeting brief. Try again."
+msgstr "Could not create the pre-meeting brief. Try again."
+
 #: src/session-sharing/invitation-management.ts
 msgid "Could not create these invitations."
 msgstr "Could not create these invitations."
@@ -1418,6 +1422,10 @@ msgstr "Create"
 msgid "Create \"{folderName}\""
 msgstr "Create \"{folderName}\""
 
+#: src/session/components/note-input/create-brief-suggestion.tsx
+msgid "Create a brief to prepare this meeting"
+msgstr "Create a brief to prepare this meeting"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -1462,6 +1470,10 @@ msgstr "Created {0}"
 #: src/settings/automations/index.tsx
 msgid "Created {createdAt}"
 msgstr "Created {createdAt}"
+
+#: src/session/components/note-input/raw.tsx
+msgid "Creating brief..."
+msgstr "Creating brief..."
 
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
@@ -2306,10 +2318,6 @@ msgstr "Last delivery {0}"
 msgid "Last import: {0} added, {1} unchanged"
 msgstr "Last import: {0} added, {1} unchanged"
 
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "Last meeting"
-msgstr "Last meeting"
-
 #. placeholder {0}: lastRun.detail
 #: src/settings/automations/starter-config.tsx
 msgid "Last run {relative}: {0}"
@@ -2818,10 +2826,6 @@ msgstr "No people"
 msgid "No people in this organization"
 msgstr "No people in this organization"
 
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "No previous meeting summary is available. Calendar details are shown above."
-msgstr "No previous meeting summary is available. Calendar details are shown above."
-
 #: src/settings/ai/llm/configure.tsx
 #: src/settings/ai/stt/configure.tsx
 msgid "No providers found."
@@ -3189,10 +3193,6 @@ msgstr "Post the meeting summary to a channel you can access."
 #: src/automations/starters.tsx
 msgid "Post to a channel"
 msgstr "Post to a channel"
-
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "Pre-meeting brief"
-msgstr "Pre-meeting brief"
 
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."

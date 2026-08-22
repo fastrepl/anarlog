@@ -14,6 +14,7 @@ import { cn, safeParseDate } from "@anlg/utils";
 import { FolderPicker } from "../folder-picker";
 import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
+import { TitleInput } from "../title-input";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
 
@@ -33,7 +34,7 @@ import {
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { getScheme } from "~/shared/utils";
-import type { EditorView } from "~/store/zustand/tabs/schema";
+import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
 import {
@@ -44,6 +45,7 @@ import {
 export function OuterHeader({
   sessionId,
   currentView,
+  tab,
   standaloneWindow = false,
   viewSwitcher,
   transcriptEditMode = false,
@@ -51,6 +53,7 @@ export function OuterHeader({
 }: {
   sessionId: string;
   currentView: EditorView;
+  tab?: Extract<Tab, { type: "sessions" }>;
   standaloneWindow?: boolean;
   viewSwitcher?: React.ReactNode;
   transcriptEditMode?: boolean;
@@ -66,7 +69,7 @@ export function OuterHeader({
     <div
       data-tauri-drag-region
       className={cn([
-        "relative flex w-full items-center",
+        "relative flex w-full items-center gap-[2px]",
         "h-12",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         !standaloneWindow && leftsidebar.expanded && "pl-2",
@@ -75,7 +78,16 @@ export function OuterHeader({
       ])}
     >
       {viewSwitcher}
-      <div data-tauri-drag-region className="min-h-full min-w-0 flex-1" />
+      {tab ? (
+        <div className="max-w-56 min-w-0 shrink">
+          <TitleInput tab={tab} variant="breadcrumb" />
+        </div>
+      ) : null}
+      <div
+        data-tauri-drag-region
+        data-session-header-spacer
+        className="min-h-full min-w-0 flex-1"
+      />
       <div
         data-tauri-drag-region
         className="relative z-10 flex shrink-0 items-center pr-1"

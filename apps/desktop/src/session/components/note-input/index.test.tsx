@@ -13,7 +13,6 @@ const hoisted = vi.hoisted(() => ({
   focusAtTrailingEmptyLine: vi.fn(),
   flushPendingChanges: vi.fn(),
   onBeforeTabChange: vi.fn(),
-  preMeetingBriefProps: [] as Record<string, unknown>[],
   rawEditorProps: [] as Record<string, unknown>[],
   registerCanonicalSessionEditor: vi.fn(),
   sessionMode: "inactive",
@@ -88,13 +87,6 @@ vi.mock("./raw", async () => {
     }),
   };
 });
-
-vi.mock("./pre-meeting-brief", () => ({
-  PreMeetingBrief: (props: Record<string, unknown>) => {
-    hoisted.preMeetingBriefProps.push(props);
-    return <div data-pre-meeting-brief data-testid="pre-meeting-brief" />;
-  },
-}));
 
 vi.mock("./search/bar", () => ({
   SearchBar: () => <div data-testid="search-bar" />,
@@ -223,7 +215,6 @@ describe("NoteInput tab selection", () => {
     hoisted.focusAtTrailingEmptyLine.mockClear();
     hoisted.flushPendingChanges.mockClear();
     hoisted.onBeforeTabChange.mockClear();
-    hoisted.preMeetingBriefProps = [];
     hoisted.rawEditorProps = [];
     hoisted.registerCanonicalSessionEditor.mockClear();
     hoisted.sessionMode = "inactive";
@@ -351,28 +342,6 @@ describe("NoteInput tab selection", () => {
     });
   });
 
-  it("enables the pre-meeting brief only for inactive sessions", () => {
-    renderNoteInput();
-
-    expect(
-      hoisted.preMeetingBriefProps[hoisted.preMeetingBriefProps.length - 1],
-    ).toEqual({
-      enabled: true,
-      sessionId: "session-1",
-    });
-
-    cleanup();
-    hoisted.sessionMode = "active";
-    renderNoteInput();
-
-    expect(
-      hoisted.preMeetingBriefProps[hoisted.preMeetingBriefProps.length - 1],
-    ).toEqual({
-      enabled: false,
-      sessionId: "session-1",
-    });
-  });
-
   it("tracks the mounted memo editor until its view is disposed", () => {
     renderNoteInput();
     const props = hoisted.rawEditorProps[hoisted.rawEditorProps.length - 1] as {
@@ -449,14 +418,6 @@ describe("NoteInput tab selection", () => {
     renderNoteInput();
 
     fireEvent.mouseDown(screen.getByTestId("mock-prosemirror"), { button: 0 });
-
-    expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
-  });
-
-  it("does not focus the editor when the pre-meeting brief is selected", () => {
-    renderNoteInput();
-
-    fireEvent.mouseDown(screen.getByTestId("pre-meeting-brief"), { button: 0 });
 
     expect(hoisted.focusAtTrailingEmptyLine).not.toHaveBeenCalled();
   });

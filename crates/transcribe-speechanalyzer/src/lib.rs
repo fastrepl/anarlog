@@ -336,6 +336,17 @@ pub fn resolve_session_locale(languages: &[anlg_language::Language]) -> Option<S
     })
 }
 
+/// Locale the Settings download row installs: the user's primary System Settings
+/// language that Apple Speech can transcribe. Hardcoding `en-US` leaves the
+/// installer queued forever when that language is not in System Settings.
+pub fn settings_locale() -> Result<String> {
+    if !cfg!(target_os = "macos") {
+        return Err(Error::UnsupportedPlatform);
+    }
+
+    resolve_session_locale(&[]).ok_or(Error::NoSupportedSystemLanguage)
+}
+
 pub fn installed_locales() -> Result<Vec<String>> {
     if !cfg!(target_os = "macos") {
         return Err(Error::UnsupportedPlatform);
