@@ -403,6 +403,9 @@ impl RecordingChunkStore for MemoryRecordingStore {
 
 #[tokio::test]
 async fn two_hour_capture_finalizes_recording_chunks_before_meeting_ended() {
+    let mut lifecycle = WorkerLifecycle::new("bot-long-recording");
+    join_and_capture(&mut lifecycle);
+
     let mut sink = ChunkedRecordingSink::new(
         ChunkedRecordingConfig {
             object_prefix: "recordings/job-reliability".into(),
@@ -413,10 +416,10 @@ async fn two_hour_capture_finalizes_recording_chunks_before_meeting_ended() {
     )
     .unwrap();
 
-    let mut output_count = 0;
+    let mut outputs = Vec::new();
     for minute in 0..120_u64 {
-        output_count += sink
-            .write_frame(AudioFrame {
+        outputs.extend(
+            sink.write_frame(AudioFrame {
                 sequence: minute + 1,
                 track_index: 0,
                 sample_rate: 16_000,
@@ -425,21 +428,29 @@ async fn two_hour_capture_finalizes_recording_chunks_before_meeting_ended() {
                 speaker: None,
             })
             .await
-            .unwrap()
-            .len();
+            .unwrap(),
+        );
     }
-    let finalized = sink.finish(Duration::from_secs(2 * 60 * 60)).await.unwrap();
-    output_count += finalized.len();
+    outputs.extend(sink.finish(Duration::from_secs(2 * 60 * 60)).await.unwrap());
 
-    assert_eq!(output_count, 120);
+    assert_eq!(outputs.len(), 120);
     assert!(
-        finalized
+        outputs
             .iter()
             .all(|output| matches!(output, AudioFrameSinkOutput::RecordingChunkReady(_)))
     );
 
-    let mut lifecycle = WorkerLifecycle::new("bot-long-recording");
-    join_and_capture(&mut lifecycle);
+    let chunk_events: Vec<_> = outputs
+        .into_iter()
+        .map(|output| lifecycle.emit_payload(output.into(), now()))
+        .collect();
+    assert!(
+        chunk_events
+            .iter()
+            .all(|event| matches!(event.payload, CaptureEventPayload::RecordingChunkReady(_)))
+    );
+    assert_eq!(lifecycle.state(), BotState::Capturing);
+
     let ended = lifecycle
         .observe_runtime(
             &RuntimeSnapshot {
@@ -451,6 +462,11 @@ async fn two_hour_capture_finalizes_recording_chunks_before_meeting_ended() {
         )
         .unwrap()
         .unwrap();
+    assert!(
+        chunk_events
+            .iter()
+            .all(|event| event.sequence < ended.sequence)
+    );
     assert_eq!(reason_kind(ended), TerminalReasonKind::MeetingEnded);
     assert_eq!(lifecycle.state(), BotState::Completed);
 }
