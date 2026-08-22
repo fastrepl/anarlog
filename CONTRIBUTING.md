@@ -58,13 +58,17 @@ The Supabase stack requires Docker. Provider credentials and service-specific co
 | Path | Scope |
 | --- | --- |
 | `apps/desktop` | React desktop UI and Tauri application |
-| `apps/web` | Website and account-backed web surfaces |
+| `apps/web` | Marketing site, account portal, and shared-note pages |
 | `apps/api` | Hosted API routes |
 | `apps/cli` | CLI and MCP server |
+| `apps/mobile` | Expo mobile client |
 | `plugins/*` | Tauri plugin boundaries |
 | `crates/*` | Rust libraries and services |
 | `packages/*` | Shared TypeScript packages |
 | `crates/db-app` | SQLite schema and migrations |
+| `supabase` | Hosted database schema, functions, and tests |
+| `skills/anarlog` | Published CLI and MCP agent skill |
+| `enterprise` | Commercially licensed capture and deployment components |
 | `docs` | Mintlify product and reference documentation |
 
 Sessions are the core data entity. Notes, transcripts, and summaries are all backed by sessions. ProseMirror documents use the TipTap JSON dialect.

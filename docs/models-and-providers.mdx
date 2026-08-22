@@ -8,7 +8,7 @@ Anarlog does not hide one model behind the whole app. It keeps two independent s
 - **Transcription** turns meeting audio into text.
 - **Intelligence** turns text into summaries, titles, and chat responses.
 
-Open **Settings → Transcription** and **Settings → Intelligence** to see the exact provider and model active on your computer. Changing one selection does not change the other.
+Open **Settings → Transcription** and **Settings → Intelligence** to see the selection active on your computer. Changing one selection does not change the other. For managed **Cloud** and **Auto** selections, this page explains the current upstream route.
 
 ## How a meeting moves through AI
 
@@ -55,22 +55,35 @@ This audio-capable Intelligence route is separate from normal meeting transcript
 
 ## On-device models
 
-Built-in on-device transcription currently requires an Apple Silicon Mac. Anarlog shows only models available for your computer and release.
+Anarlog currently offers two built-in on-device Transcription providers. Settings shows each provider only when it is supported by your Mac and release.
 
-| Model | When it runs | Notes |
-| --- | --- | --- |
-| Parakeet Streaming | During the meeting | Live transcription for 25 European languages |
-| Parakeet Batch | After recording | Speaker-labeled transcription for 25 European languages |
-| Apple Speech | During the meeting | Uses the system model and language assets built into macOS 26 |
-| Parakeet V2 | After recording | English-focused |
-| Parakeet V3 | After recording | English and European languages |
-| Whisper Large V3 | After recording | Broad multilingual coverage |
+| Provider | Model | When it runs | Requirements |
+| --- | --- | --- | --- |
+| Soniqo | Parakeet Streaming | During the meeting | Apple Silicon; live transcription for 25 European languages |
+| Soniqo | Parakeet Batch | After recording | Apple Silicon; speaker-labeled transcription for 25 European languages |
+| Apple Speech | Apple Speech | During the meeting | macOS 26 with a supported language added in System Settings |
+
+<Note>
+  Compatibility code still recognizes some older local model IDs, but they are not offered as new choices. The table above is the current user-facing model list.
+</Note>
 
 If you select Parakeet Streaming and also download Parakeet Batch, Anarlog can refine speaker labels on-device after a meeting with multiple remote participants.
 
 For local summaries and chat, connect **LM Studio**, **Ollama**, or **Unsloth** and choose any compatible model they serve. Anarlog does not silently substitute another model. **Apple Intelligence** is also available as an experimental, text-only Intelligence provider on eligible Macs running macOS 26 or later.
 
 If a selected local model or server is unavailable, Anarlog reports a connection error instead of sending the request to Anarlog Cloud.
+
+## Other model-backed features
+
+Not every AI-adjacent feature is controlled by AI Settings:
+
+| Feature | Implementation | Where it runs |
+| --- | --- | --- |
+| Meeting search | Tantivy full-text index, not an LLM or embedding search | On your computer |
+| Speaker voiceprints | `wespeaker-embedding-onnx-1` voice embeddings | On your computer |
+| Audio cleanup and speech detection | Bundled ONNX models | On your computer |
+
+When chat uses web search, Anarlog sends the search query to its hosted research endpoint, which currently uses Exa. The returned text can then become context for your selected Intelligence model.
 
 ## Your own provider
 
@@ -87,7 +100,7 @@ Anarlog supports dedicated provider integrations and OpenAI-compatible endpoints
 
 | Goal | Transcription | Intelligence |
 | --- | --- | --- |
-| Keep meeting content on your computer | Download an on-device model | Use LM Studio, Ollama, Unsloth, or eligible Apple Intelligence |
+| Keep meeting content on your computer | Select Soniqo or Apple Speech when available | Use LM Studio, Ollama, Unsloth, or eligible Apple Intelligence |
 | Pin exact model IDs | Configure your own provider | Configure your own provider |
 | Minimize setup | Anarlog Cloud | Anarlog Cloud |
 

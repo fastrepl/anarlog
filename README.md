@@ -17,9 +17,9 @@
     &nbsp;•&nbsp;
     <a href="https://docs.anarlog.so">Docs</a>
     &nbsp;•&nbsp;
-    <a href="https://github.com/fastrepl/anarlog/releases/latest">Download</a>
+    <a href="https://anarlog.so/download">Download</a>
     &nbsp;•&nbsp;
-    <a href="https://discord.gg/Vk882WS3gF">Discord</a>
+    <a href="https://anarlog.so/discord">Discord</a>
     &nbsp;•&nbsp;
     <a href="https://www.reddit.com/r/anarlog/">r/anarlog</a>
     &nbsp;•&nbsp;
@@ -31,7 +31,7 @@
   <p>
     <a href="https://github.com/fastrepl/anarlog/stargazers"><img src="https://img.shields.io/github/stars/fastrepl/anarlog?style=flat&color=ffe09d" alt="GitHub stars" /></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-black" alt="MIT license" /></a>
-    <a href="https://discord.gg/Vk882WS3gF"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
+    <a href="https://anarlog.so/discord"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Discord" /></a>
     <a href="https://deepwiki.com/fastrepl/anarlog"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki" /></a>
   </p>
 
@@ -48,12 +48,12 @@ It is built for people who want AI meeting notes without handing their conversat
 ## Why anarlog
 
 - **No bot joins your call.** anarlog captures audio directly on your device. Nothing appears in the participant list, and nothing records from inside the meeting.
-- **Local when you choose it.** On supported Apple Silicon Macs, built-in transcription runs on-device. Local Intelligence providers keep summaries and chat on your computer too.
+- **Local when you choose it.** On supported Macs, available built-in transcription models run on-device. Local Intelligence providers keep summaries and chat on your computer too.
 - **Your data, in a format you can read.** Sessions, notes, and transcripts live in local SQLite. Recordings and attachments are plain local files. Export Markdown whenever it fits your workflow.
 - **Bring your own AI.** Use a supported hosted provider, your own API key, or an OpenAI-compatible local server such as Ollama, LM Studio, or Unsloth.
-- **Readable source, MIT.** The community application is MIT-licensed. Fork it, audit it, sell it, or self-host it.
+- **Readable source, MIT.** The community application is MIT-licensed. Fork it, audit it, sell it, or build it yourself.
 - **Cloud is opt-in, not required.** Hosted AI, encrypted CloudSync, and sharing exist when you want them. Nothing depends on them.
-- **A front door for your org.** Self-hosting and source-visible enterprise components give security and IT teams a real path to yes.
+- **A front door for your org.** Source-visible enterprise components and commercial deployment options give security and IT teams a real path to yes.
 
 ## What runs where
 
@@ -71,32 +71,36 @@ anarlog keeps audio transcription separate from the language model used for summ
 
 | Stage | App setting | Anarlog Cloud | Local or bring your own |
 | --- | --- | --- | --- |
-| Audio → transcript | **Transcription** | A managed route chooses by language and live or batch mode. Current primary paths include Deepgram Nova and Soniox 5. | Built-in on-device models on Apple Silicon, or your selected transcription provider and model |
+| Audio → transcript | **Transcription** | A managed route chooses by language and live or batch mode. Current primary paths include Deepgram Nova and Soniox 5. | Soniqo or Apple Speech when available, or your selected transcription provider and model |
 | Transcript + memo → summary, title, or chat | **Intelligence** | Auto currently uses the latest Claude Sonnet alias through OpenRouter. | Your selected API, subscription, OpenAI-compatible server, or eligible Apple Intelligence |
 
 The active provider and model are always visible under **Settings → Transcription** and **Settings → Intelligence**. Read [Models and providers](https://docs.anarlog.so/models-and-providers) for the current routes, local model list, and privacy boundaries.
 
 ## Get started
 
-1. Download the latest release for macOS (Apple Silicon or Intel), Windows, or Linux from [releases](https://github.com/fastrepl/anarlog/releases/latest).
+1. [Download Anarlog](https://anarlog.so/download) for macOS, Windows, or Linux.
 2. Open it and join a meeting. anarlog records on your device and transcribes with the model you selected.
 3. Generate a note, edit it like a document, and export Markdown when you need it.
 4. Optional: connect an LLM provider or a local model in settings for summaries and chat.
 
-Product docs live at [docs.anarlog.so](https://docs.anarlog.so). To self-host, clone the repo, build it, and run it.
+Product docs live at [docs.anarlog.so](https://docs.anarlog.so). To build the desktop app or website from source, follow [Local development](#local-development).
 
 ## Repository map
 
 | Path | What lives there |
 | --- | --- |
 | `apps/desktop` | Tauri v2 desktop app: React and TypeScript UI, Rust backend |
-| `apps/web` | anarlog.so website and account-backed web surfaces |
+| `apps/web` | anarlog.so website, account portal, and shared-note pages; not the desktop notepad |
 | `apps/api` | Optional hosted services for AI, sync, sharing, and integrations |
 | `apps/cli` | Local CLI and MCP server |
 | `apps/mobile` | Mobile client source; no mobile app is currently distributed |
+| `apps/stripe` | Billing integration |
+| `apps/watch/apple` | watchOS companion source built with the mobile app |
 | `plugins/*` | Tauri capabilities such as local STT, database access, calendar, export, and notifications |
 | `crates/*` | Rust libraries for audio capture, transcription, diarization, storage, and services |
 | `packages/*` | Shared TypeScript packages for the editor, database, UI, and plugin SDK |
+| `supabase/` | Hosted authentication, sharing, sync, billing, and Cloud API data |
+| `skills/anarlog` | Published agent skill for the CLI and MCP server |
 | `enterprise/` | Source-visible enterprise components, commercially licensed |
 
 ## Local development
@@ -126,7 +130,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) for validation commands, code ownership,
 
 We later split the work into two projects. **[char](https://char.com)** is the team's current productivity app. **anarlog** is this open-source, local-first meeting notetaker.
 
-This repository is not the current char codebase, and anarlog is not being retired. Its community application stays MIT-licensed, forkable, self-hostable, and built for local notes you control.
+This repository is not the current char codebase, and anarlog is not being retired. Its community application stays MIT-licensed, forkable, buildable from source, and built for local notes you control.
 
 If you came here from Granola, welcome. If you came here from Hyprnote, welcome back.
 
@@ -137,7 +141,7 @@ Either way, it's yours.
 Issues, pull requests, bug reports, and docs fixes are all welcome.
 
 - Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
-- Join the community on [Discord](https://discord.gg/Vk882WS3gF) or [r/anarlog](https://www.reddit.com/r/anarlog/).
+- Join the community on [Discord](https://anarlog.so/discord) or [r/anarlog](https://www.reddit.com/r/anarlog/).
 
 Contributions outside `enterprise/` are distributed under the MIT license.
 
