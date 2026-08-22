@@ -186,13 +186,20 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
         &MeetingPlatform::MicrosoftTeams,
         &[fixture_node(5, "AXButton", "Hang up", &[0])],
     ));
-    assert!(native_meeting_window_is_validated(
+    assert!(!native_meeting_window_is_validated(
         &MeetingPlatform::MicrosoftTeams,
         &[fixture_node(6, "AXButton", "Leave", &[0])],
     ));
     assert!(native_meeting_window_is_validated(
+        &MeetingPlatform::MicrosoftTeams,
+        &[
+            fixture_node(6, "AXButton", "Leave", &[0]),
+            fixture_node(7, "AXToolbar", "Meeting controls", &[0]),
+        ],
+    ));
+    assert!(native_meeting_window_is_validated(
         &MeetingPlatform::Webex,
-        &[fixture_node(7, "AXButton", "Leave meeting", &[0])],
+        &[fixture_node(8, "AXButton", "Leave meeting", &[0])],
     ));
 }
 

@@ -6,7 +6,7 @@ use super::analysis::{
 use super::{
     AxNode, BrowserMeetingRoot, MeetingPlatform, NativeMeetingRoot, browser_platform_from_url,
     is_platform_active_call_control, is_slack_huddle_composer, is_slack_thread_container_label,
-    node_has_positive_bounds, node_labels, slack_huddle_context,
+    node_has_positive_bounds, node_labels, slack_huddle_context, teams_has_active_call_evidence,
 };
 
 fn stable_capture_context_id(kind: &str, parts: &[String]) -> String {
@@ -215,9 +215,10 @@ pub(super) fn validated_chat_scope(
             | MeetingPlatform::MicrosoftTeams
             | MeetingPlatform::Slack
             | MeetingPlatform::Webex
-    ) || !nodes
+    ) || !(nodes
         .iter()
         .any(|node| is_platform_active_call_control(platform, node))
+        || (*platform == MeetingPlatform::MicrosoftTeams && teams_has_active_call_evidence(nodes)))
     {
         return None;
     }

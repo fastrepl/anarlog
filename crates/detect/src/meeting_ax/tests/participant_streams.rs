@@ -161,6 +161,21 @@ fn test_teams_current_roster_row_is_an_inactive_participant() {
 }
 
 #[test]
+fn test_teams_explicit_speaker_label_strips_the_state_from_the_name() {
+    let participant = fixture_node(16, "AXRow", "Ada Lovelace is speaking", &[0, 4, 2]);
+
+    let stream = candidate_stream(
+        &MeetingPlatform::MicrosoftTeams,
+        &MeetingSurface::Native,
+        &participant,
+    )
+    .expect("expected Teams active speaker row");
+
+    assert_eq!(stream.participant_name.as_deref(), Some("Ada Lovelace"));
+    assert!(stream.is_active_speaker);
+}
+
+#[test]
 fn test_zoom_speaker_flag_uses_the_same_label_as_participant_name() {
     let mut roster = fixture_node(
         15,

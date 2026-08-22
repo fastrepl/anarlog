@@ -117,11 +117,30 @@ pub(super) fn is_platform_active_call_control(platform: &MeetingPlatform, node: 
         let label = label.trim().to_ascii_lowercase();
         match platform {
             MeetingPlatform::GoogleMeet => label == "leave call",
-            MeetingPlatform::MicrosoftTeams => matches!(label.as_str(), "hang up" | "leave"),
+            MeetingPlatform::MicrosoftTeams => label == "hang up",
             MeetingPlatform::Zoom => matches!(label.as_str(), "leave meeting" | "end meeting"),
             MeetingPlatform::Slack => matches!(label.as_str(), "leave huddle" | "end huddle"),
             MeetingPlatform::Webex => matches!(label.as_str(), "leave meeting" | "end meeting"),
             MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
         }
     })
+}
+
+pub(super) fn teams_has_active_call_evidence(nodes: &[AxNode]) -> bool {
+    let has_leave = nodes.iter().any(|node| {
+        matches!(node.role.as_deref(), Some("AXButton") | Some("AXMenuItem"))
+            && node.enabled != Some(false)
+            && node_has_positive_bounds(node)
+            && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("leave"))
+    });
+    let has_meeting_surface = nodes.iter().any(|node| {
+        node_labels(node).any(|label| {
+            matches!(
+                label.trim().to_ascii_lowercase().as_str(),
+                "meeting controls" | "calling controls" | "meeting chat"
+            )
+        })
+    });
+
+    has_leave && has_meeting_surface
 }

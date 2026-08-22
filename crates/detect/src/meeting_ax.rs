@@ -4,6 +4,31 @@ use std::collections::HashSet;
 #[cfg(target_os = "macos")]
 use cidre::{arc, ax, cf, cg};
 
+#[cfg(target_os = "macos")]
+#[link(name = "ApplicationServices", kind = "framework")]
+unsafe extern "C-unwind" {
+    #[link_name = "AXUIElementCopyAttributeValue"]
+    fn ax_ui_element_copy_attribute_value_raw(
+        element: &ax::UiElement,
+        attribute: &ax::Attr,
+        value: *mut Option<arc::R<cf::Type>>,
+    ) -> i32;
+    #[link_name = "AXUIElementIsAttributeSettable"]
+    fn ax_ui_element_is_attribute_settable_raw(
+        element: &ax::UiElement,
+        attribute: &ax::Attr,
+        settable: *mut bool,
+    ) -> i32;
+    #[link_name = "AXUIElementPerformAction"]
+    fn ax_ui_element_perform_action_raw(element: &ax::UiElement, action: &ax::Action) -> i32;
+    #[link_name = "AXUIElementSetAttributeValue"]
+    fn ax_ui_element_set_attribute_value_raw(
+        element: &ax::UiElement,
+        attribute: &ax::Attr,
+        value: &cf::Type,
+    ) -> i32;
+}
+
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 mod analysis;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
@@ -44,7 +69,7 @@ use node::node_text;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use node::{
     is_platform_active_call_control, is_platform_meeting_control, node_has_positive_bounds,
-    node_labels, searchable_node_text,
+    node_labels, searchable_node_text, teams_has_active_call_evidence,
 };
 #[cfg_attr(target_os = "linux", allow(unused_imports))]
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
@@ -233,7 +258,7 @@ pub fn describe_browser_ax(pid: i32) -> Vec<String> {
             .and_then(|area| string_attr(area, ax::attr::title()));
         let children = web_area
             .as_ref()
-            .and_then(|area| area.children().ok())
+            .and_then(|area| ax_element_array(area, ax::attr::children()))
             .map(|array| array.len());
         let visible = web_area
             .as_ref()
@@ -278,11 +303,7 @@ fn find_chat_priority_hits(
         return;
     }
     *visited += 1;
-    let role = element
-        .role()
-        .ok()
-        .map(|role| role.to_string())
-        .unwrap_or_default();
+    let role = string_attr(element, ax::attr::role()).unwrap_or_default();
     let role_description = string_attr(element, ax::attr::role_desc()).unwrap_or_default();
     let title = string_attr(element, ax::attr::title()).unwrap_or_default();
     let description = string_attr(element, ax::attr::desc()).unwrap_or_default();
@@ -297,8 +318,8 @@ fn find_chat_priority_hits(
     {
         hits.push(format!(
             "  hit d{depth} role={role:?} role_desc={role_description:?} title={title:?} desc={description:?} help={help:?} placeholder={placeholder:?} settable={} bounds={} path={}",
-            element.is_settable(ax::attr::value()).unwrap_or(false),
-            element.frame().ok().and_then(|frame| frame.cg_rect()).is_some(),
+            ax_is_settable(element, ax::attr::value()),
+            ax_frame(element).is_some(),
             ancestors.join(" > ")
         ));
     }
@@ -837,7 +858,7 @@ fn send_slack_huddle_chat_message(
                 let label = inspection_label(&control.node)
                     .unwrap_or_else(|| "Slack Huddle thread control".to_string());
 
-                match control.element.perform_action(ax::action::press()) {
+                match ax_perform_action(&control.element, ax::action::press()) {
                     Ok(_) => {
                         warnings.push(format!("opened Slack Huddle thread via AX: {label}"));
                         (chat_elements, input_match) =
@@ -901,7 +922,7 @@ fn send_slack_huddle_chat_message(
     };
     let label = inspection_label(&input.node);
     let mut input_element = input.element.retained();
-    let _ = input_element.perform_action(ax::action::press());
+    let _ = ax_perform_action(&input_element, ax::action::press());
     let original_value = match chat_input_value(&input_element) {
         Ok(value) if value.trim().is_empty() => value,
         Ok(_) => {
@@ -917,7 +938,11 @@ fn send_slack_huddle_chat_message(
     };
 
     let message_value = cf::String::from_str(message);
-    if let Err(error) = input_element.set_attr(ax::attr::value(), message_value.as_type_ref()) {
+    if let Err(error) = ax_set_attr(
+        &input_element,
+        ax::attr::value(),
+        message_value.as_type_ref(),
+    ) {
         restore_chat_input_if_owned(&mut input_element, message, &original_value, &mut warnings);
         warnings.push(format!(
             "failed to set Slack Huddle composer value: {error:?}"
@@ -981,7 +1006,7 @@ fn send_slack_huddle_chat_message(
     }
 
     let button = &refreshed_elements[button_index];
-    match button.element.perform_action(ax::action::press()) {
+    match ax_perform_action(&button.element, ax::action::press()) {
         Ok(_) => MeetingChatSendResult {
             sent: true,
             app: Some(app.clone()),
@@ -1028,7 +1053,7 @@ fn send_scoped_chat_message(
                 let control = &chat_elements[control_index];
                 let label = inspection_label(&control.node)
                     .unwrap_or_else(|| "meeting chat control".to_string());
-                match control.element.perform_action(ax::action::press()) {
+                match ax_perform_action(&control.element, ax::action::press()) {
                     Ok(_) => {
                         warnings.push(format!("opened meeting chat via AX: {label}"));
                         refreshed_nodes.clear();
@@ -1079,7 +1104,7 @@ fn send_scoped_chat_message(
     let input = &chat_elements[input_index];
     let label = inspection_label(&input.node);
     let mut input_element = input.element.retained();
-    let _ = input_element.perform_action(ax::action::press());
+    let _ = ax_perform_action(&input_element, ax::action::press());
     let original_value = match chat_input_value(&input_element) {
         Ok(value) if value.trim().is_empty() => value,
         Ok(_) => {
@@ -1095,7 +1120,11 @@ fn send_scoped_chat_message(
     };
 
     let message_value = cf::String::from_str(message);
-    if let Err(error) = input_element.set_attr(ax::attr::value(), message_value.as_type_ref()) {
+    if let Err(error) = ax_set_attr(
+        &input_element,
+        ax::attr::value(),
+        message_value.as_type_ref(),
+    ) {
         restore_chat_input_if_owned(&mut input_element, message, &original_value, &mut warnings);
         warnings.push(format!(
             "failed to set meeting chat composer value: {error:?}"
@@ -1153,7 +1182,7 @@ fn send_scoped_chat_message(
     }
 
     let button = &refreshed_elements[button_index];
-    match button.element.perform_action(ax::action::press()) {
+    match ax_perform_action(&button.element, ax::action::press()) {
         Ok(_) => MeetingChatSendResult {
             sent: true,
             app: Some(app.clone()),
@@ -1209,9 +1238,8 @@ fn chat_send_failure(
 
 #[cfg(target_os = "macos")]
 fn chat_input_value(input: &ax::UiElement) -> Result<String, String> {
-    let value = input
-        .attr_value(ax::attr::value())
-        .map_err(|error| format!("{error:?}"))?;
+    let value = ax_attr_value(input, ax::attr::value())
+        .map_err(|status| format!("AXUIElementCopyAttributeValue failed with {status}"))?;
     value
         .try_as_string()
         .map(|value| value.to_string())
@@ -1228,7 +1256,7 @@ fn restore_chat_input_if_owned(
     match chat_input_value(input) {
         Ok(current) if chat_input_is_owned(&current, injected_message) => {
             let original = cf::String::from_str(original_value);
-            if let Err(error) = input.set_attr(ax::attr::value(), original.as_type_ref()) {
+            if let Err(error) = ax_set_attr(input, ax::attr::value(), original.as_type_ref()) {
                 warnings.push(format!(
                     "failed to restore the unsent meeting chat composer: {error:?}"
                 ));
@@ -1326,7 +1354,13 @@ fn native_meeting_window_is_validated(platform: &MeetingPlatform, nodes: &[AxNod
         MeetingPlatform::Discord => nodes.iter().any(|node| {
             node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("voice connected"))
         }),
-        MeetingPlatform::MicrosoftTeams | MeetingPlatform::Webex => nodes
+        MeetingPlatform::MicrosoftTeams => {
+            nodes
+                .iter()
+                .any(|node| is_platform_active_call_control(platform, node))
+                || teams_has_active_call_evidence(nodes)
+        }
+        MeetingPlatform::Webex => nodes
             .iter()
             .any(|node| is_platform_active_call_control(platform, node)),
         MeetingPlatform::GoogleMeet | MeetingPlatform::Unknown => false,
@@ -1443,16 +1477,12 @@ fn browser_window_has_provider_signal(url: Option<&str>, title: Option<&str>) ->
 
 #[cfg(target_os = "macos")]
 fn focused_web_area_element(ax_app: &ax::UiElement) -> Option<arc::R<ax::UiElement>> {
-    let mut element = ax_app.focused_ui_element().ok()?;
+    let mut element = ax_element_attr(ax_app, ax::attr::focused_ui_element())?;
     for _ in 0..=MAX_TREE_DEPTH {
-        if element
-            .role()
-            .ok()
-            .is_some_and(|role| role.to_string() == "AXWebArea")
-        {
+        if string_attr(&element, ax::attr::role()).as_deref() == Some("AXWebArea") {
             return Some(element);
         }
-        element = element.parent().ok()?;
+        element = ax_element_attr(&element, ax::attr::parent())?;
     }
     None
 }
@@ -1463,9 +1493,7 @@ fn active_web_area_element(
     focused_web_area: Option<&ax::UiElement>,
 ) -> (Option<arc::R<ax::UiElement>>, bool) {
     if let Some(focused_web_area) = focused_web_area {
-        let belongs_to_window = focused_web_area
-            .window()
-            .ok()
+        let belongs_to_window = ax_element_attr(focused_web_area, ax::attr::window())
             .is_some_and(|focused_window| focused_window.equal(window));
         if belongs_to_window {
             return (Some(focused_web_area.retained()), true);
@@ -1493,16 +1521,15 @@ fn collect_web_area_elements(
     }
     *visited += 1;
 
-    let Ok(role) = element.role() else {
+    let Some(role) = string_attr(element, ax::attr::role()) else {
         return false;
     };
-    let role = role.to_string();
     if role == "AXWebArea" {
         web_areas.push(element.retained());
         return true;
     }
 
-    let Ok(children) = element.children() else {
+    let Some(children) = ax_element_array(element, ax::attr::children()) else {
         return !ax_role_may_have_children(&role);
     };
     let mut complete = true;
@@ -1524,10 +1551,9 @@ fn collect_window_elements(
     }
     *visited += 1;
 
-    let Ok(role) = element.role() else {
+    let Some(role) = string_attr(element, ax::attr::role()) else {
         return false;
     };
-    let role = role.to_string();
     if role == "AXApplication" {
         let Some(app_windows) = ax_element_array(element, ax::attr::windows()) else {
             return false;
@@ -1548,7 +1574,7 @@ fn collect_window_elements(
         return true;
     }
 
-    let Ok(children) = element.children() else {
+    let Some(children) = ax_element_array(element, ax::attr::children()) else {
         return !ax_role_may_have_children(&role);
     };
     let mut complete = true;
@@ -1915,7 +1941,7 @@ fn ax_element_array(
     element: &ax::UiElement,
     attr: &ax::Attr,
 ) -> Option<arc::R<cf::ArrayOf<ax::UiElement>>> {
-    let value = element.attr_value(attr).ok()?;
+    let value = ax_attr_value(element, attr).ok()?;
     if value.get_type_id() != cf::Array::type_id() {
         return None;
     }
@@ -1926,7 +1952,7 @@ fn ax_element_array(
 
 #[cfg(target_os = "macos")]
 fn ax_element_attr(element: &ax::UiElement, attr: &ax::Attr) -> Option<arc::R<ax::UiElement>> {
-    let value = element.attr_value(attr).ok()?;
+    let value = ax_attr_value(element, attr).ok()?;
     if value.get_type_id() != ax::UiElement::type_id() {
         return None;
     }
@@ -1972,19 +1998,16 @@ fn maybe_note_visible_child_walk(element: &ax::UiElement, warnings: &mut Vec<Str
 #[cfg(target_os = "macos")]
 fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
     let element_hash = Some(element.hash());
-    let role = element.role().ok().map(|role| role.to_string());
+    let role = string_attr(element, ax::attr::role());
     let identifier = string_attr(element, ax::attr::id());
     let title = string_attr(element, ax::attr::title());
     let value = string_attr(element, ax::attr::value());
     let description =
         string_attr(element, ax::attr::desc()).or_else(|| string_attr(element, ax::attr::help()));
     let placeholder = string_attr(element, ax::attr::placeholder_value());
-    let enabled = element.is_enabled().ok().map(|enabled| enabled.value());
-    let settable_value = element.is_settable(ax::attr::value()).unwrap_or(false);
-    let bounds = element
-        .frame()
-        .ok()
-        .and_then(|frame| frame.cg_rect())
+    let enabled = ax_bool_attr(element, ax::attr::enabled());
+    let settable_value = ax_is_settable(element, ax::attr::value());
+    let bounds = ax_frame(element)
         .or_else(|| rect_from_position_and_size(element))
         .map(AxRect::from);
     let text = searchable_node_text(
@@ -2018,13 +2041,13 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
 
 #[cfg(target_os = "macos")]
 fn string_attr(element: &ax::UiElement, attr: &ax::Attr) -> Option<String> {
-    let value = element.attr_value(attr).ok()?;
+    let value = ax_attr_value(element, attr).ok()?;
     value.try_as_string().map(|s| s.to_string())
 }
 
 #[cfg(target_os = "macos")]
 fn url_attr(element: &ax::UiElement) -> Option<String> {
-    let value = element.attr_value(ax::attr::url()).ok()?;
+    let value = ax_attr_value(element, ax::attr::url()).ok()?;
     if let Some(value) = value.try_as_string() {
         return Some(value.to_string());
     }
@@ -2039,9 +2062,66 @@ fn url_attr(element: &ax::UiElement) -> Option<String> {
 }
 
 #[cfg(target_os = "macos")]
+fn ax_attr_value(element: &ax::UiElement, attribute: &ax::Attr) -> Result<arc::R<cf::Type>, i32> {
+    let mut value = None;
+    // cidre's closed AXError enum aborts on valid error codes returned by stale UI elements.
+    let status = unsafe { ax_ui_element_copy_attribute_value_raw(element, attribute, &mut value) };
+    if status == 0 {
+        value.ok_or(-1)
+    } else {
+        Err(status)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn ax_bool_attr(element: &ax::UiElement, attribute: &ax::Attr) -> Option<bool> {
+    let value = ax_attr_value(element, attribute).ok()?;
+    if value.get_type_id() != cf::Boolean::type_id() {
+        return None;
+    }
+    let value_ref: &cf::Type = &value;
+    let boolean = unsafe { &*(std::ptr::from_ref(value_ref).cast::<cf::Boolean>()) };
+    Some(boolean.value())
+}
+
+#[cfg(target_os = "macos")]
+fn ax_value_attr(element: &ax::UiElement, attribute: &ax::Attr) -> Option<arc::R<ax::Value>> {
+    let value = ax_attr_value(element, attribute).ok()?;
+    if value.get_type_id() != ax::Value::type_id() {
+        return None;
+    }
+    Some(unsafe { std::mem::transmute::<arc::R<cf::Type>, arc::R<ax::Value>>(value) })
+}
+
+#[cfg(target_os = "macos")]
+fn ax_frame(element: &ax::UiElement) -> Option<cg::Rect> {
+    ax_value_attr(element, ax::attr::frame())?.cg_rect()
+}
+
+#[cfg(target_os = "macos")]
+fn ax_is_settable(element: &ax::UiElement, attribute: &ax::Attr) -> bool {
+    let mut settable = false;
+    let status =
+        unsafe { ax_ui_element_is_attribute_settable_raw(element, attribute, &mut settable) };
+    status == 0 && settable
+}
+
+#[cfg(target_os = "macos")]
+fn ax_perform_action(element: &ax::UiElement, action: &ax::Action) -> Result<(), i32> {
+    let status = unsafe { ax_ui_element_perform_action_raw(element, action) };
+    (status == 0).then_some(()).ok_or(status)
+}
+
+#[cfg(target_os = "macos")]
+fn ax_set_attr(element: &ax::UiElement, attribute: &ax::Attr, value: &cf::Type) -> Result<(), i32> {
+    let status = unsafe { ax_ui_element_set_attribute_value_raw(element, attribute, value) };
+    (status == 0).then_some(()).ok_or(status)
+}
+
+#[cfg(target_os = "macos")]
 fn rect_from_position_and_size(element: &ax::UiElement) -> Option<cg::Rect> {
-    let position = element.pos().ok()?.cg_point()?;
-    let size = element.size().ok()?.cg_size()?;
+    let position = ax_value_attr(element, ax::attr::pos())?.cg_point()?;
+    let size = ax_value_attr(element, ax::attr::size())?.cg_size()?;
     Some(cg::Rect {
         origin: position,
         size,

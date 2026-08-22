@@ -279,12 +279,16 @@ pub(super) fn participant_name_from_evidence(
                     .to_string(),
             )
         }
-        MeetingPlatform::MicrosoftTeams => label
-            .split(',')
-            .next()
-            .map(str::trim)
-            .filter(|name| is_plausible_participant_name(name))
-            .map(ToString::to_string),
+        MeetingPlatform::MicrosoftTeams => {
+            participant_name_from_speaker_label(label).or_else(|| {
+                label
+                    .split(',')
+                    .next()
+                    .map(str::trim)
+                    .filter(|name| is_plausible_participant_name(name))
+                    .map(ToString::to_string)
+            })
+        }
         MeetingPlatform::GoogleMeet | MeetingPlatform::Slack | MeetingPlatform::Webex => {
             participant_name_from_speaker_label(label)
         }
@@ -919,7 +923,7 @@ fn parse_teams_accessibility_description(raw_text: &str) -> Option<ParsedChatMes
         ParsedChatMessage {
             sender: Some(sender.trim().to_string()),
             timestamp: Some(timestamp.trim().to_string()),
-            direction: Some(MeetingChatDirection::Outgoing),
+            direction: None,
             text,
         }
     })

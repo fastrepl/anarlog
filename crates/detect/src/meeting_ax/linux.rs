@@ -523,12 +523,44 @@ fn browser_mutation_roots_from_windows(
     windows: Vec<(Option<String>, Vec<LiveNode>, bool)>,
     warnings: &mut Vec<String>,
 ) -> (Vec<(BrowserMeetingRoot, Vec<LiveNode>)>, bool) {
-    if windows.iter().any(|(_, _, complete)| !complete) {
-        warnings.push("refusing to send from an incomplete browser AT-SPI snapshot".to_string());
-        return (Vec::new(), true);
+    let mut roots = Vec::new();
+    let mut poisoned = false;
+    for (window_title, live, complete) in windows {
+        let nodes = ax_nodes(&live);
+        let url = web_area_url(&live);
+        let web_area = nodes
+            .iter()
+            .find(|node| node.role.as_deref() == Some("AXWebArea"))
+            .cloned();
+        if web_area.is_none() {
+            if browser_window_has_provider_signal(url.as_deref(), window_title.as_deref()) {
+                poisoned = true;
+                warnings.push(
+                    "a meeting-like browser window had no AT-SPI web area; browser send was excluded"
+                        .to_string(),
+                );
+            }
+            continue;
+        }
+        match browser_meeting_root_from_snapshot(
+            nodes,
+            complete,
+            url,
+            window_title,
+            web_area.as_ref(),
+        ) {
+            BrowserMeetingSnapshot::Accept(root) if complete => roots.push((root, live)),
+            BrowserMeetingSnapshot::Accept(_) | BrowserMeetingSnapshot::Unscoped => {
+                poisoned = true;
+                warnings.push(
+                    "refusing to send from an incomplete meeting browser AT-SPI snapshot"
+                        .to_string(),
+                );
+            }
+            BrowserMeetingSnapshot::Exclude => {}
+        }
     }
-
-    browser_roots_from_windows(windows, warnings)
+    (roots, poisoned)
 }
 
 async fn collect_window_snapshots(
@@ -1380,11 +1412,50 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
 mod tests {
     use super::*;
 
+    fn live_web_area(index: usize, url: &str, title: &str) -> LiveNode {
+        LiveNode {
+            node: AxNode {
+                index,
+                tree_path: vec![index],
+                element_hash: Some(index),
+                role: Some("AXWebArea".to_string()),
+                identifier: Some(url.to_string()),
+                title: Some(title.to_string()),
+                value: None,
+                description: None,
+                placeholder: None,
+                enabled: Some(true),
+                settable_value: false,
+                bounds: Some(AxRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1024.0,
+                    height: 768.0,
+                }),
+                text: title.to_string(),
+                within_zoom_meeting_scope: false,
+                within_zoom_chat_scope: false,
+                within_slack_huddle_scope: false,
+            },
+            ancestors: Vec::new(),
+            bus_name: "org.test.Browser".to_string(),
+            path: format!("/org/test/{index}"),
+        }
+    }
+
     #[test]
     fn browser_mutation_rejects_incomplete_window_snapshots() {
         let mut warnings = Vec::new();
         let (roots, poisoned) = browser_mutation_roots_from_windows(
-            vec![(Some("Meet - abc-defg-hij".to_string()), Vec::new(), false)],
+            vec![(
+                Some("Meet - abc-defg-hij".to_string()),
+                vec![live_web_area(
+                    0,
+                    "https://meet.google.com/abc-defg-hij",
+                    "Meet - abc-defg-hij",
+                )],
+                false,
+            )],
             &mut warnings,
         );
 
@@ -1395,5 +1466,37 @@ mod tests {
                 .iter()
                 .any(|warning| warning.contains("refusing to send"))
         );
+    }
+
+    #[test]
+    fn browser_mutation_ignores_incomplete_unrelated_window_snapshots() {
+        let mut warnings = Vec::new();
+        let (roots, poisoned) = browser_mutation_roots_from_windows(
+            vec![
+                (
+                    Some("Inbox - Gmail".to_string()),
+                    vec![live_web_area(
+                        0,
+                        "https://mail.google.com/mail/u/0/",
+                        "Inbox",
+                    )],
+                    false,
+                ),
+                (
+                    Some("Meet - abc-defg-hij".to_string()),
+                    vec![live_web_area(
+                        1,
+                        "https://meet.google.com/abc-defg-hij",
+                        "Meet - abc-defg-hij",
+                    )],
+                    true,
+                ),
+            ],
+            &mut warnings,
+        );
+
+        assert_eq!(roots.len(), 1);
+        assert!(!poisoned);
+        assert!(warnings.is_empty());
     }
 }
