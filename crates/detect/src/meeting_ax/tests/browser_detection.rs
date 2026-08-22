@@ -27,6 +27,25 @@ fn test_zoom_participant_roster_row_becomes_stream_candidate() {
 }
 
 #[test]
+fn test_aside_meet_code_title_classifies_without_meeting_url() {
+    let web_area = node(16, "AXWebArea", "", None);
+    assert_eq!(
+        classify_browser_context(
+            Some("about:blank"),
+            Some("Meet - jyz-nspz-tzk"),
+            Some(&web_area),
+            &[],
+        ),
+        MeetingPlatform::GoogleMeet
+    );
+    assert!(browser_window_has_provider_signal(
+        Some("about:blank"),
+        Some("Meet - jyz-nspz-tzk - Aside"),
+    ));
+    assert!(!browser_title_platform_signals("Meet - notes").contains(&MeetingPlatform::GoogleMeet));
+}
+
+#[test]
 fn test_browser_title_classifies_meet_web() {
     let web_area = node(16, "AXWebArea", "Team sync - Google Meet", None);
     assert_eq!(
@@ -235,6 +254,31 @@ fn test_only_provider_like_browser_windows_poison_incomplete_capture() {
         None,
         Some("Team sync | Microsoft Teams"),
     ));
+}
+
+#[test]
+fn test_select_child_walk_prefers_visible_subset() {
+    assert_eq!(
+        select_child_walk(Some(380), Some(42), None),
+        Some(ChildWalk::Visible)
+    );
+    assert_eq!(
+        select_child_walk(Some(42), Some(42), None),
+        Some(ChildWalk::Children)
+    );
+    assert_eq!(
+        select_child_walk(Some(12), Some(0), None),
+        Some(ChildWalk::Children)
+    );
+    assert_eq!(
+        select_child_walk(Some(0), Some(8), None),
+        Some(ChildWalk::Visible)
+    );
+    assert_eq!(
+        select_child_walk(None, None, Some(3)),
+        Some(ChildWalk::Contents)
+    );
+    assert_eq!(select_child_walk(None, None, Some(0)), None);
 }
 
 #[test]

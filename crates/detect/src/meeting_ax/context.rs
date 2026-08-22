@@ -296,10 +296,24 @@ fn canonical_browser_meeting_context(url: &str, platform: &MeetingPlatform) -> O
     Some(url.to_string())
 }
 
+fn browser_meeting_identity(root: &BrowserMeetingRoot) -> Option<String> {
+    if let Some(url) = root.web_area_url.as_deref()
+        && let Some(canonical) = canonical_browser_meeting_context(url, &root.platform)
+    {
+        return Some(canonical);
+    }
+
+    if root.platform == MeetingPlatform::GoogleMeet {
+        let code = super::platform::google_meet_code_from_title(root.window_title.as_deref()?)?;
+        return Some(format!("https://meet.google.com/{code}"));
+    }
+
+    None
+}
+
 pub(super) fn browser_capture_context_id(root: &BrowserMeetingRoot) -> Option<String> {
     let (scope_path, composer_path) = validated_chat_scope(&root.platform, &root.nodes)?;
-    let canonical_url =
-        canonical_browser_meeting_context(root.web_area_url.as_deref()?, &root.platform)?;
+    let canonical_url = browser_meeting_identity(root)?;
     let web_area_hash = root
         .nodes
         .iter()

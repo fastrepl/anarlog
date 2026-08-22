@@ -290,25 +290,39 @@ pub(super) fn classify_browser_context(
     active_web_area: Option<&AxNode>,
     nodes: &[AxNode],
 ) -> MeetingPlatform {
-    let Some(platform) = browser_platform_from_url(web_area_url) else {
-        return MeetingPlatform::Unknown;
-    };
-
     let mut title_platforms = window_title
         .into_iter()
         .chain(active_web_area.into_iter().flat_map(node_labels))
         .flat_map(browser_title_platform_signals)
         .collect::<Vec<_>>();
     title_platforms.dedup();
-    if title_platforms.iter().any(|signal| signal != &platform) {
+
+    if let Some(platform) = browser_platform_from_url(web_area_url) {
+        if title_platforms.iter().any(|signal| signal != &platform) {
+            return MeetingPlatform::Unknown;
+        }
+        let has_matching_title = title_platforms.contains(&platform);
+        let has_matching_control = nodes
+            .iter()
+            .any(|node| is_platform_meeting_control(&platform, node));
+
+        return if has_matching_title || has_matching_control {
+            platform
+        } else {
+            MeetingPlatform::Unknown
+        };
+    }
+
+    if title_platforms.len() != 1 {
         return MeetingPlatform::Unknown;
     }
-    let has_matching_title = title_platforms.contains(&platform);
+    let platform = title_platforms.remove(0);
+    let titled_like_meet_code = window_title
+        .is_some_and(|title| looks_like_google_meet_window_title(&title.to_ascii_lowercase()));
     let has_matching_control = nodes
         .iter()
         .any(|node| is_platform_meeting_control(&platform, node));
-
-    if has_matching_title || has_matching_control {
+    if titled_like_meet_code || has_matching_control {
         platform
     } else {
         MeetingPlatform::Unknown
@@ -346,7 +360,7 @@ pub(super) fn browser_title_platform_signals(text: &str) -> Vec<MeetingPlatform>
     let text = text.to_ascii_lowercase();
     let mut platforms = Vec::new();
 
-    if text.contains("google meet") {
+    if text.contains("google meet") || looks_like_google_meet_window_title(&text) {
         platforms.push(MeetingPlatform::GoogleMeet);
     }
     if text.contains("microsoft teams") || text.contains("teams meeting") {
@@ -366,6 +380,41 @@ pub(super) fn browser_title_platform_signals(text: &str) -> Vec<MeetingPlatform>
     }
 
     platforms
+}
+
+pub(super) fn google_meet_code_from_title(title: &str) -> Option<String> {
+    let text = title.trim().to_ascii_lowercase();
+    let rest = text.strip_prefix("meet - ")?;
+    let code = rest
+        .split(" - ")
+        .next()?
+        .split_whitespace()
+        .next()?
+        .to_string();
+    looks_like_google_meet_window_title(&format!("meet - {code}")).then_some(code)
+}
+
+fn looks_like_google_meet_window_title(text: &str) -> bool {
+    let Some(rest) = text.strip_prefix("meet - ") else {
+        return false;
+    };
+    let code = rest
+        .split(" - ")
+        .next()
+        .unwrap_or(rest)
+        .trim()
+        .split_whitespace()
+        .next()
+        .unwrap_or("");
+    let mut parts = code.split('-');
+    matches!(
+        (parts.next(), parts.next(), parts.next(), parts.next()),
+        (Some(first), Some(second), Some(third), None)
+            if first.len() == 3
+                && second.len() == 4
+                && third.len() == 3
+                && code.bytes().all(|byte| byte.is_ascii_lowercase() || byte == b'-')
+    )
 }
 
 pub(super) fn classify_platform(

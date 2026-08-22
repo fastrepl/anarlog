@@ -129,6 +129,35 @@ fn is_chat_priority_label(label: &str) -> bool {
         || label == "end huddle"
 }
 
+#[cfg(any(test, target_os = "macos"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ChildWalk {
+    Visible,
+    Children,
+    Contents,
+}
+
+#[cfg(any(test, target_os = "macos"))]
+fn select_child_walk(
+    children: Option<usize>,
+    visible: Option<usize>,
+    contents: Option<usize>,
+) -> Option<ChildWalk> {
+    let nonempty = |count: Option<usize>| count.filter(|&count| count > 0);
+    let visible = nonempty(visible);
+    let children = nonempty(children);
+    let contents = nonempty(contents);
+
+    match (visible, children) {
+        (Some(visible_count), Some(children_count)) if visible_count < children_count => {
+            Some(ChildWalk::Visible)
+        }
+        (_, Some(_)) => Some(ChildWalk::Children),
+        (Some(_), None) => Some(ChildWalk::Visible),
+        (None, None) => contents.map(|_| ChildWalk::Contents),
+    }
+}
+
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn browser_meeting_root_from_snapshot(
     nodes: Vec<AxNode>,
@@ -178,6 +207,115 @@ pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn inspect_meeting_accessibility() -> Vec<MeetingAccessibilityInspection> {
     Vec::new()
+}
+
+#[cfg(target_os = "macos")]
+pub fn describe_browser_ax(pid: i32) -> Vec<String> {
+    let ax_app = ax::UiElement::with_app_pid(pid);
+    let _ = ax_app.set_messaging_timeout_secs(0.6);
+    let mut windows = Vec::new();
+    let mut visited = 0;
+    let complete = collect_window_elements(&ax_app, 0, &mut visited, &mut windows);
+    let focused = focused_web_area_element(&ax_app);
+    let mut hits = Vec::new();
+    let mut searched = 0;
+    let mut ancestors = Vec::new();
+    find_chat_priority_hits(&ax_app, 0, &mut searched, &mut ancestors, &mut hits);
+    let mut lines = vec![format!(
+        "windows={} discovery_complete={} focused_web_area={} chat_hits={} searched={}",
+        windows.len(),
+        complete,
+        focused.is_some(),
+        hits.len(),
+        searched
+    )];
+    lines.extend(hits.into_iter().take(12));
+    for (index, window) in windows.iter().enumerate() {
+        let title = string_attr(window, ax::attr::title());
+        let (web_area, web_complete) = active_web_area_element(window, focused.as_deref());
+        let url = web_area.as_ref().and_then(|area| url_attr(area));
+        let web_title = web_area
+            .as_ref()
+            .and_then(|area| string_attr(area, ax::attr::title()));
+        let children = web_area
+            .as_ref()
+            .and_then(|area| area.children().ok())
+            .map(|array| array.len());
+        let visible = web_area
+            .as_ref()
+            .and_then(|area| ax_element_array(area, ax::attr::visible_children()))
+            .map(|array| array.len());
+        lines.push(format!(
+            "window[{index}] title={title:?} web_complete={web_complete} web_title={web_title:?} url={url:?} children={children:?} visible={visible:?}"
+        ));
+        let mut web_areas = Vec::new();
+        let mut visited_areas = 0;
+        let listed = collect_web_area_elements(window, 0, &mut visited_areas, &mut web_areas);
+        lines.push(format!(
+            "  web_areas={} list_complete={}",
+            web_areas.len(),
+            listed
+        ));
+        for (area_index, area) in web_areas.iter().enumerate() {
+            lines.push(format!(
+                "  web[{area_index}] title={:?} url={:?}",
+                string_attr(area, ax::attr::title()),
+                url_attr(area)
+            ));
+        }
+    }
+    lines
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn describe_browser_ax(_pid: i32) -> Vec<String> {
+    Vec::new()
+}
+
+#[cfg(target_os = "macos")]
+fn find_chat_priority_hits(
+    element: &ax::UiElement,
+    depth: usize,
+    visited: &mut usize,
+    ancestors: &mut Vec<String>,
+    hits: &mut Vec<String>,
+) {
+    if depth > MAX_TREE_DEPTH || *visited >= MAX_NODES || hits.len() >= 12 {
+        return;
+    }
+    *visited += 1;
+    let role = element
+        .role()
+        .ok()
+        .map(|role| role.to_string())
+        .unwrap_or_default();
+    let title = string_attr(element, ax::attr::title()).unwrap_or_default();
+    let description = string_attr(element, ax::attr::desc()).unwrap_or_default();
+    let placeholder = string_attr(element, ax::attr::placeholder_value()).unwrap_or_default();
+    if is_chat_priority_label(&title)
+        || is_chat_priority_label(&description)
+        || is_chat_priority_label(&placeholder)
+    {
+        hits.push(format!(
+            "  hit d{depth} role={role:?} title={title:?} desc={description:?} placeholder={placeholder:?} path={}",
+            ancestors.join(" > ")
+        ));
+    }
+    let Some(children) = walkable_children(element).or_else(|| element.children().ok()) else {
+        return;
+    };
+    ancestors.push(if title.is_empty() {
+        role
+    } else {
+        format!("{role}:{title}")
+    });
+    for child in children.iter() {
+        find_chat_priority_hits(child, depth + 1, visited, ancestors, hits);
+        if hits.len() >= 12 {
+            break;
+        }
+    }
+    ancestors.pop();
 }
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
@@ -476,7 +614,7 @@ fn collect_nodes_with_ancestors(
         labels: node_labels(&node).map(str::to_string).collect(),
     });
 
-    if let Ok(children) = element.children() {
+    if let Some(children) = walkable_children(element) {
         for (child_index, child) in children.iter().enumerate() {
             path.push(child_index);
             collect_nodes_with_ancestors(child, depth + 1, visited, path, ancestors, nodes);
@@ -1251,7 +1389,7 @@ fn collect_browser_meeting_windows(
             });
             let mut nodes = Vec::new();
             let mut root_warnings = Vec::new();
-            let complete = collect_nodes(&web_area, 0, &mut nodes, &mut root_warnings);
+            let complete = collect_nodes(&window, 0, &mut nodes, &mut root_warnings);
             match browser_meeting_root_from_snapshot(
                 nodes,
                 complete,
@@ -1261,7 +1399,7 @@ fn collect_browser_meeting_windows(
             ) {
                 BrowserMeetingSnapshot::Accept(root) => {
                     warnings.extend(root_warnings);
-                    Some((root, web_area))
+                    Some((root, window))
                 }
                 BrowserMeetingSnapshot::Unscoped => {
                     has_unscoped_meeting_window = true;
@@ -1525,7 +1663,7 @@ fn collect_chat_elements(
         labels: node_labels(&node).map(str::to_string).collect(),
     });
 
-    let Ok(children) = element.children() else {
+    let Some(children) = walkable_children(element) else {
         ancestors.pop();
         return;
     };
@@ -1677,6 +1815,7 @@ fn collect_nodes(
     nodes: &mut Vec<AxNode>,
     warnings: &mut Vec<String>,
 ) -> bool {
+    maybe_note_visible_child_walk(element, warnings);
     let mut tree_path = Vec::new();
     let mut truncated = false;
     collect_nodes_with_scope(
@@ -1724,9 +1863,8 @@ fn collect_nodes_with_scope(
     node.within_slack_huddle_scope = within_slack_huddle_scope;
     nodes.push(node);
 
-    let children = match element.children() {
-        Ok(children) => children,
-        Err(_) => return,
+    let Some(children) = walkable_children(element) else {
+        return;
     };
 
     let mut ordered: Vec<(usize, _)> = children.iter().enumerate().collect();
@@ -1751,6 +1889,55 @@ fn collect_nodes_with_scope(
         );
         tree_path.pop();
     }
+}
+
+#[cfg(target_os = "macos")]
+fn ax_element_array(
+    element: &ax::UiElement,
+    attr: &ax::Attr,
+) -> Option<arc::R<cf::ArrayOf<ax::UiElement>>> {
+    let value = element.attr_value(attr).ok()?;
+    if value.get_type_id() != cf::Array::type_id() {
+        return None;
+    }
+    Some(unsafe {
+        std::mem::transmute::<arc::R<cf::Type>, arc::R<cf::ArrayOf<ax::UiElement>>>(value)
+    })
+}
+
+#[cfg(target_os = "macos")]
+fn walkable_children(element: &ax::UiElement) -> Option<arc::R<cf::ArrayOf<ax::UiElement>>> {
+    let children = ax_element_array(element, ax::attr::children());
+    let visible = ax_element_array(element, ax::attr::visible_children());
+    let contents = ax_element_array(element, ax::attr::contents());
+    match select_child_walk(
+        children.as_ref().map(|array| array.len()),
+        visible.as_ref().map(|array| array.len()),
+        contents.as_ref().map(|array| array.len()),
+    ) {
+        Some(ChildWalk::Visible) => visible,
+        Some(ChildWalk::Children) => children,
+        Some(ChildWalk::Contents) => contents,
+        None => None,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn maybe_note_visible_child_walk(element: &ax::UiElement, warnings: &mut Vec<String>) {
+    let Some(children) = ax_element_array(element, ax::attr::children()) else {
+        return;
+    };
+    let Some(visible) = ax_element_array(element, ax::attr::visible_children()) else {
+        return;
+    };
+    if visible.is_empty() || visible.len() >= children.len() {
+        return;
+    }
+    warnings.push(format!(
+        "using AXVisibleChildren at the meeting root ({} visible of {} children)",
+        visible.len(),
+        children.len()
+    ));
 }
 
 #[cfg(target_os = "macos")]

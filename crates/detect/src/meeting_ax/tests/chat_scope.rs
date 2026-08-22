@@ -418,6 +418,29 @@ fn test_web_capture_ignores_aggregate_containers() {
 }
 
 #[test]
+fn test_aside_blank_web_area_uses_meet_code_identity() {
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "", &[]),
+        fixture_node(1, "AXButton", "Leave call", &[0]),
+        fixture_node(2, "AXGroup", "In-call messages", &[1]),
+        fixture_composer(3, "Send a message", &[1, 0]),
+    ];
+    let root = |title: &str| BrowserMeetingRoot {
+        platform: MeetingPlatform::GoogleMeet,
+        window_title: Some(title.to_string()),
+        web_area_url: Some("about:blank".into()),
+        nodes: nodes.clone(),
+    };
+
+    let first = browser_capture_context_id(&root("Meet - jyz-nspz-tzk")).unwrap();
+    let same = browser_capture_context_id(&root("Meet - jyz-nspz-tzk - Aside")).unwrap();
+    let other = browser_capture_context_id(&root("Meet - abc-defg-hij")).unwrap();
+
+    assert_eq!(first, same);
+    assert_ne!(first, other);
+}
+
+#[test]
 fn test_browser_context_preserves_query_identified_meeting_identity() {
     let teams_nodes = vec![
         fixture_node(0, "AXWebArea", "Microsoft Teams", &[]),
