@@ -5,9 +5,18 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PermissionStatus } from "@anlg/plugin-permissions";
+
+// The real iconify-icon web component renders asynchronously via timers that
+// can fire after the test environment is torn down ("document is not
+// defined" unhandled errors), so render an inert element instead.
+vi.mock("@iconify-icon/react", () => ({
+  Icon: (props: Record<string, unknown>) =>
+    createElement("iconify-icon", props),
+}));
 
 type ContextMenuItem = {
   id?: string;
