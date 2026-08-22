@@ -37,19 +37,19 @@ describe("resolveNetworkHoldUntilMs", () => {
 });
 
 describe("isRecentNetworkDrop", () => {
-  test("is true inside the recent-offline window", () => {
+  test("is true inside the recent-reconnect window", () => {
     expect(
       isRecentNetworkDrop(1_000, 1_000 + AUTO_STOP_RECENT_OFFLINE_MS),
     ).toBe(true);
   });
 
-  test("is false after the recent-offline window", () => {
+  test("is false after the recent-reconnect window", () => {
     expect(
       isRecentNetworkDrop(1_000, 1_000 + AUTO_STOP_RECENT_OFFLINE_MS + 1),
     ).toBe(false);
   });
 
-  test("is false when no offline transition was recorded", () => {
+  test("is false when no reconnect was recorded", () => {
     expect(isRecentNetworkDrop(null, 1_000)).toBe(false);
   });
 });

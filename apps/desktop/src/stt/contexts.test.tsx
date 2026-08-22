@@ -592,6 +592,43 @@ describe("ListenerProvider detect events", () => {
     expect(showNotificationMock).toHaveBeenCalledTimes(1);
   });
 
+  test("holds auto-stop when micStopped arrives shortly after a long outage reconnects", async () => {
+    const store = createListenerStore();
+    const stopSpy = vi.fn();
+
+    store.setState({ stop: stopSpy });
+    store.getState().setTriggerAppIds(["us.zoom.xos"]);
+    setStoreActive(store);
+
+    render(
+      <ListenerProvider store={store}>
+        <div>child</div>
+      </ListenerProvider>,
+    );
+
+    await vi.waitFor(() => expect(listenMock).toHaveBeenCalledTimes(1));
+    const handler = listenMock.mock.calls[0]?.[0];
+
+    vi.useFakeTimers();
+    window.dispatchEvent(new Event("offline"));
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_RECENT_OFFLINE_MS + 1);
+    window.dispatchEvent(new Event("online"));
+    handler({
+      payload: {
+        type: "micStopped",
+        apps: [{ id: "us.zoom.xos", name: "Zoom" }],
+      },
+    });
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_CONFIRM_DELAY_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_NETWORK_HOLD_MS);
+    expect(stopSpy).not.toHaveBeenCalled();
+    expect(showNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
   test("does not hold auto-stop after the recent-offline window expires", async () => {
     const store = createListenerStore();
     const stopSpy = vi.fn();
@@ -611,6 +648,7 @@ describe("ListenerProvider detect events", () => {
 
     vi.useFakeTimers();
     window.dispatchEvent(new Event("offline"));
+    await vi.advanceTimersByTimeAsync(AUTO_STOP_RECENT_OFFLINE_MS + 1);
     window.dispatchEvent(new Event("online"));
     await vi.advanceTimersByTimeAsync(AUTO_STOP_RECENT_OFFLINE_MS + 1);
     handler({

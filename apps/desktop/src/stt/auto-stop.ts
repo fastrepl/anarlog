@@ -109,12 +109,12 @@ export function resolveNetworkHoldUntilMs({
 }
 
 export function isRecentNetworkDrop(
-  lastOfflineAtMs: number | null,
+  lastReconnectAtMs: number | null,
   nowMs: number,
 ) {
   return (
-    lastOfflineAtMs != null &&
-    nowMs - lastOfflineAtMs <= AUTO_STOP_RECENT_OFFLINE_MS
+    lastReconnectAtMs != null &&
+    nowMs - lastReconnectAtMs <= AUTO_STOP_RECENT_OFFLINE_MS
   );
 }
 

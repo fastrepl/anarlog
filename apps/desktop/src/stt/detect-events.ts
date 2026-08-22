@@ -74,7 +74,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
   const notificationDetectRef = useRef(notificationDetect);
   notificationDetectRef.current = notificationDetect;
   const isOnlineRef = useRef(true);
-  const lastOfflineAtMsRef = useRef<number | null>(null);
+  const lastReconnectAtMsRef = useRef<number | null>(null);
   const pendingAutoStopRef = useRef<PendingAutoStop | null>(null);
   const pendingMicDetectedPromptRef = useRef(false);
 
@@ -82,9 +82,6 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
     let unlistenDetect: (() => void) | undefined;
     let cancelled = false;
     isOnlineRef.current = navigator.onLine;
-    if (!navigator.onLine) {
-      lastOfflineAtMsRef.current = Date.now();
-    }
     const clearNotificationsIfActive = () => {
       if (store.getState().live.status === "active") {
         void notificationCommands.clearNotifications();
@@ -273,13 +270,13 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
 
     const handleOffline = () => {
       isOnlineRef.current = false;
-      lastOfflineAtMsRef.current = Date.now();
       if (pendingAutoStopRef.current) {
         pendingAutoStopRef.current.networkInterrupted = true;
       }
     };
     const handleOnline = () => {
       isOnlineRef.current = true;
+      lastReconnectAtMsRef.current = Date.now();
     };
     window.addEventListener("offline", handleOffline);
     window.addEventListener("online", handleOnline);
@@ -406,7 +403,7 @@ export const useHandleDetectEvents = (store: ListenerStore) => {
               requireMicSnapshot,
               store.getState().live.sessionId,
               !isOnlineRef.current ||
-                isRecentNetworkDrop(lastOfflineAtMsRef.current, Date.now()),
+                isRecentNetworkDrop(lastReconnectAtMsRef.current, Date.now()),
             );
           }
         } else if (payload.type === "sleepStateChanged") {
