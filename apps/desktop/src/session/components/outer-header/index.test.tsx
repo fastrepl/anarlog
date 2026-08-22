@@ -63,8 +63,8 @@ vi.mock("./metadata", () => ({
   ),
 }));
 
-vi.mock("./create-brief-button", () => ({
-  CreateBriefButton: () => null,
+vi.mock("../title-input", () => ({
+  TitleInput: () => <input aria-label="Session title" placeholder="Untitled" />,
 }));
 
 vi.mock("./overflow", () => ({
@@ -418,6 +418,109 @@ describe("OuterHeader", () => {
     expect(
       actionChildren.findIndex((child) => child.contains(calendar)),
     ).toBeLessThan(actionChildren.findIndex((child) => child.contains(share)));
+  });
+
+  it("shows an editable title in the header", () => {
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "raw" } },
+          type: "sessions",
+        }}
+      />,
+    );
+
+    const title = screen.getByRole("textbox", { name: "Session title" });
+
+    expect(title.getAttribute("placeholder")).toBe("Untitled");
+    expect(screen.queryByRole("button", { name: "Create brief" })).toBeNull();
+  });
+
+  it("hides the title input after the meeting is over", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+      },
+    };
+    mocks.nowMs = new Date("2026-06-05T10:31:00.000Z").getTime();
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "enhanced", id: "note-1" } },
+          type: "sessions",
+        }}
+        viewSwitcher={
+          <div role="group" aria-label="Session note views">
+            Tabs
+          </div>
+        }
+      />,
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+    expect(screen.getByRole("group", { name: "Session note views" })).not.toBe(
+      null,
+    );
+  });
+
+  it("hides the title input after an ad hoc recording", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "enhanced", id: "note-1" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "enhanced", id: "note-1" } },
+          type: "sessions",
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
+  });
+
+  it("keeps the title input while listening", () => {
+    mocks.sessionModes = { "session-1": "active" };
+    mocks.hasTranscriptBySession = { "session-1": true };
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "raw" } },
+          type: "sessions",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("textbox", { name: "Session title" }),
+    ).not.toBeNull();
   });
 
   it("places stop immediately before the folder while listening", () => {

@@ -61,9 +61,21 @@ export function OuterHeader({
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const sessionEvent = useSessionEvent(sessionId);
+  const hasTranscript = useHasTranscript(sessionId);
+  const { audioExists } = useAudioPlayer();
+  const now = useNow();
   const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
+  const endedAt = sessionEvent?.ended_at
+    ? safeParseDate(sessionEvent.ended_at)
+    : null;
+  const ended = !!endedAt && endedAt.getTime() <= now.getTime();
+  const isRecording =
+    sessionMode === "active" || sessionMode === "running_batch";
+  const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
+  const showTitleInput = Boolean(tab) && !meetingOver;
 
   return (
     <div
@@ -78,7 +90,7 @@ export function OuterHeader({
       ])}
     >
       {viewSwitcher}
-      {tab ? (
+      {showTitleInput && tab ? (
         <div className="max-w-56 min-w-0 shrink">
           <TitleInput key={tab.id} tab={tab} variant="breadcrumb" />
         </div>
