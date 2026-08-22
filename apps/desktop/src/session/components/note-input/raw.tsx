@@ -14,6 +14,7 @@ import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { cn } from "@anlg/utils";
 
 import { AudioDropTarget } from "./audio-drop-target";
+import { CreateBriefSuggestion } from "./create-brief-suggestion";
 import { useNoteFileHandlerConfig } from "./file-handler";
 import { MeetingChatHighlights } from "./meeting-chat-highlights";
 
@@ -200,6 +201,21 @@ export const RawEditor = forwardRef<
       [sessionId],
     );
 
+    const getMemoBriefEditor = useCallback(() => {
+      const editor = editorRef.current;
+      if (!editor) {
+        return null;
+      }
+      return {
+        replaceContent: (content: JSONContent) => {
+          editor.commands.replaceContent(content);
+        },
+        flushPendingChanges: () => {
+          editor.flushPendingChanges();
+        },
+      };
+    }, []);
+
     const handleApplyTemplate = useCallback((template: UserTemplate) => {
       const content = template.sections.flatMap((section) => {
         const title = section.title.trim();
@@ -278,13 +294,21 @@ export const RawEditor = forwardRef<
                 onViewDisposed?.(view);
               }}
             />
-            {isMemoEmpty && audioExistsResolved && !canShowTranscript ? (
-              <TemplateEmptyState
-                sessionId={sessionId}
-                eventTitle={eventTitle ?? sessionTitle}
-                eventDescription={eventDescription}
-                onApply={handleApplyTemplate}
-              />
+            {isMemoEmpty ? (
+              <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex flex-col">
+                <CreateBriefSuggestion
+                  sessionId={sessionId}
+                  getMemoEditor={getMemoBriefEditor}
+                />
+                {audioExistsResolved && !canShowTranscript ? (
+                  <TemplateEmptyState
+                    sessionId={sessionId}
+                    eventTitle={eventTitle ?? sessionTitle}
+                    eventDescription={eventDescription}
+                    onApply={handleApplyTemplate}
+                  />
+                ) : null}
+              </div>
             ) : null}
           </div>
           <MeetingChatHighlights sessionId={sessionId} />
@@ -415,7 +439,7 @@ function TemplateEmptyState({
   }, [createTemplate, openTemplatesTab]);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex flex-col">
+    <>
       <TemplateSection
         label={t`Start with a favorite template`}
         templates={favoriteTemplates}
@@ -437,7 +461,7 @@ function TemplateEmptyState({
         <Plus aria-hidden className="size-4" />
         <span className="text-sm font-medium">{t`New template`}</span>
       </button>
-    </div>
+    </>
   );
 }
 

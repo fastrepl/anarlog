@@ -324,8 +324,6 @@ function TabContentNoteInner({
               standaloneWindow={standaloneWindow}
               transcriptEditMode={transcriptEditMode}
               onTranscriptEditModeChange={handleTranscriptEditModeChange}
-              onSwitchToMemos={() => handleTabChange({ type: "raw" })}
-              getMemoEditor={() => noteInputRef.current}
               viewSwitcher={
                 <SessionViewSwitcher
                   sessionId={sessionId}

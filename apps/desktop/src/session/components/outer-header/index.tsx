@@ -15,7 +15,6 @@ import { FolderPicker } from "../folder-picker";
 import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
 import { TitleInput } from "../title-input";
-import { CreateBriefButton } from "./create-brief-button";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
 
@@ -27,7 +26,6 @@ import {
   WELCOME_NOTE_TRACKING_ID,
 } from "~/onboarding/welcome-note.constants";
 import { SessionShareButton } from "~/session-sharing";
-import type { MemoBriefEditor } from "~/session/hooks/useCreatePreMeetingBrief";
 import { useEventCountdown } from "~/session/hooks/useEventCountdown";
 import {
   getRemoteMeeting,
@@ -52,8 +50,6 @@ export function OuterHeader({
   viewSwitcher,
   transcriptEditMode = false,
   onTranscriptEditModeChange,
-  onSwitchToMemos,
-  getMemoEditor,
 }: {
   sessionId: string;
   currentView: EditorView;
@@ -62,8 +58,6 @@ export function OuterHeader({
   viewSwitcher?: React.ReactNode;
   transcriptEditMode?: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
-  onSwitchToMemos?: () => void;
-  getMemoEditor?: () => MemoBriefEditor | null;
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
@@ -88,15 +82,6 @@ export function OuterHeader({
         <div className="max-w-56 min-w-0 shrink">
           <TitleInput tab={tab} variant="breadcrumb" />
         </div>
-      ) : null}
-      {onSwitchToMemos && getMemoEditor ? (
-        <CreateBriefButton
-          sessionId={sessionId}
-          sessionMode={sessionMode}
-          isMemoView={currentView.type === "raw"}
-          onSwitchToMemos={onSwitchToMemos}
-          getMemoEditor={getMemoEditor}
-        />
       ) : null}
       <div
         data-tauri-drag-region
