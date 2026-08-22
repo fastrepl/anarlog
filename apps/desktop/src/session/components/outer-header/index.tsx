@@ -74,7 +74,7 @@ export function OuterHeader({
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         !standaloneWindow && leftsidebar.expanded && "pl-2",
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
+          (showWindowControlsGutter ? "pl-[116px]" : "pl-[40px]"),
       ])}
     >
       {viewSwitcher}
