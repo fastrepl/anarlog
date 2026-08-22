@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   upgradeToPro: vi.fn(),
   updateSettingsTabState: vi.fn(),
   updateTemplatesTabState: vi.fn(),
+  workspaces: [] as Array<{ workspaceId: string }>,
 }));
 
 const lingui = vi.hoisted(() => {
@@ -84,6 +85,13 @@ vi.mock("~/auth/billing-context", () => ({
   }),
 }));
 
+vi.mock("~/settings/team/mirror", () => ({
+  useMyWorkspacesWithMirror: () => ({
+    data: mocks.workspaces,
+    isPending: false,
+  }),
+}));
+
 vi.mock("~/store/zustand/tabs", () => {
   const getState = () => ({
     currentTab: mocks.currentTab,
@@ -120,6 +128,7 @@ describe("SettingsNav", () => {
     mocks.upgradeToPro.mockClear();
     mocks.updateSettingsTabState.mockClear();
     mocks.updateTemplatesTabState.mockClear();
+    mocks.workspaces = [];
   });
 
   it("renders every settings menu label", () => {
@@ -300,6 +309,23 @@ describe("SettingsNav", () => {
     expect(
       screen.getByRole("button", { name: "Upgrade to Pro for Team" }),
     ).toBeTruthy();
+  });
+
+  it("opens Team for free members of an existing workspace", () => {
+    mocks.isPro = false;
+    mocks.workspaces = [{ workspaceId: "ws-1" }];
+
+    render(<SettingsNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Team" }));
+
+    expect(mocks.updateSettingsTabState).toHaveBeenCalledWith(
+      mocks.currentTab,
+      { tab: "team" },
+    );
+    expect(
+      screen.queryByRole("button", { name: "Upgrade to Pro for Team" }),
+    ).toBeNull();
   });
 
   it("opens Imports inside settings", () => {

@@ -31,6 +31,7 @@ import { CustomSidebarHeader } from "./custom-sidebar-header";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import { privacyMessages } from "~/settings/general/app-settings";
+import { useMyWorkspacesWithMirror } from "~/settings/team/mirror";
 import { type SettingsTab, type TabInput, useTabs } from "~/store/zustand/tabs";
 
 type SettingsNavItem =
@@ -53,6 +54,8 @@ type SettingsNavGroup = { label: string; items: SettingsNavItem[] };
 export function SettingsNav() {
   const { i18n, t } = useLingui();
   const { isPro, upgradeToPro, isUpgradingToPro } = useBillingAccess();
+  const workspaces = useMyWorkspacesWithMirror();
+  const hasExistingWorkspace = (workspaces.data?.length ?? 0) > 0;
   const [search, setSearch] = useState("");
   const currentTab = useTabs((state) => state.currentTab);
   const updateSettingsTabState = useTabs(
@@ -83,7 +86,7 @@ export function SettingsNav() {
           id: "team",
           label: t`Team`,
           icon: UsersThree,
-          requiresPro: true,
+          requiresPro: !hasExistingWorkspace,
         },
         { id: "appearance", label: t`Appearance`, icon: Sun },
         { id: "notifications", label: t`Notifications`, icon: Bell },
