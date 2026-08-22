@@ -57,7 +57,9 @@ pub fn monitor_supervisor<R: tauri::Runtime>(
     is_exiting: Arc<AtomicBool>,
     app_handle: tauri::AppHandle<R>,
 ) {
-    tokio::spawn(async move {
+    // Main is outside a Tokio runtime during setup (so Linux single-instance
+    // zbus init can block_on). Spawn on the process-wide handle instead.
+    tauri::async_runtime::spawn(async move {
         match handle.await {
             Ok(()) => {
                 if !is_exiting.load(Ordering::SeqCst) {

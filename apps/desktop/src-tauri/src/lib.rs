@@ -739,6 +739,24 @@ mod test {
     }
 
     #[test]
+    fn tauri_async_runtime_can_spawn_after_block_on_returns() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        tauri::async_runtime::set(runtime.handle().clone());
+        runtime.block_on(async {});
+        assert!(tokio::runtime::Handle::try_current().is_err());
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        tauri::async_runtime::spawn(async move {
+            let _ = tx.send(());
+        });
+        rx.recv_timeout(std::time::Duration::from_secs(2))
+            .expect("spawned task should run on the process-wide runtime");
+    }
+
+    #[test]
     fn startup_failure_message_includes_the_original_error() {
         let message = startup_failure_message(&"legacy import did not pass parity verification");
 
