@@ -178,6 +178,19 @@ describe("trimPreMeetingBrief", () => {
 - Artem left the Korea workshop dates open.`);
   });
 
+  it("drops copied prompt instructions and keeps real bullets", () => {
+    expect(
+      trimPreMeetingBrief(`**One sentence: why this conversation matters.**
+
+- John's proposal to show a Linear chip above the chat box.
+- Yujong's commitment to discuss CI spending.
+- Artem's proposed workshop dates for October 6th-10th.
+`),
+    ).toBe(`- John's proposal to show a Linear chip above the chat box.
+- Yujong's commitment to discuss CI spending.
+- Artem's proposed workshop dates for October 6th-10th.`);
+  });
+
   it("drops a recap list and its mirrored preview", () => {
     expect(
       trimPreMeetingBrief(`Quick Recap for Founders Sync Meeting:

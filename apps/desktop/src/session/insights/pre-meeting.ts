@@ -22,6 +22,8 @@ const BRIEF_GENERATION_TIMEOUT_MS = 45_000;
 const BRIEF_MAX_OUTPUT_TOKENS = 140;
 const SECTION_LABEL_REGEX =
   /^(quick\s+)?(recap|summary|overview|agenda|insights?|upcoming|next steps|prepare|brief)\b/i;
+const INSTRUCTION_LEFTOVER_REGEX =
+  /one sentence|why this conversation matters|would not immediately remember|open loop or commitment|thing to listen for or decide/i;
 const SPACE_REGEX = /\s+/g;
 
 export type PreMeetingBriefEvent = {
@@ -158,8 +160,13 @@ export function trimPreMeetingBrief(text: string): string {
     const heading = line.match(/^#{1,6}\s+(.+)$/);
     const bullet = line.match(/^(?:[-*+]|\d+[.)])\s+(.+)$/);
     if (bullet) {
-      if (bullets.length < MAX_BRIEF_BULLETS) {
-        bullets.push(`- ${bullet[1].trim()}`);
+      const item = bullet[1].trim();
+      if (
+        item &&
+        !isBriefInstructionLeftover(item) &&
+        bullets.length < MAX_BRIEF_BULLETS
+      ) {
+        bullets.push(`- ${item}`);
       }
       continue;
     }
@@ -169,7 +176,11 @@ export function trimPreMeetingBrief(text: string): string {
     }
 
     const body = (heading?.[1] ?? line).replace(/\*+/g, "").trim();
-    if (!body || isBriefSectionLabel(body)) {
+    if (
+      !body ||
+      isBriefSectionLabel(body) ||
+      isBriefInstructionLeftover(body)
+    ) {
       continue;
     }
 
@@ -188,6 +199,10 @@ function isBriefSectionLabel(text: string): boolean {
     return true;
   }
   return SECTION_LABEL_REGEX.test(plain);
+}
+
+function isBriefInstructionLeftover(text: string): boolean {
+  return INSTRUCTION_LEFTOVER_REGEX.test(text.replace(/[#*_]/g, "").trim());
 }
 
 function getBriefPromptMeetings(notes: PastSessionNote[]) {
