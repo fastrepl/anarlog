@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Check, Folder, Plus } from "@phosphor-icons/react";
+import { Check, FolderSimple, Plus } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
 import {
@@ -107,7 +107,7 @@ export function FolderPicker({
             open && "bg-accent text-foreground",
           ])}
         >
-          <Folder className="size-4 shrink-0" aria-hidden="true" />
+          <FolderSimple className="size-4 shrink-0" aria-hidden="true" />
           {currentPath ? (
             <span className="min-w-0 truncate text-xs text-neutral-600 dark:text-neutral-300">
               {currentPath}
@@ -164,7 +164,7 @@ export function FolderPicker({
                         onSelect={() => handleSelect(path)}
                         className="cursor-pointer"
                       >
-                        <Folder className="size-4 shrink-0 opacity-70" />
+                        <FolderSimple className="size-4 shrink-0 opacity-70" />
                         <span className="min-w-0 flex-1 truncate">{path}</span>
                         {path === currentPath ? (
                           <Check className="size-4 shrink-0" />

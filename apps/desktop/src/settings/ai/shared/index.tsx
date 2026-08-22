@@ -1,6 +1,9 @@
-import { Icon } from "@iconify-icon/react";
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ArrowSquareOut, CircleNotch } from "@phosphor-icons/react";
+import {
+  ArrowSquareOut,
+  CircleNotch,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import { type AnyFieldApi, useForm } from "@tanstack/react-form";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
@@ -696,7 +699,7 @@ function FormField({
       </InputGroup>
       {errorMessage && (
         <p className="text-destructive flex items-center gap-1.5 text-xs">
-          <Icon icon="mdi:alert-circle" size={14} />
+          <WarningCircle className="size-3.5 shrink-0" aria-hidden="true" />
           <span>{errorMessage}</span>
         </p>
       )}
