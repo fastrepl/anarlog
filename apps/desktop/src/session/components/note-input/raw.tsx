@@ -29,8 +29,10 @@ import { SessionNodeView } from "~/editor-bridge/session-view";
 import { useSessionCommentAnchors } from "~/session-sharing/comment-anchors";
 import { useCanShowTranscript } from "~/session/components/shared";
 import { useAttachmentResolver } from "~/session/hooks/useAttachmentResolver";
+import { useCreatePreMeetingBrief } from "~/session/hooks/useCreatePreMeetingBrief";
 import { useUpdateSession } from "~/session/queries";
 import { removeDocumentTitle } from "~/session/title-content";
+import { useListener } from "~/stt/contexts";
 import {
   TemplateIconGlyph,
   type UserTemplate,
@@ -40,6 +42,7 @@ import {
 } from "~/templates";
 
 const extraNodeViews = { appLink: AppLinkView, session: SessionNodeView };
+const noop = () => {};
 const defaultSuggestedTemplateIds = [
   "default-project-kickoff",
   "default-daily-standup",
@@ -215,6 +218,18 @@ export const RawEditor = forwardRef<
         },
       };
     }, []);
+    const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+    const {
+      visible: briefVisible,
+      isGenerating,
+      createBrief,
+    } = useCreatePreMeetingBrief({
+      sessionId,
+      sessionMode,
+      isMemoView: true,
+      onSwitchToMemos: noop,
+      getMemoEditor: getMemoBriefEditor,
+    });
 
     const handleApplyTemplate = useCallback((template: UserTemplate) => {
       const content = template.sections.flatMap((section) => {
@@ -258,7 +273,10 @@ export const RawEditor = forwardRef<
           : undefined,
       [syncTasks, sessionId],
     );
-    const placeholderComponent = useMemo(() => () => t`Start writing...`, [t]);
+    const placeholderComponent = useMemo(
+      () => () => (isGenerating ? t`Creating brief...` : t`Start writing...`),
+      [isGenerating, t],
+    );
     return (
       <AudioDropTarget
         targetProps={audioDropTargetProps}
@@ -275,6 +293,7 @@ export const RawEditor = forwardRef<
               handleChange={handleChange}
               onDocumentChange={handleDocumentChange}
               placeholderComponent={placeholderComponent}
+              readOnly={isGenerating}
               mentionConfig={mentionConfig}
               sessionMentionDropConfig={sessionMentionDropConfig}
               onNavigateToTitle={onNavigateToTitle}
@@ -294,12 +313,11 @@ export const RawEditor = forwardRef<
                 onViewDisposed?.(view);
               }}
             />
-            {isMemoEmpty ? (
+            {isMemoEmpty && !isGenerating ? (
               <div className="pointer-events-none absolute inset-x-0 top-16 z-10 flex flex-col">
-                <CreateBriefSuggestion
-                  sessionId={sessionId}
-                  getMemoEditor={getMemoBriefEditor}
-                />
+                {briefVisible ? (
+                  <CreateBriefSuggestion onCreate={createBrief} />
+                ) : null}
                 {audioExistsResolved && !canShowTranscript ? (
                   <TemplateEmptyState
                     sessionId={sessionId}

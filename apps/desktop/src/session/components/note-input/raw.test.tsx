@@ -264,6 +264,7 @@ describe("RawEditor", () => {
     expect((props?.placeholderComponent as () => string)()).toBe(
       "Start writing...",
     );
+    expect(props?.readOnly).toBe(false);
     expect(props?.persistentPlaceholderComponent).toBeUndefined();
     expect(props?.enforceTitleHeading).toBe(false);
     expect(props?.initialContent).toMatchObject({
@@ -725,6 +726,33 @@ describe("RawEditor", () => {
     ).not.toBeNull();
     expect(screen.queryByText("Suggested templates")).toBeNull();
     expect(screen.queryByRole("button", { name: "Daily Standup" })).toBeNull();
+  });
+
+  it("locks the memo and shows creating brief while a brief is generated", () => {
+    hoisted.briefVisible = true;
+    hoisted.briefGenerating = true;
+    hoisted.userTemplates = [
+      {
+        id: "default-project-kickoff",
+        title: "Project Kickoff",
+        pinned: false,
+        icon: { type: "emoji", value: "🚀" },
+        sections: [{ title: "Goals", description: "" }],
+      },
+    ];
+
+    render(<RawEditor sessionId="session-1" />);
+
+    const props = hoisted.noteEditorProps[hoisted.noteEditorProps.length - 1];
+    expect((props?.placeholderComponent as () => string)()).toBe(
+      "Creating brief...",
+    );
+    expect(props?.readOnly).toBe(true);
+    expect(screen.queryByText("Prepare for this meeting")).toBeNull();
+    expect(screen.queryByText("Suggested templates")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Project Kickoff" }),
+    ).toBeNull();
   });
 
   it("creates a template from the empty memo state", async () => {
