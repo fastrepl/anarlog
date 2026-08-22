@@ -32,7 +32,7 @@ tracing = { workspace = true }
 [target."cfg(target_os = \"macos\")".dependencies]
 anlg-bundle = { workspace = true }
 anlg-overlay-kit = { workspace = true }
-anlg-tcc = { workspace = true }
+anlg-tcc = { workspace = true, optional = true }
 block2 = { workspace = true }
 objc2 = { workspace = true }
 objc2-app-kit = { workspace = true }
@@ -57,3 +57,7 @@ objc2-foundation = { workspace = true, features = [
 ] }
 objc2-quartz-core = { workspace = true }
 macos-accessibility-client = { workspace = true }
+
+[features]
+default = []
+private-tcc = ["dep:anlg-tcc"]

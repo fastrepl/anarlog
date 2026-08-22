@@ -368,7 +368,7 @@ specta = "2.0.0-rc.22"
 specta-typescript = "0.0.9"
 tauri-specta = "2.0.0-rc.21"
 
-cidre = "0.15"
+cidre = { version = "0.15", default-features = false, features = ["app", "async", "av", "ax", "blocks", "cm", "core_audio", "dispatch", "io_kit", "io_pm", "macos_15_0"] }
 cpal = "0.17"
 crossterm = { version = "0.29", features = ["event-stream"] }
 dasp = { version = "0.11.0", features = ["interpolate", "interpolate-linear"] }

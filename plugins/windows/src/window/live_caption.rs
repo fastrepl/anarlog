@@ -258,7 +258,7 @@ mod platform {
         }
 
         let (width, height) = window_size(layout::DEFAULT_WIDTH, layout::DEFAULT_LINE_COUNT);
-        let window = WebviewWindowBuilder::new(
+        let builder = WebviewWindowBuilder::new(
             app,
             WINDOW_LABEL,
             WebviewUrl::App("app/live-caption".into()),
@@ -267,19 +267,21 @@ mod platform {
         .inner_size(width, height)
         .visible(false)
         .focused(false)
-        .decorations(false)
-        .transparent(true)
-        .shadow(false)
-        .resizable(false)
-        .maximizable(false)
-        .minimizable(false)
-        .closable(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .content_protected(true)
-        .background_color(Color(0, 0, 0, 0))
-        .disable_drag_drop_handler()
-        .build()?;
+        .decorations(false);
+        #[cfg(any(not(target_os = "macos"), feature = "macos-private-api"))]
+        let builder = builder.transparent(true);
+        let window = builder
+            .shadow(false)
+            .resizable(false)
+            .maximizable(false)
+            .minimizable(false)
+            .closable(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .content_protected(true)
+            .background_color(Color(0, 0, 0, 0))
+            .disable_drag_drop_handler()
+            .build()?;
 
         crate::window::exclude_from_capture(&window);
 

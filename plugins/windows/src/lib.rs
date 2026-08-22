@@ -327,12 +327,15 @@ pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
 }
 
 pub fn extend_builder(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "macos-private-api"))]
     {
         builder.plugin(tauri_nspanel::init())
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(any(
+        not(target_os = "macos"),
+        all(target_os = "macos", not(feature = "macos-private-api"))
+    ))]
     {
         builder
     }

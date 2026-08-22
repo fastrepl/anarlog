@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "macOSPrivateApi": false
+  },
+  "build": {
+    "features": ["app-store"]
+  },
+  "bundle": {
+    "category": "Productivity",
+    "createUpdaterArtifacts": false,
+    "externalBin": [],
+    "targets": ["app"],
+    "macOS": {
+      "entitlements": "./Entitlements.app-store.plist"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": false
+    }
+  }
+}

@@ -13,7 +13,9 @@ fn main() {
     println!("cargo:rustc-link-arg=-fapple-link-rtlib");
 
     #[cfg(target_os = "macos")]
-    build_check_permissions();
+    if std::env::var_os("CARGO_FEATURE_APP_STORE").is_none() {
+        build_check_permissions();
+    }
 
     tauri_build::build()
 }

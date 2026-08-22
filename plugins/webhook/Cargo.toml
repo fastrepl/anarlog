@@ -15,7 +15,7 @@ specta-typescript = { workspace = true }
 
 [dependencies]
 specta = { workspace = true }
-tauri = { workspace = true, features = ["test", "macos-private-api"] }
+tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 serde = { workspace = true }

@@ -37,6 +37,14 @@ pub struct EmbeddedCliStatus {
 
 pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCliStatus {
     let command_name = command_name_from_identifier(manager.config().identifier.as_ref());
+
+    if cfg!(feature = "app-store") {
+        return unavailable_status(
+            command_name,
+            "The embedded CLI is unavailable in the Mac App Store build.",
+        );
+    }
+
     let Some(install_path) = install_path_for_command(command_name) else {
         // Windows resolves the install path from local app data, not the home
         // directory, so the two platforms cannot share one message.
@@ -98,6 +106,7 @@ pub fn check<R: tauri::Runtime, T: tauri::Manager<R>>(manager: &T) -> EmbeddedCl
 // keeps the installed CLI current across updates. Conflict is left alone: the
 // user put something else at the install path and a background task must not
 // replace it.
+#[cfg(not(feature = "app-store"))]
 pub fn spawn_auto_install<R: tauri::Runtime>(app_handle: tauri::AppHandle<R>) {
     tauri::async_runtime::spawn_blocking(move || {
         let status = check(&app_handle);

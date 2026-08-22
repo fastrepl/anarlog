@@ -47,7 +47,7 @@ pub(crate) fn assisted_status(permission: Permission) -> Option<PermissionStatus
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "private-tcc"))]
 fn should_check_via_sidecar(permission: Permission) -> bool {
     // Accessibility trust is process-scoped, so a helper cannot report the app's status.
     !matches!(permission, Permission::Accessibility)
@@ -112,7 +112,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     pub async fn check(&self, permission: Permission) -> Result<PermissionStatus, crate::Error> {
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", feature = "private-tcc"))]
         {
             if should_check_via_sidecar(permission) {
                 if let Some(status) = self.check_sidecar(permission).await {
@@ -138,7 +138,7 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "private-tcc"))]
     async fn check_sidecar(&self, permission: Permission) -> Option<PermissionStatus> {
         use tauri_plugin_sidecar2::Sidecar2PluginExt;
 
@@ -396,8 +396,17 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     async fn check_system_audio(&self) -> Result<PermissionStatus, crate::Error> {
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", feature = "private-tcc"))]
         return check!("system_audio", anlg_tcc::audio_capture_permission_status());
+
+        #[cfg(all(target_os = "macos", not(feature = "private-tcc")))]
+        {
+            let audio = self.require_audio()?;
+            return match audio.probe_speaker() {
+                Ok(()) => Ok(PermissionStatus::Authorized),
+                Err(_) => Ok(PermissionStatus::Denied),
+            };
+        }
 
         #[cfg(not(target_os = "macos"))]
         {
@@ -410,10 +419,16 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     async fn check_screen_recording(&self) -> Result<PermissionStatus, crate::Error> {
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", feature = "private-tcc"))]
         return check!(
             "screen_recording",
             anlg_tcc::screen_capture_permission_status()
+        );
+
+        #[cfg(all(target_os = "macos", not(feature = "private-tcc")))]
+        return check!(
+            "screen_recording",
+            objc2_core_graphics::CGPreflightScreenCaptureAccess()
         );
 
         #[cfg(not(target_os = "macos"))]
@@ -543,9 +558,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
     }
 
     async fn request_screen_recording(&self) -> Result<(), crate::Error> {
-        #[cfg(target_os = "macos")]
+        #[cfg(all(target_os = "macos", feature = "private-tcc"))]
         {
             let _ = anlg_tcc::request_screen_capture_permission();
+        }
+
+        #[cfg(all(target_os = "macos", not(feature = "private-tcc")))]
+        {
+            let _ = objc2_core_graphics::CGRequestScreenCaptureAccess();
         }
 
         Ok(())
@@ -648,30 +668,39 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Permissions<'a, R, M> {
 
     #[cfg(target_os = "macos")]
     async fn reset_tcc(&self, service: &str) {
-        use tauri_plugin_shell::ShellExt;
+        #[cfg(not(feature = "private-tcc"))]
+        {
+            tracing::info!(service, "TCC reset is unavailable in the sandboxed build");
+            return;
+        }
 
-        let bundle_id = if cfg!(debug_assertions) {
-            match anlg_bundle::get_ancestor_bundle_id() {
-                Some(id) => {
-                    tracing::info!(service, bundle_id = %id, "resolving_ancestor_bundle_id");
-                    id
-                }
-                None => {
-                    tracing::warn!(service, "skipping_tcc_reset");
-                    return;
-                }
-            }
-        } else {
-            self.manager.config().identifier.clone()
-        };
+        #[cfg(feature = "private-tcc")]
+        {
+            use tauri_plugin_shell::ShellExt;
 
-        let _ = self
-            .manager
-            .shell()
-            .command("tccutil")
-            .args(["reset", service, &bundle_id])
-            .output()
-            .await;
+            let bundle_id = if cfg!(debug_assertions) {
+                match anlg_bundle::get_ancestor_bundle_id() {
+                    Some(id) => {
+                        tracing::info!(service, bundle_id = %id, "resolving_ancestor_bundle_id");
+                        id
+                    }
+                    None => {
+                        tracing::warn!(service, "skipping_tcc_reset");
+                        return;
+                    }
+                }
+            } else {
+                self.manager.config().identifier.clone()
+            };
+
+            let _ = self
+                .manager
+                .shell()
+                .command("tccutil")
+                .args(["reset", service, &bundle_id])
+                .output()
+                .await;
+        }
     }
 }
 
@@ -693,7 +722,7 @@ impl<R: tauri::Runtime, T: tauri::Manager<R>> PermissionsPluginExt<R> for T {
     }
 }
 
-#[cfg(all(test, target_os = "macos"))]
+#[cfg(all(test, target_os = "macos", feature = "private-tcc"))]
 mod tests {
     use super::*;
 

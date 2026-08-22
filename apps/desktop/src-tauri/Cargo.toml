@@ -20,7 +20,7 @@ crate-type = ["staticlib", "rlib"]
 tauri-build = { workspace = true, features = [] }
 
 [dependencies]
-tauri = { workspace = true, features = ["specta", "macos-private-api", "protocol-asset"] }
+tauri = { workspace = true, features = ["specta", "protocol-asset"] }
 
 tauri-plugin-agent = { workspace = true }
 tauri-plugin-analytics = { workspace = true }
@@ -112,6 +112,11 @@ tracing = { workspace = true }
 
 [features]
 default = []
+direct-distribution = [
+  "tauri-plugin-permissions/private-tcc",
+  "tauri-plugin-windows/macos-private-api",
+]
+app-store = []
 dev = ["dep:anlg-audio-mock"]
 devtools = ["tauri/devtools", "dep:anlg-audio-mock"]
 automation = ["tauri-plugin-automation"]

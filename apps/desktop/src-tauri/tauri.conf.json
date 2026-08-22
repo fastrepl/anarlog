@@ -4,6 +4,7 @@
   "mainBinaryName": "anarlog-dev",
   "identifier": "com.hyprnote.dev",
   "build": {
+    "features": ["direct-distribution"],
     "beforeDevCommand": "pnpm -F desktop dev",
     "devUrl": "http://localhost:1422",
     "beforeBuildCommand": "pnpm -F desktop build",
@@ -12,7 +13,7 @@
   },
   "app": {
     "withGlobalTauri": true,
-    "macOSPrivateApi": true,
+    "macOSPrivateApi": false,
     "security": {
       "assetProtocol": {
         "enable": true,

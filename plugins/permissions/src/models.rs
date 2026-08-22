@@ -17,8 +17,8 @@ use objc2_event_kit::EKAuthorizationStatus;
 impl From<isize> for PermissionStatus {
     fn from(status: isize) -> Self {
         match status {
-            anlg_tcc::GRANTED => Self::Authorized,
-            anlg_tcc::NEVER_ASKED => Self::NeverRequested,
+            0 => Self::Authorized,
+            2 => Self::NeverRequested,
             _ => Self::Denied,
         }
     }

@@ -23,7 +23,7 @@ objc2-core-foundation = { workspace = true, features = ["CFArray", "CFDictionary
 objc2-core-graphics = { workspace = true, features = ["CGGeometry", "CGWindow"] }
 objc2-foundation = { workspace = true }
 swift-rs = { workspace = true }
-tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
+tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1", optional = true }
 
 [dependencies]
 serde = { workspace = true }
@@ -34,7 +34,7 @@ url = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v4"] }
 
 specta = { workspace = true }
-tauri = { workspace = true, features = ["test", "macos-private-api"] }
+tauri = { workspace = true, features = ["test"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
 
 tauri-plugin-analytics = { workspace = true }
@@ -48,4 +48,5 @@ tracing = { workspace = true }
 
 [features]
 default = []
+macos-private-api = ["dep:tauri-nspanel", "tauri/macos-private-api"]
 new = []

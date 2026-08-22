@@ -1,21 +1,25 @@
 use tauri::{AppHandle, LogicalPosition, Manager, Position, WebviewWindow};
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-private-api"))]
 use tauri_nspanel::{
     CollectionBehavior, ManagerExt, PanelBuilder, PanelHandle, PanelLevel, StyleMask, tauri_panel,
 };
 
 #[cfg(target_os = "macos")]
-use tauri::{LogicalSize, Size, WebviewUrl};
+use tauri::WebviewUrl;
+#[cfg(all(target_os = "macos", not(feature = "macos-private-api")))]
+use tauri::WebviewWindowBuilder;
+#[cfg(all(target_os = "macos", feature = "macos-private-api"))]
+use tauri::{LogicalSize, Size};
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-private-api"))]
 use crate::ext::run_on_main_thread;
 use crate::{AppWindow, Error, WindowImpl};
 
 pub const WIDTH: f64 = 720.0;
 pub const HEIGHT: f64 = 204.0;
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-private-api"))]
 tauri_panel! {
     panel!(ComposerPanel {
         config: {
@@ -30,13 +34,13 @@ tauri_panel! {
     })
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-private-api"))]
 fn panel(app: &AppHandle<tauri::Wry>) -> Result<PanelHandle<tauri::Wry>, Error> {
     app.get_webview_panel(&AppWindow::Composer.label())
         .map_err(|error| Error::PanelError(format!("{error:?}")))
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "macos-private-api"))]
 fn create(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
     let app = app.clone();
     let handle = app.clone();
@@ -85,6 +89,25 @@ fn create(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
     })?
 }
 
+#[cfg(all(target_os = "macos", not(feature = "macos-private-api")))]
+fn create(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
+    WebviewWindowBuilder::new(
+        app,
+        AppWindow::Composer.label(),
+        WebviewUrl::App("app/composer".into()),
+    )
+    .title("Composer")
+    .position(0.0, 0.0)
+    .inner_size(WIDTH, HEIGHT)
+    .visible(false)
+    .decorations(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .build()?;
+
+    Ok(())
+}
+
 pub fn ensure(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
     if app
         .get_webview_window(&AppWindow::Composer.label())
@@ -104,7 +127,7 @@ pub fn ensure(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
 pub fn show(app: &AppHandle<tauri::Wry>) -> Result<WebviewWindow, Error> {
     ensure(app)?;
 
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "macos-private-api"))]
     {
         let app = app.clone();
         let handle = app.clone();
@@ -122,15 +145,23 @@ pub fn show(app: &AppHandle<tauri::Wry>) -> Result<WebviewWindow, Error> {
         })?;
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(any(
+        not(target_os = "macos"),
+        all(target_os = "macos", not(feature = "macos-private-api"))
+    ))]
     {
-        app.get_webview_window(&AppWindow::Composer.label())
-            .ok_or_else(|| Error::WindowNotFound(AppWindow::Composer.label()))
+        let window = app
+            .get_webview_window(&AppWindow::Composer.label())
+            .ok_or_else(|| Error::WindowNotFound(AppWindow::Composer.label()))?;
+        position(app, &window)?;
+        window.show()?;
+        window.set_focus()?;
+        Ok(window)
     }
 }
 
 pub fn hide(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
-    #[cfg(target_os = "macos")]
+    #[cfg(all(target_os = "macos", feature = "macos-private-api"))]
     {
         ensure(app)?;
         let app = app.clone();
@@ -142,7 +173,10 @@ pub fn hide(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
         })?;
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(any(
+        not(target_os = "macos"),
+        all(target_os = "macos", not(feature = "macos-private-api"))
+    ))]
     {
         if let Some(window) = app.get_webview_window(&AppWindow::Composer.label()) {
             window.hide()?;

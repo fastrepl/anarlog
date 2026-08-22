@@ -305,8 +305,14 @@ pub fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_tracing::init())
         .plugin(tauri_plugin_analytics::init())
-        .plugin(tauri_plugin_attachment_sync::init())
-        .plugin(tauri_plugin_agent::init())
+        .plugin(tauri_plugin_attachment_sync::init());
+
+    #[cfg(not(feature = "app-store"))]
+    {
+        builder = builder.plugin(tauri_plugin_agent::init());
+    }
+
+    builder = builder
         .plugin(tauri_plugin_db::init_with_cloudsync(
             db.clone(),
             cloudsync_config,
@@ -317,13 +323,25 @@ pub fn main() {
         .plugin(tauri_plugin_importer::init())
         .plugin(tauri_plugin_calendar::init())
         .plugin(tauri_plugin_todo::init())
-        .plugin(tauri_plugin_auth::init())
-        .plugin(tauri_plugin_hooks::init())
+        .plugin(tauri_plugin_auth::init());
+
+    #[cfg(not(feature = "app-store"))]
+    {
+        builder = builder.plugin(tauri_plugin_hooks::init());
+    }
+
+    builder = builder
         .plugin(tauri_plugin_icon::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_sidecar2::init())
-        .plugin(tauri_plugin_permissions::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_permissions::init());
+
+    #[cfg(not(feature = "app-store"))]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
+    builder = builder
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_deeplink2::init())
         .plugin(tauri_plugin_fs_sync::init())
@@ -346,8 +364,14 @@ pub fn main() {
         .plugin(tauri_plugin_overlay::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_store2::init())
-        .plugin(tauri_plugin_updater2::init())
+        .plugin(tauri_plugin_store2::init());
+
+    #[cfg(not(feature = "app-store"))]
+    {
+        builder = builder.plugin(tauri_plugin_updater2::init());
+    }
+
+    builder = builder
         .plugin(tauri_plugin_tray::init())
         .plugin(tauri_plugin_settings::init())
         .plugin(tauri_plugin_sfx::init())
@@ -371,11 +395,15 @@ pub fn main() {
                     .as_ref()
                     .map(|ctx| ctx.supervisor.get_cell()),
             },
-        ))
-        .plugin(tauri_plugin_autostart::init(
+        ));
+
+    #[cfg(not(feature = "app-store"))]
+    {
+        builder = builder.plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--background"]),
         ));
+    }
 
     if let Some(client) = sentry_client.as_ref() {
         builder = builder.plugin(tauri_plugin_sentry::init_with_no_injection(client));
@@ -452,6 +480,7 @@ pub fn main() {
                 });
             }
 
+            #[cfg(not(feature = "app-store"))]
             {
                 use tauri_plugin_settings::SettingsPluginExt;
                 if let Ok(base) = app_handle.settings().vault_base()
@@ -474,6 +503,7 @@ pub fn main() {
 
             search_index::spawn(app_handle.clone(), db.clone());
 
+            #[cfg(not(feature = "app-store"))]
             embedded_cli::spawn_auto_install(app_handle);
 
             Ok(())
