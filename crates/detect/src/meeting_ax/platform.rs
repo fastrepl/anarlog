@@ -284,7 +284,7 @@ pub(super) fn classify_bundle(bundle_id: &str) -> MeetingPlatform {
 }
 
 pub(super) fn supports_meeting_chat_mutation(bundle_id: &str) -> bool {
-    meeting_app_family(bundle_id).is_some()
+    cfg!(target_os = "macos") && meeting_app_family(bundle_id) == Some("slack")
 }
 
 pub(super) fn classify_browser_context(

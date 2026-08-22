@@ -24,8 +24,12 @@ fn main() {
         );
         for stream in &inspection.participant_streams {
             println!(
-                "  stream name={:?} active={} signals={:?} label={:?}",
-                stream.participant_name, stream.is_active_speaker, stream.signals, stream.label
+                "  stream name={:?} active={} bounds={:?} signals={:?} label={:?}",
+                stream.participant_name,
+                stream.is_active_speaker,
+                stream.bounds,
+                stream.signals,
+                stream.label
             );
         }
         if inspection.warnings.is_empty() {
@@ -53,10 +57,12 @@ fn main() {
         );
         for message in &capture.messages {
             println!(
-                "  [{:?}] {}: {}",
+                "  [{:?}] {} at {:?}: {} links={:?}",
                 message.direction,
                 message.sender.as_deref().unwrap_or("?"),
-                message.text
+                message.timestamp,
+                message.text,
+                message.links
             );
         }
         for warning in &capture.warnings {

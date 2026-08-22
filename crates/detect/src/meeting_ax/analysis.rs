@@ -69,7 +69,7 @@ fn zoom_meeting_evidence_label(node: &AxNode) -> Option<&str> {
         label.contains("computer audio") || label.contains("no audio connected")
     });
 
-    if matches!(role, "AXGroup" | "AXCell")
+    if matches!(role, "AXGroup" | "AXCell" | "AXTabGroup")
         && has_audio_state
         && let Some(label) = labels.iter().copied().find(|label| {
             let label = label.trim();
@@ -82,7 +82,7 @@ fn zoom_meeting_evidence_label(node: &AxNode) -> Option<&str> {
                         && (state.contains("computer audio")
                             || state.contains("no audio connected"))
                 });
-            is_video_render || lower == "video tile"
+            is_video_render || lower == "video tile" || zoom_audio_state_name(label).is_some()
         })
     {
         return Some(label);
@@ -127,6 +127,35 @@ fn slack_participant_evidence_label(node: &AxNode) -> Option<&str> {
     })
 }
 
+fn teams_participant_evidence_label(node: &AxNode) -> Option<&str> {
+    if !matches!(node.role.as_deref(), Some("AXRow") | Some("AXGroup")) {
+        return None;
+    }
+
+    node_labels(node).find(|label| {
+        if has_explicit_speaker_state(label) {
+            return true;
+        }
+
+        let parts = label.split(',').map(|part| part.trim()).collect::<Vec<_>>();
+        parts.len() >= 3
+            && is_plausible_participant_name(parts[0])
+            && parts[1..parts.len() - 1].iter().any(|part| {
+                matches!(
+                    part.to_ascii_lowercase().as_str(),
+                    "organizer" | "presenter" | "attendee" | "participant"
+                )
+            })
+            && matches!(
+                parts
+                    .last()
+                    .map(|part| part.to_ascii_lowercase())
+                    .as_deref(),
+                Some("muted" | "unmuted")
+            )
+    })
+}
+
 fn explicit_web_speaker_evidence_label(node: &AxNode) -> Option<&str> {
     if !matches!(
         node.role.as_deref(),
@@ -148,6 +177,9 @@ fn participant_evidence_label<'a>(
         (MeetingPlatform::Zoom, MeetingSurface::Web) => zoom_participant_evidence_label(node)
             .or_else(|| explicit_web_speaker_evidence_label(node)),
         (MeetingPlatform::Slack, MeetingSurface::Native) => slack_participant_evidence_label(node),
+        (MeetingPlatform::MicrosoftTeams, MeetingSurface::Native) => {
+            teams_participant_evidence_label(node)
+        }
         (
             MeetingPlatform::GoogleMeet
             | MeetingPlatform::MicrosoftTeams
@@ -192,7 +224,8 @@ pub(super) fn candidate_stream(
         confidence += 0.25;
         signals.push("speaker-state-label".to_string());
     }
-    if text.contains("computer audio") || text.contains("no audio connected") {
+    let lower_text = text.to_ascii_lowercase();
+    if lower_text.contains("computer audio") || lower_text.contains("no audio connected") {
         confidence += 0.15;
         signals.push("audio-state-label".to_string());
     }
@@ -234,24 +267,10 @@ pub(super) fn participant_name_from_evidence(
             }
 
             if let Some(name) = participant_name_from_speaker_label(label) {
-                return Some(name);
+                return zoom_participant_name(&name);
             }
 
-            if lower.starts_with("video render ") {
-                return label["Video render ".len()..]
-                    .split(',')
-                    .next()
-                    .map(str::trim)
-                    .filter(|name| !name.is_empty())
-                    .map(str::to_string);
-            }
-
-            let end = label
-                .find('(')
-                .or_else(|| lower.find("participant id:"))
-                .unwrap_or(label.len());
-            let name = label[..end].trim().trim_end_matches(',').trim();
-            (!name.is_empty()).then(|| name.to_string())
+            zoom_participant_name(label)
         }
         MeetingPlatform::Slack if lower.starts_with("view ") && lower.ends_with("'s profile") => {
             Some(
@@ -260,12 +279,47 @@ pub(super) fn participant_name_from_evidence(
                     .to_string(),
             )
         }
-        MeetingPlatform::GoogleMeet
-        | MeetingPlatform::MicrosoftTeams
-        | MeetingPlatform::Slack
-        | MeetingPlatform::Webex => participant_name_from_speaker_label(label),
+        MeetingPlatform::MicrosoftTeams => label
+            .split(',')
+            .next()
+            .map(str::trim)
+            .filter(|name| is_plausible_participant_name(name))
+            .map(ToString::to_string),
+        MeetingPlatform::GoogleMeet | MeetingPlatform::Slack | MeetingPlatform::Webex => {
+            participant_name_from_speaker_label(label)
+        }
         MeetingPlatform::Discord | MeetingPlatform::Unknown => None,
     }
+}
+
+fn zoom_audio_state_name(label: &str) -> Option<&str> {
+    let lower = label.to_ascii_lowercase();
+    [", computer audio", ", no audio connected"]
+        .into_iter()
+        .find_map(|marker| lower.find(marker).map(|index| label[..index].trim()))
+        .filter(|name| is_plausible_participant_name(name))
+}
+
+fn zoom_participant_name(label: &str) -> Option<String> {
+    let label = label.trim();
+    let lower = label.to_ascii_lowercase();
+    let label = lower
+        .starts_with("video render ")
+        .then(|| &label["Video render ".len()..])
+        .unwrap_or(label);
+    let lower = label.to_ascii_lowercase();
+    let end = [
+        lower.find(", computer audio"),
+        lower.find(", no audio connected"),
+        label.find('('),
+        lower.find("participant id:"),
+    ]
+    .into_iter()
+    .flatten()
+    .min()
+    .unwrap_or(label.len());
+    let name = label[..end].trim().trim_end_matches(',').trim();
+    is_plausible_participant_name(name).then(|| name.to_string())
 }
 
 fn participant_name_from_speaker_label(label: &str) -> Option<String> {
@@ -581,7 +635,10 @@ pub(super) fn extract_chat_messages(
             id: format!("ax-chat-{signature}|{source_identity}"),
             platform: platform.clone(),
             surface: surface.clone(),
-            direction: meeting_chat_direction(platform, parsed.sender.as_deref()),
+            direction: parsed
+                .direction
+                .clone()
+                .or_else(|| meeting_chat_direction(platform, parsed.sender.as_deref())),
             sender: parsed.sender,
             timestamp: parsed.timestamp,
             links: extract_links(&parsed.text),
@@ -683,6 +740,7 @@ fn extract_google_meet_structured_messages<'a>(
                     ParsedChatMessage {
                         sender: Some(sender.clone()),
                         timestamp: timestamp.clone(),
+                        direction: None,
                         text,
                     },
                 ));
@@ -729,6 +787,7 @@ pub(super) fn meeting_chat_direction(
 pub(super) struct ParsedChatMessage {
     pub(super) sender: Option<String>,
     pub(super) timestamp: Option<String>,
+    pub(super) direction: Option<MeetingChatDirection>,
     pub(super) text: String,
 }
 
@@ -773,9 +832,9 @@ pub(super) fn parse_chat_message(
         MeetingPlatform::Slack => {
             parse_slack_chat_message(raw_text).or_else(|| parse_web_chat_message(raw_text))
         }
-        MeetingPlatform::GoogleMeet | MeetingPlatform::MicrosoftTeams | MeetingPlatform::Webex => {
-            parse_web_chat_message(raw_text)
-        }
+        MeetingPlatform::MicrosoftTeams => parse_teams_accessibility_description(raw_text)
+            .or_else(|| parse_web_chat_message(raw_text)),
+        MeetingPlatform::GoogleMeet | MeetingPlatform::Webex => parse_web_chat_message(raw_text),
         MeetingPlatform::Discord | MeetingPlatform::Unknown => None,
     }
 }
@@ -796,6 +855,7 @@ fn parse_web_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
             .then(|| ParsedChatMessage {
                 sender: Some(sender.to_string()),
                 timestamp: Some(timestamp.trim().to_string()),
+                direction: None,
                 text: text.to_string(),
             });
     }
@@ -806,6 +866,7 @@ fn parse_web_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
             .then(|| ParsedChatMessage {
                 sender: Some(sender.to_string()),
                 timestamp: Some(timestamp.to_string()),
+                direction: None,
                 text,
             });
     }
@@ -817,6 +878,7 @@ fn parse_web_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
             .then(|| ParsedChatMessage {
                 sender: Some(sender.to_string()),
                 timestamp: Some(lines[1].clone()),
+                direction: None,
                 text,
             });
     }
@@ -829,11 +891,38 @@ fn parse_web_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
             .then(|| ParsedChatMessage {
                 sender: Some(sender.to_string()),
                 timestamp: Some(timestamp.clone()),
+                direction: None,
                 text,
             });
     }
 
     None
+}
+
+fn parse_teams_accessibility_description(raw_text: &str) -> Option<ParsedChatMessage> {
+    let line = normalize_chat_text(raw_text);
+    if line.contains('\n') {
+        return None;
+    }
+
+    let line = line.trim().trim_end_matches('.');
+    let (sender_and_text, timestamp) = line.rsplit_once(" Today at ")?;
+    if !looks_like_time(timestamp) {
+        return None;
+    }
+    let (sender, text) = sender_and_text.split_once(" Sent ")?;
+    let text = text
+        .replace(" Link https://", " https://")
+        .replace(" Link http://", " http://");
+
+    (looks_like_chat_sender(sender) && !text.is_empty() && !is_chat_chrome_text(&text)).then(|| {
+        ParsedChatMessage {
+            sender: Some(sender.trim().to_string()),
+            timestamp: Some(timestamp.trim().to_string()),
+            direction: Some(MeetingChatDirection::Outgoing),
+            text,
+        }
+    })
 }
 
 fn looks_like_chat_sender(sender: &str) -> bool {
@@ -869,6 +958,7 @@ fn parse_zoom_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
             return (!sender.trim().is_empty() && !text.is_empty()).then(|| ParsedChatMessage {
                 sender: non_empty_string(sender),
                 timestamp: Some(timestamp.trim().to_string()),
+                direction: None,
                 text: text.to_string(),
             });
         }
@@ -896,6 +986,7 @@ fn parse_zoom_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
     (!text.is_empty()).then(|| ParsedChatMessage {
         sender: non_empty_string(sender),
         timestamp,
+        direction: None,
         text,
     })
 }
@@ -924,6 +1015,7 @@ fn parse_slack_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
     (!text.is_empty() && !is_chat_chrome_text(&text)).then(|| ParsedChatMessage {
         sender: non_empty_string(sender),
         timestamp: Some(timestamp),
+        direction: None,
         text,
     })
 }
@@ -954,6 +1046,7 @@ fn parse_slack_accessibility_description(line: &str) -> Option<ParsedChatMessage
             return Some(ParsedChatMessage {
                 sender: non_empty_string(sender),
                 timestamp: time.map(|time| time.trim().to_string()),
+                direction: None,
                 text: text.to_string(),
             });
         }

@@ -9,25 +9,29 @@ fn test_meeting_chat_message_validation() {
 }
 
 #[test]
-fn test_chat_mutation_is_enabled_for_recognized_meeting_apps() {
+fn test_chat_mutation_is_enabled_only_for_macos_slack_huddles() {
+    for bundle_id in ["com.tinyspeck.slackmacgap", "com.slack.Slack", "slack"] {
+        assert_eq!(
+            supports_meeting_chat_mutation(bundle_id),
+            cfg!(target_os = "macos"),
+            "{bundle_id} should be eligible for AX chat mutation only on macOS"
+        );
+    }
     for bundle_id in [
-        "com.tinyspeck.slackmacgap",
-        "com.slack.Slack",
         "us.zoom.xos",
         "com.microsoft.teams2",
         "Cisco-Systems.Spark",
         "com.google.Chrome",
         "com.hnc.Discord",
-        "slack",
         "zoom",
         "google-chrome",
+        "com.anarlog.dev",
     ] {
         assert!(
-            supports_meeting_chat_mutation(bundle_id),
-            "{bundle_id} should be eligible for AX chat mutation"
+            !supports_meeting_chat_mutation(bundle_id),
+            "{bundle_id} should remain ineligible for AX chat mutation"
         );
     }
-    assert!(!supports_meeting_chat_mutation("com.anarlog.dev"));
 }
 
 #[test]
@@ -155,7 +159,7 @@ fn test_zoom_scope_does_not_fall_back_to_an_unrelated_slack_huddle() {
     let scoped_bundle = unique_recognized_meeting_bundle(&bundle_ids).unwrap();
 
     assert_eq!(scoped_bundle, "us.zoom.xos");
-    assert!(supports_meeting_chat_mutation(scoped_bundle));
+    assert!(!supports_meeting_chat_mutation(scoped_bundle));
 }
 
 #[test]

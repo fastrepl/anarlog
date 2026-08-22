@@ -63,6 +63,37 @@ fn test_zoom_chat_direction_uses_native_self_sender_label() {
 }
 
 #[test]
+fn test_teams_current_native_description_preserves_metadata_and_direction() {
+    let raw = "anon cannon Sent ANLG-297 Teams native chat capture test Link https://example.com/teams Today at 5:08\u{202f}AM.";
+    let parsed = parse_chat_message(&MeetingPlatform::MicrosoftTeams, raw).unwrap();
+
+    assert_eq!(parsed.sender.as_deref(), Some("anon cannon"));
+    assert_eq!(parsed.timestamp.as_deref(), Some("5:08 AM"));
+    assert_eq!(parsed.direction, Some(MeetingChatDirection::Outgoing));
+    assert_eq!(
+        parsed.text,
+        "ANLG-297 Teams native chat capture test https://example.com/teams"
+    );
+    assert_eq!(extract_links(&parsed.text), ["https://example.com/teams"]);
+
+    let messages = extract_chat_messages(
+        &MeetingPlatform::MicrosoftTeams,
+        &MeetingSurface::Native,
+        &[
+            fixture_node(0, "AXButton", "Leave", &[1]),
+            fixture_node(1, "AXHeading", "Meeting chat", &[4, 0]),
+            fixture_composer(2, "Type a message", &[4, 9, 0]),
+            fixture_node(3, "AXGroup", raw, &[4, 1]),
+        ],
+    );
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].direction, Some(MeetingChatDirection::Outgoing));
+    assert_eq!(messages[0].sender.as_deref(), Some("anon cannon"));
+    assert_eq!(messages[0].timestamp.as_deref(), Some("5:08 AM"));
+    assert_eq!(messages[0].links, ["https://example.com/teams"]);
+}
+
+#[test]
 fn test_zoom_capture_requires_zoom_meeting_window_scope() {
     assert!(is_zoom_meeting_scope_node(&node(
         0,

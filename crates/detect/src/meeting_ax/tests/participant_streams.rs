@@ -129,6 +129,38 @@ fn test_zoom_prefers_named_speaker_state_over_generic_video_tile() {
 }
 
 #[test]
+fn test_zoom_current_tab_group_is_an_inactive_participant() {
+    let participant = fixture_node(14, "AXTabGroup", "John Jeong, Computer audio muted", &[0]);
+
+    let stream = candidate_stream(
+        &MeetingPlatform::Zoom,
+        &MeetingSurface::Native,
+        &participant,
+    )
+    .expect("expected current Zoom participant tab group");
+
+    assert_eq!(stream.participant_name.as_deref(), Some("John Jeong"));
+    assert!(!stream.is_active_speaker);
+    assert!(stream.signals.contains(&"audio-state-label".to_string()));
+}
+
+#[test]
+fn test_teams_current_roster_row_is_an_inactive_participant() {
+    let participant = fixture_node(15, "AXRow", "anon cannon, Organizer, Muted", &[0, 4, 1]);
+
+    let stream = candidate_stream(
+        &MeetingPlatform::MicrosoftTeams,
+        &MeetingSurface::Native,
+        &participant,
+    )
+    .expect("expected current Teams participant row");
+
+    assert_eq!(stream.participant_name.as_deref(), Some("anon cannon"));
+    assert!(!stream.is_active_speaker);
+    assert!(!stream.signals.contains(&"speaker-state-label".to_string()));
+}
+
+#[test]
 fn test_zoom_speaker_flag_uses_the_same_label_as_participant_name() {
     let mut roster = fixture_node(
         15,

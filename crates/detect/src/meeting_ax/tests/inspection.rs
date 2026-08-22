@@ -164,6 +164,15 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
         &zoom_meeting,
     ));
     assert!(native_meeting_window_is_validated(
+        &MeetingPlatform::Zoom,
+        &[node(
+            4,
+            "AXTabGroup",
+            "John Jeong, Computer audio muted",
+            None,
+        )],
+    ));
+    assert!(native_meeting_window_is_validated(
         &MeetingPlatform::Discord,
         &discord_voice,
     ));
@@ -178,8 +187,12 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
         &[fixture_node(5, "AXButton", "Hang up", &[0])],
     ));
     assert!(native_meeting_window_is_validated(
+        &MeetingPlatform::MicrosoftTeams,
+        &[fixture_node(6, "AXButton", "Leave", &[0])],
+    ));
+    assert!(native_meeting_window_is_validated(
         &MeetingPlatform::Webex,
-        &[fixture_node(6, "AXButton", "Leave meeting", &[0])],
+        &[fixture_node(7, "AXButton", "Leave meeting", &[0])],
     ));
 }
 

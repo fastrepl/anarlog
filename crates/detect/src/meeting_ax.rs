@@ -1528,6 +1528,21 @@ fn collect_window_elements(
         return false;
     };
     let role = role.to_string();
+    if role == "AXApplication" {
+        let Some(app_windows) = ax_element_array(element, ax::attr::windows()) else {
+            return false;
+        };
+        for window in app_windows.iter().map(ax::UiElement::retained).chain(
+            [ax::attr::main_window(), ax::attr::focused_window()]
+                .into_iter()
+                .filter_map(|attr| ax_element_attr(element, attr)),
+        ) {
+            if !windows.iter().any(|existing| existing.equal(&window)) {
+                windows.push(window);
+            }
+        }
+        return true;
+    }
     if role == "AXWindow" {
         windows.push(element.retained());
         return true;
@@ -1907,6 +1922,15 @@ fn ax_element_array(
     Some(unsafe {
         std::mem::transmute::<arc::R<cf::Type>, arc::R<cf::ArrayOf<ax::UiElement>>>(value)
     })
+}
+
+#[cfg(target_os = "macos")]
+fn ax_element_attr(element: &ax::UiElement, attr: &ax::Attr) -> Option<arc::R<ax::UiElement>> {
+    let value = element.attr_value(attr).ok()?;
+    if value.get_type_id() != ax::UiElement::type_id() {
+        return None;
+    }
+    Some(unsafe { std::mem::transmute::<arc::R<cf::Type>, arc::R<ax::UiElement>>(value) })
 }
 
 #[cfg(target_os = "macos")]
