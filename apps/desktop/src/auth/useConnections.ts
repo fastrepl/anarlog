@@ -7,7 +7,10 @@ import { useAuth } from "./auth-context";
 
 import { env } from "~/env";
 
-export function useConnections(enabled = true) {
+export function useConnections(
+  enabled = true,
+  options?: { refetchInterval?: number | false },
+) {
   const auth = useAuth();
   const userId = auth?.session?.user.id;
 
@@ -27,5 +30,6 @@ export function useConnections(enabled = true) {
       return data?.connections ?? [];
     },
     enabled: enabled && !!userId,
+    refetchInterval: options?.refetchInterval,
   });
 }
