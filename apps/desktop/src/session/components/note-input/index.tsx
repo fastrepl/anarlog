@@ -11,12 +11,11 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import type { NoteEditorRef } from "@anlg/editor/note";
+import type { JSONContent, NoteEditorRef } from "@anlg/editor/note";
 import { cn } from "@anlg/utils";
 
 import { Enhanced } from "./enhanced";
 import { Header, SessionViewSwitcher, useEditorTabs } from "./header";
-import { PreMeetingBrief } from "./pre-meeting-brief";
 import { RawEditor } from "./raw";
 import { SearchBar } from "./search/bar";
 import { useSearch } from "./search/context";
@@ -38,6 +37,8 @@ export interface NoteInputHandle {
   focusAtStart: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
+  replaceContent: (content: JSONContent) => void;
+  flushPendingChanges: () => void;
   prepareForTabChange: () => void;
 }
 
@@ -186,6 +187,10 @@ const NoteInputContent = forwardRef<
           internalEditorRef.current?.commands.focusAtPixelWidth(px),
         insertAtStartAndFocus: (content) =>
           internalEditorRef.current?.commands.insertAtStartAndFocus(content),
+        replaceContent: (content) =>
+          internalEditorRef.current?.commands.replaceContent(content),
+        flushPendingChanges: () =>
+          internalEditorRef.current?.flushPendingChanges(),
         prepareForTabChange: onBeforeTabChange,
       }),
       [currentTab, onBeforeTabChange],
@@ -293,7 +298,7 @@ const NoteInputContent = forwardRef<
 
       if (
         target.closest(
-          "button, a, input, textarea, select, [role='button'], [contenteditable='true'], [data-pre-meeting-brief]",
+          "button, a, input, textarea, select, [role='button'], [contenteditable='true']",
         ) !== null
       ) {
         return;
@@ -371,23 +376,17 @@ const NoteInputContent = forwardRef<
               />
             )}
             {renderedCurrentTab.type === "raw" && (
-              <>
-                <PreMeetingBrief
-                  sessionId={sessionId}
-                  enabled={sessionMode === "inactive"}
-                />
-                <RawEditor
-                  ref={internalEditorRef}
-                  sessionId={sessionId}
-                  rawMd={rawMd}
-                  sessionTitle={sessionTitle}
-                  eventTitle={eventTitle}
-                  eventDescription={eventDescription}
-                  onNavigateToTitle={onNavigateToTitle}
-                  onViewReady={handleSessionViewReady}
-                  onViewDisposed={handleSessionViewDisposed}
-                />
-              </>
+              <RawEditor
+                ref={internalEditorRef}
+                sessionId={sessionId}
+                rawMd={rawMd}
+                sessionTitle={sessionTitle}
+                eventTitle={eventTitle}
+                eventDescription={eventDescription}
+                onNavigateToTitle={onNavigateToTitle}
+                onViewReady={handleSessionViewReady}
+                onViewDisposed={handleSessionViewDisposed}
+              />
             )}
             {renderedCurrentTab.type === "transcript" && (
               <Transcript

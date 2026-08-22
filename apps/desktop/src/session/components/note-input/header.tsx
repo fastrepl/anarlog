@@ -4,7 +4,6 @@ import { cn } from "@anlg/utils";
 
 import { HeaderViewEnhanced } from "./header-enhanced";
 import { HeaderViewRaw } from "./header-raw";
-import { HeaderViewStop, isMeetingStopAction } from "./header-stop";
 import { HeaderViewTranscript } from "./header-transcript";
 
 import { FolderPicker } from "~/session/components/folder-picker";
@@ -12,7 +11,6 @@ import { useCanShowTranscript } from "~/session/components/shared";
 import { useEnsureDefaultSummary } from "~/session/hooks/useEnhancedNotes";
 import { deleteEnhancedNote, useEnhancedNoteRecords } from "~/session/queries";
 import { type EditorView } from "~/store/zustand/tabs/schema";
-import { useListener } from "~/stt/contexts";
 
 export function Header({ sessionId }: { sessionId: string }) {
   return <FolderPicker sessionId={sessionId} align="end" />;
@@ -32,17 +30,11 @@ export function SessionViewSwitcher({
   isTranscribing?: boolean;
 }) {
   const { t } = useLingui();
-  const sessionMode = useListener((state) => state.getSessionMode(sessionId));
-  const hideTranscriptTab = sessionMode === "active";
-  const showStop = isMeetingStopAction(sessionMode);
-  const visibleTabs = hideTranscriptTab
-    ? editorTabs.filter((view) => view.type !== "transcript")
-    : editorTabs;
-  const primaryEnhancedTabId = visibleTabs.find(
+  const primaryEnhancedTabId = editorTabs.find(
     (view): view is Extract<EditorView, { type: "enhanced" }> =>
       view.type === "enhanced",
   )?.id;
-  const shouldUseViewSwitcher = visibleTabs.length > 1 || showStop;
+  const shouldUseViewSwitcher = editorTabs.length > 1;
 
   if (!shouldUseViewSwitcher) {
     return null;
@@ -58,7 +50,7 @@ export function SessionViewSwitcher({
         "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] [corner-shape:round]",
       ])}
     >
-      {visibleTabs.map((view, index) => {
+      {editorTabs.map((view, index) => {
         if (view.type === "enhanced") {
           return (
             <HeaderViewEnhanced
@@ -69,7 +61,7 @@ export function SessionViewSwitcher({
               onRemove={
                 view.id !== primaryEnhancedTabId
                   ? () => {
-                      const previousView = visibleTabs[index - 1];
+                      const previousView = editorTabs[index - 1];
                       if (
                         currentTab.type === "enhanced" &&
                         currentTab.id === view.id &&
@@ -124,7 +116,6 @@ export function SessionViewSwitcher({
 
         return null;
       })}
-      {showStop ? <HeaderViewStop sessionId={sessionId} /> : null}
     </div>
   );
 }
@@ -138,9 +129,6 @@ export function useEditorTabs({
 }): EditorView[] {
   useEnsureDefaultSummary(sessionId);
   const canShowTranscript = useCanShowTranscript(sessionId, { audioExists });
-  const isLiveSessionActive = useListener(
-    (state) => state.getSessionMode(sessionId) === "active",
-  );
 
   const enhancedNoteIds = useEnhancedNoteRecords(sessionId).map(
     (note) => note.id,
@@ -149,18 +137,15 @@ export function useEditorTabs({
   return createEditorTabs({
     enhancedNoteIds,
     canShowTranscript,
-    isLiveSessionActive,
   });
 }
 
 export function createEditorTabs({
   enhancedNoteIds,
   canShowTranscript,
-  isLiveSessionActive = false,
 }: {
   enhancedNoteIds: string[];
   canShowTranscript: boolean;
-  isLiveSessionActive?: boolean;
 }): EditorView[] {
   const enhancedTabs: EditorView[] = enhancedNoteIds.map((id) => ({
     type: "enhanced",
@@ -170,8 +155,6 @@ export function createEditorTabs({
   return [
     ...enhancedTabs,
     { type: "raw" },
-    ...(canShowTranscript && !isLiveSessionActive
-      ? [{ type: "transcript" } as const]
-      : []),
+    ...(canShowTranscript ? [{ type: "transcript" } as const] : []),
   ];
 }

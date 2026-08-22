@@ -5,7 +5,6 @@ import {
   type RefObject,
   useCallback,
   useDeferredValue,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -14,10 +13,6 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { cn } from "@anlg/utils";
 
-import {
-  TranscriptSelectButton,
-  TranscriptSelectToolbar,
-} from "./select-toolbar";
 import {
   getTranscriptContextSelection,
   getTranscriptMergeTarget,
@@ -73,11 +68,19 @@ export function TranscriptViewer({
   );
   const [contextRequest, setContextRequest] =
     useState<TranscriptContextMenuRequest | null>(null);
-  const [selectMode, setSelectMode] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<
     Map<string, TranscriptWordSelection>
   >(() => new Map());
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+  const [selectionForEditMode, setSelectionForEditMode] = useState(editMode);
+  if (selectionForEditMode !== editMode) {
+    setSelectionForEditMode(editMode);
+    if (!editMode) {
+      setSelectedEntries(new Map());
+      setSelectionAnchor(null);
+    }
+  }
+  const selectMode = editMode;
   const selectedKeys = useMemo(
     () => new Set(selectedEntries.keys()),
     [selectedEntries],
@@ -117,8 +120,6 @@ export function TranscriptViewer({
   const time = useAudioTime();
   const deferredCurrentMs = useDeferredValue(time.current * 1000);
   const isPlaying = playerState === "playing";
-  const canSelect = !editMode;
-
   useHotkeys(
     "space",
     (e) => {
@@ -131,7 +132,7 @@ export function TranscriptViewer({
         start();
       }
     },
-    { enableOnFormTags: false, enabled: !selectMode },
+    { enableOnFormTags: false, enabled: !editMode },
   );
 
   usePlaybackAutoScroll(containerRef, deferredCurrentMs, isPlaying);
@@ -276,29 +277,14 @@ export function TranscriptViewer({
     setSelectedEntries(new Map());
     setSelectionAnchor(null);
   }, []);
-  const exitSelectMode = useCallback(() => {
-    setSelectMode(false);
-    setSelectedEntries(new Map());
-    setSelectionAnchor(null);
-  }, []);
-  const selectAllEntries = useCallback(() => {
-    const { entries } = collectEntries(visibleTranscriptIdsRef.current);
-    setSelectedEntries(new Map(entries));
-  }, [collectEntries]);
-
-  useEffect(() => {
-    if (editMode && selectMode) {
-      exitSelectMode();
-    }
-  }, [editMode, exitSelectMode, selectMode]);
 
   useHotkeys(
     "esc",
     (event) => {
       event.preventDefault();
-      exitSelectMode();
+      clearSelectedEntries();
     },
-    { enabled: selectMode },
+    { enabled: editMode && selectedEntries.size > 0 },
   );
 
   const handleSegmentSelection = useCallback(
@@ -314,7 +300,7 @@ export function TranscriptViewer({
       if (
         target instanceof Element &&
         target.closest(
-          "button, a, input, textarea, [data-transcript-speaker-assign]",
+          "button, a, input, textarea, [data-transcript-speaker-assign], [data-transcript-editor]",
         )
       ) {
         return;
@@ -389,29 +375,6 @@ export function TranscriptViewer({
       registerSource={registerSource}
     >
       <div className="relative flex h-full flex-col">
-        {canSelect && (
-          <div className="flex shrink-0 items-center gap-2 px-1 pb-2">
-            {selectMode ? (
-              <TranscriptSelectToolbar
-                selection={multiSelection}
-                entryCount={selectedEntries.size}
-                canMerge={canMergeSelection}
-                onSelectAll={selectAllEntries}
-                onClear={clearSelectedEntries}
-                onDone={exitSelectMode}
-                onAssignSpeaker={handleAssignSpeaker}
-                onMerge={handleMergeSegments}
-              />
-            ) : (
-              <div className="ml-auto">
-                <TranscriptSelectButton
-                  selectMode={false}
-                  onSelectModeChange={setSelectMode}
-                />
-              </div>
-            )}
-          </div>
-        )}
         <div
           ref={handleContainerRef}
           data-transcript-container
@@ -460,12 +423,14 @@ export function TranscriptViewer({
           />
         </div>
 
-        {!selectMode && multiSelection && (
+        {multiSelection && (
           <MultiSelectionBar
             selection={multiSelection}
             entryCount={selectedEntries.size}
+            canMerge={canMergeSelection}
             onClear={clearSelectedEntries}
             onAssignSpeaker={handleAssignSpeaker}
+            onMerge={handleMergeSegments}
           />
         )}
 

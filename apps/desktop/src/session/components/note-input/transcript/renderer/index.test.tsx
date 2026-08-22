@@ -36,38 +36,6 @@ vi.mock("~/audio-player/provider", () => ({
   useAudioTime: () => ({ current: 0 }),
 }));
 
-vi.mock("./select-toolbar", () => ({
-  TranscriptSelectButton: ({
-    selectMode,
-    onSelectModeChange,
-  }: {
-    selectMode: boolean;
-    onSelectModeChange: (selectMode: boolean) => void;
-  }) => (
-    <button
-      type="button"
-      aria-pressed={selectMode}
-      onClick={() => onSelectModeChange(!selectMode)}
-    >
-      {selectMode ? "Done" : "Select"}
-    </button>
-  ),
-  TranscriptSelectToolbar: ({
-    entryCount,
-    onDone,
-  }: {
-    entryCount: number;
-    onDone: () => void;
-  }) => (
-    <div data-testid="select-toolbar">
-      <span>{entryCount}</span>
-      <button type="button" onClick={onDone}>
-        Done
-      </button>
-    </div>
-  ),
-}));
-
 vi.mock("./selection-menu", () => ({
   SelectionMenu: () => null,
   MultiSelectionBar: ({ entryCount }: { entryCount: number }) => (
@@ -82,12 +50,14 @@ vi.mock("./transcript", () => ({
     transcriptId,
     currentActive,
     captureGeneration,
+    editMode,
   }: {
     liveSegments: unknown[];
     shouldScrollToEnd: boolean;
     transcriptId: string;
     currentActive: boolean;
     captureGeneration?: number;
+    editMode?: boolean;
   }) => (
     <div
       data-testid="render-transcript"
@@ -106,14 +76,32 @@ vi.mock("./transcript", () => ({
         data-segment-speaker-index="1"
         data-transcript-offset-ms="0"
       >
-        <div data-transcript-segment-content>
-          <span
-            data-transcript-word-id={`word-${transcriptId}`}
-            data-transcript-word-start-ms="0"
+        <div data-testid={`segment-header-${transcriptId}`}>Speaker</div>
+        {editMode ? (
+          <div
+            data-transcript-segment-content
+            data-transcript-editor
+            data-transcript-edit-word-ids={JSON.stringify([
+              `word-${transcriptId}`,
+            ])}
+            data-transcript-edit-word-start-ms={JSON.stringify([0])}
+            data-transcript-edit-word-texts={JSON.stringify([
+              "Transcript word",
+            ])}
+            data-testid={`editor-${transcriptId}`}
           >
             Transcript word
-          </span>
-        </div>
+          </div>
+        ) : (
+          <div data-transcript-segment-content>
+            <span
+              data-transcript-word-id={`word-${transcriptId}`}
+              data-transcript-word-start-ms="0"
+            >
+              Transcript word
+            </span>
+          </div>
+        )}
       </section>
     </div>
   ),
@@ -289,25 +277,24 @@ describe("TranscriptViewer", () => {
     expect(screen.getByTestId("multi-selection-bar").textContent).toBe("2");
   });
 
-  it("enters select mode so entries can be chosen without modifier keys", () => {
+  it("lets entries be chosen without modifier keys while editing", () => {
     render(
       <TranscriptViewer
         transcriptIds={["transcript-1", "transcript-2"]}
         liveSegments={[]}
         currentActive={false}
+        editMode
         scrollRef={createRef()}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Select" }));
-    fireEvent.click(screen.getByTestId("segment-transcript-1"));
-    fireEvent.click(screen.getByTestId("segment-transcript-2"));
+    fireEvent.click(screen.getByTestId("segment-header-transcript-1"));
+    fireEvent.click(screen.getByTestId("segment-header-transcript-2"));
 
-    expect(screen.getByTestId("select-toolbar").textContent).toContain("2");
-    expect(screen.queryByTestId("multi-selection-bar")).toBeNull();
+    expect(screen.getByTestId("multi-selection-bar").textContent).toBe("2");
   });
 
-  it("hides the select control while writing transcript text", () => {
+  it("does not treat clicks in the text editor as segment selection", () => {
     render(
       <TranscriptViewer
         transcriptIds={["transcript-1"]}
@@ -318,7 +305,24 @@ describe("TranscriptViewer", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Select" })).toBeNull();
+    fireEvent.click(screen.getByTestId("editor-transcript-1"));
+
+    expect(screen.queryByTestId("multi-selection-bar")).toBeNull();
+  });
+
+  it("does not show selection actions until entries are chosen", () => {
+    render(
+      <TranscriptViewer
+        transcriptIds={["transcript-1"]}
+        liveSegments={[]}
+        currentActive={false}
+        editMode
+        scrollRef={createRef()}
+      />,
+    );
+
+    expect(screen.queryByTestId("multi-selection-bar")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Select All" })).toBeNull();
   });
 
   it("does not show scroll controls when the transcript cannot scroll", () => {

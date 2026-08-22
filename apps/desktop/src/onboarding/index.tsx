@@ -127,10 +127,7 @@ function OnboardingScreenContent({
   }, [currentPlatform, currentStep]);
 
   useEffect(() => {
-    sfxCommands
-      .play("BGM")
-      .then(() => sfxCommands.setVolume("BGM", 0.2))
-      .catch(console.error);
+    sfxCommands.play("BGM").catch(console.error);
     return () => {
       sfxCommands.stop("BGM").catch(console.error);
     };

@@ -267,9 +267,8 @@ function TabContentNoteInner({
       createEditorTabs({
         enhancedNoteIds,
         canShowTranscript,
-        isLiveSessionActive,
       }),
-    [enhancedNoteIds, canShowTranscript, isLiveSessionActive],
+    [enhancedNoteIds, canShowTranscript],
   );
   const currentView = React.useMemo(() => {
     return computeCurrentNoteTab(
@@ -279,7 +278,7 @@ function TabContentNoteInner({
       canShowTranscript,
     );
   }, [tab.state.view, isLiveSessionActive, enhancedNoteIds, canShowTranscript]);
-  useAutoFocusTitle({
+  useAutoFocusEditor({
     sessionId,
     noteInputRef,
     enabled: !lockOverlay,
@@ -321,6 +320,7 @@ function TabContentNoteInner({
             <OuterHeader
               sessionId={sessionId}
               currentView={currentView}
+              tab={tab}
               standaloneWindow={standaloneWindow}
               transcriptEditMode={transcriptEditMode}
               onTranscriptEditModeChange={handleTranscriptEditModeChange}
@@ -419,7 +419,7 @@ function usePendingUpload(sessionId: string, enabled = true) {
   }, [enabled, sessionId]);
 }
 
-function useAutoFocusTitle({
+function useAutoFocusEditor({
   sessionId,
   noteInputRef,
   enabled = true,
@@ -429,15 +429,16 @@ function useAutoFocusTitle({
   enabled?: boolean;
 }) {
   const autoFocusedSessionRef = useRef<string | null>(null);
-  const title = useSession(sessionId)?.title;
+  const sessionReady = useSession(sessionId) != null;
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !sessionReady) return;
     if (autoFocusedSessionRef.current === sessionId) return;
 
-    if (!title) {
-      noteInputRef.current?.focusAtStart();
-      autoFocusedSessionRef.current = sessionId;
-    }
-  }, [enabled, sessionId, title]);
+    autoFocusedSessionRef.current = sessionId;
+    const frame = requestAnimationFrame(() => {
+      noteInputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [enabled, noteInputRef, sessionId, sessionReady]);
 }

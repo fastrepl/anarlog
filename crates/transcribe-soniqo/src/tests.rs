@@ -20,6 +20,26 @@ fn parses_model_ids() {
 }
 
 #[test]
+fn parakeet_batch_repo_matches_30s_coreml_artifact() {
+    assert_eq!(
+        SoniqoModel::ParakeetBatch.repo(),
+        "aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s"
+    );
+    assert_eq!(
+        "aufklarer/Parakeet-TDT-v3-CoreML-INT8-30s"
+            .parse::<SoniqoModel>()
+            .unwrap(),
+        SoniqoModel::ParakeetBatch
+    );
+    assert_eq!(
+        "aufklarer/Parakeet-TDT-v3-CoreML-INT8"
+            .parse::<SoniqoModel>()
+            .unwrap(),
+        SoniqoModel::ParakeetBatch
+    );
+}
+
+#[test]
 fn all_includes_available_model_variants() {
     assert_eq!(
         SoniqoModel::all(),

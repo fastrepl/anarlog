@@ -109,5 +109,5 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
     return null;
   }
 
-  return <StyledStreamdown className="mb-3">{content.trim()}</StyledStreamdown>;
+  return <StyledStreamdown className="mb-2">{content.trim()}</StyledStreamdown>;
 }

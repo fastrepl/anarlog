@@ -1,7 +1,11 @@
-import { Icon } from "@iconify-icon/react";
 import { useLingui } from "@lingui/react";
 import { Trans } from "@lingui/react/macro";
-import { CircleNotch } from "@phosphor-icons/react";
+import {
+  CircleNotch,
+  DiscordLogo,
+  GithubLogo,
+  XLogo,
+} from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
@@ -21,17 +25,17 @@ import { commands } from "~/types/tauri.gen";
 const SOCIALS = [
   {
     label: "Discord",
-    icon: "simple-icons:discord",
+    icon: DiscordLogo,
     url: "https://anarlog.so/discord",
   },
   {
     label: "GitHub",
-    icon: "simple-icons:github",
+    icon: GithubLogo,
     url: "https://github.com/fastrepl/anarlog",
   },
   {
     label: "X",
-    icon: "simple-icons:x",
+    icon: XLogo,
     size: 14,
     url: "https://x.com/anarlogapp",
   },
@@ -48,6 +52,7 @@ export function FinalDescription() {
       <div className="flex items-center gap-2">
         {SOCIALS.map((social) => {
           const iconSize = "size" in social ? social.size : SOCIAL_ICON_SIZE;
+          const SocialIcon = social.icon;
 
           return (
             <button
@@ -56,7 +61,7 @@ export function FinalDescription() {
               className="text-muted-foreground hover:text-muted-foreground inline-flex size-5 items-center justify-center rounded-md transition-colors duration-150"
               aria-label={social.label}
             >
-              <Icon icon={social.icon} width={iconSize} height={iconSize} />
+              <SocialIcon size={iconSize} />
             </button>
           );
         })}

@@ -54,3 +54,23 @@ const _PROVIDERS = [
 ] as const satisfies readonly CalendarProvider[];
 
 export const PROVIDERS = [..._PROVIDERS];
+
+const CALENDAR_NANGO_INTEGRATION_IDS = new Set<string>(
+  PROVIDERS.flatMap((provider) =>
+    provider.nangoIntegrationId ? [provider.nangoIntegrationId] : [],
+  ),
+);
+
+export function getCalendarConnectionKey(
+  connections:
+    | Array<{ connection_id: string; integration_id: string }>
+    | undefined,
+) {
+  return (connections ?? [])
+    .filter((connection) =>
+      CALENDAR_NANGO_INTEGRATION_IDS.has(connection.integration_id),
+    )
+    .map((connection) => connection.connection_id)
+    .sort()
+    .join(",");
+}

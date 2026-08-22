@@ -8,8 +8,16 @@ import {
 } from "@floating-ui/react";
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
-import { Play, UserSwitch, X } from "@phosphor-icons/react";
-import { type MouseEvent, useCallback, useMemo, useRef, useState } from "react";
+import { ArrowsMerge, Play, UserSwitch, X } from "@phosphor-icons/react";
+import {
+  type MouseEvent,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { createPortal } from "react-dom";
 
 import {
   Popover,
@@ -22,6 +30,10 @@ import { getTranscriptSelectionFromRange } from "./selection";
 import type { TranscriptWordSelection } from "./selection";
 import { SpeakerParticipantPicker } from "./speaker-assign";
 
+import {
+  getSessionFabSelectionHost,
+  subscribeSessionFabSelectionHost,
+} from "~/session/components/floating/selection-slot";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
@@ -91,17 +103,26 @@ export function SelectionMenu({
 export function MultiSelectionBar({
   selection,
   entryCount,
+  canMerge = false,
   onClear,
   onAssignSpeaker,
+  onMerge,
 }: {
   selection: TranscriptWordSelection;
   entryCount: number;
+  canMerge?: boolean;
   onClear: () => void;
   onAssignSpeaker: (
     selection: TranscriptWordSelection,
     humanId: string,
   ) => void | Promise<void>;
+  onMerge?: () => void | Promise<void>;
 }) {
+  const fabSelectionHost = useSyncExternalStore(
+    subscribeSessionFabSelectionHost,
+    getSessionFabSelectionHost,
+    getSessionFabSelectionHost,
+  );
   const [speakerPickerOpen, setSpeakerPickerOpen] = useState(false);
   const handleAssign = useCallback(
     async (humanId: string) => {
@@ -111,12 +132,19 @@ export function MultiSelectionBar({
     },
     [onAssignSpeaker, onClear, selection],
   );
+  const handleMerge = useCallback(async () => {
+    await onMerge?.();
+    onClear();
+  }, [onClear, onMerge]);
 
-  return (
+  const bar = (
     <div
       className={cn([
-        "border-border bg-card absolute bottom-4 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full border p-1 pl-3 shadow-lg",
+        "border-border bg-card flex items-center gap-2 rounded-full border p-1 pl-3 shadow-lg",
         "text-xs",
+        fabSelectionHost
+          ? null
+          : "absolute bottom-4 left-1/2 z-40 -translate-x-1/2",
       ])}
     >
       <span className="text-muted-foreground whitespace-nowrap">
@@ -146,6 +174,20 @@ export function MultiSelectionBar({
           />
         </PopoverContent>
       </Popover>
+      {onMerge ? (
+        <button
+          type="button"
+          disabled={!canMerge}
+          className={cn([
+            "hover:bg-accent flex h-7 items-center gap-1.5 rounded-full px-2 font-medium",
+            "disabled:pointer-events-none disabled:opacity-50",
+          ])}
+          onClick={() => void handleMerge()}
+        >
+          <ArrowsMerge className="size-3.5" />
+          <Trans>Merge</Trans>
+        </button>
+      ) : null}
       <button
         type="button"
         aria-label={t`Clear selection`}
@@ -156,6 +198,8 @@ export function MultiSelectionBar({
       </button>
     </div>
   );
+
+  return fabSelectionHost ? createPortal(bar, fabSelectionHost) : bar;
 }
 
 function TextSelectionMenu({

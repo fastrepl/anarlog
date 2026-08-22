@@ -54,7 +54,6 @@ msgstr "{0}% complete"
 msgid "{absDays} days ago"
 msgstr "{absDays} days ago"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "{entryCount} selected"
 msgstr "{entryCount} selected"
@@ -309,10 +308,6 @@ msgstr "All events"
 msgid "All Notes"
 msgstr "All Notes"
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "All providers are connected."
-msgstr "All providers are connected."
-
 #: src/settings/team/index.tsx
 msgid "Allow anyone-with-the-link sharing"
 msgstr "Allow anyone-with-the-link sharing"
@@ -455,10 +450,6 @@ msgstr "Anyone with the link"
 #: src/session-sharing/management-panel.tsx
 msgid "Anyone with the link can view. Link copied."
 msgstr "Anyone with the link can view. Link copied."
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "API"
-msgstr "API"
 
 #: src/settings/ai/shared/index.tsx
 msgid "API Key"
@@ -741,7 +732,6 @@ msgstr "Change"
 msgid "Change photo"
 msgstr "Change photo"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Change speaker"
 msgstr "Change speaker"
@@ -915,10 +905,6 @@ msgstr "Clean up legacy files?"
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Cleaning up..."
 msgstr "Cleaning up..."
-
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
-msgid "Clear"
-msgstr "Clear"
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
@@ -1152,6 +1138,7 @@ msgstr "Connect"
 #: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"
 msgstr "Connect {0}"
@@ -1211,6 +1198,11 @@ msgstr "Connect your integration"
 #: src/imports/screen.tsx
 msgid "Connected · New meetings are imported automatically while Anarlog is running."
 msgstr "Connected · New meetings are imported automatically while Anarlog is running."
+
+#. placeholder {0}: subscriptionProvider.displayName
+#: src/settings/ai/shared/index.tsx
+msgid "Connected with your {0} subscription."
+msgstr "Connected with your {0} subscription."
 
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your existing subscription."
@@ -1299,6 +1291,10 @@ msgstr "Could not copy the share link."
 #: src/settings/developers/clipboard.ts
 msgid "Could not copy to clipboard"
 msgstr "Could not copy to clipboard"
+
+#: src/session/hooks/useCreatePreMeetingBrief.ts
+msgid "Could not create the pre-meeting brief. Try again."
+msgstr "Could not create the pre-meeting brief. Try again."
 
 #: src/session-sharing/invitation-management.ts
 msgid "Could not create these invitations."
@@ -1420,6 +1416,10 @@ msgstr "Create"
 msgid "Create \"{folderName}\""
 msgstr "Create \"{folderName}\""
 
+#: src/session/components/note-input/create-brief-suggestion.tsx
+msgid "Create a brief to prepare this meeting"
+msgstr "Create a brief to prepare this meeting"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -1464,6 +1464,10 @@ msgstr "Created {0}"
 #: src/settings/automations/index.tsx
 msgid "Created {createdAt}"
 msgstr "Created {createdAt}"
+
+#: src/session/components/note-input/raw.tsx
+msgid "Creating brief..."
+msgstr "Creating brief..."
 
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
@@ -1636,6 +1640,7 @@ msgid "Disable"
 msgstr "Disable"
 
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/calendar/components/sidebar.tsx
 #: src/imports/screen.tsx
 #: src/settings/sync/index.tsx
 #: src/settings/todo/provider-content.tsx
@@ -1655,14 +1660,10 @@ msgstr "Documentation"
 msgid "Don't save"
 msgstr "Don't save"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
+#: src/session/components/note-input/transcript/index.tsx
 #: src/settings/sync/index.tsx
 msgid "Done"
 msgstr "Done"
-
-#: src/session/components/note-input/transcript/index.tsx
-msgid "Done writing"
-msgstr "Done writing"
 
 #: src/settings/ai/stt/select.tsx
 #: src/sidebar/toast/registry.tsx
@@ -1722,6 +1723,7 @@ msgid "Each example must be 12,000 characters or fewer."
 msgstr "Each example must be 12,000 characters or fewer."
 
 #: src/main/windows-title-bar.tsx
+#: src/session/components/note-input/transcript/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr "Edit"
@@ -2308,10 +2310,6 @@ msgstr "Last delivery {0}"
 msgid "Last import: {0} added, {1} unchanged"
 msgstr "Last import: {0} added, {1} unchanged"
 
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "Last meeting"
-msgstr "Last meeting"
-
 #. placeholder {0}: lastRun.detail
 #: src/settings/automations/starter-config.tsx
 msgid "Last run {relative}: {0}"
@@ -2579,7 +2577,7 @@ msgstr "Memo"
 msgid "Memos"
 msgstr "Memos"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Merge"
 msgstr "Merge"
 
@@ -2820,10 +2818,6 @@ msgstr "No people"
 msgid "No people in this organization"
 msgstr "No people in this organization"
 
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "No previous meeting summary is available. Calendar details are shown above."
-msgstr "No previous meeting summary is available. Calendar details are shown above."
-
 #: src/settings/ai/llm/configure.tsx
 #: src/settings/ai/stt/configure.tsx
 msgid "No providers found."
@@ -2997,6 +2991,7 @@ msgid "Open calendar"
 msgstr "Open calendar"
 
 #: src/calendar/components/calendar-selection.tsx
+#: src/calendar/components/sidebar.tsx
 msgid "Open calendar account actions"
 msgstr "Open calendar account actions"
 
@@ -3059,6 +3054,7 @@ msgstr "Opens System Settings and guides you to add Anarlog to the {0} list."
 
 #: src/calendar/components/apple/permission.tsx
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr "or"
@@ -3191,10 +3187,6 @@ msgstr "Post the meeting summary to a channel you can access."
 msgid "Post to a channel"
 msgstr "Post to a channel"
 
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "Pre-meeting brief"
-msgstr "Pre-meeting brief"
-
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."
 msgstr "Prepare for events with a 5-minute reminder."
@@ -3301,6 +3293,7 @@ msgid "Recipient email"
 msgstr "Recipient email"
 
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/calendar/components/sidebar.tsx
 msgid "Reconnect"
 msgstr "Reconnect"
 
@@ -3719,10 +3712,6 @@ msgstr "Security"
 msgid "See all templates"
 msgstr "See all templates"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
-msgid "Select"
-msgstr "Select"
-
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Select a model"
@@ -3738,7 +3727,6 @@ msgid "Select a provider"
 msgstr "Select a provider"
 
 #: src/main/windows-title-bar.tsx
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 msgid "Select All"
 msgstr "Select All"
 
@@ -4247,12 +4235,10 @@ msgid "Stone"
 msgstr "Stone"
 
 #: src/composer/index.tsx
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr "Stop"
 
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
@@ -4266,7 +4252,6 @@ msgstr "Stop listening when your call ends."
 msgid "Stop response"
 msgstr "Stop response"
 
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop transcription"
@@ -4296,10 +4281,6 @@ msgstr "Storage Updated"
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
 msgstr "Submit callback URL"
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Subscription"
-msgstr "Subscription"
 
 #: src/main/windows-title-bar.tsx
 msgid "Suggest a Feature"
@@ -4990,10 +4971,6 @@ msgstr "Workspace activity from metadata only. Note content stays unreadable on 
 #: src/settings/team/index.tsx
 msgid "Workspace name"
 msgstr "Workspace name"
-
-#: src/session/components/note-input/transcript/index.tsx
-msgid "Write"
-msgstr "Write"
 
 #: src/automations/starters.tsx
 msgid "Write to a folder"

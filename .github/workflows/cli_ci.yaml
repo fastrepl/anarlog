@@ -6,10 +6,15 @@ on:
     branches:
       - main
     paths:
+      - .agents/plugins/**
+      - .claude-plugin/**
+      - .cursor-plugin/**
+      - .github/plugin/**
       - .github/workflows/cli_ci.yaml
       - .github/actions/rust_install/**
       - .cargo/**
       - .agents/skills/**
+      - agent-plugins/**
       - apps/cli/**
       - apps/web/netlify.toml
       - apps/web/public/llms.txt
@@ -22,6 +27,8 @@ on:
       - crates/db-migrate/**
       - crates/tiptap/**
       - docs/**
+      - scripts/publish-anarlog-skill.mjs
+      - scripts/publish-anarlog-skill.test.mjs
       - skills/**
       - Cargo.lock
       - Cargo.toml
@@ -30,10 +37,15 @@ on:
       - rustfmt.toml
   pull_request:
     paths:
+      - .agents/plugins/**
+      - .claude-plugin/**
+      - .cursor-plugin/**
+      - .github/plugin/**
       - .github/workflows/cli_ci.yaml
       - .github/actions/rust_install/**
       - .cargo/**
       - .agents/skills/**
+      - agent-plugins/**
       - apps/cli/**
       - apps/web/netlify.toml
       - apps/web/public/llms.txt
@@ -46,6 +58,8 @@ on:
       - crates/db-migrate/**
       - crates/tiptap/**
       - docs/**
+      - scripts/publish-anarlog-skill.mjs
+      - scripts/publish-anarlog-skill.test.mjs
       - skills/**
       - Cargo.lock
       - Cargo.toml
@@ -138,6 +152,7 @@ jobs:
           test "$(readlink docs/.mintlify/skills)" = "../../skills"
           test -f docs/.mintlify/skills/anarlog/SKILL.md
           node scripts/publish-anarlog-skill.mjs --check
+          node --test scripts/publish-anarlog-skill.test.mjs
           skill_list="$(npx --yes skills@1.5.16 add . --list)"
           echo "$skill_list"
           grep -q 'anarlog' <<<"$skill_list"

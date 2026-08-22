@@ -1,5 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { CircleNotch, Copy, Plus } from "@phosphor-icons/react";
+import { CircleNotch, Copy } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
@@ -14,16 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@anlg/ui/components/ui/dropdown-menu";
 import { Input } from "@anlg/ui/components/ui/input";
-import { cn } from "@anlg/utils";
 
 import { type Provider } from "../shared";
 import {
@@ -32,115 +23,11 @@ import {
   isSubscriptionProviderId,
   pollDeviceConnect,
   startSubscriptionConnect,
-  type SubscriptionProviderId,
 } from "./oauth";
 
-import { ProviderIconSlot } from "~/settings/ai/shared";
 import { useProviderSelectionPrompt } from "~/settings/ai/shared/provider-selection-prompt";
 import { useSetAiProvider } from "~/settings/providers";
 import { useConfigValue } from "~/shared/config";
-
-export function ConnectProvidersMenu({
-  providers,
-  configuredIds,
-  connectingId,
-  onConnectingIdChange,
-  onSelectApiProvider,
-}: {
-  providers: readonly Provider[];
-  configuredIds: ReadonlySet<string>;
-  connectingId: SubscriptionProviderId | null;
-  onConnectingIdChange: (providerId: SubscriptionProviderId | null) => void;
-  onSelectApiProvider: (providerId: string) => void;
-}) {
-  const { t } = useLingui();
-  const subscriptionProviders = providers.filter(
-    (provider) =>
-      provider.authKind === "subscription" && !configuredIds.has(provider.id),
-  );
-  const apiProviders = providers.filter(
-    (provider) =>
-      provider.id !== "anarlog" &&
-      provider.authKind !== "subscription" &&
-      !configuredIds.has(provider.id),
-  );
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={cn([
-              "bg-muted text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-2 rounded-[22px] border-2 border-dashed px-4 py-3 text-sm font-medium transition-colors",
-            ])}
-          >
-            <Plus className="size-4" />
-            <Trans>Connect</Trans>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent variant="app" align="start" className="w-64">
-          {subscriptionProviders.length > 0 ? (
-            <>
-              <DropdownMenuLabel className="text-muted-foreground text-xs font-medium">
-                <Trans>Subscription</Trans>
-              </DropdownMenuLabel>
-              {subscriptionProviders.map((provider) => (
-                <DropdownMenuItem
-                  key={provider.id}
-                  onSelect={() => {
-                    if (isSubscriptionProviderId(provider.id)) {
-                      onConnectingIdChange(provider.id);
-                    }
-                  }}
-                >
-                  <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
-                  <span>{provider.displayName}</span>
-                </DropdownMenuItem>
-              ))}
-            </>
-          ) : null}
-          {subscriptionProviders.length > 0 && apiProviders.length > 0 ? (
-            <DropdownMenuSeparator />
-          ) : null}
-          {apiProviders.length > 0 ? (
-            <>
-              <DropdownMenuLabel className="text-muted-foreground text-xs font-medium">
-                <Trans>API</Trans>
-              </DropdownMenuLabel>
-              {apiProviders.map((provider) => (
-                <DropdownMenuItem
-                  key={provider.id}
-                  onSelect={() => onSelectApiProvider(provider.id)}
-                >
-                  <ProviderIconSlot>{provider.icon}</ProviderIconSlot>
-                  <span>{provider.displayName}</span>
-                </DropdownMenuItem>
-              ))}
-            </>
-          ) : null}
-          {subscriptionProviders.length === 0 && apiProviders.length === 0 ? (
-            <div className="text-muted-foreground px-2 py-1.5 text-sm">
-              {t`All providers are connected.`}
-            </div>
-          ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <ConnectSubscriptionDialog
-        provider={
-          connectingId
-            ? providers.find((provider) => provider.id === connectingId)
-            : undefined
-        }
-        onOpenChange={(open) => {
-          if (!open) {
-            onConnectingIdChange(null);
-          }
-        }}
-      />
-    </>
-  );
-}
 
 export function ConnectSubscriptionDialog({
   provider,

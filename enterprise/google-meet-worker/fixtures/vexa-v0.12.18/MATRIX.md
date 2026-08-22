@@ -23,3 +23,14 @@ These fixtures are replayable snapshots of normalized Anarlog admission/runtime 
 | `runtime/long-duration.json` | `gmeet-capture/src/gmeet-capture.ts` | Active after two hours | — | — |
 
 Scenarios in `scenarios.json` replay the same snapshots through `WorkerLifecycle` and assert the provider-neutral terminal reason.
+
+Additional lifecycle scenarios (not a new classifier snapshot):
+
+| Scenario | Terminal reason | Retryable |
+| --- | --- | --- |
+| `everyone-left-after-participants` | `everyone_left` | no |
+| `silence-then-nobody-joined` | `no_one_joined` | yes |
+| `host-ended-after-long-capture` | `meeting_ended` | no |
+| `captcha-unsolved` | `authentication_failed` | no |
+| `error-page-before-join` | `provider_error` | no |
+| `stopped-by-request` | `stopped_by_request` | no |

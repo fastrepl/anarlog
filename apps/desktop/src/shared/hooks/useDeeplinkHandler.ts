@@ -58,8 +58,9 @@ export function useDeeplinkHandler() {
 
     const timeoutIds = new Set<number>();
     const invalidateIntegrationState = () => {
-      void queryClientRef.current.invalidateQueries({
-        predicate: (query) => query.queryKey[0] === "integration-status",
+      void queryClientRef.current.refetchQueries({
+        queryKey: ["integration-status"],
+        type: "all",
       });
     };
     const refreshIntegrationState = () => {

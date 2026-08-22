@@ -83,6 +83,10 @@ pub(crate) fn to_speaker(
 }
 
 impl AppSounds {
+    pub(crate) fn initial_volume(&self) -> f32 {
+        initial_volume(self)
+    }
+
     pub fn play(&self) {
         self.stop();
 

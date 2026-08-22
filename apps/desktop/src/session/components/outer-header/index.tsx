@@ -12,9 +12,9 @@ import {
 import { cn, safeParseDate } from "@anlg/utils";
 
 import { FolderPicker } from "../folder-picker";
-import { isMeetingStopAction } from "../note-input/header-stop";
 import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
+import { TitleInput } from "../title-input";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
 
@@ -34,7 +34,7 @@ import {
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { getScheme } from "~/shared/utils";
-import type { EditorView } from "~/store/zustand/tabs/schema";
+import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
 import {
@@ -45,6 +45,7 @@ import {
 export function OuterHeader({
   sessionId,
   currentView,
+  tab,
   standaloneWindow = false,
   viewSwitcher,
   transcriptEditMode = false,
@@ -52,6 +53,7 @@ export function OuterHeader({
 }: {
   sessionId: string;
   currentView: EditorView;
+  tab?: Extract<Tab, { type: "sessions" }>;
   standaloneWindow?: boolean;
   viewSwitcher?: React.ReactNode;
   transcriptEditMode?: boolean;
@@ -59,26 +61,46 @@ export function OuterHeader({
 }) {
   const { leftsidebar } = useShell();
   const sessionMode = useListener((state) => state.getSessionMode(sessionId));
+  const sessionEvent = useSessionEvent(sessionId);
+  const hasTranscript = useHasTranscript(sessionId);
+  const { audioExists } = useAudioPlayer();
+  const now = useNow();
   const showWindowControlsGutter = useWindowControlsGutter();
   const showSidebarTimelineHeaderGutter =
     !standaloneWindow && !leftsidebar.expanded;
-  const embedStopInViewSwitcher =
-    viewSwitcher != null && isMeetingStopAction(sessionMode);
+  const endedAt = sessionEvent?.ended_at
+    ? safeParseDate(sessionEvent.ended_at)
+    : null;
+  const ended = !!endedAt && endedAt.getTime() <= now.getTime();
+  const isRecording =
+    sessionMode === "active" || sessionMode === "running_batch";
+  const meetingOver = !isRecording && (ended || hasTranscript || audioExists);
+  const showTitleInput =
+    Boolean(tab) && !(meetingOver && currentView.type === "enhanced");
 
   return (
     <div
       data-tauri-drag-region
       className={cn([
-        "relative flex w-full items-center",
+        "relative flex w-full items-center gap-[2px]",
         "h-12",
         standaloneWindow && (showWindowControlsGutter ? "pl-[76px]" : "pl-2"),
         !standaloneWindow && leftsidebar.expanded && "pl-2",
         showSidebarTimelineHeaderGutter &&
-          (showWindowControlsGutter ? "pl-[156px]" : "pl-[80px]"),
+          (showWindowControlsGutter ? "pl-[116px]" : "pl-[40px]"),
       ])}
     >
       {viewSwitcher}
-      <div data-tauri-drag-region className="min-h-full min-w-0 flex-1" />
+      {showTitleInput && tab ? (
+        <div className="max-w-56 min-w-0 shrink">
+          <TitleInput key={tab.id} tab={tab} variant="breadcrumb" />
+        </div>
+      ) : null}
+      <div
+        data-tauri-drag-region
+        data-session-header-spacer
+        className="min-h-full min-w-0 flex-1"
+      />
       <div
         data-tauri-drag-region
         className="relative z-10 flex shrink-0 items-center pr-1"
@@ -89,7 +111,6 @@ export function OuterHeader({
           currentView={currentView}
           transcriptEditMode={transcriptEditMode}
           onTranscriptEditModeChange={onTranscriptEditModeChange}
-          hideStop={embedStopInViewSwitcher}
         />
         <FolderPicker sessionId={sessionId} align="end" />
         <MetadataButton sessionId={sessionId} />
@@ -110,14 +131,12 @@ function HeaderMeetingControl({
   currentView,
   transcriptEditMode,
   onTranscriptEditModeChange,
-  hideStop = false,
 }: {
   sessionId: string;
   sessionMode: string;
   currentView: EditorView;
   transcriptEditMode: boolean;
   onTranscriptEditModeChange?: (editMode: boolean) => void;
-  hideStop?: boolean;
 }) {
   const sessionEvent = useSessionEvent(sessionId);
   const hasTranscript = useHasTranscript(sessionId);
@@ -146,7 +165,7 @@ function HeaderMeetingControl({
   const isRecording =
     sessionMode === "active" || sessionMode === "running_batch";
 
-  if (sessionMode === "finalizing" || (hideStop && isRecording)) {
+  if (sessionMode === "finalizing") {
     return null;
   }
 
@@ -302,7 +321,11 @@ function HeaderMeetingActionPill({
         label: t`Join & record`,
         title: t`Join meeting and record`,
         icon: isWelcomeDemo ? (
-          <img src="/assets/anarlog-icon.png" alt="" className="size-4" />
+          <img
+            src="/assets/anarlog-icon.png"
+            alt=""
+            className="size-3.5 shrink-0"
+          />
         ) : remote ? (
           getMeetingDisplay(remote.type).icon
         ) : undefined,
@@ -320,7 +343,7 @@ function HeaderMeetingActionPill({
     };
   })();
   const disabled = sessionMode === "finalizing" || joiningMeeting;
-  const isJoinAction = canJoinFromHeader && sessionMode === "inactive";
+  const isPrimaryCta = sessionMode === "inactive";
   const showCountdown =
     Boolean(countdown.label) &&
     sessionMode !== "active" &&
@@ -344,14 +367,14 @@ function HeaderMeetingActionPill({
             disabled={disabled}
             onClick={action.onClick}
             className={cn([
-              "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border px-1.5",
+              "flex h-7 max-w-56 shrink-0 items-center gap-1.5 overflow-hidden rounded-full border pr-2.5 pl-1.5",
               "text-sm font-medium",
               "transition-colors",
-              isJoinAction
+              isPrimaryCta
                 ? "border-primary bg-primary text-primary-foreground shadow-sm dark:border-white dark:bg-white dark:text-black"
                 : "border-border bg-card text-foreground",
               !disabled &&
-                (isJoinAction
+                (isPrimaryCta
                   ? "hover:bg-primary/90 dark:hover:bg-white/90"
                   : "hover:bg-accent"),
               disabled && "cursor-default opacity-60",
@@ -402,34 +425,48 @@ function getMeetingDisplay(type: RemoteMeeting["type"]) {
     case "zoom":
       return {
         name: "Zoom",
-        icon: <img src="/assets/zoom-icon.svg" alt="" width={18} height={18} />,
+        icon: (
+          <img
+            src="/assets/zoom-icon.svg"
+            alt=""
+            className="size-3.5 shrink-0"
+          />
+        ),
       };
     case "google-meet":
       return {
         name: "Meet",
         icon: (
-          <img src="/assets/google-meet.svg" alt="" width={18} height={18} />
+          <img
+            src="/assets/google-meet.svg"
+            alt=""
+            className="size-3.5 shrink-0"
+          />
         ),
       };
     case "webex":
       return {
         name: "Webex",
-        icon: <img src="/assets/webex.png" alt="" width={18} height={18} />,
+        icon: (
+          <img src="/assets/webex.png" alt="" className="size-3.5 shrink-0" />
+        ),
       };
     case "teams":
       return {
         name: "Teams",
-        icon: <img src="/assets/teams.png" alt="" width={18} height={18} />,
+        icon: (
+          <img src="/assets/teams.png" alt="" className="size-3.5 shrink-0" />
+        ),
       };
     case "cal-com":
       return {
         name: "Cal.com",
-        icon: <VideoCamera size={18} />,
+        icon: <VideoCamera className="size-3.5 shrink-0" />,
       };
     default:
       return {
         name: "Meeting",
-        icon: <Headset size={18} />,
+        icon: <Headset className="size-3.5 shrink-0" />,
       };
   }
 }

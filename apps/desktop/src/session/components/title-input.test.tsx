@@ -373,6 +373,79 @@ describe("TitleInput", () => {
     ).toBe("Spotify Leadership Transition");
   });
 
+  it("shows the persisted title when it loads while the field is focused", () => {
+    hoisted.storeTitle = undefined;
+
+    const { rerender } = renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+    fireEvent.focus(input);
+    expect((input as HTMLInputElement).value).toBe("");
+
+    hoisted.storeTitle = "founders sync";
+    rerender(
+      <TooltipProvider>
+        <TitleInput
+          tab={{
+            active: true,
+            id: "session-1",
+            pinned: false,
+            slotId: "slot-1",
+            state: { autoStart: null, view: { type: "raw" } },
+            type: "sessions",
+          }}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(
+      (screen.getByPlaceholderText("Untitled") as HTMLInputElement).value,
+    ).toBe("founders sync");
+  });
+
+  it("does not persist an unedited title on blur", () => {
+    hoisted.storeTitle = "founders sync";
+
+    renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+
+    expect(hoisted.setStoreTitle).not.toHaveBeenCalled();
+  });
+
+  it("does not keep an empty draft when switching notes", () => {
+    hoisted.storeTitle = "";
+
+    const { rerender } = renderTitleInput();
+
+    const input = screen.getByPlaceholderText("Untitled");
+    fireEvent.focus(input);
+    expect((input as HTMLInputElement).value).toBe("");
+
+    hoisted.storeTitle = "founders sync";
+    rerender(
+      <TooltipProvider>
+        <TitleInput
+          tab={{
+            active: true,
+            id: "session-2",
+            pinned: false,
+            slotId: "slot-1",
+            state: { autoStart: null, view: { type: "raw" } },
+            type: "sessions",
+          }}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(
+      (screen.getByPlaceholderText("Untitled") as HTMLInputElement).value,
+    ).toBe("founders sync");
+    expect(hoisted.setStoreTitle).not.toHaveBeenCalled();
+  });
+
   it("updates title fades based on horizontal scroll position", () => {
     renderTitleInput();
 

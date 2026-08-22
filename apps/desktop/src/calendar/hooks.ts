@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { safeParseDate } from "@anlg/utils";
 import { TZDate } from "@anlg/utils";
@@ -138,6 +138,25 @@ export function useEnabledCalendars(): EnabledCalendar[] {
   return useMemo(() => {
     return rows.map((row) => ({ id: row.id, provider: row.provider }));
   }, [rows]);
+}
+
+export function useSyncWhenCalendarConnectionsChange(
+  connectionKey: string,
+  scheduleSync: () => void,
+) {
+  const previousKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previousKeyRef.current === null) {
+      previousKeyRef.current = connectionKey;
+      return;
+    }
+    if (previousKeyRef.current === connectionKey) {
+      return;
+    }
+    previousKeyRef.current = connectionKey;
+    scheduleSync();
+  }, [connectionKey, scheduleSync]);
 }
 
 export type CalendarData = {
