@@ -124,13 +124,8 @@ private enum SpeechModelKind: String, CaseIterable {
     case .omnilingual:
       return Self.regularFileExists(at: directory.appendingPathComponent("config.json"))
         && Self.regularFileExists(at: directory.appendingPathComponent("tokenizer.model"))
-        && (
-          Self.compiledCoreMLModelReady(
-            at: directory.appendingPathComponent("omnilingual-ctc-300m-int8.mlmodelc")
-          )
-            || Self.directoryContainsRegularFile(
-              at: directory.appendingPathComponent("omnilingual-ctc-300m-int8.mlpackage")
-            )
+        && Self.compiledCoreMLModelReady(
+          at: directory.appendingPathComponent("omnilingual-ctc-300m-int8.mlmodelc")
         )
     case .qwen3Small, .qwen3Large:
       return Self.regularFileExists(at: directory.appendingPathComponent("vocab.json"))
