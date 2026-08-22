@@ -62,9 +62,11 @@ describe("FolderPicker", () => {
 
     const input = screen.getByPlaceholderText("Search or create folder");
     const content = input.closest("[data-radix-popper-content-wrapper] > *");
+    const classes = content?.className.split(/\s+/) ?? [];
 
-    expect(content?.className).toContain("w-85");
-    expect(content?.className).not.toContain("p-0");
+    expect(classes).toContain("w-85");
+    expect(classes).toContain("p-0.5");
+    expect(classes).not.toContain("p-0");
     expect(input.closest(".p-4")).not.toBeNull();
   });
 
