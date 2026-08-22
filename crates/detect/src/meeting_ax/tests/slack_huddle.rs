@@ -23,6 +23,26 @@ fn test_slack_huddle_requires_huddle_label_and_enabled_leave_control() {
 }
 
 #[test]
+fn test_slack_huddle_accepts_the_live_child_window_title() {
+    assert_eq!(
+        slack_huddle_context(&[
+            node(0, "AXWindow", "test - Fastrepl - Slack", None),
+            node(1, "AXToolbar", "Huddles actions", None),
+            node(2, "AXButton", "Leave Huddle", None),
+        ]),
+        Some(("Huddle in test".to_string(), "test".to_string()))
+    );
+
+    assert_eq!(
+        slack_huddle_context(&[
+            node(0, "AXWindow", "test - Fastrepl - Slack", None),
+            node(1, "AXButton", "Leave Huddle", None),
+        ]),
+        None
+    );
+}
+
+#[test]
 fn test_slack_live_huddle_controls_fit_tree_depth_budget() {
     assert!(MAX_TREE_DEPTH >= 14);
 }

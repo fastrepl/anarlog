@@ -141,6 +141,41 @@ fn test_slack_chat_message_parser_handles_native_accessibility_description() {
 }
 
 #[test]
+fn test_slack_chat_message_parser_handles_live_huddle_description() {
+    let parsed = parse_chat_message(
+        &MeetingPlatform::Slack,
+        "John Jeong: I'm using Anarlog to record and transcribe this meeting. https://anarlog.so. 4:02 AM. 1 link.",
+    )
+    .unwrap();
+
+    assert_eq!(parsed.sender, Some("John Jeong".to_string()));
+    assert_eq!(parsed.timestamp, Some("4:02 AM".to_string()));
+    assert_eq!(
+        parsed.text,
+        "I'm using Anarlog to record and transcribe this meeting. https://anarlog.so"
+    );
+
+    let mut active_control = node(0, "AXButton", "", None);
+    active_control.value = Some(String::new());
+    active_control.description = Some("Leave Huddle".to_string());
+    let mut message = node(
+        1,
+        "AXGroup",
+        "John Jeong: I'm using Anarlog to record and transcribe this meeting. https://anarlog.so. 4:02 AM. 1 link.",
+        None,
+    );
+    message.value = Some(String::new());
+    message.within_slack_huddle_scope = true;
+    let messages = extract_chat_messages(
+        &MeetingPlatform::Slack,
+        &MeetingSurface::Native,
+        &[active_control, message],
+    );
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].links, ["https://anarlog.so"]);
+}
+
+#[test]
 fn test_web_chat_parsers_cover_meet_teams_zoom_slack_and_webex_shapes() {
     for (platform, raw_text, sender, timestamp, text) in [
         (
@@ -185,6 +220,78 @@ fn test_web_chat_parsers_cover_meet_teams_zoom_slack_and_webex_shapes() {
         assert_eq!(parsed.timestamp.as_deref(), Some(timestamp));
         assert_eq!(parsed.text, text);
     }
+}
+
+#[test]
+fn test_google_meet_capture_assembles_live_structured_message_leaves() {
+    let scope_path = [4];
+    let active_control = fixture_node(0, "AXButton", "Leave call", &[1]);
+    let heading = fixture_node(1, "AXHeading", "In-call messages", &[4, 0]);
+    let composer = fixture_composer(2, "Send a message", &[4, 9, 0]);
+
+    let mut participant = fixture_node(3, "AXStaticText", "John Jeong (JJ)", &[3, 0]);
+    participant.value = participant.title.take();
+    let mut sender = fixture_node(4, "AXStaticText", "John Jeong (JJ) 4:14 AM", &[4, 1, 2, 0]);
+    sender.value = sender.title.take();
+    let mut text = fixture_node(
+        5,
+        "AXStaticText",
+        "ANLG-297 Chrome-to-Aside chat capture test",
+        &[4, 1, 4, 0, 0, 0],
+    );
+    text.value = text.title.take();
+    let mut link = fixture_node(6, "AXLink", "", &[4, 1, 4, 0, 0, 1]);
+    link.value = Some("example.com/chrome".to_string());
+    link.description = Some("https://example.com/chrome".to_string());
+    let mut second_text = fixture_node(
+        7,
+        "AXStaticText",
+        "Second incoming message",
+        &[4, 1, 5, 0, 0, 0],
+    );
+    second_text.value = second_text.title.take();
+
+    assert_eq!(
+        validated_chat_scope(
+            &MeetingPlatform::GoogleMeet,
+            &[
+                active_control.clone(),
+                heading.clone(),
+                composer.clone(),
+                participant.clone(),
+                sender.clone(),
+                text.clone(),
+                link.clone(),
+                second_text.clone(),
+            ],
+        )
+        .map(|(scope, _)| scope),
+        Some(scope_path.to_vec())
+    );
+
+    let messages = extract_chat_messages(
+        &MeetingPlatform::GoogleMeet,
+        &MeetingSurface::Web,
+        &[
+            active_control,
+            heading,
+            composer,
+            participant,
+            sender,
+            text,
+            link,
+            second_text,
+        ],
+    );
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].sender.as_deref(), Some("John Jeong (JJ)"));
+    assert_eq!(messages[0].timestamp.as_deref(), Some("4:14 AM"));
+    assert_eq!(
+        messages[0].text,
+        "ANLG-297 Chrome-to-Aside chat capture test https://example.com/chrome"
+    );
+    assert_eq!(messages[0].links, ["https://example.com/chrome"]);
+    assert_eq!(messages[1].text, "Second incoming message");
 }
 
 #[test]
@@ -309,6 +416,13 @@ fn test_chat_parsers_reject_unstructured_static_text() {
         .is_none()
     );
     assert!(parse_chat_message(&MeetingPlatform::Slack, "Channels\nGeneral").is_none());
+    assert!(
+        parse_chat_message(
+            &MeetingPlatform::GoogleMeet,
+            "Continuous chat is turned off, Messages will not be saved when the call ends, 4:10 AM",
+        )
+        .is_none()
+    );
 }
 
 #[test]

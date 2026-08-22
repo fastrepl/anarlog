@@ -89,6 +89,10 @@ fn is_platform_chat_scope_container(platform: &MeetingPlatform, node: &AxNode) -
         return false;
     }
 
+    is_platform_chat_scope_label(platform, node)
+}
+
+fn is_platform_chat_scope_label(platform: &MeetingPlatform, node: &AxNode) -> bool {
     let label = chat_scope_label(node);
     match platform {
         MeetingPlatform::GoogleMeet => {
@@ -240,6 +244,21 @@ pub(super) fn validated_chat_scope(
     explicit_scopes.sort_by_key(|node| std::cmp::Reverse(node.tree_path.len()));
     if let Some(scope) = explicit_scopes.first() {
         return Some((scope.tree_path.clone(), composer.tree_path.clone()));
+    }
+
+    let mut labeled_scope_paths = nodes
+        .iter()
+        .filter(|node| is_platform_chat_scope_label(platform, node))
+        .filter_map(|node| {
+            let scope_path = common_tree_path(&node.tree_path, &composer.tree_path);
+            let distance = node.tree_path.len() + composer.tree_path.len() - 2 * scope_path.len();
+            (!scope_path.is_empty() && distance <= 6).then_some(scope_path)
+        })
+        .collect::<Vec<_>>();
+    labeled_scope_paths.sort();
+    labeled_scope_paths.dedup();
+    if let [scope_path] = labeled_scope_paths.as_slice() {
+        return Some((scope_path.clone(), composer.tree_path.clone()));
     }
 
     let mut message_lists = nodes

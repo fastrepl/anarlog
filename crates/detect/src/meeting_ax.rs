@@ -72,7 +72,7 @@ pub use types::{
 };
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
-const MAX_TREE_DEPTH: usize = 24;
+const MAX_TREE_DEPTH: usize = 32;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MAX_NODES: usize = 4000;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
@@ -134,19 +134,13 @@ fn is_chat_priority_label(label: &str) -> bool {
 enum ChildWalk {
     Visible,
     Children,
-    Contents,
 }
 
 #[cfg(any(test, target_os = "macos"))]
-fn select_child_walk(
-    children: Option<usize>,
-    visible: Option<usize>,
-    contents: Option<usize>,
-) -> Option<ChildWalk> {
+fn select_child_walk(children: Option<usize>, visible: Option<usize>) -> Option<ChildWalk> {
     let nonempty = |count: Option<usize>| count.filter(|&count| count > 0);
     let visible = nonempty(visible);
     let children = nonempty(children);
-    let contents = nonempty(contents);
 
     match (visible, children) {
         (Some(visible_count), Some(children_count)) if visible_count < children_count => {
@@ -154,7 +148,7 @@ fn select_child_walk(
         }
         (_, Some(_)) => Some(ChildWalk::Children),
         (Some(_), None) => Some(ChildWalk::Visible),
-        (None, None) => contents.map(|_| ChildWalk::Contents),
+        (None, None) => None,
     }
 }
 
@@ -289,19 +283,26 @@ fn find_chat_priority_hits(
         .ok()
         .map(|role| role.to_string())
         .unwrap_or_default();
+    let role_description = string_attr(element, ax::attr::role_desc()).unwrap_or_default();
     let title = string_attr(element, ax::attr::title()).unwrap_or_default();
     let description = string_attr(element, ax::attr::desc()).unwrap_or_default();
+    let help = string_attr(element, ax::attr::help()).unwrap_or_default();
     let placeholder = string_attr(element, ax::attr::placeholder_value()).unwrap_or_default();
     if is_chat_priority_label(&title)
         || is_chat_priority_label(&description)
+        || is_chat_priority_label(&help)
         || is_chat_priority_label(&placeholder)
+        || matches!(role.as_str(), "AXTextArea" | "AXTextField")
+        || role_description.contains("text entry")
     {
         hits.push(format!(
-            "  hit d{depth} role={role:?} title={title:?} desc={description:?} placeholder={placeholder:?} path={}",
+            "  hit d{depth} role={role:?} role_desc={role_description:?} title={title:?} desc={description:?} help={help:?} placeholder={placeholder:?} settable={} bounds={} path={}",
+            element.is_settable(ax::attr::value()).unwrap_or(false),
+            element.frame().ok().and_then(|frame| frame.cg_rect()).is_some(),
             ancestors.join(" > ")
         ));
     }
-    let Some(children) = walkable_children(element).or_else(|| element.children().ok()) else {
+    let Some(children) = walkable_children(element) else {
         return;
     };
     ancestors.push(if title.is_empty() {
@@ -1677,10 +1678,7 @@ fn collect_chat_elements(
         return;
     };
 
-    let mut ordered: Vec<(usize, _)> = children.iter().enumerate().collect();
-    ordered.sort_by_key(|(index, child)| (ax_child_walk_rank(child), *index));
-
-    for (child_index, child) in ordered {
+    for (child_index, child) in children.iter().enumerate() {
         path.push(child_index);
         collect_chat_elements(child, depth + 1, visited, path, ancestors, elements);
         path.pop();
@@ -1876,10 +1874,7 @@ fn collect_nodes_with_scope(
         return;
     };
 
-    let mut ordered: Vec<(usize, _)> = children.iter().enumerate().collect();
-    ordered.sort_by_key(|(index, child)| (ax_child_walk_rank(child), *index));
-
-    for (child_index, child) in ordered {
+    for (child_index, child) in children.iter().enumerate() {
         if nodes.len() >= MAX_NODES {
             *truncated = true;
             return;
@@ -1917,16 +1912,17 @@ fn ax_element_array(
 #[cfg(target_os = "macos")]
 fn walkable_children(element: &ax::UiElement) -> Option<arc::R<cf::ArrayOf<ax::UiElement>>> {
     let children = ax_element_array(element, ax::attr::children());
+    if children.as_ref().is_some_and(|array| array.len() <= 64) {
+        return children.filter(|array| !array.is_empty());
+    }
+
     let visible = ax_element_array(element, ax::attr::visible_children());
-    let contents = ax_element_array(element, ax::attr::contents());
     match select_child_walk(
         children.as_ref().map(|array| array.len()),
         visible.as_ref().map(|array| array.len()),
-        contents.as_ref().map(|array| array.len()),
     ) {
         Some(ChildWalk::Visible) => visible,
         Some(ChildWalk::Children) => children,
-        Some(ChildWalk::Contents) => contents,
         None => None,
     }
 }
@@ -1950,28 +1946,14 @@ fn maybe_note_visible_child_walk(element: &ax::UiElement, warnings: &mut Vec<Str
 }
 
 #[cfg(target_os = "macos")]
-fn ax_child_walk_rank(element: &ax::UiElement) -> u8 {
-    let title = string_attr(element, ax::attr::title()).unwrap_or_default();
-    let description = string_attr(element, ax::attr::desc()).unwrap_or_default();
-    let placeholder = string_attr(element, ax::attr::placeholder_value()).unwrap_or_default();
-    if is_chat_priority_label(&title)
-        || is_chat_priority_label(&description)
-        || is_chat_priority_label(&placeholder)
-    {
-        0
-    } else {
-        1
-    }
-}
-
-#[cfg(target_os = "macos")]
 fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
     let element_hash = Some(element.hash());
     let role = element.role().ok().map(|role| role.to_string());
     let identifier = string_attr(element, ax::attr::id());
     let title = string_attr(element, ax::attr::title());
     let value = string_attr(element, ax::attr::value());
-    let description = string_attr(element, ax::attr::desc());
+    let description =
+        string_attr(element, ax::attr::desc()).or_else(|| string_attr(element, ax::attr::help()));
     let placeholder = string_attr(element, ax::attr::placeholder_value());
     let enabled = element.is_enabled().ok().map(|enabled| enabled.value());
     let settable_value = element.is_settable(ax::attr::value()).unwrap_or(false);
@@ -2049,11 +2031,30 @@ fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
         return None;
     }
 
-    nodes.iter().find_map(|node| {
+    if let Some(context) = nodes.iter().find_map(|node| {
         node_labels(node).find_map(|label| {
             slack_huddle_channel_from_label(label).map(|channel| (label.to_string(), channel))
         })
-    })
+    }) {
+        return Some(context);
+    }
+
+    if !nodes.iter().any(is_slack_huddle_actions_toolbar) {
+        return None;
+    }
+
+    let mut channels = nodes.iter().filter_map(|node| {
+        (node.role.as_deref() == Some("AXWindow"))
+            .then(|| node.title.as_deref())
+            .flatten()
+            .and_then(slack_huddle_channel_from_window_title)
+    });
+    let channel = channels.next()?;
+    if channels.next().is_some() {
+        return None;
+    }
+
+    Some((format!("Huddle in {channel}"), channel))
 }
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
@@ -2073,6 +2074,25 @@ fn slack_huddle_channel_from_label(label: &str) -> Option<String> {
     }
 
     (!channel.is_empty()).then_some(channel.to_string())
+}
+
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+fn slack_huddle_channel_from_window_title(title: &str) -> Option<String> {
+    let title = title.trim();
+    let slack_suffix = " - slack";
+    if !title.to_ascii_lowercase().ends_with(slack_suffix) {
+        return None;
+    }
+
+    let without_slack = title[..title.len() - slack_suffix.len()].trim_end();
+    let (channel, workspace) = without_slack.rsplit_once(" - ")?;
+    (!channel.trim().is_empty() && !workspace.trim().is_empty()).then(|| channel.trim().to_string())
+}
+
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+fn is_slack_huddle_actions_toolbar(node: &AxNode) -> bool {
+    node.role.as_deref() == Some("AXToolbar")
+        && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("Huddles actions"))
 }
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]

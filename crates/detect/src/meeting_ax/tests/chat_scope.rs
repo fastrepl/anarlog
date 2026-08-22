@@ -257,6 +257,22 @@ fn test_browser_chat_scope_requires_live_exit_visible_composer_and_platform_cont
 }
 
 #[test]
+fn test_browser_chat_scope_accepts_explicit_heading_beside_the_composer() {
+    let meet_nodes = vec![
+        fixture_node(0, "AXWebArea", "Team sync - Google Meet", &[]),
+        fixture_node(1, "AXButton", "Leave call", &[0]),
+        fixture_node(2, "AXGroup", "", &[1]),
+        fixture_node(3, "AXHeading", "In-call messages", &[1, 0]),
+        fixture_composer(4, "Send a message", &[1, 1, 0]),
+    ];
+
+    assert_eq!(
+        validated_chat_scope(&MeetingPlatform::GoogleMeet, &meet_nodes),
+        Some((vec![1], vec![1, 1, 0]))
+    );
+}
+
+#[test]
 fn test_platform_chat_adapters_validate_the_requested_provider_matrix() {
     for (platform, exit_label, scope_label, composer_label) in [
         (
