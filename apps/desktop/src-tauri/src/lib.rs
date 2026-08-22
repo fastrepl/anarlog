@@ -156,11 +156,6 @@ fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actu
 
 pub fn main() {
     startup::apply_linux_webkit_workarounds();
-    async_main();
-}
-
-#[tokio::main]
-async fn async_main() {
     // Sentry minidump reporting re-execs this binary with --crash-reporter-server.
     // That helper must reach minidump::init instead of the launch lock, or it
     // shows "Anarlog is already starting" on every launch and never serves dumps.
@@ -168,7 +163,16 @@ async fn async_main() {
         run_crash_reporter_process();
     }
 
-    tauri::async_runtime::set(tokio::runtime::Handle::current());
+    // Keep a process-wide Tokio runtime for Tauri plugins, but leave it before
+    // Builder::build(). tauri-plugin-single-instance's Linux setup uses zbus's
+    // blocking Connection::build, which starts a nested runtime and panics if
+    // this thread is already inside #[tokio::main].
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
+    tauri::async_runtime::set(runtime.handle().clone());
+
     let context = tauri::generate_context!();
     let identifier = context.config().identifier.clone();
 
@@ -185,22 +189,31 @@ async fn async_main() {
         }
     };
 
-    let (root_supervisor_ctx, root_supervisor_handle) =
-        match supervisor::spawn_root_supervisor().await {
-            Some((ctx, handle)) => (Some(ctx), Some(handle)),
-            None => (None, None),
-        };
+    let (root_supervisor_ctx, root_supervisor_handle, db, crash_reporting_enabled) = runtime
+        .block_on(async {
+            let (root_supervisor_ctx, root_supervisor_handle) =
+                match supervisor::spawn_root_supervisor().await {
+                    Some((ctx, handle)) => (Some(ctx), Some(handle)),
+                    None => (None, None),
+                };
 
-    let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
-    let db = match open_desktop_db(&identifier).await {
-        Ok(db) => db,
-        Err(error) => {
+            let startup_indicator = startup::SlowStartupIndicator::show_after_delay();
+            let db = match open_desktop_db(&identifier).await {
+                Ok(db) => db,
+                Err(error) => {
+                    startup_indicator.dismiss();
+                    exit_after_startup_failure(&identifier, &error)
+                }
+            };
             startup_indicator.dismiss();
-            exit_after_startup_failure(&identifier, &error)
-        }
-    };
-    startup_indicator.dismiss();
-    let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
+            let crash_reporting_enabled = load_crash_reporting_consent(&db).await;
+            (
+                root_supervisor_ctx,
+                root_supervisor_handle,
+                db,
+                crash_reporting_enabled,
+            )
+        });
 
     let sentry_client = {
         let dsn = if std::env::var_os("ANARLOG_DISABLE_SENTRY").is_some() {
@@ -559,6 +572,7 @@ async fn async_main() {
         }
         _ => {}
     });
+    drop(runtime);
 }
 
 fn startup_failure_message(error: &impl std::fmt::Display) -> String {
@@ -711,6 +725,18 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn tokio_runtime_is_not_entered_after_block_on_returns() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            assert!(tokio::runtime::Handle::try_current().is_ok());
+        });
+        assert!(tokio::runtime::Handle::try_current().is_err());
+    }
 
     #[test]
     fn startup_failure_message_includes_the_original_error() {
