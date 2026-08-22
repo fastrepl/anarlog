@@ -10,6 +10,7 @@ import {
 } from "~/calendar/components/calendar-selection";
 import type { CalendarProvider } from "~/calendar/components/shared";
 import { setCalendarEnabled, useCalendarRows } from "~/calendar/queries";
+import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export function OAuthCalendarSelection({
   groups,
@@ -122,11 +123,18 @@ export function useOAuthCalendarSelection(config: CalendarProvider) {
     scheduleSync();
   }, [cancelDebouncedSync, queryClient, scheduleSync]);
 
+  useMountEffect(() => {
+    if (calendars.length === 0) {
+      scheduleSync();
+    }
+  });
+
   return {
     groups,
     connectionSourceMap,
     handleRefresh,
     handleToggle,
-    isLoading: status === "syncing",
+    isLoading:
+      status === "syncing" || (status === "scheduled" && groups.length === 0),
   };
 }
