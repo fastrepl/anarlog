@@ -72,7 +72,12 @@ export function AppLockGate({ children }: { children: ReactNode }) {
         }
 
         if (useAppLock.getState().appUnlocked) return;
-        if (useAppLock.getState().authenticating) return;
+        if (useAppLock.getState().authenticating) {
+          // A close-invalidated prompt is still running. Let the auto-prompt
+          // effect start a new one once that auth settles.
+          promptedRef.current = false;
+          return;
+        }
         promptedRef.current = true;
         void useAppLock.getState().unlockApp(DEVICE_AUTH_REASON.openApp);
       })
