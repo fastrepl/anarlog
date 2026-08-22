@@ -186,6 +186,7 @@ export async function streamPreMeetingBrief({
     past_meetings: sourceNotes.map((note) => ({
       title: note.title,
       date: note.dateLabel,
+      participants: note.participantNames ?? [],
       notes: getPreMeetingBriefFacts(note).join("\n"),
     })),
   });
