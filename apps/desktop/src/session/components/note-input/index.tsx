@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import type { NoteEditorRef } from "@anlg/editor/note";
+import type { JSONContent, NoteEditorRef } from "@anlg/editor/note";
 import { cn } from "@anlg/utils";
 
 import { Enhanced } from "./enhanced";
@@ -37,6 +37,8 @@ export interface NoteInputHandle {
   focusAtStart: () => void;
   focusAtPixelWidth: (pixelWidth: number) => void;
   insertAtStartAndFocus: (content: string) => void;
+  replaceContent: (content: JSONContent) => void;
+  flushPendingChanges: () => void;
   prepareForTabChange: () => void;
 }
 
@@ -185,6 +187,10 @@ const NoteInputContent = forwardRef<
           internalEditorRef.current?.commands.focusAtPixelWidth(px),
         insertAtStartAndFocus: (content) =>
           internalEditorRef.current?.commands.insertAtStartAndFocus(content),
+        replaceContent: (content) =>
+          internalEditorRef.current?.commands.replaceContent(content),
+        flushPendingChanges: () =>
+          internalEditorRef.current?.flushPendingChanges(),
         prepareForTabChange: onBeforeTabChange,
       }),
       [currentTab, onBeforeTabChange],

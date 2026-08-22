@@ -1,5 +1,10 @@
-import { Icon } from "@iconify-icon/react";
-import { ArrowRight, CaretDown } from "@phosphor-icons/react";
+import {
+  AppleLogo,
+  ArrowRight,
+  CaretDown,
+  LinuxLogo,
+  WindowsLogo,
+} from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
@@ -386,13 +391,7 @@ function DownloadButton() {
         }
         className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] py-3 pr-2 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
       >
-        <Icon
-          icon={getPlatformIcon(preferredSection.platform)}
-          width={16}
-          height={16}
-          className="shrink-0"
-          aria-hidden="true"
-        />
+        {getPlatformIcon(preferredSection.platform, 16)}
         <span>{preferredLabel}</span>
       </a>
       <button
@@ -432,13 +431,7 @@ function DownloadButton() {
                   }}
                   className="text-color hover:surface-subtle flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
                 >
-                  <Icon
-                    icon={getPlatformIcon(section.platform)}
-                    width={20}
-                    height={20}
-                    className="shrink-0"
-                    aria-hidden="true"
-                  />
+                  {getPlatformIcon(section.platform, 20)}
                   <span>
                     {getDownloadOptionLabel(section.platform, download.name)}
                   </span>
@@ -466,10 +459,14 @@ function DownloadButton() {
   );
 }
 
-function getPlatformIcon(platform: DesktopPlatform) {
-  if (platform === "windows") return "simple-icons:windows11";
-  if (platform === "linux") return "simple-icons:linux";
-  return "simple-icons:apple";
+function getPlatformIcon(platform: DesktopPlatform, size: number) {
+  const Icon =
+    platform === "windows"
+      ? WindowsLogo
+      : platform === "linux"
+        ? LinuxLogo
+        : AppleLogo;
+  return <Icon size={size} className="shrink-0" aria-hidden="true" />;
 }
 
 function getDownloadOptionLabel(

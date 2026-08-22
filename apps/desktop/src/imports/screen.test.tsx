@@ -241,6 +241,18 @@ describe("MeetingImportScreen", () => {
         installedAppId: "com.granola.app",
         iconUrl: "data:image/png;base64,granola",
       },
+      {
+        ...MEETING_IMPORT_PROVIDERS.find(
+          (provider) => provider.id === "chatgpt-record",
+        )!,
+        installedAppId: "chatgpt-record",
+      },
+      {
+        ...MEETING_IMPORT_PROVIDERS.find(
+          (provider) => provider.id === "slack-huddles",
+        )!,
+        installedAppId: "slack-huddles",
+      },
     ]);
 
     const { container } = renderImports();
@@ -253,8 +265,16 @@ describe("MeetingImportScreen", () => {
       container.querySelector('img[src="/assets/zoom-icon.svg"]'),
     ).toBeTruthy();
     expect(
-      container.querySelector('img[src="data:image/png;base64,granola"]'),
-    ).toBeTruthy();
+      container.querySelector('img[src="data:image/png;base64,granola"]')
+        ?.className,
+    ).not.toContain("scale-");
+    expect(
+      container.querySelector('img[src="/assets/model-icons/openai-logo.svg"]')
+        ?.className,
+    ).toContain("scale-[1.22]");
+    expect(
+      container.querySelector('img[src="/assets/slack-icon.svg"]')?.className,
+    ).toContain("scale-[1.12]");
     expect(container.querySelector("iconify-icon")).toBeNull();
   });
 

@@ -515,6 +515,64 @@ describe("MainChatPanels", () => {
     expect(mocks.windowRestoreWidth).toHaveBeenCalledTimes(1);
   });
 
+  it("does not restore window width when leaving a meeting for settings with chat still open", () => {
+    mocks.chatMode = "RightPanelOpen";
+    mocks.currentTab = { type: "sessions" };
+    mocks.leftSidebarExpanded = true;
+    mockPanelWidths({
+      bodyPanelWidth: 700,
+      leftSidebarWidth: 200,
+      rightPanelWidth: 120,
+    });
+
+    const renderPanels = () => (
+      <MainChatPanels>
+        <div data-left-sidebar-chrome />
+        <div data-chat-floating-anchor>
+          <div data-session-surface />
+        </div>
+      </MainChatPanels>
+    );
+    const { rerender } = render(renderPanels());
+
+    expect(mocks.windowExpandWidth).toHaveBeenCalled();
+    mocks.windowRestoreWidth.mockClear();
+
+    mocks.currentTab = { type: "settings" };
+    rerender(renderPanels());
+
+    expect(mocks.windowRestoreWidth).not.toHaveBeenCalled();
+  });
+
+  it("restores window width when docked chat closes while the sidebar stays open", () => {
+    mocks.chatMode = "RightPanelOpen";
+    mocks.currentTab = { type: "sessions" };
+    mocks.leftSidebarExpanded = true;
+    mockPanelWidths({
+      bodyPanelWidth: 700,
+      leftSidebarWidth: 200,
+      rightPanelWidth: 120,
+    });
+
+    const renderPanels = () => (
+      <MainChatPanels>
+        <div data-left-sidebar-chrome />
+        <div data-chat-floating-anchor>
+          <div data-session-surface />
+        </div>
+      </MainChatPanels>
+    );
+    const { rerender } = render(renderPanels());
+
+    expect(mocks.windowExpandWidth).toHaveBeenCalled();
+    mocks.windowRestoreWidth.mockClear();
+
+    mocks.chatMode = "FloatingClosed";
+    rerender(renderPanels());
+
+    expect(mocks.windowRestoreWidth).toHaveBeenCalledTimes(1);
+  });
+
   it("collapses the left sidebar when a window resize would make the note surface narrower than 500px", () => {
     mocks.currentTab = { type: "sessions" };
     mocks.leftSidebarExpanded = true;

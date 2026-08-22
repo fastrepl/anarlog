@@ -71,6 +71,16 @@ describe("calendar SQLite queries", () => {
         JSON.stringify([{ name: "Alice", email: "alice@example.com" }]),
       ),
     ).toEqual([{ name: "Alice", email: "alice@example.com" }]);
+    expect(
+      parseEventParticipants(
+        JSON.stringify([
+          null,
+          "Alice",
+          { name: 42 },
+          { name: "Bob", unexpected: true },
+        ]),
+      ),
+    ).toEqual([{ name: "Bob" }]);
     expect(parseEventParticipants("not-json")).toEqual([]);
     expect(parseEventParticipants("{}")).toEqual([]);
   });

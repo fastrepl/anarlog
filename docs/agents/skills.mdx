@@ -15,8 +15,37 @@ The public Anarlog skill teaches agents a single workflow across MCP and CLI:
 
 - Published skill: `https://docs.anarlog.so/skill.md`
 - Repository package: [`skills/anarlog`](https://github.com/fastrepl/anarlog/tree/main/skills/anarlog)
+- Agent plugin: [`agent-plugins/anarlog`](https://github.com/fastrepl/anarlog/tree/main/agent-plugins/anarlog)
 
 The published file is self-contained. The repository package adds references for setup, CLI commands, MCP tools, and errors.
+
+## Install the plugin
+
+The agent plugin bundles the complete skill and a local MCP configuration. [Install the Anarlog CLI](/installation) before enabling the plugin.
+
+For Claude Code:
+
+```bash
+claude plugin marketplace add fastrepl/anarlog
+claude plugin install anarlog@fastrepl
+```
+
+For GitHub Copilot CLI:
+
+```bash
+copilot plugin marketplace add fastrepl/anarlog
+copilot plugin install anarlog@fastrepl
+```
+
+For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop app, then select Anarlog from the Fastrepl source in the Plugins Directory:
+
+```bash
+codex plugin marketplace add fastrepl/anarlog \
+  --sparse .agents/plugins \
+  --sparse agent-plugins/anarlog
+```
+
+Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace.
 
 ## Install in an agent
 

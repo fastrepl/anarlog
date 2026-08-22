@@ -1,5 +1,5 @@
 import { Trans } from "@lingui/react/macro";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Accordion } from "@anlg/ui/components/ui/accordion";
 
@@ -7,54 +7,30 @@ import { useLlmSettings } from "./context";
 import { ProviderId, PROVIDERS } from "./shared";
 import {
   isSubscriptionProviderId,
+  shouldShowInProviderList,
+  subscriptionTwinId,
   type SubscriptionProviderId,
 } from "./subscriptions";
-import { ConnectProvidersMenu } from "./subscriptions/connect";
+import { ConnectSubscriptionDialog } from "./subscriptions/connect";
 
 import {
   filterProviders,
   NonAnarlogProviderCard,
   ProviderSearch,
-  providerRowId,
   StyledStreamdown,
 } from "~/settings/ai/shared";
-import { useAiProvidersState } from "~/settings/providers";
 import { useConfigValue } from "~/shared/config";
 
 export function ConfigureProviders() {
   const { accordionValue, setAccordionValue } = useLlmSettings();
   const currentProvider = useConfigValue("current_llm_provider");
-  const { providers: configuredProviders } = useAiProvidersState("llm");
   const [search, setSearch] = useState("");
   const [connectingId, setConnectingId] =
     useState<SubscriptionProviderId | null>(null);
-  const configuredIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const provider of PROVIDERS) {
-      if (provider.id === "anarlog") {
-        continue;
-      }
-      const config = configuredProviders[providerRowId("llm", provider.id)];
-      if (config?.api_key.trim()) {
-        ids.add(provider.id);
-      }
-    }
-    return ids;
-  }, [configuredProviders]);
   const providers = filterProviders(
-    PROVIDERS.filter((provider) => {
-      if (provider.id === "anarlog") {
-        return false;
-      }
-      if (
-        provider.authKind === "subscription" &&
-        !configuredIds.has(provider.id) &&
-        !search.trim()
-      ) {
-        return false;
-      }
-      return true;
-    }),
+    PROVIDERS.filter((provider) =>
+      shouldShowInProviderList(provider.id, search),
+    ),
     search,
   );
 
@@ -75,6 +51,7 @@ export function ConfigureProviders() {
       >
         {providers.map((provider) => {
           const providerId = provider.id;
+          const twinId = subscriptionTwinId(providerId);
           return (
             <NonAnarlogProviderCard
               key={provider.id}
@@ -90,6 +67,10 @@ export function ConfigureProviders() {
                   ? () => setConnectingId(providerId)
                   : undefined
               }
+              onConnectSubscription={
+                twinId ? () => setConnectingId(twinId) : undefined
+              }
+              subscriptionProviderId={twinId}
             />
           );
         })}
@@ -99,12 +80,17 @@ export function ConfigureProviders() {
           <Trans>No providers found.</Trans>
         </p>
       ) : null}
-      <ConnectProvidersMenu
-        providers={PROVIDERS}
-        configuredIds={configuredIds}
-        connectingId={connectingId}
-        onConnectingIdChange={setConnectingId}
-        onSelectApiProvider={setAccordionValue}
+      <ConnectSubscriptionDialog
+        provider={
+          connectingId
+            ? PROVIDERS.find((provider) => provider.id === connectingId)
+            : undefined
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            setConnectingId(null);
+          }
+        }}
       />
     </div>
   );
@@ -134,32 +120,40 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
                         ? "We only support **OpenAI-compatible** endpoints for now."
                         : providerId === "openrouter"
                           ? "We filter out models from the combobox based on heuristics like **input modalities** and **tool support**."
-                          : providerId === "moonshot"
-                            ? "Uses Moonshot AI's **OpenAI-compatible Kimi API**. The default endpoint is the international service and can be changed under Advanced."
-                            : providerId === "zai"
-                              ? "Uses Z.AI's **OpenAI-compatible GLM API**. The default endpoint is the international service and can be changed under Advanced."
-                              : providerId === "alibaba_cloud"
-                                ? "Uses Alibaba Cloud Model Studio's **OpenAI-compatible API**. The default endpoint is the Singapore region; change the Base URL under Advanced when your API key belongs to another region."
-                                : providerId === "siliconflow"
-                                  ? "Uses SiliconFlow's **OpenAI-compatible API**. The default endpoint is the international service; use `https://api.siliconflowcn/v1` under Advanced for a China-region API key."
-                                  : providerId === "azure_openai"
-                                    ? "Enter your **Azure OpenAI endpoint** (e.g. `https://your-resource.openai.azure.com`) as the Base URL and your **API key**. [Report issues](https://anarlog.so/discord)"
-                                    : providerId === "azure_ai"
-                                      ? "Enter your **Azure AI Foundry endpoint** as the Base URL and your **API key**. Supports Claude and other models deployed via Azure AI Foundry. [Report issues](https://anarlog.so/discord)"
-                                      : providerId === "google_generative_ai"
-                                        ? "Visit [AI Studio](https://aistudio.google.com/api-keys) to create an API key."
-                                        : providerId === "amazon_bedrock"
-                                          ? "Enter the regional **Bedrock Mantle OpenAI-compatible URL** (for example, `https://bedrock-mantle.us-east-1.api.aws/v1`) and a Bedrock long-term API key."
-                                          : providerId === "google_vertex_ai"
-                                            ? "Enter your project and location's **Vertex AI OpenAI-compatible endpoint** and a bearer access token. Vertex access tokens expire, so replace the saved token when Google Cloud refreshes it."
+                          : providerId === "openai"
+                            ? "Paste an **API key**, or connect your **ChatGPT Plus or Pro** plan."
+                            : providerId === "anthropic"
+                              ? "Paste an **API key**, or connect your **Claude Pro or Max** plan."
+                              : providerId === "xai"
+                                ? "Paste an **API key**, or connect your **SuperGrok or X Premium+** plan."
+                                : providerId === "moonshot"
+                                  ? "Paste a Moonshot **API key**, or connect your **Kimi Code** membership. The default endpoint is the international service and can be changed under Advanced."
+                                  : providerId === "zai"
+                                    ? "Uses Z.AI's **OpenAI-compatible GLM API**. The default endpoint is the international service and can be changed under Advanced."
+                                    : providerId === "alibaba_cloud"
+                                      ? "Uses Alibaba Cloud Model Studio's **OpenAI-compatible API**. The default endpoint is the Singapore region; change the Base URL under Advanced when your API key belongs to another region."
+                                      : providerId === "siliconflow"
+                                        ? "Uses SiliconFlow's **OpenAI-compatible API**. The default endpoint is the international service; use `https://api.siliconflowcn/v1` under Advanced for a China-region API key."
+                                        : providerId === "azure_openai"
+                                          ? "Enter your **Azure OpenAI endpoint** (e.g. `https://your-resource.openai.azure.com`) as the Base URL and your **API key**. [Report issues](https://anarlog.so/discord)"
+                                          : providerId === "azure_ai"
+                                            ? "Enter your **Azure AI Foundry endpoint** as the Base URL and your **API key**. Supports Claude and other models deployed via Azure AI Foundry. [Report issues](https://anarlog.so/discord)"
                                             : providerId ===
-                                                "cloudflare_workers_ai"
-                                              ? "Enter the Workers AI **OpenAI-compatible base URL** as `https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1` and use a Cloudflare API token with Workers AI access."
-                                              : "";
+                                                "google_generative_ai"
+                                              ? "Visit [AI Studio](https://aistudio.google.com/api-keys) to create an API key."
+                                              : providerId === "amazon_bedrock"
+                                                ? "Enter the regional **Bedrock Mantle OpenAI-compatible URL** (for example, `https://bedrock-mantle.us-east-1.api.aws/v1`) and a Bedrock long-term API key."
+                                                : providerId ===
+                                                    "google_vertex_ai"
+                                                  ? "Enter your project and location's **Vertex AI OpenAI-compatible endpoint** and a bearer access token. Vertex access tokens expire, so replace the saved token when Google Cloud refreshes it."
+                                                  : providerId ===
+                                                      "cloudflare_workers_ai"
+                                                    ? "Enter the Workers AI **OpenAI-compatible base URL** as `https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1` and use a Cloudflare API token with Workers AI access."
+                                                    : "";
 
   if (!content) {
     return null;
   }
 
-  return <StyledStreamdown className="mb-3">{content}</StyledStreamdown>;
+  return <StyledStreamdown>{content}</StyledStreamdown>;
 }

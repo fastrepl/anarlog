@@ -307,10 +307,13 @@ impl DownloadableModel for LocalModel {
         match self {
             LocalModel::Soniqo(model) => anlg_transcribe_soniqo::is_model_downloaded(*model)
                 .map_err(|e| Error::OperationFailed(e.to_string())),
-            LocalModel::AppleSpeech(_) => {
-                { anlg_transcribe_speechanalyzer::is_model_downloaded(APPLE_SPEECH_DEFAULT_LOCALE) }
-                    .map_err(|e| Error::OperationFailed(e.to_string()))
-            }
+            LocalModel::AppleSpeech(_) => match anlg_transcribe_speechanalyzer::settings_locale() {
+                Ok(locale) => anlg_transcribe_speechanalyzer::is_model_downloaded(&locale)
+                    .map_err(|e| Error::OperationFailed(e.to_string())),
+                Err(anlg_transcribe_speechanalyzer::Error::NoSupportedSystemLanguage)
+                | Err(anlg_transcribe_speechanalyzer::Error::UnsupportedPlatform) => Ok(false),
+                Err(error) => Err(Error::OperationFailed(error.to_string())),
+            },
             LocalModel::Whisper(model) => {
                 Ok(models_base.join("stt").join(model.file_name()).exists())
             }
@@ -346,7 +349,9 @@ impl DownloadableModel for LocalModel {
                 .map_err(|e| Error::DeleteFailed(e.to_string())),
             // Only the reservation is ours to give back; macOS owns the asset files.
             LocalModel::AppleSpeech(_) => {
-                anlg_transcribe_speechanalyzer::release_locale(APPLE_SPEECH_DEFAULT_LOCALE)
+                let locale = anlg_transcribe_speechanalyzer::settings_locale()
+                    .map_err(|e| Error::DeleteFailed(e.to_string()))?;
+                anlg_transcribe_speechanalyzer::release_locale(&locale)
                     .map_err(|e| Error::DeleteFailed(e.to_string()))
             }
             LocalModel::Whisper(model) => {

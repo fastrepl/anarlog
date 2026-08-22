@@ -55,6 +55,21 @@ describe("FolderPicker", () => {
     expect(trigger.querySelectorAll("svg")).toHaveLength(1);
   });
 
+  it("uses the same floating chrome as note metadata", () => {
+    render(<FolderPicker sessionId="session-1" />);
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Select folder" }));
+
+    const input = screen.getByPlaceholderText("Search or create folder");
+    const content = input.closest("[data-radix-popper-content-wrapper] > *");
+    const classes = content?.className.split(/\s+/) ?? [];
+
+    expect(classes).toContain("w-85");
+    expect(classes).toContain("p-0.5");
+    expect(classes).not.toContain("p-0");
+    expect(input.closest(".p-4")).not.toBeNull();
+  });
+
   it("lets the user select an existing folder for the current note", async () => {
     render(<FolderPicker sessionId="session-1" />);
 

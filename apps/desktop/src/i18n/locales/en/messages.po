@@ -309,10 +309,6 @@ msgstr "All events"
 msgid "All Notes"
 msgstr "All Notes"
 
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "All providers are connected."
-msgstr "All providers are connected."
-
 #: src/settings/team/index.tsx
 msgid "Allow anyone-with-the-link sharing"
 msgstr "Allow anyone-with-the-link sharing"
@@ -455,10 +451,6 @@ msgstr "Anyone with the link"
 #: src/session-sharing/management-panel.tsx
 msgid "Anyone with the link can view. Link copied."
 msgstr "Anyone with the link can view. Link copied."
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "API"
-msgstr "API"
 
 #: src/settings/ai/shared/index.tsx
 msgid "API Key"
@@ -1152,6 +1144,7 @@ msgstr "Connect"
 #: src/calendar/components/sidebar.tsx
 #: src/instruction/index.tsx
 #: src/settings/ai/llm/subscriptions/connect.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "Connect {0}"
 msgstr "Connect {0}"
@@ -1211,6 +1204,11 @@ msgstr "Connect your integration"
 #: src/imports/screen.tsx
 msgid "Connected · New meetings are imported automatically while Anarlog is running."
 msgstr "Connected · New meetings are imported automatically while Anarlog is running."
+
+#. placeholder {0}: subscriptionProvider.displayName
+#: src/settings/ai/shared/index.tsx
+msgid "Connected with your {0} subscription."
+msgstr "Connected with your {0} subscription."
 
 #: src/settings/ai/shared/index.tsx
 msgid "Connected with your existing subscription."
@@ -1299,6 +1297,10 @@ msgstr "Could not copy the share link."
 #: src/settings/developers/clipboard.ts
 msgid "Could not copy to clipboard"
 msgstr "Could not copy to clipboard"
+
+#: src/session/hooks/useCreatePreMeetingBrief.ts
+msgid "Could not create the pre-meeting brief. Try again."
+msgstr "Could not create the pre-meeting brief. Try again."
 
 #: src/session-sharing/invitation-management.ts
 msgid "Could not create these invitations."
@@ -1420,6 +1422,10 @@ msgstr "Create"
 msgid "Create \"{folderName}\""
 msgstr "Create \"{folderName}\""
 
+#: src/session/components/note-input/create-brief-suggestion.tsx
+msgid "Create a brief to prepare this meeting"
+msgstr "Create a brief to prepare this meeting"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Create a recovery key"
 msgstr "Create a recovery key"
@@ -1464,6 +1470,10 @@ msgstr "Created {0}"
 #: src/settings/automations/index.tsx
 msgid "Created {createdAt}"
 msgstr "Created {createdAt}"
+
+#: src/session/components/note-input/raw.tsx
+msgid "Creating brief..."
+msgstr "Creating brief..."
 
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
@@ -3053,6 +3063,7 @@ msgstr "Opens System Settings and guides you to add Anarlog to the {0} list."
 
 #: src/calendar/components/apple/permission.tsx
 #: src/calendar/components/oauth/provider-content.tsx
+#: src/settings/ai/shared/index.tsx
 #: src/settings/todo/provider-content.tsx
 msgid "or"
 msgstr "or"
@@ -4238,12 +4249,10 @@ msgid "Stone"
 msgstr "Stone"
 
 #: src/composer/index.tsx
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop"
 msgstr "Stop"
 
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/outer-header/index.tsx
 #: src/sidebar/timeline/item.tsx
 msgid "Stop listening"
@@ -4257,7 +4266,6 @@ msgstr "Stop listening when your call ends."
 msgid "Stop response"
 msgstr "Stop response"
 
-#: src/session/components/note-input/header-stop.tsx
 #: src/session/components/note-input/transcript/screens/empty.tsx
 #: src/session/components/outer-header/index.tsx
 msgid "Stop transcription"
@@ -4287,10 +4295,6 @@ msgstr "Storage Updated"
 #: src/instruction/index.tsx
 msgid "Submit callback URL"
 msgstr "Submit callback URL"
-
-#: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Subscription"
-msgstr "Subscription"
 
 #: src/main/windows-title-bar.tsx
 msgid "Suggest a Feature"

@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   },
   windowShow: vi.fn(() => Promise.resolve({ status: "ok", data: null })),
   authAvailable: false as boolean | null,
+  revealedNoteIds: {} as Record<string, true>,
 }));
 
 vi.mock("@tauri-apps/plugin-os", () => ({
@@ -85,8 +86,16 @@ vi.mock("~/lock/notes", () => ({
 }));
 
 vi.mock("~/lock/store", () => ({
-  useAppLock: (selector: (state: { available: boolean | null }) => unknown) =>
-    selector({ available: mocks.authAvailable }),
+  useAppLock: (
+    selector: (state: {
+      available: boolean | null;
+      revealedNoteIds: Record<string, true>;
+    }) => unknown,
+  ) =>
+    selector({
+      available: mocks.authAvailable,
+      revealedNoteIds: mocks.revealedNoteIds,
+    }),
 }));
 
 vi.mock("~/shared/hooks/useNativeContextMenu", () => ({
@@ -176,6 +185,7 @@ describe("TimelineItemComponent", () => {
     mocks.openNew.mockClear();
     mocks.platform = "macos";
     mocks.authAvailable = false;
+    mocks.revealedNoteIds = {};
     mocks.windowShow.mockClear();
     mocks.nativeContextMenus = [];
     mocks.timelineSelection.selectedIds = [];
@@ -678,5 +688,31 @@ describe("TimelineItemComponent", () => {
     );
 
     expect(screen.getByLabelText("Locked note")).toBeTruthy();
+  });
+
+  it("marks a revealed locked note with an unlocked icon", () => {
+    mocks.revealedNoteIds = { "session-locked": true };
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "session-locked",
+          data: {
+            title: "Secret",
+            created_at: "2024-01-15T10:30:00.000Z",
+            locked: 1,
+          },
+        }}
+        precision="time"
+        selected={true}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-session-locked"]}
+      />,
+    );
+
+    expect(screen.getByLabelText("Unlock Note")).toBeTruthy();
+    expect(screen.queryByLabelText("Locked note")).toBeNull();
   });
 });

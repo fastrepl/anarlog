@@ -1,5 +1,5 @@
 import { useLingui } from "@lingui/react/macro";
-import { Folder } from "@phosphor-icons/react";
+import { FolderSimple } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { homeDir } from "@tauri-apps/api/path";
 import { message, open as selectFolder } from "@tauri-apps/plugin-dialog";
@@ -114,7 +114,7 @@ export function FolderLocationSection({
   return (
     <div className="flex flex-col gap-3">
       <div className="border-border bg-muted flex items-center gap-3 rounded-lg border px-4 py-3">
-        <Folder className="text-muted-foreground size-4 shrink-0" />
+        <FolderSimple className="text-muted-foreground size-4 shrink-0" />
         <button
           onClick={handleOpenPath}
           className="text-muted-foreground min-w-0 flex-1 truncate text-left text-sm hover:underline"

@@ -38,7 +38,12 @@
       },
       {
         "group": "AI and privacy",
-        "pages": ["ai-setup", "offline", "data-and-privacy"]
+        "pages": [
+          "models-and-providers",
+          "ai-setup",
+          "offline",
+          "data-and-privacy"
+        ]
       },
       {
         "group": "CLI and agents",

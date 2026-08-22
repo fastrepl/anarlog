@@ -169,6 +169,83 @@ private func preferredSupportedLocales() async -> [String] {
   return resolved
 }
 
+/// `maximumReservedLocales` is a hard cap, so make room by releasing a locale
+/// that is not the one being installed.
+@available(macOS 26.0, *)
+private func reserveSupportedLocale(_ locale: Locale) async throws {
+  let reserved = await AssetInventory.reservedLocales
+  if reserved.contains(where: { $0.identifier(.bcp47) == locale.identifier(.bcp47) }) {
+    return
+  }
+
+  if reserved.count >= AssetInventory.maximumReservedLocales,
+    let evictable = reserved.first(where: {
+      $0.identifier(.bcp47) != locale.identifier(.bcp47)
+    })
+  {
+    _ = await AssetInventory.release(reservedLocale: evictable)
+  }
+
+  _ = try await AssetInventory.reserve(locale: locale)
+}
+
+@available(macOS 26.0, *)
+private func reportedProgressPercent(_ progress: Progress) -> Int? {
+  guard !progress.isIndeterminate, progress.totalUnitCount > 0, progress.fractionCompleted > 0
+  else {
+    return nil
+  }
+
+  return Int(min(1.0, progress.fractionCompleted) * 100.0)
+}
+
+/// Installs assets off the bridge actor. `downloadAndInstall()` can return after a
+/// queued first attempt, so we keep watching `AssetInventory.status` until the
+/// locale is actually installed.
+@available(macOS 26.0, *)
+private func installLocaleAssets(key: String, identifier: String) async throws {
+  let locale = try await resolveLocale(identifier)
+  let tag = locale.identifier(.bcp47)
+  let preferred = await preferredSupportedLocales()
+  guard preferred.contains(where: { $0.compare(tag, options: [.caseInsensitive]) == .orderedSame })
+  else {
+    throw SpeechAnalyzerBridgeError.message(
+      "Apple Speech can only install languages added in System Settings.")
+  }
+
+  let transcriber = makeTranscriber(locale: locale)
+  try await reserveSupportedLocale(locale)
+
+  if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+    let progressTask = Task.detached(priority: .utility) { [progress = request.progress] in
+      while !Task.isCancelled && !progress.isFinished {
+        await SpeechAnalyzerBridge.shared.updateDownloadProgress(
+          key: key, percent: reportedProgressPercent(progress))
+        try? await Task.sleep(nanoseconds: 300_000_000)
+      }
+    }
+
+    try await request.downloadAndInstall()
+    progressTask.cancel()
+  }
+
+  for _ in 0..<3600 {
+    try Task.checkCancellation()
+    switch await AssetInventory.status(forModules: [transcriber]) {
+    case .installed:
+      return
+    case .unsupported:
+      throw SpeechAnalyzerBridgeError.message("Apple Speech does not support \(tag).")
+    case .downloading, .supported:
+      try await Task.sleep(nanoseconds: 500_000_000)
+    @unknown default:
+      try await Task.sleep(nanoseconds: 500_000_000)
+    }
+  }
+
+  throw SpeechAnalyzerBridgeError.message("Apple Speech asset install timed out.")
+}
+
 /// Volatile results carry a single run spanning the whole hypothesis, so per-word
 /// timings only materialize on finalized results.
 @available(macOS 26.0, *)
@@ -334,10 +411,6 @@ private actor SpeechAnalyzerBridge {
 
     let key = normalizedKey(identifier)
 
-    if downloadTasks[key] != nil {
-      return encodeJSON(downloadState(for: key))
-    }
-
     do {
       let locale = try await resolveLocale(identifier)
       let transcriber = makeTranscriber(locale: locale)
@@ -353,7 +426,11 @@ private actor SpeechAnalyzerBridge {
       case .downloading:
         state.status = "downloading"
       case .supported:
-        state.status = "idle"
+        if downloadTasks[key] != nil {
+          state.status = "downloading"
+        } else {
+          state.status = "idle"
+        }
       case .unsupported:
         state.status = "error"
         state.error = "Apple Speech does not support this language."
@@ -384,62 +461,25 @@ private actor SpeechAnalyzerBridge {
     state.error = nil
     downloadStates[key] = state
 
+    // AssetInventory work stays off the actor so progress polls can hop back in.
     let task = Task.detached(priority: .utility) {
-      await SpeechAnalyzerBridge.shared.performDownload(key: key, identifier: identifier)
+      do {
+        try await installLocaleAssets(key: key, identifier: identifier)
+        await SpeechAnalyzerBridge.shared.finishDownload(key: key, error: nil)
+      } catch {
+        await SpeechAnalyzerBridge.shared.finishDownload(
+          key: key, error: error.localizedDescription)
+      }
     }
     downloadTasks[key] = task
   }
 
-  @available(macOS 26.0, *)
-  private func performDownload(key: String, identifier: String) async {
-    do {
-      let locale = try await resolveLocale(identifier)
-      let transcriber = makeTranscriber(locale: locale)
-
-      let reserved = await AssetInventory.reservedLocales
-      if !reserved.contains(where: { $0.identifier(.bcp47) == locale.identifier(.bcp47) }) {
-        try await reserveLocale(locale, reserved: reserved)
-      }
-
-      if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber])
-      {
-        let progressTask = Task.detached(priority: .utility) { [progress = request.progress] in
-          while !Task.isCancelled && !progress.isFinished {
-            await SpeechAnalyzerBridge.shared.updateDownloadProgress(
-              key: key, fraction: progress.fractionCompleted)
-            try? await Task.sleep(nanoseconds: 300_000_000)
-          }
-        }
-
-        try await request.downloadAndInstall()
-        progressTask.cancel()
-      }
-
-      await finishDownload(key: key, error: nil)
-    } catch {
-      await finishDownload(key: key, error: error.localizedDescription)
-    }
-  }
-
-  /// `maximumReservedLocales` is a hard cap, so make room by releasing a locale
-  /// that is not the one being installed.
-  @available(macOS 26.0, *)
-  private func reserveLocale(_ locale: Locale, reserved: [Locale]) async throws {
-    if reserved.count >= AssetInventory.maximumReservedLocales,
-      let evictable = reserved.first(where: {
-        $0.identifier(.bcp47) != locale.identifier(.bcp47)
-      })
-    {
-      _ = await AssetInventory.release(reservedLocale: evictable)
-    }
-
-    _ = try await AssetInventory.reserve(locale: locale)
-  }
-
-  private func updateDownloadProgress(key: String, fraction: Double) {
+  func updateDownloadProgress(key: String, percent: Int?) {
     var state = downloadState(for: key)
     state.status = "downloading"
-    state.progressPercent = Int(max(0.0, min(1.0, fraction)) * 100.0)
+    if let percent {
+      state.progressPercent = percent
+    }
     state.currentFile = "Downloading \(key)..."
     state.error = nil
     downloadStates[key] = state
@@ -562,10 +602,7 @@ private actor SpeechAnalyzerBridge {
 
   @available(macOS 26.0, *)
   private func ensureAssetsInstalled(locale: Locale, transcriber: SpeechTranscriber) async throws {
-    let reserved = await AssetInventory.reservedLocales
-    if !reserved.contains(where: { $0.identifier(.bcp47) == locale.identifier(.bcp47) }) {
-      try await reserveLocale(locale, reserved: reserved)
-    }
+    try await reserveSupportedLocale(locale)
 
     if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
       try await request.downloadAndInstall()

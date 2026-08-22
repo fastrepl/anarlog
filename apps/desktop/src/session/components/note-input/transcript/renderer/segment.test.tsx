@@ -6,6 +6,7 @@ import {
   SegmentRenderer,
   type TranscriptSearchRenderState,
 } from "./segment";
+import { TranscriptSelectionProvider } from "./selection-context";
 
 import type { Segment, SegmentWord } from "~/stt/live-segment";
 
@@ -232,6 +233,34 @@ describe("SegmentRenderer", () => {
     );
 
     expect(mocks.wordSpan).toHaveBeenCalledTimes(8);
+  });
+
+  it("draws selected borders inside the segment so list overflow cannot clip them", () => {
+    const view = render(
+      <TranscriptSelectionProvider
+        selectMode
+        selectedKeys={new Set(["transcript-1:segment-1"])}
+        registerSource={() => () => {}}
+      >
+        <SegmentRenderer
+          segment={createSegment()}
+          offsetMs={0}
+          transcriptId="transcript-1"
+          speakerLabel="Speaker 1"
+          currentMs={0}
+          seekAndPlay={vi.fn()}
+          audioExists
+          search={EMPTY_TRANSCRIPT_SEARCH}
+        />
+      </TranscriptSelectionProvider>,
+    );
+
+    const section = view.container.querySelector(
+      "[data-transcript-selected='true']",
+    );
+    expect(section?.className).toContain("ring-inset");
+    expect(section?.className).toContain("ring-1");
+    expect(section?.className).toContain("ring-primary/30");
   });
 
   it("persists text corrections when leaving write mode content", async () => {

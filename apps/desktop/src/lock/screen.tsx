@@ -11,19 +11,22 @@ export function LockScreen({
   action,
   authenticating,
   onUnlock,
+  className,
 }: {
   title: string;
   description?: string;
   action?: string;
   authenticating: boolean;
   onUnlock: () => void;
+  className?: string;
 }) {
   return (
     <div
       data-lock-screen
       data-tauri-drag-region
       className={cn([
-        "bg-background flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center",
+        "flex h-full min-h-0 w-full flex-1 flex-col items-center justify-center",
+        className ?? "bg-background",
       ])}
     >
       <div className="flex max-w-sm flex-col items-center px-6 text-center">
@@ -83,6 +86,7 @@ export function NoteLockScreen({
       action={t`View Note`}
       authenticating={authenticating}
       onUnlock={onUnlock}
+      className="bg-transparent"
     />
   );
 }

@@ -19,6 +19,7 @@ type NotificationEventRow = {
   started_at: string;
   tracking_id_event: string;
   recurrence_series_id: string;
+  is_all_day: boolean | number;
 };
 
 export async function checkEventNotifications(
@@ -40,14 +41,19 @@ export async function checkEventNotifications(
         title,
         started_at,
         tracking_id_event,
-        recurrence_series_id
+        recurrence_series_id,
+        is_all_day
       FROM events
-      WHERE deleted_at IS NULL AND started_at <> ''
+      WHERE deleted_at IS NULL AND started_at <> '' AND is_all_day = 0
       ORDER BY started_at, id
     `),
   ]);
 
   for (const event of events) {
+    if (Boolean(event.is_all_day)) {
+      continue;
+    }
+
     const startTime = new Date(event.started_at);
     const timeUntilStart = startTime.getTime() - now;
     const notificationKey = `event-${event.id}-${startTime.getTime()}`;

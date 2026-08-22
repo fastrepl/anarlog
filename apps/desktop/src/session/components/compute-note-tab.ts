@@ -16,6 +16,9 @@ export function computeCurrentNoteTab(
     if (tabView?.type === "enhanced" && hasEnhancedNote(tabView.id)) {
       return tabView;
     }
+    if (tabView?.type === "transcript" && canShowTranscript) {
+      return tabView;
+    }
     return { type: "raw" };
   }
 

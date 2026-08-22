@@ -10,6 +10,8 @@ Anarlog uses two model settings:
 
 Open **Settings → Transcription** or **Settings → Intelligence** to choose a provider and model.
 
+[Models and providers](/models-and-providers) explains the current Anarlog Cloud routes, built-in on-device models, and how bring-your-own-provider requests work.
+
 ## Choose a setup
 
 <CardGroup cols={2}>
@@ -17,19 +19,29 @@ Open **Settings → Transcription** or **Settings → Intelligence** to choose a
     Sign in and choose Anarlog for the quickest setup. Hosted models require Pro.
   </Card>
   <Card title="On-device transcription" icon="laptop">
-    Download a supported local model from Transcription. Local models are available on supported Apple Silicon Macs.
+    Download Soniqo on a supported Apple Silicon Mac, or use Apple Speech when macOS 26 reports it available.
   </Card>
   <Card title="Your API key" icon="key">
     Configure a provider, enter its API key, then select it under Model being used.
   </Card>
   <Card title="Local language model" icon="server">
-    Connect LM Studio, Ollama, or Unsloth to generate summaries on your computer.
+    Connect LM Studio, Ollama, or Unsloth, or use Apple Intelligence on an eligible Mac.
   </Card>
 </CardGroup>
 
 Models labeled **Live** show text during the meeting. Models labeled **After recording** transcribe after you stop.
 
 To keep transcription, summaries, and chat on your computer, follow [Use Anarlog offline](/offline).
+
+## Apple Intelligence
+
+On an eligible Mac running macOS 26 or later:
+
+1. Turn on Apple Intelligence in **System Settings** and wait for its model to finish downloading.
+2. In Anarlog, open **Settings → Intelligence → Configure Providers → Apple Intelligence**.
+3. Select **System Language Model** under **Model being used**.
+
+Apple Intelligence support is experimental and currently handles text only.
 
 ## LM Studio
 
