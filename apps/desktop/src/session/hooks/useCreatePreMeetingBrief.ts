@@ -30,12 +30,14 @@ export type { MemoBriefEditor };
 export function useCreatePreMeetingBrief({
   sessionId,
   sessionMode,
+  isMemoEmpty,
   onSwitchToMemos,
   getMemoEditor,
 }: {
   sessionId: string;
   sessionMode: SessionMode;
   isMemoView: boolean;
+  isMemoEmpty?: boolean;
   onSwitchToMemos: () => void;
   getMemoEditor: () => MemoBriefEditor | null;
 }) {
@@ -56,7 +58,7 @@ export function useCreatePreMeetingBrief({
   const pastNotes = usePastSessionNotes(sessionId, {
     enabled: enabled && (upcoming || hasParticipants),
   });
-  const memoEmpty = !hasStoredNoteContent(session?.raw_md);
+  const memoEmpty = isMemoEmpty ?? !hasStoredNoteContent(session?.raw_md);
   const available =
     enabled &&
     Boolean(model) &&
@@ -110,14 +112,24 @@ export function useCreatePreMeetingBrief({
       language,
       event: briefEvent,
       notes,
-      existingMarkdown: getStoredNoteMarkdown(sessionRef.current?.raw_md),
+      existingMarkdown: memoEmpty
+        ? ""
+        : getStoredNoteMarkdown(sessionRef.current?.raw_md),
     }).catch((error) => {
       console.error("Failed to create pre-meeting brief", error);
       sonnerToast.error(t`Could not create the pre-meeting brief. Try again.`, {
         id: "pre-meeting-brief-error",
       });
     });
-  }, [available, isGenerating, language, model, onSwitchToMemos, sessionId]);
+  }, [
+    available,
+    isGenerating,
+    language,
+    memoEmpty,
+    model,
+    onSwitchToMemos,
+    sessionId,
+  ]);
 
   return {
     visible: available || isGenerating,

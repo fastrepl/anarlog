@@ -227,6 +227,7 @@ export const RawEditor = forwardRef<
       sessionId,
       sessionMode,
       isMemoView: true,
+      isMemoEmpty,
       onSwitchToMemos: noop,
       getMemoEditor: getMemoBriefEditor,
     });

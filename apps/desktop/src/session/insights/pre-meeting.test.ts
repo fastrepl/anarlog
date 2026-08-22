@@ -4,6 +4,7 @@ import type { PastSessionNote } from "./past-notes";
 import {
   canCreatePreMeetingBrief,
   compactBriefText,
+  formatPreMeetingBrief,
   getPreMeetingBriefFacts,
   mergeBriefMarkdown,
   selectBriefSourceNotes,
@@ -161,6 +162,39 @@ describe("brief source notes", () => {
   });
 });
 
+describe("formatPreMeetingBrief", () => {
+  it("formats a JSON opener and three bullets", () => {
+    expect(
+      formatPreMeetingBrief({
+        opener: "Ada slipped the prototype date.",
+        bullets: [
+          "John still owns the scratchpad rewrite.",
+          "CI cost gating is unresolved.",
+          "Artem left the Korea workshop dates open.",
+          "Extra fact should not appear.",
+        ],
+      }),
+    ).toBe(`**Ada slipped the prototype date.**
+
+- John still owns the scratchpad rewrite.
+- CI cost gating is unresolved.
+- Artem left the Korea workshop dates open.`);
+  });
+
+  it("drops leftover instructions from structured fields", () => {
+    expect(
+      formatPreMeetingBrief({
+        opener: "One sentence: why this conversation matters.",
+        bullets: [
+          "John's proposal to show a Linear chip above the chat box.",
+          "Yujong's commitment to discuss CI spending.",
+        ],
+      }),
+    ).toBe(`- John's proposal to show a Linear chip above the chat box.
+- Yujong's commitment to discuss CI spending.`);
+  });
+});
+
 describe("trimPreMeetingBrief", () => {
   it("keeps a one-liner and the first three bullets", () => {
     expect(
@@ -240,9 +274,10 @@ describe("streamPreMeetingBrief", () => {
 
   it("sends only a few facts so the model cannot list every thread twice", async () => {
     hoisted.streamText.mockReturnValue({
-      textStream: (async function* () {
-        yield "- Follow up with Ada.";
+      partialOutputStream: (async function* () {
+        yield { bullets: ["Follow up with Ada."] };
       })(),
+      output: Promise.resolve({ bullets: ["Follow up with Ada."] }),
     });
 
     await streamPreMeetingBrief({
@@ -271,10 +306,17 @@ describe("streamPreMeetingBrief", () => {
 
   it("streams a brief from the latest related meetings", async () => {
     hoisted.streamText.mockReturnValue({
-      textStream: (async function* () {
-        yield "**Follow up with Ada on launch timing.**\n\n";
-        yield "- Ada owns the prototype.";
+      partialOutputStream: (async function* () {
+        yield { opener: "Follow up with Ada on launch timing." };
+        yield {
+          opener: "Follow up with Ada on launch timing.",
+          bullets: ["Ada owns the prototype."],
+        };
       })(),
+      output: Promise.resolve({
+        opener: "Follow up with Ada on launch timing.",
+        bullets: ["Ada owns the prototype."],
+      }),
     });
 
     const chunks: string[] = [];
@@ -302,7 +344,8 @@ describe("streamPreMeetingBrief", () => {
     expect(hoisted.streamText).toHaveBeenCalledWith(
       expect.objectContaining({
         model: { id: "model-1" },
-        maxOutputTokens: 140,
+        maxOutputTokens: 200,
+        output: expect.objectContaining({}),
       }),
     );
     expect(hoisted.renderCustom).toHaveBeenCalled();

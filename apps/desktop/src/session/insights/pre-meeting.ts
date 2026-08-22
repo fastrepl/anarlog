@@ -1,4 +1,5 @@
-import { streamText, type LanguageModel } from "ai";
+import { Output, streamText, type LanguageModel } from "ai";
+import { z } from "zod";
 
 import {
   commands as templateCommands,
@@ -19,7 +20,11 @@ const MAX_PROMPT_FACTS = 4;
 const MAX_BRIEF_BULLETS = 3;
 const MAX_SUMMARY_LENGTH = 320;
 const BRIEF_GENERATION_TIMEOUT_MS = 45_000;
-const BRIEF_MAX_OUTPUT_TOKENS = 140;
+const BRIEF_MAX_OUTPUT_TOKENS = 200;
+const briefSchema = z.object({
+  opener: z.string(),
+  bullets: z.array(z.string()).min(1).max(MAX_BRIEF_BULLETS),
+});
 const SECTION_LABEL_REGEX =
   /^(quick\s+)?(recap|summary|overview|agenda|insights?|upcoming|next steps|prepare|brief)\b/i;
 const INSTRUCTION_LEFTOVER_REGEX =
@@ -147,6 +152,22 @@ export function compactBriefText(value: string, maxLength: number): string {
   return `${slice.slice(0, end).trim()}…`;
 }
 
+export function formatPreMeetingBrief(brief: {
+  opener?: string;
+  bullets?: Array<string | undefined>;
+}): string {
+  const opener = sanitizeBriefOpener(brief.opener);
+  const bullets = (brief.bullets ?? [])
+    .map(sanitizeBriefBullet)
+    .filter(Boolean)
+    .slice(0, MAX_BRIEF_BULLETS)
+    .map((item) => `- ${item}`);
+
+  return [opener && `**${opener}**`, bullets.join("\n")]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export function trimPreMeetingBrief(text: string): string {
   const openerParts: string[] = [];
   const bullets: string[] = [];
@@ -160,12 +181,8 @@ export function trimPreMeetingBrief(text: string): string {
     const heading = line.match(/^#{1,6}\s+(.+)$/);
     const bullet = line.match(/^(?:[-*+]|\d+[.)])\s+(.+)$/);
     if (bullet) {
-      const item = bullet[1].trim();
-      if (
-        item &&
-        !isBriefInstructionLeftover(item) &&
-        bullets.length < MAX_BRIEF_BULLETS
-      ) {
+      const item = sanitizeBriefBullet(bullet[1]);
+      if (item && bullets.length < MAX_BRIEF_BULLETS) {
         bullets.push(`- ${item}`);
       }
       continue;
@@ -175,19 +192,33 @@ export function trimPreMeetingBrief(text: string): string {
       continue;
     }
 
-    const body = (heading?.[1] ?? line).replace(/\*+/g, "").trim();
-    if (
-      !body ||
-      isBriefSectionLabel(body) ||
-      isBriefInstructionLeftover(body)
-    ) {
-      continue;
+    const body = sanitizeBriefOpener(heading?.[1] ?? line);
+    if (body) {
+      openerParts.push(`**${body}**`);
     }
-
-    openerParts.push(`**${body}**`);
   }
 
   return [openerParts[0], bullets.join("\n")].filter(Boolean).join("\n\n");
+}
+
+function sanitizeBriefOpener(text: string | undefined): string {
+  const body = text?.replace(/\*+/g, "").trim() ?? "";
+  if (!body || isBriefSectionLabel(body) || isBriefInstructionLeftover(body)) {
+    return "";
+  }
+  return body;
+}
+
+function sanitizeBriefBullet(text: string | undefined): string {
+  const item =
+    text
+      ?.replace(/^(?:[-*+]|\d+[.)])\s+/, "")
+      .replace(/\*+/g, "")
+      .trim() ?? "";
+  if (!item || isBriefInstructionLeftover(item)) {
+    return "";
+  }
+  return item;
 }
 
 function isBriefSectionLabel(text: string): boolean {
@@ -278,18 +309,21 @@ export async function streamPreMeetingBrief({
     model,
     system,
     prompt,
+    output: Output.object({ schema: briefSchema }),
     abortSignal: signal,
     maxRetries: 2,
     maxOutputTokens: BRIEF_MAX_OUTPUT_TOKENS,
     timeout: { totalMs: BRIEF_GENERATION_TIMEOUT_MS },
   });
 
-  let text = "";
-  for await (const chunk of result.textStream) {
-    text += chunk;
-    onText?.(trimPreMeetingBrief(text));
+  for await (const partial of result.partialOutputStream) {
+    const markdown = formatPreMeetingBrief(partial);
+    if (markdown) {
+      onText?.(markdown);
+    }
   }
-  return trimPreMeetingBrief(text);
+
+  return formatPreMeetingBrief((await result.output) ?? {});
 }
 
 type TemplateContext = Partial<{ [key: string]: JsonValue }>;
