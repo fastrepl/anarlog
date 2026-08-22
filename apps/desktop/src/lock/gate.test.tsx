@@ -144,6 +144,52 @@ describe("AppLockGate", () => {
     expect(screen.queryByText("Anarlog is Locked")).toBeNull();
   });
 
+  it("does not unlock from a prompt that finishes after close", async () => {
+    let resolveAuth!: (value: boolean) => void;
+    mocks.authenticateDevice.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        resolveAuth = resolve;
+      }),
+    );
+
+    render(
+      <AppLockGate>
+        <div>app content</div>
+      </AppLockGate>,
+    );
+
+    await waitFor(() => {
+      expect(mocks.authenticateDevice).toHaveBeenCalledTimes(1);
+      expect(useAppLock.getState().authenticating).toBe(true);
+    });
+
+    const emit = getVisibilityHandler();
+    await act(async () => {
+      emit({ payload: { window: { type: "main" }, visible: false } });
+    });
+
+    await act(async () => {
+      resolveAuth(true);
+    });
+
+    await waitFor(() => {
+      expect(useAppLock.getState().authenticating).toBe(false);
+    });
+    expect(useAppLock.getState().appUnlocked).toBe(false);
+    expect(screen.getByText("Anarlog is Locked")).toBeTruthy();
+
+    mocks.authenticateDevice.mockResolvedValue(true);
+    await act(async () => {
+      emit({ payload: { window: { type: "main" }, visible: true } });
+    });
+
+    await waitFor(() => {
+      expect(mocks.authenticateDevice).toHaveBeenCalledTimes(2);
+      expect(useAppLock.getState().appUnlocked).toBe(true);
+    });
+    expect(screen.queryByText("Anarlog is Locked")).toBeNull();
+  });
+
   it("ignores visibility changes for other windows", async () => {
     await renderLockedGate();
     const emit = getVisibilityHandler();

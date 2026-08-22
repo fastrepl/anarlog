@@ -54,4 +54,46 @@ describe("app lock store", () => {
     expect(useAppLock.getState().isNoteRevealed("session-1")).toBe(false);
     expect(useAppLock.getState().appUnlocked).toBe(false);
   });
+
+  it("ignores an in-flight unlock after the app locks", async () => {
+    let resolveAuth!: (value: boolean) => void;
+    mocks.authenticateDevice.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        resolveAuth = resolve;
+      }),
+    );
+
+    const pending = useAppLock.getState().unlockApp("open");
+    await waitForAuthenticating();
+    useAppLock.getState().lockApp();
+    resolveAuth(true);
+
+    await expect(pending).resolves.toBe(false);
+    expect(useAppLock.getState().appUnlocked).toBe(false);
+  });
+
+  it("unlocks after a later authentication that starts after lock", async () => {
+    let resolveAuth!: (value: boolean) => void;
+    mocks.authenticateDevice.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        resolveAuth = resolve;
+      }),
+    );
+
+    const stale = useAppLock.getState().unlockApp("open");
+    await waitForAuthenticating();
+    useAppLock.getState().lockApp();
+    resolveAuth(true);
+    await expect(stale).resolves.toBe(false);
+
+    mocks.authenticateDevice.mockResolvedValue(true);
+    await expect(useAppLock.getState().unlockApp("open")).resolves.toBe(true);
+    expect(useAppLock.getState().appUnlocked).toBe(true);
+  });
 });
+
+function waitForAuthenticating() {
+  return vi.waitFor(() => {
+    expect(useAppLock.getState().authenticating).toBe(true);
+  });
+}
