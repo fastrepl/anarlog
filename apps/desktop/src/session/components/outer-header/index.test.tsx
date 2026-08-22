@@ -269,7 +269,7 @@ describe("OuterHeader", () => {
     const header = container.firstElementChild;
     const spacer = header?.firstElementChild;
 
-    expect(header?.className).toContain("pl-[116px]");
+    expect(header?.className).toContain("pl-[108px]");
     expect(header?.className).toContain("h-12");
     expect(header?.className).not.toContain("pb-1");
     expect(spacer?.className).toContain("flex-1");
@@ -291,8 +291,8 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(container.firstElementChild?.className).toContain("pl-[40px]");
-    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
+    expect(container.firstElementChild?.className).toContain("pl-[32px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
     expect(container.firstElementChild?.className).not.toContain("pl-2");
   });
 
@@ -312,7 +312,7 @@ describe("OuterHeader", () => {
     expect(spacer?.className).not.toContain("right-[140px]");
     expect(spacer?.className).not.toContain("justify-center");
     expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[114px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
     expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
   });
 
@@ -350,7 +350,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
     expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
+    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
   });
 
   it("keeps the session header at 48px tall", () => {
@@ -684,7 +684,7 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
 
-    expect(header?.className).not.toContain("pl-[116px]");
+    expect(header?.className).not.toContain("pl-[108px]");
     expect(header?.className).toContain("pl-[76px]");
   });
 
