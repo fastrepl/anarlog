@@ -107,7 +107,7 @@ pub(super) fn canonicalize_meeting_app_id(id: &str) -> String {
             "com.google.Chrome".to_string()
         }
         "chromium" | "chromium-browser" => "org.chromium.Chromium".to_string(),
-        "firefox" => "org.mozilla.firefox".to_string(),
+        "firefox" | "firefox-bin" => "org.mozilla.firefox".to_string(),
         "microsoft-edge" | "microsoft-edge-stable" | "msedge" => {
             "com.microsoft.edgemac".to_string()
         }
@@ -192,6 +192,25 @@ pub(super) fn running_meeting_apps() -> Vec<(MeetingApp, i32)> {
 }
 
 #[cfg(not(target_os = "macos"))]
+fn process_matches_meeting_family(process: &sysinfo::Process, family: &str) -> bool {
+    let process_name = process.name().to_string_lossy();
+    let exe_name = process
+        .exe()
+        .and_then(|path| path.file_name())
+        .map(|name| name.to_string_lossy())
+        .unwrap_or_default();
+    let command = process
+        .cmd()
+        .first()
+        .map(|part| part.to_string_lossy())
+        .unwrap_or_default();
+
+    [process_name.as_ref(), exe_name.as_ref(), command.as_ref()]
+        .into_iter()
+        .any(|candidate| meeting_app_family(candidate) == Some(family))
+}
+
+#[cfg(not(target_os = "macos"))]
 pub(super) fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)> {
     let Some(family) = meeting_app_family(bundle_id) else {
         return Vec::new();
@@ -205,23 +224,17 @@ pub(super) fn running_apps_for_bundle(bundle_id: &str) -> Vec<(MeetingApp, i32)>
         .processes()
         .iter()
         .filter_map(|(pid, process)| {
-            let process_name = process.name().to_string_lossy().into_owned();
-            let exe_name = process
-                .exe()
-                .and_then(|path| path.file_name())
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let command = process
-                .cmd()
-                .first()
-                .map(|part| part.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let matches = [process_name.as_str(), exe_name.as_str(), command.as_str()]
-                .into_iter()
-                .any(|candidate| meeting_app_family(candidate) == Some(family));
-            if !matches {
+            if process.thread_kind().is_some()
+                || process.status() == sysinfo::ProcessStatus::Zombie
+                || !process_matches_meeting_family(process, family)
+                || process
+                    .parent()
+                    .and_then(|parent| system.process(parent))
+                    .is_some_and(|parent| process_matches_meeting_family(parent, family))
+            {
                 return None;
             }
+            let process_name = process.name().to_string_lossy().into_owned();
 
             let pid = i32::try_from(pid.as_u32()).ok()?;
             if !seen.insert(pid) {
