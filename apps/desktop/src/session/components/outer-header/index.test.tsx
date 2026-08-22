@@ -1076,12 +1076,12 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const writeButton = screen.getByRole("button", { name: "Write" });
-    expect(writeButton.className).toContain("@max-[480px]:w-7");
-    expect(writeButton.querySelector("span")?.className).toContain(
+    const editButton = screen.getByRole("button", { name: "Edit" });
+    expect(editButton.className).toContain("@max-[480px]:w-7");
+    expect(editButton.querySelector("span")?.className).toContain(
       "@max-[480px]:sr-only",
     );
-    fireEvent.click(writeButton);
+    fireEvent.click(editButton);
     expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(
@@ -1097,7 +1097,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    const doneButton = screen.getByRole("button", { name: "Done writing" });
+    const doneButton = screen.getByRole("button", { name: "Done" });
     expect(doneButton.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(doneButton);
     expect(onTranscriptEditModeChange).toHaveBeenLastCalledWith(false);
@@ -1114,7 +1114,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Write" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
   });
 
   it("does not show transcript editing while the meeting is active", () => {
@@ -1129,7 +1129,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Write" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
     expect(screen.getByRole("button", { name: "Stop" })).not.toBeNull();
   });
 
@@ -1152,7 +1152,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Write" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Edit" })).not.toBeNull();
     expect(
       screen.getByRole("button", { name: "Open event metadata" }),
     ).not.toBeNull();

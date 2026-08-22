@@ -54,7 +54,6 @@ msgstr "{0}% complete"
 msgid "{absDays} days ago"
 msgstr "{absDays} days ago"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "{entryCount} selected"
 msgstr "{entryCount} selected"
@@ -733,7 +732,6 @@ msgstr "Change"
 msgid "Change photo"
 msgstr "Change photo"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Change speaker"
 msgstr "Change speaker"
@@ -907,10 +905,6 @@ msgstr "Clean up legacy files?"
 #: src/settings/general/storage/legacy-cleanup.tsx
 msgid "Cleaning up..."
 msgstr "Cleaning up..."
-
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
-msgid "Clear"
-msgstr "Clear"
 
 #: src/contacts/related-notes.tsx
 #: src/contacts/shared.tsx
@@ -1298,6 +1292,10 @@ msgstr "Could not copy the share link."
 msgid "Could not copy to clipboard"
 msgstr "Could not copy to clipboard"
 
+#: src/session/hooks/useCreatePreMeetingBrief.ts
+msgid "Could not create the pre-meeting brief. Try again."
+msgstr "Could not create the pre-meeting brief. Try again."
+
 #: src/session-sharing/invitation-management.ts
 msgid "Could not create these invitations."
 msgstr "Could not create these invitations."
@@ -1430,6 +1428,10 @@ msgstr "Create a shared workspace"
 msgid "Create account"
 msgstr "Create account"
 
+#: src/session/components/outer-header/create-brief-button.tsx
+msgid "Create brief"
+msgstr "Create brief"
+
 #: src/settings/developers/cloud-api.tsx
 msgid "Create key"
 msgstr "Create key"
@@ -1462,6 +1464,10 @@ msgstr "Created {0}"
 #: src/settings/automations/index.tsx
 msgid "Created {createdAt}"
 msgstr "Created {createdAt}"
+
+#: src/session/components/outer-header/create-brief-button.tsx
+msgid "Creating brief..."
+msgstr "Creating brief..."
 
 #: src/settings/general/summary-length.tsx
 msgid "Crisp"
@@ -1653,14 +1659,10 @@ msgstr "Documentation"
 msgid "Don't save"
 msgstr "Don't save"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
+#: src/session/components/note-input/transcript/index.tsx
 #: src/settings/sync/index.tsx
 msgid "Done"
 msgstr "Done"
-
-#: src/session/components/note-input/transcript/index.tsx
-msgid "Done writing"
-msgstr "Done writing"
 
 #: src/settings/ai/stt/select.tsx
 #: src/sidebar/toast/registry.tsx
@@ -1720,6 +1722,7 @@ msgid "Each example must be 12,000 characters or fewer."
 msgstr "Each example must be 12,000 characters or fewer."
 
 #: src/main/windows-title-bar.tsx
+#: src/session/components/note-input/transcript/index.tsx
 #: src/sidebar/automations.tsx
 msgid "Edit"
 msgstr "Edit"
@@ -2306,10 +2309,6 @@ msgstr "Last delivery {0}"
 msgid "Last import: {0} added, {1} unchanged"
 msgstr "Last import: {0} added, {1} unchanged"
 
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "Last meeting"
-msgstr "Last meeting"
-
 #. placeholder {0}: lastRun.detail
 #: src/settings/automations/starter-config.tsx
 msgid "Last run {relative}: {0}"
@@ -2577,7 +2576,7 @@ msgstr "Memo"
 msgid "Memos"
 msgstr "Memos"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
+#: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Merge"
 msgstr "Merge"
 
@@ -2817,10 +2816,6 @@ msgstr "No people"
 #: src/contacts/organization-details.tsx
 msgid "No people in this organization"
 msgstr "No people in this organization"
-
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "No previous meeting summary is available. Calendar details are shown above."
-msgstr "No previous meeting summary is available. Calendar details are shown above."
 
 #: src/settings/ai/llm/configure.tsx
 #: src/settings/ai/stt/configure.tsx
@@ -3189,10 +3184,6 @@ msgstr "Post the meeting summary to a channel you can access."
 #: src/automations/starters.tsx
 msgid "Post to a channel"
 msgstr "Post to a channel"
-
-#: src/session/components/note-input/pre-meeting-brief.tsx
-msgid "Pre-meeting brief"
-msgstr "Pre-meeting brief"
 
 #: src/settings/general/notification.tsx
 msgid "Prepare for events with a 5-minute reminder."
@@ -3718,10 +3709,6 @@ msgstr "Security"
 msgid "See all templates"
 msgstr "See all templates"
 
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
-msgid "Select"
-msgstr "Select"
-
 #: src/settings/ai/shared/model-combobox.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "Select a model"
@@ -3737,7 +3724,6 @@ msgid "Select a provider"
 msgstr "Select a provider"
 
 #: src/main/windows-title-bar.tsx
-#: src/session/components/note-input/transcript/renderer/select-toolbar.tsx
 msgid "Select All"
 msgstr "Select All"
 
@@ -4985,10 +4971,6 @@ msgstr "Workspace activity from metadata only. Note content stays unreadable on 
 #: src/settings/team/index.tsx
 msgid "Workspace name"
 msgstr "Workspace name"
-
-#: src/session/components/note-input/transcript/index.tsx
-msgid "Write"
-msgstr "Write"
 
 #: src/automations/starters.tsx
 msgid "Write to a folder"

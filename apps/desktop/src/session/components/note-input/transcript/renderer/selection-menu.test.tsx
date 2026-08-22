@@ -1,9 +1,17 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { createRef, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SelectionMenu } from "./selection-menu";
+import { MultiSelectionBar, SelectionMenu } from "./selection-menu";
 import type { TranscriptContextMenuRequest } from "./selection-menu";
+
+import { setSessionFabSelectionHost } from "~/session/components/floating/selection-slot";
 
 vi.mock("@floating-ui/react", () => ({
   autoUpdate: vi.fn(),
@@ -22,14 +30,25 @@ vi.mock("@floating-ui/react", () => ({
 }));
 
 vi.mock("./speaker-assign", () => ({
-  SpeakerParticipantPicker: () => <button type="button">Confirm</button>,
+  SpeakerParticipantPicker: ({
+    onSelect,
+  }: {
+    onSelect?: (humanId: string) => void;
+  }) => (
+    <button type="button" onClick={() => onSelect?.("human-1")}>
+      Confirm
+    </button>
+  ),
 }));
 
 vi.mock("~/shared/hooks/useAutoCloser", () => ({
   useAutoCloser: () => ({ current: null }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  setSessionFabSelectionHost(null);
+});
 
 describe("SelectionMenu", () => {
   it("keeps the speaker picker inside the viewport without a back row", () => {
@@ -98,6 +117,98 @@ describe("SelectionMenu", () => {
     );
 
     expect(screen.getByRole("button", { name: "Play from here" })).toBeTruthy();
+  });
+});
+
+describe("MultiSelectionBar", () => {
+  const selection = {
+    sessionId: "session-1",
+    text: "Hello",
+    startMs: 0,
+    groups: [],
+  };
+
+  it("keeps merge disabled until contiguous entries are selected", () => {
+    render(
+      <MultiSelectionBar
+        selection={selection}
+        entryCount={2}
+        canMerge={false}
+        onClear={vi.fn()}
+        onAssignSpeaker={vi.fn()}
+        onMerge={vi.fn()}
+      />,
+    );
+
+    expect(
+      (screen.getByRole("button", { name: "Merge" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("assigns the current selection and then clears it", async () => {
+    const onAssignSpeaker = vi.fn(() => Promise.resolve());
+    const onClear = vi.fn();
+
+    render(
+      <MultiSelectionBar
+        selection={selection}
+        entryCount={2}
+        onClear={onClear}
+        onAssignSpeaker={onAssignSpeaker}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change speaker" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => {
+      expect(onAssignSpeaker).toHaveBeenCalledWith(selection, "human-1");
+      expect(onClear).toHaveBeenCalled();
+    });
+  });
+
+  it("merges contiguous entries and then clears the selection", async () => {
+    const onMerge = vi.fn(() => Promise.resolve());
+    const onClear = vi.fn();
+
+    render(
+      <MultiSelectionBar
+        selection={selection}
+        entryCount={2}
+        canMerge
+        onClear={onClear}
+        onAssignSpeaker={vi.fn()}
+        onMerge={onMerge}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Merge" }));
+
+    await waitFor(() => {
+      expect(onMerge).toHaveBeenCalled();
+      expect(onClear).toHaveBeenCalled();
+    });
+  });
+
+  it("renders into the session FAB selection slot when it is present", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    setSessionFabSelectionHost(host);
+
+    render(
+      <MultiSelectionBar
+        selection={selection}
+        entryCount={2}
+        onClear={vi.fn()}
+        onAssignSpeaker={vi.fn()}
+      />,
+    );
+
+    expect(host.textContent).toContain("2 selected");
+    expect(host.firstElementChild?.className).not.toContain("absolute");
+
+    host.remove();
   });
 });
 
