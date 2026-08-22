@@ -18,6 +18,14 @@ const mocks = vi.hoisted(() => ({
   model: { id: "model-1" } as { id: string } | null,
   notes: [] as PastSessionNote[],
   rawMd: "",
+  title: "",
+  userId: "me",
+  participants: [] as Array<{
+    humanId: string;
+    source: string;
+    name: string;
+    email: string;
+  }>,
   streamPreMeetingBrief: vi.fn(),
   updateSession: vi.fn(),
   toastError: vi.fn(),
@@ -52,7 +60,12 @@ vi.mock("~/session/insights/pre-meeting", async (importOriginal) => ({
 }));
 
 vi.mock("~/session/queries", () => ({
-  useSession: () => ({ raw_md: mocks.rawMd }),
+  useSession: () => ({
+    raw_md: mocks.rawMd,
+    title: mocks.title,
+    user_id: mocks.userId,
+  }),
+  useSessionParticipants: () => mocks.participants,
   updateSession: mocks.updateSession,
 }));
 
@@ -102,6 +115,9 @@ describe("useCreatePreMeetingBrief", () => {
       },
     ];
     mocks.rawMd = "";
+    mocks.title = "";
+    mocks.userId = "me";
+    mocks.participants = [];
     mocks.streamPreMeetingBrief.mockReset();
     mocks.streamPreMeetingBrief.mockImplementation(
       async ({ onText }: { onText?: (text: string) => void }) => {
@@ -133,6 +149,36 @@ describe("useCreatePreMeetingBrief", () => {
     mocks.notes = [];
     rerender();
     expect(result.current.visible).toBe(false);
+  });
+
+  it("shows create brief on untitled notes after participants are added", () => {
+    mocks.event = null;
+    mocks.title = "";
+
+    const { result, rerender } = renderHook(
+      () =>
+        useCreatePreMeetingBrief({
+          sessionId: "current",
+          sessionMode: "inactive",
+          isMemoView: true,
+          onSwitchToMemos: () => {},
+          getMemoEditor: () => null,
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.visible).toBe(false);
+
+    mocks.participants = [
+      {
+        humanId: "yujong",
+        source: "manual",
+        name: "Yujong Lee",
+        email: "yujonglee@fastrepl.com",
+      },
+    ];
+    rerender();
+    expect(result.current.visible).toBe(true);
   });
 
   it("hides after the memo has content and returns when the memo is cleared", () => {

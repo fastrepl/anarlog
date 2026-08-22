@@ -18,7 +18,11 @@ import {
   shouldShowPreMeetingBrief,
   streamPreMeetingBrief,
 } from "~/session/insights/pre-meeting";
-import { updateSession, useSession } from "~/session/queries";
+import {
+  updateSession,
+  useSession,
+  useSessionParticipants,
+} from "~/session/queries";
 import { useConfigValue } from "~/shared/config";
 import type { SessionMode } from "~/store/zustand/listener/general";
 
@@ -46,10 +50,17 @@ export function useCreatePreMeetingBrief({
   const enabled = sessionMode === "inactive";
   const event = useSessionCalendarEvent(sessionId, { enabled });
   const upcoming = shouldShowPreMeetingBrief(event, now.getTime());
-  const pastNotes = usePastSessionNotes(sessionId, {
-    enabled: enabled && upcoming,
-  });
   const session = useSession(sessionId);
+  const participants = useSessionParticipants(sessionId);
+  const hasParticipants = participants.some(
+    (participant) =>
+      participant.source !== "excluded" &&
+      Boolean(participant.humanId) &&
+      participant.humanId !== session?.user_id,
+  );
+  const pastNotes = usePastSessionNotes(sessionId, {
+    enabled: enabled && (upcoming || hasParticipants),
+  });
   const memoEmpty = !hasStoredNoteContent(session?.raw_md);
   const available =
     enabled &&
@@ -59,6 +70,7 @@ export function useCreatePreMeetingBrief({
       event,
       nowMs: now.getTime(),
       notes: pastNotes.notes,
+      hasParticipants,
     });
 
   const isMemoViewRef = useRef(isMemoView);
@@ -71,11 +83,13 @@ export function useCreatePreMeetingBrief({
   notesRef.current = pastNotes.notes;
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  const participantsRef = useRef(participants);
+  participantsRef.current = participants;
 
   const { mutate, isPending } = useMutation({
     mutationKey: ["pre-meeting-brief", sessionId],
     mutationFn: async () => {
-      if (!model || !eventRef.current) {
+      if (!model) {
         return;
       }
 
@@ -83,6 +97,20 @@ export function useCreatePreMeetingBrief({
       if (notes.length === 0) {
         return;
       }
+
+      const briefEvent = eventRef.current ?? {
+        title: sessionRef.current?.title,
+        participants: participantsRef.current
+          .filter(
+            (participant) =>
+              participant.source !== "excluded" &&
+              participant.humanId !== sessionRef.current?.user_id,
+          )
+          .map((participant) => ({
+            name: participant.name,
+            email: participant.email,
+          })),
+      };
 
       onSwitchToMemos();
       const existingMarkdown = getStoredNoteMarkdown(
@@ -92,7 +120,7 @@ export function useCreatePreMeetingBrief({
       const brief = await streamPreMeetingBrief({
         model,
         language,
-        event: eventRef.current,
+        event: briefEvent,
         notes,
         onText: (text) => {
           latest = text;

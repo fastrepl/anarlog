@@ -14,6 +14,7 @@ import { cn, safeParseDate } from "@anlg/utils";
 import { FolderPicker } from "../folder-picker";
 import { TranscriptEditButton } from "../note-input/transcript";
 import { RecordingIcon, useHasTranscript } from "../shared";
+import { TitleInput } from "../title-input";
 import { CreateBriefButton } from "./create-brief-button";
 import { MetadataButton } from "./metadata";
 import { OverflowButton } from "./overflow";
@@ -35,7 +36,7 @@ import {
 import { useSessionEvent } from "~/session/hooks/useSessionEvent";
 import { useWindowControlsGutter } from "~/shared/hooks/useWindowControlsGutter";
 import { getScheme } from "~/shared/utils";
-import type { EditorView } from "~/store/zustand/tabs/schema";
+import type { EditorView, Tab } from "~/store/zustand/tabs/schema";
 import { useListener } from "~/stt/contexts";
 import { useStartListening } from "~/stt/useStartListening";
 import {
@@ -46,6 +47,7 @@ import {
 export function OuterHeader({
   sessionId,
   currentView,
+  tab,
   standaloneWindow = false,
   viewSwitcher,
   transcriptEditMode = false,
@@ -55,6 +57,7 @@ export function OuterHeader({
 }: {
   sessionId: string;
   currentView: EditorView;
+  tab?: Extract<Tab, { type: "sessions" }>;
   standaloneWindow?: boolean;
   viewSwitcher?: React.ReactNode;
   transcriptEditMode?: boolean;
@@ -81,6 +84,11 @@ export function OuterHeader({
       ])}
     >
       {viewSwitcher}
+      {tab ? (
+        <div className="max-w-56 min-w-0 shrink">
+          <TitleInput tab={tab} variant="breadcrumb" />
+        </div>
+      ) : null}
       {onSwitchToMemos && getMemoEditor ? (
         <CreateBriefButton
           sessionId={sessionId}
@@ -90,7 +98,11 @@ export function OuterHeader({
           getMemoEditor={getMemoEditor}
         />
       ) : null}
-      <div data-tauri-drag-region className="min-h-full min-w-0 flex-1" />
+      <div
+        data-tauri-drag-region
+        data-session-header-spacer
+        className="min-h-full min-w-0 flex-1"
+      />
       <div
         data-tauri-drag-region
         className="relative z-10 flex shrink-0 items-center pr-1"

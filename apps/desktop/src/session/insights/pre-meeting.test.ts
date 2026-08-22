@@ -107,7 +107,7 @@ describe("pre-meeting brief visibility", () => {
     ).toBe(false);
   });
 
-  it("requires an upcoming event and usable prior meetings", () => {
+  it("requires an upcoming event or added participants, plus usable prior meetings", () => {
     const event = {
       started_at: "2026-08-21T09:00:00.000Z",
       ended_at: "2026-08-21T10:00:00.000Z",
@@ -122,6 +122,22 @@ describe("pre-meeting brief visibility", () => {
         event: null,
         nowMs,
         notes,
+      }),
+    ).toBe(false);
+    expect(
+      canCreatePreMeetingBrief({
+        event: null,
+        nowMs,
+        notes,
+        hasParticipants: true,
+      }),
+    ).toBe(true);
+    expect(
+      canCreatePreMeetingBrief({
+        event: null,
+        nowMs,
+        notes: [],
+        hasParticipants: true,
       }),
     ).toBe(false);
   });

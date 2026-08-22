@@ -73,13 +73,15 @@ export function canCreatePreMeetingBrief({
   event,
   nowMs,
   notes,
+  hasParticipants = false,
 }: {
   event: PreMeetingBriefEvent | null;
   nowMs: number;
   notes: PastSessionNote[];
+  hasParticipants?: boolean;
 }): boolean {
   return (
-    shouldShowPreMeetingBrief(event, nowMs) &&
+    (shouldShowPreMeetingBrief(event, nowMs) || hasParticipants) &&
     selectBriefSourceNotes(notes).length > 0
   );
 }
