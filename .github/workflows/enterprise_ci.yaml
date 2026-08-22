@@ -37,3 +37,4 @@ jobs:
       - run: cargo test --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-google-meet-worker --test reliability_gate --test fixture_replay
       - run: cargo test --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-google-meet-worker --lib
       - run: cargo test --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-control-plane --test upgrade
+      - run: cargo clippy --manifest-path enterprise/Cargo.toml --locked -p anarlog-enterprise-google-meet-worker --tests --lib -- -D warnings

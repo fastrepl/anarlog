@@ -41,10 +41,11 @@ fn assert_terminal(lifecycle: &WorkerLifecycle) {
 #[test]
 fn reliability_gate_covers_required_terminal_reasons() {
     let started = Instant::now();
-    let cases: [(
-        &str,
-        Box<dyn Fn(&mut WorkerLifecycle) -> TerminalReasonKind>,
-    ); 9] = [
+    type Case<'a> = (
+        &'a str,
+        Box<dyn Fn(&mut WorkerLifecycle) -> TerminalReasonKind + 'a>,
+    );
+    let cases: [Case<'_>; 9] = [
         (
             "admitted-kicked",
             Box::new(|lifecycle| {

@@ -795,14 +795,14 @@ mod tests {
             first_outcome,
             CaptureJobSupervisorOutcome::Terminal(BotState::Failed)
         );
-        let CaptureEventPayload::Lifecycle(transition) = &first.events.lock().unwrap()[0].payload
-        else {
-            panic!("expected lifecycle event");
+        let reason_kind = {
+            let events = first.events.lock().unwrap();
+            let CaptureEventPayload::Lifecycle(transition) = &events[0].payload else {
+                panic!("expected lifecycle event");
+            };
+            transition.reason.as_ref().unwrap().kind
         };
-        assert_eq!(
-            transition.reason.as_ref().unwrap().kind,
-            TerminalReasonKind::WorkerExited
-        );
+        assert_eq!(reason_kind, TerminalReasonKind::WorkerExited);
 
         let second = harness(BotState::Failed, 8, RuntimeMode::Wait, false);
         let (_shutdown_tx, shutdown_rx) = watch::channel(false);

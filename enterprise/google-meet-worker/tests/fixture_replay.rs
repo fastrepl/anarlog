@@ -237,10 +237,10 @@ fn replays_lifecycle_scenarios_to_provider_neutral_terminal_reasons() {
                 ),
                 other => panic!("{}: unknown action {other}", scenario.id),
             };
-            if let Some(event) = event {
-                if let CaptureEventPayload::Lifecycle(transition) = event.payload {
-                    last_terminal = transition.reason;
-                }
+            if let Some(event) = event
+                && let CaptureEventPayload::Lifecycle(transition) = event.payload
+            {
+                last_terminal = transition.reason;
             }
         }
 
