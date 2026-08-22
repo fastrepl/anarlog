@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { usesHeadlessOAuth } from "./integration-headless-auth.ts";
+import {
+  isConnectSessionFailed,
+  usesHeadlessOAuth,
+} from "./integration-headless-auth.ts";
 
 test("skips Nango Connect UI for OAuth integrations that need no extra inputs", () => {
   assert.equal(usesHeadlessOAuth("outlook"), true);
@@ -12,4 +15,23 @@ test("skips Nango Connect UI for OAuth integrations that need no extra inputs", 
 
 test("keeps Connect UI for integrations that may collect extra setup fields", () => {
   assert.equal(usesHeadlessOAuth("unknown-api-key"), false);
+});
+
+test("keeps a cached connect session usable after a later refresh fails", () => {
+  assert.equal(
+    isConnectSessionFailed({
+      isError: true,
+      token: "cached-session",
+    }),
+    false,
+  );
+  assert.equal(
+    isConnectSessionFailed({
+      handedOffToken: "desktop-session",
+      isError: true,
+    }),
+    false,
+  );
+  assert.equal(isConnectSessionFailed({ isError: true }), true);
+  assert.equal(isConnectSessionFailed({ isError: false }), false);
 });

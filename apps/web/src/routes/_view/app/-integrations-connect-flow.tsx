@@ -1,7 +1,7 @@
 import Nango, { type ConnectUI } from "@nangohq/frontend";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createSession } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
@@ -15,7 +15,10 @@ import {
   getConnectionErrorMessage,
   getNangoAuthErrorType,
 } from "@/lib/integration-connection-error";
-import { usesHeadlessOAuth } from "@/lib/integration-headless-auth";
+import {
+  isConnectSessionFailed,
+  usesHeadlessOAuth,
+} from "@/lib/integration-headless-auth";
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
@@ -76,9 +79,14 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
   });
 
   const connectSessionToken = sessionToken ?? sessionQuery.data?.token;
-  const sessionFailed = !sessionToken && sessionQuery.isError;
+  const sessionFailed = isConnectSessionFailed({
+    handedOffToken: sessionToken,
+    isError: sessionQuery.isError,
+    token: sessionQuery.data?.token,
+  });
   const sessionLoading =
     !sessionToken && (sessionQuery.isPending || sessionQuery.isFetching);
+  const reportedSessionErrorCountRef = useRef(0);
 
   const updateStatus = (
     nextStatus: "idle" | "loading" | "connecting" | "success" | "error",
@@ -178,10 +186,11 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
     // call or browsers will block the provider window.
     const nango = new Nango({ connectSessionToken: token });
     nangoRef.current = nango;
-    const options = { detectClosedAuthWindow: true };
-    const auth = search.connection_id
-      ? nango.auth(search.integration_id, search.connection_id, options)
-      : nango.auth(search.integration_id, options);
+    // The connect/reconnect session already binds the connection. Passing a
+    // client-side connection ID is rejected by Nango's session model.
+    const auth = nango.auth(search.integration_id, {
+      detectClosedAuthWindow: true,
+    });
 
     updateStatus("connecting");
     void auth.then(finishWithSuccess).catch(finishWithAuthError);
@@ -244,6 +253,17 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
 
     startConnectUI(connectSessionToken);
   };
+
+  useEffect(() => {
+    if (!sessionFailed) return;
+    if (
+      reportedSessionErrorCountRef.current === sessionQuery.errorUpdateCount
+    ) {
+      return;
+    }
+    reportedSessionErrorCountRef.current = sessionQuery.errorUpdateCount;
+    finishWithSessionError();
+  }, [sessionFailed, sessionQuery.errorUpdateCount]);
 
   useMountEffect(() => {
     disposedRef.current = false;
@@ -356,7 +376,7 @@ export function ConnectFlow({ sessionToken }: { sessionToken?: string } = {}) {
             onClick={() => {
               setConnectionError(null);
               updateStatus("idle");
-              if (sessionFailed) {
+              if (!connectSessionToken) {
                 void sessionQuery.refetch();
                 return;
               }
