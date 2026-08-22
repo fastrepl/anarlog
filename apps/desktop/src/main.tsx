@@ -50,7 +50,13 @@ import { createAITaskStore } from "./store/zustand/ai-task";
 import { listenerStore } from "./store/zustand/listener/instance";
 
 const toolRegistry = createToolRegistry();
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      gcTime: 60_000,
+    },
+  },
+});
 const STARTUP_TASK_TIMEOUT_MS = 10_000;
 
 const router = createRouter({
@@ -70,19 +76,17 @@ function App() {
   const aiTaskStore = useMemo(() => createAITaskStore(), []);
 
   return (
-    <AppThemeProvider>
-      <AppI18nProvider>
-        <AITaskWindowSyncBridge store={aiTaskStore} />
-        <RouterProvider
-          router={router}
-          context={{
-            listenerStore,
-            aiTaskStore,
-            toolRegistry,
-          }}
-        />
-      </AppI18nProvider>
-    </AppThemeProvider>
+    <>
+      <AITaskWindowSyncBridge store={aiTaskStore} />
+      <RouterProvider
+        router={router}
+        context={{
+          listenerStore,
+          aiTaskStore,
+          toolRegistry,
+        }}
+      />
+    </>
   );
 }
 
@@ -109,16 +113,20 @@ function ReadyApp() {
 
   return (
     <TaskSchedulerProvider scheduler={scheduler}>
-      <AppLockGate>
-        <App />
-        {isMainWindow ? <TaskManager /> : null}
-        {isMainWindow ? <FloatingMeetingWindowHost /> : null}
-        {isMainWindow ? <EventListeners /> : null}
-        {isMainWindow ? <TrayScheduleSync /> : null}
-        {isMainWindow ? <TrayRecordingSync /> : null}
-        {isMainWindow ? <UpdaterMeetingSync /> : null}
-        <Toaster position="bottom-right" theme={theme} />
-      </AppLockGate>
+      <AppThemeProvider>
+        <AppI18nProvider>
+          <AppLockGate>
+            <App />
+            {isMainWindow ? <TaskManager /> : null}
+            {isMainWindow ? <FloatingMeetingWindowHost /> : null}
+            {isMainWindow ? <EventListeners /> : null}
+            {isMainWindow ? <TrayScheduleSync /> : null}
+            {isMainWindow ? <TrayRecordingSync /> : null}
+            {isMainWindow ? <UpdaterMeetingSync /> : null}
+            <Toaster position="bottom-right" theme={theme} />
+          </AppLockGate>
+        </AppI18nProvider>
+      </AppThemeProvider>
     </TaskSchedulerProvider>
   );
 }

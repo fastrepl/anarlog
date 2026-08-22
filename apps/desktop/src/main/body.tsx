@@ -520,7 +520,6 @@ export function ClassicMainBody({
                 ])}
               >
                 <ClassicMainSidebar
-                  forceMount
                   noteFilter={noteFilter}
                   timelineHeader={timelineHeader}
                   showIgnoredTimelineEvents={showIgnoredTimelineEvents}

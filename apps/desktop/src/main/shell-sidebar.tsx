@@ -10,13 +10,11 @@ import {
 import { useTabs } from "~/store/zustand/tabs";
 
 export function ClassicMainSidebar({
-  forceMount = false,
   noteFilter = "mine",
   timelineHeader,
   showIgnoredTimelineEvents,
   onShowIgnoredTimelineEventsChange,
 }: {
-  forceMount?: boolean;
   noteFilter?: SidebarNoteFilter;
   timelineHeader?: ReactNode;
   showIgnoredTimelineEvents?: boolean;
@@ -30,7 +28,7 @@ export function ClassicMainSidebar({
 
   useCustomSidebarEffect(hasCustomSidebar, leftsidebar);
 
-  if ((!leftsidebar.expanded && !forceMount) || isOnboarding) {
+  if (!leftsidebar.expanded || isOnboarding) {
     return null;
   }
 

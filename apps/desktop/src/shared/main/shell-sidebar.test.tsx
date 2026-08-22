@@ -91,11 +91,11 @@ describe("ClassicMainSidebar", () => {
     expect(screen.getByTestId("left-sidebar")).toBeTruthy();
   });
 
-  it("can keep the sidebar mounted while the shell animates closed", () => {
+  it("unmounts the sidebar while collapsed", () => {
     mockLeftSidebar.expanded = false;
 
-    render(<ClassicMainSidebar forceMount />);
+    render(<ClassicMainSidebar />);
 
-    expect(screen.getByTestId("left-sidebar")).toBeTruthy();
+    expect(screen.queryByTestId("left-sidebar")).toBeNull();
   });
 });

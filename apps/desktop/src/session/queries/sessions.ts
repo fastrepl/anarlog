@@ -109,6 +109,28 @@ export function useSessionSummaries(): SessionSummaryRecord[] {
   return data;
 }
 
+export function useSessionSummariesByIds(
+  sessionIds: readonly string[],
+): SessionSummaryRecord[] {
+  const uniqueIds = [...new Set(sessionIds.filter(Boolean))].sort();
+  const placeholders = uniqueIds.map(() => "?").join(", ");
+  const { data = EMPTY_SESSION_SUMMARIES } = useLiveQuery<
+    SessionSummarySqlRow,
+    SessionSummaryRecord[]
+  >({
+    sql: `
+      SELECT id, title, created_at
+      FROM sessions
+      WHERE id IN (${placeholders || "NULL"})
+        AND deleted_at IS NULL
+      ORDER BY id
+    `,
+    params: uniqueIds,
+    enabled: uniqueIds.length > 0,
+  });
+  return uniqueIds.length > 0 ? data : EMPTY_SESSION_SUMMARIES;
+}
+
 export async function loadSessionEvent(
   sessionId: string,
 ): Promise<SessionEvent | null> {

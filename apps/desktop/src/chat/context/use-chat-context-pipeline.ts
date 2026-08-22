@@ -9,11 +9,14 @@ import {
 import { extractContextRefsFromMessages } from "./refs";
 
 import type { AnlgUIMessage } from "~/chat/types";
-import { useHumans, useOrganizations } from "~/contacts/queries";
-import { useSessionSummaries } from "~/session/queries";
+import {
+  useHumanDisplayRecordsByIds,
+  useOrganizationDisplayRecordsByIds,
+} from "~/contacts/queries";
+import { useSessionSummariesByIds } from "~/session/queries";
 
 function getSessionDisplayData(
-  sessions: ReturnType<typeof useSessionSummaries>,
+  sessions: ReturnType<typeof useSessionSummariesByIds>,
   sessionId: string,
 ): { title: string | null; date: string | null } {
   const row = sessions.find((session) => session.id === sessionId);
@@ -24,8 +27,8 @@ function getSessionDisplayData(
 }
 
 function getHumanDisplayData(
-  humans: ReturnType<typeof useHumans>,
-  organizations: ReturnType<typeof useOrganizations>,
+  humans: ReturnType<typeof useHumanDisplayRecordsByIds>,
+  organizations: ReturnType<typeof useOrganizationDisplayRecordsByIds>,
   humanId: string,
 ): {
   name: string | null;
@@ -45,7 +48,7 @@ function getHumanDisplayData(
 }
 
 function getOrganizationDisplayData(
-  organizations: ReturnType<typeof useOrganizations>,
+  organizations: ReturnType<typeof useOrganizationDisplayRecordsByIds>,
   organizationId: string,
 ): { name: string | null } {
   const row = organizations.find(
@@ -58,9 +61,9 @@ function getOrganizationDisplayData(
 
 function toDisplayEntity(
   ref: ContextRef,
-  sessions: ReturnType<typeof useSessionSummaries>,
-  humans: ReturnType<typeof useHumans>,
-  organizations: ReturnType<typeof useOrganizations>,
+  sessions: ReturnType<typeof useSessionSummariesByIds>,
+  humans: ReturnType<typeof useHumanDisplayRecordsByIds>,
+  organizations: ReturnType<typeof useOrganizationDisplayRecordsByIds>,
   removable: boolean,
 ): ContextEntity {
   if (ref.kind === "session") {
@@ -102,9 +105,6 @@ export function useChatContextPipeline({
   contextEntities: DisplayEntity[];
   pendingRefs: ContextRef[];
 } {
-  const sessions = useSessionSummaries();
-  const humans = useHumans();
-  const organizations = useOrganizations();
   const committedRefs = useMemo(
     () => extractContextRefsFromMessages(messages),
     [messages],
@@ -129,6 +129,41 @@ export function useChatContextPipeline({
     refs.push(...pendingManualRefs);
     return refs;
   }, [currentSessionId, pendingManualRefs]);
+
+  const referencedIds = useMemo(() => {
+    const sessionIds = new Set<string>();
+    const humanIds = new Set<string>();
+    const organizationIds = new Set<string>();
+
+    for (const ref of [...committedRefs, ...pendingRefs]) {
+      if (ref.kind === "session") {
+        sessionIds.add(ref.sessionId);
+      } else if (ref.kind === "human") {
+        humanIds.add(ref.humanId);
+      } else {
+        organizationIds.add(ref.organizationId);
+      }
+    }
+
+    return {
+      sessionIds: [...sessionIds].sort(),
+      humanIds: [...humanIds].sort(),
+      organizationIds: [...organizationIds].sort(),
+    };
+  }, [committedRefs, pendingRefs]);
+
+  const sessions = useSessionSummariesByIds(referencedIds.sessionIds);
+  const humans = useHumanDisplayRecordsByIds(referencedIds.humanIds);
+  const organizationIds = useMemo(() => {
+    const ids = new Set(referencedIds.organizationIds);
+    for (const human of humans) {
+      if (human.organizationId) {
+        ids.add(human.organizationId);
+      }
+    }
+    return [...ids].sort();
+  }, [humans, referencedIds.organizationIds]);
+  const organizations = useOrganizationDisplayRecordsByIds(organizationIds);
 
   const committedEntities = useMemo(
     () =>

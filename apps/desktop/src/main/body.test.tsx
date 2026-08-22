@@ -714,7 +714,7 @@ describe("ClassicMainBody", () => {
     expect(panels[1]?.dataset.minWidth).toBe("500");
   });
 
-  it("collapses the sidebar panel while keeping hidden timeline content mounted", () => {
+  it("unmounts hidden sidebar content when the panel is collapsed", () => {
     mocks.leftsidebar.expanded = false;
 
     render(<ClassicMainBody />);
@@ -723,7 +723,7 @@ describe("ClassicMainBody", () => {
 
     expect(resizeHandle.dataset.className).toContain("pointer-events-none");
     expect(resizeHandle.dataset.className).toContain("w-0");
-    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
+    expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
 
     const panels = screen.getAllByTestId("panel");
     expect(panels).toHaveLength(2);
@@ -738,9 +738,7 @@ describe("ClassicMainBody", () => {
     );
     expect(sidebarContent?.className).toContain("-translate-x-3");
     expect(sidebarContent?.className).toContain("opacity-0");
-    expect(
-      document.querySelector("[data-sidebar-timeline-header]"),
-    ).toBeTruthy();
+    expect(document.querySelector("[data-sidebar-timeline-header]")).toBeNull();
     expect(sidebarContent?.getAttribute("aria-hidden")).toBe("true");
     expect(sidebarContent?.hasAttribute("inert")).toBe(true);
   });
@@ -749,7 +747,7 @@ describe("ClassicMainBody", () => {
     mocks.leftsidebar.expanded = false;
 
     const { rerender } = render(<ClassicMainBody />);
-    const mountedSidebar = screen.getByTestId("classic-main-sidebar");
+    expect(screen.queryByTestId("classic-main-sidebar")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Show sidebar" }));
 
@@ -760,7 +758,7 @@ describe("ClassicMainBody", () => {
     mocks.leftsidebar.expanded = true;
     rerender(<ClassicMainBody />);
 
-    expect(screen.getByTestId("classic-main-sidebar")).toBe(mountedSidebar);
+    expect(screen.getByTestId("classic-main-sidebar")).toBeTruthy();
   });
 
   it("keeps layout transitions disabled when resize is interrupted by collapse", () => {

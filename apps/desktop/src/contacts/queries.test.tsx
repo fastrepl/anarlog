@@ -19,8 +19,8 @@ vi.mock("~/db", () => ({
   executeTransaction: mocks.executeTransaction,
   liveQueryClient: { execute: mocks.execute },
   useLiveQuery: (options: {
-    mapRows: (rows: Array<Record<string, unknown>>) => unknown;
-  }) => ({ data: options.mapRows(mocks.rows) }),
+    mapRows?: (rows: Array<Record<string, unknown>>) => unknown;
+  }) => ({ data: options.mapRows ? options.mapRows(mocks.rows) : mocks.rows }),
 }));
 
 vi.mock("~/shared/utils", () => ({
@@ -44,8 +44,10 @@ import {
   updateHumanContactSummary,
   updateHuman,
   updateOrganization,
+  useHumanDisplayRecordsByIds,
   useHumans,
   useHumanSessions,
+  useOrganizationDisplayRecordsByIds,
   useOrganizations,
 } from "./queries";
 
@@ -190,6 +192,54 @@ describe("contact SQLite queries", () => {
         avatarDataUrl: null,
       },
     ]);
+  });
+
+  it("loads only lightweight display fields for referenced contacts", () => {
+    mocks.rows = [
+      {
+        id: "human-1",
+        organization_id: "organization-1",
+        name: "Alice",
+        email: "alice@example.com",
+        avatar_data_url: "data:image/jpeg;base64,unused",
+      },
+    ];
+
+    const { result: humanResult } = renderHook(() =>
+      useHumanDisplayRecordsByIds(["human-1", "human-1", ""]),
+    );
+
+    expect(humanResult.current).toEqual([
+      {
+        id: "human-1",
+        organizationId: "organization-1",
+        name: "Alice",
+        email: "alice@example.com",
+      },
+    ]);
+
+    mocks.rows = [{ id: "organization-1", name: "Acme" }];
+    const { result: organizationResult } = renderHook(() =>
+      useOrganizationDisplayRecordsByIds(["organization-1"]),
+    );
+
+    expect(organizationResult.current).toEqual([
+      { id: "organization-1", name: "Acme" },
+    ]);
+  });
+
+  it("does not expose display records when no ids are referenced", () => {
+    mocks.rows = [{ id: "human-1", name: "Alice" }];
+
+    const { result: humanResult } = renderHook(() =>
+      useHumanDisplayRecordsByIds([]),
+    );
+    const { result: organizationResult } = renderHook(() =>
+      useOrganizationDisplayRecordsByIds([]),
+    );
+
+    expect(humanResult.current).toEqual([]);
+    expect(organizationResult.current).toEqual([]);
   });
 
   it("loads deduplicated human records directly from SQLite", async () => {

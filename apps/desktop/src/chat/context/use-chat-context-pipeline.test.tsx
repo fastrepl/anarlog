@@ -1,31 +1,56 @@
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const queryMocks = vi.hoisted(() => ({
+  sessionIds: vi.fn(),
+  humanIds: vi.fn(),
+  organizationIds: vi.fn(),
+}));
 
 vi.mock("~/session/queries", () => ({
-  useSessionSummaries: () => [
-    {
-      id: "session-1",
-      title: "Planning",
-      created_at: "2026-07-10T09:00:00.000Z",
-    },
-  ],
+  useSessionSummariesByIds: (ids: string[]) => {
+    queryMocks.sessionIds(ids);
+    return ids.includes("session-1")
+      ? [
+          {
+            id: "session-1",
+            title: "Planning",
+            created_at: "2026-07-10T09:00:00.000Z",
+          },
+        ]
+      : [];
+  },
 }));
 
 vi.mock("~/contacts/queries", () => ({
-  useHumans: () => [
-    {
-      id: "human-1",
-      name: "Alice",
-      email: "alice@example.com",
-      organizationId: "organization-1",
-    },
-  ],
-  useOrganizations: () => [{ id: "organization-1", name: "Acme" }],
+  useHumanDisplayRecordsByIds: (ids: string[]) => {
+    queryMocks.humanIds(ids);
+    return ids.includes("human-1")
+      ? [
+          {
+            id: "human-1",
+            name: "Alice",
+            email: "alice@example.com",
+            organizationId: "organization-1",
+          },
+        ]
+      : [];
+  },
+  useOrganizationDisplayRecordsByIds: (ids: string[]) => {
+    queryMocks.organizationIds(ids);
+    return ids.includes("organization-1")
+      ? [{ id: "organization-1", name: "Acme" }]
+      : [];
+  },
 }));
 
 import { useChatContextPipeline } from "./use-chat-context-pipeline";
 
 describe("chat context display pipeline", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("resolves pending entity labels from live SQLite records", () => {
     const { result } = renderHook(() =>
       useChatContextPipeline({
@@ -67,5 +92,22 @@ describe("chat context display pipeline", () => {
         removable: true,
       }),
     ]);
+    expect(queryMocks.sessionIds).toHaveBeenCalledWith(["session-1"]);
+    expect(queryMocks.humanIds).toHaveBeenCalledWith(["human-1"]);
+    expect(queryMocks.organizationIds).toHaveBeenCalledWith(["organization-1"]);
+  });
+
+  it("does not request unreferenced context catalogs", () => {
+    const { result } = renderHook(() =>
+      useChatContextPipeline({
+        messages: [],
+        pendingManualRefs: [],
+      }),
+    );
+
+    expect(result.current.contextEntities).toEqual([]);
+    expect(queryMocks.sessionIds).toHaveBeenCalledWith([]);
+    expect(queryMocks.humanIds).toHaveBeenCalledWith([]);
+    expect(queryMocks.organizationIds).toHaveBeenCalledWith([]);
   });
 });

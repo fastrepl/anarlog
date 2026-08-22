@@ -29,6 +29,7 @@ export {
   useSession,
   useSessionHasTranscript,
   useSessionSummaries,
+  useSessionSummariesByIds,
   useSessionSummary,
   useSessionTranscriptExistence,
   useUpdateSession,
