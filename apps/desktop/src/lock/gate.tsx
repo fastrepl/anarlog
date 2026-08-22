@@ -1,6 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+
+import {
+  events as windowsEvents,
+  getCurrentWebviewWindowLabel,
+} from "@anlg/plugin-windows";
 
 import { DEVICE_AUTH_REASON } from "./auth";
 import { LockScreen, useDeviceAuthHint } from "./screen";
@@ -49,24 +53,39 @@ export function AppLockGate({ children }: { children: ReactNode }) {
     if (!shouldLock) return;
 
     let unlisten: (() => void) | undefined;
-    void getCurrentWindow()
-      .onFocusChanged(({ payload: focused }) => {
-        if (focused) {
-          if (useAppLock.getState().appUnlocked) return;
-          if (useAppLock.getState().authenticating) return;
-          promptedRef.current = true;
-          void useAppLock.getState().unlockApp(DEVICE_AUTH_REASON.openApp);
+    let cancelled = false;
+    void windowsEvents.visibilityEvent
+      .listen(({ payload }) => {
+        if (
+          payload.window.type !== "main" ||
+          getCurrentWebviewWindowLabel() !== "main"
+        ) {
           return;
         }
+
+        if (!payload.visible) {
+          // Closing hides the main window. Lock now, but do not prompt until
+          // the user opens it again.
+          promptedRef.current = true;
+          lockApp();
+          return;
+        }
+
+        if (useAppLock.getState().appUnlocked) return;
         if (useAppLock.getState().authenticating) return;
-        promptedRef.current = false;
-        lockApp();
+        promptedRef.current = true;
+        void useAppLock.getState().unlockApp(DEVICE_AUTH_REASON.openApp);
       })
       .then((fn) => {
-        unlisten = fn;
+        if (cancelled) {
+          fn();
+        } else {
+          unlisten = fn;
+        }
       });
 
     return () => {
+      cancelled = true;
       unlisten?.();
     };
   }, [lockApp, shouldLock]);
