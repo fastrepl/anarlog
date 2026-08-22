@@ -50,13 +50,13 @@ describe("useOAuthCalendarSelection", () => {
     mocks.calendars = [];
   });
 
-  it("syncs when a newly connected account has no calendars yet", () => {
+  it("does not sync on mount while calendar rows are still empty", () => {
     render(<HookHarness />);
 
-    expect(mocks.scheduleSync).toHaveBeenCalledOnce();
+    expect(mocks.scheduleSync).not.toHaveBeenCalled();
   });
 
-  it("does not resync an account that already has calendars", () => {
+  it("does not sync on mount when calendars are already present", () => {
     mocks.calendars = [
       {
         id: "cal-1",
