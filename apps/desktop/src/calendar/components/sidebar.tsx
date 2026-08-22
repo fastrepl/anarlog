@@ -33,7 +33,10 @@ import {
   allowReconnectedCalendarConnections,
   removeDisconnectedCalendarConnection,
 } from "~/services/calendar";
-import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
+import {
+  type MenuItemDef,
+  useNativeContextMenu,
+} from "~/shared/hooks/useNativeContextMenu";
 import { usePermission } from "~/shared/hooks/usePermissions";
 import { useOpenIntegrationUrl } from "~/shared/integration";
 
@@ -197,7 +200,7 @@ function ProviderAccordionItem({
   const canDisconnectApple =
     provider.id === "apple" && calendar.status === "authorized";
 
-  const handleAppleConnect = useCallback(() => {
+  const handleAppleConnect = useCallback((): void => {
     if (calendar.isPending) return;
     allowReconnectedCalendarConnections("apple");
     if (calendar.status === "denied") {
@@ -206,7 +209,7 @@ function ProviderAccordionItem({
       calendar.request();
     }
   }, [calendar]);
-  const handleAppleDisconnect = useCallback(() => {
+  const handleAppleDisconnect = useCallback((): void => {
     void removeDisconnectedCalendarConnection("apple", "apple");
     calendar.reset();
   }, [calendar]);
@@ -261,18 +264,19 @@ function ProviderAccordionItem({
     [upgradeToPro],
   );
   const providerMenuItems = useMemo(
-    () =>
+    (): MenuItemDef[] =>
       canAddAccount
         ? [
             {
               id: `add-${provider.id}-account`,
               text: t`Add ${provider.displayName} account`,
-              action: () =>
+              action: () => {
                 void openIntegration({
                   nangoIntegrationId: provider.nangoIntegrationId,
                   action: "connect",
                   returnTo,
-                }),
+                });
+              },
             },
           ]
         : canDisconnectApple
@@ -280,13 +284,17 @@ function ProviderAccordionItem({
               {
                 id: "reconnect-apple-calendar",
                 text: t`Reconnect`,
-                action: handleAppleConnect,
+                action: () => {
+                  handleAppleConnect();
+                },
                 disabled: calendar.isPending,
               },
               {
                 id: "disconnect-apple-calendar",
                 text: t`Disconnect`,
-                action: handleAppleDisconnect,
+                action: () => {
+                  handleAppleDisconnect();
+                },
                 disabled: calendar.isPending,
               },
             ]

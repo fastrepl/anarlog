@@ -153,7 +153,7 @@ describe("CalendarSidebarContent", () => {
     expect(disconnect?.text).toBe("Disconnect");
     expect(reconnect?.text).toBe("Reconnect");
 
-    disconnect?.action();
+    disconnect?.action?.();
 
     expect(mocks.removeDisconnectedCalendarConnection).toHaveBeenCalledWith(
       "apple",
@@ -161,7 +161,7 @@ describe("CalendarSidebarContent", () => {
     );
     expect(mocks.calendar.reset).toHaveBeenCalledOnce();
 
-    reconnect?.action();
+    reconnect?.action?.();
 
     expect(mocks.allowReconnectedCalendarConnections).toHaveBeenCalledWith(
       "apple",
