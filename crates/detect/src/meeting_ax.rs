@@ -72,9 +72,9 @@ pub use types::{
 };
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
-const MAX_TREE_DEPTH: usize = 18;
+const MAX_TREE_DEPTH: usize = 24;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
-const MAX_NODES: usize = 1800;
+const MAX_NODES: usize = 4000;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MIN_VIDEO_AREA: f64 = 18_000.0;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
@@ -96,6 +96,69 @@ fn unique_scope_for_search(count: usize, complete: bool) -> UniqueMatch {
     } else {
         UniqueMatch::Ambiguous
     }
+}
+
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[derive(Debug)]
+enum BrowserMeetingSnapshot {
+    Accept(BrowserMeetingRoot),
+    Exclude,
+    Unscoped,
+}
+
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+fn is_chat_priority_label(label: &str) -> bool {
+    let label = label.trim().to_ascii_lowercase();
+    label.contains("in-call messages")
+        || label.contains("meeting chat")
+        || label.contains("send a message")
+        || label.contains("type a message")
+        || label.contains("type a new message")
+        || label.contains("message everyone")
+        || label.contains("chat with everyone")
+        || label.contains("huddle chat")
+        || label.contains("open chat")
+        || label.contains("show chat")
+        || label.contains("show/hide thread")
+        || label == "chat"
+        || label == "leave call"
+        || label == "hang up"
+        || label == "leave meeting"
+        || label == "end meeting"
+        || label == "leave huddle"
+        || label == "end huddle"
+}
+
+#[cfg(any(test, target_os = "macos", target_os = "linux"))]
+fn browser_meeting_root_from_snapshot(
+    nodes: Vec<AxNode>,
+    complete: bool,
+    web_area_url: Option<String>,
+    window_title: Option<String>,
+    web_area_node: Option<&AxNode>,
+) -> BrowserMeetingSnapshot {
+    let platform = classify_browser_context(
+        web_area_url.as_deref(),
+        window_title.as_deref(),
+        web_area_node,
+        &nodes,
+    );
+    if platform == MeetingPlatform::Unknown {
+        return if !complete
+            && browser_window_has_provider_signal(web_area_url.as_deref(), window_title.as_deref())
+        {
+            BrowserMeetingSnapshot::Unscoped
+        } else {
+            BrowserMeetingSnapshot::Exclude
+        };
+    }
+
+    BrowserMeetingSnapshot::Accept(BrowserMeetingRoot {
+        platform,
+        window_title,
+        web_area_url,
+        nodes,
+    })
 }
 
 #[cfg(target_os = "macos")]
@@ -812,10 +875,7 @@ fn send_scoped_chat_message(
     mut warnings: Vec<String>,
 ) -> MeetingChatSendResult {
     let mut refreshed_nodes = Vec::new();
-    if !collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings) {
-        warnings.push("refusing to send from an incomplete meeting AX snapshot".to_string());
-        return chat_send_failure(app, platform, surface, None, warnings);
-    }
+    let _ = collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings);
 
     let mut chat_elements = collect_sorted_chat_elements(root);
     if validated_chat_scope(platform, &refreshed_nodes).is_none() {
@@ -830,13 +890,7 @@ fn send_scoped_chat_message(
                     Ok(_) => {
                         warnings.push(format!("opened meeting chat via AX: {label}"));
                         refreshed_nodes.clear();
-                        if !collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings) {
-                            warnings.push(
-                                "refusing to send from an incomplete meeting AX snapshot after opening chat"
-                                    .to_string(),
-                            );
-                            return chat_send_failure(app, platform, surface, None, warnings);
-                        }
+                        let _ = collect_nodes(root, 0, &mut refreshed_nodes, &mut warnings);
                         chat_elements = collect_sorted_chat_elements(root);
                     }
                     Err(error) => {
@@ -1197,45 +1251,36 @@ fn collect_browser_meeting_windows(
             });
             let mut nodes = Vec::new();
             let mut root_warnings = Vec::new();
-            if !collect_nodes(&web_area, 0, &mut nodes, &mut root_warnings) {
-                if browser_window_has_provider_signal(
-                    web_area_url.as_deref(),
-                    window_title.as_deref(),
-                ) {
+            let complete = collect_nodes(&web_area, 0, &mut nodes, &mut root_warnings);
+            match browser_meeting_root_from_snapshot(
+                nodes,
+                complete,
+                web_area_url.clone(),
+                window_title.clone(),
+                Some(&web_area_node),
+            ) {
+                BrowserMeetingSnapshot::Accept(root) => {
+                    warnings.extend(root_warnings);
+                    Some((root, web_area))
+                }
+                BrowserMeetingSnapshot::Unscoped => {
                     has_unscoped_meeting_window = true;
                     warnings.extend(root_warnings);
+                    None
                 }
-                return None;
-            }
-            warnings.extend(root_warnings);
-            let platform = classify_browser_context(
-                web_area_url.as_deref(),
-                window_title.as_deref(),
-                Some(&web_area_node),
-                &nodes,
-            );
-            if platform == MeetingPlatform::Unknown {
-                if browser_window_has_provider_signal(
-                    web_area_url.as_deref(),
-                    window_title.as_deref(),
-                ) {
-                    warnings.push(
-                        "a browser window lacked matching meeting-origin and title/control signals; it was excluded"
-                            .to_string(),
-                    );
+                BrowserMeetingSnapshot::Exclude => {
+                    if browser_window_has_provider_signal(
+                        web_area_url.as_deref(),
+                        window_title.as_deref(),
+                    ) {
+                        warnings.push(
+                            "a browser window lacked matching meeting-origin and title/control signals; it was excluded"
+                                .to_string(),
+                        );
+                    }
+                    None
                 }
-                return None;
             }
-
-            Some((
-                BrowserMeetingRoot {
-                    platform,
-                    window_title,
-                    web_area_url,
-                    nodes,
-                },
-                web_area,
-            ))
         })
         .collect();
 
@@ -1485,7 +1530,10 @@ fn collect_chat_elements(
         return;
     };
 
-    for (child_index, child) in children.iter().enumerate() {
+    let mut ordered: Vec<(usize, _)> = children.iter().enumerate().collect();
+    ordered.sort_by_key(|(index, child)| (ax_child_walk_rank(child), *index));
+
+    for (child_index, child) in ordered {
         path.push(child_index);
         collect_chat_elements(child, depth + 1, visited, path, ancestors, elements);
         path.pop();
@@ -1681,7 +1729,10 @@ fn collect_nodes_with_scope(
         Err(_) => return,
     };
 
-    for (child_index, child) in children.iter().enumerate() {
+    let mut ordered: Vec<(usize, _)> = children.iter().enumerate().collect();
+    ordered.sort_by_key(|(index, child)| (ax_child_walk_rank(child), *index));
+
+    for (child_index, child) in ordered {
         if nodes.len() >= MAX_NODES {
             *truncated = true;
             return;
@@ -1699,6 +1750,21 @@ fn collect_nodes_with_scope(
             truncated,
         );
         tree_path.pop();
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn ax_child_walk_rank(element: &ax::UiElement) -> u8 {
+    let title = string_attr(element, ax::attr::title()).unwrap_or_default();
+    let description = string_attr(element, ax::attr::desc()).unwrap_or_default();
+    let placeholder = string_attr(element, ax::attr::placeholder_value()).unwrap_or_default();
+    if is_chat_priority_label(&title)
+        || is_chat_priority_label(&description)
+        || is_chat_priority_label(&placeholder)
+    {
+        0
+    } else {
+        1
     }
 }
 

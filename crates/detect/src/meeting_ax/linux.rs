@@ -29,8 +29,9 @@ use super::types::{
     MeetingChatSendResult, MeetingPlatform, MeetingSurface, NativeMeetingRoot, UniqueMatch,
 };
 use super::{
-    MAX_NODES, MAX_TREE_DEPTH, MeetingAccessibilityInspection, browser_window_has_provider_signal,
-    chat_input_is_owned, inspection_label, is_slack_huddle_composer_in_thread,
+    BrowserMeetingSnapshot, MAX_NODES, MAX_TREE_DEPTH, MeetingAccessibilityInspection,
+    browser_meeting_root_from_snapshot, browser_window_has_provider_signal, chat_input_is_owned,
+    inspection_label, is_chat_priority_label, is_slack_huddle_composer_in_thread,
     is_slack_send_now_in_thread, is_slack_thread_control, native_meeting_window_is_validated,
     slack_huddle_context, slack_thread_container_path, unique_scope_for_count,
     validate_meeting_chat_message,
@@ -332,14 +333,28 @@ async fn collect_nodes(
         ancestors.pop();
         return;
     };
+    let mut ranked = Vec::new();
     for (child_index, child) in children.into_iter().enumerate() {
+        let Some(child_proxy) = proxy_from_ref(connection, child).await else {
+            continue;
+        };
+        let name = child_proxy.name().await.unwrap_or_default();
+        ranked.push((
+            if is_chat_priority_label(&name) {
+                0_u8
+            } else {
+                1
+            },
+            child_index,
+            child_proxy,
+        ));
+    }
+    ranked.sort_by_key(|(rank, index, _)| (*rank, *index));
+    for (_, child_index, child_proxy) in ranked {
         if nodes.len() >= MAX_NODES {
             *truncated = true;
             break;
         }
-        let Some(child_proxy) = proxy_from_ref(connection, child).await else {
-            continue;
-        };
         path.push(child_index);
         Box::pin(collect_nodes(
             connection,
@@ -429,12 +444,15 @@ fn web_area_url(nodes: &[LiveNode]) -> Option<String> {
 }
 
 fn native_roots_from_windows(
-    windows: Vec<(Option<String>, Vec<LiveNode>)>,
+    windows: Vec<(Option<String>, Vec<LiveNode>, bool)>,
     platform: &MeetingPlatform,
 ) -> Vec<(NativeMeetingRoot, Vec<LiveNode>)> {
     windows
         .into_iter()
-        .filter_map(|(window_title, live)| {
+        .filter_map(|(window_title, live, complete)| {
+            if !complete {
+                return None;
+            }
             let nodes = ax_nodes(&live);
             native_meeting_window_is_validated(platform, &nodes).then_some((
                 NativeMeetingRoot {
@@ -448,11 +466,14 @@ fn native_roots_from_windows(
 }
 
 fn slack_roots_from_windows(
-    windows: Vec<(Option<String>, Vec<LiveNode>)>,
+    windows: Vec<(Option<String>, Vec<LiveNode>, bool)>,
 ) -> Vec<(String, String, Vec<LiveNode>)> {
     windows
         .into_iter()
-        .filter_map(|(_, live)| {
+        .filter_map(|(_, live, complete)| {
+            if !complete {
+                return None;
+            }
             let nodes = ax_nodes(&live);
             let (label, channel) = slack_huddle_context(&nodes)?;
             Some((channel, label, live))
@@ -461,18 +482,19 @@ fn slack_roots_from_windows(
 }
 
 fn browser_roots_from_windows(
-    windows: Vec<(Option<String>, Vec<LiveNode>)>,
+    windows: Vec<(Option<String>, Vec<LiveNode>, bool)>,
     warnings: &mut Vec<String>,
 ) -> (Vec<(BrowserMeetingRoot, Vec<LiveNode>)>, bool) {
     let mut roots = Vec::new();
     let mut poisoned = false;
-    for (window_title, live) in windows {
+    for (window_title, live, complete) in windows {
         let nodes = ax_nodes(&live);
         let url = web_area_url(&live);
-        if !nodes
+        let web_area = nodes
             .iter()
-            .any(|node| node.role.as_deref() == Some("AXWebArea"))
-        {
+            .find(|node| node.role.as_deref() == Some("AXWebArea"))
+            .cloned();
+        if web_area.is_none() {
             if browser_window_has_provider_signal(url.as_deref(), window_title.as_deref()) {
                 poisoned = true;
                 warnings.push(
@@ -482,26 +504,17 @@ fn browser_roots_from_windows(
             }
             continue;
         }
-        let platform = super::platform::classify_browser_context(
-            url.as_deref(),
-            window_title.as_deref(),
-            nodes
-                .iter()
-                .find(|node| node.role.as_deref() == Some("AXWebArea")),
-            &nodes,
-        );
-        if platform == MeetingPlatform::Unknown {
-            continue;
+        match browser_meeting_root_from_snapshot(
+            nodes,
+            complete,
+            url,
+            window_title,
+            web_area.as_ref(),
+        ) {
+            BrowserMeetingSnapshot::Accept(root) => roots.push((root, live)),
+            BrowserMeetingSnapshot::Unscoped => poisoned = true,
+            BrowserMeetingSnapshot::Exclude => {}
         }
-        roots.push((
-            BrowserMeetingRoot {
-                platform,
-                window_title,
-                web_area_url: url,
-                nodes,
-            },
-            live,
-        ));
     }
     (roots, poisoned)
 }
@@ -510,14 +523,12 @@ async fn collect_window_snapshots(
     connection: &AccessibilityConnection,
     app: &AccessibleProxy<'_>,
     warnings: &mut Vec<String>,
-) -> Vec<(Option<String>, Vec<LiveNode>)> {
+) -> Vec<(Option<String>, Vec<LiveNode>, bool)> {
     let mut snapshots = Vec::new();
     for window in application_windows(connection, app).await {
         let title = window.name().await.ok().filter(|name| !name.is_empty());
         let (nodes, complete) = collect_app_nodes(connection, &window, warnings).await;
-        if complete {
-            snapshots.push((title, nodes));
-        }
+        snapshots.push((title, nodes, complete));
     }
     snapshots
 }

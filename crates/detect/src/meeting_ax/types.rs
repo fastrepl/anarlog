@@ -163,6 +163,7 @@ pub(super) struct SlackHuddleRoot {
 }
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
+#[derive(Debug)]
 pub(super) struct BrowserMeetingRoot {
     pub(super) platform: MeetingPlatform,
     #[cfg_attr(not(target_os = "macos"), allow(dead_code))]

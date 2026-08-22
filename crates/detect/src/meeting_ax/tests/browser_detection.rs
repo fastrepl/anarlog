@@ -238,6 +238,55 @@ fn test_only_provider_like_browser_windows_poison_incomplete_capture() {
 }
 
 #[test]
+fn test_chat_priority_labels_prefer_meet_chat_over_video_tiles() {
+    assert!(is_chat_priority_label("In-call messages"));
+    assert!(is_chat_priority_label("Send a message"));
+    assert!(is_chat_priority_label("Leave call"));
+    assert!(is_chat_priority_label("Chat"));
+    assert!(!is_chat_priority_label("Ada Lovelace"));
+    assert!(!is_chat_priority_label("Your video is on"));
+}
+
+#[test]
+fn test_truncated_browser_meet_snapshot_is_accepted_when_uniquely_classified() {
+    let web_area = fixture_node(0, "AXWebArea", "Team sync - Google Meet", &[]);
+    let nodes = vec![
+        web_area.clone(),
+        fixture_node(1, "AXButton", "Leave call", &[0]),
+        fixture_node(2, "AXGroup", "In-call messages", &[1]),
+        fixture_composer(3, "Send a message", &[1, 0]),
+    ];
+
+    let BrowserMeetingSnapshot::Accept(root) = browser_meeting_root_from_snapshot(
+        nodes,
+        false,
+        Some("https://meet.google.com/abc-defg-hij".into()),
+        Some("Team sync - Google Meet - Aside".into()),
+        Some(&web_area),
+    ) else {
+        panic!("expected a uniquely classified Meet root to survive AX truncation");
+    };
+
+    assert_eq!(root.platform, MeetingPlatform::GoogleMeet);
+}
+
+#[test]
+fn test_truncated_meeting_like_window_stays_unscoped_without_classification() {
+    let web_area = fixture_node(0, "AXWebArea", "Document", &[]);
+
+    assert!(matches!(
+        browser_meeting_root_from_snapshot(
+            vec![web_area.clone()],
+            false,
+            Some("https://meet.google.com/abc-defg-hij".into()),
+            Some("Google Chrome".into()),
+            Some(&web_area),
+        ),
+        BrowserMeetingSnapshot::Unscoped
+    ));
+}
+
+#[test]
 fn test_validated_browser_bundles_are_web_surfaces() {
     for bundle_id in [
         "com.google.Chrome",
