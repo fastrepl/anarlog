@@ -167,6 +167,32 @@ fn explicit_web_speaker_evidence_label(node: &AxNode) -> Option<&str> {
     node_labels(node).find(|label| has_explicit_speaker_state(label))
 }
 
+fn webex_native_speaker_name(label: &str) -> Option<String> {
+    let parts = label.split(',').map(str::trim).collect::<Vec<_>>();
+    let name = parts.first().copied()?;
+    let has_speaking_state = parts
+        .iter()
+        .skip(1)
+        .any(|part| part.eq_ignore_ascii_case("speaking"));
+    let has_video_state = parts.iter().skip(1).any(|part| {
+        part.eq_ignore_ascii_case("video off") || part.eq_ignore_ascii_case("video on")
+    });
+
+    (has_speaking_state && has_video_state && is_plausible_participant_name(name))
+        .then(|| name.to_string())
+}
+
+fn webex_native_speaker_evidence_label(node: &AxNode) -> Option<&str> {
+    if !matches!(
+        node.role.as_deref(),
+        Some("AXGroup") | Some("AXCell") | Some("AXRow")
+    ) {
+        return None;
+    }
+
+    node_labels(node).find(|label| webex_native_speaker_name(label).is_some())
+}
+
 fn participant_evidence_label<'a>(
     platform: &MeetingPlatform,
     surface: &MeetingSurface,
@@ -179,6 +205,9 @@ fn participant_evidence_label<'a>(
         (MeetingPlatform::Slack, MeetingSurface::Native) => slack_participant_evidence_label(node),
         (MeetingPlatform::MicrosoftTeams, MeetingSurface::Native) => {
             teams_participant_evidence_label(node)
+        }
+        (MeetingPlatform::Webex, MeetingSurface::Native) => {
+            webex_native_speaker_evidence_label(node)
         }
         (
             MeetingPlatform::GoogleMeet
@@ -220,7 +249,11 @@ pub(super) fn candidate_stream(
     } else {
         signals.push("participant-row-label".to_string());
     }
-    if has_explicit_speaker_state(evidence_label) {
+    let is_active_speaker = has_explicit_speaker_state(evidence_label)
+        || (*platform == MeetingPlatform::Webex
+            && *surface == MeetingSurface::Native
+            && webex_native_speaker_name(evidence_label).is_some());
+    if is_active_speaker {
         confidence += 0.25;
         signals.push("speaker-state-label".to_string());
     }
@@ -236,8 +269,6 @@ pub(super) fn candidate_stream(
 
     let label = Some(evidence_label.to_string());
     let participant_name = participant_name_from_evidence(platform, evidence_label);
-    let is_active_speaker = signals.iter().any(|signal| signal == "speaker-state-label");
-
     Some(MeetingParticipantStream {
         id: node.element_hash.map_or_else(
             || format!("ax-node-{}", node.index),
@@ -289,7 +320,10 @@ pub(super) fn participant_name_from_evidence(
                     .map(ToString::to_string)
             })
         }
-        MeetingPlatform::GoogleMeet | MeetingPlatform::Slack | MeetingPlatform::Webex => {
+        MeetingPlatform::Webex => {
+            participant_name_from_speaker_label(label).or_else(|| webex_native_speaker_name(label))
+        }
+        MeetingPlatform::GoogleMeet | MeetingPlatform::Slack => {
             participant_name_from_speaker_label(label)
         }
         MeetingPlatform::Discord | MeetingPlatform::Unknown => None,

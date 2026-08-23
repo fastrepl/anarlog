@@ -176,6 +176,46 @@ fn test_teams_explicit_speaker_label_strips_the_state_from_the_name() {
 }
 
 #[test]
+fn test_webex_current_native_video_container_marks_explicit_speaker_active() {
+    let participant = fixture_node(
+        17,
+        "AXGroup",
+        "John Jeong, , , speaking, Video off, ,",
+        &[0, 4, 3],
+    );
+
+    let stream = candidate_stream(
+        &MeetingPlatform::Webex,
+        &MeetingSurface::Native,
+        &participant,
+    )
+    .expect("expected current native Webex active speaker container");
+
+    assert_eq!(stream.participant_name.as_deref(), Some("John Jeong"));
+    assert!(stream.is_active_speaker);
+    assert!(stream.signals.contains(&"speaker-state-label".to_string()));
+}
+
+#[test]
+fn test_webex_native_speaker_requires_the_structured_video_state() {
+    for label in [
+        "John Jeong, speaking, French",
+        "John Jeong, speaking=false, Video off",
+        "John Jeong, muted, Video off",
+    ] {
+        let participant = fixture_node(18, "AXGroup", label, &[0, 4, 4]);
+        assert!(
+            candidate_stream(
+                &MeetingPlatform::Webex,
+                &MeetingSurface::Native,
+                &participant,
+            )
+            .is_none()
+        );
+    }
+}
+
+#[test]
 fn test_zoom_speaker_flag_uses_the_same_label_as_participant_name() {
     let mut roster = fixture_node(
         15,

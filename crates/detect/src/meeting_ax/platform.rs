@@ -409,7 +409,7 @@ pub(super) fn browser_title_platform_signals(text: &str) -> Vec<MeetingPlatform>
     if text.contains("discord") && (text.contains("voice") || text.contains("call")) {
         platforms.push(MeetingPlatform::Discord);
     }
-    if text.contains("webex meeting") || text.contains("cisco webex") {
+    if text.contains("cisco webex") || (text.contains("webex") && text.contains("meeting")) {
         platforms.push(MeetingPlatform::Webex);
     }
 

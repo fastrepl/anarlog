@@ -329,6 +329,32 @@ fn test_webex_browser_title_classifies_web() {
 }
 
 #[test]
+fn test_current_webex_in_meeting_title_classifies_without_an_exposed_url() {
+    let web_area = node(22, "AXWebArea", "In meeting · Meeting · Webex", None);
+    let leave = node(
+        23,
+        "AXButton",
+        "Leave meeting",
+        Some(AxRect {
+            x: 10.0,
+            y: 10.0,
+            width: 40.0,
+            height: 40.0,
+        }),
+    );
+
+    assert_eq!(
+        classify_browser_context(
+            None,
+            Some("In meeting · Meeting · Webex - Google Chrome"),
+            Some(&web_area),
+            &[leave],
+        ),
+        MeetingPlatform::Webex
+    );
+}
+
+#[test]
 fn test_current_webex_browser_window_classifies_from_url_and_popup_leave_control() {
     let web_area = node(21, "AXWebArea", "In meeting · Meeting · Webex", None);
     let leave = node(
