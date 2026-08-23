@@ -116,7 +116,9 @@ fn is_platform_chat_scope_label(platform: &MeetingPlatform, node: &AxNode) -> bo
                 || label.contains("huddle messages")
         }
         MeetingPlatform::Webex => {
-            label.contains("chat with everyone") || label.contains("meeting chat")
+            label.contains("chat with everyone")
+                || label.contains("meeting chat")
+                || label.contains("chat tab list, everyone tab")
         }
         MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
     }
@@ -159,11 +161,22 @@ fn is_platform_chat_composer_with_state(
     node: &AxNode,
     require_enabled: bool,
 ) -> bool {
-    if !matches!(
+    let is_webex_linux_capture_composer = !require_enabled
+        && *platform == MeetingPlatform::Webex
+        && node.role.as_deref() == Some("AXStaticText")
+        && node.enabled != Some(false)
+        && node.title.as_deref().is_some_and(|title| {
+            let title = title.trim().to_ascii_lowercase();
+            title.starts_with("write a message to everyone")
+                && title.contains("press shift + enter for new line")
+        });
+    let is_editable_composer = matches!(
         node.role.as_deref(),
         Some("AXTextArea") | Some("AXTextField") | Some("AXComboBox")
-    ) || (require_enabled && node.enabled == Some(false))
-        || !node.settable_value
+    ) && (!require_enabled || node.enabled != Some(false))
+        && node.settable_value;
+
+    if (!is_editable_composer && !is_webex_linux_capture_composer)
         || !node_has_positive_bounds(node)
     {
         return false;
@@ -294,10 +307,10 @@ fn validated_chat_scope_with_state(
         .filter_map(|node| {
             let scope_path = common_tree_path(&node.tree_path, &composer.tree_path);
             let distance = node.tree_path.len() + composer.tree_path.len() - 2 * scope_path.len();
-            let max_distance = if !require_enabled && *platform == MeetingPlatform::MicrosoftTeams {
-                14
-            } else {
-                6
+            let max_distance = match (require_enabled, platform) {
+                (false, MeetingPlatform::MicrosoftTeams) => 14,
+                (false, MeetingPlatform::Webex) => 10,
+                _ => 6,
             };
             (!scope_path.is_empty() && distance <= max_distance).then_some(scope_path)
         })

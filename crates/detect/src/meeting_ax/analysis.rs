@@ -935,7 +935,13 @@ fn extract_webex_structured_messages<'a>(
     nodes
         .iter()
         .filter(|node| {
-            matches!(node.role.as_deref(), Some("AXRow") | Some("AXCell"))
+            (matches!(node.role.as_deref(), Some("AXRow") | Some("AXCell"))
+                || (node.role.as_deref() == Some("AXGroup")
+                    && node_labels(node).any(|label| {
+                        let label = label.to_ascii_lowercase();
+                        label.contains(", sent by ")
+                            && label.contains("press enter key to enter the group")
+                    })))
                 && node.tree_path.starts_with(scope_path)
         })
         .filter_map(|row| {
@@ -945,7 +951,15 @@ fn extract_webex_structured_messages<'a>(
                 .collect::<Vec<_>>();
             let mut fragments = descendants
                 .iter()
-                .filter(|node| node.role.as_deref() == Some("AXTextArea") && !node.settable_value)
+                .filter(|node| {
+                    let is_message_text = node
+                        .title
+                        .as_deref()
+                        .is_some_and(|title| title.trim().eq_ignore_ascii_case("message text"));
+                    (node.role.as_deref() == Some("AXTextArea")
+                        && (!node.settable_value || is_message_text))
+                        || (node.role.as_deref() == Some("AXStaticText") && is_message_text)
+                })
                 .filter_map(|node| {
                     let text = [
                         node.value.as_deref(),
@@ -982,8 +996,9 @@ fn extract_webex_structured_messages<'a>(
                     let metadata = normalized.strip_prefix(&text)?.trim_start_matches(", ");
                     let parts = metadata.split(", ").map(str::trim).collect::<Vec<_>>();
                     parts.windows(2).find_map(|parts| {
-                        (looks_like_chat_sender(parts[0]) && looks_like_time(parts[1]))
-                            .then(|| (parts[0].to_string(), parts[1].to_string()))
+                        let sender = parts[0].strip_prefix("sent by ").unwrap_or(parts[0]);
+                        (looks_like_chat_sender(sender) && looks_like_time(parts[1]))
+                            .then(|| (sender.to_string(), parts[1].to_string()))
                     })
                 })?
             };
@@ -1422,18 +1437,23 @@ pub(super) fn looks_like_time(text: &str) -> bool {
         .strip_suffix(" am")
         .or_else(|| compact.strip_suffix(" pm"));
     let time = meridiem.unwrap_or(&compact);
-    let Some((hour, minute)) = time.split_once(':') else {
+    let parts = time.split(':').collect::<Vec<_>>();
+    if !(2..=3).contains(&parts.len()) {
         return false;
-    };
+    }
 
-    let Ok(hour) = hour.parse::<u8>() else {
+    let Ok(hour) = parts[0].parse::<u8>() else {
         return false;
     };
-    let Ok(minute) = minute.parse::<u8>() else {
+    let Ok(minute) = parts[1].parse::<u8>() else {
         return false;
     };
+    let second_is_valid = parts
+        .get(2)
+        .is_none_or(|second| second.parse::<u8>().is_ok_and(|second| second < 60));
 
     minute < 60
+        && second_is_valid
         && if meridiem.is_some() {
             (1..=12).contains(&hour)
         } else {

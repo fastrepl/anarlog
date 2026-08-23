@@ -239,6 +239,60 @@ fn test_webex_browser_message_preserves_live_metadata_and_direction() {
 }
 
 #[test]
+fn test_native_linux_webex_structured_message_preserves_live_metadata() {
+    let mut composer = fixture_node(
+        3,
+        "AXStaticText",
+        "Write a message to everyone. Press Shift + Enter for new line.",
+        &[1, 1, 0, 2, 0, 2, 0, 5, 4, 0],
+    );
+    composer.settable_value = false;
+    let mut message_text = fixture_node(
+        5,
+        "AXTextArea",
+        "Message text",
+        &[1, 1, 0, 2, 0, 2, 0, 6, 0, 15, 0, 0, 6],
+    );
+    message_text.settable_value = true;
+    message_text.value = Some(
+        "ANLG-297 Linux native Webex AT-SPI QA https://anarlog.so/linux-native-webex-atspi"
+            .to_string(),
+    );
+    let nodes = vec![
+        fixture_node(0, "AXWindow", "John's meeting", &[]),
+        fixture_node(1, "AXButton", "Leave meeting", &[1, 0]),
+        fixture_node(
+            2,
+            "AXGroup",
+            "Chat Tab list, Everyone tab",
+            &[1, 1, 0, 1, 0],
+        ),
+        composer,
+        fixture_node(
+            4,
+            "AXGroup",
+            "ANLG-297 Linux native Webex AT-SPI QA https://anarlog.so/linux-native-webex-atspi, sent by You, 09:39:52, has hyperlinks, press Enter key to enter the group, then Tab key to navigate to message actions.",
+            &[1, 1, 0, 2, 0, 2, 0, 6, 0, 15, 0, 0],
+        ),
+        message_text,
+    ];
+
+    let messages = extract_chat_messages(&MeetingPlatform::Webex, &MeetingSurface::Native, &nodes);
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].sender.as_deref(), Some("You"));
+    assert_eq!(messages[0].timestamp.as_deref(), Some("09:39:52"));
+    assert_eq!(messages[0].direction, Some(MeetingChatDirection::Outgoing));
+    assert_eq!(
+        messages[0].text,
+        "ANLG-297 Linux native Webex AT-SPI QA https://anarlog.so/linux-native-webex-atspi"
+    );
+    assert_eq!(
+        messages[0].links,
+        ["https://anarlog.so/linux-native-webex-atspi"]
+    );
+}
+
+#[test]
 fn test_zoom_capture_requires_zoom_meeting_window_scope() {
     assert!(is_zoom_meeting_scope_node(&node(
         0,

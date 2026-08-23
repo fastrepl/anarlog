@@ -417,6 +417,32 @@ fn test_native_webex_chat_scope_accepts_live_history_and_composer_labels() {
 }
 
 #[test]
+fn test_native_linux_webex_capture_accepts_read_only_atspi_composer() {
+    let nodes = vec![
+        fixture_node(0, "AXWindow", "John's meeting", &[]),
+        fixture_node(1, "AXButton", "Leave meeting", &[1, 0]),
+        fixture_node(
+            2,
+            "AXGroup",
+            "Chat Tab list, Everyone tab",
+            &[1, 1, 0, 1, 0],
+        ),
+        fixture_node(
+            3,
+            "AXStaticText",
+            "Write a message to everyone. Press Shift + Enter for new line.",
+            &[1, 1, 0, 2, 0, 2, 0, 5, 4, 0],
+        ),
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
+        Some((vec![1, 1, 0], vec![1, 1, 0, 2, 0, 2, 0, 5, 4, 0]))
+    );
+    assert!(validated_chat_scope(&MeetingPlatform::Webex, &nodes).is_none());
+}
+
+#[test]
 fn test_webex_web_chat_scope_accepts_live_popup_leave_and_named_composer() {
     let nodes = vec![
         fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
