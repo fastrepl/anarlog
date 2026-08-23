@@ -39,7 +39,6 @@ export const AUTHORS = Object.values(EDITORS).map((m) => ({
 export const ADMIN_EMAILS = [
   "john@hyprnote.com",
   "marketing@hyprnote.com",
-  "yunhyungjo@yonsei.ac.kr",
   "artem@hyprnote.com",
   "stua@fastmail.com",
   "thestua@gmail.com",
