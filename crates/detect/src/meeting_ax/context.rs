@@ -369,8 +369,12 @@ fn browser_meeting_identity(root: &BrowserMeetingRoot) -> Option<String> {
         return Some(canonical);
     }
 
-    if root.platform == MeetingPlatform::GoogleMeet {
-        let code = super::platform::google_meet_code_from_title(root.window_title.as_deref()?)?;
+    if root.platform == MeetingPlatform::GoogleMeet
+        && let Some(code) = root
+            .window_title
+            .as_deref()
+            .and_then(super::platform::google_meet_code_from_title)
+    {
         return Some(format!("https://meet.google.com/{code}"));
     }
 

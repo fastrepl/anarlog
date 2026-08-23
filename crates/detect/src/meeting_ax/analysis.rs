@@ -883,6 +883,24 @@ fn extract_google_meet_timestamp_sibling_messages<'a>(
             }
 
             let sender = slot.checked_sub(1).and_then(|sender_slot| {
+                let sender_is_previous_message_content =
+                    sender_slot.checked_sub(1).is_some_and(|timestamp_slot| {
+                        let mut timestamp_path = parent_path.to_vec();
+                        timestamp_path.push(timestamp_slot);
+                        nodes.iter().any(|node| {
+                            node.tree_path.starts_with(&timestamp_path)
+                                && matches!(
+                                    node.role.as_deref(),
+                                    Some("AXStaticText") | Some("AXText")
+                                )
+                                && chat_message_text(node)
+                                    .is_some_and(|text| looks_like_time(&text))
+                        })
+                    });
+                if sender_is_previous_message_content {
+                    return None;
+                }
+
                 let mut sender_path = parent_path.to_vec();
                 sender_path.push(sender_slot);
                 let mut labels = nodes
@@ -1149,6 +1167,7 @@ fn parse_teams_accessibility_description(raw_text: &str) -> Option<ParsedChatMes
     let line = line.trim().trim_end_matches('.');
     let (sender_and_text, timestamp) = line
         .rsplit_once(" Today at ")
+        .filter(|(_, timestamp)| looks_like_time(timestamp))
         .or_else(|| split_sender_time(line))?;
     if !looks_like_time(timestamp) {
         return None;

@@ -118,6 +118,17 @@ fn test_teams_current_native_description_preserves_metadata_without_inferring_di
 }
 
 #[test]
+fn test_teams_trailing_time_fallback_survives_today_at_in_message_text() {
+    let raw = "anon cannon Sent We discussed Today at lunch 5:09 PM";
+    let parsed = parse_chat_message(&MeetingPlatform::MicrosoftTeams, raw).unwrap();
+
+    assert_eq!(parsed.sender.as_deref(), Some("anon cannon"));
+    assert_eq!(parsed.timestamp.as_deref(), Some("5:09 PM"));
+    assert_eq!(parsed.text, "We discussed Today at lunch");
+    assert_eq!(parsed.direction, None);
+}
+
+#[test]
 fn test_teams_current_firefox_description_preserves_metadata_without_inferring_direction() {
     let raw = "anon cannon Sent ANLG-297 Firefox Teams web QA Link https://anarlog.so/firefox-teams 3:03 PM";
     let parsed = parse_chat_message(&MeetingPlatform::MicrosoftTeams, raw).unwrap();
@@ -499,6 +510,15 @@ fn test_google_meet_capture_assembles_timestamp_sibling_messages() {
     let mut second_link = fixture_node(10, "AXLink", "", &[4, 2, 2, 6, 1]);
     second_link.value = Some("anarlog.so/chrome-host".to_string());
     second_link.title = Some("https://anarlog.so/chrome-host".to_string());
+    let mut third_timestamp = fixture_node(11, "AXStaticText", "1:51\u{202f}PM", &[4, 2, 2, 7, 0]);
+    third_timestamp.value = third_timestamp.title.take();
+    let mut third_text = fixture_node(
+        12,
+        "AXStaticText",
+        "ANLG-297 second self-authored message",
+        &[4, 2, 2, 8, 0],
+    );
+    third_text.value = third_text.title.take();
 
     let messages = extract_chat_messages(
         &MeetingPlatform::GoogleMeet,
@@ -515,10 +535,12 @@ fn test_google_meet_capture_assembles_timestamp_sibling_messages() {
             second_timestamp,
             second_text,
             second_link,
+            third_timestamp,
+            third_text,
         ],
     );
 
-    assert_eq!(messages.len(), 2);
+    assert_eq!(messages.len(), 3);
     assert_eq!(messages[0].sender, None);
     assert_eq!(messages[0].timestamp.as_deref(), Some("1:49 PM"));
     assert_eq!(
@@ -533,6 +555,9 @@ fn test_google_meet_capture_assembles_timestamp_sibling_messages() {
         "ANLG-297 Chrome host to Safari https://anarlog.so/chrome-host"
     );
     assert_eq!(messages[1].links, ["https://anarlog.so/chrome-host"]);
+    assert_eq!(messages[2].sender, None);
+    assert_eq!(messages[2].timestamp.as_deref(), Some("1:51 PM"));
+    assert_eq!(messages[2].text, "ANLG-297 second self-authored message");
 }
 
 #[test]

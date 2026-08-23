@@ -611,6 +611,24 @@ fn test_linux_browser_context_falls_back_to_titled_active_call_identity() {
 }
 
 #[test]
+fn test_linux_meet_context_without_code_falls_back_to_titled_active_call_identity() {
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "Team sync - Google Meet", &[]),
+        fixture_node(1, "AXButton", "Leave call", &[0]),
+        fixture_node(2, "AXGroup", "In-call messages", &[1]),
+        fixture_composer(3, "Send a message", &[1, 0]),
+    ];
+    let root = BrowserMeetingRoot {
+        platform: MeetingPlatform::GoogleMeet,
+        window_title: Some("Team sync - Google Meet - Google Chrome".to_string()),
+        web_area_url: None,
+        nodes,
+    };
+
+    assert!(browser_capture_context_id(&root).is_some());
+}
+
+#[test]
 fn test_browser_context_preserves_query_identified_meeting_identity() {
     let teams_nodes = vec![
         fixture_node(0, "AXWebArea", "Microsoft Teams", &[]),
