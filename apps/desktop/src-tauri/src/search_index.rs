@@ -30,6 +30,13 @@ enum IndexAction {
     Skip,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[must_use]
+enum DrainOutcome {
+    Complete,
+    Deferred,
+}
+
 pub fn spawn(app: AppHandle, db: Arc<anlg_db_core::Db>) {
     tauri::async_runtime::spawn(async move {
         run(app, db).await;
@@ -43,7 +50,10 @@ async fn run(app: AppHandle, db: Arc<anlg_db_core::Db>) {
 
     loop {
         match initialize(&app, db.pool()).await {
-            Ok(()) => break,
+            Ok(DrainOutcome::Complete) => break,
+            Ok(DrainOutcome::Deferred) => {
+                tokio::time::sleep(RETRY_INTERVAL).await;
+            }
             Err(error) => {
                 tracing::error!(%error, "failed to initialize search index projection");
                 tokio::time::sleep(RETRY_INTERVAL).await;
@@ -52,8 +62,11 @@ async fn run(app: AppHandle, db: Arc<anlg_db_core::Db>) {
     }
 
     loop {
-        if let Err(error) = drain_queue(&app, db.pool()).await {
-            tracing::error!(%error, "failed to update search index projection");
+        match drain_queue(&app, db.pool()).await {
+            Ok(DrainOutcome::Complete | DrainOutcome::Deferred) => {}
+            Err(error) => {
+                tracing::error!(%error, "failed to update search index projection");
+            }
         }
 
         tokio::select! {
@@ -94,7 +107,7 @@ async fn wait_for_tantivy(app: &AppHandle) {
     }
 }
 
-async fn initialize(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
+async fn initialize(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<DrainOutcome> {
     let projection_version: i64 = sqlx::query_scalar(
         "SELECT projection_version FROM search_index_state WHERE id = 'default'",
     )
@@ -103,14 +116,17 @@ async fn initialize(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
     .unwrap_or(0);
 
     if projection_version != PROJECTION_VERSION {
-        return rebuild(app, pool).await;
+        rebuild(app, pool).await?;
+        return Ok(DrainOutcome::Complete);
     }
 
-    drain_queue(app, pool).await?;
+    if drain_queue(app, pool).await? == DrainOutcome::Deferred {
+        return Ok(DrainOutcome::Deferred);
+    }
 
     let (database_count, pending_count) = projection_consistency_snapshot(pool).await?;
     if pending_count > 0 {
-        return Ok(());
+        return Ok(DrainOutcome::Deferred);
     }
 
     let index_count_matches = wait_for_index_count(app, database_count as usize).await?;
@@ -124,7 +140,7 @@ async fn initialize(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
         rebuild(app, pool).await?;
     }
 
-    Ok(())
+    Ok(DrainOutcome::Complete)
 }
 
 async fn rebuild(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
@@ -139,7 +155,9 @@ async fn rebuild(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
 
     app.tantivy().reindex(None).await?;
     enqueue_all_entities(pool).await?;
-    drain_queue(app, pool).await?;
+    while drain_queue(app, pool).await? == DrainOutcome::Deferred {
+        tokio::time::sleep(RETRY_INTERVAL).await;
+    }
 
     sqlx::query(
         "UPDATE search_index_state
@@ -195,10 +213,10 @@ async fn enqueue_all_entities(pool: &SqlitePool) -> Result<(), sqlx::Error> {
     tx.commit().await
 }
 
-async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
+async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<DrainOutcome> {
     loop {
         let Some(mut connection) = pool.try_acquire() else {
-            return Ok(());
+            return Ok(DrainOutcome::Deferred);
         };
         let rows = sqlx::query(
             "SELECT entity_type, entity_id, generation
@@ -213,7 +231,7 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
         connection.return_to_pool().await;
 
         if rows.is_empty() {
-            return Ok(());
+            return Ok(DrainOutcome::Complete);
         }
 
         let dirty_entities = rows
@@ -243,7 +261,7 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
         }
 
         if processed_entities.is_empty() {
-            return Ok(());
+            return Ok(DrainOutcome::Deferred);
         }
 
         if !documents.is_empty() || !removals.is_empty() {
@@ -253,7 +271,7 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
         }
 
         if !try_acknowledge_dirty_entities(pool, &processed_entities).await? {
-            return Ok(());
+            return Ok(DrainOutcome::Deferred);
         }
 
         tokio::task::yield_now().await;
