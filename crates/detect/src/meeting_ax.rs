@@ -71,6 +71,8 @@ use node::{
     is_platform_active_call_control, is_platform_meeting_control, node_has_positive_bounds,
     node_labels, searchable_node_text, teams_has_active_call_evidence,
 };
+#[cfg(any(test, target_os = "linux"))]
+use platform::is_browser_active_call_control;
 #[cfg_attr(target_os = "linux", allow(unused_imports))]
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use platform::{

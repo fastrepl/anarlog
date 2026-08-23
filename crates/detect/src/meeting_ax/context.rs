@@ -381,7 +381,7 @@ fn browser_meeting_identity(root: &BrowserMeetingRoot) -> Option<String> {
         let has_active_call_control = root
             .nodes
             .iter()
-            .any(|node| is_platform_active_call_control(&root.platform, node));
+            .any(|node| super::is_browser_active_call_control(&root.platform, node));
         if title_platforms.as_slice() == [root.platform.clone()] && has_active_call_control {
             return Some(format!(
                 "atspi://{}",

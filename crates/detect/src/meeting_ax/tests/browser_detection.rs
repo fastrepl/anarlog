@@ -90,6 +90,37 @@ fn test_zoom_title_and_bounded_leave_classify_without_an_exposed_url() {
 }
 
 #[test]
+fn test_teams_title_and_bounded_leave_classify_without_an_exposed_url() {
+    let web_area = node(
+        16,
+        "AXWebArea",
+        "Microsoft Teams meeting | Microsoft Teams",
+        None,
+    );
+    let leave = node(
+        17,
+        "AXButton",
+        "Leave",
+        Some(AxRect {
+            x: 10.0,
+            y: 10.0,
+            width: 120.0,
+            height: 40.0,
+        }),
+    );
+
+    assert_eq!(
+        classify_browser_context(
+            None,
+            Some("Microsoft Teams meeting | Microsoft Teams - Microsoft Edge"),
+            Some(&web_area),
+            &[leave],
+        ),
+        MeetingPlatform::MicrosoftTeams
+    );
+}
+
+#[test]
 fn test_browser_background_tab_nodes_cannot_classify_active_window() {
     let background_meet_node = node(
         17,

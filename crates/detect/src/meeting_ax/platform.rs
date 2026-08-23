@@ -5,7 +5,7 @@ use cidre::ns;
 
 use super::{
     AxNode, MeetingApp, MeetingPlatform, MeetingSurface, is_platform_active_call_control,
-    is_platform_meeting_control, node_labels,
+    is_platform_meeting_control, node_has_positive_bounds, node_labels,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -301,6 +301,21 @@ pub(super) fn supports_meeting_chat_mutation(bundle_id: &str) -> bool {
     cfg!(target_os = "macos") && meeting_app_family(bundle_id) == Some("slack")
 }
 
+pub(super) fn is_browser_active_call_control(platform: &MeetingPlatform, node: &AxNode) -> bool {
+    if is_platform_active_call_control(platform, node) {
+        return true;
+    }
+
+    *platform == MeetingPlatform::MicrosoftTeams
+        && matches!(
+            node.role.as_deref(),
+            Some("AXButton") | Some("AXMenuItem") | Some("AXPopUpButton")
+        )
+        && node.enabled != Some(false)
+        && node_has_positive_bounds(node)
+        && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("leave"))
+}
+
 pub(super) fn classify_browser_context(
     web_area_url: Option<&str>,
     window_title: Option<&str>,
@@ -321,7 +336,7 @@ pub(super) fn classify_browser_context(
         let has_matching_title = title_platforms.contains(&platform);
         let has_matching_control = nodes.iter().any(|node| {
             is_platform_meeting_control(&platform, node)
-                || is_platform_active_call_control(&platform, node)
+                || is_browser_active_call_control(&platform, node)
         });
 
         return if has_matching_title || has_matching_control {
@@ -339,7 +354,7 @@ pub(super) fn classify_browser_context(
         .is_some_and(|title| looks_like_google_meet_window_title(&title.to_ascii_lowercase()));
     let has_matching_control = nodes.iter().any(|node| {
         is_platform_meeting_control(&platform, node)
-            || is_platform_active_call_control(&platform, node)
+            || is_browser_active_call_control(&platform, node)
     });
     if titled_like_meet_code || has_matching_control {
         platform
