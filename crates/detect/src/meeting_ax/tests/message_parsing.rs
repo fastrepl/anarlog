@@ -118,6 +118,40 @@ fn test_teams_current_native_description_preserves_metadata_without_inferring_di
 }
 
 #[test]
+fn test_teams_current_firefox_description_preserves_metadata_without_inferring_direction() {
+    let raw = "anon cannon Sent ANLG-297 Firefox Teams web QA Link https://anarlog.so/firefox-teams 3:03 PM";
+    let parsed = parse_chat_message(&MeetingPlatform::MicrosoftTeams, raw).unwrap();
+
+    assert_eq!(parsed.sender.as_deref(), Some("anon cannon"));
+    assert_eq!(parsed.timestamp.as_deref(), Some("3:03 PM"));
+    assert_eq!(parsed.direction, None);
+    assert_eq!(
+        parsed.text,
+        "ANLG-297 Firefox Teams web QA https://anarlog.so/firefox-teams"
+    );
+    assert_eq!(
+        extract_links(&parsed.text),
+        ["https://anarlog.so/firefox-teams"]
+    );
+
+    let messages = extract_chat_messages(
+        &MeetingPlatform::MicrosoftTeams,
+        &MeetingSurface::Web,
+        &[
+            fixture_node(0, "AXButton", "Leave", &[1]),
+            fixture_node(1, "AXHeading", "Meeting chat", &[4, 0]),
+            fixture_composer(2, "Type a message", &[4, 9, 0]),
+            fixture_node(3, "AXGroup", raw, &[4, 1]),
+        ],
+    );
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].direction, None);
+    assert_eq!(messages[0].sender.as_deref(), Some("anon cannon"));
+    assert_eq!(messages[0].timestamp.as_deref(), Some("3:03 PM"));
+    assert_eq!(messages[0].links, ["https://anarlog.so/firefox-teams"]);
+}
+
+#[test]
 fn test_zoom_capture_requires_zoom_meeting_window_scope() {
     assert!(is_zoom_meeting_scope_node(&node(
         0,

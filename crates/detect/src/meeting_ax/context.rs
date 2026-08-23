@@ -283,7 +283,12 @@ fn validated_chat_scope_with_state(
         .filter_map(|node| {
             let scope_path = common_tree_path(&node.tree_path, &composer.tree_path);
             let distance = node.tree_path.len() + composer.tree_path.len() - 2 * scope_path.len();
-            (!scope_path.is_empty() && distance <= 6).then_some(scope_path)
+            let max_distance = if !require_enabled && *platform == MeetingPlatform::MicrosoftTeams {
+                14
+            } else {
+                6
+            };
+            (!scope_path.is_empty() && distance <= max_distance).then_some(scope_path)
         })
         .collect::<Vec<_>>();
     labeled_scope_paths.sort();

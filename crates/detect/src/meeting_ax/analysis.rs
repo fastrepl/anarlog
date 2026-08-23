@@ -1011,7 +1011,9 @@ fn parse_teams_accessibility_description(raw_text: &str) -> Option<ParsedChatMes
     }
 
     let line = line.trim().trim_end_matches('.');
-    let (sender_and_text, timestamp) = line.rsplit_once(" Today at ")?;
+    let (sender_and_text, timestamp) = line
+        .rsplit_once(" Today at ")
+        .or_else(|| split_sender_time(line))?;
     if !looks_like_time(timestamp) {
         return None;
     }

@@ -286,6 +286,24 @@ fn test_browser_chat_scope_accepts_explicit_heading_beside_the_composer() {
 }
 
 #[test]
+fn test_teams_capture_accepts_deep_light_meeting_composer_below_explicit_heading() {
+    let composer_path = vec![1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "Microsoft Teams meeting", &[]),
+        fixture_node(1, "AXButton", "Leave", &[0]),
+        fixture_node(2, "AXGroup", "", &[1]),
+        fixture_node(3, "AXHeading", "Meeting chat", &[1, 0, 0, 0]),
+        fixture_composer(4, "Type a message", &composer_path),
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::MicrosoftTeams, &nodes),
+        Some((vec![1], composer_path))
+    );
+    assert!(validated_chat_scope(&MeetingPlatform::MicrosoftTeams, &nodes).is_none());
+}
+
+#[test]
 fn test_platform_chat_adapters_validate_the_requested_provider_matrix() {
     for (platform, exit_label, scope_label, composer_label) in [
         (
