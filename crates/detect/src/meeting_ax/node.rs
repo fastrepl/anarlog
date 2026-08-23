@@ -118,7 +118,9 @@ pub(super) fn is_platform_active_call_control(platform: &MeetingPlatform, node: 
         match platform {
             MeetingPlatform::GoogleMeet => label == "leave call",
             MeetingPlatform::MicrosoftTeams => label == "hang up",
-            MeetingPlatform::Zoom => matches!(label.as_str(), "leave meeting" | "end meeting"),
+            MeetingPlatform::Zoom => {
+                matches!(label.as_str(), "leave" | "leave meeting" | "end meeting")
+            }
             MeetingPlatform::Slack => matches!(label.as_str(), "leave huddle" | "end huddle"),
             MeetingPlatform::Webex => matches!(label.as_str(), "leave meeting" | "end meeting"),
             MeetingPlatform::Discord | MeetingPlatform::Unknown => false,

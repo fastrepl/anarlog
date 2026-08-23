@@ -74,6 +74,7 @@ fn is_chat_scope_container(node: &AxNode) -> bool {
             | "in-call messages"
             | "conversation"
             | "message list"
+            | "chat message list"
             | "chat list"
             | "huddle chat"
             | "chat with everyone"
@@ -102,7 +103,10 @@ fn is_platform_chat_scope_label(platform: &MeetingPlatform, node: &AxNode) -> bo
             label == "meeting chat" || label.contains("meeting chat")
         }
         MeetingPlatform::Zoom => {
-            label == "chat" || label == "chat list" || label.contains("meeting chat")
+            label == "chat"
+                || label == "chat list"
+                || label == "chat message list"
+                || label.contains("meeting chat")
         }
         MeetingPlatform::Slack => {
             label == "huddle chat"
@@ -126,6 +130,7 @@ fn is_chat_message_list(node: &AxNode) -> bool {
     let label = chat_scope_label(node);
     label == "conversation"
         || label == "message list"
+        || label == "chat message list"
         || label == "chat list"
         || label == "in-call messages"
         || label.contains("chat messages")
@@ -164,7 +169,9 @@ fn is_platform_chat_composer_with_state(
                 "type a message" | "type a new message" | "message everyone"
             ),
             MeetingPlatform::Zoom => {
-                label == "message everyone" || label.starts_with("message to ")
+                label == "message everyone"
+                    || label.starts_with("message to ")
+                    || label.starts_with("type message here")
             }
             MeetingPlatform::Slack => label.starts_with("message to "),
             MeetingPlatform::Webex => matches!(

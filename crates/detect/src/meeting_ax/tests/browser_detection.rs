@@ -282,6 +282,9 @@ fn test_select_child_walk_prefers_visible_subset() {
 fn test_chat_priority_labels_prefer_meet_chat_over_video_tiles() {
     assert!(is_chat_priority_label("In-call messages"));
     assert!(is_chat_priority_label("Send a message"));
+    assert!(is_chat_priority_label("Type message here ..."));
+    assert!(is_chat_priority_label("Chat Message List"));
+    assert!(is_chat_priority_label("Open the chat panel"));
     assert!(is_chat_priority_label("Leave call"));
     assert!(is_chat_priority_label("Chat"));
     assert!(!is_chat_priority_label("Ada Lovelace"));

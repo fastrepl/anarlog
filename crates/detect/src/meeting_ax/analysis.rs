@@ -511,6 +511,7 @@ pub(super) fn is_explicit_chat_input(node: &AxNode) -> bool {
     label.contains("send a message")
         || label.contains("message everyone")
         || label.contains("type a message")
+        || label.contains("type message here")
         || label.contains("meeting chat")
 }
 
@@ -1056,6 +1057,24 @@ fn parse_zoom_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {
 
     if lines.len() == 1 {
         let (sender, message_and_time) = first.split_once(", ")?;
+        if let Some((timestamp, text)) = message_and_time.split_once(", ")
+            && looks_like_time(timestamp)
+        {
+            let sender = sender
+                .split_once(" to ")
+                .map_or(sender, |(sender, _target)| sender)
+                .trim();
+            let text = text.trim();
+            return (looks_like_chat_sender(sender)
+                && !text.is_empty()
+                && !is_chat_chrome_text(text))
+            .then(|| ParsedChatMessage {
+                sender: Some(sender.to_string()),
+                timestamp: Some(timestamp.trim().to_string()),
+                direction: None,
+                text: text.to_string(),
+            });
+        }
         let (text, timestamp) = message_and_time.rsplit_once(", ")?;
         if looks_like_time(timestamp) {
             let text = text.trim();
@@ -1213,10 +1232,13 @@ fn is_chat_chrome_text(text: &str) -> bool {
             | "send a message"
             | "message everyone"
             | "type a message"
+            | "type message here ..."
             | "conversation"
             | "message list"
+            | "chat message list"
             | "new messages"
     ) || lower.starts_with("type a message")
+        || lower.starts_with("type message here")
         || lower.starts_with("message everyone")
         || lower.starts_with("send a message")
         || lower.starts_with("continuous chat is turned off")
@@ -1295,6 +1317,7 @@ pub(super) fn candidate_chat_target(node: &AxNode) -> Option<MeetingChatTarget> 
         || text.contains("message everyone")
         || text.contains("message to ")
         || text.contains("type a message")
+        || text.contains("type message here")
         || text.contains("chat");
     let is_chat_control = is_button
         && !is_send_button

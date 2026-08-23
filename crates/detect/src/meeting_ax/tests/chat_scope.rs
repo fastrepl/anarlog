@@ -355,6 +355,21 @@ fn test_platform_chat_adapters_validate_the_requested_provider_matrix() {
 }
 
 #[test]
+fn test_zoom_web_chat_scope_accepts_live_message_list_and_composer_labels() {
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "John Jeong's Zoom Meeting", &[]),
+        fixture_node(1, "AXButton", "Leave", &[0]),
+        fixture_node(2, "AXGroup", "Chat Message List", &[4, 0]),
+        fixture_composer(3, "Type message here ...", &[4, 1, 0]),
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::Zoom, &nodes),
+        Some((vec![4], vec![4, 1, 0]))
+    );
+}
+
+#[test]
 fn test_teams_and_webex_reject_generic_chat_containers() {
     for (platform, exit_label, composer_label) in [
         (MeetingPlatform::MicrosoftTeams, "Hang up", "Type a message"),

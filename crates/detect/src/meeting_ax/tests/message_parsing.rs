@@ -47,6 +47,30 @@ fn test_zoom_chat_message_parser_handles_current_native_row_description() {
 }
 
 #[test]
+fn test_zoom_chat_message_parser_handles_current_web_row_description() {
+    let parsed = parse_chat_message(
+        &MeetingPlatform::Zoom,
+        "You to Everyone, 02:20 PM, ANLG-297 Chrome Zoom web QA https://anarlog.so/chrome-zoom",
+    )
+    .unwrap();
+
+    assert_eq!(parsed.sender, Some("You".to_string()));
+    assert_eq!(parsed.timestamp, Some("02:20 PM".to_string()));
+    assert_eq!(
+        parsed.text,
+        "ANLG-297 Chrome Zoom web QA https://anarlog.so/chrome-zoom"
+    );
+    assert_eq!(
+        meeting_chat_direction(&MeetingPlatform::Zoom, parsed.sender.as_deref()),
+        Some(MeetingChatDirection::Outgoing)
+    );
+    assert_eq!(
+        extract_links(&parsed.text),
+        vec!["https://anarlog.so/chrome-zoom"]
+    );
+}
+
+#[test]
 fn test_zoom_chat_direction_uses_native_self_sender_label() {
     assert_eq!(
         meeting_chat_direction(&MeetingPlatform::Zoom, Some("You")),
