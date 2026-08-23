@@ -8,7 +8,7 @@ use crate::Error;
 pub fn available() -> Result<bool, Error> {
     let availability = UserConsentVerifier::CheckAvailabilityAsync()
         .map_err(win_error)?
-        .get()
+        .join()
         .map_err(win_error)?;
     Ok(availability == UserConsentVerifierAvailability::Available)
 }
@@ -23,7 +23,7 @@ pub fn authenticate(reason: &str) -> Result<bool, Error> {
 
     let result = UserConsentVerifier::RequestVerificationAsync(&HSTRING::from(reason))
         .map_err(win_error)?
-        .get()
+        .join()
         .map_err(win_error)?;
 
     Ok(result == UserConsentVerificationResult::Verified)

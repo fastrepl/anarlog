@@ -16,6 +16,12 @@ pub fn set_runtime_handle(handle: tokio::runtime::Handle) {
     let _ = RUNTIME.set(handle);
 }
 
+pub fn runtime_handle() -> Option<tokio::runtime::Handle> {
+    tokio::runtime::Handle::try_current()
+        .ok()
+        .or_else(|| RUNTIME.get().cloned())
+}
+
 pub(crate) fn spawn_background(fut: impl std::future::Future<Output = ()> + Send + 'static) {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) => {

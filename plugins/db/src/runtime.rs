@@ -204,6 +204,8 @@ fn ensure_db_sync_runtime() {
 impl PluginDbRuntime {
     pub fn new(db: std::sync::Arc<Db>) -> Self {
         ensure_db_sync_runtime();
+        let handle = anlg_db_sync::runtime_handle();
+        let _enter = handle.as_ref().map(|h| h.enter());
         let e2ee_sync_hook = std::sync::Arc::new(E2eeSyncHook::default());
         db.set_cloudsync_sync_hook(e2ee_sync_hook.clone());
         let witness_watch = witness_watch::spawn_witness_watch(
