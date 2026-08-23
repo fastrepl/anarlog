@@ -28,6 +28,7 @@ vi.mock("~/settings/queries", () => ({
       hasValues: new Set(Object.keys(mocks.storedValues)),
     }),
   setSettingValues: mocks.setSettingValues,
+  setSettingValue: () => Promise.resolve(),
 }));
 
 vi.mock("@anlg/ui/components/ui/toast", () => ({

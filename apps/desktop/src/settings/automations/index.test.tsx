@@ -31,10 +31,21 @@ const mocks = vi.hoisted(() => ({
     updatedAt: string;
   } | null,
   deleteChatAutomation: vi.fn(),
+  deleteWorkflow: vi.fn(),
   removeDraft: vi.fn(),
   removeStarterDraft: vi.fn(),
   selection: null as unknown,
   setSettingValue: vi.fn(() => Promise.resolve()),
+  workflows: [] as Array<{
+    id: string;
+    title: string;
+    enabled: boolean;
+    trigger: string;
+    steps: unknown[];
+    lastRun: null;
+    processedSessionIds: string[];
+    chatGroupId: string | null;
+  }>,
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
 }));
@@ -46,7 +57,17 @@ vi.mock("~/auth/billing-context", () => ({
 vi.mock("~/automations/actions", () => ({
   useRemoveStarterDraft: () => ({ mutate: mocks.removeStarterDraft }),
   useDeleteChatAutomation: () => ({ mutate: mocks.deleteChatAutomation }),
+  useDeleteWorkflow: () => ({ mutate: mocks.deleteWorkflow }),
 }));
+
+vi.mock("~/automations/workflows", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("~/automations/workflows")>();
+  return {
+    ...actual,
+    useAutomationWorkflows: () => mocks.workflows,
+    saveAutomationWorkflows: vi.fn(() => Promise.resolve()),
+  };
+});
 
 vi.mock("~/automations/selection", () => ({
   useAutomationSelection: (selector: (state: unknown) => unknown) =>
@@ -61,6 +82,11 @@ vi.mock("~/chat/store/queries", () => ({
 vi.mock("~/settings/queries", () => ({
   setSettingValue: mocks.setSettingValue,
   setSettingValues: mocks.setSettingValue,
+  getStoredSettingValues: () =>
+    Promise.resolve({
+      values: { automation_workflows: "[]" },
+      hasValues: new Set(["automation_workflows"]),
+    }),
   useStoredSettingValue: () => ({ value: "", hasValue: false }),
   useStoredSettingValues: () => ({ values: {}, hasValues: new Set() }),
 }));
@@ -109,9 +135,11 @@ describe("AutomationsContent", () => {
     mocks.billing.upgradeToPro.mockClear();
     mocks.chatGroup = null;
     mocks.deleteChatAutomation.mockClear();
+    mocks.deleteWorkflow.mockClear();
     mocks.removeDraft.mockClear();
     mocks.removeStarterDraft.mockClear();
     mocks.selection = null;
+    mocks.workflows = [];
     mocks.setSettingValue.mockClear();
     mocks.toastError.mockClear();
     mocks.toastSuccess.mockClear();
@@ -124,7 +152,7 @@ describe("AutomationsContent", () => {
     expect(screen.getByText("No automation draft yet")).toBeTruthy();
     expect(
       screen.getByText(
-        "Choose a starter from the sidebar or describe an automation in Chat.",
+        "Choose a starter from the sidebar, or create a workflow and add steps like Zapier.",
       ),
     ).toBeTruthy();
   });
@@ -137,7 +165,8 @@ describe("AutomationsContent", () => {
     expect(
       screen.getByRole("heading", { name: "Untitled automation" }),
     ).toBeTruthy();
-    expect(screen.getByText("Start in Chat")).toBeTruthy();
+    expect(screen.getByText("Add a trigger, then stack actions like Zapier.")).toBeTruthy();
+    expect(screen.getByText("Add an action")).toBeTruthy();
   });
 
   it("deletes a draft from its actions menu", async () => {
@@ -269,8 +298,9 @@ describe("AutomationsContent", () => {
     expect(
       screen.getByRole("heading", { name: "Share weekly recap" }),
     ).toBeTruthy();
-    expect(screen.getByText("Drafted in Chat")).toBeTruthy();
-    expect(screen.getByText("Draft")).toBeTruthy();
+    expect(screen.getByText("Add a trigger, then stack actions like Zapier.")).toBeTruthy();
+    expect(screen.getByText("Add an action")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save & enable" })).toBeTruthy();
   });
 
   it("removes the starter automation from the actions menu", async () => {

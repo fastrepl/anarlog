@@ -20,26 +20,14 @@ function ContextChip({
 }) {
   const Icon = chip.icon;
   const openNew = useTabs((state) => state.openNew);
-  const isClickable = !!chip.entityKind && !!chip.entityId;
+  const isClickable = chip.tab != null;
 
   const handleClick = () => {
-    if (!chip.entityKind || !chip.entityId) {
+    if (!chip.tab) {
       return;
     }
 
-    if (chip.entityKind === "session") {
-      openNew({ type: "sessions", id: chip.entityId });
-      return;
-    }
-
-    if (chip.entityKind === "human") {
-      openNew({ type: "humans", id: chip.entityId });
-      return;
-    }
-
-    if (chip.entityKind === "organization") {
-      openNew({ type: "organizations", id: chip.entityId });
-    }
+    openNew(chip.tab);
   };
 
   return (

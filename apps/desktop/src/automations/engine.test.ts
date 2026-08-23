@@ -491,3 +491,82 @@ describe("parsers", () => {
     expect(parseAutomationTargetRef("{broken")).toBeNull();
   });
 });
+
+describe("custom workflows", () => {
+  it("runs an enabled Slack workflow after a summary is ready", async () => {
+    storedSettings({
+      automation_workflows: JSON.stringify([
+        {
+          id: "wf-1",
+          title: "Recap to Slack",
+          enabled: true,
+          trigger: "note_enhanced",
+          steps: [
+            {
+              id: "step-1",
+              type: "slack_recap",
+              target: { id: "C123", name: "general" },
+            },
+          ],
+          lastRun: null,
+          processedSessionIds: [],
+          chatGroupId: null,
+        },
+      ]),
+    });
+    mockDbRows();
+    signedInSession();
+    mocks.sendSlackRecap.mockResolvedValue(undefined);
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: "C123" }),
+    );
+    const workflowCall = mocks.setSettingValue.mock.calls.find(
+      (entry) => entry[0] === "automation_workflows",
+    );
+    const saved = JSON.parse(workflowCall?.[1] as string);
+    expect(saved[0].lastRun.status).toBe("success");
+    expect(saved[0].processedSessionIds).toEqual(["session-1"]);
+  });
+
+  it("skips disabled or already processed workflows", async () => {
+    storedSettings({
+      automation_workflows: JSON.stringify([
+        {
+          id: "wf-1",
+          title: "Disabled",
+          enabled: false,
+          trigger: "note_enhanced",
+          steps: [
+            {
+              id: "step-1",
+              type: "slack_recap",
+              target: { id: "C123", name: "general" },
+            },
+          ],
+          processedSessionIds: [],
+        },
+        {
+          id: "wf-2",
+          title: "Already ran",
+          enabled: true,
+          trigger: "note_enhanced",
+          steps: [
+            {
+              id: "step-1",
+              type: "slack_recap",
+              target: { id: "C123", name: "general" },
+            },
+          ],
+          processedSessionIds: ["session-1"],
+        },
+      ]),
+    });
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+  });
+});

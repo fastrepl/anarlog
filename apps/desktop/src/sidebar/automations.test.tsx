@@ -30,8 +30,20 @@ const mocks = vi.hoisted(() => ({
   selectStarter: vi.fn(),
   selectChatAutomation: vi.fn(),
   selectDraft: vi.fn(),
+  selectWorkflow: vi.fn(),
   startDraft: vi.fn(),
+  saveAutomationWorkflows: vi.fn(() => Promise.resolve()),
   showContextMenu: vi.fn(),
+  workflows: [] as Array<{
+    id: string;
+    title: string;
+    enabled: boolean;
+    trigger: string;
+    steps: unknown[];
+    lastRun: null;
+    processedSessionIds: string[];
+    chatGroupId: string | null;
+  }>,
 }));
 
 vi.mock("~/chat/store/queries", () => ({
@@ -41,7 +53,18 @@ vi.mock("~/chat/store/queries", () => ({
 vi.mock("~/automations/actions", () => ({
   useRemoveStarterDraft: () => ({ mutate: mocks.removeStarterDraft }),
   useDeleteChatAutomation: () => ({ mutate: mocks.deleteChatAutomation }),
+  useDeleteWorkflow: () => ({ mutate: vi.fn() }),
 }));
+
+vi.mock("~/automations/workflows", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("~/automations/workflows")>();
+  return {
+    ...actual,
+    useAutomationWorkflows: () => mocks.workflows,
+    saveAutomationWorkflows: mocks.saveAutomationWorkflows,
+  };
+});
 
 vi.mock("~/automations/selection", () => ({
   useAutomationSelection: (selector: (state: unknown) => unknown) =>
@@ -50,6 +73,7 @@ vi.mock("~/automations/selection", () => ({
       selectStarter: mocks.selectStarter,
       selectChatAutomation: mocks.selectChatAutomation,
       selectDraft: mocks.selectDraft,
+      selectWorkflow: mocks.selectWorkflow,
       startDraft: mocks.startDraft,
       removeDraft: mocks.removeDraft,
     }),
@@ -115,7 +139,10 @@ describe("AutomationsNav", () => {
     mocks.selectStarter.mockClear();
     mocks.selectChatAutomation.mockClear();
     mocks.selectDraft.mockClear();
+    mocks.selectWorkflow.mockClear();
     mocks.startDraft.mockClear();
+    mocks.saveAutomationWorkflows.mockClear();
+    mocks.workflows = [];
     mocks.showContextMenu.mockClear();
   });
 
@@ -224,12 +251,19 @@ describe("AutomationsNav", () => {
     expect(screen.getByText("No automations found")).toBeTruthy();
   });
 
-  it("starts a new automation draft from the sidebar", () => {
+  it("starts a new automation workflow from the sidebar", async () => {
     render(<AutomationsNav />);
 
     fireEvent.click(screen.getByRole("button", { name: "New automation" }));
 
-    expect(mocks.startDraft).toHaveBeenCalledOnce();
+    expect(mocks.saveAutomationWorkflows).toHaveBeenCalledOnce();
+    const saved = mocks.saveAutomationWorkflows.mock.calls[0]?.[0] as Array<{
+      id: string;
+    }>;
+    expect(saved).toHaveLength(1);
+    await vi.waitFor(() => {
+      expect(mocks.selectWorkflow).toHaveBeenCalledWith(saved[0]?.id);
+    });
   });
 
   it("shows drafts as untitled automations and selects them", () => {

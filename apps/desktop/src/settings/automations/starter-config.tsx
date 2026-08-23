@@ -29,6 +29,7 @@ import { cn, formatDistanceToNow } from "@anlg/utils";
 import { useAuth } from "~/auth";
 import { useConnections } from "~/auth/useConnections";
 import {
+  type AutomationRunRecord,
   type AutomationTargetRef,
   parseAutomationRunRecord,
   parseAutomationTargetRef,
@@ -46,12 +47,17 @@ type TargetSettingKey =
 
 export function AutomationLastRunLine({
   settingKey,
+  lastRun: lastRunOverride,
 }: {
-  settingKey: SettingKey;
+  settingKey?: SettingKey;
+  lastRun?: AutomationRunRecord | null;
 }) {
-  const lastRun = parseAutomationRunRecord(
-    useStoredSettingValue(settingKey).value as string | undefined,
+  const storedLastRun = parseAutomationRunRecord(
+    useStoredSettingValue(settingKey ?? "automation_draft_template").value as
+      | string
+      | undefined,
   );
+  const lastRun = lastRunOverride !== undefined ? lastRunOverride : storedLastRun;
   if (!lastRun) {
     return null;
   }
@@ -170,11 +176,18 @@ function ConfigRow({
   );
 }
 
-export function MarkdownExportConfig() {
+export function MarkdownExportConfig({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange?: (directory: string) => void;
+} = {}) {
   const { t } = useLingui();
-  const directory = (
+  const storedDirectory = (
     useStoredSettingValue("automation_markdown_export_directory").value ?? ""
   ).trim();
+  const directory = (value ?? storedDirectory).trim();
   const chooseFolderMutation = useMutation({
     mutationKey: ["automation-markdown-export-folder"],
     mutationFn: async () => {
@@ -185,6 +198,10 @@ export function MarkdownExportConfig() {
         defaultPath: directory || undefined,
       });
       if (typeof selected === "string" && selected) {
+        if (onChange) {
+          onChange(selected);
+          return;
+        }
         await setSettingValue("automation_markdown_export_directory", selected);
       }
     },
@@ -210,10 +227,19 @@ export function MarkdownExportConfig() {
   );
 }
 
-export function SlackRecapConfig() {
-  const selected = parseAutomationTargetRef(
-    useStoredSettingValue("automation_slack_recap_channel").value,
-  );
+export function SlackRecapConfig({
+  value,
+  onChange,
+}: {
+  value?: AutomationTargetRef | null;
+  onChange?: (target: AutomationTargetRef) => void;
+} = {}) {
+  const selected =
+    value !== undefined
+      ? value
+      : parseAutomationTargetRef(
+          useStoredSettingValue("automation_slack_recap_channel").value,
+        );
 
   return (
     <ConfigRow
@@ -227,7 +253,9 @@ export function SlackRecapConfig() {
         connectLabel={<Trans>Connect Slack</Trans>}
         reconnectLabel={<Trans>Reconnect Slack</Trans>}
       >
-        {() => <SlackChannelSelect selected={selected} />}
+        {() => (
+          <SlackChannelSelect selected={selected} onChange={onChange} />
+        )}
       </IntegrationGate>
     </ConfigRow>
   );
@@ -235,12 +263,21 @@ export function SlackRecapConfig() {
 
 function SlackChannelSelect({
   selected,
+  onChange,
 }: {
   selected: AutomationTargetRef | null;
+  onChange?: (target: AutomationTargetRef) => void;
 }) {
   const { t } = useLingui();
   const auth = useAuth();
   const saveTarget = useSaveTarget("automation_slack_recap_channel");
+  const applyTarget = (target: AutomationTargetRef) => {
+    if (onChange) {
+      onChange(target);
+      return;
+    }
+    saveTarget.mutate(target);
+  };
   const channels = useQuery({
     queryKey: ["automation-slack-channels", auth.session?.user.id],
     enabled: Boolean(auth.session?.access_token),
@@ -258,10 +295,10 @@ function SlackChannelSelect({
       onValueChange={(id) => {
         const channel = channels.data?.find((entry) => entry.id === id);
         if (channel) {
-          saveTarget.mutate({ id: channel.id, name: channel.name });
+          applyTarget({ id: channel.id, name: channel.name });
         }
       }}
-      disabled={channels.isLoading || saveTarget.isPending}
+      disabled={channels.isLoading || (!onChange && saveTarget.isPending)}
     >
       <SelectTrigger className="h-8 w-52 text-xs">
         <SelectValue
@@ -288,10 +325,19 @@ function SlackChannelSelect({
   );
 }
 
-export function LinearIssuesConfig() {
-  const selected = parseAutomationTargetRef(
-    useStoredSettingValue("automation_linear_issues_team").value,
-  );
+export function LinearIssuesConfig({
+  value,
+  onChange,
+}: {
+  value?: AutomationTargetRef | null;
+  onChange?: (target: AutomationTargetRef) => void;
+} = {}) {
+  const selected =
+    value !== undefined
+      ? value
+      : parseAutomationTargetRef(
+          useStoredSettingValue("automation_linear_issues_team").value,
+        );
 
   return (
     <ConfigRow
@@ -304,7 +350,11 @@ export function LinearIssuesConfig() {
         reconnectLabel={<Trans>Reconnect Linear</Trans>}
       >
         {(connection) => (
-          <LinearTeamSelect connection={connection} selected={selected} />
+          <LinearTeamSelect
+            connection={connection}
+            selected={selected}
+            onChange={onChange}
+          />
         )}
       </IntegrationGate>
     </ConfigRow>
@@ -314,13 +364,22 @@ export function LinearIssuesConfig() {
 function LinearTeamSelect({
   connection,
   selected,
+  onChange,
 }: {
   connection: ConnectionItem;
   selected: AutomationTargetRef | null;
+  onChange?: (target: AutomationTargetRef) => void;
 }) {
   const { t } = useLingui();
   const client = useAuthedApiClient();
   const saveTarget = useSaveTarget("automation_linear_issues_team");
+  const applyTarget = (target: AutomationTargetRef) => {
+    if (onChange) {
+      onChange(target);
+      return;
+    }
+    saveTarget.mutate(target);
+  };
   const teams = useQuery({
     queryKey: ["automation-linear-teams", connection.connection_id],
     enabled: client !== null,
@@ -345,10 +404,10 @@ function LinearTeamSelect({
       onValueChange={(id) => {
         const team = teams.data?.find((entry) => entry.id === id);
         if (team) {
-          saveTarget.mutate({ id: team.id, name: team.name });
+          applyTarget({ id: team.id, name: team.name });
         }
       }}
-      disabled={teams.isLoading || saveTarget.isPending}
+      disabled={teams.isLoading || (!onChange && saveTarget.isPending)}
     >
       <SelectTrigger className="h-8 w-52 text-xs">
         <SelectValue
@@ -366,10 +425,19 @@ function LinearTeamSelect({
   );
 }
 
-export function NotionUpdateConfig() {
-  const selected = parseAutomationTargetRef(
-    useStoredSettingValue("automation_notion_update_page").value,
-  );
+export function NotionUpdateConfig({
+  value,
+  onChange,
+}: {
+  value?: AutomationTargetRef | null;
+  onChange?: (target: AutomationTargetRef) => void;
+} = {}) {
+  const selected =
+    value !== undefined
+      ? value
+      : parseAutomationTargetRef(
+          useStoredSettingValue("automation_notion_update_page").value,
+        );
 
   return (
     <div className="flex flex-col gap-3">
@@ -383,7 +451,11 @@ export function NotionUpdateConfig() {
         reconnectLabel={<Trans>Reconnect Notion</Trans>}
       >
         {(connection) => (
-          <NotionPageSearch connection={connection} selected={selected} />
+          <NotionPageSearch
+            connection={connection}
+            selected={selected}
+            onChange={onChange}
+          />
         )}
       </IntegrationGate>
     </div>
@@ -393,13 +465,22 @@ export function NotionUpdateConfig() {
 function NotionPageSearch({
   connection,
   selected,
+  onChange,
 }: {
   connection: ConnectionItem;
   selected: AutomationTargetRef | null;
+  onChange?: (target: AutomationTargetRef) => void;
 }) {
   const { t } = useLingui();
   const client = useAuthedApiClient();
   const saveTarget = useSaveTarget("automation_notion_update_page");
+  const applyTarget = (target: AutomationTargetRef) => {
+    if (onChange) {
+      onChange(target);
+      return;
+    }
+    saveTarget.mutate(target);
+  };
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const pages = useQuery({
@@ -467,7 +548,7 @@ function NotionPageSearch({
               key={page.id}
               type="button"
               onClick={() =>
-                saveTarget.mutate({ id: page.id, name: page.title })
+                applyTarget({ id: page.id, name: page.title })
               }
               className={cn([
                 "rounded-lg px-3 py-1.5 text-left text-xs transition-colors",

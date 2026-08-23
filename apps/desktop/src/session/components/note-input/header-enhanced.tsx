@@ -137,7 +137,9 @@ function HeaderViewEnhancedActive({
     sessionId,
     enhancedNoteId,
   );
-  const content = useEnhancedNote(enhancedNoteId)?.content;
+  const enhancedNote = useEnhancedNote(enhancedNoteId);
+  const content = enhancedNote?.content;
+  const usedTemplateId = enhancedNote?.templateId?.trim() || null;
   const { viewTitle, templateTooltip } = useEnhancedViewTitle(enhancedNoteId);
   const noteMarkdown = useMemo(() => getStoredNoteMarkdown(content), [content]);
 
@@ -271,6 +273,9 @@ function HeaderViewEnhancedActive({
   return (
     <TemplatePickerPopover
       onSelectTemplate={handleSelectTemplate}
+      usedTemplateId={usedTemplateId}
+      onRegenerateUsed={handleRegenerate}
+      isRegenerating={isGenerating}
       trigger={templateMenuTrigger}
     />
   );

@@ -9,7 +9,7 @@ import {
   Sparkle,
 } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -30,10 +30,12 @@ import {
   NotionUpdateConfig,
   SlackRecapConfig,
 } from "./starter-config";
+import { useSaveWorkflow, WorkflowBuilder } from "./workflow-builder";
 
 import { useBillingAccess } from "~/auth/billing-context";
 import {
   useDeleteChatAutomation,
+  useDeleteWorkflow,
   useRemoveStarterDraft,
 } from "~/automations/actions";
 import { parseAutomationTargetRef } from "~/automations/engine";
@@ -46,10 +48,19 @@ import {
   type StarterId,
   useStarterAutomations,
 } from "~/automations/starters";
+import {
+  type AutomationWorkflow,
+  createEmptyWorkflow,
+  isWorkflowReady,
+  parseAutomationWorkflows,
+  saveAutomationWorkflows,
+  useAutomationWorkflows,
+} from "~/automations/workflows";
 import { useChatGroup } from "~/chat/store/queries";
 import { SettingsHydrationBoundary } from "~/settings/hydration-boundary";
 import { SettingsPageTitle } from "~/settings/page-title";
 import {
+  getStoredSettingValues,
   setSettingValue,
   setSettingValues,
   useStoredSettingValues,
@@ -89,6 +100,10 @@ export function AutomationsContent() {
     return <DraftAutomationDetails draftId={selection.draftId} />;
   }
 
+  if (selection?.kind === "workflow") {
+    return <PersistedWorkflowDetails workflowId={selection.workflowId} />;
+  }
+
   return <AutomationsOverview />;
 }
 
@@ -115,8 +130,8 @@ function AutomationsOverview() {
           </h3>
           <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
             <Trans>
-              Choose a starter from the sidebar or describe an automation in
-              Chat.
+              Choose a starter from the sidebar, or create a workflow and add
+              steps like Zapier.
             </Trans>
           </p>
         </section>
@@ -127,39 +142,20 @@ function AutomationsOverview() {
 
 function DraftAutomationDetails({ draftId }: { draftId: string }) {
   const removeDraft = useAutomationSelection((state) => state.removeDraft);
+  const workflow = useEnsuredWorkflow({ id: draftId });
 
   return (
-    <AutomationDetailsLayout
-      icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
-      title={<Trans>Untitled automation</Trans>}
+    <CustomWorkflowDetails
+      workflow={workflow}
+      title={workflow.title.trim() || <Trans>Untitled automation</Trans>}
       description={
         <Trans>
-          Automate what happens before, during, or after meetings based on the
-          conditions you choose.
+          Add a trigger and actions. Chat on the right can help you refine the
+          workflow.
         </Trans>
       }
-      actions={
-        <AutomationActionsMenu
-          actionLabel={<Trans>Delete automation</Trans>}
-          onAction={() => removeDraft(draftId)}
-        />
-      }
-    >
-      <section className="border-border bg-muted/20 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-10 text-center">
-        <span className="bg-background border-border flex size-11 items-center justify-center rounded-2xl border">
-          <Lightning className="text-muted-foreground" size={20} />
-        </span>
-        <h3 className="mt-4 text-sm font-semibold">
-          <Trans>Start in Chat</Trans>
-        </h3>
-        <p className="text-muted-foreground mt-1 max-w-sm text-xs leading-relaxed">
-          <Trans>
-            Describe what should happen and when. This draft becomes an
-            automation once you send the first message.
-          </Trans>
-        </p>
-      </section>
-    </AutomationDetailsLayout>
+      onDelete={() => removeDraft(draftId)}
+    />
   );
 }
 
@@ -255,38 +251,171 @@ function ChatAutomationDetails({ groupId }: { groupId: string }) {
   const createdAt = group?.createdAt
     ? formatDistanceToNow(new Date(group.createdAt), { addSuffix: true })
     : "";
+  const workflow = useEnsuredWorkflow({
+    chatGroupId: groupId,
+    title: group?.title.trim() || undefined,
+  });
+
+  return (
+    <CustomWorkflowDetails
+      workflow={workflow}
+      title={group?.title.trim() || workflow.title || t`Untitled automation`}
+      description={createdAt ? <Trans>Created {createdAt}</Trans> : null}
+      onDelete={() => deleteChatAutomation.mutate(groupId)}
+    />
+  );
+}
+
+function PersistedWorkflowDetails({ workflowId }: { workflowId: string }) {
+  const { t } = useLingui();
+  const deleteWorkflow = useDeleteWorkflow();
+  const workflow = useEnsuredWorkflow({ id: workflowId });
+
+  return (
+    <CustomWorkflowDetails
+      workflow={workflow}
+      title={workflow.title.trim() || t`Untitled automation`}
+      description={
+        <Trans>
+          Add a trigger and actions. Chat on the right can help you refine the
+          workflow.
+        </Trans>
+      }
+      onDelete={() => deleteWorkflow.mutate(workflowId)}
+    />
+  );
+}
+
+function CustomWorkflowDetails({
+  workflow,
+  title,
+  description,
+  onDelete,
+}: {
+  workflow: AutomationWorkflow;
+  title: React.ReactNode;
+  description: React.ReactNode;
+  onDelete: () => void;
+}) {
+  const { t } = useLingui();
+  const billing = useBillingAccess();
+  const workflows = useAutomationWorkflows();
+  const saveWorkflow = useSaveWorkflow();
+
+  const persist = (next: AutomationWorkflow) => {
+    saveWorkflow.mutate({ workflows, next });
+  };
+
+  const handleEnable = (enabled: boolean) => {
+    if (enabled && !billing.isPro) {
+      billing.upgradeToPro();
+      return;
+    }
+    persist({ ...workflow, enabled });
+  };
 
   return (
     <AutomationDetailsLayout
       icon={<Lightning className="text-violet-500" size={16} weight="fill" />}
-      title={group?.title.trim() || t`Untitled automation`}
-      description={createdAt ? <Trans>Created {createdAt}</Trans> : null}
+      title={title}
+      description={description}
       actions={
-        <AutomationActionsMenu
-          actionLabel={<Trans>Delete automation</Trans>}
-          onAction={() => deleteChatAutomation.mutate(groupId)}
-        />
+        <div className="flex items-center gap-2">
+          {workflow.enabled ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleEnable(false)}
+              disabled={!billing.isReady || saveWorkflow.isPending}
+            >
+              <Trans>Disable</Trans>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => handleEnable(true)}
+              disabled={
+                !billing.isReady ||
+                saveWorkflow.isPending ||
+                (billing.isPro && !isWorkflowReady(workflow))
+              }
+              title={
+                billing.isPro && !isWorkflowReady(workflow)
+                  ? t`Add and configure at least one action first.`
+                  : undefined
+              }
+            >
+              <Lightning size={14} weight="fill" />
+              {billing.isPro ? (
+                <Trans>Save &amp; enable</Trans>
+              ) : (
+                <Trans>Upgrade to enable</Trans>
+              )}
+            </Button>
+          )}
+          <AutomationActionsMenu
+            actionLabel={<Trans>Delete automation</Trans>}
+            onAction={onDelete}
+          />
+        </div>
       }
     >
-      <section className="border-border bg-background overflow-hidden rounded-2xl border">
-        <div className="border-border flex items-center gap-2 border-b px-5 py-4">
-          <Lightning className="text-primary" size={17} weight="fill" />
-          <h3 className="text-sm font-semibold">
-            <Trans>Drafted in Chat</Trans>
-          </h3>
-          <Badge variant="outline">
-            <Trans>Draft</Trans>
-          </Badge>
-        </div>
-        <p className="text-muted-foreground px-5 py-4 text-sm leading-relaxed">
-          <Trans>
-            This automation is drafted in Chat. Continue the conversation on the
-            right to refine what it should do.
-          </Trans>
-        </p>
-      </section>
+      <WorkflowBuilder workflow={workflow} onChange={persist} />
     </AutomationDetailsLayout>
   );
+}
+
+function useEnsuredWorkflow({
+  id,
+  chatGroupId,
+  title,
+}: {
+  id?: string;
+  chatGroupId?: string;
+  title?: string;
+}): AutomationWorkflow {
+  const workflows = useAutomationWorkflows();
+  const existing =
+    (id ? workflows.find((workflow) => workflow.id === id) : undefined) ??
+    (chatGroupId
+      ? workflows.find((workflow) => workflow.chatGroupId === chatGroupId)
+      : undefined);
+  const fallback = useMemo(
+    () =>
+      createEmptyWorkflow({
+        id,
+        chatGroupId: chatGroupId ?? null,
+        title,
+      }),
+    [chatGroupId, id, title],
+  );
+
+  useEffect(() => {
+    if (existing) {
+      return;
+    }
+
+    void (async () => {
+      const stored = await getStoredSettingValues();
+      const current = parseAutomationWorkflows(
+        stored.values.automation_workflows,
+      );
+      if (
+        current.some(
+          (workflow) =>
+            workflow.id === fallback.id ||
+            (chatGroupId && workflow.chatGroupId === chatGroupId),
+        )
+      ) {
+        return;
+      }
+      await saveAutomationWorkflows([fallback, ...current]);
+    })();
+  }, [chatGroupId, existing, fallback]);
+
+  return existing ?? fallback;
 }
 
 function StarterAutomationDetails({ starterId }: { starterId: StarterId }) {

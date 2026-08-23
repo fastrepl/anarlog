@@ -9,6 +9,7 @@ import { CustomSidebarHeader } from "./custom-sidebar-header";
 
 import {
   useDeleteChatAutomation,
+  useDeleteWorkflow,
   useRemoveStarterDraft,
 } from "~/automations/actions";
 import {
@@ -19,6 +20,12 @@ import {
   type StarterAutomation,
   useStarterAutomations,
 } from "~/automations/starters";
+import {
+  type AutomationWorkflow,
+  createEmptyWorkflow,
+  saveAutomationWorkflows,
+  useAutomationWorkflows,
+} from "~/automations/workflows";
 import { type ChatGroupRecord, useChatGroups } from "~/chat/store/queries";
 import { useNativeContextMenu } from "~/shared/hooks/useNativeContextMenu";
 
@@ -27,13 +34,16 @@ export function AutomationsNav() {
   const [search, setSearch] = useState("");
   const starters = useStarterAutomations();
   const chatAutomations = useChatGroups("automations");
+  const workflows = useAutomationWorkflows();
   const selection = useEffectiveAutomationSelection();
   const draftIds = useAutomationSelection((state) => state.draftIds);
   const selectStarter = useAutomationSelection((state) => state.selectStarter);
   const selectChatAutomation = useAutomationSelection(
     (state) => state.selectChatAutomation,
   );
-  const startDraft = useAutomationSelection((state) => state.startDraft);
+  const selectWorkflow = useAutomationSelection(
+    (state) => state.selectWorkflow,
+  );
 
   const query = search.trim().toLowerCase();
   const draftTitle = t`Untitled automation`;
@@ -46,18 +56,40 @@ export function AutomationsNav() {
     : starters;
   const filteredDraftIds =
     query && !draftTitle.toLowerCase().includes(query) ? [] : draftIds;
-  const filteredChatAutomations = useMemo(() => {
+  const chatIdsWithWorkflow = useMemo(
+    () =>
+      new Set(
+        workflows
+          .map((workflow) => workflow.chatGroupId)
+          .filter((groupId): groupId is string => Boolean(groupId)),
+      ),
+    [workflows],
+  );
+  const filteredWorkflows = useMemo(() => {
     if (!query) {
-      return chatAutomations;
+      return workflows;
     }
 
-    return chatAutomations.filter((automation) =>
+    return workflows.filter((workflow) =>
+      workflow.title.toLowerCase().includes(query),
+    );
+  }, [query, workflows]);
+  const filteredChatAutomations = useMemo(() => {
+    const orphans = chatAutomations.filter(
+      (automation) => !chatIdsWithWorkflow.has(automation.id),
+    );
+    if (!query) {
+      return orphans;
+    }
+
+    return orphans.filter((automation) =>
       automation.title.toLowerCase().includes(query),
     );
-  }, [chatAutomations, query]);
+  }, [chatAutomations, chatIdsWithWorkflow, query]);
   const isEmpty =
     filteredStarters.length === 0 &&
     filteredDraftIds.length === 0 &&
+    filteredWorkflows.length === 0 &&
     filteredChatAutomations.length === 0;
 
   return (
@@ -69,7 +101,12 @@ export function AutomationsNav() {
           variant="ghost"
           className="text-muted-foreground hover:text-foreground relative z-[60]"
           aria-label={t`New automation`}
-          onClick={startDraft}
+          onClick={() => {
+            const workflow = createEmptyWorkflow();
+            void saveAutomationWorkflows([workflow, ...workflows]).then(() => {
+              selectWorkflow(workflow.id);
+            });
+          }}
         >
           <Plus size={16} />
         </Button>
@@ -149,6 +186,7 @@ export function AutomationsNav() {
             ) : null}
 
             {filteredDraftIds.length > 0 ||
+            filteredWorkflows.length > 0 ||
             filteredChatAutomations.length > 0 ? (
               <div>
                 <h3 className="text-muted-foreground px-3 pt-1 pb-1 text-xs font-medium">
@@ -163,6 +201,17 @@ export function AutomationsNav() {
                       selection?.kind === "draft" &&
                       selection.draftId === draftId
                     }
+                  />
+                ))}
+                {filteredWorkflows.map((workflow) => (
+                  <WorkflowListItem
+                    key={workflow.id}
+                    workflow={workflow}
+                    selected={
+                      selection?.kind === "workflow" &&
+                      selection.workflowId === workflow.id
+                    }
+                    onSelect={selectWorkflow}
                   />
                 ))}
                 {filteredChatAutomations.map((automation) => (
@@ -290,6 +339,64 @@ function DraftListItem({
           <span className="block truncate font-medium">{title}</span>
           <span className="text-muted-foreground mt-0.5 block truncate text-xs">
             <Trans>Draft</Trans>
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+function WorkflowListItem({
+  workflow,
+  selected,
+  onSelect,
+}: {
+  workflow: AutomationWorkflow;
+  selected: boolean;
+  onSelect: (workflowId: string) => void;
+}) {
+  const { t } = useLingui();
+  const deleteWorkflow = useDeleteWorkflow();
+  const contextMenu = useMemo(
+    () => [
+      {
+        id: `edit-automation-${workflow.id}`,
+        text: t`Edit`,
+        action: () => onSelect(workflow.id),
+      },
+      { separator: true as const },
+      {
+        id: `delete-automation-${workflow.id}`,
+        text: t`Delete`,
+        action: () => deleteWorkflow.mutate(workflow.id),
+      },
+    ],
+    [deleteWorkflow, onSelect, t, workflow.id],
+  );
+  const showContextMenu = useNativeContextMenu(contextMenu);
+
+  return (
+    <button
+      type="button"
+      aria-current={selected ? "page" : undefined}
+      onClick={() => onSelect(workflow.id)}
+      onContextMenu={(event) => {
+        onSelect(workflow.id);
+        void showContextMenu(event);
+      }}
+      className={cn([
+        "w-full rounded-lg px-3 py-2 text-left text-sm transition-colors select-none",
+        selected ? "bg-accent" : "hover:bg-accent/50",
+      ])}
+    >
+      <span className="flex items-center gap-2">
+        <Lightning className="size-4 shrink-0 text-violet-500" weight="fill" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">
+            {workflow.title.trim() || t`Untitled automation`}
+          </span>
+          <span className="text-muted-foreground mt-0.5 block truncate text-xs">
+            {workflow.enabled ? <Trans>Enabled</Trans> : <Trans>Draft</Trans>}
           </span>
         </span>
       </span>

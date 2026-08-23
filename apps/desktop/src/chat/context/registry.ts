@@ -8,13 +8,14 @@ import {
 
 import type { ContextEntity, ContextEntityKind } from "./entities";
 
+import type { TabInput } from "~/store/zustand/tabs";
+
 export type ContextChipProps = {
   key: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   removable?: boolean;
-  entityKind?: ContextEntityKind;
-  entityId?: string;
+  tab?: TabInput;
 };
 
 type EntityRenderer<E extends ContextEntity> = {
@@ -40,8 +41,7 @@ const renderers: RendererMap = {
         icon: isFromTool ? MagnifyingGlass : CalendarBlank,
         label,
         removable: entity.removable,
-        entityKind: "session",
-        entityId: entity.sessionId,
+        tab: { type: "sessions", id: entity.sessionId },
       };
     },
   },
@@ -54,8 +54,10 @@ const renderers: RendererMap = {
         icon: User,
         label,
         removable: entity.removable,
-        entityKind: "human",
-        entityId: entity.humanId,
+        tab: {
+          type: "contacts",
+          state: { selected: { type: "person", id: entity.humanId } },
+        },
       };
     },
   },
@@ -68,8 +70,27 @@ const renderers: RendererMap = {
         icon: Buildings,
         label,
         removable: entity.removable,
-        entityKind: "organization",
-        entityId: entity.organizationId,
+        tab: {
+          type: "contacts",
+          state: {
+            selected: { type: "organization", id: entity.organizationId },
+          },
+        },
+      };
+    },
+  },
+
+  calendar_event: {
+    toChip: (entity) => {
+      const label = entity.title || "Event";
+      return {
+        key: entity.key,
+        icon: CalendarBlank,
+        label,
+        removable: entity.removable,
+        tab: entity.linkedSessionId
+          ? { type: "sessions", id: entity.linkedSessionId }
+          : { type: "calendar" },
       };
     },
   },
@@ -81,6 +102,7 @@ const renderers: RendererMap = {
         key: entity.key,
         icon: User,
         label: "Account",
+        tab: { type: "settings", state: { tab: "account" } },
       };
     },
   },
@@ -91,6 +113,7 @@ const renderers: RendererMap = {
         key: entity.key,
         icon: Monitor,
         label: "Device",
+        tab: { type: "settings", state: { tab: "sync" } },
       };
     },
   },

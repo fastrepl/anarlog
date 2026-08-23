@@ -9,6 +9,20 @@ import { createClient } from "@anlg/api-client/client";
 import { json2md } from "@anlg/editor/markdown";
 import { commands as localApiCommands } from "@anlg/plugin-local-api";
 
+import {
+  type AutomationRunRecord,
+  type AutomationTargetRef,
+  parseAutomationRunRecord,
+  parseAutomationTargetRef,
+} from "./types";
+import {
+  type AutomationWorkflow,
+  parseAutomationWorkflows,
+  serializeAutomationWorkflows,
+  type WorkflowStep,
+  type WorkflowTrigger,
+} from "./workflows";
+
 import { supabase } from "~/auth/client";
 import { liveQueryClient } from "~/db";
 import { env } from "~/env";
@@ -19,57 +33,11 @@ import {
 import { getSessionShareSenderName } from "~/session-sharing/invitation-management";
 import { getStoredSettingValues, setSettingValue } from "~/settings/queries";
 
+export type { AutomationRunRecord, AutomationTargetRef };
+export { parseAutomationRunRecord, parseAutomationTargetRef };
+
 const MAX_LINEAR_ISSUES_PER_MEETING = 10;
 const MAX_PROCESSED_SESSIONS = 50;
-
-export type AutomationRunRecord = {
-  at: string;
-  status: "success" | "error";
-  detail: string;
-};
-
-export function parseAutomationRunRecord(
-  value: string | undefined,
-): AutomationRunRecord | null {
-  if (!value) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(value);
-    if (
-      typeof parsed?.at === "string" &&
-      (parsed.status === "success" || parsed.status === "error") &&
-      typeof parsed.detail === "string"
-    ) {
-      return parsed as AutomationRunRecord;
-    }
-  } catch {
-    // fall through
-  }
-  return null;
-}
-
-export type AutomationTargetRef = {
-  id: string;
-  name: string;
-};
-
-export function parseAutomationTargetRef(
-  value: string | undefined,
-): AutomationTargetRef | null {
-  if (!value) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(value);
-    if (typeof parsed?.id === "string" && typeof parsed.name === "string") {
-      return { id: parsed.id, name: parsed.name };
-    }
-  } catch {
-    // fall through
-  }
-  return null;
-}
 
 export async function runMeetingCompletedAutomations(
   sessionId: string,
@@ -78,6 +46,11 @@ export async function runMeetingCompletedAutomations(
     await runMarkdownExport(sessionId);
   } catch (error) {
     console.error("[automations] meeting.completed run failed", error);
+  }
+  try {
+    await runCustomWorkflows(sessionId, "meeting_completed");
+  } catch (error) {
+    console.error("[automations] meeting.completed workflows failed", error);
   }
 }
 
@@ -91,6 +64,126 @@ export async function runNoteEnhancedAutomations(
     } catch (error) {
       console.error("[automations] note.enhanced run failed", error);
     }
+  }
+  try {
+    await runCustomWorkflows(sessionId, "note_enhanced");
+  } catch (error) {
+    console.error("[automations] note.enhanced workflows failed", error);
+  }
+}
+
+async function runCustomWorkflows(
+  sessionId: string,
+  trigger: WorkflowTrigger,
+): Promise<void> {
+  const { values } = await getStoredSettingValues();
+  const workflows = parseAutomationWorkflows(values.automation_workflows);
+  for (const workflow of workflows) {
+    if (!workflow.enabled || workflow.trigger !== trigger) {
+      continue;
+    }
+    if (workflow.steps.length === 0) {
+      continue;
+    }
+    if (workflow.processedSessionIds.includes(sessionId)) {
+      continue;
+    }
+    try {
+      await runWorkflow(sessionId, workflow);
+    } catch (error) {
+      console.error("[automations] workflow run failed", error);
+    }
+  }
+}
+
+async function runWorkflow(
+  sessionId: string,
+  workflow: AutomationWorkflow,
+): Promise<void> {
+  const record: AutomationRunRecord = {
+    at: new Date().toISOString(),
+    status: "success",
+    detail: "",
+  };
+  try {
+    const details: string[] = [];
+    for (const step of workflow.steps) {
+      details.push(await executeWorkflowStep(sessionId, step));
+    }
+    record.detail = details.filter(Boolean).join(" · ") || "ok";
+    await persistWorkflowResult(workflow.id, {
+      record,
+      sessionId,
+    });
+  } catch (error) {
+    record.status = "error";
+    record.detail = error instanceof Error ? error.message : String(error);
+    console.error("[automations] workflow failed", error);
+    await persistWorkflowResult(workflow.id, { record });
+  }
+}
+
+async function persistWorkflowResult(
+  workflowId: string,
+  {
+    record,
+    sessionId,
+  }: {
+    record: AutomationRunRecord;
+    sessionId?: string;
+  },
+): Promise<void> {
+  const { values } = await getStoredSettingValues();
+  const workflows = parseAutomationWorkflows(values.automation_workflows);
+  const next = workflows.map((workflow) => {
+    if (workflow.id !== workflowId) {
+      return workflow;
+    }
+    const processedSessionIds =
+      sessionId && record.status === "success"
+        ? [...workflow.processedSessionIds, sessionId].slice(
+            -MAX_PROCESSED_SESSIONS,
+          )
+        : workflow.processedSessionIds;
+    return { ...workflow, lastRun: record, processedSessionIds };
+  });
+  await setSettingValue(
+    "automation_workflows",
+    serializeAutomationWorkflows(next),
+  );
+}
+
+async function executeWorkflowStep(
+  sessionId: string,
+  step: WorkflowStep,
+): Promise<string> {
+  if (step.type === "markdown_export") {
+    const directory = step.directory.trim();
+    if (!directory) {
+      throw new Error("choose an export folder first");
+    }
+    return await executeMarkdownExport(sessionId, directory);
+  }
+  if (!step.target) {
+    throw new Error(`choose a ${stepLabel(step.type)} first`);
+  }
+  if (step.type === "slack_recap") {
+    return await executeSlackRecap(sessionId, step.target);
+  }
+  if (step.type === "linear_issues") {
+    return await executeLinearIssues(sessionId, step.target);
+  }
+  return await executeNotionUpdate(sessionId, step.target);
+}
+
+function stepLabel(type: Exclude<WorkflowStep["type"], "markdown_export">) {
+  switch (type) {
+    case "slack_recap":
+      return "Slack channel";
+    case "linear_issues":
+      return "Linear team";
+    case "notion_update":
+      return "Notion page";
   }
 }
 
@@ -110,14 +203,7 @@ async function runMarkdownExport(sessionId: string): Promise<void> {
     detail: "",
   };
   try {
-    const result = await localApiCommands.exportMeetingMarkdown(
-      sessionId,
-      directory,
-    );
-    if (result.status === "error") {
-      throw new Error(result.error);
-    }
-    record.detail = result.data;
+    record.detail = await executeMarkdownExport(sessionId, directory);
   } catch (error) {
     record.status = "error";
     record.detail = error instanceof Error ? error.message : String(error);
@@ -153,22 +239,7 @@ async function runSlackRecap(sessionId: string): Promise<void> {
     detail: "",
   };
   try {
-    const recap = await loadMeetingRecap(sessionId);
-    if (!recap) {
-      throw new Error("no meeting summary is available yet");
-    }
-    const session = await requireSupabaseSession();
-    await sendSlackRecap({
-      apiBaseUrl: env.VITE_API_URL,
-      accessToken: session.access_token,
-      channel: channel.id,
-      text: buildSlackRecap({
-        senderName: getSessionShareSenderName(session.user),
-        noteTitle: recap.title,
-        noteBody: recap.body,
-      }),
-    });
-    record.detail = `#${channel.name}`;
+    record.detail = await executeSlackRecap(sessionId, channel);
     await recordProcessedSession(
       "automation_slack_recap_processed",
       processed,
@@ -207,44 +278,13 @@ async function runLinearIssues(sessionId: string): Promise<void> {
     detail: "",
   };
   try {
-    const actionItems = await loadMeetingActionItems(sessionId);
-    if (actionItems.length === 0) {
-      record.detail = "no action items found for this meeting";
-    } else {
-      const session = await requireSupabaseSession();
-      const client = apiClientForSession(session);
-      const connectionId = await findConnectionId(client, "linear");
-      const recap = await loadMeetingRecap(sessionId);
-      const description = recap
-        ? `Action item from the Anarlog meeting "${recap.title}" (${recap.date}).`
-        : "Action item from an Anarlog meeting.";
-      const items = actionItems.slice(0, MAX_LINEAR_ISSUES_PER_MEETING);
-      // Mark the session processed before creating anything: a mid-loop
-      // failure must not re-create the earlier issues on the next enhance.
-      await recordProcessedSession(
+    record.detail = await executeLinearIssues(sessionId, team, () =>
+      recordProcessedSession(
         "automation_linear_issues_processed",
         processed,
         sessionId,
-      );
-      for (const item of items) {
-        const { error } = await linearCreateIssue({
-          client,
-          body: {
-            connection_id: connectionId,
-            team_id: team.id,
-            title: item,
-            description,
-          },
-        });
-        if (error) {
-          throw new Error(apiErrorMessage(error));
-        }
-      }
-      record.detail =
-        items.length === 1
-          ? `1 issue in ${team.name}`
-          : `${items.length} issues in ${team.name}`;
-    }
+      ),
+    );
   } catch (error) {
     record.status = "error";
     record.detail = error instanceof Error ? error.message : String(error);
@@ -278,26 +318,7 @@ async function runNotionUpdate(sessionId: string): Promise<void> {
     detail: "",
   };
   try {
-    const recap = await loadMeetingRecap(sessionId);
-    if (!recap) {
-      throw new Error("no meeting summary is available yet");
-    }
-    const session = await requireSupabaseSession();
-    const client = apiClientForSession(session);
-    const connectionId = await findConnectionId(client, "notion");
-    const { error } = await notionAppendUpdate({
-      client,
-      body: {
-        connection_id: connectionId,
-        page_id: page.id,
-        heading: `${recap.date} — ${recap.title}`,
-        markdown: recap.body,
-      },
-    });
-    if (error) {
-      throw new Error(apiErrorMessage(error));
-    }
-    record.detail = page.name;
+    record.detail = await executeNotionUpdate(sessionId, page);
     await recordProcessedSession(
       "automation_notion_update_processed",
       processed,
@@ -312,6 +333,105 @@ async function runNotionUpdate(sessionId: string): Promise<void> {
     "automation_notion_update_last_run",
     JSON.stringify(record),
   );
+}
+
+async function executeMarkdownExport(
+  sessionId: string,
+  directory: string,
+): Promise<string> {
+  const result = await localApiCommands.exportMeetingMarkdown(
+    sessionId,
+    directory,
+  );
+  if (result.status === "error") {
+    throw new Error(result.error);
+  }
+  return result.data;
+}
+
+async function executeSlackRecap(
+  sessionId: string,
+  channel: AutomationTargetRef,
+): Promise<string> {
+  const recap = await loadMeetingRecap(sessionId);
+  if (!recap) {
+    throw new Error("no meeting summary is available yet");
+  }
+  const session = await requireSupabaseSession();
+  await sendSlackRecap({
+    apiBaseUrl: env.VITE_API_URL,
+    accessToken: session.access_token,
+    channel: channel.id,
+    text: buildSlackRecap({
+      senderName: getSessionShareSenderName(session.user),
+      noteTitle: recap.title,
+      noteBody: recap.body,
+    }),
+  });
+  return `#${channel.name}`;
+}
+
+async function executeLinearIssues(
+  sessionId: string,
+  team: AutomationTargetRef,
+  beforeCreate?: () => Promise<void>,
+): Promise<string> {
+  const actionItems = await loadMeetingActionItems(sessionId);
+  if (actionItems.length === 0) {
+    return "no action items found for this meeting";
+  }
+  const session = await requireSupabaseSession();
+  const client = apiClientForSession(session);
+  const connectionId = await findConnectionId(client, "linear");
+  const recap = await loadMeetingRecap(sessionId);
+  const description = recap
+    ? `Action item from the Anarlog meeting "${recap.title}" (${recap.date}).`
+    : "Action item from an Anarlog meeting.";
+  const items = actionItems.slice(0, MAX_LINEAR_ISSUES_PER_MEETING);
+  await beforeCreate?.();
+  for (const item of items) {
+    const { error } = await linearCreateIssue({
+      client,
+      body: {
+        connection_id: connectionId,
+        team_id: team.id,
+        title: item,
+        description,
+      },
+    });
+    if (error) {
+      throw new Error(apiErrorMessage(error));
+    }
+  }
+  return items.length === 1
+    ? `1 issue in ${team.name}`
+    : `${items.length} issues in ${team.name}`;
+}
+
+async function executeNotionUpdate(
+  sessionId: string,
+  page: AutomationTargetRef,
+): Promise<string> {
+  const recap = await loadMeetingRecap(sessionId);
+  if (!recap) {
+    throw new Error("no meeting summary is available yet");
+  }
+  const session = await requireSupabaseSession();
+  const client = apiClientForSession(session);
+  const connectionId = await findConnectionId(client, "notion");
+  const { error } = await notionAppendUpdate({
+    client,
+    body: {
+      connection_id: connectionId,
+      page_id: page.id,
+      heading: `${recap.date} — ${recap.title}`,
+      markdown: recap.body,
+    },
+  });
+  if (error) {
+    throw new Error(apiErrorMessage(error));
+  }
+  return page.name;
 }
 
 async function requireSupabaseSession(): Promise<Session> {

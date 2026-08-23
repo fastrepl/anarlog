@@ -1,5 +1,6 @@
 import { useLingui } from "@lingui/react/macro";
 import {
+  ArrowClockwise,
   CaretRight,
   Heart,
   MagnifyingGlass,
@@ -36,9 +37,15 @@ export type TemplateSelection = {
 
 export function TemplatePickerPopover({
   onSelectTemplate,
+  usedTemplateId,
+  onRegenerateUsed,
+  isRegenerating = false,
   trigger,
 }: {
   onSelectTemplate: (selection: TemplateSelection) => void;
+  usedTemplateId?: string | null;
+  onRegenerateUsed?: () => void;
+  isRegenerating?: boolean;
   trigger: React.ReactNode;
 }) {
   const { t } = useLingui();
@@ -432,6 +439,12 @@ export function TemplatePickerPopover({
                           const itemIndex = resultIndex;
                           resultIndex += 1;
 
+                          const isUsedTemplate =
+                            usedTemplateId !== undefined &&
+                            (item.key === "auto"
+                              ? usedTemplateId === null
+                              : item.key === usedTemplateId);
+
                           return (
                             <TemplateResultButton
                               key={item.key}
@@ -444,6 +457,15 @@ export function TemplatePickerPopover({
                               onClick={item.onClick}
                               onKeyDown={(e) =>
                                 handleResultKeyDown(e, itemIndex)
+                              }
+                              regenerateLabel={
+                                isUsedTemplate && onRegenerateUsed
+                                  ? t`Regenerate`
+                                  : undefined
+                              }
+                              isRegenerating={isRegenerating}
+                              onRegenerate={
+                                isUsedTemplate ? onRegenerateUsed : undefined
                               }
                             />
                           );
@@ -556,6 +578,9 @@ function TemplateResultButton({
   isFavorite = false,
   onClick,
   onKeyDown,
+  regenerateLabel,
+  isRegenerating = false,
+  onRegenerate,
 }: {
   buttonRef?: React.Ref<HTMLButtonElement>;
   title: string;
@@ -563,27 +588,55 @@ function TemplateResultButton({
   isFavorite?: boolean;
   onClick: () => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLButtonElement>) => void;
+  regenerateLabel?: string;
+  isRegenerating?: boolean;
+  onRegenerate?: () => void;
 }) {
   return (
-    <button
-      ref={buttonRef}
+    <div
       className={cn([
-        "hover:bg-accent focus:bg-muted h-8 w-full rounded-md px-2.5 text-left transition-colors focus:outline-hidden",
+        "hover:bg-accent focus-within:bg-muted h-8 w-full rounded-md px-2.5",
         "flex items-center gap-1.5",
       ])}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
     >
-      <TemplateIconGlyph icon={icon} className="size-4 text-sm" />
-      <span className="text-foreground min-w-0 truncate text-sm font-medium">
-        {title}
-      </span>
-      {isFavorite ? (
-        <Heart
-          aria-hidden
-          className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
-        />
+      <button
+        ref={buttonRef}
+        className="flex min-w-0 flex-1 items-center gap-1.5 text-left focus:outline-hidden"
+        onClick={onClick}
+        onKeyDown={onKeyDown}
+      >
+        <TemplateIconGlyph icon={icon} className="size-4 text-sm" />
+        <span className="text-foreground min-w-0 truncate text-sm font-medium">
+          {title}
+        </span>
+        {isFavorite ? (
+          <Heart
+            aria-hidden
+            className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
+          />
+        ) : null}
+      </button>
+      {regenerateLabel && onRegenerate ? (
+        <button
+          type="button"
+          aria-label={regenerateLabel}
+          disabled={isRegenerating}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onRegenerate();
+          }}
+          className={cn([
+            "text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+            isRegenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
+          ])}
+        >
+          <ArrowClockwise
+            className={cn(["size-3", isRegenerating && "animate-spin"])}
+          />
+          {regenerateLabel}
+        </button>
       ) : null}
-    </button>
+    </div>
   );
 }

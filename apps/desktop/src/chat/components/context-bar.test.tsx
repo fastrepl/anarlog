@@ -280,6 +280,136 @@ describe("ContextBar", () => {
     });
   });
 
+  it("opens a person chip in the contacts details view", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "human",
+            key: "human:manual:artem",
+            source: "manual",
+            humanId: "artem",
+            name: "Artem",
+            pending: false,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Artem"));
+
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "contacts",
+      state: { selected: { type: "person", id: "artem" } },
+    });
+  });
+
+  it("opens an organization chip in the contacts details view", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "organization",
+            key: "organization:manual:acme",
+            source: "manual",
+            organizationId: "acme",
+            name: "Acme",
+            pending: false,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Acme"));
+
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "contacts",
+      state: { selected: { type: "organization", id: "acme" } },
+    });
+  });
+
+  it("opens account and device chips in settings", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "account",
+            key: "account:current",
+            source: "auto-current",
+            userId: "user-1",
+            email: "user@example.com",
+            pending: false,
+          },
+          {
+            kind: "device",
+            key: "device:current",
+            source: "auto-current",
+            platform: "linux",
+            pending: false,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Account"));
+    fireEvent.click(screen.getByText("Device"));
+
+    expect(openNewMock).toHaveBeenNthCalledWith(1, {
+      type: "settings",
+      state: { tab: "account" },
+    });
+    expect(openNewMock).toHaveBeenNthCalledWith(2, {
+      type: "settings",
+      state: { tab: "sync" },
+    });
+  });
+
+  it("opens a calendar event chip on its linked session when present", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "calendar_event",
+            key: "calendar_event:search:evt-1",
+            source: "tool",
+            eventId: "evt-1",
+            linkedSessionId: "session-9",
+            title: "Standup",
+            pending: false,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Standup"));
+
+    expect(openNewMock).toHaveBeenCalledWith({
+      type: "sessions",
+      id: "session-9",
+    });
+  });
+
+  it("opens an unlinked calendar event chip on the calendar tab", () => {
+    render(
+      <ContextBar
+        entities={[
+          {
+            kind: "calendar_event",
+            key: "calendar_event:search:evt-2",
+            source: "tool",
+            eventId: "evt-2",
+            title: "Interview",
+            pending: false,
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Interview"));
+
+    expect(openNewMock).toHaveBeenCalledWith({ type: "calendar" });
+  });
+
   it("removes manual context chips", () => {
     const onRemoveEntity = vi.fn();
     const { container } = render(

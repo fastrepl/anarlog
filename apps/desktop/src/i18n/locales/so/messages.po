@@ -165,6 +165,7 @@ msgid "Acme"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/automations/workflow-builder.tsx
 msgid "Action"
 msgstr ""
 
@@ -202,6 +203,22 @@ msgstr ""
 msgid "Add a payment method before it ends to keep using Pro without an interruption."
 msgstr ""
 
+#: src/settings/automations/index.tsx
+msgid "Add a trigger and actions. Chat on the right can help you refine the workflow."
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Add a trigger, then stack actions like Zapier."
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Add an action"
+msgstr ""
+
+#: src/settings/automations/index.tsx
+msgid "Add and configure at least one action first."
+msgstr ""
+
 #: src/onboarding/calendar.tsx
 msgid "Add another account"
 msgstr ""
@@ -212,6 +229,10 @@ msgstr ""
 
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Add API key"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Add at least one configured action before enabling."
 msgstr ""
 
 #: src/templates/auto-format-examples-dialog.tsx
@@ -267,6 +288,10 @@ msgstr ""
 msgid "Add spoken language"
 msgstr "Ku dar luqadda lagu hadlo"
 
+#: src/settings/automations/workflow-builder.tsx
+msgid "Add step"
+msgstr ""
+
 #: src/settings/developers/webhooks.tsx
 msgid "Add webhook"
 msgstr ""
@@ -286,6 +311,14 @@ msgstr ""
 
 #: src/settings/ai/stt/select.tsx
 msgid "After recording"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "After the meeting ends"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "After the meeting summary is ready"
 msgstr ""
 
 #: src/settings/developers/skills.tsx
@@ -470,6 +503,10 @@ msgstr ""
 #: src/settings/appearance/index.tsx
 #: src/sidebar/settings.tsx
 msgid "Appearance"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Append an update to Notion"
 msgstr ""
 
 #: src/automations/starters.tsx
@@ -815,7 +852,7 @@ msgid "Choose a Slack channel first."
 msgstr ""
 
 #: src/settings/automations/index.tsx
-msgid "Choose a starter from the sidebar or describe an automation in Chat."
+msgid "Choose a starter from the sidebar, or create a workflow and add steps like Zapier."
 msgstr ""
 
 #: src/settings/automations/starter-config.tsx
@@ -1392,6 +1429,7 @@ msgid "Could not update general access."
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/automations/workflow-builder.tsx
 msgid "Could not update the automation"
 msgstr ""
 
@@ -1437,6 +1475,10 @@ msgstr ""
 
 #: src/automations/starters.tsx
 msgid "Create Linear issues"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Create Linear issues from action items"
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
@@ -1578,10 +1620,6 @@ msgstr ""
 msgid "Describe the template purpose..."
 msgstr ""
 
-#: src/settings/automations/index.tsx
-msgid "Describe what should happen and when. This draft becomes an automation once you send the first message."
-msgstr ""
-
 #: src/session-sharing/management-panel.tsx
 msgid "Desktop edits published. Sharing resumed."
 msgstr ""
@@ -1692,6 +1730,7 @@ msgid "Downloading model"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/automations/workflow-builder.tsx
 #: src/sidebar/automations.tsx
 msgid "Draft"
 msgstr ""
@@ -1702,10 +1741,6 @@ msgstr ""
 
 #: src/chat/components/body/empty.tsx
 msgid "Draft follow-up email."
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "Drafted in Chat"
 msgstr ""
 
 #: src/templates/details.tsx
@@ -1771,6 +1806,8 @@ msgid "Enable Cloud API & Connectors"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/automations/workflow-builder.tsx
+#: src/sidebar/automations.tsx
 msgid "Enabled"
 msgstr ""
 
@@ -1862,6 +1899,10 @@ msgstr ""
 
 #: src/settings/automations/starter-config.tsx
 msgid "Export folder"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Export the meeting as Markdown"
 msgstr ""
 
 #: src/session/components/outer-header/overflow/export-modal.tsx
@@ -2371,6 +2412,10 @@ msgstr ""
 msgid "Light"
 msgstr ""
 
+#: src/settings/automations/workflow-builder.tsx
+msgid "Linear issues"
+msgstr ""
+
 #: src/automations/starters.tsx
 msgid "Linear issues created from meeting follow-ups."
 msgstr ""
@@ -2484,6 +2529,10 @@ msgstr ""
 
 #: src/settings/sync/index.tsx
 msgid "Manual sync"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Markdown export"
 msgstr ""
 
 #: src/session/components/note-input/search/bar.tsx
@@ -2671,6 +2720,10 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/contacts/organization-details.tsx
 msgid "Name"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Needs setup"
 msgstr ""
 
 #: src/sidebar/automations.tsx
@@ -2918,6 +2971,10 @@ msgstr "Ogaysiisyo"
 
 #: src/settings/automations/starter-config.tsx
 msgid "Notion page"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Notion update"
 msgstr ""
 
 #: src/sidebar/timeline/index.tsx
@@ -3182,6 +3239,10 @@ msgstr ""
 msgid "Post a meeting recap to a Slack channel."
 msgstr ""
 
+#: src/settings/automations/workflow-builder.tsx
+msgid "Post a recap to Slack"
+msgstr ""
+
 #: src/settings/general/meeting-settings.tsx
 msgid "Post recording disclosure in meeting chat"
 msgstr ""
@@ -3353,6 +3414,10 @@ msgstr ""
 
 #: src/calendar/components/calendar-selection.tsx
 msgid "Refresh calendars"
+msgstr ""
+
+#: src/session/components/note-input/template-picker.tsx
+msgid "Regenerate"
 msgstr ""
 
 #: src/chat/components/message/normal.tsx
@@ -4140,6 +4205,10 @@ msgstr ""
 msgid "Slack channel"
 msgstr ""
 
+#: src/settings/automations/workflow-builder.tsx
+msgid "Slack recap"
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Smileys & People"
 msgstr ""
@@ -4165,6 +4234,10 @@ msgstr ""
 msgid "SQLite migration verification is incomplete"
 msgstr ""
 
+#: src/settings/automations/workflow-builder.tsx
+msgid "Stack another destination. Steps run top to bottom."
+msgstr ""
+
 #: src/session/components/note-input/enhanced/config-error.tsx
 msgid "Start a Pro trial or add your own LLM API key to generate a summary from this transcript."
 msgstr ""
@@ -4172,10 +4245,6 @@ msgstr ""
 #: src/settings/general/app-settings.tsx
 msgid "Start Anarlog at login"
 msgstr "Bilow Anarlog marka la soo galo"
-
-#: src/settings/automations/index.tsx
-msgid "Start in Chat"
-msgstr ""
 
 #: src/settings/general/meeting-settings.tsx
 msgid "Start listening when a scheduled meeting begins."
@@ -4494,6 +4563,10 @@ msgstr ""
 msgid "Theme"
 msgstr ""
 
+#: src/settings/automations/workflow-builder.tsx
+msgid "Then"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "These rules apply to every member. Sharing changes fail closed on the server."
 msgstr ""
@@ -4504,10 +4577,6 @@ msgstr ""
 
 #: src/main/sync-status.tsx
 msgid "This account already syncs on 5 devices. Remove another device to sync here."
-msgstr ""
-
-#: src/settings/automations/index.tsx
-msgid "This automation is drafted in Chat. Continue the conversation on the right to refine what it should do."
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -4615,6 +4684,7 @@ msgid "Trial activated - {trialDays} days of Pro"
 msgstr ""
 
 #: src/settings/automations/index.tsx
+#: src/settings/automations/workflow-builder.tsx
 msgid "Trigger"
 msgstr ""
 
@@ -4963,12 +5033,20 @@ msgstr ""
 msgid "What's new in {version}?"
 msgstr ""
 
+#: src/settings/automations/workflow-builder.tsx
+msgid "When this happens"
+msgstr ""
+
 #: src/onboarding/index.tsx
 msgid "Where your notes and recordings are stored"
 msgstr ""
 
 #: src/task/tab-content.tsx
 msgid "Work on this task"
+msgstr ""
+
+#: src/settings/automations/workflow-builder.tsx
+msgid "Workflow"
 msgstr ""
 
 #: src/sidebar/settings.tsx

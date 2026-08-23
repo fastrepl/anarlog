@@ -10,6 +10,12 @@ vi.mock("~/settings/queries", () => ({
     value: settingsMocks.storedDraft,
     hasValue: Boolean(settingsMocks.storedDraft),
   }),
+  getStoredSettingValues: () =>
+    Promise.resolve({
+      values: { automation_workflows: "[]" },
+      hasValues: new Set(["automation_workflows"]),
+    }),
+  setSettingValue: () => Promise.resolve(),
 }));
 
 import {

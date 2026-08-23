@@ -1,15 +1,23 @@
 import { create } from "zustand";
 
 import { isStarterId, type StarterId } from "./starters";
+import {
+  parseAutomationWorkflows,
+  saveAutomationWorkflows,
+} from "./workflows";
 
 import { useChatContext } from "~/chat/state/chat-context";
-import { useStoredSettingValue } from "~/settings/queries";
+import {
+  getStoredSettingValues,
+  useStoredSettingValue,
+} from "~/settings/queries";
 import { id } from "~/shared/utils";
 
 export type AutomationSelection =
   | { kind: "starter"; starterId: StarterId }
   | { kind: "chat"; groupId: string }
-  | { kind: "draft"; draftId: string };
+  | { kind: "draft"; draftId: string }
+  | { kind: "workflow"; workflowId: string };
 
 type ChatSelection = { groupId: string | undefined; sessionId: string };
 
@@ -20,6 +28,7 @@ interface AutomationSelectionState {
   selectStarter: (starterId: StarterId) => void;
   selectChatAutomation: (groupId: string) => void;
   selectDraft: (draftId: string) => void;
+  selectWorkflow: (workflowId: string) => void;
   startDraft: () => void;
   removeDraft: (draftId: string) => void;
   clearSelection: (selection: AutomationSelection) => void;
@@ -33,6 +42,8 @@ function selectionChatKey(selection: AutomationSelection): string {
       return `chat:${selection.groupId}`;
     case "draft":
       return `draft:${selection.draftId}`;
+    case "workflow":
+      return `workflow:${selection.workflowId}`;
   }
 }
 
@@ -95,6 +106,8 @@ export const useAutomationSelection = create<AutomationSelectionState>(
       selectStarter: (starterId) => switchTo({ kind: "starter", starterId }),
       selectChatAutomation: (groupId) => switchTo({ kind: "chat", groupId }),
       selectDraft: (draftId) => switchTo({ kind: "draft", draftId }),
+      selectWorkflow: (workflowId: string) =>
+        switchTo({ kind: "workflow", workflowId }),
       startDraft: () => {
         const draftId = id();
         set((state) => ({ draftIds: [draftId, ...state.draftIds] }));
@@ -136,7 +149,39 @@ useChatContext.subscribe((chatState) => {
     draftIds: draftIds.filter((item) => item !== selection.draftId),
     chatBySelection: nextChatBySelection,
   });
+  void attachWorkflowChatGroup(selection.draftId, groupId);
 });
+
+useChatContext.subscribe((chatState) => {
+  const { selection } = useAutomationSelection.getState();
+  if (selection?.kind !== "workflow") {
+    return;
+  }
+
+  const groupId = chatState.chatByScope.automations.groupId;
+  if (!groupId) {
+    return;
+  }
+
+  void attachWorkflowChatGroup(selection.workflowId, groupId);
+});
+
+async function attachWorkflowChatGroup(
+  workflowId: string,
+  chatGroupId: string,
+): Promise<void> {
+  const stored = await getStoredSettingValues();
+  const workflows = parseAutomationWorkflows(stored.values.automation_workflows);
+  const current = workflows.find((workflow) => workflow.id === workflowId);
+  if (!current || current.chatGroupId === chatGroupId) {
+    return;
+  }
+  await saveAutomationWorkflows(
+    workflows.map((workflow) =>
+      workflow.id === workflowId ? { ...workflow, chatGroupId } : workflow,
+    ),
+  );
+}
 
 export function useEffectiveAutomationSelection(): AutomationSelection | null {
   const selection = useAutomationSelection((state) => state.selection);

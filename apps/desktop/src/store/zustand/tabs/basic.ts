@@ -467,6 +467,19 @@ const reuseExistingTab = (
     };
   }
 
+  if (existingTab.type === "contacts" && requestedTab.type === "contacts") {
+    const nextTab = applyReturnOriginForReuse(
+      existingTab,
+      requestedTab,
+      preserveReturnOrigin,
+    );
+
+    return {
+      ...nextTab,
+      state: requestedTab.state,
+    };
+  }
+
   if (
     existingTab.type === "sessions" &&
     requestedTab.type === "sessions" &&

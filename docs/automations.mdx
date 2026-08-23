@@ -29,16 +29,20 @@ The automation detail shows whether it is enabled and the result of its last run
 
 For Markdown exports, confirm that the chosen folder still exists and is writable. The local export does not need Slack, Notion, or Linear access.
 
-## Draft a custom automation in Chat
+## Build a custom workflow
 
-You can describe a workflow in Chat, including what should happen and when. The draft and its conversation appear with your automations so you can return to them.
+Click **+** in the Automations sidebar to start a workflow. Add a trigger, then stack actions the way you would in Zapier:
+
+1. Choose when it should run: after the meeting summary is ready, or after the meeting ends.
+2. Add one or more actions: Slack recap, Notion update, Linear issues, or Markdown export.
+3. Configure each destination.
+4. Click **Save & enable**.
+
+Enabled custom workflows run automatically, the same way starters do. Chat on the right can still help you refine the workflow; it is not required to make the automation run.
 
 Examples:
 
-- “After customer calls, draft Linear issues for action items assigned to our team.”
-- “Save completed interviews as Markdown in my research folder.”
-- “Post the summary of weekly planning meetings to the product Slack channel.”
-
-A Chat-created automation remains a draft and does not run automatically. Continue its Chat conversation to refine the workflow. Use one of the guided starters for an automation you can enable today.
+- After the summary is ready, post to Slack and append the same recap to a Notion page.
+- After the meeting ends, export Markdown and create Linear issues from action items.
 
 Automations send meeting content to the destination you configure. Use only workspaces, channels, pages, teams, and folders that should receive that content.

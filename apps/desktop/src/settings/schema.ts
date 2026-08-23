@@ -256,6 +256,11 @@ export const SETTING_DEFINITIONS = {
     path: ["automations", "draft_template"],
     default: "" as string,
   },
+  automation_workflows: {
+    type: "string",
+    path: ["automations", "workflows"],
+    default: "[]" as string,
+  },
   automation_markdown_export_enabled: {
     type: "boolean",
     path: ["automations", "markdown_export_enabled"],

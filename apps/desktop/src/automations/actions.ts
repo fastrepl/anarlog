@@ -5,6 +5,10 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useAutomationSelection } from "./selection";
 import { STARTER_AUTOMATIONS, type StarterId } from "./starters";
+import {
+  parseAutomationWorkflows,
+  saveAutomationWorkflows,
+} from "./workflows";
 
 import { deleteChatGroup } from "~/chat/store/queries";
 import { getStoredSettingValues, setSettingValues } from "~/settings/queries";
@@ -43,9 +47,50 @@ export function useDeleteChatAutomation() {
 
   return useMutation({
     mutationKey: ["automation-delete-chat"],
-    mutationFn: (groupId: string) => deleteChatGroup(groupId),
+    mutationFn: async (groupId: string) => {
+      const stored = await getStoredSettingValues();
+      const workflows = parseAutomationWorkflows(
+        stored.values.automation_workflows,
+      );
+      const remaining = workflows.filter(
+        (workflow) => workflow.chatGroupId !== groupId,
+      );
+      if (remaining.length !== workflows.length) {
+        await saveAutomationWorkflows(remaining);
+      }
+      await deleteChatGroup(groupId);
+    },
     onSuccess: (_, groupId) => {
       clearSelection({ kind: "chat", groupId });
+      sonnerToast.success(t`Automation deleted`);
+    },
+    onError: () => sonnerToast.error(t`Could not delete the automation`),
+  });
+}
+
+export function useDeleteWorkflow() {
+  const { t } = useLingui();
+  const clearSelection = useAutomationSelection(
+    (state) => state.clearSelection,
+  );
+
+  return useMutation({
+    mutationKey: ["automation-delete-workflow"],
+    mutationFn: async (workflowId: string) => {
+      const stored = await getStoredSettingValues();
+      const workflows = parseAutomationWorkflows(
+        stored.values.automation_workflows,
+      );
+      const workflow = workflows.find((item) => item.id === workflowId);
+      await saveAutomationWorkflows(
+        workflows.filter((item) => item.id !== workflowId),
+      );
+      if (workflow?.chatGroupId) {
+        await deleteChatGroup(workflow.chatGroupId);
+      }
+    },
+    onSuccess: (_, workflowId) => {
+      clearSelection({ kind: "workflow", workflowId });
       sonnerToast.success(t`Automation deleted`);
     },
     onError: () => sonnerToast.error(t`Could not delete the automation`),

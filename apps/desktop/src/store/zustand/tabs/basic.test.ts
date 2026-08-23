@@ -155,6 +155,37 @@ describe("Basic Tab Actions", () => {
     expect(useTabs.getState().currentTab?.pinned).toBe(false);
   });
 
+  test("openNew reuses contacts tab and updates the selected entity", () => {
+    const contacts = createContactsTab({
+      active: false,
+      state: { selected: { type: "person", id: "ada" } },
+    });
+    const session = createSessionTab({ id: "tab1", active: false });
+
+    useTabs.getState().openNew(contacts);
+    useTabs.getState().openNew(session);
+    useTabs.getState().openNew(
+      createContactsTab({
+        active: false,
+        state: { selected: { type: "organization", id: "acme" } },
+      }),
+    );
+
+    const state = useTabs.getState();
+    expect(state).toMatchTabsInOrder([
+      {
+        type: "contacts",
+        active: true,
+        state: { selected: { type: "organization", id: "acme" } },
+      },
+      { id: "tab1", active: false, type: "sessions" },
+    ]);
+    expect(state).toHaveCurrentTab({
+      type: "contacts",
+      state: { selected: { type: "organization", id: "acme" } },
+    });
+  });
+
   test("openNew reuses settings tab and updates requested subsection", () => {
     const settings = createSettingsTab({
       active: false,

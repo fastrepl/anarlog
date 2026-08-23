@@ -39,6 +39,12 @@ export type ContextRef =
   | HumanContextRef
   | OrganizationContextRef;
 
+export type CalendarEventContextRef = BaseContextRef & {
+  kind: "calendar_event";
+  eventId: string;
+  linkedSessionId?: string | null;
+};
+
 export type ContextEntity =
   | (SessionContextRef & {
       title?: string | null;
@@ -53,6 +59,10 @@ export type ContextEntity =
     })
   | (OrganizationContextRef & {
       name?: string | null;
+      removable?: boolean;
+    })
+  | (CalendarEventContextRef & {
+      title?: string | null;
       removable?: boolean;
     })
   | ({
@@ -98,7 +108,7 @@ function isToolOutputAvailablePart(
   );
 }
 
-function parseSearchMeetingsOutput(output: unknown): ContextEntity[] {
+function resultItems(output: unknown): Record<string, unknown>[] {
   if (!isRecord(output)) {
     return [];
   }
@@ -109,20 +119,80 @@ function parseSearchMeetingsOutput(output: unknown): ContextEntity[] {
       ? output.meetings
       : [];
 
-  return results.flatMap((item): ContextEntity[] => {
-    if (
-      !isRecord(item) ||
-      (typeof item.id !== "string" && typeof item.id !== "number")
-    ) {
+  return results.filter(isRecord);
+}
+
+function itemId(item: Record<string, unknown>): string | null {
+  if (
+    typeof item.meeting_id === "string" ||
+    typeof item.meeting_id === "number"
+  ) {
+    return String(item.meeting_id);
+  }
+  if (typeof item.id === "string" || typeof item.id === "number") {
+    return String(item.id);
+  }
+  return null;
+}
+
+function parseSearchMeetingsOutput(output: unknown): ContextEntity[] {
+  return resultItems(output).flatMap((item): ContextEntity[] => {
+    const sessionId = itemId(item);
+    if (!sessionId) {
       return [];
     }
 
     return [
       {
         kind: "session",
-        key: `session:search:${item.id}`,
+        key: `session:search:${sessionId}`,
         source: "tool",
-        sessionId: String(item.id),
+        sessionId,
+        title: typeof item.title === "string" ? item.title : null,
+      },
+    ];
+  });
+}
+
+function parseSearchContactsOutput(output: unknown): ContextEntity[] {
+  return resultItems(output).flatMap((item): ContextEntity[] => {
+    if (typeof item.id !== "string" && typeof item.id !== "number") {
+      return [];
+    }
+
+    const humanId = String(item.id);
+    return [
+      {
+        kind: "human",
+        key: `human:search:${humanId}`,
+        source: "tool",
+        humanId,
+        name: typeof item.name === "string" ? item.name : null,
+        email: typeof item.email === "string" ? item.email : null,
+        organizationName:
+          typeof item.organization === "string" ? item.organization : null,
+      },
+    ];
+  });
+}
+
+function parseSearchCalendarEventsOutput(output: unknown): ContextEntity[] {
+  return resultItems(output).flatMap((item): ContextEntity[] => {
+    if (typeof item.id !== "string" && typeof item.id !== "number") {
+      return [];
+    }
+
+    const eventId = String(item.id);
+    const linkedSessionId =
+      typeof item.linkedSessionId === "string" ? item.linkedSessionId : null;
+
+    return [
+      {
+        kind: "calendar_event",
+        key: `calendar_event:search:${eventId}`,
+        source: "tool",
+        eventId,
+        linkedSessionId,
         title: typeof item.title === "string" ? item.title : null,
       },
     ];
@@ -136,6 +206,10 @@ const toolEntityExtractors: Record<
   list_meetings: parseSearchMeetingsOutput,
   search_meetings: parseSearchMeetingsOutput,
   search_sessions: parseSearchMeetingsOutput,
+  search_meeting_content: parseSearchMeetingsOutput,
+  find_related_meetings: parseSearchMeetingsOutput,
+  search_contacts: parseSearchContactsOutput,
+  search_calendar_events: parseSearchCalendarEventsOutput,
 };
 
 export function extractToolContextEntities(
