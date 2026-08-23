@@ -320,6 +320,16 @@ fn test_zoom_capture_requires_zoom_meeting_window_scope() {
     chat_row.identifier = Some("ZMTextMessageCellView".to_string());
     assert!(is_zoom_chat_scope_node(&chat_row));
 
+    let mut linux_history = node(5, "AXList", "chat history", None);
+    linux_history.description = Some("chat history".to_string());
+    assert!(is_zoom_chat_scope_node(&linux_history));
+    assert!(!is_zoom_chat_scope_node(&node(
+        6,
+        "AXList",
+        "chat history summary",
+        None,
+    )));
+
     let mut meeting_caption = node(
         4,
         "AXStaticText",
@@ -336,7 +346,7 @@ fn test_zoom_capture_requires_zoom_meeting_window_scope() {
         .is_empty()
     );
 
-    let team_chat_message = node(5, "AXStaticText", "You, private team chat, 4:16 PM", None);
+    let team_chat_message = node(7, "AXStaticText", "You, private team chat, 4:16 PM", None);
     assert!(
         extract_chat_messages(
             &MeetingPlatform::Zoom,

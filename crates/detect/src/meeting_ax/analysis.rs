@@ -470,10 +470,12 @@ pub(super) fn is_zoom_chat_scope_node(node: &AxNode) -> bool {
     }
 
     matches!(node.role.as_deref(), Some("AXTable") | Some("AXList"))
-        && matches!(
-            chat_scope_label(node).as_str(),
-            "chat list" | "chat history"
-        )
+        && node_labels(node).any(|label| {
+            matches!(
+                label.trim().to_ascii_lowercase().as_str(),
+                "chat list" | "chat history"
+            )
+        })
 }
 
 pub(super) fn slack_huddle_is_active(nodes: &[AxNode]) -> bool {
