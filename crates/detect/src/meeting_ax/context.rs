@@ -81,6 +81,7 @@ fn is_chat_scope_container(node: &AxNode) -> bool {
     ) || label.contains("meeting chat")
         || label.contains("in-call messages")
         || label.contains("chat messages")
+        || label.contains("chat with everyone")
         || label.contains("messages panel")
         || label.contains("huddle chat")
 }
@@ -114,7 +115,9 @@ fn is_platform_chat_scope_label(platform: &MeetingPlatform, node: &AxNode) -> bo
                 || label.contains("huddle thread")
                 || label.contains("huddle messages")
         }
-        MeetingPlatform::Webex => label == "chat with everyone" || label.contains("meeting chat"),
+        MeetingPlatform::Webex => {
+            label.contains("chat with everyone") || label.contains("meeting chat")
+        }
         MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
     }
 }
@@ -138,7 +141,13 @@ fn is_chat_message_list(node: &AxNode) -> bool {
 }
 
 fn is_platform_chat_message_list(platform: &MeetingPlatform, node: &AxNode) -> bool {
-    is_chat_message_list(node) && is_platform_chat_scope_container(platform, node)
+    (*platform == MeetingPlatform::Webex
+        && matches!(
+            node.role.as_deref(),
+            Some("AXGroup") | Some("AXList") | Some("AXScrollArea") | Some("AXTable")
+        )
+        && chat_scope_label(node).contains("thread conversation history"))
+        || (is_chat_message_list(node) && is_platform_chat_scope_container(platform, node))
 }
 
 pub(super) fn is_platform_chat_composer(platform: &MeetingPlatform, node: &AxNode) -> bool {
@@ -152,7 +161,7 @@ fn is_platform_chat_composer_with_state(
 ) -> bool {
     if !matches!(
         node.role.as_deref(),
-        Some("AXTextArea") | Some("AXTextField")
+        Some("AXTextArea") | Some("AXTextField") | Some("AXComboBox")
     ) || (require_enabled && node.enabled == Some(false))
         || !node.settable_value
         || !node_has_positive_bounds(node)
@@ -174,10 +183,12 @@ fn is_platform_chat_composer_with_state(
                     || label.starts_with("type message here")
             }
             MeetingPlatform::Slack => label.starts_with("message to "),
-            MeetingPlatform::Webex => matches!(
-                label.as_str(),
-                "type a message" | "send a message" | "message everyone"
-            ),
+            MeetingPlatform::Webex => {
+                matches!(
+                    label.as_str(),
+                    "type a message" | "send a message" | "message everyone"
+                ) || label.starts_with("write a message to ")
+            }
             MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
         }
     })

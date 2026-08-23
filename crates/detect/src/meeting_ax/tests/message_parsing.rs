@@ -152,6 +152,82 @@ fn test_teams_current_firefox_description_preserves_metadata_without_inferring_d
 }
 
 #[test]
+fn test_native_webex_structured_message_preserves_metadata_and_direction() {
+    let nodes = vec![
+        fixture_node(0, "AXWindow", "John's meeting", &[]),
+        fixture_node(
+            1,
+            "AXButton",
+            "Leave meeting or end meeting for everyone",
+            &[0],
+        ),
+        fixture_node(
+            2,
+            "AXScrollArea",
+            "thread conversation history, list",
+            &[1, 0],
+        ),
+        fixture_composer(
+            3,
+            "Write a message to everyone, Shift + Enter for a new line",
+            &[1, 1],
+        ),
+        fixture_node(
+            4,
+            "AXCell",
+            "ANLG-297 native Webex macOS QA https://anarlog.so/native-webex, You, 3:33\u{202f}PM, has hyperlinks, Press Enter key to navigate to the action buttons",
+            &[1, 0, 0],
+        ),
+        fixture_node(
+            5,
+            "AXTextArea",
+            "ANLG-297 native Webex macOS QA https://anarlog.so/native-webex",
+            &[1, 0, 0, 0],
+        ),
+    ];
+
+    let messages = extract_chat_messages(&MeetingPlatform::Webex, &MeetingSurface::Native, &nodes);
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].sender.as_deref(), Some("You"));
+    assert_eq!(messages[0].timestamp.as_deref(), Some("3:33 PM"));
+    assert_eq!(messages[0].direction, Some(MeetingChatDirection::Outgoing));
+    assert_eq!(
+        messages[0].text,
+        "ANLG-297 native Webex macOS QA https://anarlog.so/native-webex"
+    );
+    assert_eq!(messages[0].links, ["https://anarlog.so/native-webex"]);
+}
+
+#[test]
+fn test_webex_browser_message_preserves_live_metadata_and_direction() {
+    let parsed = parse_chat_message(
+        &MeetingPlatform::Webex,
+        "Message from You, Unverified, 3:43 PM, ANLG-297 Chrome Webex web QA https://anarlog.so/chrome-webex",
+    )
+    .unwrap();
+
+    assert_eq!(parsed.sender.as_deref(), Some("You"));
+    assert_eq!(parsed.timestamp.as_deref(), Some("3:43 PM"));
+    assert_eq!(parsed.direction, Some(MeetingChatDirection::Outgoing));
+    assert_eq!(
+        parsed.text,
+        "ANLG-297 Chrome Webex web QA https://anarlog.so/chrome-webex"
+    );
+    assert_eq!(
+        extract_links(&parsed.text),
+        ["https://anarlog.so/chrome-webex"]
+    );
+
+    let incoming = parse_chat_message(
+        &MeetingPlatform::Webex,
+        "Message from John Jeong, fastrepl.com, 3:33 PM, ANLG-297 native Webex macOS QA https://anarlog.so/native-webex",
+    )
+    .unwrap();
+    assert_eq!(incoming.sender.as_deref(), Some("John Jeong"));
+    assert_eq!(incoming.direction, Some(MeetingChatDirection::Incoming));
+}
+
+#[test]
 fn test_zoom_capture_requires_zoom_meeting_window_scope() {
     assert!(is_zoom_meeting_scope_node(&node(
         0,

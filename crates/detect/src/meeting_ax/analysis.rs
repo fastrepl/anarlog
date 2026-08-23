@@ -595,6 +595,11 @@ pub(super) fn extract_chat_messages(
             nodes, scope_path,
         ));
     }
+    if *platform == MeetingPlatform::Webex
+        && let Some(scope_path) = generic_scope_path.as_deref()
+    {
+        parsed_nodes.extend(extract_webex_structured_messages(nodes, scope_path));
+    }
 
     if generic_scope_path.is_some() {
         let parseable_paths = parsed_nodes
@@ -871,11 +876,87 @@ fn extract_google_meet_timestamp_sibling_messages<'a>(
         .collect()
 }
 
+fn extract_webex_structured_messages<'a>(
+    nodes: &'a [AxNode],
+    scope_path: &[usize],
+) -> Vec<(&'a AxNode, ParsedChatMessage)> {
+    nodes
+        .iter()
+        .filter(|node| {
+            matches!(node.role.as_deref(), Some("AXRow") | Some("AXCell"))
+                && node.tree_path.starts_with(scope_path)
+        })
+        .filter_map(|row| {
+            let descendants = nodes
+                .iter()
+                .filter(|node| path_is_ancestor(&row.tree_path, &node.tree_path))
+                .collect::<Vec<_>>();
+            let mut fragments = descendants
+                .iter()
+                .filter(|node| node.role.as_deref() == Some("AXTextArea") && !node.settable_value)
+                .filter_map(|node| {
+                    let text = [
+                        node.value.as_deref(),
+                        node.title.as_deref(),
+                        node.description.as_deref(),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .map(normalize_chat_text)
+                    .find(|text| !text.is_empty() && !is_chat_chrome_text(text))?;
+                    Some((*node, text))
+                });
+            let (source, first) = fragments.next()?;
+            let text = std::iter::once(first)
+                .chain(fragments.map(|(_, fragment)| fragment))
+                .collect::<Vec<_>>()
+                .join("\n");
+            let descendant_metadata = descendants
+                .iter()
+                .flat_map(|node| node_labels(node))
+                .filter_map(|label| {
+                    let normalized = normalize_chat_text(label);
+                    let (sender, timestamp) = split_sender_time(&normalized)?;
+                    looks_like_chat_sender(sender)
+                        .then_some((sender.to_string(), timestamp.to_string()))
+                })
+                .collect::<Vec<_>>();
+            let (sender, timestamp) = if let [(sender, timestamp)] = descendant_metadata.as_slice()
+            {
+                (sender.clone(), timestamp.clone())
+            } else {
+                node_labels(row).find_map(|label| {
+                    let normalized = normalize_chat_text(label);
+                    let metadata = normalized.strip_prefix(&text)?.trim_start_matches(", ");
+                    let parts = metadata.split(", ").map(str::trim).collect::<Vec<_>>();
+                    parts.windows(2).find_map(|parts| {
+                        (looks_like_chat_sender(parts[0]) && looks_like_time(parts[1]))
+                            .then(|| (parts[0].to_string(), parts[1].to_string()))
+                    })
+                })?
+            };
+
+            Some((
+                source,
+                ParsedChatMessage {
+                    sender: Some(sender.clone()),
+                    timestamp: Some(timestamp),
+                    direction: meeting_chat_direction(
+                        &MeetingPlatform::Webex,
+                        Some(sender.as_str()),
+                    ),
+                    text,
+                },
+            ))
+        })
+        .collect()
+}
+
 pub(super) fn meeting_chat_direction(
     platform: &MeetingPlatform,
     sender: Option<&str>,
 ) -> Option<MeetingChatDirection> {
-    if *platform != MeetingPlatform::Zoom {
+    if !matches!(platform, MeetingPlatform::Zoom | MeetingPlatform::Webex) {
         return None;
     }
 
@@ -939,9 +1020,30 @@ pub(super) fn parse_chat_message(
         }
         MeetingPlatform::MicrosoftTeams => parse_teams_accessibility_description(raw_text)
             .or_else(|| parse_web_chat_message(raw_text)),
-        MeetingPlatform::GoogleMeet | MeetingPlatform::Webex => parse_web_chat_message(raw_text),
+        MeetingPlatform::GoogleMeet => parse_web_chat_message(raw_text),
+        MeetingPlatform::Webex => {
+            parse_webex_browser_message(raw_text).or_else(|| parse_web_chat_message(raw_text))
+        }
         MeetingPlatform::Discord | MeetingPlatform::Unknown => None,
     }
+}
+
+fn parse_webex_browser_message(raw_text: &str) -> Option<ParsedChatMessage> {
+    let normalized = normalize_chat_text(raw_text);
+    let rest = normalized.strip_prefix("Message from ")?;
+    let parts = rest.split(", ").map(str::trim).collect::<Vec<_>>();
+    let time_index = parts.iter().position(|part| looks_like_time(part))?;
+    let sender = parts.first().copied()?;
+    let text = parts.get(time_index + 1..)?.join(", ").trim().to_string();
+
+    (looks_like_chat_sender(sender) && !text.is_empty() && !is_chat_chrome_text(&text)).then(|| {
+        ParsedChatMessage {
+            sender: Some(sender.to_string()),
+            timestamp: Some(parts[time_index].to_string()),
+            direction: meeting_chat_direction(&MeetingPlatform::Webex, Some(sender)),
+            text,
+        }
+    })
 }
 
 fn parse_web_chat_message(raw_text: &str) -> Option<ParsedChatMessage> {

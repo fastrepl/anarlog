@@ -141,6 +141,7 @@ fn is_chat_priority_label(label: &str) -> bool {
         || label.contains("type a new message")
         || label.contains("type message here")
         || label.contains("message everyone")
+        || label.contains("write a message")
         || label.contains("chat message list")
         || label.contains("chat with everyone")
         || label.contains("huddle chat")
@@ -483,7 +484,8 @@ pub fn send_meeting_chat_message(
             continue;
         }
 
-        let mut roots = collect_native_meeting_windows(&ax_app, &scoped_platform, &mut warnings);
+        let mut roots =
+            collect_native_meeting_windows(&ax_app, &scoped_platform, true, &mut warnings);
         if roots.len() > 1 {
             warnings.push(format!(
                 "refusing to send because the meeting app exposed {} meeting windows",
@@ -699,7 +701,13 @@ pub fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingChatCapt
                 collect_browser_meeting_roots(&ax_app, &mut warnings);
             browser_scope_poisoned |= has_unscoped_meeting_window;
             browser_roots.extend(roots.into_iter().filter_map(|root| {
-                let context_id = browser_capture_context_id(&root)?;
+                let Some(context_id) = browser_capture_context_id(&root) else {
+                    warnings.push(format!(
+                        "a classified {:?} browser meeting root lacked one validated chat capture scope",
+                        root.platform,
+                    ));
+                    return None;
+                };
                 Some((app.clone(), root, context_id))
             }));
         }
@@ -1312,7 +1320,7 @@ fn collect_native_meeting_roots(
     platform: &MeetingPlatform,
     warnings: &mut Vec<String>,
 ) -> Vec<NativeMeetingRoot> {
-    collect_native_meeting_windows(ax_app, platform, warnings)
+    collect_native_meeting_windows(ax_app, platform, false, warnings)
         .into_iter()
         .map(|(root, _)| root)
         .collect()
@@ -1322,6 +1330,7 @@ fn collect_native_meeting_roots(
 fn collect_native_meeting_windows(
     ax_app: &ax::UiElement,
     platform: &MeetingPlatform,
+    require_complete: bool,
     warnings: &mut Vec<String>,
 ) -> Vec<(NativeMeetingRoot, arc::R<ax::UiElement>)> {
     let mut windows = Vec::new();
@@ -1337,18 +1346,42 @@ fn collect_native_meeting_windows(
         .filter_map(|element| {
             let window_title = string_attr(&element, ax::attr::title());
             let mut nodes = Vec::new();
-            if !collect_nodes(&element, 0, &mut nodes, warnings) {
-                return None;
-            }
-            native_meeting_window_is_validated(platform, &nodes).then_some((
-                NativeMeetingRoot {
-                    window_title,
-                    nodes,
-                },
-                element,
-            ))
+            let complete = collect_nodes(&element, 0, &mut nodes, warnings);
+            native_meeting_root_from_snapshot(
+                platform,
+                window_title,
+                nodes,
+                complete,
+                require_complete,
+            )
+            .map(|root| (root, element))
         })
         .collect()
+}
+
+#[cfg(any(test, target_os = "macos"))]
+fn native_meeting_root_from_snapshot(
+    platform: &MeetingPlatform,
+    window_title: Option<String>,
+    nodes: Vec<AxNode>,
+    complete: bool,
+    require_complete: bool,
+) -> Option<NativeMeetingRoot> {
+    if (*platform == MeetingPlatform::Webex
+        && window_title.as_deref().is_some_and(|title| {
+            title
+                .trim()
+                .eq_ignore_ascii_case("Webex multitasking floating window")
+        }))
+        || (require_complete && !complete)
+    {
+        return None;
+    }
+
+    native_meeting_window_is_validated(platform, &nodes).then_some(NativeMeetingRoot {
+        window_title,
+        nodes,
+    })
 }
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]

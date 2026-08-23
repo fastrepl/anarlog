@@ -388,6 +388,96 @@ fn test_zoom_web_chat_scope_accepts_live_message_list_and_composer_labels() {
 }
 
 #[test]
+fn test_native_webex_chat_scope_accepts_live_history_and_composer_labels() {
+    let nodes = vec![
+        fixture_node(0, "AXWindow", "John's meeting", &[]),
+        fixture_node(
+            1,
+            "AXButton",
+            "Leave meeting or end meeting for everyone",
+            &[0],
+        ),
+        fixture_node(
+            2,
+            "AXScrollArea",
+            "thread conversation history, list",
+            &[1, 0],
+        ),
+        fixture_composer(
+            3,
+            "Write a message to everyone, Shift + Enter for a new line",
+            &[1, 1],
+        ),
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
+        Some((vec![1], vec![1, 1]))
+    );
+}
+
+#[test]
+fn test_webex_web_chat_scope_accepts_live_popup_leave_and_named_composer() {
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
+        fixture_node(1, "AXPopUpButton", "Leave meeting", &[0]),
+        fixture_node(2, "AXGroup", "Chat with Everyone", &[1]),
+        fixture_composer(3, "Write a message to John Jeong's meeting", &[1, 0]),
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
+        Some((vec![1], vec![1, 0]))
+    );
+}
+
+#[test]
+fn test_firefox_webex_chat_scope_accepts_combobox_composer() {
+    let mut composer = fixture_node(
+        3,
+        "AXComboBox",
+        "Write a message to John Jeong's meeting",
+        &[1, 0],
+    );
+    composer.settable_value = true;
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
+        fixture_node(1, "AXButton", "Leave meeting", &[0]),
+        fixture_node(2, "AXGroup", "Chat with Everyone", &[1]),
+        composer,
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
+        Some((vec![1], vec![1, 0]))
+    );
+}
+
+#[test]
+fn test_safari_webex_chat_scope_accepts_repeated_accessible_label() {
+    let mut scope = fixture_node(2, "AXGroup", "Chat with Everyone", &[1]);
+    scope.description = Some("Chat with Everyone".to_string());
+    let mut composer = fixture_node(
+        3,
+        "AXComboBox",
+        "Write a message to John Jeong's meeting",
+        &[1, 0],
+    );
+    composer.settable_value = true;
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "In meeting · Meeting · Webex", &[]),
+        fixture_node(1, "AXPopUpButton", "Leave meeting", &[0]),
+        scope,
+        composer,
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::Webex, &nodes),
+        Some((vec![1], vec![1, 0]))
+    );
+}
+
+#[test]
 fn test_teams_and_webex_reject_generic_chat_containers() {
     for (platform, exit_label, composer_label) in [
         (MeetingPlatform::MicrosoftTeams, "Hang up", "Type a message"),

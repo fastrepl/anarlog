@@ -223,6 +223,37 @@ fn test_webex_native_bundle_classifies_native() {
 }
 
 #[test]
+fn test_incomplete_native_webex_snapshot_is_read_only() {
+    let nodes = vec![fixture_node(
+        0,
+        "AXButton",
+        "Leave meeting or end meeting for everyone",
+        &[0],
+    )];
+
+    assert!(
+        native_meeting_root_from_snapshot(
+            &MeetingPlatform::Webex,
+            Some("John's meeting".into()),
+            nodes.clone(),
+            false,
+            false,
+        )
+        .is_some()
+    );
+    assert!(
+        native_meeting_root_from_snapshot(
+            &MeetingPlatform::Webex,
+            Some("John's meeting".into()),
+            nodes,
+            false,
+            true,
+        )
+        .is_none()
+    );
+}
+
+#[test]
 fn test_webex_browser_title_classifies_web() {
     let web_area = node(21, "AXWebArea", "Cisco Webex Meetings", None);
     assert_eq!(
@@ -237,6 +268,58 @@ fn test_webex_browser_title_classifies_web() {
     assert_eq!(
         classify_surface("com.brave.Browser", &MeetingPlatform::Webex),
         MeetingSurface::Web
+    );
+}
+
+#[test]
+fn test_current_webex_browser_window_classifies_from_url_and_popup_leave_control() {
+    let web_area = node(21, "AXWebArea", "In meeting · Meeting · Webex", None);
+    let leave = node(
+        22,
+        "AXPopUpButton",
+        "Leave meeting",
+        Some(AxRect {
+            x: 10.0,
+            y: 10.0,
+            width: 120.0,
+            height: 40.0,
+        }),
+    );
+
+    assert_eq!(
+        classify_browser_context(
+            Some("https://meet1754330889177-4096.webex.com/wbxmjs/joinservice"),
+            Some("In meeting · Meeting · Webex - Google Chrome (Incognito)"),
+            Some(&web_area),
+            &[leave],
+        ),
+        MeetingPlatform::Webex
+    );
+}
+
+#[test]
+fn test_native_webex_excludes_multitasking_floating_window() {
+    let nodes = vec![node(
+        1,
+        "AXButton",
+        "Leave meeting or end meeting for everyone",
+        Some(AxRect {
+            x: 10.0,
+            y: 10.0,
+            width: 120.0,
+            height: 40.0,
+        }),
+    )];
+
+    assert!(
+        native_meeting_root_from_snapshot(
+            &MeetingPlatform::Webex,
+            Some("Webex multitasking floating window".into()),
+            nodes,
+            true,
+            false,
+        )
+        .is_none()
     );
 }
 
