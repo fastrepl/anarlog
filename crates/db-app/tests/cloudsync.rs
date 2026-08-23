@@ -65,13 +65,13 @@ async fn setup_db_with_network_options(
     claim_cloudsync_workspace(db.pool(), workspace_id)
         .await
         .unwrap();
-    db.cloudsync_configure(cloudsync_config(auth, wait_ms, max_retries))
-        .await
-        .unwrap();
-    tokio::time::timeout(Duration::from_secs(15), db.cloudsync_start())
-        .await
-        .expect("cloudsync start timed out")
-        .unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(15),
+        db.cloudsync_prepare_manual_transport(cloudsync_config(auth, wait_ms, max_retries)),
+    )
+    .await
+    .expect("cloudsync transport initialization timed out")
+    .unwrap();
     db
 }
 
@@ -147,7 +147,7 @@ async fn assert_pending_change(db: &Db, operation: &str) {
 async fn wait_for_unsent_changes(db: &Db, expected: bool, operation: &str) {
     tokio::time::timeout(REPLICA_VISIBILITY_TIMEOUT, async {
         loop {
-            if db.cloudsync_status().await.unwrap().has_unsent_changes == Some(expected) {
+            if db.cloudsync_network_has_unsent_changes().await.unwrap() == expected {
                 break;
             }
 
