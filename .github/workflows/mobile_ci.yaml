@@ -50,6 +50,7 @@ concurrency:
 
 env:
   CI: "1"
+  EXPO_PUBLIC_API_URL: https://api.anarlog.so
   EXPO_NO_GIT_STATUS: "1"
   SENTRY_DISABLE_AUTO_UPLOAD: "true"
 

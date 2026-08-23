@@ -82,15 +82,13 @@ fn test_documented_language_codes_are_menu_safe() {
 
 #[test]
 fn test_is_anarlog_proxy() {
-    assert!(is_anarlog_proxy("https://api.hyprnote.com/stt"));
-    assert!(is_anarlog_proxy("https://api.hyprnote.com"));
-    assert!(is_anarlog_proxy("https://api.char.com/stt"));
-    assert!(is_anarlog_proxy("https://api.char.com"));
     assert!(is_anarlog_proxy("https://api.anarlog.so/stt"));
     assert!(is_anarlog_proxy("https://api.anarlog.so"));
     assert!(is_anarlog_proxy("http://localhost:3001/stt"));
     assert!(is_anarlog_proxy("http://127.0.0.1:3001/stt"));
 
+    assert!(!is_anarlog_proxy("https://api.hyprnote.com/stt"));
+    assert!(!is_anarlog_proxy("https://api.char.com/stt"));
     assert!(!is_anarlog_proxy("https://notchar.com/stt"));
     assert!(!is_anarlog_proxy("https://api.deepgram.com"));
     assert!(!is_anarlog_proxy("http://localhost:50060/v1"));
@@ -288,9 +286,9 @@ fn test_build_proxy_ws_url() {
             )),
         ),
         (
-            "https://api.char.com/stt?provider=deepgram",
+            "https://api.anarlog.so/stt?provider=deepgram",
             Some((
-                "wss://api.char.com/stt/listen",
+                "wss://api.anarlog.so/stt/listen",
                 vec![("provider", "deepgram")],
             )),
         ),
@@ -369,8 +367,6 @@ fn test_anarlog_proxy_always_selects_anarlog_adapter() {
     use anlg_language::ISO639::*;
 
     let proxy_urls = &[
-        "https://api.anarlog.so/stt",
-        "https://api.char.com/stt",
         "https://api.anarlog.so/stt",
         "http://localhost:3001/stt",
         "http://127.0.0.1:3001/stt",
