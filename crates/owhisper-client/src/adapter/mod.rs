@@ -310,15 +310,10 @@ pub(crate) fn host_matches(base_url: &str, predicate: impl Fn(&str) -> bool) -> 
         .unwrap_or(false)
 }
 
-const ANARLOG_PROXY_DOMAINS: &[&str] = &["hyprnote.com", "char.com", "anarlog.so"];
+const ANARLOG_PROXY_HOST: &str = "api.anarlog.so";
 
 fn is_anarlog_cloud_host(host: &str) -> bool {
-    ANARLOG_PROXY_DOMAINS.iter().any(|domain| {
-        host == *domain
-            || host
-                .strip_suffix(domain)
-                .is_some_and(|prefix| prefix.ends_with('.'))
-    })
+    host == ANARLOG_PROXY_HOST
 }
 
 fn is_anarlog_cloud(base_url: &str) -> bool {

@@ -94,8 +94,8 @@ mod tests {
 
     #[test]
     fn test_batch_api_url_preserves_nested_prefix() {
-        let url = PyannoteAdapter::batch_api_url("https://api.char.com/pyannote");
-        assert_eq!(url.as_str(), "https://api.char.com/pyannote/v1");
+        let url = PyannoteAdapter::batch_api_url("https://api.anarlog.so/pyannote");
+        assert_eq!(url.as_str(), "https://api.anarlog.so/pyannote/v1");
     }
 
     #[test]

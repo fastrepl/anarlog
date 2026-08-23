@@ -46,6 +46,7 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           SENTRY_BUILD_SOURCEMAPS: "1"
+          VITE_API_URL: https://api.anarlog.so
           VITE_APP_VERSION: ${{ needs.compute-version.outputs.version }}
       - name: Upload web source maps to Sentry
         run: |

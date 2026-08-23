@@ -455,14 +455,14 @@ mod tests {
 
     #[test]
     fn cloud_anarlog_batch_is_not_progressive() {
-        let params = batch_params(BatchProvider::Anarlog, "https://api.char.com/stt");
+        let params = batch_params(BatchProvider::Anarlog, "https://api.anarlog.so/stt");
 
         assert!(!expects_progressive_batch(&params));
     }
 
     #[test]
     fn cloud_am_batch_is_not_progressive() {
-        let params = batch_params(BatchProvider::Am, "https://api.char.com/stt");
+        let params = batch_params(BatchProvider::Am, "https://api.anarlog.so/stt");
 
         assert!(!expects_progressive_batch(&params));
     }
