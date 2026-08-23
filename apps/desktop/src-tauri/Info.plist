@@ -18,5 +18,7 @@
     <string>AppIcon</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
   </dict>
 </plist>
