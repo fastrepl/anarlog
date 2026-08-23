@@ -67,7 +67,7 @@ jobs:
           pnpm -F @anlg/web exec sentry-cli sourcemaps inject dist
           pnpm -F @anlg/web exec sentry-cli sourcemaps upload \
             --org fastrepl \
-            --project hyprnote2 \
+            --project anarlog \
             --release "$SENTRY_RELEASE" \
             dist
           find apps/web/dist -type f -name '*.map' -delete

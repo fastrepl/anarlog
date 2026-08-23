@@ -261,7 +261,7 @@ jobs:
 
           sentry-cli debug-files upload \
             --org fastrepl \
-            --project hyprnote2 \
+            --project anarlog \
             --include-sources \
             "${{ steps.macos-symbols.outputs.path }}"
       - if: ${{ inputs.channel == 'stable' }}
@@ -441,7 +441,7 @@ jobs:
 
           sentry-cli debug-files upload \
             --org fastrepl \
-            --project hyprnote2 \
+            --project anarlog \
             --include-sources \
             "$binary"
       - run: |
@@ -671,7 +671,7 @@ jobs:
 
           sentry-cli debug-files upload \
             --org fastrepl \
-            --project hyprnote2 \
+            --project anarlog \
             --include-sources \
             "$release_dir/anarlog.exe" \
             "${pdbs[@]}"
