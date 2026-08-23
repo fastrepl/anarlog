@@ -47,6 +47,7 @@ fn test_linux_and_windows_process_aliases_map_to_meeting_apps() {
         ("firefox", MeetingPlatform::Unknown, true),
         ("firefox-bin", MeetingPlatform::Unknown, true),
         ("browseros", MeetingPlatform::Unknown, true),
+        ("helium", MeetingPlatform::Unknown, true),
         ("zen", MeetingPlatform::Unknown, true),
         ("zen-bin", MeetingPlatform::Unknown, true),
     ] {
