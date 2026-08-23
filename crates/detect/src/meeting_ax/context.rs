@@ -374,6 +374,22 @@ fn browser_meeting_identity(root: &BrowserMeetingRoot) -> Option<String> {
         return Some(format!("https://meet.google.com/{code}"));
     }
 
+    #[cfg(any(test, target_os = "linux"))]
+    {
+        let title = root.window_title.as_deref()?;
+        let title_platforms = super::browser_title_platform_signals(title);
+        let has_active_call_control = root
+            .nodes
+            .iter()
+            .any(|node| is_platform_active_call_control(&root.platform, node));
+        if title_platforms.as_slice() == [root.platform.clone()] && has_active_call_control {
+            return Some(format!(
+                "atspi://{}",
+                meeting_platform_context_kind(&root.platform)
+            ));
+        }
+    }
+
     None
 }
 

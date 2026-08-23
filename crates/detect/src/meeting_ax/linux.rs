@@ -103,6 +103,12 @@ fn element_hash(bus_name: &str, path: &str) -> usize {
     hasher.finish() as usize
 }
 
+fn normalized_atspi_text(value: String) -> Option<String> {
+    let value = value.replace('\u{fffc}', " ");
+    let value = value.trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
 async fn unix_pid_for_name(connection: &zbus::Connection, name: &str) -> Option<u32> {
     let dbus = DBusProxy::new(connection).await.ok()?;
     let bus_name = BusName::try_from(name).ok()?;
@@ -180,7 +186,7 @@ async fn snapshot_live_node(
     } else {
         None
     };
-    let value = text_value.filter(|value| !value.is_empty()).or_else(|| {
+    let value = text_value.and_then(normalized_atspi_text).or_else(|| {
         attributes
             .get("placeholder-text")
             .cloned()
@@ -1411,6 +1417,15 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn object_replacement_text_does_not_pollute_accessible_labels() {
+        assert_eq!(normalized_atspi_text("\u{fffc}".to_string()), None);
+        assert_eq!(
+            normalized_atspi_text("Chat Message List\u{fffc}".to_string()),
+            Some("Chat Message List".to_string())
+        );
+    }
 
     fn live_web_area(index: usize, url: &str, title: &str) -> LiveNode {
         LiveNode {

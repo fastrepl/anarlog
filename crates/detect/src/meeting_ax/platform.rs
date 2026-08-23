@@ -4,7 +4,8 @@ use std::collections::HashSet;
 use cidre::ns;
 
 use super::{
-    AxNode, MeetingApp, MeetingPlatform, MeetingSurface, is_platform_meeting_control, node_labels,
+    AxNode, MeetingApp, MeetingPlatform, MeetingSurface, is_platform_active_call_control,
+    is_platform_meeting_control, node_labels,
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -318,9 +319,10 @@ pub(super) fn classify_browser_context(
             return MeetingPlatform::Unknown;
         }
         let has_matching_title = title_platforms.contains(&platform);
-        let has_matching_control = nodes
-            .iter()
-            .any(|node| is_platform_meeting_control(&platform, node));
+        let has_matching_control = nodes.iter().any(|node| {
+            is_platform_meeting_control(&platform, node)
+                || is_platform_active_call_control(&platform, node)
+        });
 
         return if has_matching_title || has_matching_control {
             platform
@@ -335,9 +337,10 @@ pub(super) fn classify_browser_context(
     let platform = title_platforms.remove(0);
     let titled_like_meet_code = window_title
         .is_some_and(|title| looks_like_google_meet_window_title(&title.to_ascii_lowercase()));
-    let has_matching_control = nodes
-        .iter()
-        .any(|node| is_platform_meeting_control(&platform, node));
+    let has_matching_control = nodes.iter().any(|node| {
+        is_platform_meeting_control(&platform, node)
+            || is_platform_active_call_control(&platform, node)
+    });
     if titled_like_meet_code || has_matching_control {
         platform
     } else {
