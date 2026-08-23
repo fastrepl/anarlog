@@ -46,6 +46,9 @@ fn test_linux_and_windows_process_aliases_map_to_meeting_apps() {
         ("chrome", MeetingPlatform::Unknown, true),
         ("firefox", MeetingPlatform::Unknown, true),
         ("firefox-bin", MeetingPlatform::Unknown, true),
+        ("browseros", MeetingPlatform::Unknown, true),
+        ("zen", MeetingPlatform::Unknown, true),
+        ("zen-bin", MeetingPlatform::Unknown, true),
     ] {
         assert!(
             is_meeting_app_bundle(alias),

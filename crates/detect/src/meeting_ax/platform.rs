@@ -71,11 +71,13 @@ pub(super) const MEETING_APP_BUNDLES: &[MeetingAppBundle] = &[
     MeetingAppBundle::browser("com.operasoftware.OperaGX"),
     MeetingAppBundle::browser("com.operasoftware.OperaNext"),
     MeetingAppBundle::browser("company.thebrowser.Browser"),
+    MeetingAppBundle::browser("com.browseros.BrowserOS"),
     MeetingAppBundle::browser("ai.perplexity.comet"),
     MeetingAppBundle::browser("company.thebrowser.dia"),
     MeetingAppBundle::browser("com.sigmaos.sigmaos.macos"),
     MeetingAppBundle::browser("net.imput.helium"),
     MeetingAppBundle::browser("com.nousresearch.hermes"),
+    MeetingAppBundle::browser("app.zen-browser.zen"),
 ];
 
 pub(super) fn meeting_app_alias_key(id: &str) -> String {
@@ -115,6 +117,8 @@ pub(super) fn canonicalize_meeting_app_id(id: &str) -> String {
         "brave" | "brave-browser" => "com.brave.Browser".to_string(),
         "vivaldi" | "vivaldi-stable" => "com.vivaldi.Vivaldi".to_string(),
         "opera" => "com.operasoftware.Opera".to_string(),
+        "browseros" => "com.browseros.BrowserOS".to_string(),
+        "zen" | "zen-bin" | "zen-browser" => "app.zen-browser.zen".to_string(),
         _ => trimmed.to_string(),
     }
 }

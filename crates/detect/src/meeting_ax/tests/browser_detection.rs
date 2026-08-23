@@ -507,12 +507,14 @@ fn test_validated_browser_bundles_are_web_surfaces() {
         "com.vivaldi.Vivaldi",
         "com.operasoftware.Opera",
         "company.thebrowser.Browser",
+        "com.browseros.BrowserOS",
         "ai.perplexity.comet",
         "at.studio.AsideBrowser",
         "company.thebrowser.dia",
         "com.sigmaos.sigmaos.macos",
         "net.imput.helium",
         "com.nousresearch.hermes",
+        "app.zen-browser.zen",
     ] {
         assert!(
             is_browser_bundle(bundle_id),
