@@ -116,7 +116,9 @@ pub(super) fn canonicalize_meeting_app_id(id: &str) -> String {
         }
         "brave" | "brave-browser" => "com.brave.Browser".to_string(),
         "vivaldi" | "vivaldi-stable" => "com.vivaldi.Vivaldi".to_string(),
-        "opera" => "com.operasoftware.Opera".to_string(),
+        "opera" | "opera-stable" => "com.operasoftware.Opera".to_string(),
+        "opera-beta" => "com.operasoftware.OperaNext".to_string(),
+        "opera-developer" => "com.operasoftware.OperaDeveloper".to_string(),
         "browseros" => "com.browseros.BrowserOS".to_string(),
         "helium" | "helium-browser" => "net.imput.helium".to_string(),
         "zen" | "zen-bin" | "zen-browser" => "app.zen-browser.zen".to_string(),
