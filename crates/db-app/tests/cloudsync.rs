@@ -269,28 +269,26 @@ async fn wait_for_e2ee_record(
     expected_payload: &str,
     operation: &str,
 ) -> Option<(String, String)> {
-    let mut latest_record = None;
-    for attempt in 1..=REPLICA_VISIBILITY_ATTEMPTS {
-        sync_full_snapshot(db, operation).await;
-        let record: Option<(String, String)> =
-            sqlx::query_as("SELECT workspace_id, payload FROM e2ee_records WHERE id = ?")
-                .bind(record_id)
-                .fetch_optional(db.pool())
-                .await
-                .unwrap();
-        if record.as_ref().is_some_and(|(workspace_id, payload)| {
-            workspace_id == expected_workspace_id && payload == expected_payload
-        }) {
-            return record;
-        }
-        latest_record = record;
+    tokio::time::timeout(REPLICA_VISIBILITY_TIMEOUT, async {
+        loop {
+            sync_full_snapshot(db, operation).await;
+            let record: Option<(String, String)> =
+                sqlx::query_as("SELECT workspace_id, payload FROM e2ee_records WHERE id = ?")
+                    .bind(record_id)
+                    .fetch_optional(db.pool())
+                    .await
+                    .unwrap();
+            if record.as_ref().is_some_and(|(workspace_id, payload)| {
+                workspace_id == expected_workspace_id && payload == expected_payload
+            }) {
+                return record;
+            }
 
-        if attempt < REPLICA_VISIBILITY_ATTEMPTS {
             tokio::time::sleep(REPLICA_VISIBILITY_POLL_INTERVAL).await;
         }
-    }
-
-    latest_record
+    })
+    .await
+    .unwrap_or(None)
 }
 
 async fn setup_stale_record_client(
