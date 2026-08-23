@@ -1128,7 +1128,6 @@ msgid "Confirm"
 msgstr "Confirm"
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
-#: src/settings/ai/shared/index.tsx
 msgid "Connect"
 msgstr "Connect"
 
@@ -1934,6 +1933,10 @@ msgstr "Finish in your browser, then return to Anarlog."
 msgid "Finish sign-in"
 msgstr "Finish sign-in"
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Finishing connection…"
+msgstr "Finishing connection…"
+
 #: src/templates/template-icon-picker.tsx
 msgid "Flags"
 msgstr "Flags"
@@ -2053,6 +2056,10 @@ msgstr "Have Anarlog ready when you sign in."
 #: src/calendar/components/apple/permission.tsx
 msgid "Having trouble?"
 msgstr "Having trouble?"
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Having trouble? Paste the redirect URL"
+msgstr "Having trouble? Paste the redirect URL"
 
 #: src/main/windows-title-bar.tsx
 msgid "Help"
@@ -4063,8 +4070,12 @@ msgid "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your b
 msgstr "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with Claude Pro or Max, then paste the authorization code."
-msgstr "Sign in with Claude Pro or Max, then paste the authorization code."
+msgid "Sign in with ChatGPT Plus or Pro. We'll finish connecting automatically."
+msgstr "Sign in with ChatGPT Plus or Pro. We'll finish connecting automatically."
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Sign in with Claude Pro or Max, then copy the authorization code. We'll detect it automatically."
+msgstr "Sign in with Claude Pro or Max, then copy the authorization code. We'll detect it automatically."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Sign in with GitHub Copilot and enter the code below."

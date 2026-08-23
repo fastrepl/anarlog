@@ -7,8 +7,11 @@ export { createSubscriptionFetch } from "./fetch";
 export { listSubscriptionModels } from "./models";
 export {
   CHATGPT_API_BASE_URL,
+  CHATGPT_CALLBACK_PORT,
   completeCodeConnect,
   isSubscriptionProviderId,
+  looksLikeAuthorizationInput,
+  subscriptionAuthFromCallback,
   type ConnectSession,
   pollDeviceConnect,
   startSubscriptionConnect,

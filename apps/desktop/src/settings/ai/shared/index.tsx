@@ -176,6 +176,17 @@ export function ProviderIconSlot({ children }: { children: ReactNode }) {
   return <AiIconSlot>{children}</AiIconSlot>;
 }
 
+export function ProviderButtonIcon({ children }: { children: ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className="flex size-3.5 shrink-0 items-center justify-center overflow-hidden [&>img]:block [&>img]:size-full [&>svg]:block [&>svg]:size-full"
+    >
+      {children}
+    </span>
+  );
+}
+
 export function providerRowId(providerType: ProviderType, providerId: string) {
   return `${providerType}:${providerId}`;
 }
@@ -519,7 +530,8 @@ export function NonAnarlogProviderCard({
                 size="sm"
                 onClick={onConnect}
               >
-                <Trans>Connect</Trans>
+                <ProviderButtonIcon>{config.icon}</ProviderButtonIcon>
+                {t`Connect ${config.displayName}`}
               </Button>
             )}
           </div>
@@ -588,6 +600,9 @@ export function NonAnarlogProviderCard({
                   onClick={onConnectSubscription}
                   className="self-start"
                 >
+                  <ProviderButtonIcon>
+                    {subscriptionProvider.icon}
+                  </ProviderButtonIcon>
                   {t`Connect ${subscriptionProvider.displayName}`}
                 </Button>
               )}

@@ -1128,7 +1128,6 @@ msgid "Confirm"
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
-#: src/settings/ai/shared/index.tsx
 msgid "Connect"
 msgstr ""
 
@@ -1934,6 +1933,10 @@ msgstr ""
 msgid "Finish sign-in"
 msgstr ""
 
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Finishing connection…"
+msgstr ""
+
 #: src/templates/template-icon-picker.tsx
 msgid "Flags"
 msgstr ""
@@ -2052,6 +2055,10 @@ msgstr ""
 
 #: src/calendar/components/apple/permission.tsx
 msgid "Having trouble?"
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Having trouble? Paste the redirect URL"
 msgstr ""
 
 #: src/main/windows-title-bar.tsx
@@ -4063,7 +4070,11 @@ msgid "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your b
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with Claude Pro or Max, then paste the authorization code."
+msgid "Sign in with ChatGPT Plus or Pro. We'll finish connecting automatically."
+msgstr ""
+
+#: src/settings/ai/llm/subscriptions/connect.tsx
+msgid "Sign in with Claude Pro or Max, then copy the authorization code. We'll detect it automatically."
 msgstr ""
 
 #: src/settings/ai/llm/subscriptions/connect.tsx

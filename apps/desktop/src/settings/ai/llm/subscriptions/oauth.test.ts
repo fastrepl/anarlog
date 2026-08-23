@@ -1,12 +1,15 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  assertAuthorizationState,
   chatgptCodexUrl,
   chatgptResponsesBody,
   claudeMessagesUrl,
   isSubscriptionProviderId,
+  looksLikeAuthorizationInput,
   parseAuthorizationInput,
   parseChatgptAccountId,
+  subscriptionAuthFromCallback,
   usesSubscriptionFetch,
 } from "./oauth";
 
@@ -37,6 +40,59 @@ describe("subscription OAuth helpers", () => {
 
   test("rejects empty authorization input", () => {
     expect(() => parseAuthorizationInput("  ")).toThrow(/authorization code/);
+  });
+
+  test("recognizes browser callback values without treating random clipboard text as a code", () => {
+    expect(
+      looksLikeAuthorizationInput(
+        "http://localhost:1455/auth/callback?code=ac_nf5hq&state=s1",
+      ),
+    ).toBe(true);
+    expect(looksLikeAuthorizationInput("abc123#xyz")).toBe(true);
+    expect(looksLikeAuthorizationInput("ac_nf5hq659_token")).toBe(true);
+    expect(looksLikeAuthorizationInput("sk-not-an-oauth-code")).toBe(false);
+    expect(looksLikeAuthorizationInput("just some notes")).toBe(false);
+  });
+
+  test("ignores Anarlog login callbacks when extracting subscription codes", () => {
+    expect(
+      subscriptionAuthFromCallback({
+        access_token: "access",
+        refresh_token: "refresh",
+        code: "should-ignore",
+      }),
+    ).toBeNull();
+    expect(
+      subscriptionAuthFromCallback({
+        code: "codex-code",
+        state: "s1",
+      }),
+    ).toEqual({ code: "codex-code", state: "s1" });
+  });
+
+  test("rejects a callback from a different sign-in attempt", () => {
+    expect(() =>
+      assertAuthorizationState(
+        {
+          kind: "code",
+          url: "https://example.com",
+          verifier: "v",
+          state: "expected",
+        },
+        { state: "other" },
+      ),
+    ).toThrow(/expired/);
+    expect(() =>
+      assertAuthorizationState(
+        {
+          kind: "code",
+          url: "https://example.com",
+          verifier: "v",
+          state: "expected",
+        },
+        { state: "expected" },
+      ),
+    ).not.toThrow();
   });
 
   test("adds beta=true to Claude message URLs", () => {

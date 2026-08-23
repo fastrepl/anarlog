@@ -262,7 +262,7 @@ function HeaderMeetingActionPill({
       url = buildWelcomeNoteDemoUrl(meetingLink);
       try {
         const scheme = await getScheme();
-        const result = await deeplinkCommands.startCallbackServer(scheme);
+        const result = await deeplinkCommands.startCallbackServer(scheme, null);
         if (result.status === "ok") {
           url = buildWelcomeNoteDemoUrl(meetingLink, result.data);
         }

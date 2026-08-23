@@ -24,7 +24,7 @@ import {
 
 const FALLBACK_MODELS: Record<SubscriptionProviderId, string[]> = {
   claude: ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"],
-  chatgpt: ["gpt-5.4", "gpt-5.3-codex", "gpt-5.2-codex"],
+  chatgpt: ["gpt-5.3-codex", "gpt-5.4", "gpt-5.2-codex"],
   grok: ["grok-4", "grok-4-fast", "grok-3"],
   github_copilot: ["gpt-4.1", "claude-sonnet-4", "gemini-2.5-pro"],
   kimi_code: ["kimi-for-coding"],

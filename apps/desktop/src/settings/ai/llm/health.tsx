@@ -52,13 +52,81 @@ export function useConnectionHealth(): LlmHealthStatus {
   }
 
   if (text.status === "error") {
-    const error = text.error as Error;
-    const message = error.message || "Unknown error";
     return {
       status: "error",
-      message: `Connection failed: ${message}`,
+      message: `Connection failed: ${llmHealthErrorMessage(text.error)}`,
     };
   }
 
   return { status: text.status };
+}
+
+export function llmHealthErrorMessage(error: unknown): string {
+  if (!error || typeof error !== "object") {
+    return "Unknown error";
+  }
+
+  const api = error as {
+    message?: unknown;
+    data?: unknown;
+    responseBody?: unknown;
+  };
+  const fromPayload =
+    apiErrorFromUnknown(api.data) ??
+    (typeof api.responseBody === "string"
+      ? (apiErrorFromUnknown(tryJson(api.responseBody)) ??
+        firstUsefulLine(api.responseBody))
+      : undefined);
+  if (fromPayload) {
+    return fromPayload;
+  }
+  if (typeof api.message === "string" && api.message.trim()) {
+    return firstUsefulLine(api.message) || "Unknown error";
+  }
+
+  return "Unknown error";
+}
+
+function apiErrorFromUnknown(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (typeof record.message === "string" && record.message.trim()) {
+    return firstUsefulLine(record.message);
+  }
+
+  const nested = record.error;
+  if (typeof nested === "string" && nested.trim()) {
+    return firstUsefulLine(nested);
+  }
+  if (nested && typeof nested === "object") {
+    const nestedRecord = nested as Record<string, unknown>;
+    if (
+      typeof nestedRecord.message === "string" &&
+      nestedRecord.message.trim()
+    ) {
+      return firstUsefulLine(nestedRecord.message);
+    }
+  }
+
+  return undefined;
+}
+
+function tryJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function firstUsefulLine(value: string): string {
+  const line =
+    value
+      .split("\n")
+      .map((part) => part.trim())
+      .find((part) => part.length > 0) ?? value.trim();
+  return line.length > 200 ? `${line.slice(0, 197)}...` : line;
 }

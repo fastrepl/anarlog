@@ -779,7 +779,10 @@ describe("OuterHeader", () => {
     expect(logo?.className).toContain("size-3.5");
     expect(mocks.startListening).toHaveBeenCalledOnce();
     await vi.waitFor(() => {
-      expect(mocks.startCallbackServer).toHaveBeenCalledWith("anarlog-dev");
+      expect(mocks.startCallbackServer).toHaveBeenCalledWith(
+        "anarlog-dev",
+        null,
+      );
       expect(mocks.openUrl).toHaveBeenCalledOnce();
     });
 

@@ -57,11 +57,13 @@ const CLAUDE = {
     "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload",
 } as const;
 
+export const CHATGPT_CALLBACK_PORT = 1455;
+
 const CHATGPT = {
   clientId: "app_EMoamEEZ73f0CkXaXp7hrann",
   authorizeUrl: "https://auth.openai.com/oauth/authorize",
   tokenUrl: "https://auth.openai.com/oauth/token",
-  redirectUri: "http://localhost:1455/auth/callback",
+  redirectUri: `http://localhost:${CHATGPT_CALLBACK_PORT}/auth/callback`,
   scope: "openid profile email offline_access",
 } as const;
 
@@ -158,6 +160,52 @@ export function parseAuthorizationInput(input: string): {
   return { code: trimmed };
 }
 
+export function looksLikeAuthorizationInput(input: string): boolean {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  try {
+    const parsed = parseAuthorizationInput(trimmed);
+    if (trimmed.includes("://") && parsed.code) {
+      return true;
+    }
+    if (trimmed.includes("#") && parsed.code && parsed.state) {
+      return true;
+    }
+    return parsed.code.startsWith("ac_");
+  } catch {
+    return false;
+  }
+}
+
+export function subscriptionAuthFromCallback(search: {
+  access_token?: string | null;
+  refresh_token?: string | null;
+  code?: string | null;
+  state?: string | null;
+}): { code: string; state?: string } | null {
+  const code = search.code?.trim();
+  if (!code || search.access_token?.trim() || search.refresh_token?.trim()) {
+    return null;
+  }
+
+  return {
+    code,
+    state: search.state?.trim() || undefined,
+  };
+}
+
+export function assertAuthorizationState(
+  session: CodeConnectSession,
+  parsed: { state?: string },
+) {
+  if (parsed.state && parsed.state !== session.state) {
+    throw new Error("This sign-in expired. Try connecting again.");
+  }
+}
+
 export async function startSubscriptionConnect(
   providerId: SubscriptionProviderId,
 ): Promise<ConnectSession> {
@@ -181,6 +229,7 @@ export async function completeCodeConnect(
   rawCode: string,
 ): Promise<string> {
   const parsed = parseAuthorizationInput(rawCode);
+  assertAuthorizationState(session, parsed);
   if (providerId === "claude") {
     return serializeOAuthCredential(
       await exchangeClaudeCode({

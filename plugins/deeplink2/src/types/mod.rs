@@ -148,4 +148,19 @@ mod tests {
             DeepLink::OnboardingDemoComplete(_)
         ));
     }
+
+    #[test]
+    fn parses_chatgpt_loopback_authorization_code() {
+        let DeepLink::AuthCallback(search) =
+            DeepLink::from_str("local://auth/callback?code=codex-code&state=s1&scope=openid")
+                .unwrap()
+        else {
+            panic!("expected auth callback");
+        };
+
+        assert!(search.access_token.is_empty());
+        assert!(search.refresh_token.is_empty());
+        assert_eq!(search.code.as_deref(), Some("codex-code"));
+        assert_eq!(search.state.as_deref(), Some("s1"));
+    }
 }

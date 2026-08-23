@@ -217,12 +217,18 @@ async fn serve<R: tauri::Runtime>(
 pub async fn start<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     scheme: String,
+    port: Option<u16>,
 ) -> Result<u16, String> {
     stop(app.clone()).await?;
 
     let shutdown = Arc::new(Notify::new());
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+    let bind_addr = match port {
+        Some(port) => format!("127.0.0.1:{port}"),
+        None => "127.0.0.1:0".to_string(),
+    };
+
+    let listener = tokio::net::TcpListener::bind(&bind_addr)
         .await
         .map_err(|e| format!("failed to bind: {e}"))?;
 

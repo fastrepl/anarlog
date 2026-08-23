@@ -101,7 +101,7 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
     providerId === "claude"
       ? "Uses your **Claude Pro or Max** plan. Sign in through Connect — no Anthropic API key needed."
       : providerId === "chatgpt"
-        ? "Uses your **ChatGPT Plus or Pro** plan. After signing in, paste the redirect URL from your browser."
+        ? "Uses your **ChatGPT Plus or Pro** plan. Sign in through Connect — we'll finish the handshake automatically."
         : providerId === "grok"
           ? "Uses your **SuperGrok or X Premium+** plan through xAI's subscription login."
           : providerId === "github_copilot"
