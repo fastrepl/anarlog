@@ -162,13 +162,19 @@ enum ChildWalk {
 }
 
 #[cfg(any(test, target_os = "macos"))]
-fn select_child_walk(children: Option<usize>, visible: Option<usize>) -> Option<ChildWalk> {
+fn select_child_walk(
+    children: Option<usize>,
+    visible: Option<usize>,
+    allow_visible_subset: bool,
+) -> Option<ChildWalk> {
     let nonempty = |count: Option<usize>| count.filter(|&count| count > 0);
     let visible = nonempty(visible);
     let children = nonempty(children);
 
     match (visible, children) {
-        (Some(visible_count), Some(children_count)) if visible_count < children_count => {
+        (Some(visible_count), Some(children_count))
+            if allow_visible_subset && children_count > 64 && visible_count < children_count =>
+        {
             Some(ChildWalk::Visible)
         }
         (_, Some(_)) => Some(ChildWalk::Children),
@@ -323,7 +329,7 @@ fn find_chat_priority_hits(
             ancestors.join(" > ")
         ));
     }
-    let Some(children) = walkable_children(element) else {
+    let Some(children) = walkable_children(element, depth == 0) else {
         return;
     };
     ancestors.push(if title.is_empty() {
@@ -637,7 +643,7 @@ fn collect_nodes_with_ancestors(
         labels: node_labels(&node).map(str::to_string).collect(),
     });
 
-    if let Some(children) = walkable_children(element) {
+    if let Some(children) = walkable_children(element, depth == 0) {
         for (child_index, child) in children.iter().enumerate() {
             path.push(child_index);
             collect_nodes_with_ancestors(child, depth + 1, visited, path, ancestors, nodes);
@@ -1752,7 +1758,7 @@ fn collect_chat_elements(
         labels: node_labels(&node).map(str::to_string).collect(),
     });
 
-    let Some(children) = walkable_children(element) else {
+    let Some(children) = walkable_children(element, depth == 0) else {
         ancestors.pop();
         return;
     };
@@ -1934,7 +1940,7 @@ fn collect_nodes_with_scope(
     node.within_slack_huddle_scope = within_slack_huddle_scope;
     nodes.push(node);
 
-    let Some(children) = walkable_children(element) else {
+    let Some(children) = walkable_children(element, tree_path.is_empty()) else {
         return;
     };
 
@@ -1983,16 +1989,23 @@ fn ax_element_attr(element: &ax::UiElement, attr: &ax::Attr) -> Option<arc::R<ax
 }
 
 #[cfg(target_os = "macos")]
-fn walkable_children(element: &ax::UiElement) -> Option<arc::R<cf::ArrayOf<ax::UiElement>>> {
+fn walkable_children(
+    element: &ax::UiElement,
+    allow_visible_subset: bool,
+) -> Option<arc::R<cf::ArrayOf<ax::UiElement>>> {
     let children = ax_element_array(element, ax::attr::children());
-    if children.as_ref().is_some_and(|array| array.len() <= 64) {
-        return children.filter(|array| !array.is_empty());
+    if children
+        .as_ref()
+        .is_some_and(|array| !array.is_empty() && (!allow_visible_subset || array.len() <= 64))
+    {
+        return children;
     }
 
     let visible = ax_element_array(element, ax::attr::visible_children());
     match select_child_walk(
         children.as_ref().map(|array| array.len()),
         visible.as_ref().map(|array| array.len()),
+        allow_visible_subset,
     ) {
         Some(ChildWalk::Visible) => visible,
         Some(ChildWalk::Children) => children,
@@ -2008,7 +2021,9 @@ fn maybe_note_visible_child_walk(element: &ax::UiElement, warnings: &mut Vec<Str
     let Some(visible) = ax_element_array(element, ax::attr::visible_children()) else {
         return;
     };
-    if visible.is_empty() || visible.len() >= children.len() {
+    if select_child_walk(Some(children.len()), Some(visible.len()), true)
+        != Some(ChildWalk::Visible)
+    {
         return;
     }
     warnings.push(format!(

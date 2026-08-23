@@ -635,14 +635,22 @@ fn test_linux_browser_context_falls_back_to_titled_active_call_identity() {
         fixture_node(2, "AXGroup", "Chat Message List", &[1]),
         fixture_composer(3, "Type message here ...", &[1, 0]),
     ];
-    let root = BrowserMeetingRoot {
+    let root = |title: &str| BrowserMeetingRoot {
         platform: MeetingPlatform::Zoom,
-        window_title: Some("John Jeong's Zoom Meeting - Google Chrome".to_string()),
+        window_title: Some(title.to_string()),
         web_area_url: None,
-        nodes,
+        nodes: nodes.clone(),
     };
 
-    assert!(browser_capture_context_id(&root).is_some());
+    let first =
+        browser_capture_context_id(&root("John Jeong's Zoom Meeting - Google Chrome")).unwrap();
+    let same =
+        browser_capture_context_id(&root("John Jeong's Zoom Meeting - Google Chrome")).unwrap();
+    let next =
+        browser_capture_context_id(&root("Grace Hopper's Zoom Meeting - Google Chrome")).unwrap();
+
+    assert_eq!(first, same);
+    assert_ne!(first, next);
 }
 
 #[test]

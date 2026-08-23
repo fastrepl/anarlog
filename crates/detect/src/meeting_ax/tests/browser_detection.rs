@@ -399,23 +399,30 @@ fn test_only_provider_like_browser_windows_poison_incomplete_capture() {
 #[test]
 fn test_select_child_walk_prefers_visible_subset() {
     assert_eq!(
-        select_child_walk(Some(380), Some(42)),
+        select_child_walk(Some(380), Some(42), true),
         Some(ChildWalk::Visible)
     );
     assert_eq!(
-        select_child_walk(Some(42), Some(42)),
+        select_child_walk(Some(42), Some(20), true),
         Some(ChildWalk::Children)
     );
     assert_eq!(
-        select_child_walk(Some(12), Some(0)),
+        select_child_walk(Some(380), Some(42), false),
         Some(ChildWalk::Children)
     );
     assert_eq!(
-        select_child_walk(Some(0), Some(8)),
+        select_child_walk(Some(12), Some(0), true),
+        Some(ChildWalk::Children)
+    );
+    assert_eq!(
+        select_child_walk(Some(0), Some(8), true),
         Some(ChildWalk::Visible)
     );
-    assert_eq!(select_child_walk(None, Some(3)), Some(ChildWalk::Visible));
-    assert_eq!(select_child_walk(None, None), None);
+    assert_eq!(
+        select_child_walk(None, Some(3), false),
+        Some(ChildWalk::Visible)
+    );
+    assert_eq!(select_child_walk(None, None, true), None);
 }
 
 #[test]
