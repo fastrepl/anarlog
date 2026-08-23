@@ -3,6 +3,8 @@ on:
 
 env:
   INFISICAL_ENV: prod
+  FLY_APP: anarlog-ai
+  FLY_ORG: fastrepl
 
 jobs:
   compute-version:
@@ -70,6 +72,14 @@ jobs:
           python3 .github/scripts/verify_cloudsync_e2ee.py "$cloudsync_secrets_json"
         env:
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
+      - name: Ensure Fly app exists
+        run: |
+          set -euo pipefail
+          if ! flyctl status --app "$FLY_APP" >/dev/null 2>&1; then
+            flyctl apps create "$FLY_APP" --org "$FLY_ORG" --yes
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       - run: |
           set -euo pipefail
 
@@ -140,7 +150,7 @@ jobs:
           PY
 
           if [ -s "$secrets_file" ]; then
-            flyctl secrets import --app hyprnote-ai --stage < "$secrets_file"
+            flyctl secrets import --app "$FLY_APP" --stage < "$secrets_file"
           else
             echo "No Infisical secrets exported; skipping Fly secret import."
           fi
@@ -150,8 +160,10 @@ jobs:
       - run: flyctl deploy --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only --build-arg APP_VERSION=${{ needs.compute-version.outputs.version }}
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      - name: Verify Fly deployment
+        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "https://${FLY_APP}.fly.dev/health"
       - if: failure()
-        run: timeout 60s flyctl logs --app hyprnote-ai --no-tail || true
+        run: timeout 60s flyctl logs --app "$FLY_APP" --no-tail || true
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 

@@ -1,4 +1,4 @@
-app = 'hyprnote-ai'
+app = 'anarlog-ai'
 primary_region = 'sjc'
 kill_signal = 'SIGTERM'
 kill_timeout = 30
