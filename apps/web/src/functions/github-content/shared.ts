@@ -36,7 +36,6 @@ const GITHUB_USERNAME_TO_AUTHOR: Record<
   string,
   { name: string; email: string }
 > = {
-  yujonglee: { name: "Yujong Lee", email: "yujonglee@hyprnote.com" },
   ComputelessComputer: { name: "John Jeong", email: "john@hyprnote.com" },
 };
 
