@@ -309,10 +309,10 @@ async fn collect_nodes(
     };
     use super::{is_slack_huddle_scope_node, is_zoom_chat_scope_node, is_zoom_meeting_scope_node};
     let within_zoom_meeting_scope = ancestors.iter().any(|ancestor| {
-        ancestor
-            .labels
-            .iter()
-            .any(|label| label.to_ascii_lowercase().contains("zoom meeting"))
+        ancestor.labels.iter().any(|label| {
+            let label = label.to_ascii_lowercase();
+            label.contains("zoom meeting") || label.trim() == "meeting"
+        })
     }) || is_zoom_meeting_scope_node(&live.node);
     let within_zoom_chat_scope =
         live.node.within_zoom_chat_scope || is_zoom_chat_scope_node(&live.node);

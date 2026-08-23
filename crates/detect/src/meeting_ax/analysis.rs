@@ -19,6 +19,12 @@ pub(super) fn find_participant_streams(
         .iter()
         .filter_map(|node| candidate_stream(platform, surface, node).map(|stream| (stream, node)))
         .collect::<Vec<_>>();
+    if *platform == MeetingPlatform::Zoom
+        && *surface == MeetingSurface::Native
+        && let Some(stream) = zoom_native_speaker_view_stream(nodes)
+    {
+        streams.push(stream);
+    }
 
     streams.sort_by(|a, b| {
         b.0.is_active_speaker
@@ -45,6 +51,99 @@ pub(super) fn find_participant_streams(
         .max(24);
     streams.truncate(retained_limit);
     streams.into_iter().map(|(stream, _)| stream).collect()
+}
+
+fn zoom_native_speaker_view_stream(
+    nodes: &[AxNode],
+) -> Option<(MeetingParticipantStream, &AxNode)> {
+    let mut tiles = nodes
+        .iter()
+        .filter(|node| {
+            node.within_zoom_meeting_scope
+                && node.role.as_deref() == Some("AXButton")
+                && node
+                    .bounds
+                    .as_ref()
+                    .is_some_and(|bounds| bounds.width * bounds.height >= MIN_VIDEO_AREA)
+        })
+        .filter_map(|node| {
+            let label = node_labels(node).find_map(zoom_native_speaker_view_name)?;
+            let area = node.bounds.as_ref()?.width * node.bounds.as_ref()?.height;
+            Some((node, label, area))
+        })
+        .collect::<Vec<_>>();
+    if tiles.len() < 2 {
+        return None;
+    }
+    tiles.sort_by(|left, right| right.2.total_cmp(&left.2));
+    let (node, name, area) = tiles[0];
+    if area < tiles[1].2 * 4.0 || !zoom_roster_participant_is_unmuted(nodes, name) {
+        return None;
+    }
+
+    let label = node_labels(node)
+        .find(|label| zoom_native_speaker_view_name(label).is_some())?
+        .to_string();
+    Some((
+        MeetingParticipantStream {
+            id: node.element_hash.map_or_else(
+                || format!("ax-node-{}", node.index),
+                |hash| format!("ax-element-{hash:x}"),
+            ),
+            platform: MeetingPlatform::Zoom,
+            surface: MeetingSurface::Native,
+            participant_name: Some(name.to_string()),
+            label: Some(label),
+            bounds: node.bounds.clone(),
+            confidence: 0.95,
+            is_active_speaker: true,
+            signals: vec![
+                "speaker-state-label".to_string(),
+                "dominant-speaker-view".to_string(),
+                "roster-audio-unmuted".to_string(),
+            ],
+        },
+        node,
+    ))
+}
+
+fn zoom_native_speaker_view_name(label: &str) -> Option<&str> {
+    let label = label.trim();
+    let lower = label.to_ascii_lowercase();
+    let prefix = "video item ";
+    let suffix = " active speaker";
+    if !lower.starts_with(prefix) || !lower.ends_with(suffix) {
+        return None;
+    }
+    let name = label[prefix.len()..label.len() - suffix.len()].trim();
+    is_plausible_participant_name(name).then_some(name)
+}
+
+fn zoom_roster_participant_is_unmuted(nodes: &[AxNode], name: &str) -> bool {
+    nodes.iter().any(|node| {
+        if !node.within_zoom_meeting_scope
+            || node.role.as_deref() != Some("AXButton")
+            || !node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("unmuted"))
+            || !node
+                .bounds
+                .as_ref()
+                .is_some_and(|bounds| bounds.width > 0.0 && bounds.height > 0.0)
+        {
+            return false;
+        }
+        let Some(row_path) = node.tree_path.get(..node.tree_path.len().saturating_sub(1)) else {
+            return false;
+        };
+        !row_path.is_empty()
+            && nodes.iter().any(|candidate| {
+                candidate.within_zoom_meeting_scope
+                    && path_is_ancestor(row_path, &candidate.tree_path)
+                    && node_labels(candidate).any(|label| {
+                        zoom_participant_name(label)
+                            .is_some_and(|candidate| candidate.eq_ignore_ascii_case(name))
+                    })
+            })
+    })
 }
 
 fn same_participant_ax_identity(left: &AxNode, right: &AxNode) -> bool {
@@ -462,7 +561,7 @@ pub(super) fn is_zoom_meeting_scope_node(node: &AxNode) -> bool {
     }
 
     let title = node.title.as_deref().unwrap_or_default().to_lowercase();
-    title.contains("zoom meeting")
+    title.contains("zoom meeting") || title.trim() == "meeting"
 }
 
 pub(super) fn is_zoom_chat_scope_node(node: &AxNode) -> bool {
@@ -470,7 +569,11 @@ pub(super) fn is_zoom_chat_scope_node(node: &AxNode) -> bool {
         return true;
     }
 
-    node.role.as_deref() == Some("AXTable") && chat_scope_label(node).contains("chat list")
+    matches!(node.role.as_deref(), Some("AXTable") | Some("AXList"))
+        && matches!(
+            chat_scope_label(node).as_str(),
+            "chat list" | "chat history"
+        )
 }
 
 pub(super) fn slack_huddle_is_active(nodes: &[AxNode]) -> bool {
@@ -634,6 +737,9 @@ pub(super) fn extract_chat_messages(
     {
         parsed_nodes.extend(extract_webex_structured_messages(nodes, scope_path));
     }
+    if *platform == MeetingPlatform::Zoom && *surface == MeetingSurface::Native {
+        parsed_nodes.extend(extract_zoom_title_description_messages(nodes));
+    }
 
     if generic_scope_path.is_some() {
         let parseable_paths = parsed_nodes
@@ -696,6 +802,55 @@ pub(super) fn extract_chat_messages(
     if messages.len() > 80 {
         messages.drain(..messages.len() - 80);
     }
+    messages
+}
+
+fn extract_zoom_title_description_messages(nodes: &[AxNode]) -> Vec<(&AxNode, ParsedChatMessage)> {
+    let chat_history_paths = nodes
+        .iter()
+        .filter(|node| node.within_zoom_meeting_scope && is_zoom_chat_scope_node(node))
+        .map(|node| node.tree_path.clone())
+        .collect::<Vec<_>>();
+    let [chat_history_path] = chat_history_paths.as_slice() else {
+        return Vec::new();
+    };
+
+    let mut messages = nodes
+        .iter()
+        .filter(|node| {
+            node.within_zoom_meeting_scope
+                && path_is_ancestor(chat_history_path, &node.tree_path)
+                && matches!(
+                    node.role.as_deref(),
+                    Some("AXGroup") | Some("AXCell") | Some("AXRow")
+                )
+        })
+        .filter_map(|node| {
+            let (sender, timestamp) = split_sender_time(node.title.as_deref()?)?;
+            let text = normalize_chat_text(node.description.as_deref()?);
+            (looks_like_chat_sender(sender) && !text.is_empty() && !is_chat_chrome_text(&text))
+                .then(|| {
+                    (
+                        node,
+                        ParsedChatMessage {
+                            sender: Some(sender.to_string()),
+                            timestamp: Some(timestamp.to_string()),
+                            direction: None,
+                            text,
+                        },
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+    let message_paths = messages
+        .iter()
+        .map(|(node, _)| node.tree_path.clone())
+        .collect::<Vec<_>>();
+    messages.retain(|(node, _)| {
+        !message_paths
+            .iter()
+            .any(|path| path_is_ancestor(&node.tree_path, path))
+    });
     messages
 }
 

@@ -1389,7 +1389,13 @@ fn native_meeting_root_from_snapshot(
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 fn native_meeting_window_is_validated(platform: &MeetingPlatform, nodes: &[AxNode]) -> bool {
     match platform {
-        MeetingPlatform::Zoom => nodes.iter().any(is_zoom_meeting_evidence),
+        MeetingPlatform::Zoom => {
+            nodes.iter().any(is_zoom_meeting_evidence)
+                || (nodes.iter().any(is_zoom_meeting_scope_node)
+                    && nodes
+                        .iter()
+                        .any(|node| is_platform_active_call_control(platform, node)))
+        }
         MeetingPlatform::Discord => nodes.iter().any(|node| {
             node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("voice connected"))
         }),

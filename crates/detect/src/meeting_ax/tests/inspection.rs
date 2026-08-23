@@ -163,10 +163,49 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
         &MeetingPlatform::Zoom,
         &zoom_meeting,
     ));
+    let current_linux_zoom = [
+        node(4, "AXWindow", "Meeting", None),
+        node(
+            5,
+            "AXButton",
+            "Leave",
+            Some(AxRect {
+                x: 1224.0,
+                y: 792.0,
+                width: 78.0,
+                height: 56.0,
+            }),
+        ),
+    ];
+    assert!(native_meeting_window_is_validated(
+        &MeetingPlatform::Zoom,
+        &current_linux_zoom,
+    ));
+    assert!(!native_meeting_window_is_validated(
+        &MeetingPlatform::Zoom,
+        &[node(6, "AXWindow", "Meeting", None)],
+    ));
+    assert!(!native_meeting_window_is_validated(
+        &MeetingPlatform::Zoom,
+        &[
+            node(7, "AXWindow", "Leave meeting", None),
+            node(
+                8,
+                "AXButton",
+                "Leave",
+                Some(AxRect {
+                    x: 898.0,
+                    y: 588.0,
+                    width: 70.0,
+                    height: 32.0,
+                }),
+            ),
+        ],
+    ));
     assert!(native_meeting_window_is_validated(
         &MeetingPlatform::Zoom,
         &[node(
-            4,
+            9,
             "AXTabGroup",
             "John Jeong, Computer audio muted",
             None,

@@ -306,14 +306,17 @@ fn test_zoom_capture_requires_zoom_meeting_window_scope() {
         "John Jeong's Zoom Meeting",
         None,
     )));
+    assert!(is_zoom_meeting_scope_node(&node(
+        2, "AXWindow", "Meeting", None,
+    )));
     assert!(!is_zoom_meeting_scope_node(&node(
-        2,
+        3,
         "AXWindow",
         "Zoom Workplace",
         None,
     )));
 
-    let mut chat_row = node(3, "AXGroup", "You, meeting chat message, 4:16 PM", None);
+    let mut chat_row = node(4, "AXGroup", "You, meeting chat message, 4:16 PM", None);
     chat_row.identifier = Some("ZMTextMessageCellView".to_string());
     assert!(is_zoom_chat_scope_node(&chat_row));
 
@@ -333,7 +336,7 @@ fn test_zoom_capture_requires_zoom_meeting_window_scope() {
         .is_empty()
     );
 
-    let team_chat_message = node(3, "AXStaticText", "You, private team chat, 4:16 PM", None);
+    let team_chat_message = node(5, "AXStaticText", "You, private team chat, 4:16 PM", None);
     assert!(
         extract_chat_messages(
             &MeetingPlatform::Zoom,
@@ -341,6 +344,37 @@ fn test_zoom_capture_requires_zoom_meeting_window_scope() {
             &[team_chat_message],
         )
         .is_empty()
+    );
+}
+
+#[test]
+fn test_native_linux_zoom_structured_message_preserves_live_metadata() {
+    let message = "ANLG-297 Linux native Zoom AT-SPI QA https://anarlog.so/linux-native-zoom-atspi";
+    let mut window = fixture_node(0, "AXWindow", "Meeting", &[]);
+    window.within_zoom_meeting_scope = true;
+    let mut history = fixture_node(1, "AXList", "chat history", &[11, 59, 0, 25]);
+    history.within_zoom_meeting_scope = true;
+    let mut outer = fixture_node(2, "AXGroup", "You 10:07", &[11, 59, 0, 25, 0]);
+    outer.description = Some(message.to_string());
+    outer.within_zoom_meeting_scope = true;
+    let mut inner = fixture_node(3, "AXGroup", "You 10:07", &[11, 59, 0, 25, 0, 0]);
+    inner.description = Some(message.to_string());
+    inner.within_zoom_meeting_scope = true;
+
+    let messages = extract_chat_messages(
+        &MeetingPlatform::Zoom,
+        &MeetingSurface::Native,
+        &[window, history, outer, inner],
+    );
+
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].sender.as_deref(), Some("You"));
+    assert_eq!(messages[0].timestamp.as_deref(), Some("10:07"));
+    assert_eq!(messages[0].direction, Some(MeetingChatDirection::Outgoing));
+    assert_eq!(messages[0].text, message);
+    assert_eq!(
+        messages[0].links,
+        ["https://anarlog.so/linux-native-zoom-atspi"]
     );
 }
 

@@ -512,7 +512,7 @@ pub(super) fn zoom_capture_context_id(root: &NativeMeetingRoot) -> Option<String
         .iter()
         .find(|node| {
             node.within_zoom_meeting_scope
-                && node.role.as_deref() == Some("AXTable")
+                && matches!(node.role.as_deref(), Some("AXTable") | Some("AXList"))
                 && is_zoom_chat_scope_node(node)
         })
         .and_then(|node| node.element_hash)
