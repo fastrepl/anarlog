@@ -137,10 +137,18 @@ fn is_platform_chat_message_list(platform: &MeetingPlatform, node: &AxNode) -> b
 }
 
 pub(super) fn is_platform_chat_composer(platform: &MeetingPlatform, node: &AxNode) -> bool {
+    is_platform_chat_composer_with_state(platform, node, true)
+}
+
+fn is_platform_chat_composer_with_state(
+    platform: &MeetingPlatform,
+    node: &AxNode,
+    require_enabled: bool,
+) -> bool {
     if !matches!(
         node.role.as_deref(),
         Some("AXTextArea") | Some("AXTextField")
-    ) || node.enabled == Some(false)
+    ) || (require_enabled && node.enabled == Some(false))
         || !node.settable_value
         || !node_has_positive_bounds(node)
     {
@@ -208,6 +216,21 @@ pub(super) fn validated_chat_scope(
     platform: &MeetingPlatform,
     nodes: &[AxNode],
 ) -> Option<(Vec<usize>, Vec<usize>)> {
+    validated_chat_scope_with_state(platform, nodes, true)
+}
+
+pub(super) fn validated_chat_capture_scope(
+    platform: &MeetingPlatform,
+    nodes: &[AxNode],
+) -> Option<(Vec<usize>, Vec<usize>)> {
+    validated_chat_scope_with_state(platform, nodes, false)
+}
+
+fn validated_chat_scope_with_state(
+    platform: &MeetingPlatform,
+    nodes: &[AxNode],
+    require_enabled: bool,
+) -> Option<(Vec<usize>, Vec<usize>)> {
     if !matches!(
         platform,
         MeetingPlatform::Zoom
@@ -229,7 +252,7 @@ pub(super) fn validated_chat_scope(
 
     let mut composers = nodes
         .iter()
-        .filter(|node| is_platform_chat_composer(platform, node));
+        .filter(|node| is_platform_chat_composer_with_state(platform, node, require_enabled));
     let composer = composers.next()?;
     if composers.next().is_some() {
         return None;
@@ -332,7 +355,7 @@ fn browser_meeting_identity(root: &BrowserMeetingRoot) -> Option<String> {
 }
 
 pub(super) fn browser_capture_context_id(root: &BrowserMeetingRoot) -> Option<String> {
-    let (scope_path, composer_path) = validated_chat_scope(&root.platform, &root.nodes)?;
+    let (scope_path, composer_path) = validated_chat_capture_scope(&root.platform, &root.nodes)?;
     let canonical_url = browser_meeting_identity(root)?;
     let web_area_hash = root
         .nodes
@@ -364,7 +387,7 @@ pub(super) fn native_capture_context_id(
     platform: &MeetingPlatform,
     root: &NativeMeetingRoot,
 ) -> Option<String> {
-    let (scope_path, composer_path) = validated_chat_scope(platform, &root.nodes)?;
+    let (scope_path, composer_path) = validated_chat_capture_scope(platform, &root.nodes)?;
     let window_hash = root
         .nodes
         .iter()

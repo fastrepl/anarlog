@@ -326,6 +326,82 @@ fn test_google_meet_capture_assembles_live_structured_message_leaves() {
 }
 
 #[test]
+fn test_google_meet_capture_assembles_timestamp_sibling_messages() {
+    let active_control = fixture_node(0, "AXButton", "Leave call", &[1]);
+    let heading = fixture_node(1, "AXHeading", "In-call messages", &[4, 0]);
+    let composer = fixture_composer(2, "Send a message", &[4, 2, 3, 0]);
+
+    let mut first_timestamp = fixture_node(3, "AXStaticText", "1:49\u{202f}PM", &[4, 2, 2, 0, 0]);
+    first_timestamp.value = first_timestamp.title.take();
+    let mut first_text = fixture_node(
+        4,
+        "AXStaticText",
+        "ANLG-297 Safari macOS chat QA",
+        &[4, 2, 2, 1, 0],
+    );
+    first_text.value = first_text.title.take();
+    let mut first_link = fixture_node(5, "AXLink", "", &[4, 2, 2, 1, 1]);
+    first_link.value = Some("anarlog.so/safari-qa".to_string());
+    first_link.title = Some("https://anarlog.so/safari-qa".to_string());
+    let mut pin_help = fixture_node(
+        6,
+        "AXStaticText",
+        "Hover over a message to pin it",
+        &[4, 2, 2, 1, 2],
+    );
+    pin_help.value = pin_help.title.take();
+
+    let mut sender = fixture_node(7, "AXStaticText", "John Jeong (JJ)", &[4, 2, 2, 4, 0]);
+    sender.value = sender.title.take();
+    let mut second_timestamp = fixture_node(8, "AXStaticText", "1:50\u{202f}PM", &[4, 2, 2, 5, 0]);
+    second_timestamp.value = second_timestamp.title.take();
+    let mut second_text = fixture_node(
+        9,
+        "AXStaticText",
+        "ANLG-297 Chrome host to Safari",
+        &[4, 2, 2, 6, 0],
+    );
+    second_text.value = second_text.title.take();
+    let mut second_link = fixture_node(10, "AXLink", "", &[4, 2, 2, 6, 1]);
+    second_link.value = Some("anarlog.so/chrome-host".to_string());
+    second_link.title = Some("https://anarlog.so/chrome-host".to_string());
+
+    let messages = extract_chat_messages(
+        &MeetingPlatform::GoogleMeet,
+        &MeetingSurface::Web,
+        &[
+            active_control,
+            heading,
+            composer,
+            first_timestamp,
+            first_text,
+            first_link,
+            pin_help,
+            sender,
+            second_timestamp,
+            second_text,
+            second_link,
+        ],
+    );
+
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].sender, None);
+    assert_eq!(messages[0].timestamp.as_deref(), Some("1:49 PM"));
+    assert_eq!(
+        messages[0].text,
+        "ANLG-297 Safari macOS chat QA https://anarlog.so/safari-qa"
+    );
+    assert_eq!(messages[0].links, ["https://anarlog.so/safari-qa"]);
+    assert_eq!(messages[1].sender.as_deref(), Some("John Jeong (JJ)"));
+    assert_eq!(messages[1].timestamp.as_deref(), Some("1:50 PM"));
+    assert_eq!(
+        messages[1].text,
+        "ANLG-297 Chrome host to Safari https://anarlog.so/chrome-host"
+    );
+    assert_eq!(messages[1].links, ["https://anarlog.so/chrome-host"]);
+}
+
+#[test]
 fn test_web_speaker_mapping_requires_an_explicit_accessibility_state() {
     for platform in [
         MeetingPlatform::Zoom,

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{
     AxNode, MIN_VIDEO_AREA, MeetingCapturedChatMessage, MeetingChatDirection, MeetingChatTarget,
     MeetingParticipantStream, MeetingPlatform, MeetingSurface, node_labels, path_is_ancestor,
-    validated_chat_scope,
+    validated_chat_capture_scope,
 };
 
 pub(super) fn find_participant_streams(
@@ -541,7 +541,7 @@ pub(super) fn extract_chat_messages(
             MeetingPlatform::MicrosoftTeams | MeetingPlatform::Webex
         );
     let generic_scope_path = if requires_generic_scope {
-        let Some((scope_path, _)) = validated_chat_scope(platform, nodes) else {
+        let Some((scope_path, _)) = validated_chat_capture_scope(platform, nodes) else {
             return Vec::new();
         };
         Some(scope_path)
@@ -590,6 +590,9 @@ pub(super) fn extract_chat_messages(
         && let Some(scope_path) = generic_scope_path.as_deref()
     {
         parsed_nodes.extend(extract_google_meet_structured_messages(nodes, scope_path));
+        parsed_nodes.extend(extract_google_meet_timestamp_sibling_messages(
+            nodes, scope_path,
+        ));
     }
 
     if generic_scope_path.is_some() {
@@ -767,7 +770,104 @@ fn google_meet_chat_fragment(node: &AxNode) -> Option<String> {
         .find(|value| value.starts_with("http://") || value.starts_with("https://"));
     }
 
-    chat_message_text(node)
+    let fragment = chat_message_text(node)?;
+    (!matches!(
+        fragment.to_ascii_lowercase().as_str(),
+        "hover over a message to pin it" | "pin message"
+    ))
+    .then_some(fragment)
+}
+
+fn extract_google_meet_timestamp_sibling_messages<'a>(
+    nodes: &'a [AxNode],
+    scope_path: &[usize],
+) -> Vec<(&'a AxNode, ParsedChatMessage)> {
+    nodes
+        .iter()
+        .filter_map(|timestamp_node| {
+            if !timestamp_node.tree_path.starts_with(scope_path)
+                || timestamp_node.tree_path.len() < scope_path.len() + 3
+                || !matches!(
+                    timestamp_node.role.as_deref(),
+                    Some("AXStaticText") | Some("AXText")
+                )
+            {
+                return None;
+            }
+
+            let timestamp = chat_message_text(timestamp_node)?;
+            if !looks_like_time(&timestamp) {
+                return None;
+            }
+
+            let leaf_index = timestamp_node.tree_path.len() - 1;
+            if timestamp_node.tree_path[leaf_index] != 0 {
+                return None;
+            }
+            let slot_index = leaf_index - 1;
+            let slot = timestamp_node.tree_path[slot_index];
+            let parent_path = &timestamp_node.tree_path[..slot_index];
+
+            let mut content_path = parent_path.to_vec();
+            content_path.push(slot.checked_add(1)?);
+            let fragments = nodes
+                .iter()
+                .filter(|node| {
+                    node.tree_path.starts_with(&content_path)
+                        && matches!(
+                            node.role.as_deref(),
+                            Some("AXStaticText") | Some("AXText") | Some("AXLink")
+                        )
+                })
+                .filter_map(|node| google_meet_chat_fragment(node).map(|fragment| (node, fragment)))
+                .fold(
+                    Vec::<(&AxNode, String)>::new(),
+                    |mut fragments, fragment| {
+                        if !fragments
+                            .iter()
+                            .any(|(_, existing)| existing == &fragment.1)
+                        {
+                            fragments.push(fragment);
+                        }
+                        fragments
+                    },
+                );
+            let source = fragments.first()?.0;
+            let text = fragments
+                .into_iter()
+                .map(|(_, fragment)| fragment)
+                .collect::<Vec<_>>()
+                .join(" ");
+            if text.is_empty() {
+                return None;
+            }
+
+            let sender = slot.checked_sub(1).and_then(|sender_slot| {
+                let mut sender_path = parent_path.to_vec();
+                sender_path.push(sender_slot);
+                let mut labels = nodes
+                    .iter()
+                    .filter(|node| {
+                        node.tree_path.starts_with(&sender_path)
+                            && matches!(node.role.as_deref(), Some("AXStaticText") | Some("AXText"))
+                    })
+                    .filter_map(chat_message_text)
+                    .filter(|label| looks_like_chat_sender(label));
+                let sender = labels.next()?;
+                labels.next().is_none().then_some(sender)
+            });
+
+            Some((
+                source,
+                ParsedChatMessage {
+                    sender,
+                    timestamp: Some(timestamp),
+                    direction: None,
+                    text,
+                },
+            ))
+        })
+        .collect()
 }
 
 pub(super) fn meeting_chat_direction(

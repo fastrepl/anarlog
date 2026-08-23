@@ -242,6 +242,14 @@ fn test_browser_chat_scope_requires_live_exit_visible_composer_and_platform_cont
         Some((vec![1], vec![1, 0]))
     );
 
+    let mut disabled_composer_nodes = meet_nodes.clone();
+    disabled_composer_nodes[3].enabled = Some(false);
+    assert!(validated_chat_scope(&MeetingPlatform::GoogleMeet, &disabled_composer_nodes).is_none());
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::GoogleMeet, &disabled_composer_nodes),
+        Some((vec![1], vec![1, 0]))
+    );
+
     let mut prejoin_nodes = meet_nodes.clone();
     prejoin_nodes[1] = fixture_node(1, "AXButton", "Turn off microphone", &[0]);
     assert!(validated_chat_scope(&MeetingPlatform::GoogleMeet, &prejoin_nodes).is_none());

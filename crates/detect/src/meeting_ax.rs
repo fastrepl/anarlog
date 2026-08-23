@@ -61,7 +61,7 @@ use context::zoom_chat_surface_is_visible;
 use context::{
     browser_capture_context_id, is_open_meeting_chat_control, is_platform_chat_composer,
     is_platform_send_button, native_capture_context_id, path_is_ancestor, slack_capture_context_id,
-    validated_chat_scope, zoom_capture_context_id,
+    validated_chat_capture_scope, validated_chat_scope, zoom_capture_context_id,
 };
 #[cfg(test)]
 use node::node_text;
