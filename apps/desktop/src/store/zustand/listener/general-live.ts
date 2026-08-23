@@ -48,6 +48,7 @@ import {
 import { runMeetingCompletedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { getSessionResourcePath } from "~/session/resource-path";
+import { isAppStoreBuild } from "~/shared/app-store";
 import { fromResult } from "~/stt/fromResult";
 
 type EventListeners = {
@@ -487,22 +488,24 @@ export const startLiveSession = <T extends LiveStore>(
       });
     }
 
-    yield* Effect.tryPromise({
-      try: () =>
-        hooksCommands.runEventHooks({
-          beforeListeningStarted: {
-            args: {
-              resource_dir: sessionPath,
-              app_hyprnote: bundleId,
-              app_meeting,
+    if (!isAppStoreBuild()) {
+      yield* Effect.tryPromise({
+        try: () =>
+          hooksCommands.runEventHooks({
+            beforeListeningStarted: {
+              args: {
+                resource_dir: sessionPath,
+                app_hyprnote: bundleId,
+                app_meeting,
+              },
             },
-          },
-        }),
-      catch: (error) => {
-        console.error("[hooks] BeforeListeningStarted failed:", error);
-        return error;
-      },
-    });
+          }),
+        catch: (error) => {
+          console.error("[hooks] BeforeListeningStarted failed:", error);
+          return error;
+        },
+      });
+    }
 
     yield* startSessionEffect(params);
 
@@ -844,6 +847,10 @@ export const stopLiveSession = <T extends GeneralState>(
         }
 
         syncCloudApiSnapshotBestEffort(sessionId);
+
+        if (isAppStoreBuild()) {
+          return;
+        }
 
         void Promise.all([
           settingsCommands.vaultBase().then((r) => {

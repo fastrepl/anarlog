@@ -39,6 +39,7 @@ import { refreshLegacySettingsSnapshots } from "./settings/legacy-snapshots";
 import { migratePlaintextAiProviderApiKeys } from "./settings/providers";
 import { initializeApplicationSettings } from "./settings/queries";
 import { initializeAppExitFlush } from "./shared/app-exit";
+import { initializeAppStoreBuild, isAppStoreBuild } from "./shared/app-store";
 import { useConfigValue } from "./shared/config";
 import { ErrorComponent, NotFoundComponent } from "./shared/control";
 import { LongLoadGate } from "./shared/long-load-gate";
@@ -122,7 +123,7 @@ function ReadyApp() {
             {isMainWindow ? <EventListeners /> : null}
             {isMainWindow ? <TrayScheduleSync /> : null}
             {isMainWindow ? <TrayRecordingSync /> : null}
-            {isMainWindow ? <UpdaterMeetingSync /> : null}
+            {isMainWindow && !isAppStoreBuild() ? <UpdaterMeetingSync /> : null}
             <Toaster position="bottom-right" theme={theme} />
           </AppLockGate>
         </TaskSchedulerProvider>
@@ -171,7 +172,11 @@ async function enableReactScanInDev() {
 }
 
 async function renderApp() {
-  await Promise.all([bootstrapThemeFromSettings(), enableReactScanInDev()]);
+  await Promise.all([
+    bootstrapThemeFromSettings(),
+    enableReactScanInDev(),
+    initializeAppStoreBuild(),
+  ]);
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>

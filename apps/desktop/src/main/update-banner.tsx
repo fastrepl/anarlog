@@ -7,6 +7,7 @@ import {
   type Result,
 } from "@anlg/plugin-updater2";
 
+import { isAppStoreBuild } from "~/shared/app-store";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { useDevtoolsOtaPreview } from "~/store/zustand/devtools-ota-preview";
 
@@ -78,8 +79,19 @@ export function resolveUpdateState(
 
 const UPDATE_CHECK_QUERY_KEY = ["updater2", "check"] as const;
 const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+const DISABLED_UPDATE_CONTROL: DesktopUpdateControl = {
+  status: null,
+  version: null,
+  progress: null,
+  errorMessage: null,
+  downloadStarting: false,
+  installing: false,
+  downloadUpdate: () => undefined,
+  installUpdate: () => undefined,
+};
 
 export function useDesktopUpdateControl(): DesktopUpdateControl {
+  const updaterEnabled = !isAppStoreBuild();
   const [eventState, setEventState] = useState<UpdateEvent | null>(null);
   const [acknowledgedVersion, setAcknowledgedVersion] = useState<string | null>(
     null,
@@ -93,6 +105,10 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
   );
 
   useMountEffect(() => {
+    if (!updaterEnabled) {
+      return;
+    }
+
     let cancelled = false;
     const unlistenFns: Array<() => void> = [];
 
@@ -209,6 +225,7 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
     refetchInterval: UPDATE_CHECK_INTERVAL_MS,
     retry: false,
     staleTime: UPDATE_CHECK_INTERVAL_MS,
+    enabled: updaterEnabled,
   });
 
   const { mutate: downloadUpdate, isPending: downloadStarting } = useMutation({
@@ -287,6 +304,10 @@ export function useDesktopUpdateControl(): DesktopUpdateControl {
   const handleDevtoolsInstall = useCallback(() => {
     clearDevtoolsOtaPreview();
   }, [clearDevtoolsOtaPreview]);
+
+  if (!updaterEnabled) {
+    return DISABLED_UPDATE_CONTROL;
+  }
 
   if (devtoolsPreview) {
     return {

@@ -30,6 +30,7 @@ import {
   useSetSettingValues,
   useStoredSettingValuesQuery,
 } from "~/settings/queries";
+import { isAppStoreBuild } from "~/shared/app-store";
 import { resolveConfigValue, resolveConfigValues } from "~/shared/config";
 
 const SETTINGS_FORM_KEYS = [
@@ -214,6 +215,7 @@ function SettingsSectionContent({
           <form.Subscribe selector={(state) => state.values}>
             {(values) => (
               <AppSettingsView
+                appStoreBuild={isAppStoreBuild()}
                 autostart={{
                   value: values.autostart,
                   onChange: (value) => submitFieldValue("autostart", value),

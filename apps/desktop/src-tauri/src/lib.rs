@@ -372,7 +372,7 @@ pub fn main() {
     }
 
     builder = builder
-        .plugin(tauri_plugin_tray::init())
+        .plugin(tauri_plugin_tray::init(!cfg!(feature = "app-store")))
         .plugin(tauri_plugin_settings::init())
         .plugin(tauri_plugin_sfx::init())
         .plugin(tauri_plugin_shortcut::init())
@@ -737,6 +737,7 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::set_dismissed_toasts::<tauri::Wry>,
             commands::get_env::<tauri::Wry>,
             commands::show_devtool::<tauri::Wry>,
+            commands::is_app_store_build,
             commands::complete_app_exit::<tauri::Wry>,
             commands::get_tinybase_values::<tauri::Wry>,
             commands::get_pinned_tabs::<tauri::Wry>,

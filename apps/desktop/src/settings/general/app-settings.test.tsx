@@ -18,10 +18,14 @@ function setting(value = true) {
   };
 }
 
-function renderAppSettings({ automaticUpdates = setting() } = {}) {
+function renderAppSettings({
+  appStoreBuild = false,
+  automaticUpdates = setting(),
+} = {}) {
   return {
     ...render(
       <AppSettingsView
+        appStoreBuild={appStoreBuild}
         autostart={setting()}
         automaticUpdates={automaticUpdates}
         showAppInDock={setting()}
@@ -70,6 +74,17 @@ describe("AppSettingsView", () => {
     expect(
       screen.getByText(/installed the next time Anarlog opens/),
     ).toBeTruthy();
+  });
+
+  it("hides direct-distribution controls in App Store builds", () => {
+    renderAppSettings({ appStoreBuild: true });
+
+    expect(
+      screen.queryByRole("switch", { name: "Start Anarlog at login" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("switch", { name: "Automatically install updates" }),
+    ).toBeNull();
   });
 
   it("keeps cloud sync in its dedicated settings page", () => {

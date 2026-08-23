@@ -59,6 +59,12 @@ pub fn show_devtool<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> bool {
 
 #[tauri::command]
 #[specta::specta]
+pub fn is_app_store_build() -> bool {
+    cfg!(feature = "app-store")
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn complete_app_exit<R: tauri::Runtime>(app: tauri::AppHandle<R>) {
     crate::mark_exit_flush_complete();
     app.exit(0);

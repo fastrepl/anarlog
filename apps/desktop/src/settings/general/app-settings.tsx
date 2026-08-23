@@ -17,6 +17,7 @@ interface SettingItem {
 }
 
 interface AppSettingsViewProps {
+  appStoreBuild: boolean;
   autostart: SettingItem;
   automaticUpdates: SettingItem;
   showAppInDock: SettingItem;
@@ -24,6 +25,7 @@ interface AppSettingsViewProps {
 }
 
 export function AppSettingsView({
+  appStoreBuild,
   autostart,
   automaticUpdates,
   showAppInDock,
@@ -36,22 +38,29 @@ export function AppSettingsView({
     <div className="flex flex-col gap-8">
       <section>
         <div className="flex flex-col gap-4">
-          <SettingSwitchRow
-            title={<Trans>Start Anarlog at login</Trans>}
-            description={<Trans>Have Anarlog ready when you sign in.</Trans>}
-            checked={autostart.value}
-            onChange={autostart.onChange}
-          />
-          <SettingSwitchRow
-            title={<Trans>Automatically install updates</Trans>}
-            description={
-              <Trans>
-                Stay current with updates installed the next time Anarlog opens.
-              </Trans>
-            }
-            checked={automaticUpdates.value}
-            onChange={automaticUpdates.onChange}
-          />
+          {!appStoreBuild && (
+            <>
+              <SettingSwitchRow
+                title={<Trans>Start Anarlog at login</Trans>}
+                description={
+                  <Trans>Have Anarlog ready when you sign in.</Trans>
+                }
+                checked={autostart.value}
+                onChange={autostart.onChange}
+              />
+              <SettingSwitchRow
+                title={<Trans>Automatically install updates</Trans>}
+                description={
+                  <Trans>
+                    Stay current with updates installed the next time Anarlog
+                    opens.
+                  </Trans>
+                }
+                checked={automaticUpdates.value}
+                onChange={automaticUpdates.onChange}
+              />
+            </>
+          )}
           {isMacos && (
             <SettingSwitchRow
               title={<Trans>Show app in Dock</Trans>}

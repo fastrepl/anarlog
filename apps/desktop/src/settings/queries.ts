@@ -24,6 +24,7 @@ import {
   type SettingValue,
   type SettingValues,
 } from "~/settings/schema";
+import { isAppStoreBuild } from "~/shared/app-store";
 import { isConfiguredSttModel, isOnDeviceSttModel } from "~/stt/capabilities";
 import {
   getDefaultSttModel,
@@ -430,7 +431,7 @@ function parseJsonValue(value: string | undefined): unknown {
 }
 
 function applySettingSideEffects(values: SettingValues): void {
-  if (values.autostart !== undefined) {
+  if (values.autostart !== undefined && !isAppStoreBuild()) {
     void (values.autostart ? enable() : disable()).catch(console.error);
   }
   if (values.respect_dnd !== undefined) {
@@ -473,7 +474,7 @@ function applySettingSideEffects(values: SettingValues): void {
       .setTrayIconVisible(values.show_tray_icon)
       .catch(console.error);
   }
-  if (values.automatic_updates !== undefined) {
+  if (values.automatic_updates !== undefined && !isAppStoreBuild()) {
     void updaterCommands
       .setAutomaticUpdatesEnabled(values.automatic_updates)
       .catch(console.error);

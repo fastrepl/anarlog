@@ -44,6 +44,9 @@ async getEnv(key: string) : Promise<string> {
 async showDevtool() : Promise<boolean> {
     return await TAURI_INVOKE("show_devtool");
 },
+async isAppStoreBuild() : Promise<boolean> {
+    return await TAURI_INVOKE("is_app_store_build");
+},
 async completeAppExit() : Promise<void> {
     await TAURI_INVOKE("complete_app_exit");
 },

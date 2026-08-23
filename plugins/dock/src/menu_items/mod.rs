@@ -15,6 +15,9 @@ pub use settings::DockSettings;
 pub trait DockMenuItem {
     const SEPARATOR_BEFORE: bool = false;
 
+    fn enabled(_app: &tauri::AppHandle<tauri::Wry>) -> bool {
+        true
+    }
     fn title(app: &tauri::AppHandle<tauri::Wry>) -> String;
     fn handle(app: &tauri::AppHandle<tauri::Wry>);
 }
@@ -35,7 +38,7 @@ macro_rules! dock_menu_items {
                 .expect("dock menu app handle should be initialized");
 
             $(
-                {
+                if <$item as DockMenuItem>::enabled(app) {
                     if <$item as DockMenuItem>::SEPARATOR_BEFORE {
                         menu.addItem(&NSMenuItem::separatorItem(mtm));
                     }

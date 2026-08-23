@@ -52,24 +52,44 @@ static MENU_DIRTY: AtomicBool = AtomicBool::new(false);
 
 #[cfg(target_os = "macos")]
 pub fn build_app_menu(app: &AppHandle<tauri::Wry>) -> Result<Menu<tauri::Wry>> {
-    let app_submenu = Submenu::with_items(
-        app,
-        app.package_info().name.clone(),
-        true,
-        &[
-            &AppInfo::build(app)?,
-            &TrayCheckUpdate::build(app)?,
-            &TraySettings::build(app)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::services(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::hide(app, None)?,
-            &PredefinedMenuItem::hide_others(app, None)?,
-            &PredefinedMenuItem::show_all(app, None)?,
-            &PredefinedMenuItem::separator(app)?,
-            &TrayQuit::build(app)?,
-        ],
-    )?;
+    let app_submenu = if crate::updates_enabled() {
+        Submenu::with_items(
+            app,
+            app.package_info().name.clone(),
+            true,
+            &[
+                &AppInfo::build(app)?,
+                &TrayCheckUpdate::build(app)?,
+                &TraySettings::build(app)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::services(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::hide(app, None)?,
+                &PredefinedMenuItem::hide_others(app, None)?,
+                &PredefinedMenuItem::show_all(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &TrayQuit::build(app)?,
+            ],
+        )?
+    } else {
+        Submenu::with_items(
+            app,
+            app.package_info().name.clone(),
+            true,
+            &[
+                &AppInfo::build(app)?,
+                &TraySettings::build(app)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::services(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &PredefinedMenuItem::hide(app, None)?,
+                &PredefinedMenuItem::hide_others(app, None)?,
+                &PredefinedMenuItem::show_all(app, None)?,
+                &PredefinedMenuItem::separator(app)?,
+                &TrayQuit::build(app)?,
+            ],
+        )?
+    };
     let file_submenu = Submenu::with_items(
         app,
         "File",
@@ -367,7 +387,9 @@ impl<'a, M: tauri::Manager<tauri::Wry>> Tray<'a, tauri::Wry, M> {
         menu.append(&TraySettings::build(app)?)?;
         menu.append(&PredefinedMenuItem::separator(app)?)?;
         menu.append(&TrayVersion::build(app)?)?;
-        menu.append(&TrayCheckUpdate::build(app)?)?;
+        if crate::updates_enabled() {
+            menu.append(&TrayCheckUpdate::build(app)?)?;
+        }
         menu.append(&PredefinedMenuItem::separator(app)?)?;
         menu.append(&TrayHide::build(app)?)?;
         menu.append(&TrayQuitCompletely::build(app)?)?;

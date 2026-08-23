@@ -4,21 +4,31 @@ mod menu_items;
 mod schedule;
 mod tray_icon;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 pub use ext::*;
 pub use menu_items::{AnlgMenuItem, UpdateMenuState, handle_agenda_menu_event};
 
 const PLUGIN_NAME: &str = "anlg-tray";
+static UPDATES_ENABLED: AtomicBool = AtomicBool::new(true);
 
-pub fn init() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+pub fn init(enable_updates: bool) -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    UPDATES_ENABLED.store(enable_updates, Ordering::SeqCst);
     let specta_builder = make_specta_builder();
 
     tauri::plugin::Builder::<tauri::Wry>::new(PLUGIN_NAME)
         .invoke_handler(specta_builder.invoke_handler())
         .setup(|app, _api| {
-            setup_update_listeners(app);
+            if updates_enabled() {
+                setup_update_listeners(app);
+            }
             Ok(())
         })
         .build()
+}
+
+pub fn updates_enabled() -> bool {
+    UPDATES_ENABLED.load(Ordering::SeqCst)
 }
 
 fn setup_update_listeners(app: &tauri::AppHandle) {

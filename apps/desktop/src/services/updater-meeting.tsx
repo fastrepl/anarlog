@@ -2,6 +2,7 @@ import { useStore } from "zustand";
 
 import { commands as updaterCommands } from "@anlg/plugin-updater2";
 
+import { isAppStoreBuild } from "~/shared/app-store";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 import { listenerStore } from "~/store/zustand/listener/instance";
 
@@ -25,6 +26,10 @@ export function UpdaterMeetingSync() {
     (state) =>
       state.live.status === "active" || state.live.status === "finalizing",
   );
+
+  if (isAppStoreBuild()) {
+    return null;
+  }
 
   return (
     <UpdaterMeetingPublisher

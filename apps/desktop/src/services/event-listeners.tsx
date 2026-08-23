@@ -11,6 +11,7 @@ import { getCalendarEventStartedAt } from "~/calendar/queries";
 import { liveQueryClient } from "~/db";
 import { createSession, getOrCreateSessionForEventId } from "~/session/queries";
 import { setSettingValue } from "~/settings/queries";
+import { isAppStoreBuild } from "~/shared/app-store";
 import { useConfigValue, useConfigValues } from "~/shared/config";
 import { useLatestRef } from "~/shared/hooks/useLatestRef";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -304,7 +305,7 @@ function useUpdaterEvents() {
   const openNewRef = useLatestRef(openNew);
 
   useMountEffect(() => {
-    if (getCurrentWebviewWindowLabel() !== "main") {
+    if (isAppStoreBuild() || getCurrentWebviewWindowLabel() !== "main") {
       return;
     }
 

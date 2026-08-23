@@ -91,7 +91,7 @@ fn create(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
 
 #[cfg(all(target_os = "macos", not(feature = "macos-private-api")))]
 fn create(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
-    WebviewWindowBuilder::new(
+    let window = WebviewWindowBuilder::new(
         app,
         AppWindow::Composer.label(),
         WebviewUrl::App("app/composer".into()),
@@ -104,6 +104,12 @@ fn create(app: &AppHandle<tauri::Wry>) -> Result<(), Error> {
     .always_on_top(true)
     .skip_taskbar(true)
     .build()?;
+    let window_to_hide = window.clone();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Focused(false)) {
+            let _ = window_to_hide.hide();
+        }
+    });
 
     Ok(())
 }
