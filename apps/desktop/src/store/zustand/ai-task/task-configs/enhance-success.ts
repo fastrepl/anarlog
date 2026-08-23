@@ -16,17 +16,13 @@ import { runNoteEnhancedAutomations } from "~/automations/engine";
 import { syncCloudApiSnapshotBestEffort } from "~/cloud-api/client";
 import { releaseCloudsyncActivityEventually } from "~/db/cloudsync-activity";
 import { retryDatabaseLock } from "~/db/retry";
-import { inferAutomaticSpeakerAssignments } from "~/services/enhancer/speaker-attribution";
 import {
   constrainSummaryLength,
   countNormalizedCharacters,
   getSummaryLengthPolicy,
 } from "~/services/enhancer/summary-length";
 import { showSummaryReadyNotification } from "~/services/enhancer/summary-notification";
-import {
-  persistGeneratedEnhancedNote,
-  type TranscriptSpeakerHintsUpdate,
-} from "~/session/content-mutations";
+import { persistGeneratedEnhancedNote } from "~/session/content-mutations";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
 import { ensureMarkdownFirstLineTitle } from "~/session/title-content";
 import { requestAppAttention } from "~/shared/app-attention";
@@ -72,7 +68,6 @@ export const runEnhanceSuccess = async ({
   let trimmedTitle = initialSnapshot.title.trim();
   let generatedTitle = "";
   let shouldPersistGeneratedTitle = false;
-  let transcriptSpeakerHints: TranscriptSpeakerHintsUpdate[] = [];
 
   if (!trimmedTitle && !hasLiveSessionTitleDraft(args.sessionId)) {
     const titleTaskId = createTaskId(args.sessionId, "title");
@@ -98,20 +93,6 @@ export const runEnhanceSuccess = async ({
     if (signal.aborted) {
       return;
     }
-  }
-
-  try {
-    transcriptSpeakerHints = await inferAutomaticSpeakerAssignments({
-      generatedSummary: constrainedText,
-      model,
-      snapshot: initialSnapshot,
-      signal,
-    });
-  } catch (error) {
-    if (signal.aborted) {
-      return;
-    }
-    console.error("[enhance] failed to identify transcript speakers", error);
   }
 
   await beginCloudsyncActivity("enhance", cloudsyncLeaseKey);
@@ -182,9 +163,6 @@ export const runEnhanceSuccess = async ({
           nextContent: JSON.stringify(md2json(persistableText)),
         },
         tagNames,
-        ...(transcriptSpeakerHints.length > 0
-          ? { transcriptSpeakerHints }
-          : {}),
         ...(args.pendingAutoEnhance
           ? { pendingAutoEnhance: args.pendingAutoEnhance }
           : {}),

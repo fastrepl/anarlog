@@ -487,169 +487,6 @@ export function reconcileRefinedSpeakerClusters(
   });
 }
 
-export function transferAutomaticSpeakerAssignments(
-  source: TranscriptRecord,
-  words: WordWithId[],
-  hints: SpeakerHintWithId[],
-  createId: () => string = id,
-): SpeakerHintWithId[] {
-  if (hints.some((hint) => hint.type === "automatic_speaker_assignment")) {
-    return hints;
-  }
-
-  const sourceSpeakerKeys = speakerKeysByWordId(source.speakerHints);
-  const targetSpeakerKeys = speakerKeysByWordId(hints);
-  const sourceIdentityBySpeaker = new Map<
-    string,
-    { humanId: string; value: string }
-  >();
-
-  for (const hint of source.speakerHints) {
-    if (hint.type !== "automatic_speaker_assignment" || !hint.word_id) {
-      continue;
-    }
-
-    const speakerKey = sourceSpeakerKeys.get(hint.word_id);
-    const value = parseHintValue(hint.value);
-    const humanId = value?.human_id;
-    if (speakerKey && typeof humanId === "string" && humanId) {
-      sourceIdentityBySpeaker.set(speakerKey, {
-        humanId,
-        value: hint.value,
-      });
-    }
-  }
-
-  if (sourceIdentityBySpeaker.size === 0 || targetSpeakerKeys.size === 0) {
-    return hints;
-  }
-
-  const sourceIntervals = source.words.flatMap((word) => {
-    const speakerKey = sourceSpeakerKeys.get(word.id);
-    const identity = speakerKey
-      ? sourceIdentityBySpeaker.get(speakerKey)
-      : undefined;
-    if (!speakerKey || !identity) {
-      return [];
-    }
-
-    return [
-      {
-        speakerKey,
-        humanId: identity.humanId,
-        value: identity.value,
-        startMs: word.start_ms ?? 0,
-        endMs: word.end_ms ?? word.start_ms ?? 0,
-      },
-    ];
-  });
-  const firstTargetWordBySpeaker = new Map<string, string>();
-  const weights = new Map<string, Map<string, number>>();
-
-  for (const word of words) {
-    const targetSpeakerKey = targetSpeakerKeys.get(word.id);
-    if (!targetSpeakerKey) {
-      continue;
-    }
-
-    firstTargetWordBySpeaker.set(
-      targetSpeakerKey,
-      firstTargetWordBySpeaker.get(targetSpeakerKey) ?? word.id,
-    );
-    const targetStartMs = word.start_ms ?? 0;
-    const targetEndMs = word.end_ms ?? targetStartMs;
-
-    for (const sourceWord of sourceIntervals) {
-      if (
-        sourceWord.speakerKey.split(":", 1)[0] !==
-        targetSpeakerKey.split(":", 1)[0]
-      ) {
-        continue;
-      }
-
-      const overlapMs =
-        Math.min(targetEndMs, sourceWord.endMs) -
-        Math.max(targetStartMs, sourceWord.startMs);
-      if (overlapMs <= 0) {
-        continue;
-      }
-
-      const humanWeights =
-        weights.get(targetSpeakerKey) ?? new Map<string, number>();
-      humanWeights.set(
-        sourceWord.humanId,
-        (humanWeights.get(sourceWord.humanId) ?? 0) + overlapMs,
-      );
-      weights.set(targetSpeakerKey, humanWeights);
-    }
-  }
-
-  const identityByHumanId = new Map(
-    [...sourceIdentityBySpeaker.values()].map((identity) => [
-      identity.humanId,
-      identity,
-    ]),
-  );
-  const candidates = [...weights].flatMap(([speakerKey, humanWeights]) =>
-    [...humanWeights].map(([humanId, overlapMs]) => ({
-      speakerKey,
-      humanId,
-      overlapMs,
-    })),
-  );
-  candidates.sort(
-    (left, right) =>
-      right.overlapMs - left.overlapMs ||
-      left.speakerKey.localeCompare(right.speakerKey) ||
-      left.humanId.localeCompare(right.humanId),
-  );
-
-  const assignments = new Map<string, string>();
-  const assignedHumanIds = new Set<string>();
-  for (const candidate of candidates) {
-    if (
-      assignments.has(candidate.speakerKey) ||
-      assignedHumanIds.has(candidate.humanId)
-    ) {
-      continue;
-    }
-
-    assignments.set(candidate.speakerKey, candidate.humanId);
-    assignedHumanIds.add(candidate.humanId);
-  }
-
-  for (const speakerKey of firstTargetWordBySpeaker.keys()) {
-    const identity = sourceIdentityBySpeaker.get(speakerKey);
-    if (
-      !assignments.has(speakerKey) &&
-      identity &&
-      !assignedHumanIds.has(identity.humanId)
-    ) {
-      assignments.set(speakerKey, identity.humanId);
-      assignedHumanIds.add(identity.humanId);
-    }
-  }
-
-  const automaticHints = [...assignments].flatMap(([speakerKey, humanId]) => {
-    const wordId = firstTargetWordBySpeaker.get(speakerKey);
-    const identity = identityByHumanId.get(humanId);
-    if (!wordId || !identity) {
-      return [];
-    }
-
-    return [
-      {
-        id: createId(),
-        word_id: wordId,
-        type: "automatic_speaker_assignment" as const,
-        value: identity.value,
-      },
-    ];
-  });
-
-  return [...hints, ...automaticHints];
-}
-
 export function isStoppedTranscriptionError(error: unknown) {
   return (
     (error instanceof Error ? error.message : String(error)) ===
@@ -793,10 +630,7 @@ export const useRunBatch = (sessionId: string) => {
           refinedTranscriptSource =
             await getTranscriptRecord(replaceTranscriptId);
         } catch (error) {
-          console.warn(
-            "[runBatch] failed to load automatic speaker assignments",
-            error,
-          );
+          console.warn("[runBatch] failed to load refined transcript", error);
         }
       }
 
@@ -962,20 +796,13 @@ export const useRunBatch = (sessionId: string) => {
               if (transcriptId) {
                 const completedTranscriptId = transcriptId;
                 if (promoted.words.length > 0) {
-                  const reconciledSpeakerHints = refinedTranscriptSource
+                  const speakerHints = refinedTranscriptSource
                     ? reconcileRefinedSpeakerClusters(
                         refinedTranscriptSource,
                         promoted.words,
                         promoted.hints,
                       )
                     : promoted.hints;
-                  const speakerHints = refinedTranscriptSource
-                    ? transferAutomaticSpeakerAssignments(
-                        refinedTranscriptSource,
-                        promoted.words,
-                        reconciledSpeakerHints,
-                      )
-                    : reconciledSpeakerHints;
                   await persistTranscriptWrite(() =>
                     createTranscript({
                       id: completedTranscriptId,

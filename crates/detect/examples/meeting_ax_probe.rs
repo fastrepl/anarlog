@@ -17,21 +17,6 @@ fn main() {
             inspection.surface,
             inspection.window_title
         );
-        println!(
-            "streams={} active_speakers={:?}",
-            inspection.participant_streams.len(),
-            inspection.active_speakers
-        );
-        for stream in &inspection.participant_streams {
-            println!(
-                "  stream name={:?} active={} bounds={:?} signals={:?} label={:?}",
-                stream.participant_name,
-                stream.is_active_speaker,
-                stream.bounds,
-                stream.signals,
-                stream.label
-            );
-        }
         if inspection.warnings.is_empty() {
             println!("warnings: none");
         } else {

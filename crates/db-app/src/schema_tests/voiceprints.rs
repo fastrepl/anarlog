@@ -45,7 +45,7 @@ fn exemplar<'a>(
         model_provider: "pyannote",
         model_version: "precision-2",
         capture_domain,
-        confirmation_source: "accessibility_active_speaker",
+        confirmation_source: "manual_speaker_assignment",
         source_session_id: "session-1",
         source_transcript_id: "transcript-1",
         source_attachment_id: "attachment-1",
@@ -134,6 +134,17 @@ async fn voiceprints_retain_multiple_capture_domains_for_one_human() {
 async fn voiceprint_insert_requires_confirmed_provenance_and_matching_audio() {
     let db = test_db().await;
     insert_source(&db).await;
+
+    let mut accessibility_confirmed = exemplar(
+        "voiceprint-accessibility-confirmed",
+        "voiceprint-accessibility-confirmed",
+        "conference_remote:zoom",
+    );
+    accessibility_confirmed.confirmation_source = "accessibility_active_speaker";
+    assert!(matches!(
+        insert_voiceprint_exemplar(db.pool(), accessibility_confirmed).await,
+        Err(VoiceprintExemplarError::InvalidField("confirmation source"))
+    ));
 
     let mut unconfirmed = exemplar(
         "voiceprint-unconfirmed",

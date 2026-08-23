@@ -10,9 +10,7 @@ use atspi::{AccessibilityConnection, CoordType, ObjectRef, Role, State};
 use zbus::fdo::DBusProxy;
 use zbus::names::BusName;
 
-use super::analysis::{
-    extract_chat_messages, find_participant_streams, meeting_chat_surface_is_visible,
-};
+use super::analysis::{extract_chat_messages, meeting_chat_surface_is_visible};
 use super::context::{
     browser_capture_context_id, is_platform_chat_composer, is_platform_send_button,
     native_capture_context_id, slack_capture_context_id, validated_chat_scope,
@@ -597,19 +595,6 @@ fn inspection_from_nodes(
         classify_platform(&app.id, window_title.as_deref(), &nodes, bundle_platform)
     });
     let surface = classify_surface(&app.id, &platform);
-    let participant_streams = find_participant_streams(&platform, &surface, &nodes);
-    let mut active_speaker_names = std::collections::HashSet::new();
-    let active_speakers = participant_streams
-        .iter()
-        .filter(|stream| stream.is_active_speaker)
-        .filter_map(|stream| {
-            stream
-                .participant_name
-                .clone()
-                .or_else(|| stream.label.clone())
-        })
-        .filter(|name| active_speaker_names.insert(name.trim().to_ascii_lowercase()))
-        .collect();
     MeetingAccessibilityInspection {
         app,
         pid,
@@ -617,8 +602,6 @@ fn inspection_from_nodes(
         surface,
         accessibility_trusted,
         window_title,
-        participant_streams,
-        active_speakers,
         warnings,
     }
 }

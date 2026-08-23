@@ -1,32 +1,6 @@
 use super::*;
 
 #[test]
-fn test_zoom_participant_roster_row_becomes_stream_candidate() {
-    let streams = find_participant_streams(
-        &MeetingPlatform::Zoom,
-        &MeetingSurface::Native,
-        &[node(
-            11,
-            "AXStaticText",
-            "Ada Lovelace (Host, me, Participant ID:417329) No audio connected",
-            None,
-        )],
-    );
-
-    assert_eq!(streams.len(), 1);
-    assert!(
-        streams[0]
-            .signals
-            .contains(&"participant-row-label".to_string())
-    );
-    assert!(
-        streams[0]
-            .signals
-            .contains(&"audio-state-label".to_string())
-    );
-}
-
-#[test]
 fn test_aside_meet_code_title_classifies_without_meeting_url() {
     let web_area = node(16, "AXWebArea", "", None);
     assert_eq!(

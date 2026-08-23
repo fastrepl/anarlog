@@ -143,17 +143,15 @@ detectEvent: "plugin:detect:detect-event"
 
 /** user-defined types **/
 
-export type AxRect = { x: number; y: number; width: number; height: number }
 export type DetectEvent = { type: "micDetected"; key: string; apps: InstalledApp[]; duration_secs: number } | { type: "micStopped"; apps: InstalledApp[] } | { type: "micMuted"; value: boolean } | { type: "sleepStateChanged"; value: boolean }
 export type InstalledApp = { id: string; name: string }
 export type InstalledApplicationIcon = { id: string; dataUrl: string }
-export type MeetingAccessibilityInspection = { app: MeetingApp; pid: number; platform: MeetingPlatform; surface: MeetingSurface; accessibilityTrusted: boolean; windowTitle: string | null; participantStreams: MeetingParticipantStream[]; activeSpeakers: string[]; warnings: string[] }
+export type MeetingAccessibilityInspection = { app: MeetingApp; pid: number; platform: MeetingPlatform; surface: MeetingSurface; accessibilityTrusted: boolean; windowTitle: string | null; warnings: string[] }
 export type MeetingApp = { id: string; name: string }
 export type MeetingCapturedChatMessage = { id: string; platform: MeetingPlatform; surface: MeetingSurface; sender: string | null; timestamp: string | null; direction: MeetingChatDirection | null; text: string; links: string[] }
 export type MeetingChatCaptureResult = { app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; contextId: string | null; messages: MeetingCapturedChatMessage[]; warnings: string[] }
 export type MeetingChatDirection = "incoming" | "outgoing"
 export type MeetingChatSendResult = { sent: boolean; app: MeetingApp | null; platform: MeetingPlatform; surface: MeetingSurface; inputLabel: string | null; sendAction: string | null; warnings: string[] }
-export type MeetingParticipantStream = { id: string; platform: MeetingPlatform; surface: MeetingSurface; participantName: string | null; label: string | null; bounds: AxRect | null; confidence: number; isActiveSpeaker: boolean; signals: string[] }
 export type MeetingPlatform = "zoom" | "googleMeet" | "microsoftTeams" | "slack" | "discord" | "webex" | "unknown"
 export type MeetingSurface = "native" | "web" | "unknown"
 

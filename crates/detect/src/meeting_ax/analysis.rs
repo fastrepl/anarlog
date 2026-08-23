@@ -1,60 +1,9 @@
 use std::collections::HashMap;
 
 use super::{
-    AxNode, MIN_VIDEO_AREA, MeetingCapturedChatMessage, MeetingChatDirection, MeetingChatTarget,
-    MeetingParticipantStream, MeetingPlatform, MeetingSurface, node_labels, path_is_ancestor,
-    validated_chat_capture_scope,
+    AxNode, MeetingCapturedChatMessage, MeetingChatDirection, MeetingChatTarget, MeetingPlatform,
+    MeetingSurface, node_labels, path_is_ancestor, validated_chat_capture_scope,
 };
-
-pub(super) fn find_participant_streams(
-    platform: &MeetingPlatform,
-    surface: &MeetingSurface,
-    nodes: &[AxNode],
-) -> Vec<MeetingParticipantStream> {
-    if *platform == MeetingPlatform::Unknown {
-        return Vec::new();
-    }
-
-    let mut streams = nodes
-        .iter()
-        .filter_map(|node| candidate_stream(platform, surface, node).map(|stream| (stream, node)))
-        .collect::<Vec<_>>();
-    streams.sort_by(|a, b| {
-        b.0.is_active_speaker
-            .cmp(&a.0.is_active_speaker)
-            .then_with(|| b.0.confidence.total_cmp(&a.0.confidence))
-    });
-    let mut retained_nodes: Vec<(String, &AxNode)> = Vec::new();
-    streams.retain(|(stream, node)| {
-        let duplicate = stream.participant_name.as_deref().is_some_and(|name| {
-            retained_nodes.iter().any(|(retained_name, retained)| {
-                retained_name.eq_ignore_ascii_case(name)
-                    && same_participant_ax_identity(retained, node)
-            })
-        });
-        if !duplicate && let Some(name) = stream.participant_name.clone() {
-            retained_nodes.push((name, node));
-        }
-        !duplicate
-    });
-    let retained_limit = streams
-        .iter()
-        .filter(|(stream, _)| stream.is_active_speaker)
-        .count()
-        .max(24);
-    streams.truncate(retained_limit);
-    streams.into_iter().map(|(stream, _)| stream).collect()
-}
-
-fn same_participant_ax_identity(left: &AxNode, right: &AxNode) -> bool {
-    left.element_hash
-        .zip(right.element_hash)
-        .is_some_and(|(left, right)| left == right)
-        || (!left.tree_path.is_empty()
-            && !right.tree_path.is_empty()
-            && (left.tree_path.starts_with(&right.tree_path)
-                || right.tree_path.starts_with(&left.tree_path)))
-}
 
 pub(super) fn is_zoom_meeting_evidence(node: &AxNode) -> bool {
     zoom_meeting_evidence_label(node).is_some()
@@ -81,7 +30,7 @@ fn zoom_meeting_evidence_label(node: &AxNode) -> Option<&str> {
                         && (state.contains("computer audio")
                             || state.contains("no audio connected"))
                 });
-            is_video_render || lower == "video tile" || zoom_audio_state_name(label).is_some()
+            is_video_render || lower == "video tile" || zoom_audio_state_label_has_name(label)
         })
     {
         return Some(label);
@@ -100,309 +49,15 @@ fn zoom_meeting_evidence_label(node: &AxNode) -> Option<&str> {
 
     None
 }
-
-fn zoom_participant_evidence_label(node: &AxNode) -> Option<&str> {
-    let role = node.role.as_deref()?;
-    if matches!(role, "AXGroup" | "AXCell" | "AXRow")
-        && let Some(label) = node_labels(node).find(|label| has_explicit_speaker_state(label))
-    {
-        return Some(label);
-    }
-
-    zoom_meeting_evidence_label(node)
-}
-
-fn slack_participant_evidence_label(node: &AxNode) -> Option<&str> {
-    if node.role.as_deref() != Some("AXCell") {
-        return None;
-    }
-
-    node_labels(node).find(|label| {
-        let label = label.trim();
-        let lower = label.to_ascii_lowercase();
-        lower.starts_with("view ")
-            && lower.ends_with("'s profile")
-            && !label[5..label.len() - "'s profile".len()].trim().is_empty()
-    })
-}
-
-fn teams_participant_evidence_label(node: &AxNode) -> Option<&str> {
-    if !matches!(node.role.as_deref(), Some("AXRow") | Some("AXGroup")) {
-        return None;
-    }
-
-    node_labels(node).find(|label| {
-        if has_explicit_speaker_state(label) {
-            return true;
-        }
-
-        let parts = label.split(',').map(|part| part.trim()).collect::<Vec<_>>();
-        parts.len() >= 3
-            && is_plausible_participant_name(parts[0])
-            && parts[1..parts.len() - 1].iter().any(|part| {
-                matches!(
-                    part.to_ascii_lowercase().as_str(),
-                    "organizer" | "presenter" | "attendee" | "participant"
-                )
-            })
-            && matches!(
-                parts
-                    .last()
-                    .map(|part| part.to_ascii_lowercase())
-                    .as_deref(),
-                Some("muted" | "unmuted")
-            )
-    })
-}
-
-fn explicit_web_speaker_evidence_label(node: &AxNode) -> Option<&str> {
-    if !matches!(
-        node.role.as_deref(),
-        Some("AXGroup") | Some("AXCell") | Some("AXRow")
-    ) {
-        return None;
-    }
-
-    node_labels(node).find(|label| has_explicit_speaker_state(label))
-}
-
-fn webex_native_speaker_name(label: &str) -> Option<String> {
-    let parts = label.split(',').map(str::trim).collect::<Vec<_>>();
-    let name = parts.first().copied()?;
-    let has_speaking_state = parts
-        .iter()
-        .skip(1)
-        .any(|part| part.eq_ignore_ascii_case("speaking"));
-    let has_video_state = parts.iter().skip(1).any(|part| {
-        part.eq_ignore_ascii_case("video off") || part.eq_ignore_ascii_case("video on")
-    });
-
-    (has_speaking_state && has_video_state && is_plausible_participant_name(name))
-        .then(|| name.to_string())
-}
-
-fn webex_native_speaker_evidence_label(node: &AxNode) -> Option<&str> {
-    if !matches!(
-        node.role.as_deref(),
-        Some("AXGroup") | Some("AXCell") | Some("AXRow")
-    ) {
-        return None;
-    }
-
-    node_labels(node).find(|label| webex_native_speaker_name(label).is_some())
-}
-
-fn participant_evidence_label<'a>(
-    platform: &MeetingPlatform,
-    surface: &MeetingSurface,
-    node: &'a AxNode,
-) -> Option<&'a str> {
-    match (platform, surface) {
-        (MeetingPlatform::Zoom, MeetingSurface::Native) => zoom_participant_evidence_label(node),
-        (MeetingPlatform::Zoom, MeetingSurface::Web) => zoom_participant_evidence_label(node)
-            .or_else(|| explicit_web_speaker_evidence_label(node)),
-        (MeetingPlatform::Slack, MeetingSurface::Native) => slack_participant_evidence_label(node),
-        (MeetingPlatform::MicrosoftTeams, MeetingSurface::Native) => {
-            teams_participant_evidence_label(node)
-        }
-        (MeetingPlatform::Webex, MeetingSurface::Native) => {
-            webex_native_speaker_evidence_label(node)
-        }
-        (
-            MeetingPlatform::GoogleMeet
-            | MeetingPlatform::MicrosoftTeams
-            | MeetingPlatform::Slack
-            | MeetingPlatform::Webex,
-            MeetingSurface::Web,
-        ) => explicit_web_speaker_evidence_label(node),
-        _ => None,
-    }
-}
-
-pub(super) fn candidate_stream(
-    platform: &MeetingPlatform,
-    surface: &MeetingSurface,
-    node: &AxNode,
-) -> Option<MeetingParticipantStream> {
-    let role = node.role.as_deref().unwrap_or_default();
-    let text = node.text.as_str();
-    let evidence_label = participant_evidence_label(platform, surface, node)?;
-    let area = node
-        .bounds
-        .as_ref()
-        .map(|r| r.width * r.height)
-        .unwrap_or(0.0);
-    let mut signals = Vec::new();
-    let mut confidence = 0.55;
-
-    if role == "AXGroup" && area >= MIN_VIDEO_AREA {
-        confidence += 0.15;
-        signals.push("large-group".to_string());
-    }
-    if evidence_label
-        .to_ascii_lowercase()
-        .starts_with("video render ")
-        || evidence_label.trim().eq_ignore_ascii_case("video tile")
-    {
-        signals.push("video-label".to_string());
-    } else {
-        signals.push("participant-row-label".to_string());
-    }
-    let is_active_speaker = has_explicit_speaker_state(evidence_label)
-        || (*platform == MeetingPlatform::Webex
-            && *surface == MeetingSurface::Native
-            && webex_native_speaker_name(evidence_label).is_some());
-    if is_active_speaker {
-        confidence += 0.25;
-        signals.push("speaker-state-label".to_string());
-    }
-    let lower_text = text.to_ascii_lowercase();
-    if lower_text.contains("computer audio") || lower_text.contains("no audio connected") {
-        confidence += 0.15;
-        signals.push("audio-state-label".to_string());
-    }
-    if area >= MIN_VIDEO_AREA {
-        confidence += 0.15;
-        signals.push("video-sized-bounds".to_string());
-    }
-
-    let label = Some(evidence_label.to_string());
-    let participant_name = participant_name_from_evidence(platform, evidence_label);
-    Some(MeetingParticipantStream {
-        id: node.element_hash.map_or_else(
-            || format!("ax-node-{}", node.index),
-            |hash| format!("ax-element-{hash:x}"),
-        ),
-        platform: platform.clone(),
-        surface: surface.clone(),
-        participant_name,
-        label,
-        bounds: node.bounds.clone(),
-        confidence,
-        is_active_speaker,
-        signals,
-    })
-}
-
-pub(super) fn participant_name_from_evidence(
-    platform: &MeetingPlatform,
-    evidence_label: &str,
-) -> Option<String> {
-    let label = evidence_label.trim();
-    let lower = label.to_ascii_lowercase();
-    match platform {
-        MeetingPlatform::Zoom => {
-            if lower == "video tile" {
-                return None;
-            }
-
-            if let Some(name) = participant_name_from_speaker_label(label) {
-                return zoom_participant_name(&name);
-            }
-
-            zoom_participant_name(label)
-        }
-        MeetingPlatform::Slack if lower.starts_with("view ") && lower.ends_with("'s profile") => {
-            Some(
-                label["View ".len()..label.len() - "'s profile".len()]
-                    .trim()
-                    .to_string(),
-            )
-        }
-        MeetingPlatform::MicrosoftTeams => {
-            participant_name_from_speaker_label(label).or_else(|| {
-                label
-                    .split(',')
-                    .next()
-                    .map(str::trim)
-                    .filter(|name| is_plausible_participant_name(name))
-                    .map(ToString::to_string)
-            })
-        }
-        MeetingPlatform::Webex => {
-            participant_name_from_speaker_label(label).or_else(|| webex_native_speaker_name(label))
-        }
-        MeetingPlatform::GoogleMeet | MeetingPlatform::Slack => {
-            participant_name_from_speaker_label(label)
-        }
-        MeetingPlatform::Discord | MeetingPlatform::Unknown => None,
-    }
-}
-
-fn zoom_audio_state_name(label: &str) -> Option<&str> {
+fn zoom_audio_state_label_has_name(label: &str) -> bool {
     let lower = label.to_ascii_lowercase();
     [", computer audio", ", no audio connected"]
         .into_iter()
         .find_map(|marker| lower.find(marker).map(|index| label[..index].trim()))
-        .filter(|name| is_plausible_participant_name(name))
+        .is_some_and(is_plausible_zoom_scope_name)
 }
 
-fn zoom_participant_name(label: &str) -> Option<String> {
-    let label = label.trim();
-    let lower = label.to_ascii_lowercase();
-    let label = lower
-        .starts_with("video render ")
-        .then(|| &label["Video render ".len()..])
-        .unwrap_or(label);
-    let lower = label.to_ascii_lowercase();
-    let end = [
-        lower.find(", computer audio"),
-        lower.find(", no audio connected"),
-        label.find('('),
-        lower.find("participant id:"),
-    ]
-    .into_iter()
-    .flatten()
-    .min()
-    .unwrap_or(label.len());
-    let name = label[..end].trim().trim_end_matches(',').trim();
-    is_plausible_participant_name(name).then(|| name.to_string())
-}
-
-fn participant_name_from_speaker_label(label: &str) -> Option<String> {
-    let label = label.trim();
-    let lower = label.to_ascii_lowercase();
-    let label = if lower.ends_with(" (you)") {
-        &label[..label.len() - " (you)".len()]
-    } else {
-        label
-    };
-    let lower = label.to_ascii_lowercase();
-    let name = if lower.starts_with("active speaker: ") {
-        &label["active speaker: ".len()..]
-    } else if lower.ends_with(" is speaking") {
-        &label[..label.len() - " is speaking".len()]
-    } else if let Some(index) = explicit_speaker_marker_index(&lower, ", active speaker") {
-        &label[..index]
-    } else if let Some(index) = explicit_speaker_marker_index(&lower, ", speaking") {
-        &label[..index]
-    } else {
-        return None;
-    };
-
-    let name = name
-        .trim()
-        .trim_end_matches(" (You)")
-        .trim_end_matches(" (you)")
-        .trim();
-    let name = if name.to_ascii_lowercase().starts_with("video render ") {
-        name["video render ".len()..]
-            .split(',')
-            .next()
-            .unwrap_or_default()
-            .trim()
-    } else {
-        name
-    };
-    let is_false_state = matches!(
-        name.to_ascii_lowercase().as_str(),
-        "false" | "none" | "off" | "no"
-    );
-    (!name.is_empty() && !is_false_state && is_plausible_participant_name(name))
-        .then(|| name.to_string())
-}
-
-fn is_plausible_participant_name(name: &str) -> bool {
+fn is_plausible_zoom_scope_name(name: &str) -> bool {
     let name = name.trim();
     if name.is_empty()
         || name.chars().count() > 80
@@ -443,16 +98,6 @@ fn is_plausible_participant_name(name: &str) -> bool {
         && !words
             .iter()
             .any(|word| GENERIC_SUBJECTS.contains(&word.as_str()))
-}
-
-fn explicit_speaker_marker_index(label: &str, marker: &str) -> Option<usize> {
-    let index = label.find(marker)?;
-    let suffix = &label[index + marker.len()..];
-    (suffix.is_empty() || suffix == " (you)").then_some(index)
-}
-
-fn has_explicit_speaker_state(label: &str) -> bool {
-    participant_name_from_speaker_label(label).is_some()
 }
 
 pub(super) fn is_zoom_meeting_scope_node(node: &AxNode) -> bool {

@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
   loadSessionContentSnapshot: vi.fn(),
   persistGeneratedEnhancedNote: vi.fn().mockResolvedValue(undefined),
   persistGeneratedTitle: vi.fn().mockResolvedValue(true),
-  inferAutomaticSpeakerAssignments: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@anlg/plugin-db", async (importOriginal) => ({
@@ -34,10 +33,6 @@ vi.mock("~/cloud-api/client", () => ({
 
 vi.mock("~/session/content-mutations", () => ({
   persistGeneratedEnhancedNote: mocks.persistGeneratedEnhancedNote,
-}));
-
-vi.mock("~/services/enhancer/speaker-attribution", () => ({
-  inferAutomaticSpeakerAssignments: mocks.inferAutomaticSpeakerAssignments,
 }));
 
 vi.mock("./title-success", async (importOriginal) => ({
@@ -128,7 +123,6 @@ describe("enhanceSuccess.onSuccess", () => {
     mocks.loadSessionContentSnapshot.mockResolvedValue(createSnapshot());
     mocks.persistGeneratedEnhancedNote.mockResolvedValue(undefined);
     mocks.persistGeneratedTitle.mockResolvedValue(true);
-    mocks.inferAutomaticSpeakerAssignments.mockReset().mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -246,56 +240,6 @@ describe("enhanceSuccess.onSuccess", () => {
         },
       }),
     );
-  });
-
-  it("persists inferred speaker hints with the generated note", async () => {
-    const transcriptSpeakerHints = [
-      {
-        id: "transcript-1",
-        currentWordsJson: "words",
-        currentSpeakerHintsJson: "[]",
-        nextSpeakerHintsJson: '[{"type":"automatic_speaker_assignment"}]',
-        expectedParticipantHumanIdsJson: '["human-1","human-2"]',
-      },
-    ];
-    mocks.inferAutomaticSpeakerAssignments.mockResolvedValueOnce(
-      transcriptSpeakerHints,
-    );
-
-    await enhanceSuccess.onSuccess?.(createParams());
-
-    expect(mocks.inferAutomaticSpeakerAssignments).toHaveBeenCalledWith(
-      expect.objectContaining({
-        generatedSummary: "# Summary\n\n- Point",
-        snapshot: expect.objectContaining({ sessionId: "session-1" }),
-      }),
-    );
-    expect(mocks.inferAutomaticSpeakerAssignments).toHaveBeenCalledBefore(
-      mocks.beginCloudsyncActivity,
-    );
-    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledWith(
-      expect.objectContaining({ transcriptSpeakerHints }),
-    );
-  });
-
-  it("still persists the summary when speaker attribution fails", async () => {
-    const consoleError = vi
-      .spyOn(console, "error")
-      .mockImplementation(() => {});
-    mocks.inferAutomaticSpeakerAssignments.mockRejectedValueOnce(
-      new Error("unsupported structured output"),
-    );
-
-    await expect(
-      enhanceSuccess.onSuccess?.(createParams()),
-    ).resolves.toBeUndefined();
-
-    expect(mocks.persistGeneratedEnhancedNote).toHaveBeenCalledOnce();
-    expect(consoleError).toHaveBeenCalledWith(
-      "[enhance] failed to identify transcript speakers",
-      expect.any(Error),
-    );
-    consoleError.mockRestore();
   });
 
   it("waits for a generated title, saves the note, then persists the title", async () => {

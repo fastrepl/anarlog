@@ -6,8 +6,7 @@ use crate::{
     VoiceprintCandidate, VoiceprintExemplar, VoiceprintExemplarError, VoiceprintSecretRef,
 };
 
-const CONFIRMATION_SOURCES: &[&str] =
-    &["accessibility_active_speaker", "manual_speaker_assignment"];
+const CONFIRMATION_SOURCES: &[&str] = &["manual_speaker_assignment"];
 
 pub async fn insert_voiceprint_exemplar(
     pool: &SqlitePool,

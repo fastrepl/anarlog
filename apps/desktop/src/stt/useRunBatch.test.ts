@@ -12,7 +12,6 @@ import {
   getSessionSpeakerCount,
   isTerminalTranscriptionError,
   reconcileRefinedSpeakerClusters,
-  transferAutomaticSpeakerAssignments,
 } from "./useRunBatch";
 import { useRunBatch } from "./useRunBatch";
 
@@ -579,171 +578,6 @@ describe("reconcileRefinedSpeakerClusters", () => {
   });
 });
 
-describe("transferAutomaticSpeakerAssignments", () => {
-  test("maps live identities onto improved batch clusters by time overlap", () => {
-    const source = {
-      id: "live-transcript",
-      ownerUserId: "user-1",
-      sessionId: "session-1",
-      startedAt: 0,
-      words: [
-        {
-          id: "live-lex-1",
-          text: "question",
-          start_ms: 0,
-          end_ms: 100,
-          channel: 1,
-        },
-        {
-          id: "live-george-misclustered",
-          text: "answer",
-          start_ms: 100,
-          end_ms: 200,
-          channel: 1,
-        },
-        {
-          id: "live-lex-2",
-          text: "follow up",
-          start_ms: 200,
-          end_ms: 300,
-          channel: 1,
-        },
-        {
-          id: "live-george",
-          text: "response",
-          start_ms: 300,
-          end_ms: 500,
-          channel: 1,
-        },
-      ],
-      speakerHints: [
-        {
-          id: "live-lex-1-provider",
-          word_id: "live-lex-1",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-george-misclustered-provider",
-          word_id: "live-george-misclustered",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-lex-2-provider",
-          word_id: "live-lex-2",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 0 }),
-        },
-        {
-          id: "live-george-provider",
-          word_id: "live-george",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
-        },
-        {
-          id: "live-lex-automatic",
-          word_id: "live-lex-1",
-          type: "automatic_speaker_assignment",
-          value: JSON.stringify({
-            human_id: "lex",
-            confidence: 0.93,
-            source: "enhance",
-          }),
-        },
-        {
-          id: "live-george-automatic",
-          word_id: "live-george",
-          type: "automatic_speaker_assignment",
-          value: JSON.stringify({
-            human_id: "george",
-            confidence: 0.93,
-            source: "enhance",
-          }),
-        },
-      ],
-    } satisfies Parameters<typeof transferAutomaticSpeakerAssignments>[0];
-    const words = [
-      {
-        id: "batch-lex-1",
-        text: "question",
-        start_ms: 0,
-        end_ms: 100,
-        channel: 1,
-      },
-      {
-        id: "batch-george-1",
-        text: "answer",
-        start_ms: 100,
-        end_ms: 200,
-        channel: 1,
-      },
-      {
-        id: "batch-lex-2",
-        text: "follow up",
-        start_ms: 200,
-        end_ms: 300,
-        channel: 1,
-      },
-      {
-        id: "batch-george-2",
-        text: "response",
-        start_ms: 300,
-        end_ms: 500,
-        channel: 1,
-      },
-    ];
-    const hints = [
-      {
-        id: "batch-lex-1-provider",
-        word_id: "batch-lex-1",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({ channel: 1, speaker_index: 7 }),
-      },
-      {
-        id: "batch-george-1-provider",
-        word_id: "batch-george-1",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({ channel: 1, speaker_index: 3 }),
-      },
-      {
-        id: "batch-lex-2-provider",
-        word_id: "batch-lex-2",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({ channel: 1, speaker_index: 7 }),
-      },
-      {
-        id: "batch-george-2-provider",
-        word_id: "batch-george-2",
-        type: "provider_speaker_index" as const,
-        value: JSON.stringify({ channel: 1, speaker_index: 3 }),
-      },
-    ];
-
-    let nextId = 0;
-    const result = transferAutomaticSpeakerAssignments(
-      source,
-      words,
-      hints,
-      () => `automatic-${++nextId}`,
-    );
-    const assignments = result
-      .filter((hint) => hint.type === "automatic_speaker_assignment")
-      .map((hint) => ({
-        wordId: hint.word_id,
-        humanId: JSON.parse(hint.value).human_id,
-      }));
-
-    expect(assignments).toEqual(
-      expect.arrayContaining([
-        { wordId: "batch-lex-1", humanId: "lex" },
-        { wordId: "batch-george-1", humanId: "george" },
-      ]),
-    );
-    expect(assignments).toHaveLength(2);
-  });
-});
-
 describe("useRunBatch", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -979,7 +813,7 @@ describe("useRunBatch", () => {
     );
   });
 
-  test("carries automatic speaker identities into a refined current capture", async () => {
+  test("does not carry legacy inferred identities into a refined capture", async () => {
     getTranscriptRecordMock.mockResolvedValue({
       id: "transcript-current-live",
       ownerUserId: "user-1",
@@ -987,49 +821,26 @@ describe("useRunBatch", () => {
       startedAt: 123_000,
       words: [
         {
-          id: "live-lex",
-          text: "question",
-          start_ms: 100,
-          end_ms: 300,
-          channel: 1,
-        },
-        {
-          id: "live-george",
+          id: "live-word",
           text: "answer",
-          start_ms: 300,
+          start_ms: 100,
           end_ms: 500,
           channel: 1,
         },
       ],
       speakerHints: [
         {
-          id: "live-lex-provider",
-          word_id: "live-lex",
+          id: "live-provider",
+          word_id: "live-word",
           type: "provider_speaker_index",
           value: JSON.stringify({ channel: 1, speaker_index: 0 }),
         },
         {
-          id: "live-george-provider",
-          word_id: "live-george",
-          type: "provider_speaker_index",
-          value: JSON.stringify({ channel: 1, speaker_index: 1 }),
-        },
-        {
-          id: "live-lex-identity",
-          word_id: "live-lex",
+          id: "live-inferred-identity",
+          word_id: "live-word",
           type: "automatic_speaker_assignment",
           value: JSON.stringify({
-            human_id: "lex",
-            confidence: 0.93,
-            source: "enhance",
-          }),
-        },
-        {
-          id: "live-george-identity",
-          word_id: "live-george",
-          type: "automatic_speaker_assignment",
-          value: JSON.stringify({
-            human_id: "george",
+            human_id: "human-1",
             confidence: 0.93,
             source: "enhance",
           }),
@@ -1040,14 +851,8 @@ describe("useRunBatch", () => {
       options.handlePersist(
         [
           {
-            text: "question",
-            start_ms: 60_100,
-            end_ms: 60_300,
-            channel: 1,
-          },
-          {
             text: "answer",
-            start_ms: 60_300,
+            start_ms: 60_100,
             end_ms: 60_500,
             channel: 1,
           },
@@ -1061,21 +866,12 @@ describe("useRunBatch", () => {
               speaker_index: 3,
             },
           },
-          {
-            wordIndex: 1,
-            data: {
-              type: "provider_speaker_index",
-              channel: 1,
-              speaker_index: 2,
-            },
-          },
         ],
         { mode: "replace" },
       );
     });
 
     const { result } = renderHook(() => useRunBatch("session-1"));
-
     await act(async () => {
       await result.current("/tmp/session.wav", {
         promotion: {
@@ -1087,32 +883,11 @@ describe("useRunBatch", () => {
       });
     });
 
-    expect(getTranscriptRecordMock).toHaveBeenCalledWith(
-      "transcript-current-live",
-    );
-    const created = createTranscriptMock.mock.calls[0]?.[0];
-    const wordsByText = new Map(
-      created.words.map((word: { id: string; text: string }) => [
-        word.text,
-        word.id,
-      ]),
-    );
-    const identities = created.speakerHints
-      .filter(
-        (hint: { type: string }) =>
-          hint.type === "automatic_speaker_assignment",
-      )
-      .map((hint: { word_id: string; value: string }) => ({
-        wordId: hint.word_id,
-        humanId: JSON.parse(hint.value).human_id,
-      }));
-
-    expect(identities).toEqual(
-      expect.arrayContaining([
-        { wordId: wordsByText.get("question"), humanId: "lex" },
-        { wordId: wordsByText.get("answer"), humanId: "george" },
-      ]),
-    );
+    const speakerHints = createTranscriptMock.mock.calls[0]?.[0].speakerHints;
+    expect(speakerHints).toHaveLength(1);
+    expect(speakerHints[0]).toMatchObject({
+      type: "provider_speaker_index",
+    });
   });
 
   test("retains recovery audio when the batch has no current-capture words", async () => {

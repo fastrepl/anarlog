@@ -43,20 +43,6 @@ pub struct MeetingApp {
     pub name: String,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct MeetingParticipantStream {
-    pub id: String,
-    pub platform: MeetingPlatform,
-    pub surface: MeetingSurface,
-    pub participant_name: Option<String>,
-    pub label: Option<String>,
-    pub bounds: Option<AxRect>,
-    pub confidence: f32,
-    pub is_active_speaker: bool,
-    pub signals: Vec<String>,
-}
-
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 #[derive(Debug, Clone)]
 pub(super) struct MeetingChatTarget {
@@ -78,8 +64,6 @@ pub struct MeetingAccessibilityInspection {
     pub surface: MeetingSurface,
     pub accessibility_trusted: bool,
     pub window_title: Option<String>,
-    pub participant_streams: Vec<MeetingParticipantStream>,
-    pub active_speakers: Vec<String>,
     pub warnings: Vec<String>,
 }
 

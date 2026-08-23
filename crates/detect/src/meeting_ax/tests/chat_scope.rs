@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::*;
 
 #[test]

@@ -1,6 +1,3 @@
-#[cfg(any(test, target_os = "macos"))]
-use std::collections::HashSet;
-
 #[cfg(target_os = "macos")]
 use cidre::{arc, ax, cf, cg};
 
@@ -44,15 +41,13 @@ mod types;
 #[cfg_attr(target_os = "linux", allow(unused_imports))]
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use analysis::{
-    candidate_chat_target, extract_chat_messages, find_participant_streams,
-    is_slack_huddle_scope_node, is_zoom_chat_scope_node, is_zoom_meeting_evidence,
-    is_zoom_meeting_scope_node,
+    candidate_chat_target, extract_chat_messages, is_slack_huddle_scope_node,
+    is_zoom_chat_scope_node, is_zoom_meeting_evidence, is_zoom_meeting_scope_node,
 };
 #[cfg(test)]
 use analysis::{
-    candidate_stream, extract_links, looks_like_time, meeting_chat_direction,
-    meeting_chat_surface_is_visible, parse_chat_message, participant_name_from_evidence,
-    slack_huddle_is_active,
+    extract_links, looks_like_time, meeting_chat_direction, meeting_chat_surface_is_visible,
+    parse_chat_message, slack_huddle_is_active,
 };
 #[cfg(target_os = "macos")]
 use context::zoom_chat_surface_is_visible;
@@ -94,16 +89,14 @@ use types::{
 use types::{AxChatElement, SlackHuddleRoot};
 pub use types::{
     AxRect, MeetingAccessibilityInspection, MeetingApp, MeetingCapturedChatMessage,
-    MeetingChatCaptureResult, MeetingChatDirection, MeetingChatSendResult,
-    MeetingParticipantStream, MeetingPlatform, MeetingSurface,
+    MeetingChatCaptureResult, MeetingChatDirection, MeetingChatSendResult, MeetingPlatform,
+    MeetingSurface,
 };
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MAX_TREE_DEPTH: usize = 32;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MAX_NODES: usize = 4000;
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
-const MIN_VIDEO_AREA: f64 = 18_000.0;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 const MAX_MEETING_CHAT_MESSAGE_CHARS: usize = 2_000;
 
@@ -1875,19 +1868,6 @@ fn inspect_app(
         classify_platform(&app.id, window_title.as_deref(), &nodes, bundle_platform)
     });
     let surface = classify_surface(&app.id, &platform);
-    let participant_streams = find_participant_streams(&platform, &surface, &nodes);
-    let mut active_speaker_names = HashSet::new();
-    let active_speakers = participant_streams
-        .iter()
-        .filter(|stream| stream.is_active_speaker)
-        .filter_map(|stream| {
-            stream
-                .participant_name
-                .clone()
-                .or_else(|| stream.label.clone())
-        })
-        .filter(|name| active_speaker_names.insert(name.trim().to_ascii_lowercase()))
-        .collect();
     MeetingAccessibilityInspection {
         app,
         pid,
@@ -1895,8 +1875,6 @@ fn inspect_app(
         surface,
         accessibility_trusted,
         window_title,
-        participant_streams,
-        active_speakers,
         warnings,
     }
 }

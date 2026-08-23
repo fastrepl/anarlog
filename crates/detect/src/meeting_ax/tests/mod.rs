@@ -73,7 +73,6 @@ mod capture_identity;
 mod chat_scope;
 mod inspection;
 mod message_parsing;
-mod participant_streams;
 mod slack_huddle;
 
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
