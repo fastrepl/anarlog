@@ -812,6 +812,57 @@ mod tests {
         held_connection.return_to_pool().await;
     }
 
+    #[tokio::test]
+    async fn session_projection_includes_ordered_live_meeting_chat() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query("INSERT INTO sessions (id, title) VALUES ('session-1', 'Planning')")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        sqlx::query(
+            r#"
+            INSERT INTO session_documents (
+                id, session_id, kind, body_format, body, sort_order, deleted_at
+            ) VALUES
+                (
+                    'chat-later', 'session-1', 'meeting_chat', 'json',
+                    '{"platform":"zoom","sender":"Grace","timestamp":"10:02","text":"second message","links":["https://example.com/second"]}',
+                    20, NULL
+                ),
+                (
+                    'chat-first', 'session-1', 'meeting_chat', 'json',
+                    '{"platform":"zoom","sender":"Ada","timestamp":"10:01","text":"first message","links":[]}',
+                    10, NULL
+                ),
+                (
+                    'chat-deleted', 'session-1', 'meeting_chat', 'json',
+                    '{"platform":"zoom","sender":"Linus","timestamp":"10:03","text":"deleted message","links":[]}',
+                    30, '2026-08-23T00:00:00Z'
+                )
+            "#,
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        let mut connection = db.pool().acquire().await.unwrap();
+        let IndexAction::Upsert(document) = build_session_document(&mut connection, "session-1")
+            .await
+            .unwrap()
+        else {
+            panic!("expected the session to be indexed");
+        };
+
+        let first = document.content.find("first message").unwrap();
+        let second = document.content.find("second message").unwrap();
+        assert!(first < second);
+        assert!(document.content.contains("Ada"));
+        assert!(document.content.contains("Grace"));
+        assert!(document.content.contains("https://example.com/second"));
+        assert!(!document.content.contains("deleted message"));
+    }
+
     #[test]
     fn extracts_text_only_from_valid_tiptap_documents() {
         assert_eq!(
