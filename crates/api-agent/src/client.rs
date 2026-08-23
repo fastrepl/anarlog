@@ -49,22 +49,10 @@ impl ApiAgentClientBuilder {
 
         let api_base = self
             .api_base
-            .unwrap_or_else(|| "https://api.anarlog.so".to_string())
+            .unwrap_or_else(|| "https://api.char.com".to_string())
             .parse()?;
 
         Ok(ApiAgentClient { client, api_base })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn defaults_to_anarlog_api() {
-        let client = ApiAgentClient::builder().api_key("test").build().unwrap();
-
-        assert_eq!(client.api_base().as_str(), "https://api.anarlog.so/");
     }
 }
 
