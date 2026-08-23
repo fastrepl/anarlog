@@ -10,7 +10,7 @@ use tauri::Manager;
 use tauri_specta::Event;
 use tokio::sync::Notify;
 
-use crate::types::{DeepLink, DeepLinkEvent};
+use crate::types::{AuthCallbackSearch, DeepLink, DeepLinkEvent};
 
 const CALLBACK_SERVER_TTL: Duration = Duration::from_secs(600);
 
@@ -50,7 +50,7 @@ impl CallbackServerState {
 
 pub fn render_html(deep_link: &DeepLink, scheme: &str) -> String {
     let (is_success, title, description) = ui_content(deep_link);
-    render_template_html(scheme, is_success, title, description)
+    render_template_html(scheme, is_success, title, description, Some(deep_link))
 }
 
 pub fn render_html_from_callback(path: &str, query: &str, scheme: &str) -> String {
@@ -70,21 +70,62 @@ pub fn parse_callback(path: &str, query: &str) -> Result<DeepLink, crate::Error>
 }
 
 fn render_html_from_parse_result<E>(parse_result: Result<&DeepLink, &E>, scheme: &str) -> String {
-    let (is_success, title, description) = parse_result
-        .map(ui_content)
-        .unwrap_or_else(|_| default_ui_content());
-    render_template_html(scheme, is_success, title, description)
+    let deep_link = parse_result.ok();
+    let (is_success, title, description) =
+        deep_link.map(ui_content).unwrap_or_else(default_ui_content);
+    render_template_html(scheme, is_success, title, description, deep_link)
 }
 
-fn render_template_html(scheme: &str, is_success: bool, title: &str, description: &str) -> String {
+fn render_template_html(
+    scheme: &str,
+    is_success: bool,
+    title: &str,
+    description: &str,
+    deep_link: Option<&DeepLink>,
+) -> String {
     CallbackTemplate {
-        deeplink_url: format!("{scheme}://focus"),
+        deeplink_url: return_to_app_url(scheme, deep_link),
         is_success,
         title: title.to_string(),
         description: description.to_string(),
     }
     .render()
     .unwrap_or_default()
+}
+
+fn return_to_app_url(scheme: &str, deep_link: Option<&DeepLink>) -> String {
+    if let Some(DeepLink::AuthCallback(search)) = deep_link
+        && let Some(url) = subscription_auth_deeplink(scheme, search)
+    {
+        return url;
+    }
+
+    format!("{scheme}://focus")
+}
+
+pub(crate) fn subscription_auth_deeplink(
+    scheme: &str,
+    search: &AuthCallbackSearch,
+) -> Option<String> {
+    let code = search.code.as_deref()?.trim();
+    if code.is_empty() || !search.access_token.is_empty() || !search.refresh_token.is_empty() {
+        return None;
+    }
+
+    let mut url = url::Url::parse(&format!("{scheme}://auth/callback")).ok()?;
+    {
+        let mut pairs = url.query_pairs_mut();
+        pairs.append_pair("code", code);
+        if let Some(state) = search
+            .state
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
+            pairs.append_pair("state", state);
+        }
+    }
+    Some(url.into())
 }
 
 fn default_ui_content() -> (bool, &'static str, &'static str) {
@@ -97,6 +138,20 @@ fn default_ui_content() -> (bool, &'static str, &'static str) {
 
 fn ui_content(deep_link: &DeepLink) -> (bool, &'static str, &'static str) {
     match deep_link {
+        DeepLink::AuthCallback(search)
+            if search
+                .code
+                .as_deref()
+                .is_some_and(|code| !code.trim().is_empty())
+                && search.access_token.is_empty()
+                && search.refresh_token.is_empty() =>
+        {
+            (
+                true,
+                "Connected successfully",
+                "Returning to Anarlog to finish connecting.",
+            )
+        }
         DeepLink::AuthCallback(_) => (
             true,
             "Signed in successfully",
@@ -165,8 +220,9 @@ async fn handle_request<R: tauri::Runtime>(
     emit_deeplink(&app, parse_result, path);
     shutdown.notify_one();
 
-    // Focus-only deeplink — no callback payload — so the OS focuses/opens the
-    // app without re-emitting a DeepLinkEvent and causing duplicate side effects.
+    // Subscription codes bounce through `{scheme}://auth/callback?code=…` so
+    // the OS opens the app. Token logins stay focus-only to avoid a second
+    // auth callback with the same secrets.
     Html(html)
 }
 
@@ -274,4 +330,60 @@ pub async fn stop<R: tauri::Runtime>(app: tauri::AppHandle<R>) -> Result<(), Str
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::AuthCallbackSearch;
+
+    fn subscription_search() -> AuthCallbackSearch {
+        AuthCallbackSearch {
+            code: Some("ac_nf5hq".to_string()),
+            state: Some("state-1".to_string()),
+            ..AuthCallbackSearch::default()
+        }
+    }
+
+    #[test]
+    fn subscription_code_bounces_through_custom_scheme_deeplink() {
+        assert_eq!(
+            subscription_auth_deeplink("anarlog", &subscription_search()).as_deref(),
+            Some("anarlog://auth/callback?code=ac_nf5hq&state=state-1")
+        );
+        let html = render_html(&DeepLink::AuthCallback(subscription_search()), "anarlog");
+        assert!(html.contains("anarlog://auth/callback?code=ac_nf5hq"));
+        assert!(html.contains("state=state-1"));
+        assert!(html.contains(r#"id="open-app""#));
+        assert!(html.contains(r#"document.getElementById("open-app")?.click()"#));
+        assert!(html.contains("Connected successfully"));
+        assert!(!html.contains("anarlog://focus"));
+    }
+
+    #[test]
+    fn token_login_stays_focus_only() {
+        let html = render_html(
+            &DeepLink::AuthCallback(AuthCallbackSearch {
+                access_token: "access".to_string(),
+                refresh_token: "refresh".to_string(),
+                code: Some("should-ignore".to_string()),
+                ..AuthCallbackSearch::default()
+            }),
+            "anarlog-dev",
+        );
+        assert!(html.contains("anarlog-dev://focus"));
+        assert!(!html.contains("code=should-ignore"));
+        assert!(html.contains("Signed in successfully"));
+    }
+
+    #[test]
+    fn loopback_query_renders_subscription_deeplink() {
+        let html = render_html_from_callback(
+            "/auth/callback",
+            "code=codex-code&state=s1&scope=openid",
+            "anarlog",
+        );
+        assert!(html.contains("anarlog://auth/callback?code=codex-code"));
+        assert!(html.contains("state=s1"));
+    }
 }

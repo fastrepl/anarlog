@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import {
   assertAuthorizationState,
+  authorizationInputFromParsed,
   chatgptCodexUrl,
   chatgptResponsesBody,
   claudeMessagesUrl,
@@ -52,6 +53,13 @@ describe("subscription OAuth helpers", () => {
     expect(looksLikeAuthorizationInput("ac_nf5hq659_token")).toBe(true);
     expect(looksLikeAuthorizationInput("sk-not-an-oauth-code")).toBe(false);
     expect(looksLikeAuthorizationInput("just some notes")).toBe(false);
+  });
+
+  test("turns a callback payload into a code#state value the exchanger already accepts", () => {
+    expect(
+      authorizationInputFromParsed({ code: "ac_nf5hq", state: "s1" }),
+    ).toBe("ac_nf5hq#s1");
+    expect(authorizationInputFromParsed({ code: "ac_nf5hq" })).toBe("ac_nf5hq");
   });
 
   test("ignores Anarlog login callbacks when extracting subscription codes", () => {

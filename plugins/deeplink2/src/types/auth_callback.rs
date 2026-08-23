@@ -3,7 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-#[derive(Clone, Serialize, Deserialize, Type)]
+#[derive(Clone, Default, Serialize, Deserialize, Type)]
 pub struct AuthCallbackSearch {
     #[serde(default)]
     pub access_token: String,

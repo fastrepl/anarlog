@@ -16,9 +16,12 @@
       <p class="text-neutral-600">{{ description }}</p>
     </div>
     {% if is_success %}
-    <a href="{{ deeplink_url }}" class="w-full h-12 flex items-center justify-center text-base font-medium transition-all bg-gradient-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg cursor-pointer">
+    <a id="open-app" href="{{ deeplink_url }}" class="w-full h-12 flex items-center justify-center text-base font-medium transition-all bg-gradient-to-t from-stone-600 to-stone-500 text-white rounded-full shadow-md hover:shadow-lg cursor-pointer">
       Open Anarlog
     </a>
+    <script>
+      document.getElementById("open-app")?.click();
+    </script>
     {% endif %}
   </div>
 </body>

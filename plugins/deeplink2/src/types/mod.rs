@@ -163,4 +163,19 @@ mod tests {
         assert_eq!(search.code.as_deref(), Some("codex-code"));
         assert_eq!(search.state.as_deref(), Some("s1"));
     }
+
+    #[test]
+    fn parses_subscription_auth_custom_scheme_deeplink() {
+        let DeepLink::AuthCallback(search) = DeepLink::from_str(
+            "anarlog://auth/callback?code=ac_nf5hq&state=xYc5ZmNlqtWTu3BIbfbVQg",
+        )
+        .unwrap() else {
+            panic!("expected auth callback");
+        };
+
+        assert!(search.access_token.is_empty());
+        assert!(search.refresh_token.is_empty());
+        assert_eq!(search.code.as_deref(), Some("ac_nf5hq"));
+        assert_eq!(search.state.as_deref(), Some("xYc5ZmNlqtWTu3BIbfbVQg"));
+    }
 }

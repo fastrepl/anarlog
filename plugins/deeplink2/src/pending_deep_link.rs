@@ -90,6 +90,7 @@ mod tests {
                 DeepLink::AuthCallback(AuthCallbackSearch {
                     access_token: access_token.to_string(),
                     refresh_token: refresh_token.to_string(),
+                    ..AuthCallbackSearch::default()
                 }),
                 now,
             )

@@ -197,6 +197,13 @@ export function subscriptionAuthFromCallback(search: {
   };
 }
 
+export function authorizationInputFromParsed(parsed: {
+  code: string;
+  state?: string;
+}) {
+  return parsed.state ? `${parsed.code}#${parsed.state}` : parsed.code;
+}
+
 export function assertAuthorizationState(
   session: CodeConnectSession,
   parsed: { state?: string },

@@ -4070,12 +4070,12 @@ msgid "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your b
 msgstr "Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with ChatGPT Plus or Pro. We'll finish connecting automatically."
-msgstr "Sign in with ChatGPT Plus or Pro. We'll finish connecting automatically."
+msgid "Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting."
+msgstr "Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
-msgid "Sign in with Claude Pro or Max, then copy the authorization code. We'll detect it automatically."
-msgstr "Sign in with Claude Pro or Max, then copy the authorization code. We'll detect it automatically."
+msgid "Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting."
+msgstr "Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting."
 
 #: src/settings/ai/llm/subscriptions/connect.tsx
 msgid "Sign in with GitHub Copilot and enter the code below."

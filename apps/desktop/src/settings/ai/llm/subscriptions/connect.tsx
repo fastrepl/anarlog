@@ -23,6 +23,7 @@ import { Input } from "@anlg/ui/components/ui/input";
 
 import { type Provider } from "../shared";
 import {
+  authorizationInputFromParsed,
   CHATGPT_CALLBACK_PORT,
   completeCodeConnect,
   type ConnectSession,
@@ -227,7 +228,7 @@ export function ConnectSubscriptionDialog({
   }, [providerId]);
 
   useEffect(() => {
-    if (!providerId || !listeningForCallback) {
+    if (providerId !== "chatgpt" && providerId !== "claude") {
       return;
     }
 
@@ -240,30 +241,24 @@ export function ConnectSubscriptionDialog({
       if (!parsed) {
         return;
       }
-      const url = new URL(
-        `http://localhost:${CHATGPT_CALLBACK_PORT}/auth/callback`,
-      );
-      url.searchParams.set("code", parsed.code);
-      if (parsed.state) {
-        url.searchParams.set("state", parsed.state);
-      }
+      const raw = authorizationInputFromParsed(parsed);
       const current = sessionRef.current;
       if (!current || current.kind !== "code") {
-        pendingCodeRef.current = url.toString();
+        pendingCodeRef.current = raw;
         return;
       }
       if (parsed.state && parsed.state !== current.state) {
         setError("This sign-in expired. Try connecting again.");
         return;
       }
-      completeFromAuthorizationRef.current(url.toString());
+      completeFromAuthorizationRef.current(raw);
     });
 
     return () => {
       cancelled = true;
       void subscription.then((unlisten) => unlisten()).catch(() => {});
     };
-  }, [listeningForCallback, providerId]);
+  }, [providerId]);
 
   useEffect(() => {
     if (session?.kind !== "code" || !pendingCodeRef.current) {
@@ -370,10 +365,10 @@ export function ConnectSubscriptionDialog({
           </DialogTitle>
           <DialogDescription>
             {providerId === "claude"
-              ? t`Sign in with Claude Pro or Max, then copy the authorization code. We'll detect it automatically.`
+              ? t`Sign in with Claude Pro or Max. After you authorize, we'll pick up the code and finish connecting.`
               : providerId === "chatgpt"
                 ? listeningForCallback
-                  ? t`Sign in with ChatGPT Plus or Pro. We'll finish connecting automatically.`
+                  ? t`Sign in with ChatGPT Plus or Pro. We'll open Anarlog and finish connecting.`
                   : t`Sign in with ChatGPT Plus or Pro, then paste the redirect URL from your browser.`
                 : providerId === "github_copilot"
                   ? t`Sign in with GitHub Copilot and enter the code below.`
