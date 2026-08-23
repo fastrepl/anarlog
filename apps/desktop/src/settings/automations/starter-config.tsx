@@ -57,7 +57,8 @@ export function AutomationLastRunLine({
       | string
       | undefined,
   );
-  const lastRun = lastRunOverride !== undefined ? lastRunOverride : storedLastRun;
+  const lastRun =
+    lastRunOverride !== undefined ? lastRunOverride : storedLastRun;
   if (!lastRun) {
     return null;
   }
@@ -253,9 +254,7 @@ export function SlackRecapConfig({
         connectLabel={<Trans>Connect Slack</Trans>}
         reconnectLabel={<Trans>Reconnect Slack</Trans>}
       >
-        {() => (
-          <SlackChannelSelect selected={selected} onChange={onChange} />
-        )}
+        {() => <SlackChannelSelect selected={selected} onChange={onChange} />}
       </IntegrationGate>
     </ConfigRow>
   );
@@ -547,9 +546,7 @@ function NotionPageSearch({
             <button
               key={page.id}
               type="button"
-              onClick={() =>
-                applyTarget({ id: page.id, name: page.title })
-              }
+              onClick={() => applyTarget({ id: page.id, name: page.title })}
               className={cn([
                 "rounded-lg px-3 py-1.5 text-left text-xs transition-colors",
                 page.id === selected?.id ? "bg-accent" : "hover:bg-accent/50",

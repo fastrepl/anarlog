@@ -32,7 +32,9 @@ const mocks = vi.hoisted(() => ({
   selectDraft: vi.fn(),
   selectWorkflow: vi.fn(),
   startDraft: vi.fn(),
-  saveAutomationWorkflows: vi.fn(() => Promise.resolve()),
+  saveAutomationWorkflows: vi.fn<
+    (workflows: Array<{ id: string }>) => Promise<void>
+  >(() => Promise.resolve()),
   showContextMenu: vi.fn(),
   workflows: [] as Array<{
     id: string;
@@ -257,9 +259,7 @@ describe("AutomationsNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "New automation" }));
 
     expect(mocks.saveAutomationWorkflows).toHaveBeenCalledOnce();
-    const saved = mocks.saveAutomationWorkflows.mock.calls[0]?.[0] as Array<{
-      id: string;
-    }>;
+    const saved = mocks.saveAutomationWorkflows.mock.calls[0]?.[0];
     expect(saved).toHaveLength(1);
     await vi.waitFor(() => {
       expect(mocks.selectWorkflow).toHaveBeenCalledWith(saved[0]?.id);

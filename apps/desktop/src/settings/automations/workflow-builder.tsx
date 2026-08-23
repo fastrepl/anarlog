@@ -130,7 +130,10 @@ export function WorkflowBuilder({
               <Select
                 value={step.type}
                 onValueChange={(value) =>
-                  updateStep(step.id, createWorkflowStep(value as WorkflowStepType))
+                  updateStep(
+                    step.id,
+                    createWorkflowStep(value as WorkflowStepType),
+                  )
                 }
               >
                 <SelectTrigger className="h-8 w-full max-w-xs text-xs">
@@ -330,7 +333,8 @@ export function useSaveWorkflow() {
       workflows: AutomationWorkflow[];
       next: AutomationWorkflow;
     }) => {
-      const { saveAutomationWorkflows } = await import("~/automations/workflows");
+      const { saveAutomationWorkflows } =
+        await import("~/automations/workflows");
       await saveAutomationWorkflows(
         workflows.some((workflow) => workflow.id === next.id)
           ? workflows.map((workflow) =>

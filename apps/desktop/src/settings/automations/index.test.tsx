@@ -61,7 +61,8 @@ vi.mock("~/automations/actions", () => ({
 }));
 
 vi.mock("~/automations/workflows", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("~/automations/workflows")>();
+  const actual =
+    await importOriginal<typeof import("~/automations/workflows")>();
   return {
     ...actual,
     useAutomationWorkflows: () => mocks.workflows,
@@ -165,7 +166,9 @@ describe("AutomationsContent", () => {
     expect(
       screen.getByRole("heading", { name: "Untitled automation" }),
     ).toBeTruthy();
-    expect(screen.getByText("Add a trigger, then stack actions like Zapier.")).toBeTruthy();
+    expect(
+      screen.getByText("Add a trigger, then stack actions like Zapier."),
+    ).toBeTruthy();
     expect(screen.getByText("Add an action")).toBeTruthy();
   });
 
@@ -298,7 +301,9 @@ describe("AutomationsContent", () => {
     expect(
       screen.getByRole("heading", { name: "Share weekly recap" }),
     ).toBeTruthy();
-    expect(screen.getByText("Add a trigger, then stack actions like Zapier.")).toBeTruthy();
+    expect(
+      screen.getByText("Add a trigger, then stack actions like Zapier."),
+    ).toBeTruthy();
     expect(screen.getByText("Add an action")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save & enable" })).toBeTruthy();
   });

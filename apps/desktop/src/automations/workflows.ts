@@ -3,7 +3,10 @@ import type { AutomationRunRecord, AutomationTargetRef } from "./types";
 import { setSettingValue, useStoredSettingValue } from "~/settings/queries";
 import { id } from "~/shared/utils";
 
-export const WORKFLOW_TRIGGERS = ["note_enhanced", "meeting_completed"] as const;
+export const WORKFLOW_TRIGGERS = [
+  "note_enhanced",
+  "meeting_completed",
+] as const;
 export type WorkflowTrigger = (typeof WORKFLOW_TRIGGERS)[number];
 
 export const WORKFLOW_STEP_TYPES = [
@@ -117,7 +120,9 @@ function parseWorkflow(value: unknown): AutomationWorkflow | null {
   }
 
   const trigger =
-    value.trigger === "meeting_completed" ? "meeting_completed" : "note_enhanced";
+    value.trigger === "meeting_completed"
+      ? "meeting_completed"
+      : "note_enhanced";
   const steps = Array.isArray(value.steps)
     ? value.steps.flatMap((step) => {
         const parsed = parseStep(step);
@@ -127,7 +132,8 @@ function parseWorkflow(value: unknown): AutomationWorkflow | null {
 
   return {
     id: value.id,
-    title: typeof value.title === "string" ? value.title : "Untitled automation",
+    title:
+      typeof value.title === "string" ? value.title : "Untitled automation",
     enabled: value.enabled === true,
     trigger,
     steps,

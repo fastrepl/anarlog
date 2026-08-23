@@ -1,10 +1,7 @@
 import { create } from "zustand";
 
 import { isStarterId, type StarterId } from "./starters";
-import {
-  parseAutomationWorkflows,
-  saveAutomationWorkflows,
-} from "./workflows";
+import { parseAutomationWorkflows, saveAutomationWorkflows } from "./workflows";
 
 import { useChatContext } from "~/chat/state/chat-context";
 import {
@@ -171,7 +168,9 @@ async function attachWorkflowChatGroup(
   chatGroupId: string,
 ): Promise<void> {
   const stored = await getStoredSettingValues();
-  const workflows = parseAutomationWorkflows(stored.values.automation_workflows);
+  const workflows = parseAutomationWorkflows(
+    stored.values.automation_workflows,
+  );
   const current = workflows.find((workflow) => workflow.id === workflowId);
   if (!current || current.chatGroupId === chatGroupId) {
     return;

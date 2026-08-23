@@ -5,10 +5,7 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import { useAutomationSelection } from "./selection";
 import { STARTER_AUTOMATIONS, type StarterId } from "./starters";
-import {
-  parseAutomationWorkflows,
-  saveAutomationWorkflows,
-} from "./workflows";
+import { parseAutomationWorkflows, saveAutomationWorkflows } from "./workflows";
 
 import { deleteChatGroup } from "~/chat/store/queries";
 import { getStoredSettingValues, setSettingValues } from "~/settings/queries";
