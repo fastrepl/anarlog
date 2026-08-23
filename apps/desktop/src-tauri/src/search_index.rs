@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use chrono::DateTime;
 use serde_json::{Map, Value};
-use sqlx::{Row, SqlitePool};
+use sqlx::{Connection, Row, SqlitePool};
 use tauri::AppHandle;
 use tauri_plugin_tantivy::{
     SearchDocument, SearchFilters, SearchOptions, SearchRequest, TantivyPluginExt,
@@ -197,6 +197,9 @@ async fn enqueue_all_entities(pool: &SqlitePool) -> Result<(), sqlx::Error> {
 
 async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
     loop {
+        let Some(mut connection) = pool.try_acquire() else {
+            return Ok(());
+        };
         let rows = sqlx::query(
             "SELECT entity_type, entity_id, generation
              FROM search_index_dirty
@@ -205,8 +208,9 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
              LIMIT ?",
         )
         .bind(BATCH_SIZE)
-        .fetch_all(pool)
+        .fetch_all(&mut *connection)
         .await?;
+        connection.return_to_pool().await;
 
         if rows.is_empty() {
             return Ok(());
@@ -223,12 +227,23 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
 
         let mut documents = Vec::new();
         let mut removals = Vec::new();
-        for dirty in &dirty_entities {
-            match build_index_action(pool, dirty).await? {
+        let mut processed_entities = Vec::new();
+        for dirty in dirty_entities {
+            let Some(mut connection) = pool.try_acquire() else {
+                break;
+            };
+            let action = build_index_action(&mut connection, &dirty).await?;
+            connection.return_to_pool().await;
+            match action {
                 IndexAction::Upsert(document) => documents.push(document),
                 IndexAction::Remove(id) => removals.push(id),
                 IndexAction::Skip => {}
             }
+            processed_entities.push(dirty);
+        }
+
+        if processed_entities.is_empty() {
+            return Ok(());
         }
 
         if !documents.is_empty() || !removals.is_empty() {
@@ -237,17 +252,22 @@ async fn drain_queue(app: &AppHandle, pool: &SqlitePool) -> WorkerResult<()> {
                 .await?;
         }
 
-        acknowledge_dirty_entities(pool, &dirty_entities).await?;
+        if !try_acknowledge_dirty_entities(pool, &processed_entities).await? {
+            return Ok(());
+        }
 
         tokio::task::yield_now().await;
     }
 }
 
-async fn acknowledge_dirty_entities(
+async fn try_acknowledge_dirty_entities(
     pool: &SqlitePool,
     dirty_entities: &[DirtyEntity],
-) -> Result<(), sqlx::Error> {
-    let mut tx = pool.begin().await?;
+) -> Result<bool, sqlx::Error> {
+    let Some(mut connection) = pool.try_acquire() else {
+        return Ok(false);
+    };
+    let mut tx = connection.begin().await?;
     for dirty in dirty_entities {
         sqlx::query(
             "UPDATE search_index_dirty
@@ -263,14 +283,19 @@ async fn acknowledge_dirty_entities(
         .execute(&mut *tx)
         .await?;
     }
-    tx.commit().await
+    tx.commit().await?;
+    connection.return_to_pool().await;
+    Ok(true)
 }
 
-async fn build_index_action(pool: &SqlitePool, dirty: &DirtyEntity) -> WorkerResult<IndexAction> {
+async fn build_index_action(
+    connection: &mut sqlx::SqliteConnection,
+    dirty: &DirtyEntity,
+) -> WorkerResult<IndexAction> {
     match dirty.entity_type.as_str() {
-        "session" => build_session_document(pool, &dirty.entity_id).await,
-        "human" => build_human_document(pool, &dirty.entity_id).await,
-        "organization" => build_organization_document(pool, &dirty.entity_id).await,
+        "session" => build_session_document(connection, &dirty.entity_id).await,
+        "human" => build_human_document(connection, &dirty.entity_id).await,
+        "organization" => build_organization_document(connection, &dirty.entity_id).await,
         entity_type => {
             tracing::warn!(entity_type, "ignoring unknown search index entity type");
             Ok(IndexAction::Skip)
@@ -278,14 +303,17 @@ async fn build_index_action(pool: &SqlitePool, dirty: &DirtyEntity) -> WorkerRes
     }
 }
 
-async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<IndexAction> {
+async fn build_session_document(
+    connection: &mut sqlx::SqliteConnection,
+    id: &str,
+) -> WorkerResult<IndexAction> {
     let Some(session) = sqlx::query(
         "SELECT title, created_at, event_json, locked
          FROM sessions
          WHERE id = ? AND deleted_at IS NULL",
     )
     .bind(id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *connection)
     .await?
     else {
         return Ok(IndexAction::Remove(id.to_string()));
@@ -316,7 +344,7 @@ async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<Ind
     )
     .bind(id)
     .bind(id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *connection)
     .await?;
 
     let enhanced_bodies: Vec<String> = sqlx::query_scalar(
@@ -328,7 +356,7 @@ async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<Ind
          ORDER BY sort_order, created_at, id",
     )
     .bind(id)
-    .fetch_all(pool)
+    .fetch_all(&mut *connection)
     .await?;
 
     let transcripts: Vec<String> = sqlx::query_scalar(
@@ -338,7 +366,7 @@ async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<Ind
          ORDER BY started_at_ms, created_at, id",
     )
     .bind(id)
-    .fetch_all(pool)
+    .fetch_all(&mut *connection)
     .await?;
 
     let meeting_chat_messages: Vec<String> = sqlx::query_scalar(
@@ -348,7 +376,7 @@ async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<Ind
          ORDER BY sort_order, created_at, id",
     )
     .bind(id)
-    .fetch_all(pool)
+    .fetch_all(&mut *connection)
     .await?;
 
     let mut content_parts = Vec::with_capacity(
@@ -384,14 +412,17 @@ async fn build_session_document(pool: &SqlitePool, id: &str) -> WorkerResult<Ind
     }))
 }
 
-async fn build_human_document(pool: &SqlitePool, id: &str) -> WorkerResult<IndexAction> {
+async fn build_human_document(
+    connection: &mut sqlx::SqliteConnection,
+    id: &str,
+) -> WorkerResult<IndexAction> {
     let Some(human) = sqlx::query(
         "SELECT name, email, job_title, linkedin_username, created_at, memo
          FROM humans
          WHERE id = ? AND deleted_at IS NULL",
     )
     .bind(id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *connection)
     .await?
     else {
         return Ok(IndexAction::Remove(id.to_string()));
@@ -419,14 +450,17 @@ async fn build_human_document(pool: &SqlitePool, id: &str) -> WorkerResult<Index
     }))
 }
 
-async fn build_organization_document(pool: &SqlitePool, id: &str) -> WorkerResult<IndexAction> {
+async fn build_organization_document(
+    connection: &mut sqlx::SqliteConnection,
+    id: &str,
+) -> WorkerResult<IndexAction> {
     let Some(organization) = sqlx::query(
         "SELECT name, created_at
          FROM organizations
          WHERE id = ? AND deleted_at IS NULL",
     )
     .bind(id)
-    .fetch_optional(pool)
+    .fetch_optional(&mut *connection)
     .await?
     else {
         return Ok(IndexAction::Remove(id.to_string()));
@@ -684,17 +718,21 @@ mod tests {
             .execute(db.pool())
             .await
             .unwrap();
+        let mut connection = db.pool().acquire().await.unwrap();
+        connection.return_to_pool().await;
 
-        acknowledge_dirty_entities(
-            db.pool(),
-            &[DirtyEntity {
-                entity_type: "session".to_string(),
-                entity_id: "session-1".to_string(),
-                generation: queued_generation,
-            }],
-        )
-        .await
-        .unwrap();
+        assert!(
+            try_acknowledge_dirty_entities(
+                db.pool(),
+                &[DirtyEntity {
+                    entity_type: "session".to_string(),
+                    entity_id: "session-1".to_string(),
+                    generation: queued_generation,
+                }],
+            )
+            .await
+            .unwrap()
+        );
 
         let (current_generation, acknowledged_generation): (i64, i64) = sqlx::query_as(
             "SELECT generation, acknowledged_generation FROM search_index_dirty
@@ -705,17 +743,21 @@ mod tests {
         .unwrap();
         assert_eq!(current_generation, queued_generation + 1);
         assert_eq!(acknowledged_generation, 0);
+        let mut connection = db.pool().acquire().await.unwrap();
+        connection.return_to_pool().await;
 
-        acknowledge_dirty_entities(
-            db.pool(),
-            &[DirtyEntity {
-                entity_type: "session".to_string(),
-                entity_id: "session-1".to_string(),
-                generation: current_generation,
-            }],
-        )
-        .await
-        .unwrap();
+        assert!(
+            try_acknowledge_dirty_entities(
+                db.pool(),
+                &[DirtyEntity {
+                    entity_type: "session".to_string(),
+                    entity_id: "session-1".to_string(),
+                    generation: current_generation,
+                }],
+            )
+            .await
+            .unwrap()
+        );
         let remaining: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM search_index_dirty
              WHERE entity_type = 'session'
@@ -735,6 +777,21 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(acknowledged_generation, current_generation);
+    }
+
+    #[tokio::test]
+    async fn acknowledgement_defers_when_the_database_pool_is_busy() {
+        let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+        let mut held_connection = db.pool().acquire().await.unwrap();
+        let started = std::time::Instant::now();
+
+        let acknowledged = try_acknowledge_dirty_entities(db.pool(), &[])
+            .await
+            .unwrap();
+
+        assert!(!acknowledged);
+        assert!(started.elapsed() < Duration::from_millis(100));
+        held_connection.return_to_pool().await;
     }
 
     #[test]
