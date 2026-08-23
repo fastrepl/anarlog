@@ -67,6 +67,33 @@ fn test_explicit_active_speaker_label_marks_stream_active() {
 }
 
 #[test]
+fn test_explicit_speaker_state_clears_when_the_label_disappears() {
+    let speaking = fixture_node(
+        9,
+        "AXGroup",
+        "Video render Grace Hopper, active speaker",
+        &[0, 1],
+    );
+    let inactive = fixture_node(
+        9,
+        "AXGroup",
+        "Video render Grace Hopper, Computer audio muted",
+        &[0, 1],
+    );
+
+    let speaking_streams =
+        find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &[speaking]);
+    let inactive_streams =
+        find_participant_streams(&MeetingPlatform::Zoom, &MeetingSurface::Native, &[inactive]);
+
+    assert_eq!(speaking_streams.len(), 1);
+    assert_eq!(inactive_streams.len(), 1);
+    assert_eq!(speaking_streams[0].id, inactive_streams[0].id);
+    assert!(speaking_streams[0].is_active_speaker);
+    assert!(!inactive_streams[0].is_active_speaker);
+}
+
+#[test]
 fn test_self_view_speaker_label_marks_stream_active() {
     let nodes = vec![node(10, "AXRow", "Grace Hopper is speaking (You)", None)];
 
