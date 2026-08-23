@@ -1,10 +1,5 @@
-import {
-  AppleLogo,
-  ArrowRight,
-  CaretDown,
-  LinuxLogo,
-  WindowsLogo,
-} from "@phosphor-icons/react";
+import { Icon } from "@iconify-icon/react";
+import { ArrowRight, CaretDown } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
@@ -27,7 +22,7 @@ import { CredibilityLogoMarquee } from "./social-proof-sections";
 
 export function HeroSection() {
   return (
-    <section className="pt-10 pb-2 md:pt-12 md:pb-4">
+    <section className="isolate pt-10 pb-2 md:pt-12 md:pb-4">
       <Link to="/" aria-label="Anarlog home" className="inline-flex">
         <AnarlogLogo className="h-8 w-auto md:h-9" />
       </Link>
@@ -407,7 +402,7 @@ function DownloadButton() {
       {open && (
         <div
           role="menu"
-          className="surface border-color-brand absolute top-[calc(100%+0.5rem)] left-0 w-72 max-w-[calc(100vw-2.5rem)] rounded-2xl border p-2 text-left shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
+          className="surface border-color-brand absolute top-[calc(100%+0.5rem)] left-0 z-10 w-72 max-w-[calc(100vw-2.5rem)] rounded-2xl border p-2 text-left shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
         >
           {orderedSections.map((section) =>
             section.downloads.map((download) => {
@@ -460,13 +455,21 @@ function DownloadButton() {
 }
 
 function getPlatformIcon(platform: DesktopPlatform, size: number) {
-  const Icon =
+  const icon =
     platform === "windows"
-      ? WindowsLogo
+      ? "simple-icons:windows11"
       : platform === "linux"
-        ? LinuxLogo
-        : AppleLogo;
-  return <Icon size={size} className="shrink-0" aria-hidden="true" />;
+        ? "simple-icons:linux"
+        : "simple-icons:apple";
+  return (
+    <Icon
+      icon={icon}
+      width={size}
+      height={size}
+      className="shrink-0"
+      aria-hidden="true"
+    />
+  );
 }
 
 function getDownloadOptionLabel(

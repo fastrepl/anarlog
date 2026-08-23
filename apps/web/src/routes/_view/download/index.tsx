@@ -1,10 +1,5 @@
-import {
-  AppleLogo,
-  ArrowSquareOut,
-  DownloadSimple,
-  LinuxLogo,
-  WindowsLogo,
-} from "@phosphor-icons/react";
+import { Icon } from "@iconify-icon/react";
+import { ArrowSquareOut, DownloadSimple } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -13,9 +8,9 @@ import { comingSoonPlatforms, desktopDownloadSections } from "@/lib/download";
 import { getCanonicalUrl } from "@/lib/seo";
 
 const platformIcons = {
-  macOS: AppleLogo,
-  Windows: WindowsLogo,
-  Linux: LinuxLogo,
+  macOS: "simple-icons:apple",
+  Windows: "simple-icons:windows",
+  Linux: "simple-icons:linux",
 } as const;
 
 export const Route = createFileRoute("/_view/download/")({
@@ -56,7 +51,6 @@ function Component() {
         <div className="grid gap-14 pb-12">
           {desktopDownloadSections.map((section) => {
             const headingId = `${section.name.toLowerCase()}-downloads`;
-            const PlatformIcon = platformIcons[section.name];
 
             return (
               <section key={section.name} aria-labelledby={headingId}>
@@ -64,7 +58,11 @@ function Component() {
                   id={headingId}
                   className="font-hand mb-5 flex items-center gap-2.5 text-3xl leading-none font-semibold tracking-normal"
                 >
-                  <PlatformIcon size={24} aria-hidden="true" />
+                  <Icon
+                    icon={platformIcons[section.name]}
+                    className="text-2xl"
+                    aria-hidden="true"
+                  />
                   {section.name}
                   {section.status && (
                     <span className="border-color-subtle text-color-muted rounded-full border px-2.5 py-1 font-sans text-xs leading-none font-medium tracking-wide uppercase">
