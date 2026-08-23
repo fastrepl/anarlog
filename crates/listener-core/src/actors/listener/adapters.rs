@@ -39,6 +39,49 @@ fn client_build_error(args: &ListenerArgs, error: owhisper_client::Error) -> Act
     }
 }
 
+fn classify_ws_connect_failure(provider: &str, error: &anlg_ws_client::Error) -> DegradedError {
+    if error.is_auth_error() {
+        return DegradedError::AuthenticationFailed {
+            provider: provider.to_string(),
+        };
+    }
+
+    match error {
+        anlg_ws_client::Error::InvalidRequest { message }
+        | anlg_ws_client::Error::ConnectFailed {
+            message,
+            status_code: Some(400 | 402 | 404 | 422),
+            ..
+        } => DegradedError::ProviderConfiguration {
+            provider: provider.to_string(),
+            message: message.clone(),
+        },
+        _ => DegradedError::UpstreamUnavailable {
+            message: error.to_string(),
+        },
+    }
+}
+
+fn ws_connect_error(args: &ListenerArgs, error: anlg_ws_client::Error) -> ActorProcessingErr {
+    let provider =
+        AdapterKind::from_url_and_languages(&args.base_url, &args.languages, Some(&args.model))
+            .to_string();
+    let message = format!("listen_ws_connect_failed: {error:?}");
+
+    tracing::warn!(
+        anarlog.session.id = %args.session_id,
+        anarlog.stt.provider.name = %provider,
+        error.message = ?error,
+        "listen_ws_connect_failed"
+    );
+    args.runtime.emit_error(SessionErrorEvent::ConnectionError {
+        session_id: args.session_id.clone(),
+        error: message.clone(),
+    });
+
+    actor_error_with_degraded(message, classify_ws_connect_failure(&provider, &error))
+}
+
 pub(super) async fn spawn_rx_task(
     args: ListenerArgs,
     myself: ActorRef<ListenerMsg>,
@@ -504,21 +547,10 @@ async fn spawn_rx_task_single_with_adapter<A: RealtimeSttAdapter>(
 
     let outbound = tokio_stream::wrappers::ReceiverStream::new(rx);
 
-    let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
-        Err(e) => {
-            tracing::error!(
-                anarlog.session.id = %args.session_id,
-                error.message = ?e,
-                "listen_ws_connect_failed(single)"
-            );
-            args.runtime.emit_error(SessionErrorEvent::ConnectionError {
-                session_id: args.session_id.clone(),
-                error: format!("listen_ws_connect_failed: {:?}", e),
-            });
-            return Err(actor_error(format!("listen_ws_connect_failed: {:?}", e)));
-        }
-        Ok(res) => res,
-    };
+    let (listen_stream, handle) = client
+        .from_realtime_audio(outbound)
+        .await
+        .map_err(|error| ws_connect_error(&args, error))?;
 
     let rx_task = tokio::spawn(async move {
         futures_util::pin_mut!(listen_stream);
@@ -565,21 +597,10 @@ async fn spawn_rx_task_dual_with_adapter<A: RealtimeSttAdapter>(
 
     let outbound = tokio_stream::wrappers::ReceiverStream::new(rx);
 
-    let (listen_stream, handle) = match client.from_realtime_audio(outbound).await {
-        Err(e) => {
-            tracing::error!(
-                anarlog.session.id = %args.session_id,
-                error.message = ?e,
-                "listen_ws_connect_failed(dual)"
-            );
-            args.runtime.emit_error(SessionErrorEvent::ConnectionError {
-                session_id: args.session_id.clone(),
-                error: format!("listen_ws_connect_failed: {:?}", e),
-            });
-            return Err(actor_error(format!("listen_ws_connect_failed: {:?}", e)));
-        }
-        Ok(res) => res,
-    };
+    let (listen_stream, handle) = client
+        .from_realtime_audio(outbound)
+        .await
+        .map_err(|error| ws_connect_error(&args, error))?;
 
     let rx_task = tokio::spawn(async move {
         futures_util::pin_mut!(listen_stream);
@@ -714,6 +735,56 @@ mod tests {
 
         assert_eq!(params.num_speakers, Some(2));
         assert_eq!(params.max_speakers, Some(2));
+    }
+
+    #[test]
+    fn websocket_auth_failures_are_terminal() {
+        let error = anlg_ws_client::Error::ConnectFailed {
+            attempt: 1,
+            max_attempts: 3,
+            message: "HTTP 401 Unauthorized".to_string(),
+            is_auth: true,
+            status_code: Some(401),
+            retryable: false,
+            retry_after_secs: None,
+        };
+
+        assert!(matches!(
+            classify_ws_connect_failure("deepgram", &error),
+            DegradedError::AuthenticationFailed { provider } if provider == "deepgram"
+        ));
+    }
+
+    #[test]
+    fn websocket_request_failures_are_terminal() {
+        let error = anlg_ws_client::Error::ConnectFailed {
+            attempt: 1,
+            max_attempts: 3,
+            message: "HTTP 400 Bad Request".to_string(),
+            is_auth: false,
+            status_code: Some(400),
+            retryable: false,
+            retry_after_secs: None,
+        };
+
+        assert!(matches!(
+            classify_ws_connect_failure("deepgram", &error),
+            DegradedError::ProviderConfiguration { provider, message }
+                if provider == "deepgram" && message == "HTTP 400 Bad Request"
+        ));
+    }
+
+    #[test]
+    fn websocket_transient_failures_remain_retryable() {
+        let error = anlg_ws_client::Error::ConnectRetriesExhausted {
+            attempts: 3,
+            last_error: "HTTP 503 Service Unavailable".to_string(),
+        };
+
+        assert!(matches!(
+            classify_ws_connect_failure("deepgram", &error),
+            DegradedError::UpstreamUnavailable { .. }
+        ));
     }
 
     #[test]

@@ -136,7 +136,7 @@ async fn try_connect(
     let (ws_stream, _) = match connect_result {
         Ok(Ok(stream)) => stream,
         Ok(Err(error)) => {
-            tracing::error!(
+            tracing::warn!(
                 attempt,
                 max_attempts,
                 request = %redacted_request,
