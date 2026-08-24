@@ -24,9 +24,106 @@ fn is_tap_device(name: &str) -> bool {
     }
 }
 
+pub(crate) fn is_unusable_input_device(name: &str) -> bool {
+    if is_tap_device(name) {
+        return true;
+    }
+
+    let lower = name.to_ascii_lowercase();
+    lower.contains(".monitor") || lower.contains("monitor of ")
+}
+
+fn rank_input_devices(
+    preferred: Option<&str>,
+    default_name: Option<&str>,
+    names: &[String],
+) -> Vec<String> {
+    let mut ordered = Vec::new();
+    let mut push = |name: &str| {
+        if is_unusable_input_device(name) {
+            return;
+        }
+        if !name.is_empty() && ordered.iter().any(|existing| existing == name) {
+            return;
+        }
+        ordered.push(name.to_string());
+    };
+
+    if let Some(name) = preferred {
+        push(name);
+    }
+    if let Some(name) = default_name {
+        push(name);
+    }
+    for name in names {
+        push(name);
+    }
+    ordered
+}
+
+fn with_cpal_host_lock<T>(f: impl FnOnce() -> T) -> T {
+    #[cfg(target_os = "linux")]
+    {
+        use std::cell::Cell;
+
+        thread_local! {
+            static LOCK_HELD: Cell<bool> = const { Cell::new(false) };
+        }
+
+        static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+        LOCK_HELD.with(|held| {
+            if held.get() {
+                return f();
+            }
+
+            let _guard = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            held.set(true);
+            let result = f();
+            held.set(false);
+            result
+        })
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        f()
+    }
+}
+
+fn drop_quietly<T>(value: T) {
+    if std::thread::panicking() {
+        std::mem::forget(value);
+        return;
+    }
+
+    if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(value))).is_err() {
+        tracing::error!("audio_backend_drop_panicked");
+    }
+}
+
+struct QuietDrop<T>(std::mem::ManuallyDrop<T>);
+
+impl<T> QuietDrop<T> {
+    fn new(value: T) -> Self {
+        Self(std::mem::ManuallyDrop::new(value))
+    }
+
+    fn inner(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T> Drop for QuietDrop<T> {
+    fn drop(&mut self) {
+        // SAFETY: Drop runs once; the value is taken out of ManuallyDrop here.
+        let value = unsafe { std::mem::ManuallyDrop::take(&mut self.0) };
+        with_cpal_host_lock(|| drop_quietly(value));
+    }
+}
+
 pub struct MicInput {
-    _host: cpal::Host,
-    device: cpal::Device,
+    _host: QuietDrop<cpal::Host>,
+    device: QuietDrop<cpal::Device>,
     config: cpal::SupportedStreamConfig,
 }
 
@@ -54,36 +151,63 @@ fn build_stream_error_type(error: &cpal::BuildStreamError) -> &'static str {
 impl MicInput {
     pub fn device_name(&self) -> String {
         self.device
+            .inner()
             .description()
             .map(|d| d.name().to_string())
             .unwrap_or("Unknown Microphone".to_string())
     }
 
     pub fn list_devices() -> Vec<String> {
-        cpal::default_host()
-            .input_devices()
-            .map_err(|err| {
-                tracing::error!(error = %err, "mic_list_devices_failed");
-                err
-            })
-            .ok()
-            .into_iter()
-            .flatten()
-            .filter_map(|d| {
-                let name = d
-                    .description()
-                    .map(|desc| desc.name().to_string())
-                    .unwrap_or("Unknown Microphone".to_string());
-                if is_tap_device(&name) {
-                    None
-                } else {
-                    Some(name)
-                }
-            })
-            .collect()
+        with_cpal_host_lock(|| {
+            let host = cpal::default_host();
+            let names = host
+                .input_devices()
+                .map_err(|err| {
+                    tracing::error!(error = %err, "mic_list_devices_failed");
+                    err
+                })
+                .ok()
+                .into_iter()
+                .flatten()
+                .filter_map(|d| {
+                    let name = d
+                        .description()
+                        .map(|desc| desc.name().to_string())
+                        .unwrap_or("Unknown Microphone".to_string());
+                    let keep = !is_unusable_input_device(&name);
+                    drop_quietly(d);
+                    keep.then_some(name)
+                })
+                .collect();
+            drop_quietly(host);
+            names
+        })
+    }
+
+    pub fn default_device_name() -> String {
+        with_cpal_host_lock(|| {
+            let host = cpal::default_host();
+            let name = host
+                .default_input_device()
+                .and_then(|device| {
+                    let name = device
+                        .description()
+                        .map(|d| d.name().to_string())
+                        .unwrap_or_default();
+                    drop_quietly(device);
+                    (!name.is_empty() && !is_unusable_input_device(&name)).then_some(name)
+                })
+                .unwrap_or_else(|| "Unknown Microphone".to_string());
+            drop_quietly(host);
+            name
+        })
     }
 
     pub fn new(device_name: Option<String>) -> Result<Self, crate::Error> {
+        with_cpal_host_lock(|| Self::new_locked(device_name))
+    }
+
+    fn new_locked(device_name: Option<String>) -> Result<Self, crate::Error> {
         let host = cpal::default_host();
 
         let get_device_name = |d: &cpal::Device| {
@@ -92,56 +216,85 @@ impl MicInput {
                 .unwrap_or_default()
         };
 
-        let default_input_device = host
-            .default_input_device()
-            .filter(|d| !is_tap_device(&get_device_name(d)));
-
-        let input_devices: Vec<cpal::Device> = host
+        let listed: Vec<cpal::Device> = host
             .input_devices()
-            .map(|devices| {
-                devices
-                    .filter(|d| !is_tap_device(&get_device_name(d)))
-                    .collect()
-            })
+            .map(|devices| devices.collect())
             .unwrap_or_else(|_| Vec::new());
-
-        let device = match device_name {
-            None => default_input_device
-                .or_else(|| input_devices.into_iter().next())
-                .ok_or(crate::Error::NoInputDevice)?,
-            Some(name) => input_devices
-                .into_iter()
-                .find(|d| get_device_name(d) == name)
-                .or(default_input_device)
-                .or_else(|| {
-                    host.input_devices().ok().and_then(|mut devices| {
-                        devices.find(|d| !is_tap_device(&get_device_name(d)))
-                    })
-                })
-                .ok_or(crate::Error::NoInputDevice)?,
-        };
-
-        let device_name = get_device_name(&device);
-        let config = device.default_input_config().map_err(|err| {
-            tracing::error!(
-                error = %err,
-                error.type = default_stream_config_error_type(&err),
-                device_name,
-                "mic_default_input_config_failed"
-            );
-            crate::Error::MicOpenFailed
-        })?;
-        tracing::info!(
-            anarlog.audio.sample_rate_hz = ?config.sample_rate(),
-            device_name,
-            "mic_input_initialized"
+        let listed_names: Vec<String> = listed.iter().map(get_device_name).collect();
+        let default_name = host.default_input_device().map(|d| {
+            let name = get_device_name(&d);
+            drop_quietly(d);
+            name
+        });
+        let ranked = rank_input_devices(
+            device_name.as_deref(),
+            default_name.as_deref(),
+            &listed_names,
         );
 
-        Ok(Self {
-            _host: host,
-            device,
-            config,
-        })
+        let opened = if ranked.is_empty() {
+            None
+        } else {
+            let mut opened = None;
+            for name in ranked {
+                let Some(device) = listed
+                    .iter()
+                    .find(|d| get_device_name(d) == name)
+                    .cloned()
+                    .or_else(|| {
+                        host.input_devices()
+                            .ok()
+                            .and_then(|mut devices| devices.find(|d| get_device_name(d) == name))
+                    })
+                else {
+                    continue;
+                };
+
+                match device.default_input_config() {
+                    Ok(config) => {
+                        opened = Some((device, config, name));
+                        break;
+                    }
+                    Err(err) => {
+                        tracing::error!(
+                            error = %err,
+                            error.type = default_stream_config_error_type(&err),
+                            device_name = name,
+                            "mic_default_input_config_failed"
+                        );
+                        drop_quietly(device);
+                    }
+                }
+            }
+            opened
+        };
+
+        for leftover in listed {
+            drop_quietly(leftover);
+        }
+
+        match opened {
+            Some((device, config, name)) => {
+                tracing::info!(
+                    anarlog.audio.sample_rate_hz = ?config.sample_rate(),
+                    device_name = name,
+                    "mic_input_initialized"
+                );
+                Ok(Self {
+                    _host: QuietDrop::new(host),
+                    device: QuietDrop::new(device),
+                    config,
+                })
+            }
+            None => {
+                drop_quietly(host);
+                Err(if default_name.is_none() && listed_names.is_empty() {
+                    crate::Error::NoInputDevice
+                } else {
+                    crate::Error::MicOpenFailed
+                })
+            }
+        }
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -152,7 +305,7 @@ impl MicInput {
 impl MicInput {
     pub fn stream(&self) -> Result<MicStream, crate::Error> {
         let config = self.config.clone();
-        let device = self.device.clone();
+        let device = self.device.inner().clone();
         let (drop_tx, drop_rx) = std::sync::mpsc::channel();
         let (init_tx, init_rx) = std::sync::mpsc::channel();
 
@@ -274,12 +427,13 @@ impl MicInput {
                 Ok(stream)
             };
 
-            let stream = match start_stream() {
+            let stream = match with_cpal_host_lock(start_stream) {
                 Ok(stream) => stream,
                 Err(error) => {
                     let _ = init_tx.send(Err(error));
                     alive_for_thread.store(false, Ordering::Release);
                     waker_for_thread.wake();
+                    with_cpal_host_lock(|| drop_quietly(device));
                     return;
                 }
             };
@@ -289,7 +443,10 @@ impl MicInput {
 
             alive_for_thread.store(false, Ordering::Release);
             waker_for_thread.wake();
-            drop(stream);
+            with_cpal_host_lock(|| {
+                drop_quietly(stream);
+                drop_quietly(device);
+            });
         });
 
         match init_rx.recv_timeout(std::time::Duration::from_secs(5)) {
@@ -392,6 +549,89 @@ mod tests {
             }),
             "backend_specific"
         );
+    }
+
+    #[test]
+    fn monitor_sources_are_unusable_input_devices() {
+        assert!(is_unusable_input_device(
+            "alsa_output.pci.analog-stereo.monitor"
+        ));
+        assert!(is_unusable_input_device("Monitor of Built-in Audio"));
+        assert!(!is_unusable_input_device("Built-in Audio Analog Stereo"));
+        assert!(!is_unusable_input_device("USB Microphone"));
+    }
+
+    #[test]
+    fn rank_input_devices_prefers_named_then_default_and_skips_monitors() {
+        let ranked = rank_input_devices(
+            Some("USB Microphone"),
+            Some("Built-in Audio"),
+            &[
+                "alsa_output.pci.analog-stereo.monitor".to_string(),
+                "Built-in Audio".to_string(),
+                "USB Microphone".to_string(),
+                "Headset".to_string(),
+            ],
+        );
+
+        assert_eq!(
+            ranked,
+            vec![
+                "USB Microphone".to_string(),
+                "Built-in Audio".to_string(),
+                "Headset".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn rank_input_devices_falls_back_when_preferred_is_a_monitor() {
+        let ranked = rank_input_devices(
+            Some("Monitor of Built-in Audio"),
+            Some("Built-in Audio"),
+            &[
+                "Monitor of Built-in Audio".to_string(),
+                "Built-in Audio".to_string(),
+            ],
+        );
+
+        assert_eq!(ranked, vec!["Built-in Audio".to_string()]);
+    }
+
+    #[test]
+    fn drop_quietly_swallows_destructor_panics() {
+        struct Boom;
+        impl Drop for Boom {
+            fn drop(&mut self) {
+                panic!("drop boom");
+            }
+        }
+
+        drop_quietly(Boom);
+    }
+
+    #[test]
+    fn drop_quietly_forgets_values_during_unwind() {
+        struct Boom;
+        impl Drop for Boom {
+            fn drop(&mut self) {
+                panic!("drop boom");
+            }
+        }
+
+        let result = std::panic::catch_unwind(|| {
+            struct Guard;
+            impl Drop for Guard {
+                fn drop(&mut self) {
+                    drop_quietly(Boom);
+                }
+            }
+
+            let _guard = Guard;
+            panic!("first");
+        });
+
+        assert!(result.is_err());
     }
 
     #[test]

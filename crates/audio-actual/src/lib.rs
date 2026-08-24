@@ -10,7 +10,6 @@ pub use norm::*;
 pub use speaker::*;
 
 pub use cpal;
-use cpal::traits::{DeviceTrait, HostTrait};
 
 pub use anlg_audio::{AudioProvider, CaptureConfig, CaptureFrame, CaptureStream, Error};
 pub use anlg_audio_interface::AsyncSource;
@@ -86,12 +85,7 @@ pub struct AudioInput {
 
 impl AudioInput {
     pub fn get_default_device_name() -> String {
-        let host = cpal::default_host();
-        let device = host.default_input_device().unwrap();
-        device
-            .description()
-            .map(|d| d.name().to_string())
-            .unwrap_or("Unknown Microphone".to_string())
+        MicInput::default_device_name()
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -103,18 +97,7 @@ impl AudioInput {
     }
 
     pub fn list_mic_devices() -> Vec<String> {
-        let host = cpal::default_host();
-
-        let devices: Vec<cpal::Device> = host
-            .input_devices()
-            .map(|devices| devices.collect())
-            .unwrap_or_else(|_| Vec::new());
-
-        devices
-            .into_iter()
-            .filter_map(|d| d.description().map(|desc| desc.name().to_string()).ok())
-            .filter(|d| d != TAP_DEVICE_NAME)
-            .collect()
+        MicInput::list_devices()
     }
 
     pub fn from_mic_and_speaker(config: CaptureConfig) -> Result<CaptureStream, Error> {
