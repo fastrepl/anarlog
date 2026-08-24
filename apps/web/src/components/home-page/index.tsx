@@ -1,4 +1,5 @@
-import { ArrowRight, GithubLogo } from "@phosphor-icons/react";
+import { Icon } from "@iconify-icon/react";
+import { ArrowRight } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -176,7 +177,13 @@ function OpenSourceSection({
           rel="noopener noreferrer"
           className="mt-6 inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-5 py-3 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white"
         >
-          <GithubLogo size={18} aria-hidden="true" />
+          <Icon
+            icon="simple-icons:github"
+            width={18}
+            height={18}
+            className="shrink-0"
+            aria-hidden="true"
+          />
           <span>{formattedGithubStars} stars on GitHub</span>
         </a>
       </div>
