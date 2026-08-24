@@ -499,7 +499,30 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("textbox", { name: "Session title" })).toBeNull();
   });
 
-  it("hides the title input on the memo tab", () => {
+  it("shows an editable title on the memo tab before recording", () => {
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+        tab={{
+          active: true,
+          id: "session-1",
+          pinned: false,
+          slotId: "slot-1",
+          state: { autoStart: null, view: { type: "raw" } },
+          type: "sessions",
+        }}
+      />,
+    );
+
+    const title = screen.getByRole("textbox", { name: "Session title" });
+
+    expect(title.getAttribute("placeholder")).toBe("Untitled");
+  });
+
+  it("hides the title input on the memo tab after recording", () => {
+    mocks.hasTranscriptBySession = { "session-1": true };
+
     render(
       <OuterHeader
         sessionId="session-1"
