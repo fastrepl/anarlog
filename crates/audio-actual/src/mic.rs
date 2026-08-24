@@ -40,10 +40,10 @@ fn rank_input_devices(
 ) -> Vec<String> {
     let mut ordered = Vec::new();
     let mut push = |name: &str| {
-        if is_unusable_input_device(name) {
+        if name.is_empty() || is_unusable_input_device(name) {
             return;
         }
-        if !name.is_empty() && ordered.iter().any(|existing| existing == name) {
+        if ordered.iter().any(|existing| existing == name) {
             return;
         }
         ordered.push(name.to_string());
@@ -105,6 +105,34 @@ fn drop_quietly<T>(value: T) {
     if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(value))).is_err() {
         tracing::error!("audio_backend_drop_panicked");
     }
+}
+
+fn take_first_matching<T>(
+    items: impl IntoIterator<Item = T>,
+    mut matches: impl FnMut(&T) -> bool,
+    mut drop_unused: impl FnMut(T),
+) -> Option<T> {
+    let mut found = None;
+    for item in items {
+        if found.is_none() && matches(&item) {
+            found = Some(item);
+        } else {
+            drop_unused(item);
+        }
+    }
+    found
+}
+
+fn take_named_device(
+    devices: impl IntoIterator<Item = cpal::Device>,
+    name: &str,
+    get_device_name: impl Fn(&cpal::Device) -> String,
+) -> Option<cpal::Device> {
+    take_first_matching(
+        devices,
+        |device| get_device_name(device) == name,
+        drop_quietly,
+    )
 }
 
 struct QuietDrop<T>(std::mem::ManuallyDrop<T>);
@@ -250,7 +278,7 @@ impl MicInput {
                     .or_else(|| {
                         host.input_devices()
                             .ok()
-                            .and_then(|mut devices| devices.find(|d| get_device_name(d) == name))
+                            .and_then(|devices| take_named_device(devices, &name, get_device_name))
                     })
                 else {
                     continue;
@@ -588,6 +616,43 @@ mod tests {
                 "Headset".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn rank_input_devices_skips_empty_names() {
+        let ranked = rank_input_devices(
+            Some(""),
+            Some(""),
+            &[String::new(), "USB Microphone".to_string(), String::new()],
+        );
+
+        assert_eq!(ranked, vec!["USB Microphone".to_string()]);
+    }
+
+    #[test]
+    fn take_first_matching_quiet_drops_skipped_and_leftover_items() {
+        struct Boom {
+            keep: bool,
+        }
+        impl Drop for Boom {
+            fn drop(&mut self) {
+                if !self.keep {
+                    panic!("drop boom");
+                }
+            }
+        }
+
+        let kept = take_first_matching(
+            vec![
+                Boom { keep: false },
+                Boom { keep: true },
+                Boom { keep: false },
+            ],
+            |item| item.keep,
+            drop_quietly,
+        );
+
+        assert!(kept.is_some());
     }
 
     #[test]
