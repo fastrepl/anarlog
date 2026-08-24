@@ -14,6 +14,7 @@ qa_lock_dir="$qa_target_dir/.anarlog-native-dev-qa-lock"
 qa_frontend_dist="$qa_repo_root/apps/desktop/dist"
 qa_config_validator="$qa_repo_root/.agents/skills/qa-critical-ux/scripts/validate-native-dev-qa-config.mjs"
 qa_gitbutler_candidate_resolver="$qa_repo_root/.agents/skills/qa-critical-ux/scripts/resolve-gitbutler-candidate.mjs"
+qa_launcher="$qa_repo_root/.agents/skills/qa-critical-ux/scripts/launch-native-dev-qa.sh"
 qa_release_workflow="$qa_repo_root/.github/workflows/desktop_cd.yaml"
 qa_expected_supabase_url="https://ijoptyyjrfqwaqhyxkxj.supabase.co"
 qa_xcode_developer_dir="/Applications/Xcode.app/Contents/Developer"
@@ -490,6 +491,8 @@ validate_manifest() {
   fail "Compiled frontend validator not found: $qa_config_validator"
 [[ -f "$qa_gitbutler_candidate_resolver" ]] ||
   fail "GitButler candidate resolver not found: $qa_gitbutler_candidate_resolver"
+[[ -x "$qa_launcher" ]] ||
+  fail "Native Dev QA launcher not found: $qa_launcher"
 qa_node_executable="$(command -v node)" ||
   fail "Node.js is required for native Dev QA configuration validation."
 qa_git_executable="$(command -v git)" ||
@@ -681,5 +684,4 @@ cleanup
 trap - EXIT INT TERM
 
 cd "$qa_repo_root"
-exec env -u NO_AEC AUDIO_SYNC_PROBE=1 LISTENER_DEBUG=1 \
-  "$qa_bundle_executable"
+exec "$qa_launcher" "$qa_bundle_dir"

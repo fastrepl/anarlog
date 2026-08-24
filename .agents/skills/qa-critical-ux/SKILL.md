@@ -47,7 +47,10 @@ configuration (`VITE_APP_URL`, `VITE_API_URL`, `VITE_SUPABASE_URL`,
 `VITE_SUPABASE_ANON_KEY` must match production; local URLs cannot pass), uses
 its own persistent Cargo cache under `~/Library/Caches/anarlog` (never the
 repo `target` directory), and launches with `AUDIO_SYNC_PROBE=1` and
-`LISTENER_DEBUG=1`. Reuse an already-current bundle with `--launch-only`.
+`LISTENER_DEBUG=1`. It launches the `.app` through LaunchServices so macOS
+evaluates process-scoped permissions against the bundle identity. Do not run
+the executable under `Contents/MacOS` directly. Reuse an already-current
+bundle with `--launch-only`.
 
 Pin release-gate builds to the intended candidate commit:
 

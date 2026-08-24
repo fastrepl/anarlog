@@ -10,6 +10,7 @@ jobs:
           python3 .github/scripts/check_license_boundary.py
       - run: >-
           node --test
+          .agents/skills/qa-critical-ux/scripts/launch-native-dev-qa.test.mjs
           scripts/desktop-release-provenance.test.mjs
           scripts/publish-anarlog-skill.test.mjs
           scripts/repack-linux-appimage.test.mjs
