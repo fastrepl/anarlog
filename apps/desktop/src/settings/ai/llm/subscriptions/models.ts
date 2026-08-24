@@ -24,19 +24,22 @@ import {
 
 const FALLBACK_MODELS: Record<SubscriptionProviderId, string[]> = {
   claude: ["claude-sonnet-4-6", "claude-opus-4-6", "claude-haiku-4-5"],
-  chatgpt: ["gpt-5.3-codex", "gpt-5.4", "gpt-5.2-codex"],
+  chatgpt: [],
   grok: ["grok-4", "grok-4-fast", "grok-3"],
   github_copilot: ["gpt-4.1", "claude-sonnet-4", "gemini-2.5-pro"],
   kimi_code: ["kimi-for-coding"],
 };
 
 const ChatgptModelSchema = Schema.Struct({
-  data: Schema.Array(
+  models: Schema.Array(
     Schema.Struct({
-      id: Schema.String,
+      slug: Schema.String,
+      visibility: Schema.optional(Schema.String),
     }),
   ),
 });
+
+const CHATGPT_CODEX_CLIENT_VERSION = "0.145.0";
 
 const CopilotModelSchema = Schema.Struct({
   data: Schema.Array(
@@ -129,16 +132,21 @@ async function listChatgptModels(
   }
 
   return pipe(
-    fetchJson(`${endpoint}/models`, headers),
+    fetchJson(
+      `${endpoint}/models?client_version=${CHATGPT_CODEX_CLIENT_VERSION}`,
+      headers,
+    ),
     Effect.andThen((json) => Schema.decodeUnknown(ChatgptModelSchema)(json)),
-    Effect.map(({ data }) => {
-      const models = data.map((model) => model.id);
+    Effect.map(({ models: catalog }) => {
+      const models = catalog
+        .filter((model) => model.visibility !== "hide")
+        .map((model) => model.slug);
       return {
         models,
         ignored: [],
         metadata: extractMetadataMap(
-          data,
-          (model) => model.id,
+          catalog,
+          (model) => model.slug,
           () => ({ input_modalities: ["text", "image"] as const }),
         ),
       };

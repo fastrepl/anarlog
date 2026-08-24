@@ -13,6 +13,7 @@ import type { AIProviderStorage } from "@anlg/store";
 
 import { createAppleFoundationModel } from "../apple-foundation-model";
 import { createAuthFetch } from "../auth-fetch";
+import { streamOnlyGenerationMiddleware } from "../stream-only-generation";
 import { createTracedFetch, tracedFetch } from "../traced-fetch";
 
 import { useAuth } from "~/auth";
@@ -291,7 +292,15 @@ const createLanguageModel = (
         baseURL: oauth ? CHATGPT_API_BASE_URL : conn.baseUrl,
         apiKey: oauth ? "oauth" : conn.apiKey,
       });
-      return wrapWithThinkingMiddleware(provider.responses(conn.modelId));
+      const model = provider.responses(conn.modelId);
+      return wrapWithThinkingMiddleware(
+        oauth
+          ? wrapLanguageModel({
+              model,
+              middleware: streamOnlyGenerationMiddleware,
+            })
+          : model,
+      );
     }
 
     case "grok":
