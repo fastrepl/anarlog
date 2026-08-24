@@ -431,15 +431,42 @@ jobs:
         with:
           ref: ${{ needs.validate.outputs.candidate_sha }}
           persist-credentials: false
+      - id: crabnebula-release
+        uses: ./.github/actions/cn_release
+        with:
+          raw: >-
+            release show fastrepl/hyprnote2 ${{ needs.validate.outputs.version }}
+            --channel stable
+          key: ${{ secrets.CN_API_KEY }}
       - name: Download and verify stable Windows installer
         shell: pwsh
         env:
+          CRABNEBULA_RELEASE: ${{ steps.crabnebula-release.outputs.raw }}
           VERSION: ${{ needs.validate.outputs.version }}
           WINDOWS_SIGNER_ORGANIZATION: ${{ vars.WINDOWS_SIGNER_ORGANIZATION }}
         run: |
           $ErrorActionPreference = "Stop"
 
-          $packageUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/desktop_v$env:VERSION/anarlog-windows-x86_64-setup.exe"
+          $release = $env:CRABNEBULA_RELEASE | ConvertFrom-Json
+          if ([string]$release.version -ne $env:VERSION) {
+            throw "Expected CrabNebula release $env:VERSION, got $($release.version)"
+          }
+
+          $assets = @(
+            $release.assets | Where-Object {
+              $_.publicPlatform -eq "nsis-x86_64" -and [long]$_.size -gt 0
+            }
+          )
+          if ($assets.Count -ne 1) {
+            throw "Expected exactly one nonempty CrabNebula nsis-x86_64 asset"
+          }
+
+          $assetId = [string]$assets[0].id
+          if ($assetId -notmatch '^[A-Za-z0-9_-]+$') {
+            throw "Invalid CrabNebula asset ID '$assetId'"
+          }
+
+          $packageUrl = "https://cdn.crabnebula.app/asset/$assetId"
           Invoke-WebRequest -Uri $packageUrl -OutFile "anarlog-windows-x86_64-setup.exe"
 
           $signature = Get-AuthenticodeSignature "anarlog-windows-x86_64-setup.exe"
