@@ -346,7 +346,7 @@ describe("browser-safe editor controls", () => {
     toJSON.mockRestore();
   });
 
-  it("does not serialize ignored content echoes while focused", async () => {
+  it("defers external content until focus leaves the editor", async () => {
     const ref = createRef<NoteEditorRef>();
     const props = {
       ref,
@@ -373,7 +373,48 @@ describe("browser-safe editor controls", () => {
 
     expect(ref.current?.view?.state.doc.textContent).toBe("old");
     expect(toJSON).not.toHaveBeenCalled();
+
+    act(() => ref.current?.view?.dom.blur());
+
+    expect(ref.current?.view?.state.doc.textContent).toBe("new");
     toJSON.mockRestore();
+  });
+
+  it("keeps external content deferred while focus is in editor popups", async () => {
+    const ref = createRef<NoteEditorRef>();
+    const props = {
+      ref,
+      handleChange: vi.fn(),
+      enforceTitleHeading: false,
+    };
+    const rendered = render(
+      createElement(NoteEditor, {
+        ...props,
+        initialContent: baseDoc,
+      }),
+    );
+    await waitFor(() => expect(ref.current?.view).not.toBeNull());
+    act(() => ref.current?.view?.focus());
+
+    rendered.rerender(
+      createElement(NoteEditor, {
+        ...props,
+        initialContent: nextDoc,
+      }),
+    );
+
+    const popup = document.createElement("div");
+    popup.dataset.editorEscapeConsumer = "";
+    const popupButton = document.createElement("button");
+    popup.append(popupButton);
+    document.body.append(popup);
+
+    act(() => popupButton.focus());
+    expect(ref.current?.view?.state.doc.textContent).toBe("old");
+
+    act(() => popupButton.blur());
+    expect(ref.current?.view?.state.doc.textContent).toBe("new");
+    popup.remove();
   });
 
   it("flushes the current document through the change handler immediately", async () => {

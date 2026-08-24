@@ -821,8 +821,22 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
 
     useEffect(() => {
       let retryTimeout: ReturnType<typeof setTimeout> | undefined;
+      let deferredPopup: HTMLElement | undefined;
+      let deferredView: EditorView | undefined;
 
-      const syncContent = () => {
+      const syncContent = (event?: FocusEvent) => {
+        const popup =
+          event?.relatedTarget instanceof Element
+            ? event.relatedTarget.closest<HTMLElement>(
+                "[data-editor-escape-consumer]",
+              )
+            : null;
+        if (popup) {
+          deferredPopup = popup;
+          popup.addEventListener("focusout", syncContent, { once: true });
+          return;
+        }
+
         const view = viewRef.current;
         if (!view) return;
         if (previousContentRef.current === reconciledInitialContent) return;
@@ -835,6 +849,8 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         }
 
         if (view.hasFocus() && !syncContentWhenFocused) {
+          deferredView = view;
+          view.dom.addEventListener("blur", syncContent, { once: true });
           return;
         }
 
@@ -889,6 +905,8 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>(
         if (retryTimeout) {
           clearTimeout(retryTimeout);
         }
+        deferredPopup?.removeEventListener("focusout", syncContent);
+        deferredView?.dom.removeEventListener("blur", syncContent);
       };
     }, [
       reconciledInitialContent,
