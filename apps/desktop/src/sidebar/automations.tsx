@@ -353,7 +353,7 @@ function WorkflowListItem({
 }: {
   workflow: AutomationWorkflow;
   selected: boolean;
-  onSelect: (workflowId: string) => void;
+  onSelect: (workflowId: string, chatGroupId?: string | null) => void;
 }) {
   const { t } = useLingui();
   const deleteWorkflow = useDeleteWorkflow();
@@ -362,7 +362,7 @@ function WorkflowListItem({
       {
         id: `edit-automation-${workflow.id}`,
         text: t`Edit`,
-        action: () => onSelect(workflow.id),
+        action: () => onSelect(workflow.id, workflow.chatGroupId),
       },
       { separator: true as const },
       {
@@ -371,7 +371,7 @@ function WorkflowListItem({
         action: () => deleteWorkflow.mutate(workflow.id),
       },
     ],
-    [deleteWorkflow, onSelect, t, workflow.id],
+    [deleteWorkflow, onSelect, t, workflow.chatGroupId, workflow.id],
   );
   const showContextMenu = useNativeContextMenu(contextMenu);
 
@@ -379,9 +379,9 @@ function WorkflowListItem({
     <button
       type="button"
       aria-current={selected ? "page" : undefined}
-      onClick={() => onSelect(workflow.id)}
+      onClick={() => onSelect(workflow.id, workflow.chatGroupId)}
       onContextMenu={(event) => {
-        onSelect(workflow.id);
+        onSelect(workflow.id, workflow.chatGroupId);
         void showContextMenu(event);
       }}
       className={cn([

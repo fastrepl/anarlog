@@ -105,10 +105,20 @@ async function runWorkflow(
     status: "success",
     detail: "",
   };
+  let markedSessionId: string | undefined;
+  const markProcessed = async () => {
+    markedSessionId = sessionId;
+    await persistWorkflowResult(workflow.id, { sessionId });
+  };
   try {
     const details: string[] = [];
     for (const step of workflow.steps) {
-      details.push(await executeWorkflowStep(sessionId, step));
+      details.push(
+        await executeWorkflowStep(sessionId, step, {
+          beforeLinearCreate: markProcessed,
+        }),
+      );
+      await markProcessed();
     }
     record.detail = details.filter(Boolean).join(" · ") || "ok";
     await persistWorkflowResult(workflow.id, {
@@ -119,7 +129,10 @@ async function runWorkflow(
     record.status = "error";
     record.detail = error instanceof Error ? error.message : String(error);
     console.error("[automations] workflow failed", error);
-    await persistWorkflowResult(workflow.id, { record });
+    await persistWorkflowResult(workflow.id, {
+      record,
+      sessionId: markedSessionId,
+    });
   }
 }
 
@@ -129,7 +142,7 @@ async function persistWorkflowResult(
     record,
     sessionId,
   }: {
-    record: AutomationRunRecord;
+    record?: AutomationRunRecord;
     sessionId?: string;
   },
 ): Promise<void> {
@@ -139,13 +152,13 @@ async function persistWorkflowResult(
     if (workflow.id !== workflowId) {
       return workflow;
     }
-    const processedSessionIds =
-      sessionId && record.status === "success"
-        ? [...workflow.processedSessionIds, sessionId].slice(
-            -MAX_PROCESSED_SESSIONS,
-          )
-        : workflow.processedSessionIds;
-    return { ...workflow, lastRun: record, processedSessionIds };
+    return {
+      ...workflow,
+      lastRun: record ?? workflow.lastRun,
+      processedSessionIds: sessionId
+        ? appendProcessedSession(workflow.processedSessionIds, sessionId)
+        : workflow.processedSessionIds,
+    };
   });
   await setSettingValue(
     "automation_workflows",
@@ -153,9 +166,20 @@ async function persistWorkflowResult(
   );
 }
 
+function appendProcessedSession(
+  processed: string[],
+  sessionId: string,
+): string[] {
+  if (processed.includes(sessionId)) {
+    return processed;
+  }
+  return [...processed, sessionId].slice(-MAX_PROCESSED_SESSIONS);
+}
+
 async function executeWorkflowStep(
   sessionId: string,
   step: WorkflowStep,
+  options?: { beforeLinearCreate?: () => Promise<void> },
 ): Promise<string> {
   if (step.type === "markdown_export") {
     const directory = step.directory.trim();
@@ -171,7 +195,11 @@ async function executeWorkflowStep(
     return await executeSlackRecap(sessionId, step.target);
   }
   if (step.type === "linear_issues") {
-    return await executeLinearIssues(sessionId, step.target);
+    return await executeLinearIssues(
+      sessionId,
+      step.target,
+      options?.beforeLinearCreate,
+    );
   }
   return await executeNotionUpdate(sessionId, step.target);
 }

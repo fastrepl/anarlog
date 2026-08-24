@@ -1,8 +1,9 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const settingsMocks = vi.hoisted(() => ({
   storedDraft: undefined as string | undefined,
+  workflows: "[]",
 }));
 
 vi.mock("~/settings/queries", () => ({
@@ -12,7 +13,7 @@ vi.mock("~/settings/queries", () => ({
   }),
   getStoredSettingValues: () =>
     Promise.resolve({
-      values: { automation_workflows: "[]" },
+      values: { automation_workflows: settingsMocks.workflows },
       hasValues: new Set(["automation_workflows"]),
     }),
   setSettingValue: () => Promise.resolve(),
@@ -32,6 +33,7 @@ function automationsChat() {
 describe("useAutomationSelection", () => {
   beforeEach(() => {
     settingsMocks.storedDraft = undefined;
+    settingsMocks.workflows = "[]";
     useAutomationSelection.setState({
       selection: null,
       draftIds: [],
@@ -106,6 +108,58 @@ describe("useAutomationSelection", () => {
       starterId: "slack-recap",
     });
     expect(automationsChat()).toEqual(slackChat);
+  });
+
+  it("opens a persisted workflow chat thread when selecting after reload", () => {
+    useAutomationSelection.getState().selectWorkflow("wf-1", "workflow-group");
+
+    expect(useAutomationSelection.getState().selection).toEqual({
+      kind: "workflow",
+      workflowId: "wf-1",
+    });
+    expect(automationsChat()).toEqual({
+      groupId: "workflow-group",
+      sessionId: "workflow-group",
+    });
+  });
+
+  it("restores a persisted workflow chat when the group id is only in settings", async () => {
+    settingsMocks.workflows = JSON.stringify([
+      {
+        id: "wf-1",
+        title: "Recap",
+        enabled: true,
+        trigger: "note_enhanced",
+        steps: [],
+        lastRun: null,
+        processedSessionIds: [],
+        chatGroupId: "workflow-group",
+      },
+    ]);
+
+    useAutomationSelection.getState().selectWorkflow("wf-1");
+
+    expect(automationsChat().groupId).toBeUndefined();
+    await waitFor(() => {
+      expect(automationsChat()).toEqual({
+        groupId: "workflow-group",
+        sessionId: "workflow-group",
+      });
+    });
+  });
+
+  it("prefers the in-memory workflow chat snapshot over the persisted group", () => {
+    useAutomationSelection.getState().selectWorkflow("wf-1");
+    const liveSession = automationsChat().sessionId;
+    useChatContext.getState().setGroupId("automations", "live-group");
+
+    useAutomationSelection.getState().selectStarter("slack-recap");
+    useAutomationSelection.getState().selectWorkflow("wf-1", "persisted-group");
+
+    expect(automationsChat()).toEqual({
+      groupId: "live-group",
+      sessionId: liveSession,
+    });
   });
 
   it("creates and selects a visible draft with a fresh chat", () => {

@@ -523,12 +523,172 @@ describe("custom workflows", () => {
     expect(mocks.sendSlackRecap).toHaveBeenCalledWith(
       expect.objectContaining({ channel: "C123" }),
     );
-    const workflowCall = mocks.setSettingValue.mock.calls.find(
+    const workflowCalls = mocks.setSettingValue.mock.calls.filter(
       (entry) => entry[0] === "automation_workflows",
     );
-    const saved = JSON.parse(workflowCall?.[1] as string);
+    const saved = JSON.parse(
+      workflowCalls[workflowCalls.length - 1]?.[1] as string,
+    );
     expect(saved[0].lastRun.status).toBe("success");
     expect(saved[0].processedSessionIds).toEqual(["session-1"]);
+  });
+
+  it("marks a session processed after a successful step so a later failure does not retry", async () => {
+    storedSettings({
+      automation_workflows: JSON.stringify([
+        {
+          id: "wf-1",
+          title: "Slack then Notion",
+          enabled: true,
+          trigger: "note_enhanced",
+          steps: [
+            {
+              id: "step-1",
+              type: "slack_recap",
+              target: { id: "C123", name: "general" },
+            },
+            {
+              id: "step-2",
+              type: "notion_update",
+              target: { id: "page-1", name: "Project Apollo" },
+            },
+          ],
+          lastRun: null,
+          processedSessionIds: [],
+          chatGroupId: null,
+        },
+      ]),
+    });
+    mockDbRows();
+    signedInSession();
+    mocks.sendSlackRecap.mockResolvedValue(undefined);
+    mocks.notionAppendUpdate.mockResolvedValue({
+      data: undefined,
+      error: { error: { message: "notion unavailable" } },
+    });
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
+    const firstSave = mocks.setSettingValue.mock.calls.filter(
+      (entry) => entry[0] === "automation_workflows",
+    );
+    const afterFailure = JSON.parse(
+      firstSave[firstSave.length - 1]?.[1] as string,
+    );
+    expect(afterFailure[0].processedSessionIds).toEqual(["session-1"]);
+    expect(afterFailure[0].lastRun.status).toBe("error");
+
+    storedSettings({
+      automation_workflows: JSON.stringify(afterFailure),
+    });
+    mocks.sendSlackRecap.mockClear();
+    mocks.notionAppendUpdate.mockClear();
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    expect(mocks.notionAppendUpdate).not.toHaveBeenCalled();
+  });
+
+  it("marks a Linear workflow processed before creating so a mid-loop failure never duplicates", async () => {
+    storedSettings({
+      automation_workflows: JSON.stringify([
+        {
+          id: "wf-1",
+          title: "Linear issues",
+          enabled: true,
+          trigger: "note_enhanced",
+          steps: [
+            {
+              id: "step-1",
+              type: "linear_issues",
+              target: { id: "team-1", name: "Core" },
+            },
+          ],
+          lastRun: null,
+          processedSessionIds: [],
+          chatGroupId: null,
+        },
+      ]),
+    });
+    mockDbRows({
+      actionItems: [{ text: "First item" }, { text: "Second item" }],
+    });
+    signedInSession();
+    mocks.linearCreateIssue
+      .mockResolvedValueOnce({ data: {}, error: undefined })
+      .mockResolvedValueOnce({
+        data: undefined,
+        error: { error: { message: "rate limited" } },
+      });
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.linearCreateIssue).toHaveBeenCalledTimes(2);
+    const workflowCall = mocks.setSettingValue.mock.calls.filter(
+      (entry) => entry[0] === "automation_workflows",
+    );
+    const saved = JSON.parse(
+      workflowCall[workflowCall.length - 1]?.[1] as string,
+    );
+    expect(saved[0].processedSessionIds).toEqual(["session-1"]);
+    expect(saved[0].lastRun.status).toBe("error");
+
+    storedSettings({
+      automation_workflows: JSON.stringify(saved),
+    });
+    mocks.linearCreateIssue.mockClear();
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.linearCreateIssue).not.toHaveBeenCalled();
+  });
+
+  it("retries a workflow when the first step fails before any side effect", async () => {
+    const workflow = {
+      id: "wf-1",
+      title: "Recap to Slack",
+      enabled: true,
+      trigger: "note_enhanced",
+      steps: [
+        {
+          id: "step-1",
+          type: "slack_recap",
+          target: { id: "C123", name: "general" },
+        },
+      ],
+      lastRun: null,
+      processedSessionIds: [],
+      chatGroupId: null,
+    };
+    storedSettings({
+      automation_workflows: JSON.stringify([workflow]),
+    });
+    mockDbRows({ recap: [] });
+    signedInSession();
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).not.toHaveBeenCalled();
+    const firstSave = mocks.setSettingValue.mock.calls.filter(
+      (entry) => entry[0] === "automation_workflows",
+    );
+    const afterFailure = JSON.parse(
+      firstSave[firstSave.length - 1]?.[1] as string,
+    );
+    expect(afterFailure[0].processedSessionIds).toEqual([]);
+    expect(afterFailure[0].lastRun.status).toBe("error");
+
+    storedSettings({
+      automation_workflows: JSON.stringify(afterFailure),
+    });
+    mockDbRows();
+    mocks.sendSlackRecap.mockResolvedValue(undefined);
+
+    await runNoteEnhancedAutomations("session-1");
+
+    expect(mocks.sendSlackRecap).toHaveBeenCalledTimes(1);
   });
 
   it("skips disabled or already processed workflows", async () => {
