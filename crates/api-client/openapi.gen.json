@@ -536,6 +536,10 @@
       },
       "ConnectionItem": {
         "properties": {
+          "account_identity": {
+            "nullable": true,
+            "type": "string"
+          },
           "connection_id": {
             "type": "string"
           },
