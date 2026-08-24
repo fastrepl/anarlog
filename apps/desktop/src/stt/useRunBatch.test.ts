@@ -191,6 +191,10 @@ describe("getBatchProvider", () => {
     );
   });
 
+  test("maps Mistral to the batch transcription provider", () => {
+    expect(getBatchProvider("mistral", "voxtral-mini-2602")).toBe("mistral");
+  });
+
   test.each([
     ["aws_transcribe", "amazon-transcribe"],
     ["azure_speech", "fast-transcription"],
@@ -1267,6 +1271,35 @@ describe("useRunBatch", () => {
       }),
     );
   });
+
+  test.each(["windows", "linux"] as const)(
+    "reports a language mismatch instead of a platform gap when Mistral is configured on %s",
+    async (currentPlatform) => {
+      platformMock.mockReturnValue(currentPlatform);
+      isSupportedLanguagesBatchMock.mockResolvedValue(false);
+      useSTTConnectionMock.mockReturnValue({
+        conn: {
+          provider: "mistral",
+          model: "voxtral-mini-2602",
+          baseUrl: "https://api.mistral.ai/v1",
+          apiKey: "mistral-key",
+        },
+      });
+
+      const { result } = renderHook(() => useRunBatch("session-1"));
+
+      await expect(
+        act(async () => {
+          await result.current("/tmp/session.wav");
+        }),
+      ).rejects.toThrow(
+        "voxtral-mini-2602 is not available for batch transcription with the selected languages",
+      );
+
+      expect(startTranscriptionMock).not.toHaveBeenCalled();
+      expect(sonnerToastWarningMock).not.toHaveBeenCalled();
+    },
+  );
 
   test.each(["windows", "linux"] as const)(
     "does not invoke Soniqo as a batch fallback on %s",

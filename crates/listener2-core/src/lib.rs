@@ -222,6 +222,15 @@ mod tests {
     }
 
     #[test]
+    fn mistral_batch_accepts_regional_locales_for_documented_languages() {
+        let languages = vec!["de-DE".parse().unwrap(), "en-US".parse().unwrap()];
+
+        assert!(
+            is_supported_languages_batch("mistral", Some("voxtral-mini-2602"), &languages).unwrap()
+        );
+    }
+
+    #[test]
     fn apple_speech_language_support_reflects_installed_framework() {
         // Drives the settings warning that names unsupported spoken languages.
         let available = anlg_transcribe_speechanalyzer::availability()

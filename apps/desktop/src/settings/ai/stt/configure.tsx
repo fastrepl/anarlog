@@ -88,7 +88,7 @@ function ProviderContext({ providerId }: { providerId: ProviderId }) {
                           : providerId === "fireworks"
                             ? `Use [Fireworks AI](https://fireworks.ai) for transcriptions.`
                             : providerId === "mistral"
-                              ? `Use [Mistral](https://mistral.ai) for transcriptions.`
+                              ? `Use [Mistral](https://mistral.ai) for transcriptions. Keep the Base URL as \`https://api.mistral.ai/v1\` (Reset under Advanced if you pasted a transcriptions endpoint). **Voxtral Mini Transcribe 2** transcribes after recording; the realtime model is for live captions.`
                               : providerId === "cohere"
                                 ? `Use [Cohere Transcribe](https://docs.cohere.com/docs/transcribe) for batch transcription. Files must be 25 MB or smaller and use one selected language. Cohere does not return timestamps or speaker labels, so Anarlog estimates word timing.`
                                 : providerId === "google_cloud"

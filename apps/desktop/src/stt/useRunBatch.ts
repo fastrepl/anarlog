@@ -732,10 +732,13 @@ export const useRunBatch = (sessionId: string) => {
               label: selectedModel,
             }
           : null;
-      const selectedTargetSupported =
+      const selectedOnDeviceUnsupported = !!(
         selectedTarget &&
-        (!isOnDeviceSttModel(selectedProviderId, selectedModel) ||
-          isDesktopLocalSttAvailable(currentPlatform, currentArch))
+        isOnDeviceSttModel(selectedProviderId, selectedModel) &&
+        !isDesktopLocalSttAvailable(currentPlatform, currentArch)
+      );
+      const selectedTargetSupported =
+        selectedTarget && !selectedOnDeviceUnsupported
           ? await canUseBatchTarget(
               selectedTarget.provider,
               selectedTarget.model,
@@ -758,7 +761,9 @@ export const useRunBatch = (sessionId: string) => {
 
       if (!target) {
         throw new Error(
-          `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider.`,
+          selectedTarget && !selectedOnDeviceUnsupported
+            ? `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription with the selected languages. Choose languages it supports, or configure another speech-to-text provider.`
+            : `${selectedProviderLabel(conn, selectedModel)} is not available for batch transcription on this platform. Configure a batch-capable speech-to-text provider.`,
         );
       }
 

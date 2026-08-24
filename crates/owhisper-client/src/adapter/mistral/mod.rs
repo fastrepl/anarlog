@@ -24,7 +24,9 @@ impl Default for MistralAdapter {
 
 impl MistralAdapter {
     fn is_language_supported(lang: &anlg_language::Language) -> bool {
-        lang.matches_any_code(SUPPORTED_LANGUAGES)
+        // Voxtral documents ISO-639-1 codes only. OS locales like de-DE must
+        // still match; matches_any_code does not fall back across alpha regions.
+        SUPPORTED_LANGUAGES.contains(&lang.iso639().code())
     }
 
     fn language_support_impl(languages: &[anlg_language::Language]) -> LanguageSupport {
@@ -103,5 +105,17 @@ mod tests {
         assert!(Provider::Mistral.is_host("api.mistral.ai"));
         assert!(Provider::Mistral.is_host("mistral.ai"));
         assert!(!Provider::Mistral.is_host("api.openai.com"));
+    }
+
+    #[test]
+    fn regional_locales_match_documented_iso639_codes() {
+        let de_de: anlg_language::Language = "de-DE".parse().unwrap();
+        let en_us: anlg_language::Language = "en-US".parse().unwrap();
+        let ja_jp: anlg_language::Language = "ja-JP".parse().unwrap();
+        let pl: anlg_language::Language = "pl".parse().unwrap();
+
+        assert!(MistralAdapter::is_supported_languages_batch(&[de_de]));
+        assert!(MistralAdapter::is_supported_languages_live(&[en_us, ja_jp]));
+        assert!(!MistralAdapter::is_supported_languages_batch(&[pl]));
     }
 }
