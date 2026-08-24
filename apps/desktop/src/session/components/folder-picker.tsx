@@ -107,7 +107,7 @@ export function FolderPicker({
             open && "bg-accent text-foreground",
           ])}
         >
-          <FolderSimple className="size-4 shrink-0" aria-hidden="true" />
+          <FolderSimple className="size-[18px] shrink-0" aria-hidden="true" />
           {currentPath ? (
             <span className="min-w-0 truncate text-xs text-neutral-600 dark:text-neutral-300">
               {currentPath}
