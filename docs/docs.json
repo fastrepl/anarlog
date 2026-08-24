@@ -7,7 +7,7 @@
     "light": "#946F25",
     "dark": "#5D430D"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.png",
   "seo": {
     "metatags": {
       "canonical": "https://docs.anarlog.so"
