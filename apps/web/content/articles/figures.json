@@ -82,7 +82,16 @@
   "fireflies-ai-alternatives": [],
   "free-ai-notetakers": [],
   "free-transcription-software": [],
-  "google-gemini-data-retention-policy": [],
+  "google-gemini-data-retention-policy": [
+    {
+      "filename": "gemini-retention-by-tier.png",
+      "content": "Title: Gemini Data Retention by Tier\nConsumer Gemini: 18 month default retention, human review up to 3 years, training on by default with opt out\nGemini API: 55 day abuse monitoring retention only, no human review, no training\nWorkspace Enterprise: admin defined retention, no human review by default, no training",
+      "context": "Three-column reference figure comparing how Google handles Gemini data across the consumer app, the API, and Workspace Enterprise. Each column is one tier with its data-handling facts. Do not frame as pros versus cons.",
+      "visualQuery": "three column comparison",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "google-gemini-meeting-notes": [],
   "granola-ai-alternatives": [],
   "hipaa-compliant-ai-notetaker": [
@@ -132,7 +141,16 @@
   "local-ai-meeting-notes": [],
   "local-ai-privacy-tools": [],
   "mac-productivity-apps": [],
-  "markdown-note-taking-apps": [],
+  "markdown-note-taking-apps": [
+    {
+      "filename": "markdown-app-fit.png",
+      "content": "Title: Which Markdown Note App Fits You\nMeeting notes with AI summaries: Anarlog\nPersonal knowledge management: Obsidian\nDaily journaling and outlining: Logseq\nCross device sync with privacy: Joplin\nDeveloper focused workflow: Inkdrop",
+      "context": "Mapping figure for an Anarlog blog post pairing five user needs with five markdown note apps. Each need maps to exactly one app. Neutral tone, not a ranking.",
+      "visualQuery": "mapping diagram",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "meetgeek-alternatives": [],
   "meetily-review": [
     {
@@ -216,7 +234,16 @@
   "otter-ai-review": [],
   "plaud-ai-alternatives": [],
   "read-ai-alternatives": [],
-  "see-zoom-meeting-history": [],
+  "see-zoom-meeting-history": [
+    {
+      "filename": "zoom-history-map.png",
+      "content": "Title: Where Zoom Keeps Your History\nPast scheduled meetings: Web portal, Meetings, Previous, past 30 days\nJoined meeting shortcut: Desktop app, Join field\nAttendance and usage: Analytics and Reports, paid accounts\nChat messages: Desktop app Team Chat search\nCloud recordings: Web portal, Recordings and Transcripts",
+      "context": "Five-destination map for an Anarlog guide showing where to look for different kinds of Zoom history. Each history type maps to exactly one Zoom location. Neutral reference diagram. Do not add pros, cons, scores, or invented features.",
+      "visualQuery": "mapping diagram",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "selfhosted-ai-notetakers": [],
   "tactiq-alternatives": [],
   "tldv-alternatives": [
