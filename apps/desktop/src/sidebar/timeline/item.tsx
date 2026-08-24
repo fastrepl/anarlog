@@ -34,7 +34,10 @@ import { revealLockedNote, setSessionLocked } from "~/lock/notes";
 import { useAppLock } from "~/lock/store";
 import { useDeleteSession } from "~/session/hooks/useDeleteSession";
 import { useIsSessionEnhancing } from "~/session/hooks/useEnhancedNotes";
-import { getOrCreateSessionForEventId } from "~/session/queries";
+import {
+  getOrCreateSessionForEventId,
+  preloadSession,
+} from "~/session/queries";
 import { getSessionEvent } from "~/session/utils";
 import { openStandaloneNoteWindow } from "~/session/window";
 import type { MenuItemDef } from "~/shared/hooks/useNativeContextMenu";
@@ -77,6 +80,7 @@ type ItemBaseProps = {
   timelineSessionId?: string;
   isUpcoming?: boolean;
   upcomingProgress?: number;
+  onPreload?: () => void;
 };
 
 export const TimelineItemComponent = memo(
@@ -168,6 +172,7 @@ const ItemBase = memo(function ItemBase({
   timelineSessionId,
   isUpcoming,
   upcomingProgress,
+  onPreload,
 }: ItemBaseProps) {
   const { t } = useLingui();
   const hasSelection = useTimelineSelection((s) => s.selectedIds.length > 0);
@@ -194,6 +199,8 @@ const ItemBase = memo(function ItemBase({
     <div
       ref={setItemRef}
       data-sidebar-timeline-session-id={timelineSessionId}
+      onFocus={onPreload}
+      onPointerDown={onPreload}
       className="group/sidebar-live-item relative [contain-intrinsic-size:auto_56px] [content-visibility:auto]"
     >
       <InteractiveButton
@@ -358,7 +365,8 @@ function itemBasePropsAreEqual(prev: ItemBaseProps, next: ItemBaseProps) {
     prev.itemNodeRef === next.itemNodeRef &&
     prev.timelineSessionId === next.timelineSessionId &&
     prev.isUpcoming === next.isUpcoming &&
-    prev.upcomingProgress === next.upcomingProgress
+    prev.upcomingProgress === next.upcomingProgress &&
+    prev.onPreload === next.onPreload
   );
 }
 
@@ -577,8 +585,11 @@ const SessionItem = memo(
     const isLive = sessionMode === "active";
     const isFinalizing = sessionMode === "finalizing";
     const isBatching = sessionMode === "running_batch";
+    const [isOpening, setIsOpening] = useState(false);
     const showSpinner =
-      !selected && !isLive && (isFinalizing || isEnhancing || isBatching);
+      !selected &&
+      !isLive &&
+      (isFinalizing || isEnhancing || isBatching || isOpening);
 
     const sessionEvent = getSessionEvent(item.data);
 
@@ -595,16 +606,32 @@ const SessionItem = memo(
 
     const itemKey = `session-${item.id}`;
 
+    const handlePreload = useCallback(() => {
+      if (!noteLocked) void preloadSession(sessionId).catch(() => {});
+    }, [noteLocked, sessionId]);
+
+    const openSession = useCallback(async () => {
+      setIsOpening(true);
+      try {
+        await preloadSession(sessionId);
+      } catch (error) {
+        console.error("[timeline] failed to preload session", error);
+      } finally {
+        openCurrent({ id: sessionId, type: "sessions" });
+        setIsOpening(false);
+      }
+    }, [openCurrent, sessionId]);
+
     const handleClick = useCallback(() => {
       useTimelineSelection.getState().setAnchor(itemKey);
       if (noteLocked) {
         void revealLockedNote(sessionId).then((ok) => {
-          if (ok) openCurrent({ id: sessionId, type: "sessions" });
+          if (ok) void openSession();
         });
         return;
       }
-      openCurrent({ id: sessionId, type: "sessions" });
-    }, [noteLocked, sessionId, openCurrent, itemKey]);
+      void openSession();
+    }, [noteLocked, sessionId, openSession, itemKey]);
 
     const handleCmdClick = useCallback(() => {
       useTimelineSelection.getState().toggleSelect(itemKey);
@@ -720,6 +747,7 @@ const SessionItem = memo(
         timelineSessionId={sessionId}
         isUpcoming={isUpcoming}
         upcomingProgress={upcomingProgress}
+        onPreload={handlePreload}
         draggable
       />
     );

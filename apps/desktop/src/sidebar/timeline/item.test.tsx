@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   openCurrent: vi.fn(),
   openNew: vi.fn(),
   platform: "macos",
+  preloadSession: vi.fn(() => Promise.resolve(null)),
   sessionMode: "inactive",
   stop: vi.fn(),
   getOrCreateSessionForEventId: vi.fn(() => Promise.resolve("session-event")),
@@ -78,6 +85,7 @@ vi.mock("~/session/hooks/useEnhancedNotes", () => ({
 
 vi.mock("~/session/queries", () => ({
   getOrCreateSessionForEventId: mocks.getOrCreateSessionForEventId,
+  preloadSession: mocks.preloadSession,
 }));
 
 vi.mock("~/lock/notes", () => ({
@@ -184,6 +192,8 @@ describe("TimelineItemComponent", () => {
     mocks.openCurrent.mockClear();
     mocks.openNew.mockClear();
     mocks.platform = "macos";
+    mocks.preloadSession.mockReset();
+    mocks.preloadSession.mockResolvedValue(null);
     mocks.authAvailable = false;
     mocks.revealedNoteIds = {};
     mocks.windowShow.mockClear();
@@ -528,7 +538,7 @@ describe("TimelineItemComponent", () => {
     expect(sharedIcon.parentElement?.lastElementChild).toBe(sharedIcon);
   });
 
-  it("opens the current tab after a single-click on a session row", () => {
+  it("preloads a session before opening it in the current tab", async () => {
     render(
       <TimelineItemComponent
         item={{
@@ -548,18 +558,62 @@ describe("TimelineItemComponent", () => {
     );
 
     const rowButton = screen.getByText("Live Note").closest("button");
+    fireEvent.pointerDown(rowButton!);
     fireEvent.click(rowButton!, { detail: 1 });
 
     expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(
       "session-session-note",
     );
-    expect(mocks.openCurrent).toHaveBeenCalledWith({
-      id: "session-note",
-      type: "sessions",
+    expect(mocks.preloadSession).toHaveBeenCalledWith("session-note");
+    await waitFor(() => {
+      expect(mocks.openCurrent).toHaveBeenCalledWith({
+        id: "session-note",
+        type: "sessions",
+      });
     });
   });
 
-  it("opens a standalone note window when a session row is double-clicked", () => {
+  it("keeps the current note open until the target session is preloaded", async () => {
+    let finishPreload: ((value: null) => void) | undefined;
+    mocks.preloadSession.mockReturnValue(
+      new Promise((resolve) => {
+        finishPreload = resolve;
+      }),
+    );
+
+    render(
+      <TimelineItemComponent
+        item={{
+          type: "session",
+          id: "slow-session",
+          data: {
+            title: "Slow note",
+            created_at: "2024-01-15T10:30:00.000Z",
+          },
+        }}
+        precision="time"
+        selected={false}
+        timezone="UTC"
+        multiSelected={false}
+        flatItemKeys={["session-slow-session"]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Live Note").closest("button")!);
+
+    expect(mocks.openCurrent).not.toHaveBeenCalled();
+    expect(screen.getByTestId("spinner")).toBeTruthy();
+
+    finishPreload?.(null);
+    await waitFor(() => {
+      expect(mocks.openCurrent).toHaveBeenCalledWith({
+        id: "slow-session",
+        type: "sessions",
+      });
+    });
+  });
+
+  it("opens a standalone note window when a session row is double-clicked", async () => {
     render(
       <TimelineItemComponent
         item={{
@@ -583,10 +637,12 @@ describe("TimelineItemComponent", () => {
     fireEvent.click(rowButton!, { detail: 2 });
     fireEvent.doubleClick(rowButton!);
 
-    expect(mocks.openCurrent).toHaveBeenCalledTimes(1);
-    expect(mocks.openCurrent).toHaveBeenCalledWith({
-      id: "session-note-window",
-      type: "sessions",
+    await waitFor(() => {
+      expect(mocks.openCurrent).toHaveBeenCalledTimes(1);
+      expect(mocks.openCurrent).toHaveBeenCalledWith({
+        id: "session-note-window",
+        type: "sessions",
+      });
     });
     expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledTimes(1);
     expect(mocks.timelineSelection.setAnchor).toHaveBeenCalledWith(

@@ -25,6 +25,7 @@ export {
 } from "./queries/participants";
 export {
   loadSessionEvent,
+  preloadSession,
   updateSession,
   useSession,
   useSessionHasTranscript,
