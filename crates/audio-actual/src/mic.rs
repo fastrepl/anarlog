@@ -78,10 +78,16 @@ fn with_cpal_host_lock<T>(f: impl FnOnce() -> T) -> T {
             }
 
             let _guard = LOCK.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            struct Reset<'a>(&'a Cell<bool>);
+            impl Drop for Reset<'_> {
+                fn drop(&mut self) {
+                    self.0.set(false);
+                }
+            }
+
             held.set(true);
-            let result = f();
-            held.set(false);
-            result
+            let _reset = Reset(held);
+            f()
         })
     }
     #[cfg(not(target_os = "linux"))]
