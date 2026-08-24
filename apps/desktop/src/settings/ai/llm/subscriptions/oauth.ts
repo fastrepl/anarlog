@@ -53,8 +53,10 @@ const CLAUDE = {
   authorizeUrl: "https://claude.ai/oauth/authorize",
   tokenUrl: "https://platform.claude.com/v1/oauth/token",
   redirectUri: "https://platform.claude.com/oauth/code/callback",
+  // Match Claude Code's authorize-time scopes. `user:file_upload` is granted
+  // on the token but rejected if requested here ("Invalid request format").
   scope:
-    "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload",
+    "user:profile user:inference user:sessions:claude_code user:mcp_servers",
 } as const;
 
 export const CHATGPT_CALLBACK_PORT = 1455;
@@ -204,6 +206,49 @@ export function authorizationInputFromParsed(parsed: {
   return parsed.state ? `${parsed.code}#${parsed.state}` : parsed.code;
 }
 
+export function encodeAuthorizeQuery(params: Array<[string, string]>) {
+  return params
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+    )
+    .join("&");
+}
+
+export function claudeAuthorizeUrl(input: {
+  challenge: string;
+  state: string;
+}) {
+  return `${CLAUDE.authorizeUrl}?${encodeAuthorizeQuery([
+    ["code", "true"],
+    ["client_id", CLAUDE.clientId],
+    ["response_type", "code"],
+    ["redirect_uri", CLAUDE.redirectUri],
+    ["scope", CLAUDE.scope],
+    ["code_challenge", input.challenge],
+    ["code_challenge_method", "S256"],
+    ["state", input.state],
+  ])}`;
+}
+
+export function chatgptAuthorizeUrl(input: {
+  challenge: string;
+  state: string;
+}) {
+  return `${CHATGPT.authorizeUrl}?${encodeAuthorizeQuery([
+    ["response_type", "code"],
+    ["client_id", CHATGPT.clientId],
+    ["redirect_uri", CHATGPT.redirectUri],
+    ["scope", CHATGPT.scope],
+    ["code_challenge", input.challenge],
+    ["code_challenge_method", "S256"],
+    ["state", input.state],
+    ["id_token_add_organizations", "true"],
+    ["codex_cli_simplified_flow", "true"],
+    ["originator", "codex_cli_rs"],
+  ])}`;
+}
+
 export function assertAuthorizationState(
   session: CodeConnectSession,
   parsed: { state?: string },
@@ -289,18 +334,12 @@ export async function refreshOAuthCredential(
 async function startClaudeConnect(): Promise<CodeConnectSession> {
   const pkce = await createPkce();
   const state = randomUrlToken(16);
-  const url = new URL(CLAUDE.authorizeUrl);
-  url.searchParams.set("code", "true");
-  url.searchParams.set("client_id", CLAUDE.clientId);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("redirect_uri", CLAUDE.redirectUri);
-  url.searchParams.set("scope", CLAUDE.scope);
-  url.searchParams.set("code_challenge", pkce.challenge);
-  url.searchParams.set("code_challenge_method", "S256");
-  url.searchParams.set("state", state);
   return {
     kind: "code",
-    url: url.toString(),
+    url: claudeAuthorizeUrl({
+      challenge: pkce.challenge,
+      state,
+    }),
     verifier: pkce.verifier,
     state,
   };
@@ -309,20 +348,12 @@ async function startClaudeConnect(): Promise<CodeConnectSession> {
 async function startChatgptConnect(): Promise<CodeConnectSession> {
   const pkce = await createPkce();
   const state = randomUrlToken(16);
-  const url = new URL(CHATGPT.authorizeUrl);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("client_id", CHATGPT.clientId);
-  url.searchParams.set("redirect_uri", CHATGPT.redirectUri);
-  url.searchParams.set("scope", CHATGPT.scope);
-  url.searchParams.set("code_challenge", pkce.challenge);
-  url.searchParams.set("code_challenge_method", "S256");
-  url.searchParams.set("state", state);
-  url.searchParams.set("id_token_add_organizations", "true");
-  url.searchParams.set("codex_cli_simplified_flow", "true");
-  url.searchParams.set("originator", "codex_cli_rs");
   return {
     kind: "code",
-    url: url.toString(),
+    url: chatgptAuthorizeUrl({
+      challenge: pkce.challenge,
+      state,
+    }),
     verifier: pkce.verifier,
     state,
   };

@@ -3,9 +3,13 @@ import { describe, expect, test } from "vitest";
 import {
   assertAuthorizationState,
   authorizationInputFromParsed,
+  chatgptAuthorizeUrl,
   chatgptCodexUrl,
   chatgptResponsesBody,
+  CHATGPT_CALLBACK_PORT,
+  claudeAuthorizeUrl,
   claudeMessagesUrl,
+  encodeAuthorizeQuery,
   isSubscriptionProviderId,
   looksLikeAuthorizationInput,
   parseAuthorizationInput,
@@ -19,6 +23,65 @@ describe("subscription OAuth helpers", () => {
     expect(isSubscriptionProviderId("claude")).toBe(true);
     expect(isSubscriptionProviderId("github_copilot")).toBe(true);
     expect(isSubscriptionProviderId("anthropic")).toBe(false);
+  });
+
+  test("encodes authorize query spaces as %20 so macOS open does not split the URL", () => {
+    expect(
+      encodeAuthorizeQuery([["scope", "user:profile user:inference"]]),
+    ).toBe("scope=user%3Aprofile%20user%3Ainference");
+    expect(
+      encodeAuthorizeQuery([["scope", "user:profile user:inference"]]),
+    ).not.toContain("+");
+  });
+
+  test("builds a Claude authorize URL Anthropic accepts before showing a code", () => {
+    const href = claudeAuthorizeUrl({
+      challenge: "pkce-challenge",
+      state: "oauth-state",
+    });
+    const url = new URL(href);
+    expect(
+      href.startsWith("https://claude.ai/oauth/authorize?code=true&"),
+    ).toBe(true);
+    expect(href).not.toContain("+");
+    expect(href).toContain(
+      "scope=user%3Aprofile%20user%3Ainference%20user%3Asessions%3Aclaude_code%20user%3Amcp_servers",
+    );
+    expect(href).not.toContain("user%3Afile_upload");
+    expect(url.searchParams.get("code")).toBe("true");
+    expect(url.searchParams.get("client_id")).toBe(
+      "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
+    );
+    expect(url.searchParams.get("response_type")).toBe("code");
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      "https://platform.claude.com/oauth/code/callback",
+    );
+    expect(url.searchParams.get("scope")).toBe(
+      "user:profile user:inference user:sessions:claude_code user:mcp_servers",
+    );
+    expect(url.searchParams.get("code_challenge")).toBe("pkce-challenge");
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(url.searchParams.get("state")).toBe("oauth-state");
+  });
+
+  test("builds a ChatGPT authorize URL that returns to the Codex loopback port", () => {
+    const href = chatgptAuthorizeUrl({
+      challenge: "pkce-challenge",
+      state: "oauth-state",
+    });
+    const url = new URL(href);
+    expect(href).not.toContain("+");
+    expect(href).toContain(
+      `redirect_uri=http%3A%2F%2Flocalhost%3A${CHATGPT_CALLBACK_PORT}%2Fauth%2Fcallback`,
+    );
+    expect(url.origin + url.pathname).toBe(
+      "https://auth.openai.com/oauth/authorize",
+    );
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      `http://localhost:${CHATGPT_CALLBACK_PORT}/auth/callback`,
+    );
+    expect(url.searchParams.get("originator")).toBe("codex_cli_rs");
+    expect(url.searchParams.get("codex_cli_simplified_flow")).toBe("true");
   });
 
   test("parses Claude code#state values", () => {

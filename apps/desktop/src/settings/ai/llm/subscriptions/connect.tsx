@@ -178,7 +178,10 @@ export function ConnectSubscriptionDialog({
               scheme,
               CHATGPT_CALLBACK_PORT,
             );
-            if (started.status === "ok") {
+            if (
+              started.status === "ok" &&
+              started.data === CHATGPT_CALLBACK_PORT
+            ) {
               if (cancelled) {
                 await deeplink2Commands.stopCallbackServer();
                 return;
