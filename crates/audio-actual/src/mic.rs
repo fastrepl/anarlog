@@ -135,29 +135,43 @@ fn take_named_device(
     )
 }
 
-struct QuietDrop<T>(std::mem::ManuallyDrop<T>);
+fn drop_quietly_pair<A, B>(first: Option<A>, second: Option<B>) {
+    with_cpal_host_lock(|| {
+        if let Some(first) = first {
+            drop_quietly(first);
+        }
+        if let Some(second) = second {
+            drop_quietly(second);
+        }
+    });
+}
 
-impl<T> QuietDrop<T> {
-    fn new(value: T) -> Self {
-        Self(std::mem::ManuallyDrop::new(value))
+struct CpalHandles {
+    host: Option<cpal::Host>,
+    device: Option<cpal::Device>,
+}
+
+impl CpalHandles {
+    fn new(host: cpal::Host, device: cpal::Device) -> Self {
+        Self {
+            host: Some(host),
+            device: Some(device),
+        }
     }
 
-    fn inner(&self) -> &T {
-        &self.0
+    fn device(&self) -> &cpal::Device {
+        self.device.as_ref().expect("mic device already dropped")
     }
 }
 
-impl<T> Drop for QuietDrop<T> {
+impl Drop for CpalHandles {
     fn drop(&mut self) {
-        // SAFETY: Drop runs once; the value is taken out of ManuallyDrop here.
-        let value = unsafe { std::mem::ManuallyDrop::take(&mut self.0) };
-        with_cpal_host_lock(|| drop_quietly(value));
+        drop_quietly_pair(self.device.take(), self.host.take());
     }
 }
 
 pub struct MicInput {
-    _host: QuietDrop<cpal::Host>,
-    device: QuietDrop<cpal::Device>,
+    handles: CpalHandles,
     config: cpal::SupportedStreamConfig,
 }
 
@@ -184,8 +198,8 @@ fn build_stream_error_type(error: &cpal::BuildStreamError) -> &'static str {
 
 impl MicInput {
     pub fn device_name(&self) -> String {
-        self.device
-            .inner()
+        self.handles
+            .device()
             .description()
             .map(|d| d.name().to_string())
             .unwrap_or("Unknown Microphone".to_string())
@@ -315,8 +329,7 @@ impl MicInput {
                     "mic_input_initialized"
                 );
                 Ok(Self {
-                    _host: QuietDrop::new(host),
-                    device: QuietDrop::new(device),
+                    handles: CpalHandles::new(host, device),
                     config,
                 })
             }
@@ -339,7 +352,7 @@ impl MicInput {
 impl MicInput {
     pub fn stream(&self) -> Result<MicStream, crate::Error> {
         let config = self.config.clone();
-        let device = self.device.inner().clone();
+        let device = self.handles.device().clone();
         let (drop_tx, drop_rx) = std::sync::mpsc::channel();
         let (init_tx, init_rx) = std::sync::mpsc::channel();
 
@@ -679,6 +692,27 @@ mod tests {
         }
 
         drop_quietly(Boom);
+    }
+
+    #[test]
+    fn drop_quietly_pair_drops_second_after_first_panics() {
+        struct Boom;
+        impl Drop for Boom {
+            fn drop(&mut self) {
+                panic!("drop boom");
+            }
+        }
+
+        let dropped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        struct Mark(std::sync::Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for Mark {
+            fn drop(&mut self) {
+                self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+
+        drop_quietly_pair(Some(Boom), Some(Mark(dropped.clone())));
+        assert!(dropped.load(std::sync::atomic::Ordering::SeqCst));
     }
 
     #[test]
