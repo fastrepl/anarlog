@@ -249,6 +249,20 @@ async fn native_logout_cleanup_interrupt_drains_before_local_write() {
 }
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+async fn tracking_schema(db: &Db) -> Vec<(String, String)> {
+    sqlx::query_as(
+        "SELECT type, name
+         FROM sqlite_schema
+         WHERE (type = 'table' AND name = 'items_cloudsync')
+            OR (type = 'trigger' AND tbl_name = 'items')
+         ORDER BY type, name",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap()
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[tokio::test]
 async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
     let db = Arc::new(Db::connect_memory().await.unwrap());
@@ -274,16 +288,7 @@ async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
     .execute(db.pool())
     .await
     .unwrap();
-    let tracking_schema_before: Vec<(String, String)> = sqlx::query_as(
-        "SELECT type, name
-         FROM sqlite_schema
-         WHERE (type = 'table' AND name = 'items_cloudsync')
-            OR (type = 'trigger' AND tbl_name = 'items')
-         ORDER BY type, name",
-    )
-    .fetch_all(db.pool())
-    .await
-    .unwrap();
+    let tracking_schema_before = tracking_schema(&db).await;
 
     let request_db = Arc::clone(&db);
     let request = tokio::spawn(async move { request_db.cloudsync_cleanup("items").await });
@@ -301,30 +306,29 @@ async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
         registered,
         "native CloudSync table cleanup completed before its interrupt registration was observable"
     );
-    assert!(
-        request.await.unwrap().is_err(),
-        "interrupted native CloudSync table cleanup succeeded"
-    );
+    let cleanup = request.await.unwrap();
     tokio::time::timeout(LIVENESS_TIMEOUT, db.cloudsync_wait_for_sync_idle())
         .await
         .expect("native CloudSync table cleanup worker did not become idle after interruption");
     db.cloudsync_version()
         .await
         .expect("native CloudSync table cleanup interruption crashed the pinned SQLite worker");
-    let tracking_schema_after: Vec<(String, String)> = sqlx::query_as(
-        "SELECT type, name
-         FROM sqlite_schema
-         WHERE (type = 'table' AND name = 'items_cloudsync')
-            OR (type = 'trigger' AND tbl_name = 'items')
-         ORDER BY type, name",
-    )
-    .fetch_all(db.pool())
-    .await
-    .unwrap();
-    assert_eq!(
-        tracking_schema_after, tracking_schema_before,
-        "interrupted native CloudSync table cleanup left partial tracking schema"
-    );
+    let tracking_schema_after = tracking_schema(&db).await;
+    // cloudsync_cleanup() can finish after interrupt() is observed: the
+    // extension may not return SQLITE_INTERRUPT, and a late interrupt is
+    // then a no-op. Require either a rolled-back interrupt or a complete
+    // cleanup — never a torn tracking schema.
+    if cleanup.is_err() {
+        assert_eq!(
+            tracking_schema_after, tracking_schema_before,
+            "interrupted native CloudSync table cleanup left partial tracking schema"
+        );
+    } else {
+        assert!(
+            tracking_schema_after.is_empty(),
+            "native CloudSync table cleanup succeeded with leftover tracking schema"
+        );
+    }
     tokio::time::timeout(
         LIVENESS_TIMEOUT,
         sqlx::query("INSERT INTO items (id, value) VALUES ('after', 'local')").execute(db.pool()),
@@ -334,21 +338,14 @@ async fn tracked_table_cleanup_interrupt_drains_before_local_write() {
         "immediate local write remained blocked after native CloudSync table cleanup interruption",
     )
     .unwrap();
+    if cleanup.is_ok() {
+        return;
+    }
     db.cloudsync_cleanup("items")
         .await
         .expect("CloudSync table cleanup retry failed after interruption");
-    let tracking_schema_after_retry: Vec<(String, String)> = sqlx::query_as(
-        "SELECT type, name
-         FROM sqlite_schema
-         WHERE (type = 'table' AND name = 'items_cloudsync')
-            OR (type = 'trigger' AND tbl_name = 'items')
-         ORDER BY type, name",
-    )
-    .fetch_all(db.pool())
-    .await
-    .unwrap();
     assert!(
-        tracking_schema_after_retry.is_empty(),
+        tracking_schema(&db).await.is_empty(),
         "successful CloudSync table cleanup retry left tracking schema"
     );
     sqlx::query("INSERT INTO items (id, value) VALUES ('after-retry', 'local')")

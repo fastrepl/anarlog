@@ -505,7 +505,7 @@ jobs:
       - run: cargo check --locked --target ${{ matrix.target }} -p desktop
       - run: cargo test --locked --target ${{ matrix.target }} -p desktop embedded_cli --lib
       - run: cargo test --locked --target ${{ matrix.target }} -p cloudsync
-      - run: "cargo test --locked --target ${{ matrix.target }} -p db-core cloudsync::"
+      - run: "cargo test --locked --target ${{ matrix.target }} -p db-core 'cloudsync::' -- --test-threads=1"
       - if: github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/pnpm_install
       - if: github.event_name == 'workflow_dispatch'
