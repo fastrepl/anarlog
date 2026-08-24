@@ -1,5 +1,5 @@
 import { Icon } from "@iconify-icon/react";
-import { Plugs, PuzzlePiece } from "@phosphor-icons/react";
+import { DotsThree, PuzzlePiece } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -7,12 +7,13 @@ import type { ReactNode } from "react";
 import { listConnections } from "@anlg/api-client";
 import { OutlookIcon } from "@anlg/ui/components/icons/outlook";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@anlg/ui/components/ui/tooltip";
-import { cn } from "@anlg/utils";
+  AppFloatingPanel,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@anlg/ui/components/ui/dropdown-menu";
 
 import {
   connectionIdentityLabel,
@@ -24,8 +25,7 @@ import { getAuthorizedApiClient } from "./-account-api";
 import { useAccountSession } from "./-account-session";
 import {
   accountCardClassName,
-  accountPillDangerClassName,
-  accountPillSecondaryClassName,
+  accountMenuTriggerClassName,
 } from "./-account-ui";
 
 const INTEGRATION_NAMES: Record<string, string> = {
@@ -101,82 +101,122 @@ export function IntegrationsSection() {
             : "Integrations come with a paid plan and connect from the desktop app."}
         </p>
       ) : (
-        <TooltipProvider delayDuration={0}>
-          <ul className="divide-y divide-[#ede7dc]">
-            {connections.map((connection) => {
-              const name =
-                INTEGRATION_NAMES[connection.integration_id] ??
-                connection.integration_id;
-              const needsReconnect = connectionNeedsReconnect(connection);
-              const reconnectError = connectionReconnectError(connection);
+        <ul className="divide-y divide-[#ede7dc]">
+          {connections.map((connection) => {
+            const name =
+              INTEGRATION_NAMES[connection.integration_id] ??
+              connection.integration_id;
+            const needsReconnect = connectionNeedsReconnect(connection);
+            const reconnectError = connectionReconnectError(connection);
 
-              return (
-                <li
-                  key={connection.connection_id}
-                  className="flex items-center justify-between gap-3 p-6 sm:px-8"
-                >
-                  <div className="flex min-w-0 items-center gap-4">
-                    <span
-                      aria-hidden="true"
-                      className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ede7dc] bg-[#fffaf0]"
-                    >
-                      {INTEGRATION_ICONS[connection.integration_id] ?? (
-                        <PuzzlePiece size={20} className="text-[#756b5d]" />
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="text-base font-medium text-[#181613]">
-                        {name}
-                      </p>
-                      <p className="mt-1 truncate text-sm leading-6 text-[#756b5d]">
-                        {connectionIdentityLabel(connection)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 flex-row items-center gap-2">
-                    {needsReconnect && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link
-                            to="/app/integration/"
-                            search={{
-                              flow: "web",
-                              integration_id: connection.integration_id,
-                              connection_id: connection.connection_id,
-                              action: "reconnect",
-                            }}
-                            aria-label={`Reconnect ${name}. ${reconnectError}`}
-                            className={accountPillSecondaryClassName}
-                          >
-                            Reconnect
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-xs">
-                          {reconnectError}
-                        </TooltipContent>
-                      </Tooltip>
+            return (
+              <li
+                key={connection.connection_id}
+                className="flex items-center justify-between gap-3 p-6 sm:px-8"
+              >
+                <div className="flex min-w-0 items-center gap-4">
+                  <span
+                    aria-hidden="true"
+                    className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#ede7dc] bg-[#fffaf0]"
+                  >
+                    {INTEGRATION_ICONS[connection.integration_id] ?? (
+                      <PuzzlePiece size={20} className="text-[#756b5d]" />
                     )}
-                    <Link
-                      to="/app/integration/"
-                      search={{
-                        flow: "web",
-                        integration_id: connection.integration_id,
-                        connection_id: connection.connection_id,
-                        action: "disconnect",
-                      }}
-                      aria-label={`Disconnect ${name}`}
-                      title="Disconnect"
-                      className={cn([accountPillDangerClassName, "w-9 px-0"])}
-                    >
-                      <Plugs size={16} aria-hidden="true" />
-                    </Link>
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-base font-medium text-[#181613]">
+                      {name}
+                    </p>
+                    <p className="mt-1 truncate text-sm leading-6 text-[#756b5d]">
+                      {connectionIdentityLabel(connection)}
+                    </p>
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        </TooltipProvider>
+                </div>
+                <IntegrationRowMenu
+                  name={name}
+                  integrationId={connection.integration_id}
+                  connectionId={connection.connection_id}
+                  needsReconnect={needsReconnect}
+                  reconnectError={reconnectError}
+                />
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
+  );
+}
+
+function IntegrationRowMenu({
+  name,
+  integrationId,
+  connectionId,
+  needsReconnect,
+  reconnectError,
+}: {
+  name: string;
+  integrationId: string;
+  connectionId: string;
+  needsReconnect: boolean;
+  reconnectError: string;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Actions for ${name}`}
+          className={accountMenuTriggerClassName}
+        >
+          <DotsThree size={16} aria-hidden="true" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent variant="app" align="end" className="w-44">
+        <AppFloatingPanel className="overflow-hidden p-1">
+          {needsReconnect && (
+            <>
+              <DropdownMenuItem asChild className="cursor-pointer">
+                <Link
+                  to="/app/integration/"
+                  search={{
+                    flow: "web",
+                    integration_id: integrationId,
+                    connection_id: connectionId,
+                    action: "reconnect",
+                  }}
+                  aria-label={
+                    reconnectError
+                      ? `Reconnect ${name}. ${reconnectError}`
+                      : `Reconnect ${name}`
+                  }
+                  title={reconnectError}
+                >
+                  Reconnect
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer text-red-700 focus:bg-red-50 focus:text-red-800"
+          >
+            <Link
+              to="/app/integration/"
+              search={{
+                flow: "web",
+                integration_id: integrationId,
+                connection_id: connectionId,
+                action: "disconnect",
+              }}
+              aria-label={`Disconnect ${name}`}
+            >
+              Disconnect
+            </Link>
+          </DropdownMenuItem>
+        </AppFloatingPanel>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import {
+  AppFloatingPanel,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -21,8 +22,8 @@ import {
 
 import {
   accountCardClassName,
+  accountMenuTriggerClassName,
   accountPillDangerClassName,
-  accountPillSecondaryClassName,
 } from "./-account-ui";
 
 const SCOPE_LABELS = {
@@ -96,23 +97,14 @@ export function SharedNotesSection() {
     restrict.isPending || stopSharing.isPending || stopSharingAll.isPending;
 
   return (
-    <div className={accountCardClassName}>
-      {sharesQuery.isPending ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          Checking your shared notes...
-        </p>
-      ) : sharesQuery.isError ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          Couldn't load your shared notes. Refresh to try again.
-        </p>
-      ) : shares.length === 0 ? (
-        <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
-          You haven't shared any notes yet. Notes you share from the desktop app
-          show up here.
-        </p>
-      ) : (
-        <>
-          <div className="flex justify-end border-b border-[#ede7dc] px-6 py-3 sm:px-8">
+    <>
+      <div className="flex items-center justify-between gap-4">
+        <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
+          Shared notes
+        </h2>
+        {!sharesQuery.isPending &&
+          !sharesQuery.isError &&
+          shares.length > 0 && (
             <button
               type="button"
               onClick={() => {
@@ -131,7 +123,23 @@ export function SharedNotesSection() {
                   ? "You sure?"
                   : "Stop sharing all"}
             </button>
-          </div>
+          )}
+      </div>
+      <div className={cn([accountCardClassName, "mt-6"])}>
+        {sharesQuery.isPending ? (
+          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+            Checking your shared notes...
+          </p>
+        ) : sharesQuery.isError ? (
+          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+            Couldn't load your shared notes. Refresh to try again.
+          </p>
+        ) : shares.length === 0 ? (
+          <p className="p-6 text-sm leading-6 text-[#756b5d] sm:p-8">
+            You haven't shared any notes yet. Notes you share from the desktop
+            app show up here.
+          </p>
+        ) : (
           <ul className="divide-y divide-[#ede7dc]">
             {shares.map((share) => (
               <li
@@ -169,24 +177,25 @@ export function SharedNotesSection() {
               </li>
             ))}
           </ul>
-        </>
-      )}
-      {restrict.isError && (
-        <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
-          {restrict.error?.message || "Failed to restrict shared note"}
-        </p>
-      )}
-      {stopSharing.isError && (
-        <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
-          {stopSharing.error?.message || "Failed to stop sharing this note"}
-        </p>
-      )}
-      {stopSharingAll.isError && (
-        <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
-          {stopSharingAll.error?.message || "Failed to stop sharing your notes"}
-        </p>
-      )}
-    </div>
+        )}
+        {restrict.isError && (
+          <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
+            {restrict.error?.message || "Failed to restrict shared note"}
+          </p>
+        )}
+        {stopSharing.isError && (
+          <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
+            {stopSharing.error?.message || "Failed to stop sharing this note"}
+          </p>
+        )}
+        {stopSharingAll.isError && (
+          <p className="px-6 pb-6 text-sm text-red-600 sm:px-8">
+            {stopSharingAll.error?.message ||
+              "Failed to stop sharing your notes"}
+          </p>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -224,38 +233,40 @@ function ShareRowMenu({
           type="button"
           disabled={disabled}
           aria-label={`Actions for ${title}`}
-          className={cn([accountPillSecondaryClassName, "w-9 px-0"])}
+          className={accountMenuTriggerClassName}
         >
           <DotsThree size={16} aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem asChild className="cursor-pointer">
-          <Link
-            to="/share/$shareId/"
-            params={{ shareId }}
-            search={{ scheme: "anarlog" }}
-          >
-            Open
-          </Link>
-        </DropdownMenuItem>
-        {canRestrict && (
-          <DropdownMenuItem
-            className="cursor-pointer"
-            disabled={restricting}
-            onSelect={onRestrict}
-          >
-            {restricting ? "Restricting..." : "Restrict"}
+      <DropdownMenuContent variant="app" align="end" className="w-44">
+        <AppFloatingPanel className="overflow-hidden p-1">
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link
+              to="/share/$shareId/"
+              params={{ shareId }}
+              search={{ scheme: "anarlog" }}
+            >
+              Open
+            </Link>
           </DropdownMenuItem>
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="cursor-pointer text-red-700 focus:bg-red-50 focus:text-red-800"
-          disabled={stopping}
-          onSelect={onStopSharing}
-        >
-          {stopping ? "Stopping..." : "Stop sharing"}
-        </DropdownMenuItem>
+          {canRestrict && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              disabled={restricting}
+              onSelect={onRestrict}
+            >
+              {restricting ? "Restricting..." : "Restrict"}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="cursor-pointer text-red-700 focus:bg-red-50 focus:text-red-800"
+            disabled={stopping}
+            onSelect={onStopSharing}
+          >
+            {stopping ? "Stopping..." : "Stop sharing"}
+          </DropdownMenuItem>
+        </AppFloatingPanel>
       </DropdownMenuContent>
     </DropdownMenu>
   );

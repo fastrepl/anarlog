@@ -25,3 +25,10 @@ export const accountPillDangerClassName = cn([
   "transition-colors hover:border-red-300 hover:text-red-800",
   "disabled:cursor-not-allowed disabled:opacity-50",
 ]);
+
+export const accountMenuTriggerClassName = cn([
+  "flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full",
+  "text-[#756b5d] transition-colors hover:bg-[#f7f4ef] hover:text-[#181613]",
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#756b5d]",
+  "disabled:cursor-not-allowed disabled:opacity-50 data-[state=open]:bg-[#f7f4ef]",
+]);

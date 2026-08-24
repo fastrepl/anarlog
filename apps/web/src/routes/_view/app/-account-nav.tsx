@@ -5,9 +5,11 @@ import { ACCOUNT_TABS, type AccountTabId } from "@/lib/account-tabs";
 export function AccountTabs({
   activeId,
   onSelect,
+  onPreload,
 }: {
   activeId: AccountTabId;
   onSelect: (tabId: AccountTabId) => void;
+  onPreload?: (tabId: AccountTabId) => void;
 }) {
   return (
     <nav aria-label="Account sections">
@@ -23,6 +25,8 @@ export function AccountTabs({
               id={`account-tab-${tab.id}`}
               aria-selected={isActive}
               aria-controls={`account-tabpanel-${tab.id}`}
+              onPointerEnter={() => onPreload?.(tab.id)}
+              onFocus={() => onPreload?.(tab.id)}
               onClick={() => onSelect(tab.id)}
               className={cn([
                 "shrink-0 rounded-full px-3 py-1.5 text-sm whitespace-nowrap transition-colors",

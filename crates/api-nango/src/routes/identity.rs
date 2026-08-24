@@ -1,6 +1,12 @@
 use anlg_nango::OwnedNangoProxy;
 
 #[derive(serde::Deserialize)]
+struct GoogleCalendarIdentity {
+    id: Option<String>,
+    summary: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
 struct GoogleUserInfo {
     email: Option<String>,
     name: Option<String>,
@@ -84,8 +90,25 @@ pub(crate) async fn fetch_identity(
     let proxy = OwnedNangoProxy::new(nango, integration_id.to_string(), connection_id.to_string());
 
     match integration_id {
+        // Calendar access does not include Google profile scopes. The primary
+        // calendar ID is the connected account email and is available with the
+        // existing calendar.readonly scope.
+        "google-calendar" => {
+            let resp = proxy
+                .get("/calendar/v3/calendars/primary")
+                .map_err(|e| e.to_string())?
+                .send()
+                .await
+                .map_err(|e| e.to_string())?
+                .error_for_status()
+                .map_err(|e| e.to_string())?;
+
+            let calendar: GoogleCalendarIdentity = resp.json().await.map_err(|e| e.to_string())?;
+            Ok((calendar.id, calendar.summary))
+        }
+
         // https://docs.cloud.google.com/identity-platform/docs/reference/rest/v1/UserInfo
-        "google-calendar" | "google-drive" | "google-meet" => {
+        "google-drive" | "google-meet" => {
             let request = if integration_id == "google-meet" {
                 proxy
                     .base_url_override("https://www.googleapis.com")
@@ -420,6 +443,26 @@ mod tests {
         tags.insert("account_identity".to_string(), "   ".to_string());
         assert_eq!(account_identity_from_tags(Some(&tags)), None);
         assert_eq!(account_identity_from_tags(None), None);
+    }
+
+    #[tokio::test]
+    async fn google_calendar_identity_uses_primary_calendar_email() {
+        let nango_mock = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/proxy/calendar/v3/calendars/primary"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "john@fastrepl.com",
+                "summary": "John Jeong"
+            })))
+            .mount(&nango_mock)
+            .await;
+
+        let nango = nango_client(&nango_mock).await;
+        let (identity, display_name) = fetch_identity(&nango, "google-calendar", "conn-google")
+            .await
+            .unwrap();
+        assert_eq!(identity.as_deref(), Some("john@fastrepl.com"));
+        assert_eq!(display_name.as_deref(), Some("John Jeong"));
     }
 
     #[tokio::test]
