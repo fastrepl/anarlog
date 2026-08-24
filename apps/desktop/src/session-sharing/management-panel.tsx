@@ -49,7 +49,7 @@ import {
 import { useSessionInvitationManagement } from "./invitation-management";
 import {
   ShareInviteForm,
-  ShareInviteRecipientRows,
+  ShareInviteSuggestions,
   useShareInvite,
 } from "./invite-recipients";
 import {
@@ -447,7 +447,7 @@ export function SessionSharePopoverContent({
               {recapMode === "invite" ? (
                 <section aria-labelledby="invite-people-heading">
                   <h3 id="invite-people-heading" className="sr-only">
-                    <Trans>People with access</Trans>
+                    <Trans>Invite people</Trans>
                   </h3>
                   <ShareInviteForm
                     invite={invite}
@@ -469,7 +469,15 @@ export function SessionSharePopoverContent({
                     }}
                   />
 
-                  <div className="mt-2 space-y-0.5">
+                  <ShareInviteSuggestions
+                    invite={invite}
+                    disabled={!canPublish || inviteMutation.isPending}
+                  />
+
+                  <div className="border-border/60 mt-2 border-t pt-2">
+                    <h4 className="text-muted-foreground mb-1 px-1.5 text-[10px] font-medium">
+                      <Trans>People with access</Trans>
+                    </h4>
                     <div className="flex min-h-9 items-center gap-2 rounded-lg px-1.5 py-1">
                       <ContactFacehash name={ownerName} size={24} />
                       <div className="min-w-0 flex-1">
@@ -487,11 +495,6 @@ export function SessionSharePopoverContent({
                         <Trans>Full access</Trans>
                       </span>
                     </div>
-
-                    <ShareInviteRecipientRows
-                      invite={invite}
-                      disabled={!canPublish || inviteMutation.isPending}
-                    />
 
                     {data?.access.length
                       ? data.access.map((entry) => (

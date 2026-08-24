@@ -2275,6 +2275,11 @@ msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
+msgid "Invite people"
+msgstr ""
+
+#: src/session-sharing/draft-panel.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
 msgstr ""
 
@@ -2928,6 +2933,10 @@ msgstr ""
 
 #: src/settings/developers/cli.tsx
 msgid "Not installed"
+msgstr ""
+
+#: src/session-sharing/invite-recipients.tsx
+msgid "Not invited yet. Nothing is sent until you click Invite."
 msgstr ""
 
 #: src/billing/trial-payment-reminder-dialog.tsx
@@ -4368,6 +4377,10 @@ msgstr ""
 
 #: src/main/windows-title-bar.tsx
 msgid "Suggest a Feature"
+msgstr ""
+
+#: src/session-sharing/invite-recipients.tsx
+msgid "Suggested attendees"
 msgstr ""
 
 #: src/session/components/note-input/raw.tsx

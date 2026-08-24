@@ -1636,6 +1636,16 @@ describe("SessionShareButton", () => {
     );
     expect(screen.getByText("sungbin@e.com")).not.toBeNull();
     expect(screen.getByText("yujong@e.com")).not.toBeNull();
+    expect(screen.getByText("Suggested attendees")).not.toBeNull();
+    expect(
+      screen.getByText(
+        "Not invited yet. Nothing is sent until you click Invite.",
+      ),
+    ).not.toBeNull();
+    expect(screen.getByText("People with access")).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Invite" }).textContent,
+    ).toContain("(2)");
     expect(screen.queryByText("Artem")).toBeNull();
     expect(screen.queryByText("Dropped")).toBeNull();
 

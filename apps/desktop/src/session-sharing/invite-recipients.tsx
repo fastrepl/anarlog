@@ -119,7 +119,7 @@ export function ShareInviteForm({
   disabled,
   pending,
   onSubmit,
-  actionLabel = <Trans>Invite</Trans>,
+  actionLabel,
   inputLabel = "Invitee email",
   placeholder = "Email or name",
 }: {
@@ -191,7 +191,10 @@ export function ShareInviteForm({
           {pending ? (
             <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
           ) : null}
-          {actionLabel}
+          {actionLabel ?? <Trans>Invite</Trans>}
+          {invite.emails.length ? (
+            <span aria-hidden="true">({invite.emails.length})</span>
+          ) : null}
         </Button>
       </form>
 
@@ -222,6 +225,34 @@ export function ShareInviteForm({
         </div>
       ) : null}
     </>
+  );
+}
+
+export function ShareInviteSuggestions({
+  invite,
+  disabled,
+}: {
+  invite: ReturnType<typeof useShareInvite>;
+  disabled: boolean;
+}) {
+  if (!invite.recipients.length) return null;
+
+  return (
+    <div className="mt-2">
+      <div className="px-1.5">
+        <h4 className="text-muted-foreground text-[10px] font-medium">
+          <Trans>Suggested attendees</Trans>
+        </h4>
+        <p className="text-muted-foreground mt-0.5 text-[10px] leading-4">
+          <Trans>
+            Not invited yet. Nothing is sent until you click Invite.
+          </Trans>
+        </p>
+      </div>
+      <div className="mt-1 space-y-0.5">
+        <ShareInviteRecipientRows invite={invite} disabled={disabled} />
+      </div>
+    </div>
   );
 }
 

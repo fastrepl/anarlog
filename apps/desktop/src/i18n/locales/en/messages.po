@@ -2275,6 +2275,11 @@ msgstr "Invite"
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
+msgid "Invite people"
+msgstr "Invite people"
+
+#: src/session-sharing/draft-panel.tsx
+#: src/session-sharing/management-panel.tsx
 msgid "Invite people to this note."
 msgstr "Invite people to this note."
 
@@ -2929,6 +2934,10 @@ msgstr "No upcoming bots."
 #: src/settings/developers/cli.tsx
 msgid "Not installed"
 msgstr "Not installed"
+
+#: src/session-sharing/invite-recipients.tsx
+msgid "Not invited yet. Nothing is sent until you click Invite."
+msgstr "Not invited yet. Nothing is sent until you click Invite."
 
 #: src/billing/trial-payment-reminder-dialog.tsx
 msgid "Not now"
@@ -4369,6 +4378,10 @@ msgstr "Submit callback URL"
 #: src/main/windows-title-bar.tsx
 msgid "Suggest a Feature"
 msgstr "Suggest a Feature"
+
+#: src/session-sharing/invite-recipients.tsx
+msgid "Suggested attendees"
+msgstr "Suggested attendees"
 
 #: src/session/components/note-input/raw.tsx
 msgid "Suggested templates"

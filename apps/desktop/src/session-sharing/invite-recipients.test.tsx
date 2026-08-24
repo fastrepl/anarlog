@@ -28,9 +28,31 @@ describe("ShareInviteForm", () => {
     expect(emailField.parentElement?.className).not.toContain("rounded-md");
     expect(inviteButton.className).not.toContain("rounded-md");
   });
+
+  it("shows how many recipients the action will invite", () => {
+    render(
+      <ShareInviteForm
+        invite={createInvite({
+          recipients: [
+            { name: "Ada", email: "ada@example.com" },
+            { name: "Grace", email: "grace@example.com" },
+          ],
+          emails: ["ada@example.com", "grace@example.com"],
+          canSubmit: true,
+        })}
+        disabled={false}
+        pending={false}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    const inviteButton = screen.getByRole("button", { name: "Invite" });
+
+    expect(inviteButton.textContent).toContain("(2)");
+  });
 });
 
-function createInvite() {
+function createInvite(overrides: Record<string, unknown> = {}) {
   return {
     query: "",
     setQuery: vi.fn(),
@@ -42,5 +64,6 @@ function createInvite() {
     commitQuery: vi.fn(),
     remove: vi.fn(),
     restore: vi.fn(),
+    ...overrides,
   };
 }
