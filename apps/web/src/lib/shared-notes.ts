@@ -85,6 +85,11 @@ export type SharedNoteSnapshot = {
   publishedAt: string;
 };
 
+export type StableSharedNoteSnapshot = {
+  accessScope: "link" | "public";
+  snapshot: SharedNoteSnapshot;
+};
+
 export type SharedNotePreview = {
   title: string;
   summary: string;
@@ -260,6 +265,13 @@ const gatewaySnapshotSchema = z
     body: z.unknown(),
     attachments: z.array(z.unknown()).max(64),
     publishedAt: z.string(),
+  })
+  .strict();
+
+const stableGatewaySnapshotSchema = z
+  .object({
+    accessScope: z.enum(["link", "public"]),
+    snapshot: gatewaySnapshotSchema,
   })
   .strict();
 
@@ -443,6 +455,16 @@ export function parseGatewaySharedNote(value: unknown): SharedNoteSnapshot {
     body: parseSharedNoteDocument(parsed.body),
     attachments: parseSharedNoteAttachments(parsed.attachments),
     publishedAt: parseTimestamp(parsed.publishedAt),
+  };
+}
+
+export function parseStableGatewaySharedNote(
+  value: unknown,
+): StableSharedNoteSnapshot {
+  const parsed = stableGatewaySnapshotSchema.parse(value);
+  return {
+    accessScope: parsed.accessScope,
+    snapshot: parseGatewaySharedNote(parsed.snapshot),
   };
 }
 

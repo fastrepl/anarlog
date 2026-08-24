@@ -26,6 +26,10 @@ export function getPublicSharedNoteOgImageUrl(publicSlug: string) {
   return `${ANARLOG_SITE_URL}/api/og/share/public/${encodeURIComponent(publicSlug)}`;
 }
 
+export function getStableSharedNoteOgImageUrl(shareId: string) {
+  return `${ANARLOG_SITE_URL}/api/og/share/link/${encodeURIComponent(shareId)}`;
+}
+
 export function getLinkSharedNoteOgImageUrl(
   shareId: string,
   previewToken: string,

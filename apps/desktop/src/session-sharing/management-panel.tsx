@@ -49,7 +49,6 @@ import {
   useShareInvite,
 } from "./invite-recipients";
 import {
-  copyPublicSessionShareUrl,
   copySessionShareUrl,
   enableAndCopySessionShareLink,
   ShareOperationAbortedError,
@@ -287,15 +286,10 @@ export function SessionSharePopoverContent({
     mutationFn: () =>
       runOperation(async (signal) => {
         if (!management) throw new ShareManagementError();
-        if (management.generalScope === "public") {
-          await copyPublicSessionShareUrl(management.publicSlug, () =>
-            requireActiveContext(signal),
-          );
-        } else {
-          await copySessionShareUrl(identity.shareId, () =>
-            requireActiveContext(signal),
-          );
-        }
+        const context = requireActiveContext(signal);
+        await copySessionShareUrl(context, identity.shareId, () =>
+          requireActiveContext(signal),
+        );
         await onActivated();
       }),
     onSuccess: () => {
@@ -604,11 +598,7 @@ export function SessionSharePopoverContent({
                 !management
               }
               onClick={() => {
-                if (shownScopeValue === "link") {
-                  scopeMutation.mutate("link");
-                } else {
-                  generalCopyMutation.mutate();
-                }
+                generalCopyMutation.mutate();
               }}
               className="h-7 rounded-md px-2.5 text-xs"
             >
@@ -620,11 +610,7 @@ export function SessionSharePopoverContent({
               ) : (
                 <Copy className="size-3.5" aria-hidden="true" />
               )}
-              {shownScopeValue === "link" ? (
-                <Trans>Replace link &amp; copy</Trans>
-              ) : (
-                <Trans>Copy link</Trans>
-              )}
+              <Trans>Copy link</Trans>
             </Button>
           </footer>
         </div>

@@ -247,6 +247,48 @@ async fn reads_public_snapshot_through_the_service_gateway() {
 }
 
 #[tokio::test]
+async fn reads_a_stable_link_without_a_rotating_bearer_token() {
+    let server = MockServer::start().await;
+    let mut row = snapshot_row("Stable link note");
+    row["general_scope"] = json!("link");
+    mount_rpc(
+        &server,
+        "gateway_read_stable_session_share_snapshot_v2",
+        json!({ "p_share_id": SHARE_ID }),
+        json!([row]),
+    )
+    .await;
+
+    let response = test_router(&server)
+        .oneshot(
+            Request::get(format!("/shared-notes/share/{SHARE_ID}"))
+                .header(header::COOKIE, "session=private")
+                .header(header::AUTHORIZATION, "Bearer user-token")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = response_json(response).await;
+    assert_eq!(body["accessScope"], "link");
+    assert_eq!(body["snapshot"]["shareId"], SHARE_ID);
+    assert_eq!(body["snapshot"]["title"], "Stable link note");
+    let upstream = server.received_requests().await.unwrap().pop().unwrap();
+    assert!(upstream.headers.get("cookie").is_none());
+    assert_eq!(
+        upstream.headers["authorization"].to_str().unwrap(),
+        "Bearer service-role-key"
+    );
+    assert!(
+        !String::from_utf8(upstream.body)
+            .unwrap()
+            .contains("user-token")
+    );
+}
+
+#[tokio::test]
 async fn authorizes_before_signing_a_public_attachment_download() {
     let server = MockServer::start().await;
     let object_key = format!("{OWNER_ID}/{SHARE_ID}/{ATTACHMENT_ID}.sna1");
@@ -722,6 +764,36 @@ async fn creates_link_handoff_without_returning_the_bearer_token() {
     let body = response_json(response).await;
     assert_eq!(body["requestId"], HANDOFF_ID);
     assert!(!body.to_string().contains(LINK_TOKEN));
+}
+
+#[tokio::test]
+async fn creates_a_stable_link_handoff_without_a_bearer_token() {
+    let server = MockServer::start().await;
+    mount_rpc(
+        &server,
+        "gateway_create_stable_session_share_handoff",
+        json!({
+            "p_share_id": SHARE_ID,
+            "p_source_hash": test_source_hash(None)
+        }),
+        json!([{
+            "request_id": HANDOFF_ID,
+            "expires_at": "2026-07-16T10:01:00Z"
+        }]),
+    )
+    .await;
+
+    let response = test_router(&server)
+        .oneshot(
+            Request::post(format!("/shared-notes/share/{SHARE_ID}/handoff"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response_json(response).await["requestId"], HANDOFF_ID);
 }
 
 #[test]

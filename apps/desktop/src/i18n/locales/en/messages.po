@@ -3509,10 +3509,6 @@ msgstr "Replace"
 msgid "Replace all"
 msgstr "Replace all"
 
-#: src/session-sharing/management-panel.tsx
-msgid "Replace link & copy"
-msgstr "Replace link & copy"
-
 #: src/settings/todo/github.tsx
 msgid "Replace repository"
 msgstr "Replace repository"

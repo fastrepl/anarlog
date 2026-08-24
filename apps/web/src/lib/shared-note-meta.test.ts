@@ -6,6 +6,7 @@ import {
   getPrivateShareHead,
   getPublicShareHead,
   getShortLinkShareHead,
+  getStableShareHead,
   privateShareHeaders,
 } from "./shared-note-meta.ts";
 
@@ -108,6 +109,45 @@ test("short links receive note-specific social metadata without a query token", 
   );
 });
 
+test("stable links keep private social previews out of search indexes", () => {
+  const head = getStableShareHead(
+    shareId,
+    "link",
+    {
+      shareId,
+      schemaVersion: 1,
+      contentRevision: 1,
+      title: "Sprint planning",
+      body: { type: "doc", content: [] },
+      attachments: [],
+      publishedAt: "2026-08-06T00:00:00Z",
+    },
+    {
+      title: "Sprint planning",
+      summary: "The team agreed on the next sprint's priorities.",
+      participants: ["John Jeong", "Sungbin Jo"],
+      meetingAt: "2026-08-06T00:00:00Z",
+    },
+  );
+
+  assert.ok(
+    head.meta.some(
+      (meta) =>
+        "property" in meta &&
+        meta.property === "og:image" &&
+        meta.content === `https://anarlog.so/api/og/share/link/${shareId}`,
+    ),
+  );
+  assert.ok(
+    head.meta.some(
+      (meta) =>
+        "name" in meta &&
+        meta.name === "robots" &&
+        meta.content?.includes("noindex"),
+    ),
+  );
+});
+
 test("available public notes receive canonical indexable metadata", () => {
   const head = getPublicShareHead(
     "s_0123456789abcdef0123456789abcdef",
@@ -143,7 +183,7 @@ test("available public notes receive canonical indexable metadata", () => {
   assert.deepEqual(head.links, [
     {
       rel: "canonical",
-      href: "https://anarlog.so/share/public/s_0123456789abcdef0123456789abcdef/",
+      href: `https://anarlog.so/share/${shareId}/`,
     },
   ]);
   assert.ok(

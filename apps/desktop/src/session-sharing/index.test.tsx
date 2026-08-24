@@ -1443,7 +1443,7 @@ describe("SessionShareButton", () => {
     );
   });
 
-  it("creates and copies a bearer link only after link access is selected", async () => {
+  it("enables link access and copies the stable note URL", async () => {
     mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
     mocks.managedNote = null;
     mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
@@ -1469,9 +1469,9 @@ describe("SessionShareButton", () => {
       "enable-link",
     ]);
     const copied = new URL(mocks.clipboardWriteText.mock.calls[0]![0]);
-    expect(copied.pathname).toBe(`/t/${LINK_ID}/`);
+    expect(copied.pathname).toBe(`/share/${SHARE_ID}/`);
     expect(copied.search).toBe("");
-    expect(copied.hash).toBe(`#token=${TOKEN}`);
+    expect(copied.hash).toBe("");
     expect(mocks.markSessionShareActivated).toHaveBeenCalledWith(
       USER_ID,
       SHARE_ID,
@@ -1479,7 +1479,30 @@ describe("SessionShareButton", () => {
     );
   });
 
-  it("returns link access to invited-only when copying its token fails", async () => {
+  it("copies an existing link without rotating its URL", async () => {
+    mocks.management = defaultManagement({
+      generalScope: "link",
+      hasActiveLink: true,
+    });
+    renderShareButton();
+    await openSharePopover();
+    mocks.clipboardWriteText.mockClear();
+    mocks.enableSessionShareLink.mockClear();
+    mocks.rotateSessionShareLink.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+
+    await waitFor(() =>
+      expect(mocks.clipboardWriteText).toHaveBeenCalledOnce(),
+    );
+    const copied = new URL(mocks.clipboardWriteText.mock.calls[0]![0]);
+    expect(copied.pathname).toBe(`/share/${SHARE_ID}/`);
+    expect(copied.hash).toBe("");
+    expect(mocks.enableSessionShareLink).not.toHaveBeenCalled();
+    expect(mocks.rotateSessionShareLink).not.toHaveBeenCalled();
+  });
+
+  it("returns link access to invited-only when copying its stable URL fails", async () => {
     mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
     mocks.clipboardWriteText.mockRejectedValueOnce(new Error("clipboard"));
     renderShareButton();

@@ -202,6 +202,13 @@ pub struct SharedNoteSnapshot {
 
 #[derive(Serialize, utoipa::ToSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct StableSharedNoteSnapshot {
+    access_scope: String,
+    snapshot: SharedNoteSnapshot,
+}
+
+#[derive(Serialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SharedNotePreview {
     title: String,
     summary: String,
@@ -244,6 +251,11 @@ struct PublicSlugRpcRequest<'a> {
 }
 
 #[derive(Serialize)]
+struct StableShareRpcRequest<'a> {
+    p_share_id: &'a str,
+}
+
+#[derive(Serialize)]
 struct LinkRpcRequest<'a> {
     p_share_id: &'a str,
     p_link_token: &'a str,
@@ -263,6 +275,12 @@ struct LinkIdRpcRequest<'a> {
 #[derive(Serialize)]
 struct PublicHandoffRpcRequest<'a> {
     p_public_slug: &'a str,
+    p_source_hash: &'a str,
+}
+
+#[derive(Serialize)]
+struct StableShareHandoffRpcRequest<'a> {
+    p_share_id: &'a str,
     p_source_hash: &'a str,
 }
 
@@ -294,6 +312,13 @@ struct PublicAttachmentRpcRequest<'a> {
 }
 
 #[derive(Serialize)]
+struct StableShareAttachmentRpcRequest<'a> {
+    p_share_id: &'a str,
+    p_attachment_id: &'a str,
+    p_download_expires_at: &'a str,
+}
+
+#[derive(Serialize)]
 struct LinkAttachmentRpcRequest<'a> {
     p_share_id: &'a str,
     p_attachment_id: &'a str,
@@ -311,6 +336,18 @@ struct MyAttachmentRpcRequest<'a> {
 
 #[derive(Deserialize)]
 struct GatewaySnapshotRow {
+    share_id: String,
+    schema_version: i16,
+    content_revision: i64,
+    title: String,
+    body_json: Value,
+    attachments_json: Vec<SharedNoteAttachment>,
+    published_at: String,
+}
+
+#[derive(Deserialize)]
+struct GatewayStableSnapshotRow {
+    general_scope: String,
     share_id: String,
     schema_version: i16,
     content_revision: i64,
@@ -374,15 +411,19 @@ struct GatewayHandoffRow {
 #[derive(OpenApi)]
 #[openapi(
     paths(
+        read_stable_shared_note,
+        read_stable_shared_note_preview,
         read_public_shared_note,
         read_public_shared_note_preview,
         read_link_shared_note,
         read_link_shared_note_preview,
         read_short_link_shared_note_preview,
+        create_stable_shared_note_handoff,
         create_public_shared_note_handoff,
         create_link_shared_note_handoff,
         claim_shared_note_handoff,
         download_handoff_shared_attachment,
+        download_stable_shared_attachment,
         download_public_shared_attachment,
         download_link_shared_attachment,
         download_access_shared_attachment,
@@ -395,6 +436,7 @@ struct GatewayHandoffRow {
         SharedNoteHandoffAttachmentRequest,
         SharedNoteInvitationEmailRequest,
         SharedNoteSnapshot,
+        StableSharedNoteSnapshot,
         SharedNotePreview,
         SharedNoteLinkPreview,
         SharedNoteHandoff,
@@ -409,6 +451,14 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 
 pub fn router(state: SharedNotesState) -> Router {
     Router::new()
+        .route(
+            "/shared-notes/share/{share_id}",
+            get(read_stable_shared_note),
+        )
+        .route(
+            "/shared-notes/share/{share_id}/preview",
+            get(read_stable_shared_note_preview),
+        )
         .route("/shared-notes/public/{slug}", get(read_public_shared_note))
         .route(
             "/shared-notes/public/{slug}/preview",
@@ -428,6 +478,10 @@ pub fn router(state: SharedNotesState) -> Router {
             get(read_short_link_shared_note_preview),
         )
         .route(
+            "/shared-notes/share/{share_id}/handoff",
+            post(create_stable_shared_note_handoff),
+        )
+        .route(
             "/shared-notes/public/{slug}/handoff",
             post(create_public_shared_note_handoff),
         )
@@ -445,6 +499,10 @@ pub fn router(state: SharedNotesState) -> Router {
             "/shared-notes/handoffs/attachments/{attachment_id}/download",
             post(download_handoff_shared_attachment)
                 .layer(DefaultBodyLimit::max(MAX_HANDOFF_CLAIM_REQUEST_BYTES)),
+        )
+        .route(
+            "/shared-notes/share/{share_id}/attachments/{attachment_id}/download",
+            post(download_stable_shared_attachment),
         )
         .route(
             "/shared-notes/public/{slug}/attachments/{attachment_id}/download",
@@ -485,6 +543,81 @@ async fn add_no_store(request: Request, next: Next) -> Response {
         .headers_mut()
         .insert(header::CACHE_CONTROL, HeaderValue::from_static("no-store"));
     response
+}
+
+#[utoipa::path(
+    get,
+    path = "/shared-notes/share/{share_id}",
+    tag = "shared-notes",
+    params(("share_id" = String, Path, description = "Stable session share ID")),
+    responses(
+        (status = 200, description = "Stable shared note", body = StableSharedNoteSnapshot),
+        (status = 404, description = "Shared note unavailable"),
+        (status = 502, description = "Shared note service unavailable")
+    )
+)]
+async fn read_stable_shared_note(
+    State(state): State<SharedNotesState>,
+    Path(share_id): Path<String>,
+) -> Result<Json<StableSharedNoteSnapshot>> {
+    let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedNoteNotFound)?;
+    let row: GatewayStableSnapshotRow = rpc_single(
+        &state,
+        "gateway_read_stable_session_share_snapshot_v2",
+        &StableShareRpcRequest {
+            p_share_id: &share_id,
+        },
+        MAX_SNAPSHOT_RESPONSE_BYTES,
+    )
+    .await?;
+    if !matches!(row.general_scope.as_str(), "link" | "public") {
+        return Err(SyncError::SharedNoteNotFound);
+    }
+    let access_scope = row.general_scope;
+    let snapshot = validate_snapshot(
+        GatewaySnapshotRow {
+            share_id: row.share_id,
+            schema_version: row.schema_version,
+            content_revision: row.content_revision,
+            title: row.title,
+            body_json: row.body_json,
+            attachments_json: row.attachments_json,
+            published_at: row.published_at,
+        },
+        Some(&share_id),
+    )?;
+    Ok(Json(StableSharedNoteSnapshot {
+        access_scope,
+        snapshot,
+    }))
+}
+
+#[utoipa::path(
+    get,
+    path = "/shared-notes/share/{share_id}/preview",
+    tag = "shared-notes",
+    params(("share_id" = String, Path, description = "Stable session share ID")),
+    responses(
+        (status = 200, description = "Stable shared note preview", body = SharedNotePreview),
+        (status = 404, description = "Shared note unavailable"),
+        (status = 502, description = "Shared note service unavailable")
+    )
+)]
+async fn read_stable_shared_note_preview(
+    State(state): State<SharedNotesState>,
+    Path(share_id): Path<String>,
+) -> Result<Json<SharedNotePreview>> {
+    let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedNoteNotFound)?;
+    let row = rpc_single(
+        &state,
+        "gateway_read_stable_session_share_preview",
+        &StableShareRpcRequest {
+            p_share_id: &share_id,
+        },
+        MAX_SNAPSHOT_RESPONSE_BYTES,
+    )
+    .await?;
+    Ok(Json(validate_preview(row)?))
 }
 
 #[utoipa::path(
@@ -651,6 +784,37 @@ async fn read_short_link_shared_note_preview(
 
 #[utoipa::path(
     post,
+    path = "/shared-notes/share/{share_id}/handoff",
+    tag = "shared-notes",
+    params(("share_id" = String, Path, description = "Stable session share ID")),
+    responses(
+        (status = 200, description = "One-time desktop handoff", body = SharedNoteHandoff),
+        (status = 404, description = "Shared note unavailable"),
+        (status = 502, description = "Shared note service unavailable")
+    )
+)]
+async fn create_stable_shared_note_handoff(
+    State(state): State<SharedNotesState>,
+    Path(share_id): Path<String>,
+    headers: HeaderMap,
+) -> Result<Json<SharedNoteHandoff>> {
+    let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedNoteNotFound)?;
+    let source_hash = state.handoff_source_hash(&headers);
+    let row = rpc_single(
+        &state,
+        "gateway_create_stable_session_share_handoff",
+        &StableShareHandoffRpcRequest {
+            p_share_id: &share_id,
+            p_source_hash: &source_hash,
+        },
+        MAX_HANDOFF_RESPONSE_BYTES,
+    )
+    .await?;
+    Ok(Json(validate_handoff(row)?))
+}
+
+#[utoipa::path(
+    post,
     path = "/shared-notes/public/{slug}/handoff",
     tag = "shared-notes",
     params(("slug" = String, Path, description = "Public share slug")),
@@ -793,6 +957,50 @@ async fn download_handoff_shared_attachment(
         "gateway_prepare_session_share_handoff_attachment_download",
         &HandoffAttachmentRpcRequest {
             p_lease_id: &lease_id,
+            p_attachment_id: &attachment_id,
+            p_download_expires_at: &expires_at,
+        },
+    )
+    .await?;
+    Ok(Json(
+        sign_attachment_download(
+            &state,
+            row,
+            &attachment_id,
+            &expires_at,
+            ATTACHMENT_DOWNLOAD_TTL_SECONDS,
+        )
+        .await?,
+    ))
+}
+
+#[utoipa::path(
+    post,
+    path = "/shared-notes/share/{share_id}/attachments/{attachment_id}/download",
+    tag = "shared-notes",
+    params(
+        ("share_id" = String, Path, description = "Stable session share ID"),
+        ("attachment_id" = String, Path, description = "Published attachment ID")
+    ),
+    responses(
+        (status = 200, description = "Short-lived stable-link attachment download", body = SharedAttachmentDownload),
+        (status = 404, description = "Shared attachment unavailable"),
+        (status = 502, description = "Shared attachment service unavailable")
+    )
+)]
+async fn download_stable_shared_attachment(
+    State(state): State<SharedNotesState>,
+    Path((share_id, attachment_id)): Path<(String, String)>,
+) -> Result<Json<SharedAttachmentDownload>> {
+    let share_id = canonical_uuid(&share_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let attachment_id =
+        canonical_uuid_v4(&attachment_id).ok_or(SyncError::SharedAttachmentNotFound)?;
+    let expires_at = future_timestamp(ATTACHMENT_DOWNLOAD_TTL_SECONDS)?;
+    let row = attachment_rpc_single(
+        &state,
+        "gateway_prepare_stable_session_share_attachment_download",
+        &StableShareAttachmentRpcRequest {
+            p_share_id: &share_id,
             p_attachment_id: &attachment_id,
             p_download_expires_at: &expires_at,
         },

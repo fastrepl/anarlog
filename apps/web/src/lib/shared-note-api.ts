@@ -2,6 +2,7 @@ import { env } from "@/env";
 import { isShareRouteToken } from "@/lib/share-route-privacy";
 import {
   parseGatewaySharedNote,
+  parseStableGatewaySharedNote,
   parseSharedNoteLinkPreview,
   parseSharedNotePreview,
   parseSharedNoteAttachmentDownload,
@@ -12,6 +13,7 @@ import {
   shareIdSchema,
   type SharedNoteLinkPreview,
   type SharedNoteSnapshot,
+  type StableSharedNoteSnapshot,
   type SharedNotePreview,
   type SharedNoteAttachmentDownload,
   type ShareHandoff,
@@ -22,6 +24,11 @@ const MAX_DOWNLOAD_GRANT_BYTES = 32 * 1024;
 
 export type SharedNoteReadResult =
   | { status: "ready"; snapshot: SharedNoteSnapshot }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+export type StableSharedNoteReadResult =
+  | ({ status: "ready" } & StableSharedNoteSnapshot)
   | { status: "unavailable" }
   | { status: "error" };
 
@@ -39,6 +46,50 @@ type JsonRequestResult =
   | { status: "ready"; value: unknown }
   | { status: "unavailable" }
   | { status: "error" };
+
+export async function fetchStableSharedNoteResult(
+  shareId: string,
+  signal?: AbortSignal,
+): Promise<StableSharedNoteReadResult> {
+  const parsedShareId = shareIdSchema.safeParse(shareId);
+  if (!parsedShareId.success) {
+    return { status: "unavailable" };
+  }
+
+  const result = await requestJsonResult(
+    `/shared-notes/share/${encodeURIComponent(parsedShareId.data)}`,
+    { method: "GET", signal },
+  );
+  if (result.status !== "ready") return result;
+
+  try {
+    return { status: "ready", ...parseStableGatewaySharedNote(result.value) };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+export async function fetchStableSharedNotePreviewResult(
+  shareId: string,
+  signal?: AbortSignal,
+): Promise<SharedNotePreviewReadResult> {
+  const parsedShareId = shareIdSchema.safeParse(shareId);
+  if (!parsedShareId.success) {
+    return { status: "unavailable" };
+  }
+
+  const result = await requestJsonResult(
+    `/shared-notes/share/${encodeURIComponent(parsedShareId.data)}/preview`,
+    { method: "GET", signal },
+  );
+  if (result.status !== "ready") return result;
+
+  try {
+    return { status: "ready", preview: parseSharedNotePreview(result.value) };
+  } catch {
+    return { status: "error" };
+  }
+}
 
 export async function fetchPublicSharedNoteResult(
   publicSlug: string,
@@ -167,6 +218,20 @@ export async function fetchPublicSharedAttachmentDownload(
   );
 }
 
+export async function fetchStableSharedAttachmentDownload(
+  shareId: string,
+  attachmentId: string,
+  signal?: AbortSignal,
+): Promise<SharedNoteAttachmentDownload | null> {
+  const parsedShareId = shareIdSchema.safeParse(shareId);
+  const parsedAttachmentId = shareIdSchema.safeParse(attachmentId);
+  if (!parsedShareId.success || !parsedAttachmentId.success) return null;
+  return requestAttachmentDownload(
+    `/shared-notes/share/${encodeURIComponent(parsedShareId.data)}/attachments/${encodeURIComponent(parsedAttachmentId.data)}/download`,
+    { method: "POST", signal },
+  );
+}
+
 export async function fetchLinkSharedAttachmentDownload(
   shareId: string,
   token: string,
@@ -203,6 +268,20 @@ export async function createPublicShareHandoff(
 
   return requestHandoff(
     `/shared-notes/public/${encodeURIComponent(parsedSlug.data)}/handoff`,
+    { method: "POST" },
+  );
+}
+
+export async function createStableShareHandoff(
+  shareId: string,
+): Promise<ShareHandoff | null> {
+  const parsedShareId = shareIdSchema.safeParse(shareId);
+  if (!parsedShareId.success) {
+    return null;
+  }
+
+  return requestHandoff(
+    `/shared-notes/share/${encodeURIComponent(parsedShareId.data)}/handoff`,
     { method: "POST" },
   );
 }

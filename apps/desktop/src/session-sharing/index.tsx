@@ -328,7 +328,7 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
             channelName: action.channel.name,
           };
         } else if (action.type === "copy-link") {
-          await copySessionShareUrl(share.shareId, () =>
+          await copySessionShareUrl(context, share.shareId, () =>
             requireActivePrepareContext(identity, signal),
           );
           actionResult = { type: "copy-link" };

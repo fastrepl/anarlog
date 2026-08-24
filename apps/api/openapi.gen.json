@@ -1863,6 +1863,163 @@
         }
       }
     },
+    "/shared-notes/share/{share_id}": {
+      "get": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "read_stable_shared_note",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Stable session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stable shared note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StableSharedNoteSnapshot"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/share/{share_id}/attachments/{attachment_id}/download": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "download_stable_shared_attachment",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Stable session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "description": "Published attachment ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Short-lived stable-link attachment download",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedAttachmentDownload"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared attachment unavailable"
+          },
+          "502": {
+            "description": "Shared attachment service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/share/{share_id}/handoff": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "create_stable_shared_note_handoff",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Stable session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One-time desktop handoff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNoteHandoff"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
+    "/shared-notes/share/{share_id}/preview": {
+      "get": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "read_stable_shared_note_preview",
+        "parameters": [
+          {
+            "name": "share_id",
+            "in": "path",
+            "description": "Stable session share ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stable shared note preview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedNotePreview"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Shared note unavailable"
+          },
+          "502": {
+            "description": "Shared note service unavailable"
+          }
+        }
+      }
+    },
     "/shared-notes/{share_id}/recap/email": {
       "post": {
         "tags": [
@@ -10924,6 +11081,21 @@
           },
           "session_id": {
             "type": "string"
+          }
+        }
+      },
+      "StableSharedNoteSnapshot": {
+        "type": "object",
+        "required": [
+          "accessScope",
+          "snapshot"
+        ],
+        "properties": {
+          "accessScope": {
+            "type": "string"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/SharedNoteSnapshot"
           }
         }
       },

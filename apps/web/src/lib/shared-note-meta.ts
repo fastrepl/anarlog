@@ -4,6 +4,7 @@ import {
   getLinkSharedNoteOgImageUrl,
   getPublicSharedNoteOgImageUrl,
   getShortLinkSharedNoteOgImageUrl,
+  getStableSharedNoteOgImageUrl,
 } from "./seo.ts";
 import {
   getSharedNoteDescription,
@@ -97,6 +98,57 @@ export function getShortLinkShareHead(
   };
 }
 
+export function getStableShareHead(
+  shareId: string,
+  accessScope: "link" | "public" | null | undefined,
+  snapshot: SharedNoteSnapshot | null | undefined,
+  preview: SharedNotePreview | null | undefined,
+) {
+  if (!snapshot || !preview) {
+    return getPrivateShareHead();
+  }
+
+  const title = snapshot.title || "Shared note";
+  const description = getPreviewDescription(preview);
+  const imageUrl = getStableSharedNoteOgImageUrl(shareId);
+  const url = `${ANARLOG_SITE_URL}/share/${shareId}/`;
+  const socialMeta = [
+    { name: "description", content: description },
+    { property: "og:type", content: "article" },
+    { property: "og:site_name", content: ANARLOG_SITE_NAME },
+    { property: "og:title", content: title },
+    { property: "og:description", content: description },
+    { property: "og:image", content: imageUrl },
+    { property: "og:image:type", content: "image/png" },
+    { property: "og:image:width", content: "1200" },
+    { property: "og:image:height", content: "630" },
+    { property: "og:image:alt", content: `Preview of ${title}` },
+    { name: "twitter:card", content: "summary_large_image" },
+    { name: "twitter:title", content: title },
+    { name: "twitter:description", content: description },
+    { name: "twitter:image", content: imageUrl },
+    { name: "twitter:image:alt", content: `Preview of ${title}` },
+  ];
+
+  if (accessScope !== "public") {
+    return {
+      meta: [...getPrivateShareMeta(`${title} · Anarlog`), ...socialMeta],
+    };
+  }
+
+  return {
+    links: [{ rel: "canonical", href: url }],
+    meta: [
+      { title: `${title} · Anarlog` },
+      { name: "robots", content: "index, follow" },
+      { name: "referrer", content: "no-referrer" },
+      { name: "ai-content", content: "public" },
+      { property: "og:url", content: url },
+      ...socialMeta,
+    ],
+  };
+}
+
 export function getPublicShareHead(
   publicSlug: string,
   snapshot: SharedNoteSnapshot | null | undefined,
@@ -111,7 +163,7 @@ export function getPublicShareHead(
     ? getPreviewDescription(preview)
     : getSharedNoteDescription(snapshot.body) ||
       "A public note shared with Anarlog.";
-  const url = `${ANARLOG_SITE_URL}/share/public/${publicSlug}/`;
+  const url = `${ANARLOG_SITE_URL}/share/${snapshot.shareId}/`;
   const imageUrl = getPublicSharedNoteOgImageUrl(publicSlug);
 
   return {

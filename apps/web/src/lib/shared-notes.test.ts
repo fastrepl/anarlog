@@ -10,6 +10,7 @@ import {
   isMatchingSharedNoteAttachmentDownload,
   parseAuthenticatedSharedNote,
   parseGatewaySharedNote,
+  parseStableGatewaySharedNote,
   parseSessionAccessRequestState,
   parseSessionInvitationState,
   parseSessionShareAccessEntry,
@@ -104,6 +105,27 @@ test("parses the exact public gateway DTO", () => {
       accessVersion: 4,
       webEditable: true,
     }),
+  );
+});
+
+test("parses the stable URL access scope separately from the note", () => {
+  const stable = parseStableGatewaySharedNote({
+    accessScope: "link",
+    snapshot: {
+      shareId: "00000000-0000-4000-8000-000000000001",
+      schemaVersion: 1,
+      contentRevision: 2,
+      title: "Weekly sync",
+      body: BODY,
+      attachments: [],
+      publishedAt: "2026-07-17T12:00:00Z",
+    },
+  });
+
+  assert.equal(stable.accessScope, "link");
+  assert.equal(stable.snapshot.title, "Weekly sync");
+  assert.throws(() =>
+    parseStableGatewaySharedNote({ ...stable, accessScope: "restricted" }),
   );
 });
 

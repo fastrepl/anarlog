@@ -6,7 +6,6 @@ import {
   getSessionShareManagement,
   listSessionShareAccess,
   revokeSessionAccessInvitation,
-  rotateSessionShareLink,
   setSessionShareScope,
   type SessionShareAccessEntry,
   type SessionShareManagement,
@@ -15,9 +14,7 @@ import {
 } from "./client";
 import {
   buildAccountSessionShareUrl,
-  buildPublicSessionShareUrl,
   buildSessionInvitationUrl,
-  buildSessionShareLinkUrl,
   type ShareDesktopScheme,
 } from "./urls";
 
@@ -88,6 +85,7 @@ export async function copyText(value: string) {
 }
 
 export async function copySessionShareUrl(
+  _context: ShareManagementContext,
   shareId: string,
   assertActive: () => unknown,
 ) {
@@ -116,25 +114,11 @@ export async function enableAndCopySessionShareLink({
   assertActive: () => unknown;
 }) {
   try {
-    let link = hasActiveLink
-      ? await rotateSessionShareLink(context, shareId)
-      : await enableSessionShareLink(context, shareId);
-    if (!link.linkToken) {
-      link = await rotateSessionShareLink(context, shareId);
+    if (!hasActiveLink) {
+      await enableSessionShareLink(context, shareId);
+      assertActive();
     }
-    if (!link.linkToken) throw new ShareManagementError();
-    assertActive();
-    const desktopScheme = await getSessionShareDesktopScheme();
-    assertActive();
-    await copyText(
-      buildSessionShareLinkUrl({
-        appBaseUrl: env.VITE_APP_URL,
-        linkId: link.linkId,
-        linkToken: link.linkToken,
-        desktopScheme,
-      }),
-    );
-    assertActive();
+    await copySessionShareUrl(context, shareId, assertActive);
   } catch {
     await setSessionShareScope(withoutSignal(context), {
       shareId,
@@ -142,23 +126,6 @@ export async function enableAndCopySessionShareLink({
     }).catch(() => undefined);
     throw new ShareManagementError();
   }
-}
-
-export async function copyPublicSessionShareUrl(
-  publicSlug: string,
-  assertActive: () => unknown,
-) {
-  assertActive();
-  const desktopScheme = await getSessionShareDesktopScheme();
-  assertActive();
-  await copyText(
-    buildPublicSessionShareUrl({
-      appBaseUrl: env.VITE_APP_URL,
-      publicSlug,
-      desktopScheme,
-    }),
-  );
-  assertActive();
 }
 
 export async function copyInvitationOrRevoke(

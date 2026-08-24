@@ -7,6 +7,7 @@ import { getShareRouteToken } from "@/lib/share-route-privacy";
 import {
   createLinkShareHandoff,
   createPublicShareHandoff,
+  createStableShareHandoff,
 } from "@/lib/shared-note-api";
 import {
   buildAccountShareDeepLink,
@@ -51,6 +52,41 @@ export function LinkSharedNoteActions({
         throw new Error("shared note unavailable");
       }
       const handoff = await createLinkShareHandoff(shareId, token);
+      if (!handoff) {
+        throw new Error("shared note unavailable");
+      }
+      return handoff;
+    },
+    onSuccess: (handoff) => {
+      window.location.href = buildShareHandoffDeepLink(
+        handoff.requestId,
+        scheme,
+      );
+    },
+  });
+
+  return (
+    <SharedNoteActionButtons
+      canEdit={canEdit}
+      error={handoffMutation.isError}
+      isPending={handoffMutation.isPending}
+      onOpen={() => handoffMutation.mutate()}
+    />
+  );
+}
+
+export function StableSharedNoteActions({
+  canEdit,
+  scheme,
+  shareId,
+}: {
+  canEdit: boolean;
+  scheme: SharedNoteDesktopScheme;
+  shareId: string;
+}) {
+  const handoffMutation = useMutation({
+    mutationFn: async () => {
+      const handoff = await createStableShareHandoff(shareId);
       if (!handoff) {
         throw new Error("shared note unavailable");
       }
