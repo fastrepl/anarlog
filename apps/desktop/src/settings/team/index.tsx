@@ -1,13 +1,20 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import {
+  Buildings,
+  CalendarBlank,
+  ChartBar,
   CircleNotch,
   Crown,
+  Globe,
   LockSimple,
   PaperPlaneTilt,
   PencilSimple,
   Plus,
+  ShieldCheck,
   Trash,
   UserPlus,
+  UsersThree,
+  WarningCircle,
 } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -41,6 +48,7 @@ import {
   rotateWorkspaceScimToken,
   setMemberRole,
   setWorkspacePolicy,
+  setWorkspaceShareSlug,
   transferOwnership,
   type WorkspaceMember,
   type WorkspacePolicy,
@@ -114,9 +122,11 @@ export function SettingsTeam() {
     return (
       <div className="flex flex-col gap-8">
         <SettingsPageTitle title={<Trans>Team</Trans>} />
-        <div className="flex max-w-2xl items-start justify-between gap-6">
-          <div className="flex gap-3">
-            <LockSimple className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+        <div className="border-border/60 bg-card/50 flex max-w-2xl items-center justify-between gap-6 rounded-xl border p-5 shadow-sm">
+          <div className="flex items-center gap-4">
+            <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
+              <LockSimple className="text-muted-foreground size-5" />
+            </div>
             <div>
               <h3 className="text-sm font-medium">
                 <Trans>Anarlog Pro required</Trans>
@@ -157,6 +167,7 @@ export function SettingsTeam() {
             key={activeId}
             workspaceId={activeId}
             workspaceName={activeWorkspace?.name ?? ""}
+            workspaceShareSlug={activeWorkspace?.shareSlug ?? null}
             workspaceRole={activeWorkspace?.role ?? "member"}
             workspaces={workspaces.data}
             hasProAccess={billing.isPro}
@@ -201,18 +212,25 @@ function CreateWorkspaceForm({
   const trimmed = name.trim();
 
   return (
-    <div>
-      <h3 className="text-sm font-medium">
-        <Trans>Create a shared workspace</Trans>
-      </h3>
-      <p className="text-muted-foreground mt-1 text-xs">
-        <Trans>
-          Invite teammates, share notes across the workspace, and manage who has
-          access. Your personal notes stay private.
-        </Trans>
-      </p>
+    <div className="border-border/60 bg-card/50 max-w-2xl rounded-xl border p-5 shadow-sm">
+      <div className="flex items-start gap-4">
+        <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
+          <Buildings className="size-5" />
+        </div>
+        <div>
+          <h3 className="text-sm font-medium">
+            <Trans>Create a shared workspace</Trans>
+          </h3>
+          <p className="text-muted-foreground mt-1 text-xs leading-5">
+            <Trans>
+              Invite teammates, share notes across the workspace, and manage who
+              has access. Your personal notes stay private.
+            </Trans>
+          </p>
+        </div>
+      </div>
       <form
-        className="mt-3 flex gap-2"
+        className="mt-5 flex gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           if (trimmed) onCreate(trimmed);
@@ -242,6 +260,7 @@ function CreateWorkspaceForm({
 function WorkspacePanel({
   workspaceId,
   workspaceName,
+  workspaceShareSlug,
   workspaceRole,
   workspaces,
   hasProAccess,
@@ -251,6 +270,7 @@ function WorkspacePanel({
 }: {
   workspaceId: string;
   workspaceName: string;
+  workspaceShareSlug: string | null;
   workspaceRole: WorkspaceRole;
   workspaces: { workspaceId: string; name: string }[];
   hasProAccess: boolean;
@@ -390,242 +410,281 @@ function WorkspacePanel({
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <div className="flex items-center gap-1">
-          {isRenaming ? (
-            <Input
-              autoFocus
-              defaultValue={workspaceName}
-              maxLength={120}
-              aria-label={t`Workspace name`}
-              className="bg-card h-9 w-64 shadow-none"
-              onBlur={(event) => submitRename(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  submitRename(event.currentTarget.value);
-                } else if (event.key === "Escape") {
-                  setIsRenaming(false);
-                }
+    <div className="flex flex-col gap-4">
+      <div className="border-border/60 bg-card/60 flex items-center gap-4 rounded-xl border p-4 shadow-sm">
+        <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
+          <Buildings className="size-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {isRenaming ? (
+              <Input
+                autoFocus
+                defaultValue={workspaceName}
+                maxLength={120}
+                aria-label={t`Workspace name`}
+                className="bg-background h-9 max-w-sm shadow-none"
+                onBlur={(event) => submitRename(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    submitRename(event.currentTarget.value);
+                  } else if (event.key === "Escape") {
+                    setIsRenaming(false);
+                  }
+                }}
+              />
+            ) : (
+              <>
+                <Select value={workspaceId} onValueChange={onSelectWorkspace}>
+                  <SelectTrigger className="bg-background h-9 max-w-sm shadow-none">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workspaces.map((workspace) => (
+                      <SelectItem
+                        key={workspace.workspaceId}
+                        value={workspace.workspaceId}
+                      >
+                        {workspace.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {canManage && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    title={t`Rename workspace`}
+                    onClick={() => setIsRenaming(true)}
+                  >
+                    {rename.isPending ? (
+                      <CircleNotch className="size-4 animate-spin" />
+                    ) : (
+                      <PencilSimple className="size-4" />
+                    )}
+                  </Button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        <span className="border-border bg-background text-muted-foreground shrink-0 rounded-full border px-2.5 py-1 text-xs capitalize">
+          {workspaceRole}
+        </span>
+      </div>
+
+      {actionError && <p className="text-destructive text-xs">{actionError}</p>}
+
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <section className="border-border/60 bg-card/50 overflow-hidden rounded-xl border shadow-sm">
+            <div className="flex items-center justify-between gap-3 p-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
+                  <UsersThree className="text-muted-foreground size-4" />
+                </div>
+                <h3 className="text-sm font-medium">
+                  <Trans>Members</Trans>
+                </h3>
+              </div>
+              {members.data && (
+                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs tabular-nums">
+                  {members.data.length + (invitations.data?.length ?? 0)}
+                </span>
+              )}
+            </div>
+
+            <div className="border-border/60 border-t p-4">
+              {canManage && (
+                <form
+                  className="relative mb-4 max-w-sm"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (trimmedEmail) invite.mutate(trimmedEmail);
+                  }}
+                >
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder={t`teammate@company.com`}
+                    className="bg-background h-9 rounded-full pr-24 pl-4 shadow-none"
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-1 right-1"
+                    disabled={!trimmedEmail || invite.isPending}
+                  >
+                    {invite.isPending ? (
+                      <CircleNotch className="size-4 animate-spin" />
+                    ) : (
+                      <UserPlus className="size-4" />
+                    )}
+                    <Trans>Invite</Trans>
+                  </Button>
+                </form>
+              )}
+
+              {members.isPending ? (
+                <TeamSkeleton />
+              ) : members.isError ? (
+                <p className="text-muted-foreground border-border rounded-lg border p-4 text-sm">
+                  <Trans>
+                    Only workspace admins can see who has access. You are a
+                    member of this workspace.
+                  </Trans>
+                </p>
+              ) : (
+                <ul className="border-border divide-border divide-y overflow-hidden rounded-lg border">
+                  {members.data?.map((member) => (
+                    <MemberRow
+                      key={member.userId}
+                      member={member}
+                      isViewer={member.userId === viewerId}
+                      viewerRole={canManage ? viewerRole : undefined}
+                      onRoleChange={(role) =>
+                        changeRole.mutate({ userId: member.userId, role })
+                      }
+                      onRemove={() => remove.mutate(member.userId)}
+                      onTransfer={() => transfer.mutate(member.userId)}
+                    />
+                  ))}
+                  {invitations.data?.map((invitation) => (
+                    <li
+                      key={invitation.invitationId}
+                      className="flex items-center justify-between gap-3 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-muted-foreground truncate text-sm">
+                          {invitation.email}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          <Trans>Invitation pending</Trans>
+                        </p>
+                      </div>
+                      {canManage && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={t`Resend invitation`}
+                            onClick={() =>
+                              resendInvite.mutate({
+                                invitationId: invitation.invitationId,
+                                email: invitation.email,
+                              })
+                            }
+                            disabled={resendInvite.isPending}
+                          >
+                            {resendInvite.isPending &&
+                            resendInvite.variables?.invitationId ===
+                              invitation.invitationId ? (
+                              <CircleNotch className="size-4 animate-spin" />
+                            ) : (
+                              <PaperPlaneTilt className="size-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={t`Cancel invitation`}
+                            onClick={() =>
+                              cancelInvite.mutate(invitation.invitationId)
+                            }
+                            disabled={cancelInvite.isPending}
+                          >
+                            <Trash className="size-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {canManage && policy.data && (
+            <WorkspacePolicyForm
+              workspaceId={workspaceId}
+              policy={policy.data}
+              onSaved={refresh}
+            />
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4">
+          {canManage && (
+            <WorkspaceShareDomainForm
+              workspaceId={workspaceId}
+              workspaceShareSlug={workspaceShareSlug}
+              onSaved={() => {
+                refresh();
+                onWorkspaceRenamed();
               }}
             />
-          ) : (
-            <>
-              <Select value={workspaceId} onValueChange={onSelectWorkspace}>
-                <SelectTrigger className="bg-card h-9 w-64 shadow-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {workspaces.map((workspace) => (
-                    <SelectItem
-                      key={workspace.workspaceId}
-                      value={workspace.workspaceId}
-                    >
-                      {workspace.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {canManage && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  title={t`Rename workspace`}
-                  onClick={() => setIsRenaming(true)}
-                >
-                  {rename.isPending ? (
-                    <CircleNotch className="size-4 animate-spin" />
-                  ) : (
-                    <PencilSimple className="size-4" />
-                  )}
-                </Button>
-              )}
-            </>
           )}
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-3">
-        {canManage && (
-          <form
-            className="relative max-w-xs"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (trimmedEmail) invite.mutate(trimmedEmail);
-            }}
-          >
-            <Input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={t`teammate@company.com`}
-              className="bg-card h-9 rounded-full pr-24 pl-4 shadow-none"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              variant="outline"
-              className="absolute top-1 right-1"
-              disabled={!trimmedEmail || invite.isPending}
-            >
-              {invite.isPending ? (
-                <CircleNotch className="size-4 animate-spin" />
-              ) : (
-                <UserPlus className="size-4" />
-              )}
-              <Trans>Invite</Trans>
-            </Button>
-          </form>
-        )}
-
-        {actionError && (
-          <p className="text-destructive text-xs">{actionError}</p>
-        )}
-
-        {members.isPending ? (
-          <TeamSkeleton />
-        ) : members.isError ? (
-          <p className="text-muted-foreground border-border rounded-lg border p-4 text-sm">
-            <Trans>
-              Only workspace admins can see who has access. You are a member of
-              this workspace.
-            </Trans>
-          </p>
-        ) : (
-          <ul className="border-border divide-border divide-y rounded-lg border">
-            {members.data?.map((member) => (
-              <MemberRow
-                key={member.userId}
-                member={member}
-                isViewer={member.userId === viewerId}
-                viewerRole={canManage ? viewerRole : undefined}
-                onRoleChange={(role) =>
-                  changeRole.mutate({ userId: member.userId, role })
-                }
-                onRemove={() => remove.mutate(member.userId)}
-                onTransfer={() => transfer.mutate(member.userId)}
-              />
-            ))}
-            {invitations.data?.map((invitation) => (
-              <li
-                key={invitation.invitationId}
-                className="flex items-center justify-between gap-3 px-3 py-2.5"
-              >
-                <div className="min-w-0">
-                  <p className="text-muted-foreground truncate text-sm">
-                    {invitation.email}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    <Trans>Invitation pending</Trans>
-                  </p>
+          {canManage && usage.data && (
+            <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
+                  <ChartBar className="text-muted-foreground size-4" />
                 </div>
-                {canManage && (
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      title={t`Resend invitation`}
-                      onClick={() =>
-                        resendInvite.mutate({
-                          invitationId: invitation.invitationId,
-                          email: invitation.email,
-                        })
-                      }
-                      disabled={resendInvite.isPending}
-                    >
-                      {resendInvite.isPending &&
-                      resendInvite.variables?.invitationId ===
-                        invitation.invitationId ? (
-                        <CircleNotch className="size-4 animate-spin" />
-                      ) : (
-                        <PaperPlaneTilt className="size-4" />
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      title={t`Cancel invitation`}
-                      onClick={() =>
-                        cancelInvite.mutate(invitation.invitationId)
-                      }
-                      disabled={cancelInvite.isPending}
-                    >
-                      <Trash className="size-4" />
-                    </Button>
+                <h3 className="text-sm font-medium">
+                  <Trans>Usage</Trans>
+                </h3>
+              </div>
+              <p className="text-muted-foreground mt-3 text-xs leading-5">
+                <Trans>
+                  Workspace activity from metadata only. Note content stays
+                  unreadable on the server.
+                </Trans>
+              </p>
+              <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                {[
+                  [t`Members`, usage.data.memberCount],
+                  [
+                    t`Seats`,
+                    usage.data.seatLimit != null
+                      ? `${usage.data.usedSeats} / ${usage.data.seatLimit}`
+                      : usage.data.usedSeats,
+                  ],
+                  [t`Devices`, usage.data.enrolledDevices],
+                  [t`Shares (30d)`, usage.data.sharesCreated30d],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="bg-muted/60 rounded-lg px-3 py-2.5"
+                  >
+                    <dt className="text-muted-foreground text-xs">{label}</dt>
+                    <dd className="mt-1 font-medium tabular-nums">{value}</dd>
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+                ))}
+              </dl>
+            </section>
+          )}
+
+          <UpcomingCaptureBots workspaceId={workspaceId} />
+        </div>
       </div>
 
-      {canManage && usage.data && (
-        <div>
-          <h3 className="text-sm font-medium">
-            <Trans>Usage</Trans>
-          </h3>
-          <p className="text-muted-foreground mt-1 text-xs leading-5">
-            <Trans>
-              Workspace activity from metadata only. Note content stays
-              unreadable on the server.
-            </Trans>
+      <div className="border-destructive/20 bg-destructive/5 flex items-center justify-between gap-4 rounded-xl border px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <WarningCircle className="text-destructive/70 size-4 shrink-0" />
+          <p className="text-muted-foreground text-xs">
+            {viewerRole === "owner" ? (
+              <Trans>
+                Deleting removes the workspace for everyone. Transfer ownership
+                first if you only want to leave.
+              </Trans>
+            ) : (
+              <Trans>Leaving gives up your access to shared notes here.</Trans>
+            )}
           </p>
-          <dl className="mt-3 grid max-w-xl grid-cols-2 gap-3 text-sm">
-            <div>
-              <dt className="text-muted-foreground text-xs">
-                <Trans>Members</Trans>
-              </dt>
-              <dd>{usage.data.memberCount}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground text-xs">
-                <Trans>Seats</Trans>
-              </dt>
-              <dd>
-                {usage.data.usedSeats}
-                {usage.data.seatLimit != null
-                  ? ` / ${usage.data.seatLimit}`
-                  : ""}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground text-xs">
-                <Trans>Devices</Trans>
-              </dt>
-              <dd>{usage.data.enrolledDevices}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground text-xs">
-                <Trans>Shares (30d)</Trans>
-              </dt>
-              <dd>{usage.data.sharesCreated30d}</dd>
-            </div>
-          </dl>
         </div>
-      )}
-
-      {canManage && policy.data && (
-        <WorkspacePolicyForm
-          workspaceId={workspaceId}
-          policy={policy.data}
-          onSaved={refresh}
-        />
-      )}
-
-      <UpcomingCaptureBots workspaceId={workspaceId} />
-
-      <div className="border-destructive/30 bg-destructive/5 flex items-center justify-between gap-4 rounded-lg border px-4 py-3">
-        <p className="text-muted-foreground text-xs">
-          {viewerRole === "owner" ? (
-            <Trans>
-              Deleting removes the workspace for everyone. Transfer ownership
-              first if you only want to leave.
-            </Trans>
-          ) : (
-            <Trans>Leaving gives up your access to shared notes here.</Trans>
-          )}
-        </p>
         {viewerRole === "owner" ? (
           <Button
             size="sm"
@@ -697,11 +756,16 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
   );
 
   return (
-    <div>
-      <h3 className="text-sm font-medium">
-        <Trans>Upcoming bot attendance</Trans>
-      </h3>
-      <p className="text-muted-foreground mt-1 text-xs leading-5">
+    <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
+          <CalendarBlank className="text-muted-foreground size-4" />
+        </div>
+        <h3 className="text-sm font-medium">
+          <Trans>Upcoming bot attendance</Trans>
+        </h3>
+      </div>
+      <p className="text-muted-foreground mt-3 text-xs leading-5">
         <Trans>
           Calendar-scheduled capture jobs. Canceling stops the bot from joining.
         </Trans>
@@ -719,7 +783,7 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
           <Trans>No upcoming bots.</Trans>
         </p>
       ) : (
-        <ul className="mt-3 max-w-xl divide-y rounded-lg border">
+        <ul className="border-border divide-border mt-3 divide-y overflow-hidden rounded-lg border">
           {visible.map((capture) => (
             <li
               key={capture.calendarEventId}
@@ -743,7 +807,7 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -811,37 +875,44 @@ function WorkspacePolicyForm({
   });
 
   return (
-    <div>
-      <h3 className="text-sm font-medium">
-        <Trans>Policies</Trans>
-      </h3>
-      <p className="text-muted-foreground mt-1 text-xs leading-5">
+    <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
+          <ShieldCheck className="text-muted-foreground size-4" />
+        </div>
+        <h3 className="text-sm font-medium">
+          <Trans>Policies</Trans>
+        </h3>
+      </div>
+      <p className="text-muted-foreground mt-3 text-xs leading-5">
         <Trans>
           These rules apply to every member. Sharing changes fail closed on the
           server.
         </Trans>
       </p>
-      <div className="mt-3 flex max-w-xl flex-col gap-3">
-        <label className="flex items-center justify-between gap-4 text-sm">
-          <Trans>Allow anyone-with-the-link sharing</Trans>
-          <Switch checked={allowLink} onCheckedChange={setAllowLink} />
-        </label>
-        <label className="flex items-center justify-between gap-4 text-sm">
-          <Trans>Allow public indexing</Trans>
-          <Switch checked={allowPublic} onCheckedChange={setAllowPublic} />
-        </label>
-        <label className="flex items-center justify-between gap-4 text-sm">
-          <Trans>Require SSO</Trans>
-          <Switch checked={requireSso} onCheckedChange={setRequireSso} />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
+      <div className="mt-4 flex flex-col gap-4">
+        <div className="border-border divide-border divide-y overflow-hidden rounded-lg border">
+          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
+            <Trans>Allow anyone-with-the-link sharing</Trans>
+            <Switch checked={allowLink} onCheckedChange={setAllowLink} />
+          </label>
+          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
+            <Trans>Allow public indexing</Trans>
+            <Switch checked={allowPublic} onCheckedChange={setAllowPublic} />
+          </label>
+          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
+            <Trans>Require SSO</Trans>
+            <Switch checked={requireSso} onCheckedChange={setRequireSso} />
+          </label>
+        </div>
+        <label className="flex max-w-sm flex-col gap-1 text-sm">
           <Trans>Retention (days)</Trans>
           <Input
             value={retention}
             onChange={(event) => setRetention(event.target.value)}
             placeholder={t`Keep forever`}
             inputMode="numeric"
-            className="bg-card h-9 max-w-xs shadow-none"
+            className="bg-background h-9 shadow-none"
           />
         </label>
         <Button
@@ -859,67 +930,149 @@ function WorkspacePolicyForm({
         {save.error?.message ? (
           <p className="text-destructive text-xs">{save.error.message}</p>
         ) : null}
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (domain.trim()) claimDomain.mutate(domain.trim());
-          }}
-        >
-          <label className="flex flex-col gap-1 text-sm">
-            <Trans>Claim email domain</Trans>
-            <Input
-              value={domain}
-              onChange={(event) => setDomain(event.target.value)}
-              placeholder="company.com"
-              className="bg-card h-9 max-w-xs shadow-none"
-            />
-          </label>
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            className="w-fit"
-            disabled={!domain.trim() || claimDomain.isPending}
+        <div className="border-border/60 grid gap-4 border-t pt-4 sm:grid-cols-2">
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (domain.trim()) claimDomain.mutate(domain.trim());
+            }}
           >
-            <Trans>Verify domain</Trans>
-          </Button>
-        </form>
-        <form
-          className="flex flex-col gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (domain.trim() && scimToken.trim().length >= 32) {
-              rotateScim.mutate();
-            }
-          }}
-        >
-          <label className="flex flex-col gap-1 text-sm">
-            <Trans>SCIM bearer token</Trans>
-            <Input
-              value={scimToken}
-              onChange={(event) => setScimToken(event.target.value)}
-              type="password"
-              autoComplete="off"
-              className="bg-card h-9 max-w-xs shadow-none"
-            />
-          </label>
-          <Button
-            type="submit"
-            size="sm"
-            variant="outline"
-            className="w-fit"
-            disabled={
-              !domain.trim() ||
-              scimToken.trim().length < 32 ||
-              rotateScim.isPending
-            }
+            <label className="flex flex-col gap-1 text-sm">
+              <Trans>Claim email domain</Trans>
+              <Input
+                value={domain}
+                onChange={(event) => setDomain(event.target.value)}
+                placeholder="company.com"
+                className="bg-background h-9 shadow-none"
+              />
+            </label>
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              disabled={!domain.trim() || claimDomain.isPending}
+            >
+              <Trans>Verify domain</Trans>
+            </Button>
+          </form>
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (domain.trim() && scimToken.trim().length >= 32) {
+                rotateScim.mutate();
+              }
+            }}
           >
-            <Trans>Save SCIM token</Trans>
-          </Button>
-        </form>
+            <label className="flex flex-col gap-1 text-sm">
+              <Trans>SCIM bearer token</Trans>
+              <Input
+                value={scimToken}
+                onChange={(event) => setScimToken(event.target.value)}
+                type="password"
+                autoComplete="off"
+                className="bg-background h-9 shadow-none"
+              />
+            </label>
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              disabled={
+                !domain.trim() ||
+                scimToken.trim().length < 32 ||
+                rotateScim.isPending
+              }
+            >
+              <Trans>Save SCIM token</Trans>
+            </Button>
+          </form>
+        </div>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function WorkspaceShareDomainForm({
+  workspaceId,
+  workspaceShareSlug,
+  onSaved,
+}: {
+  workspaceId: string;
+  workspaceShareSlug: string | null;
+  onSaved: () => void;
+}) {
+  const auth = useAuth();
+  const inputId = `workspace-share-slug-${workspaceId}`;
+  const [shareSlug, setShareSlug] = useState(workspaceShareSlug ?? "");
+  const save = useMutation({
+    mutationFn: (value: string) =>
+      setWorkspaceShareSlug(requireTeamContext(auth), workspaceId, value),
+    onSuccess: (result) => {
+      setShareSlug(result.shareSlug);
+      onSaved();
+    },
+  });
+
+  return (
+    <form
+      className="border-border/60 bg-card/50 flex flex-col gap-3 rounded-xl border p-4 shadow-sm"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (shareSlug.trim()) save.mutate(shareSlug.trim());
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+          <Globe className="size-4" />
+        </div>
+        <h3 className="text-sm font-medium">
+          <Trans>Sharing domain</Trans>
+        </h3>
+      </div>
+      <p className="text-muted-foreground text-xs">
+        <Trans>Use this domain for links shared from this workspace.</Trans>
+      </p>
+      <label htmlFor={inputId} className="text-xs font-medium">
+        <Trans>Workspace subdomain</Trans>
+      </label>
+      <div className="flex min-w-0 items-center">
+        <Input
+          id={inputId}
+          value={shareSlug}
+          onChange={(event) => setShareSlug(event.target.value.toLowerCase())}
+          placeholder="company"
+          minLength={3}
+          maxLength={63}
+          pattern="[a-z0-9][a-z0-9-]{1,61}[a-z0-9]"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          className="bg-background h-9 min-w-0 rounded-r-none shadow-none"
+        />
+        <span className="border-input bg-muted text-muted-foreground flex h-9 shrink-0 items-center rounded-r-md border border-l-0 px-3 text-xs">
+          .anarlog.so
+        </span>
+      </div>
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        className="w-fit"
+        disabled={!shareSlug.trim() || save.isPending}
+      >
+        {save.isPending ? (
+          <CircleNotch className="size-4 animate-spin" />
+        ) : null}
+        <Trans>Save subdomain</Trans>
+      </Button>
+      {save.error?.message ? (
+        <p className="text-destructive text-xs">{save.error.message}</p>
+      ) : null}
+    </form>
   );
 }
 

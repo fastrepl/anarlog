@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
   createOrReuseSessionShare: vi.fn(),
   publishSessionShareSnapshot: vi.fn(),
   getSessionShareManagement: vi.fn(),
+  getSessionShareWorkspaceSlug: vi.fn().mockResolvedValue(null),
   listSessionShareAccess: vi.fn(),
   enableSessionShareLink: vi.fn(),
   rotateSessionShareLink: vi.fn(),
@@ -77,6 +78,13 @@ vi.mock("~/auth", () => ({
 
 vi.mock("~/auth/billing-context", () => ({
   useBillingAccess: () => mocks.billing,
+}));
+
+vi.mock("~/env", () => ({
+  env: {
+    VITE_API_URL: "https://api.anarlog.so",
+    VITE_APP_URL: "https://anarlog.so",
+  },
 }));
 
 vi.mock("~/contacts/queries", () => ({
@@ -165,6 +173,7 @@ vi.mock("./client", async (importOriginal) => {
     createSessionAccessInvitation: mocks.createSessionAccessInvitation,
     enableSessionShareLink: mocks.enableSessionShareLink,
     getSessionShareManagement: mocks.getSessionShareManagement,
+    getSessionShareWorkspaceSlug: mocks.getSessionShareWorkspaceSlug,
     listSessionShareAccess: mocks.listSessionShareAccess,
     publishSessionShareSnapshot: mocks.publishSessionShareSnapshot,
     resendSessionAccessInvitation: mocks.resendSessionAccessInvitation,
@@ -373,6 +382,7 @@ describe("SessionShareButton", () => {
     mocks.createOrReuseSessionShare.mockReset();
     mocks.publishSessionShareSnapshot.mockReset();
     mocks.getSessionShareManagement.mockReset();
+    mocks.getSessionShareWorkspaceSlug.mockReset().mockResolvedValue(null);
     mocks.enableSessionShareLink.mockReset();
     mocks.rotateSessionShareLink.mockReset();
     mocks.setSessionShareScope.mockReset();
@@ -1500,6 +1510,21 @@ describe("SessionShareButton", () => {
     expect(copied.hash).toBe("");
     expect(mocks.enableSessionShareLink).not.toHaveBeenCalled();
     expect(mocks.rotateSessionShareLink).not.toHaveBeenCalled();
+  });
+
+  it("copies sharing links from the workspace subdomain", async () => {
+    mocks.getSessionShareWorkspaceSlug.mockResolvedValue("fastrepl");
+    renderShareButton();
+    await openSharePopover();
+    mocks.clipboardWriteText.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+
+    await waitFor(() =>
+      expect(mocks.clipboardWriteText).toHaveBeenCalledWith(
+        `https://fastrepl.anarlog.so/share/${SHARE_ID}/`,
+      ),
+    );
   });
 
   it("returns link access to invited-only when copying its stable URL fails", async () => {

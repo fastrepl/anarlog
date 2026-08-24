@@ -167,6 +167,7 @@ export function useSessionAccessManagement({
           } catch {
             await copyInvitationOrRevoke(
               withoutSignal(context),
+              identity.shareId,
               invitation,
               () => requireActiveContext(signal),
               signal,
@@ -209,6 +210,7 @@ export function useSessionAccessManagement({
           } catch {
             await copyInvitationOrRevoke(
               withoutSignal(context),
+              identity.shareId,
               {
                 invitationId: invitation.invitationId,
                 inviteToken: invitation.inviteToken,

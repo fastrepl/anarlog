@@ -3664,6 +3664,10 @@ msgstr "Save policies"
 msgid "Save SCIM token"
 msgstr "Save SCIM token"
 
+#: src/settings/team/index.tsx
+msgid "Save subdomain"
+msgstr "Save subdomain"
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
 msgstr "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
@@ -3988,6 +3992,10 @@ msgstr "Shared with me · View only"
 #: src/settings/team/index.tsx
 msgid "Shares (30d)"
 msgstr "Shares (30d)"
+
+#: src/settings/team/index.tsx
+msgid "Sharing domain"
+msgstr "Sharing domain"
 
 #: src/session-sharing/management-panel.tsx
 msgid "Sharing paused to protect your edits"
@@ -4928,6 +4936,10 @@ msgstr "Use the AI meeting summary"
 msgid "Use the meeting's action items and summary tasks."
 msgstr "Use the meeting's action items and summary tasks."
 
+#: src/settings/team/index.tsx
+msgid "Use this domain for links shared from this workspace."
+msgstr "Use this domain for links shared from this workspace."
+
 #: src/settings/general/main-language.tsx
 msgid "Use this language for summaries and AI responses."
 msgstr "Use this language for summaries and AI responses."
@@ -5056,6 +5068,10 @@ msgstr "Workspace activity from metadata only. Note content stays unreadable on 
 #: src/settings/team/index.tsx
 msgid "Workspace name"
 msgstr "Workspace name"
+
+#: src/settings/team/index.tsx
+msgid "Workspace subdomain"
+msgstr "Workspace subdomain"
 
 #: src/automations/starters.tsx
 msgid "Write to a folder"

@@ -9,6 +9,7 @@ import {
   listWorkspaceMembers,
   removeMember,
   requireTeamContext,
+  setWorkspaceShareSlug,
   TeamError,
   type TeamContext,
 } from "./client";
@@ -61,6 +62,27 @@ describe("workspace reads", () => {
     await expect(listWorkspaceMembers(ctx, WORKSPACE_ID)).resolves.toEqual([
       { userId: USER_ID, email: "a@example.com", role: "owner" },
     ]);
+  });
+
+  it("sets the canonical workspace sharing subdomain", async () => {
+    const { context: ctx, rpc } = context([
+      {
+        workspace_id: WORKSPACE_ID,
+        workspace_share_slug: "fastrepl",
+        share_base_url: "https://fastrepl.anarlog.so",
+      },
+    ]);
+
+    await expect(
+      setWorkspaceShareSlug(ctx, WORKSPACE_ID, "Fastrepl"),
+    ).resolves.toEqual({
+      shareSlug: "fastrepl",
+      shareBaseUrl: "https://fastrepl.anarlog.so",
+    });
+    expect(rpc).toHaveBeenCalledWith("set_workspace_share_slug", {
+      p_workspace_id: WORKSPACE_ID,
+      p_slug: "Fastrepl",
+    });
   });
 
   it("hides invitations that were already accepted or revoked", async () => {

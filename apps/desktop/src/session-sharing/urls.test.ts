@@ -57,6 +57,66 @@ describe("session share URLs", () => {
     ).toBe(`https://anarlog.so/share/public/${publicSlug}/`);
   });
 
+  it("uses a workspace subdomain for every stable sharing route", () => {
+    const workspaceShareSlug = "fastrepl";
+    expect(
+      buildSessionShareLinkUrl({
+        appBaseUrl: "https://anarlog.so",
+        linkId,
+        linkToken: token,
+        workspaceShareSlug,
+      }),
+    ).toBe(`https://fastrepl.anarlog.so/t/${linkId}/#token=${token}`);
+    expect(
+      buildSessionInvitationUrl({
+        appBaseUrl: "https://anarlog.so",
+        invitationId,
+        inviteToken: token,
+        workspaceShareSlug,
+      }),
+    ).toBe(
+      `https://fastrepl.anarlog.so/share/invite/${invitationId}/#token=${token}`,
+    );
+    expect(
+      buildAccountSessionShareUrl({
+        appBaseUrl: "https://anarlog.so",
+        shareId,
+        workspaceShareSlug,
+      }),
+    ).toBe(`https://fastrepl.anarlog.so/share/${shareId}/`);
+    expect(
+      buildPublicSessionShareUrl({
+        appBaseUrl: "https://anarlog.so",
+        publicSlug,
+        workspaceShareSlug,
+      }),
+    ).toBe(`https://fastrepl.anarlog.so/share/public/${publicSlug}/`);
+  });
+
+  it("keeps development origins unchanged and rejects malformed workspace slugs", () => {
+    expect(
+      buildAccountSessionShareUrl({
+        appBaseUrl: "http://localhost:3000",
+        shareId,
+        workspaceShareSlug: "fastrepl",
+      }),
+    ).toBe(`http://localhost:3000/share/${shareId}/`);
+    expect(() =>
+      buildAccountSessionShareUrl({
+        appBaseUrl: "https://anarlog.so",
+        shareId,
+        workspaceShareSlug: "escape.anarlog.so",
+      }),
+    ).toThrow("Share URL is unavailable");
+    expect(() =>
+      buildAccountSessionShareUrl({
+        appBaseUrl: "https://anarlog.so",
+        shareId,
+        workspaceShareSlug: "api",
+      }),
+    ).toThrow("Share URL is unavailable");
+  });
+
   it("targets non-stable builds without changing stable canonical URLs", () => {
     const linkUrl = new URL(
       buildSessionShareLinkUrl({

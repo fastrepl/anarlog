@@ -1,6 +1,7 @@
 import { getRequestHeaders } from "@tanstack/react-start/server";
 
 import { env } from "@/env";
+import { isWorkspaceShareHostname } from "@/lib/workspace-share-host";
 
 const PUBLIC_APP_HOSTS = new Set([
   "char.com",
@@ -31,7 +32,7 @@ export const getRequestAppOrigin = () => {
     const parsed = new URL(`https://${host}`);
     const hostname = parsed.hostname.toLowerCase();
 
-    if (PUBLIC_APP_HOSTS.has(hostname)) {
+    if (PUBLIC_APP_HOSTS.has(hostname) || isWorkspaceShareHostname(hostname)) {
       return `https://${parsed.host}`;
     }
 

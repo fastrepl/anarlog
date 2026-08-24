@@ -28,7 +28,11 @@ import {
   matchSharedAttachmentsToLocal,
   useSessionShareAttachments,
 } from "./attachments";
-import { setSessionShareScope, ShareManagementError } from "./client";
+import {
+  getSessionShareWorkspaceSlug,
+  setSessionShareScope,
+  ShareManagementError,
+} from "./client";
 import { useSessionRecapDelivery } from "./delivery-management";
 import {
   EmailRecapForm,
@@ -188,11 +192,17 @@ export function SessionSharePopoverContent({
   const openWebCopyMutation = useMutation({
     mutationFn: () =>
       runOperation(async (signal) => {
+        const context = requireActiveContext(signal);
+        const workspaceShareSlug = await getSessionShareWorkspaceSlug(
+          context,
+          identity.shareId,
+        );
         requireActiveContext(signal);
         await openerCommands.openUrl(
           buildAccountSessionShareUrl({
             appBaseUrl: env.VITE_APP_URL,
             shareId: identity.shareId,
+            workspaceShareSlug,
           }),
           null,
         );

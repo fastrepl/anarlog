@@ -87,6 +87,18 @@ async fn verifies_and_sends_a_resend_shared_note_invitation_email() {
         .mount(&server)
         .await;
     Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/get_session_share_workspace_slug"))
+        .and(header("apikey", "service-role-key"))
+        .and(header("authorization", "Bearer user-token"))
+        .and(body_partial_json(json!({ "p_share_id": SHARE_ID })))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!([{ "workspace_share_slug": "fastrepl" }])),
+        )
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
         .and(path("/emails"))
         .and(header("authorization", "Bearer resend-key"))
         .and(header("idempotency-key", INVITATION_ID))
@@ -94,7 +106,8 @@ async fn verifies_and_sends_a_resend_shared_note_invitation_email() {
             "from": "Owner via Anarlog <notes@send.anarlog.so>",
             "to": "invitee@example.com",
             "reply_to": "owner@example.com",
-            "subject": "Owner invited you to Planning"
+            "subject": "Owner invited you to Planning",
+            "text": "Owner invited you to view \"Planning\" in Anarlog.\n\nOpen the meeting notes:\nhttps://fastrepl.anarlog.so/share/invite/66666666-6666-4666-8666-666666666666/#token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n\nReply to this email to contact Owner."
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "id": "email-id" })))
         .expect(1)

@@ -94,6 +94,7 @@ export async function deliverSessionShareInvitation({
     }
     await copyInvitationOrRevoke(
       withoutSignal(context),
+      shareId,
       {
         invitationId: invitation.invitationId,
         inviteToken: invitation.inviteToken,

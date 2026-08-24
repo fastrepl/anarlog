@@ -347,6 +347,25 @@ export async function claimWorkspaceDomain(
   });
 }
 
+export async function setWorkspaceShareSlug(
+  context: TeamContext,
+  workspaceId: string,
+  slug: string,
+) {
+  assertWorkspaceId(workspaceId);
+  const row = rows(
+    await callRpc(context, "set_workspace_share_slug", {
+      p_workspace_id: workspaceId,
+      p_slug: slug,
+    }),
+  )[0];
+  if (!row) throw new TeamError();
+  return {
+    shareSlug: text(row.workspace_share_slug),
+    shareBaseUrl: text(row.share_base_url),
+  };
+}
+
 export async function rotateWorkspaceScimToken(
   context: TeamContext,
   workspaceId: string,
@@ -383,7 +402,7 @@ export async function listMyWorkspaces(context: TeamContext) {
   // yields the caller's role without needing manager-only RPCs.
   const response = await context.supabase
     .from("workspaces")
-    .select("id,name,kind,owner_user_id,workspace_memberships(role)")
+    .select("id,name,kind,owner_user_id,share_slug,workspace_memberships(role)")
     .eq("kind", "shared");
   if (response.error !== null) throw new TeamError(response.error.message);
   return (response.data ?? []).map((row) => {
@@ -395,6 +414,7 @@ export async function listMyWorkspaces(context: TeamContext) {
       workspaceId: text(row.id),
       name: text(row.name),
       ownerUserId,
+      shareSlug: typeof row.share_slug === "string" ? row.share_slug : null,
       role: role(memberships[0]?.role ?? "member"),
       isOwner: ownerUserId === context.session.user.id,
     };

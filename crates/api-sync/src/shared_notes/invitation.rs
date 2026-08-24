@@ -70,8 +70,11 @@ pub(super) async fn send_shared_note_invitation_email(
     } else {
         &input.from_name
     };
+    let workspace_share_slug =
+        get_session_share_workspace_slug_as_user(&state, &auth, &share_id).await?;
+    let share_origin = workspace_share_origin(workspace_share_slug.as_deref())?;
     let invitation_url = format!(
-        "https://anarlog.so/share/invite/{invitation_id}/#token={}",
+        "{share_origin}/share/invite/{invitation_id}/#token={}",
         input.invite_token
     );
     let email_delivery = state
@@ -281,4 +284,94 @@ async fn list_session_share_access_as_user(
         tracing::warn!(%error, "shared-note access verification response was invalid");
         SyncError::InvitationEmailUnavailable
     })
+}
+
+async fn get_session_share_workspace_slug_as_user(
+    state: &SharedNotesState,
+    auth: &AuthContext,
+    share_id: &str,
+) -> Result<Option<String>> {
+    let mut response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/get_session_share_workspace_slug",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&auth.token)
+        .json(&GetSessionShareWorkspaceSlugRequest {
+            p_share_id: share_id,
+        })
+        .send()
+        .await
+        .map_err(|error| {
+            tracing::warn!(%error, "shared-note workspace subdomain lookup failed");
+            SyncError::InvitationEmailUnavailable
+        })?;
+    let status = response.status();
+    if response
+        .content_length()
+        .is_some_and(|length| length > 1024)
+    {
+        return Err(SyncError::InvitationEmailUnavailable);
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| {
+        tracing::warn!(%error, "shared-note workspace subdomain response failed");
+        SyncError::InvitationEmailUnavailable
+    })? {
+        if bytes.len().saturating_add(chunk.len()) > 1024 {
+            return Err(SyncError::InvitationEmailUnavailable);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    if !status.is_success() {
+        return Err(SyncError::SharedNoteNotFound);
+    }
+    let mut rows: Vec<SessionShareWorkspaceSlugRow> =
+        serde_json::from_slice(&bytes).map_err(|error| {
+            tracing::warn!(%error, "shared-note workspace subdomain response was invalid");
+            SyncError::InvitationEmailUnavailable
+        })?;
+    if rows.len() != 1 {
+        return Err(SyncError::InvitationEmailUnavailable);
+    }
+    Ok(rows.pop().and_then(|row| row.workspace_share_slug))
+}
+
+#[derive(serde::Serialize)]
+struct GetSessionShareWorkspaceSlugRequest<'a> {
+    p_share_id: &'a str,
+}
+
+#[derive(serde::Deserialize)]
+struct SessionShareWorkspaceSlugRow {
+    workspace_share_slug: Option<String>,
+}
+
+fn workspace_share_origin(slug: Option<&str>) -> Result<String> {
+    let Some(slug) = slug else {
+        return Ok("https://anarlog.so".to_string());
+    };
+    let reserved = [
+        "admin", "api", "app", "assets", "auth", "cdn", "dev", "docs", "mail", "staging", "static",
+        "status", "support", "www",
+    ];
+    if !(3..=63).contains(&slug.len())
+        || !slug
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        || !slug
+            .as_bytes()
+            .first()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        || !slug
+            .as_bytes()
+            .last()
+            .is_some_and(u8::is_ascii_alphanumeric)
+        || reserved.contains(&slug)
+    {
+        return Err(SyncError::InvitationEmailUnavailable);
+    }
+    Ok(format!("https://{slug}.anarlog.so"))
 }

@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
       workspaceId: string;
       name: string;
       ownerUserId: string;
+      shareSlug?: string | null;
       role: "owner" | "admin" | "member";
     }>,
     isPending: false,
@@ -40,6 +41,22 @@ const mocks = vi.hoisted(() => ({
     inviteMember: vi.fn(() => Promise.resolve()),
     revokeInvitation: vi.fn(() => Promise.resolve()),
     renameWorkspace: vi.fn(() => Promise.resolve()),
+    getWorkspacePolicy: vi.fn(() =>
+      Promise.resolve({
+        allowedShareScopes: ["restricted", "workspace", "link", "public"],
+        defaultShareScope: "restricted",
+        retentionDays: null,
+        modelTrainingOptOut: true,
+        consentNotificationEnabled: true,
+        requireSso: false,
+      }),
+    ),
+    setWorkspaceShareSlug: vi.fn(() =>
+      Promise.resolve({
+        shareSlug: "fastrepl",
+        shareBaseUrl: "https://fastrepl.anarlog.so",
+      }),
+    ),
   },
 }));
 
@@ -98,16 +115,9 @@ vi.mock("./client", () => ({
       usedSeats: 1,
       isBilled: false,
     }),
-  getWorkspacePolicy: () =>
-    Promise.resolve({
-      allowedShareScopes: ["restricted", "workspace", "link", "public"],
-      defaultShareScope: "restricted",
-      retentionDays: null,
-      modelTrainingOptOut: true,
-      consentNotificationEnabled: true,
-      requireSso: false,
-    }),
+  getWorkspacePolicy: mocks.client.getWorkspacePolicy,
   setWorkspacePolicy: vi.fn(() => Promise.resolve()),
+  setWorkspaceShareSlug: mocks.client.setWorkspaceShareSlug,
   claimWorkspaceDomain: vi.fn(() => Promise.resolve()),
   rotateWorkspaceScimToken: vi.fn(() => Promise.resolve()),
 }));
@@ -140,6 +150,8 @@ describe("SettingsTeam", () => {
     mocks.client.inviteMember.mockClear();
     mocks.client.revokeInvitation.mockClear();
     mocks.client.renameWorkspace.mockClear();
+    mocks.client.getWorkspacePolicy.mockClear();
+    mocks.client.setWorkspaceShareSlug.mockClear();
   });
 
   afterEach(cleanup);
@@ -215,6 +227,36 @@ describe("SettingsTeam", () => {
     expect(
       screen.queryByRole("textbox", { name: "Workspace name" }),
     ).toBeNull();
+  });
+
+  it("sets the workspace sharing subdomain", async () => {
+    mocks.billing.isPro = true;
+    mocks.workspaces.data = [
+      {
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        name: "Fastrepl",
+        ownerUserId: "user-1",
+        shareSlug: "fastrepl",
+        role: "owner",
+      },
+    ];
+
+    renderTeam();
+
+    const input = await screen.findByRole("textbox", {
+      name: "Workspace subdomain",
+    });
+    expect((input as HTMLInputElement).value).toBe("fastrepl");
+    fireEvent.change(input, { target: { value: "Fastrepl-HQ" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save subdomain" }));
+
+    await waitFor(() =>
+      expect(mocks.client.setWorkspaceShareSlug).toHaveBeenCalledWith(
+        expect.anything(),
+        "00000000-0000-4000-8000-000000000001",
+        "fastrepl-hq",
+      ),
+    );
   });
 
   it("resends a pending invitation by revoking and reinviting", async () => {

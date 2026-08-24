@@ -3664,6 +3664,10 @@ msgstr ""
 msgid "Save SCIM token"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Save subdomain"
+msgstr ""
+
 #: src/settings/general/e2ee-setup.tsx
 msgid "Save this key in a password manager. New devices can usually be approved from another device; this key is your fallback and will not be shown again."
 msgstr ""
@@ -3987,6 +3991,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Shares (30d)"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Sharing domain"
 msgstr ""
 
 #: src/session-sharing/management-panel.tsx
@@ -4928,6 +4936,10 @@ msgstr ""
 msgid "Use the meeting's action items and summary tasks."
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Use this domain for links shared from this workspace."
+msgstr ""
+
 #: src/settings/general/main-language.tsx
 msgid "Use this language for summaries and AI responses."
 msgstr ""
@@ -5055,6 +5067,10 @@ msgstr ""
 
 #: src/settings/team/index.tsx
 msgid "Workspace name"
+msgstr ""
+
+#: src/settings/team/index.tsx
+msgid "Workspace subdomain"
 msgstr ""
 
 #: src/automations/starters.tsx
