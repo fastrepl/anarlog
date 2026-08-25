@@ -21,11 +21,11 @@ pub struct AudioOutput {}
 
 impl AudioOutput {
     pub fn to_speaker(bytes: &'static [u8]) -> std::sync::mpsc::Sender<()> {
-        use rodio::{Decoder, Player, stream::DeviceSinkBuilder};
+        use rodio::{Decoder, Player};
         let (tx, rx) = std::sync::mpsc::channel();
 
         std::thread::spawn(move || {
-            if let Ok(stream) = DeviceSinkBuilder::open_default_sink() {
+            if let Ok(stream) = anlg_audio_utils::open_default_playback_sink() {
                 let file = std::io::Cursor::new(bytes);
                 if let Ok(source) = Decoder::try_from(file) {
                     let player = Player::connect_new(stream.mixer());
@@ -44,13 +44,12 @@ impl AudioOutput {
         use rodio::{
             Player, nz,
             source::{Source, Zero},
-            stream::DeviceSinkBuilder,
         };
 
         let (tx, rx) = std::sync::mpsc::channel();
 
         std::thread::spawn(move || {
-            if let Ok(stream) = DeviceSinkBuilder::open_default_sink() {
+            if let Ok(stream) = anlg_audio_utils::open_default_playback_sink() {
                 let silence = Zero::new(nz!(2u16), nz!(48_000u32))
                     .take_duration(std::time::Duration::from_secs(1))
                     .repeat_infinite();
@@ -286,7 +285,6 @@ pub(crate) fn play_sine_for_sec(seconds: u64) -> std::thread::JoinHandle<()> {
     use rodio::{
         Player, nz,
         source::{Function::Sine, SignalGenerator, Source},
-        stream::DeviceSinkBuilder,
     };
     use std::{
         thread::{sleep, spawn},
@@ -294,7 +292,7 @@ pub(crate) fn play_sine_for_sec(seconds: u64) -> std::thread::JoinHandle<()> {
     };
 
     spawn(move || {
-        let stream = DeviceSinkBuilder::open_default_sink().unwrap();
+        let stream = anlg_audio_utils::open_default_playback_sink().unwrap();
         let source = SignalGenerator::new(nz!(44100u32), 440.0, Sine);
 
         let source = source

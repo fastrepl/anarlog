@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anlg-audio = { workspace = true }
+anlg-audio-utils = { workspace = true }
 anlg-data = { workspace = true }
 
 futures-util = { workspace = true }

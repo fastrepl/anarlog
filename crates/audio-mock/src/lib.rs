@@ -231,9 +231,8 @@ fn start_stereo_playback(mic: &MockAudioData, spk: &MockAudioData, stop: Arc<Ato
 
     std::thread::spawn(move || {
         use rodio::Player;
-        use rodio::stream::DeviceSinkBuilder;
 
-        match DeviceSinkBuilder::open_default_sink() {
+        match anlg_audio_utils::open_default_playback_sink() {
             Ok(stream) => {
                 let player = Player::connect_new(stream.mixer());
                 player.append(MonoPlaybackSource {

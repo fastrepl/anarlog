@@ -1683,6 +1683,7 @@ name = "audio-mock"
 version = "0.1.0"
 dependencies = [
  "audio",
+ "audio-utils",
  "data",
  "futures-util",
  "rodio",
@@ -14303,6 +14304,7 @@ dependencies = [
  "rtrb",
  "symphonia",
  "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]
@@ -18283,6 +18285,7 @@ dependencies = [
 name = "tauri-plugin-sfx"
 version = "0.1.0"
 dependencies = [
+ "audio-utils",
  "rodio",
  "serde",
  "specta",

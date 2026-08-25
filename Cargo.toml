@@ -380,7 +380,7 @@ mp3lame-encoder = "0.2.2"
 ratatui = "0.30"
 realfft = "3.5.0"
 ringbuf = "0.4.8"
-rodio = "0.22"
+rodio = { version = "0.22", features = ["tracing"] }
 tachyonfx = "0.25"
 vorbis_rs = "0.5.5"
 

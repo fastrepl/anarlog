@@ -6,10 +6,12 @@ use futures_util::{Stream, StreamExt};
 
 mod error;
 mod pcm;
+mod playback;
 mod vorbis;
 
 pub use error::*;
 pub use pcm::*;
+pub use playback::open_default_playback_sink;
 pub use vorbis::*;
 
 pub use rodio::Source;

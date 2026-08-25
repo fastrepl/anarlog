@@ -33,15 +33,15 @@ pub(crate) fn to_speaker(
     looping: bool,
     volume: f32,
 ) -> std::sync::mpsc::Sender<SoundControl> {
+    use anlg_audio_utils::open_default_playback_sink;
     use rodio::source::Source;
-    use rodio::{Decoder, Player, stream::DeviceSinkBuilder};
+    use rodio::{Decoder, Player};
     let (tx, rx) = std::sync::mpsc::channel();
 
     std::thread::spawn(move || {
-        let Ok(mut stream) = DeviceSinkBuilder::open_default_sink() else {
+        let Ok(stream) = open_default_playback_sink() else {
             return;
         };
-        stream.log_on_drop(false);
 
         let file = std::io::Cursor::new(bytes);
         let Ok(source) = Decoder::try_from(file) else {
