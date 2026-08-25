@@ -438,21 +438,30 @@ function useEventContactEnhancement(sessionId: string) {
         human,
         currentUser,
         mappingSource: participant?.source,
+        participant: participant
+          ? { name: participant.name, email: participant.email }
+          : undefined,
         contacts: extraction.contacts,
       });
       await applyContactEnhancement({
         humanId,
         ownerUserId: userId,
         changes,
+        createIfMissing: applied.created > 0,
       });
 
-      return { extraction, applied, humanId };
+      return { applied, humanId };
     },
-    onSuccess: ({ extraction, applied, humanId }) => {
+    onSuccess: ({ applied, humanId }) => {
       const changed = applied.created + applied.updated + applied.linked;
       const toastId = `event-contact-enhancement-${humanId}`;
 
-      if (extraction.contacts.length === 0 || !applied.matched) {
+      if (applied.created > 0) {
+        sonnerToast.success("Contact created", { id: toastId });
+        return;
+      }
+
+      if (!applied.matched) {
         sonnerToast.info("No contact detail found", { id: toastId });
         return;
       }

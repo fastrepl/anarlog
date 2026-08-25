@@ -621,4 +621,36 @@ describe("contact SQLite queries", () => {
     expect(statements[1]?.sql).toContain("organization_id = CASE");
     expect(statements[1]?.params).toContain("human-1");
   });
+
+  it("inserts a missing human before applying enhancement changes", async () => {
+    mocks.executeTransaction.mockResolvedValueOnce([1, 1]);
+
+    await applyContactEnhancement({
+      humanId: "human-1",
+      ownerUserId: "user-1",
+      createIfMissing: true,
+      changes: {
+        name: "Marco Bambini",
+        email: "marco.bambini@gmail.com",
+      },
+    });
+
+    const statements = mocks.executeTransaction.mock.calls[0][0];
+    expect(statements).toHaveLength(2);
+    expect(statements[0]?.sql).toContain("INSERT INTO humans");
+    expect(statements[0]?.sql).toContain("ON CONFLICT(id) DO UPDATE");
+    expect(statements[0]?.params).toEqual([
+      "human-1",
+      "user-1",
+      "Marco Bambini",
+      "marco.bambini@gmail.com",
+      expect.any(String),
+      expect.any(String),
+    ]);
+    expect(statements[1]?.sql).toContain("UPDATE humans");
+    expect(mocks.trackAnalyticsEvent).toHaveBeenCalledWith("contact_created", {
+      entry_point: "session_participants",
+      has_email: true,
+    });
+  });
 });

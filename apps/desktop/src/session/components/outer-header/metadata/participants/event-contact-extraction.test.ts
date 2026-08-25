@@ -159,4 +159,98 @@ describe("event contact extraction", () => {
       ],
     });
   });
+
+  test("creates a contact from the participant when the human is missing", () => {
+    const { result, changes } = planExtractedContactToHuman({
+      humanId: "human-1",
+      userId: "user-1",
+      human: undefined,
+      currentUser: { name: "John Jeong", email: "john@example.com" },
+      mappingSource: "auto",
+      participant: {
+        name: "marco.bambini@gmail.com",
+        email: "marco.bambini@gmail.com",
+      },
+      contacts: [],
+    });
+
+    expect(result).toMatchObject({ matched: true, created: 1, updated: 0 });
+    expect(changes).toEqual({
+      name: "Marco Bambini",
+      email: "marco.bambini@gmail.com",
+    });
+  });
+
+  test("derives a name from an email-only human when extraction is empty", () => {
+    const { result, changes } = planExtractedContactToHuman({
+      humanId: "human-1",
+      userId: "user-1",
+      human: {
+        name: "marco.bambini@gmail.com",
+        email: "marco.bambini@gmail.com",
+        organizationId: "",
+      },
+      currentUser: { name: "John Jeong", email: "john@example.com" },
+      mappingSource: "auto",
+      contacts: [],
+    });
+
+    expect(result).toMatchObject({ matched: true, created: 0, updated: 1 });
+    expect(changes).toEqual({
+      name: "Marco Bambini",
+    });
+  });
+
+  test("infers a company from a work email when creating a contact", () => {
+    const { result, changes } = planExtractedContactToHuman({
+      humanId: "human-1",
+      userId: "user-1",
+      human: undefined,
+      currentUser: { name: "John Jeong", email: "john@example.com" },
+      mappingSource: "auto",
+      participant: {
+        name: "tom@kestroll.com",
+        email: "tom@kestroll.com",
+      },
+      contacts: [],
+    });
+
+    expect(result).toMatchObject({ matched: true, created: 1 });
+    expect(changes).toEqual({
+      name: "Tom",
+      email: "tom@kestroll.com",
+      companyName: "Kestroll",
+    });
+  });
+
+  test("extracts organizer contacts that only have an email", () => {
+    const result = extractEventContacts({
+      context: {
+        title: "SQLite AI",
+        description:
+          "<p>Marco Bambini is inviting you to a scheduled Zoom meeting.</p>",
+        candidates: [
+          {
+            humanId: "user-1",
+            name: "John Jeong",
+            email: "john@example.com",
+            isCurrentUser: true,
+          },
+          {
+            humanId: "human-1",
+            name: "marco.bambini@gmail.com",
+            email: "marco.bambini@gmail.com",
+            isOrganizer: true,
+          },
+        ],
+      },
+    });
+
+    expect(result.contacts).toEqual([
+      {
+        name: "Marco Bambini",
+        email: "marco.bambini@gmail.com",
+      },
+    ]);
+  });
 });

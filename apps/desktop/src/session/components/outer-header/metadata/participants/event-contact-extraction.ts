@@ -90,6 +90,7 @@ export function planExtractedContactToHuman({
   human,
   currentUser,
   mappingSource,
+  participant,
   contacts,
 }: {
   humanId: string;
@@ -97,6 +98,7 @@ export function planExtractedContactToHuman({
   human: { name: string; email: string; organizationId: string } | undefined;
   currentUser: { name: string; email: string } | undefined;
   mappingSource: string | undefined;
+  participant?: { name: string; email: string };
   contacts: ExtractedEventContact[];
 }): {
   result: ApplyContactEnhancementResult;
@@ -113,21 +115,24 @@ export function planExtractedContactToHuman({
   };
   const changes: ContactEnhancementChanges = {};
 
-  if (
-    normalizedContacts.length === 0 ||
-    !human ||
-    !mappingSource ||
-    mappingSource === "excluded"
-  ) {
+  if (!mappingSource || mappingSource === "excluded") {
     if (normalizedContacts.length > 0) result.skipped += 1;
     return { result, changes };
   }
 
-  const contact = findContactForHuman(human, normalizedContacts);
+  const identity = {
+    name: human?.name || participant?.name || "",
+    email: human?.email || participant?.email || "",
+    organizationId: human?.organizationId || "",
+  };
+  const contact =
+    findContactForHuman(identity, normalizedContacts) ??
+    contactFromIdentity(identity);
+
   if (!contact) {
-    if (humanId === userId) {
+    if (humanId === userId && normalizedContacts[0]) {
       result.matched = true;
-      result.contacts.push(normalizedContacts[0]!);
+      result.contacts.push(normalizedContacts[0]);
       result.skipped += 1;
     }
     return { result, changes };
@@ -137,6 +142,14 @@ export function planExtractedContactToHuman({
   result.contacts.push(contact);
   if (humanId === userId || isCurrentUserContact(contact, currentUser)) {
     result.skipped += 1;
+    return { result, changes };
+  }
+
+  if (!human) {
+    changes.name = contact.name;
+    if (contact.email) changes.email = contact.email;
+    if (contact.companyName) changes.companyName = contact.companyName;
+    result.created = 1;
     return { result, changes };
   }
 
@@ -163,7 +176,7 @@ export function extractEventContacts({
     [
       ...inferContactsFromEventText(context),
       ...context.candidates.flatMap((candidate) =>
-        candidate.isCurrentUser || candidate.isOrganizer
+        candidate.isCurrentUser
           ? []
           : [{ name: candidate.name, email: candidate.email }],
       ),
@@ -292,8 +305,12 @@ function normalizeExtractedContacts(
   const keysByName = new Map<string, string>();
 
   for (const contact of contacts) {
-    const name = cleanNameHint(contact.name ?? "");
-    const email = normalizeEmail(contact.email ?? undefined);
+    let name = cleanNameHint(contact.name ?? "");
+    const email =
+      normalizeEmail(contact.email ?? undefined) ?? normalizeEmail(name);
+    if (!isLikelyPersonName(name) && email) {
+      name = nameFromEmailLocalPart(email);
+    }
     if (!isLikelyPersonName(name) || isSelfReference(name, candidates)) {
       continue;
     }
@@ -586,6 +603,91 @@ function getStrongCandidateAliases(
   }
 
   return aliases;
+}
+
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "msn.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "pm.me",
+  "hey.com",
+  "fastmail.com",
+]);
+
+function contactFromIdentity(identity: {
+  name?: string;
+  email?: string;
+}): ExtractedEventContact | undefined {
+  const rawName = cleanNameHint(identity.name ?? "");
+  const email = normalizeEmail(identity.email) ?? normalizeEmail(rawName);
+  const name = isLikelyPersonName(rawName)
+    ? rawName
+    : email
+      ? nameFromEmailLocalPart(email)
+      : "";
+  if (!isLikelyPersonName(name)) {
+    return undefined;
+  }
+
+  const contact: ExtractedEventContact = { name };
+  if (email) {
+    contact.email = email;
+  }
+  const companyName = inferCompanyNameFromEmail(email);
+  if (companyName) {
+    contact.companyName = companyName;
+  }
+  return contact;
+}
+
+function nameFromEmailLocalPart(email: string): string {
+  const local = email.split("@")[0]?.split("+")[0] ?? "";
+  return local
+    .replace(/[._-]+/g, " ")
+    .split(" ")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0 && !/^\d+$/.test(part))
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function inferCompanyNameFromEmail(
+  email: string | undefined,
+): string | undefined {
+  const domain = email?.split("@")[1]?.toLowerCase();
+  if (!domain || PERSONAL_EMAIL_DOMAINS.has(domain)) {
+    return undefined;
+  }
+
+  const labels = domain.split(".").filter(Boolean);
+  if (labels.length < 2) {
+    return undefined;
+  }
+
+  const secondLast = labels[labels.length - 2];
+  const companyLabel =
+    labels.length >= 3 &&
+    secondLast &&
+    ["co", "com", "org", "net", "ac"].includes(secondLast)
+      ? labels[labels.length - 3]
+      : secondLast;
+  if (!companyLabel || companyLabel.length < 2) {
+    return undefined;
+  }
+
+  return normalizeCompanyName(
+    companyLabel.charAt(0).toUpperCase() + companyLabel.slice(1),
+  );
 }
 
 function shouldUpdateHumanName(

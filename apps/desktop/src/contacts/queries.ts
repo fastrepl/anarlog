@@ -780,14 +780,58 @@ export function applyContactEnhancement({
   humanId,
   ownerUserId,
   changes,
+  createIfMissing = false,
 }: {
   humanId: string;
   ownerUserId: string;
   changes: { name?: string; email?: string; companyName?: string };
+  createIfMissing?: boolean;
 }): Promise<void> {
   return enqueueDatabaseWrite(`human:${humanId}`, async () => {
     const now = new Date().toISOString();
     const statements: Array<{ sql: string; params: unknown[] }> = [];
+
+    if (createIfMissing) {
+      statements.push({
+        sql: `
+          INSERT INTO humans (
+            id, workspace_id, owner_user_id, organization_id, name, email,
+            phone, job_title, linkedin_username, memo, pinned, pin_order,
+            metadata_json, created_at, updated_at, deleted_at
+          ) VALUES (
+            ?, NULLIF((
+              SELECT json_extract(value_json, '$.workspace_id')
+              FROM app_settings
+              WHERE id = 'cloudsync_workspace_binding'
+            ), ''), COALESCE(
+              NULLIF(NULLIF(?, ''), '${DEFAULT_USER_ID}'),
+              NULLIF((
+                SELECT json_extract(value_json, '$.workspace_id')
+                FROM app_settings
+                WHERE id = 'cloudsync_workspace_binding'
+              ), ''),
+              '${DEFAULT_USER_ID}'
+            ), '', ?, ?, '', '', '', '', 0, NULL, '{}', ?, ?, NULL
+          )
+          ON CONFLICT(id) DO UPDATE SET
+            deleted_at = NULL,
+            updated_at = excluded.updated_at
+          WHERE humans.deleted_at IS NOT NULL
+        `,
+        params: [
+          humanId,
+          ownerUserId,
+          changes.name ?? "",
+          changes.email ?? "",
+          now,
+          now,
+        ],
+      });
+      trackAnalyticsEvent("contact_created", {
+        entry_point: "session_participants",
+        has_email: Boolean(changes.email),
+      });
+    }
 
     if (changes.companyName) {
       const organizationId = id();
