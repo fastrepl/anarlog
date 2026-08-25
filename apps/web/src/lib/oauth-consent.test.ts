@@ -15,9 +15,10 @@ test("OAuth authorization IDs accept Supabase opaque identifiers", () => {
 });
 
 test("OAuth scopes use clear user-facing descriptions", () => {
-  assert.deepEqual(describeOAuthScopes("openid email"), [
+  assert.deepEqual(describeOAuthScopes("openid email offline_access"), [
     "Confirm your Anarlog account identity",
     "Share your Anarlog account email with the connector",
+    "Stay connected without asking you to sign in every time",
   ]);
 });
 
