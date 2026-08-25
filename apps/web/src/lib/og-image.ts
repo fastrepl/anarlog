@@ -25,6 +25,7 @@ const SUMMARY_FONT_SIZE = 31;
 const SUMMARY_LINE_HEIGHT = 42;
 const SUMMARY_MAX_LINES = 2;
 const WORDMARK_WIDTH = 165;
+const ROOT_OG_BACKGROUND = "#ffe09d";
 const CACHE_CONTROL =
   "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800";
 const SHARED_NOTE_CACHE_CONTROL = "public, max-age=0, s-maxage=60";
@@ -229,7 +230,7 @@ function createParticipantAvatarStack(
       const centerX = CONTENT_INSET_X + AVATAR_RADIUS + index * AVATAR_STEP;
       const gradientId = `avatar-gradient-${index}`;
       const clipId = `avatar-clip-${index}`;
-      return `<defs>${createAvatarGradientSvg(avatar.seed, gradientId)}<clipPath id="${clipId}"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}"/></clipPath></defs><g data-avatar="participant" data-avatar-renderer="app"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}" fill="url(#${gradientId})"/>${avatar.image ? `<image href="${avatar.image}" x="${centerX - AVATAR_RADIUS}" y="${centerY - AVATAR_RADIUS}" width="${AVATAR_RADIUS * 2}" height="${AVATAR_RADIUS * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>` : ""}<circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS + 2}" fill="none" stroke="#f4f0e8" stroke-width="4"/><text x="${centerX}" y="${centerY + 7}" fill="#ffffff" fill-opacity="0.82" font-family="${SANS_FONT_FAMILY}" font-size="18" font-weight="700" text-anchor="middle" style="mix-blend-mode:overlay">${escapeXml(avatar.label)}</text></g>`;
+      return `<defs>${createAvatarGradientSvg(avatar.seed, gradientId)}<clipPath id="${clipId}"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}"/></clipPath></defs><g data-avatar="participant" data-avatar-renderer="app"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}" fill="url(#${gradientId})"/>${avatar.image ? `<image href="${avatar.image}" x="${centerX - AVATAR_RADIUS}" y="${centerY - AVATAR_RADIUS}" width="${AVATAR_RADIUS * 2}" height="${AVATAR_RADIUS * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>` : ""}<circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS + 2}" fill="none" stroke="${ROOT_OG_BACKGROUND}" stroke-width="4"/><text x="${centerX}" y="${centerY + 7}" fill="#ffffff" fill-opacity="0.82" font-family="${SANS_FONT_FAMILY}" font-size="18" font-weight="700" text-anchor="middle" style="mix-blend-mode:overlay">${escapeXml(avatar.label)}</text></g>`;
     })
     .reverse()
     .join("");
@@ -351,7 +352,7 @@ export function createSharedNoteOgSvg(
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${OG_WIDTH}" height="${OG_HEIGHT}" viewBox="0 0 ${OG_WIDTH} ${OG_HEIGHT}" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="#f4f0e8"/>
+  <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="${ROOT_OG_BACKGROUND}"/>
   <path d="M${CONTENT_INSET_X} 424 H${CONTENT_RIGHT_X}" stroke="#cfc6ba" stroke-width="2"/>
   ${title
     .map(

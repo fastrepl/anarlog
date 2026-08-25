@@ -70,6 +70,8 @@ test("normalizes shared note metadata", () => {
   assert.match(svg, />July 2, 2026<\/text>/);
   assert.doesNotMatch(svg, /cx="592"/);
   assert.match(svg, /data-wordmark="anarlog"/);
+  assert.match(svg, /<rect width="1200" height="630" fill="#ffe09d"\/>/);
+  assert.doesNotMatch(svg, /#f4f0e8/);
   assert.match(svg, /font-family="'Redaction', Georgia, serif"/);
   assert.match(
     svg,
