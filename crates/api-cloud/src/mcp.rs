@@ -168,7 +168,7 @@ pub(crate) fn mcp_service(
     CloudMcpServer,
     rmcp::transport::streamable_http_server::session::local::LocalSessionManager,
 > {
-    anlg_mcp::create_service(move || {
+    anlg_mcp::create_stateless_service(move || {
         Ok(CloudMcpServer {
             state: state.clone(),
         })
