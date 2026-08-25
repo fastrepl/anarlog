@@ -153,7 +153,8 @@ fn resolve_batch_model(model: Option<&str>) -> &str {
 }
 
 fn multipart_text_fields(params: &ListenParams) -> Vec<(&'static str, String)> {
-    let mut fields = vec![
+    // Mistral's timestamp granularities are incompatible with the language hint.
+    vec![
         (
             "model",
             resolve_batch_model(params.model.as_deref()).to_string(),
@@ -161,13 +162,7 @@ fn multipart_text_fields(params: &ListenParams) -> Vec<(&'static str, String)> {
         ("response_format", "verbose_json".to_string()),
         ("diarize", "true".to_string()),
         ("timestamp_granularities", TIMESTAMP_GRANULARITY.to_string()),
-    ];
-
-    if let Some(language) = params.languages.first() {
-        fields.push(("language", language.iso639().code().to_string()));
-    }
-
-    fields
+    ]
 }
 
 fn convert_response(response: MistralBatchResponse) -> BatchResponse {
@@ -308,7 +303,7 @@ mod tests {
     }
 
     #[test]
-    fn batch_fields_request_diarized_segments() {
+    fn batch_fields_request_diarized_segments_without_language() {
         let fields = multipart_text_fields(&ListenParams {
             languages: vec![anlg_language::ISO639::En.into()],
             ..Default::default()
@@ -324,11 +319,7 @@ mod tests {
                 .iter()
                 .any(|(name, value)| { *name == "timestamp_granularities" && value == "segment" })
         );
-        assert!(
-            fields
-                .iter()
-                .any(|(name, value)| *name == "language" && value == "en")
-        );
+        assert!(fields.iter().all(|(name, _)| *name != "language"));
     }
 
     #[test]
