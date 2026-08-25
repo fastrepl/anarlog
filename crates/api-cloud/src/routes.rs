@@ -678,7 +678,7 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
     }
 
     #[tokio::test]
-    async fn mcp_accepts_the_public_api_host() {
+    async fn mcp_supports_stateless_tool_discovery_on_the_public_api_host() {
         let server = MockServer::start().await;
         let key = format!("anl_{}", "a".repeat(64));
         let key_hash = Sha256::digest(key.as_bytes())
@@ -711,19 +711,13 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
                     .header("authorization", format!("Bearer {key}"))
                     .header("content-type", "application/json")
                     .header("accept", "application/json, text/event-stream")
+                    .header("mcp-protocol-version", "2025-06-18")
                     .body(Body::from(
                         serde_json::json!({
                             "jsonrpc": "2.0",
                             "id": 1,
-                            "method": "initialize",
-                            "params": {
-                                "protocolVersion": "2025-06-18",
-                                "capabilities": {},
-                                "clientInfo": {
-                                    "name": "host-test",
-                                    "version": "1.0",
-                                },
-                            },
+                            "method": "tools/list",
+                            "params": {},
                         })
                         .to_string(),
                     ))
@@ -733,9 +727,20 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers().get("content-type").unwrap(),
+            "application/json"
+        );
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        let body = String::from_utf8(body.to_vec()).unwrap();
-        assert!(body.contains("anarlog-cloud"));
+        let body = serde_json::from_slice::<serde_json::Value>(&body).unwrap();
+        assert_eq!(body["result"]["tools"].as_array().unwrap().len(), 4);
+        assert!(
+            body["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|tool| tool["name"] == "list_meetings")
+        );
     }
 
     #[tokio::test]
