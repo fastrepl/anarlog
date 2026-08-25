@@ -9,7 +9,8 @@ pub(crate) fn open_capture(config: CaptureConfig) -> Result<CaptureStream, Error
 
     std::thread::sleep(std::time::Duration::from_millis(50));
 
-    let speaker_stream = setup_speaker_stream(config.sample_rate, config.chunk_size)?;
+    let speaker_stream =
+        setup_speaker_stream(config.sample_rate, config.chunk_size, config.speaker_device)?;
 
     Ok(stream::open_dual(
         config.sample_rate,
@@ -20,10 +21,11 @@ pub(crate) fn open_capture(config: CaptureConfig) -> Result<CaptureStream, Error
 }
 
 pub(crate) fn open_speaker_capture(
+    device: Option<String>,
     sample_rate: u32,
     chunk_size: usize,
 ) -> Result<CaptureStream, Error> {
-    let speaker_stream = setup_speaker_stream(sample_rate, chunk_size)?;
+    let speaker_stream = setup_speaker_stream(sample_rate, chunk_size, device)?;
     Ok(stream::open_single(speaker_stream, CaptureSide::Speaker))
 }
 

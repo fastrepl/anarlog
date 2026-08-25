@@ -78,6 +78,7 @@ impl AudioProvider for MockAudio {
 
     fn open_speaker_capture(
         &self,
+        _device: Option<String>,
         sample_rate: u32,
         chunk_size: usize,
     ) -> Result<CaptureStream, Error> {
@@ -89,6 +90,7 @@ impl AudioProvider for MockAudio {
                 sample_rate,
                 chunk_size,
                 mic_device: None,
+                speaker_device: None,
                 enable_aec: false,
             },
         ))
@@ -108,6 +110,7 @@ impl AudioProvider for MockAudio {
                 sample_rate,
                 chunk_size,
                 mic_device: None,
+                speaker_device: None,
                 enable_aec: false,
             },
         ))
@@ -119,6 +122,10 @@ impl AudioProvider for MockAudio {
 
     fn list_mic_devices(&self) -> Vec<String> {
         vec![MOCK_MIC_DEVICE_NAME.to_string()]
+    }
+
+    fn list_speaker_devices(&self) -> Vec<String> {
+        vec!["mock-speaker".to_string()]
     }
 
     fn play_silence(&self) -> std::sync::mpsc::Sender<()> {

@@ -70,8 +70,9 @@ pub(crate) fn setup_mic_stream(
 pub(crate) fn setup_speaker_stream(
     sample_rate: u32,
     chunk_size: usize,
+    speaker_device: Option<String>,
 ) -> Result<ChunkStream, Error> {
-    let speaker = SpeakerInput::new()
+    let speaker = SpeakerInput::new(speaker_device)
         .map_err(|error| Error::SpeakerStreamInitializationFailed(error.to_string()))?;
     speaker
         .stream()

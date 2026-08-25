@@ -44,6 +44,7 @@ async fn start_streams(
     let myself2 = myself.clone();
     let mic_muted = st.mic_muted.clone();
     let mic_device = st.mic_device.clone();
+    let speaker_device = st.speaker_device.clone();
     let audio = st.audio.clone();
     let (frame_tx, frame_rx) = tokio::sync::mpsc::channel(CAPTURE_FRAME_QUEUE_CAPACITY);
     let wake_pending = st.capture_wake_pending.clone();
@@ -59,6 +60,7 @@ async fn start_streams(
             cancel_token: stream_cancel_token,
             mic_muted,
             mic_device,
+            speaker_device,
             audio,
             frame_tx,
             wake_pending,
@@ -76,6 +78,7 @@ struct StreamContext {
     cancel_token: CancellationToken,
     mic_muted: std::sync::Arc<std::sync::atomic::AtomicBool>,
     mic_device: Option<String>,
+    speaker_device: Option<String>,
     audio: std::sync::Arc<dyn AudioProvider>,
     frame_tx: tokio::sync::mpsc::Sender<SourceFrame>,
     wake_pending: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -111,11 +114,15 @@ async fn run_stream_loop(ctx: StreamContext, mode: ChannelMode) {
                 sample_rate,
                 chunk_size,
                 mic_device: ctx.mic_device.clone(),
+                speaker_device: ctx.speaker_device.clone(),
                 enable_aec: std::env::var("NO_AEC").as_deref() != Ok("1"),
             };
             ctx.audio.open_capture(config)
         }
-        ChannelMode::SpeakerOnly => ctx.audio.open_speaker_capture(sample_rate, chunk_size),
+        ChannelMode::SpeakerOnly => {
+            ctx.audio
+                .open_speaker_capture(ctx.speaker_device.clone(), sample_rate, chunk_size)
+        }
         ChannelMode::MicOnly => {
             ctx.audio
                 .open_mic_capture(ctx.mic_device.clone(), sample_rate, chunk_size)

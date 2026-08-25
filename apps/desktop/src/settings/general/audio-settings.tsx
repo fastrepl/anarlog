@@ -1,4 +1,5 @@
 import { Trans, useLingui } from "@lingui/react/macro";
+import type { ReactNode } from "react";
 
 import {
   Select,
@@ -17,6 +18,7 @@ import {
 export function AudioSettingsView({
   audioRetention,
   microphoneDevice,
+  speakerDevice,
   rememberSpeakers,
 }: {
   audioRetention: {
@@ -28,6 +30,11 @@ export function AudioSettingsView({
     devices: string[];
     onChange: (value: string) => void;
   };
+  speakerDevice: {
+    value: string;
+    devices: string[];
+    onChange: (value: string) => void;
+  };
   rememberSpeakers: {
     value: boolean;
     onChange: (value: boolean) => void;
@@ -35,10 +42,26 @@ export function AudioSettingsView({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <MicrophoneRow
+      <AudioDeviceRow
+        title={<Trans>Microphone</Trans>}
+        description={
+          <Trans>Choose the microphone that captures your voice.</Trans>
+        }
         value={microphoneDevice.value}
         devices={microphoneDevice.devices}
         onChange={microphoneDevice.onChange}
+      />
+      <AudioDeviceRow
+        title={<Trans>Speakers</Trans>}
+        description={
+          <Trans>
+            Choose the speakers that play other participants so Anarlog records
+            them.
+          </Trans>
+        }
+        value={speakerDevice.value}
+        devices={speakerDevice.devices}
+        onChange={speakerDevice.onChange}
       />
       <AudioRetentionRow
         value={audioRetention.value}
@@ -60,13 +83,17 @@ export function AudioSettingsView({
   );
 }
 
-const SYSTEM_DEFAULT_MICROPHONE = "__system_default_microphone__";
+const SYSTEM_DEFAULT_DEVICE = "__system_default_device__";
 
-function MicrophoneRow({
+function AudioDeviceRow({
+  title,
+  description,
   value,
   devices,
   onChange,
 }: {
+  title: ReactNode;
+  description: ReactNode;
   value: string;
   devices: string[];
   onChange: (value: string) => void;
@@ -81,24 +108,19 @@ function MicrophoneRow({
   }
 
   return (
-    <SettingRow
-      title={<Trans>Microphone</Trans>}
-      description={
-        <Trans>Choose the microphone that captures your voice.</Trans>
-      }
-    >
+    <SettingRow title={title} description={description}>
       {(labelProps) => (
         <Select
-          value={value || SYSTEM_DEFAULT_MICROPHONE}
+          value={value || SYSTEM_DEFAULT_DEVICE}
           onValueChange={(device) =>
-            onChange(device === SYSTEM_DEFAULT_MICROPHONE ? "" : device)
+            onChange(device === SYSTEM_DEFAULT_DEVICE ? "" : device)
           }
         >
           <SelectTrigger {...labelProps} className={SETTING_CONTROL_CLASS}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="max-h-64">
-            <SelectItem value={SYSTEM_DEFAULT_MICROPHONE}>
+            <SelectItem value={SYSTEM_DEFAULT_DEVICE}>
               <Trans>Current default</Trans>
             </SelectItem>
             {availableDevices.map((device) => (

@@ -50,6 +50,14 @@ impl<'a, R: tauri::Runtime, M: tauri::Manager<R>> Listener<'a, R, M> {
     }
 
     #[tracing::instrument(skip_all)]
+    pub async fn list_speaker_devices(&self) -> Result<Vec<String>, crate::Error> {
+        let audio = self
+            .manager
+            .state::<std::sync::Arc<dyn anlg_audio::AudioProvider>>();
+        Ok(audio.list_speaker_devices())
+    }
+
+    #[tracing::instrument(skip_all)]
     pub async fn get_current_microphone_device(&self) -> Result<Option<String>, crate::Error> {
         if let Some(cell) = registry::where_is(SourceActor::name()) {
             let actor: ActorRef<SourceMsg> = cell.into();

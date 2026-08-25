@@ -44,9 +44,13 @@ pub struct SpeakerInput {
 pub type SpeakerStream = macos::SpeakerStream;
 
 impl SpeakerInput {
-    pub fn new() -> Result<Self> {
-        let inner = PlatformSpeakerInput::new()?;
+    pub fn new(device: Option<String>) -> Result<Self> {
+        let inner = PlatformSpeakerInput::new(device)?;
         Ok(Self { inner })
+    }
+
+    pub fn list_devices() -> Vec<String> {
+        PlatformSpeakerInput::list_devices()
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -219,7 +223,7 @@ mod tests {
     async fn test_macos() {
         use crate::play_sine_for_sec;
 
-        let input = SpeakerInput::new().unwrap();
+        let input = SpeakerInput::new(None).unwrap();
         let mut stream = input.stream().unwrap();
 
         tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -245,7 +249,7 @@ mod tests {
     async fn test_windows() {
         println!("Play continuous audio through the Windows default output while this test runs");
 
-        let input = SpeakerInput::new().expect("failed to create Windows WASAPI speaker input");
+        let input = SpeakerInput::new(None).expect("failed to create Windows WASAPI speaker input");
         let mut stream = input
             .stream()
             .expect("failed to initialize Windows WASAPI loopback capture");
@@ -296,7 +300,7 @@ mod tests {
     #[serial]
     #[ignore = "requires Linux audio hardware and active system playback"]
     async fn test_linux() {
-        let input = SpeakerInput::new().expect("failed to create Linux speaker input");
+        let input = SpeakerInput::new(None).expect("failed to create Linux speaker input");
 
         let sample_rate = input.sample_rate();
         println!("Linux speaker sample rate: {}", sample_rate);

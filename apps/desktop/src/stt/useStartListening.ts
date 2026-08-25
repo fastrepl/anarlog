@@ -49,6 +49,7 @@ export function useStartListening(sessionId: string) {
   const spokenLanguages = useConfigValue("spoken_languages");
   const dictionaryTerms = useConfigValue("personalization_dictionary_terms");
   const microphoneDevice = useConfigValue("microphone_device");
+  const speakerDevice = useConfigValue("speaker_device");
   const meetingDisclosureAutoSendChat = useConfigValue(
     "consent_auto_send_chat",
   );
@@ -147,6 +148,7 @@ export function useStartListening(sessionId: string) {
           api_key: conn?.apiKey ?? "",
           keywords,
           mic_device: microphoneDevice || null,
+          speaker_device: speakerDevice || null,
           transcription_mode: liveTranscriptionConfig.transcriptionMode,
           participant_human_ids: participantHumanIds,
           self_human_id: session?.user_id || null,
@@ -258,6 +260,7 @@ export function useStartListening(sessionId: string) {
     dictionaryTerms,
     getSessionMode,
     microphoneDevice,
+    speakerDevice,
     openNew,
     participantHumanIds,
     session,

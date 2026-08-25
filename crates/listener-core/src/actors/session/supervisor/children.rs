@@ -83,6 +83,7 @@ pub(super) async fn spawn_source(
         SourceActor,
         SourceArgs {
             mic_device: ctx.params.mic_device.clone(),
+            speaker_device: ctx.params.speaker_device.clone(),
             onboarding: ctx.params.onboarding,
             runtime: ctx.runtime.clone(),
             audio: ctx.audio.clone(),

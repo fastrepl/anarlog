@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-list-speaker-devices"
+description = "Enables the list_speaker_devices command without any pre-configured scope."
+commands.allow = ["list_speaker_devices"]
+
+[[permission]]
+identifier = "deny-list-speaker-devices"
+description = "Denies the list_speaker_devices command without any pre-configured scope."
+commands.deny = ["list_speaker_devices"]

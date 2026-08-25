@@ -101,6 +101,11 @@ export const SETTING_DEFINITIONS = {
     path: ["general", "microphone_device"],
     default: "" as string,
   },
+  speaker_device: {
+    type: "string",
+    path: ["general", "speaker_device"],
+    default: "" as string,
+  },
   notification_event: {
     type: "boolean",
     path: ["notification", "event"],

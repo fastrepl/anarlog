@@ -27,6 +27,7 @@ const DEFAULT_SAMPLE_RATE: u32 = 48_000;
 
 pub struct SpeakerInput {
     sample_rate: u32,
+    device: Option<String>,
 }
 
 #[pin_project(PinnedDrop)]
@@ -59,10 +60,18 @@ struct PipeWireUserData {
 }
 
 impl SpeakerInput {
-    pub fn new() -> Result<Self> {
+    pub fn new(device: Option<String>) -> Result<Self> {
         Ok(Self {
             sample_rate: DEFAULT_SAMPLE_RATE,
+            device,
         })
+    }
+
+    pub fn list_devices() -> Vec<String> {
+        list_sink_targets()
+            .into_iter()
+            .map(|sink| sink.display_name())
+            .collect()
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -70,11 +79,11 @@ impl SpeakerInput {
     }
 
     pub fn stream(self) -> Result<SpeakerStream> {
-        match SpeakerStream::try_pipewire(self.sample_rate) {
+        match SpeakerStream::try_pipewire(self.sample_rate, self.device.clone()) {
             Ok(stream) => Ok(stream),
             Err(pipewire_err) => {
                 tracing::warn!(error = ?pipewire_err, "pipewire_capture_unavailable");
-                SpeakerStream::try_pulseaudio(self.sample_rate).map_err(|pulse_err| {
+                SpeakerStream::try_pulseaudio(self.sample_rate, self.device).map_err(|pulse_err| {
                     anyhow::anyhow!(
                         "PipeWire speaker capture failed: {pipewire_err:#}; PulseAudio speaker capture failed: {pulse_err:#}"
                     )
@@ -85,7 +94,7 @@ impl SpeakerInput {
 }
 
 impl SpeakerStream {
-    fn try_pipewire(initial_rate: u32) -> Result<Self> {
+    fn try_pipewire(initial_rate: u32, device: Option<String>) -> Result<Self> {
         let rb = HeapRb::<f32>::new(BUFFER_SIZE);
         let (producer, consumer) = rb.split();
 
@@ -103,6 +112,7 @@ impl SpeakerStream {
             let alive = alive.clone();
             let current_sample_rate = current_sample_rate.clone();
             let dropped_samples = dropped_samples.clone();
+            let device = device.clone();
 
             thread::spawn(move || {
                 let result = pipewire_capture_loop(
@@ -114,6 +124,7 @@ impl SpeakerStream {
                     dropped_samples,
                     shutdown_rx,
                     init_tx,
+                    device,
                 );
 
                 if let Err(err) = result {
@@ -155,7 +166,7 @@ impl SpeakerStream {
         })
     }
 
-    fn try_pulseaudio(initial_rate: u32) -> Result<Self> {
+    fn try_pulseaudio(initial_rate: u32, device: Option<String>) -> Result<Self> {
         let rb = HeapRb::<f32>::new(BUFFER_SIZE);
         let (producer, consumer) = rb.split();
 
@@ -174,6 +185,7 @@ impl SpeakerStream {
             let running = running.clone();
             let current_sample_rate = current_sample_rate.clone();
             let dropped_samples = dropped_samples.clone();
+            let device = device.clone();
 
             thread::spawn(move || {
                 let result = pulseaudio_capture_loop(
@@ -185,6 +197,7 @@ impl SpeakerStream {
                     current_sample_rate,
                     dropped_samples,
                     init_tx,
+                    device,
                 );
 
                 if let Err(err) = result {
@@ -240,6 +253,7 @@ fn pipewire_capture_loop(
     dropped_samples: Arc<AtomicUsize>,
     shutdown_rx: pw::channel::Receiver<()>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
+    device: Option<String>,
 ) -> Result<()> {
     // `init_tx` moves into the listener's user data partway through setup, so any
     // failure would otherwise just drop the sender and reach the parent as a bare
@@ -256,6 +270,7 @@ fn pipewire_capture_loop(
         dropped_samples,
         shutdown_rx,
         init_tx,
+        device,
     );
 
     if let Err(error) = result {
@@ -274,6 +289,7 @@ fn pipewire_capture_setup(
     dropped_samples: Arc<AtomicUsize>,
     shutdown_rx: pw::channel::Receiver<()>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
+    device: Option<String>,
 ) -> Result<()> {
     ensure_pipewire_initialized();
 
@@ -285,17 +301,19 @@ fn pipewire_capture_setup(
         .connect(None)
         .context("Failed to connect to PipeWire core")?;
 
-    let stream = pw::stream::StreamBox::new(
-        &core,
-        "anarlog-speaker-capture",
-        properties! {
-            *pw::keys::MEDIA_TYPE => "Audio",
-            *pw::keys::MEDIA_CATEGORY => "Capture",
-            *pw::keys::MEDIA_ROLE => "Music",
-            *pw::keys::STREAM_CAPTURE_SINK => "true",
-        },
-    )
-    .context("Failed to create PipeWire stream")?;
+    let mut stream_props = properties! {
+        *pw::keys::MEDIA_TYPE => "Audio",
+        *pw::keys::MEDIA_CATEGORY => "Capture",
+        *pw::keys::MEDIA_ROLE => "Music",
+        *pw::keys::STREAM_CAPTURE_SINK => "true",
+    };
+    if let Some(target) = resolve_sink_name(device.as_deref()) {
+        tracing::info!(anarlog.audio.device = %target, "pipewire_targeting_sink");
+        stream_props.insert("target.object", target);
+    }
+
+    let stream = pw::stream::StreamBox::new(&core, "anarlog-speaker-capture", stream_props)
+        .context("Failed to create PipeWire stream")?;
 
     let _shutdown = shutdown_rx.attach(mainloop.loop_(), {
         let mainloop = mainloop.clone();
@@ -455,6 +473,7 @@ fn pulseaudio_capture_loop(
     current_sample_rate: Arc<AtomicU32>,
     dropped_samples: Arc<AtomicUsize>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
+    device: Option<String>,
 ) -> Result<()> {
     let mut mainloop = Mainloop::new().context("Failed to create PulseAudio mainloop")?;
     let mut context = PaContext::new(&mainloop, "anarlog-speaker-capture")
@@ -480,7 +499,7 @@ fn pulseaudio_capture_loop(
             anyhow::bail!("Invalid PulseAudio sample spec");
         }
 
-        let monitor_device = get_default_monitor_device(&mut mainloop, &context)
+        let monitor_device = resolve_monitor_device(&mut mainloop, &context, device.as_deref())
             .context("Failed to resolve PulseAudio monitor source")?;
         tracing::info!(anarlog.audio.device = %monitor_device, "connecting_to_monitor_device");
 
@@ -632,6 +651,129 @@ fn wait_for_stream_ready(mainloop: &mut Mainloop, stream: &PaStream) -> Result<(
     }
 }
 
+#[derive(Clone, Debug)]
+struct SinkTarget {
+    name: String,
+    description: String,
+    monitor: String,
+}
+
+impl SinkTarget {
+    fn display_name(&self) -> String {
+        if self.description.is_empty() {
+            self.name.clone()
+        } else {
+            self.description.clone()
+        }
+    }
+
+    fn matches(&self, preferred: &str) -> bool {
+        self.description == preferred || self.name == preferred
+    }
+}
+
+fn list_sink_targets() -> Vec<SinkTarget> {
+    let Some(mut mainloop) = Mainloop::new() else {
+        return Vec::new();
+    };
+    let Some(mut context) = PaContext::new(&mainloop, "anarlog-speaker-list") else {
+        return Vec::new();
+    };
+    if context
+        .connect(None, ContextFlagSet::NOFLAGS, None)
+        .is_err()
+    {
+        return Vec::new();
+    }
+    if mainloop.start().is_err() {
+        return Vec::new();
+    }
+    if wait_for_context_ready(&mut mainloop, &context).is_err() {
+        mainloop.stop();
+        return Vec::new();
+    }
+
+    let sinks = query_sink_targets(&mut mainloop, &context);
+    mainloop.lock();
+    context.disconnect();
+    mainloop.unlock();
+    mainloop.stop();
+    sinks
+}
+
+fn query_sink_targets(mainloop: &mut Mainloop, context: &PaContext) -> Vec<SinkTarget> {
+    use std::sync::mpsc;
+
+    let (tx, rx) = mpsc::channel();
+
+    mainloop.lock();
+    let introspector = context.introspect();
+    introspector.get_sink_info_list(move |list_result| match list_result {
+        pulse::callbacks::ListResult::Item(sink_info) => {
+            let Some(name) = sink_info.name.as_ref() else {
+                return;
+            };
+            let description = sink_info
+                .description
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or_default();
+            let monitor = sink_info
+                .monitor_source_name
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| format!("{name}.monitor"));
+            let _ = tx.send(Some(SinkTarget {
+                name: name.to_string(),
+                description,
+                monitor,
+            }));
+        }
+        pulse::callbacks::ListResult::End | pulse::callbacks::ListResult::Error => {
+            let _ = tx.send(None);
+        }
+    });
+    mainloop.unlock();
+
+    let mut sinks = Vec::new();
+    let timeout = Duration::from_secs(2);
+    let start = std::time::Instant::now();
+    while start.elapsed() < timeout {
+        match rx.recv_timeout(Duration::from_millis(50)) {
+            Ok(Some(sink)) => sinks.push(sink),
+            Ok(None) => break,
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+    }
+    sinks
+}
+
+fn resolve_sink_name(preferred: Option<&str>) -> Option<String> {
+    let preferred = preferred.filter(|name| !name.is_empty())?;
+    list_sink_targets()
+        .into_iter()
+        .find(|sink| sink.matches(preferred))
+        .map(|sink| sink.name)
+}
+
+fn resolve_monitor_device(
+    mainloop: &mut Mainloop,
+    context: &PaContext,
+    preferred: Option<&str>,
+) -> Option<String> {
+    if let Some(preferred) = preferred.filter(|name| !name.is_empty()) {
+        if let Some(sink) = query_sink_targets(mainloop, context)
+            .into_iter()
+            .find(|sink| sink.matches(preferred))
+        {
+            return Some(sink.monitor);
+        }
+        tracing::warn!(preferred, "speaker_device_unavailable_using_default");
+    }
+    get_default_monitor_device(mainloop, context)
+}
+
 fn get_default_monitor_device(mainloop: &mut Mainloop, context: &PaContext) -> Option<String> {
     use std::sync::mpsc;
 
@@ -692,5 +834,24 @@ impl PinnedDrop for SpeakerStream {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SinkTarget;
+
+    #[test]
+    fn sink_target_matches_description_or_name() {
+        let sink = SinkTarget {
+            name: "alsa_output.pci-0000_00_1f.3.analog-stereo".to_string(),
+            description: "Built-in Audio Analog Stereo".to_string(),
+            monitor: "alsa_output.pci-0000_00_1f.3.analog-stereo.monitor".to_string(),
+        };
+
+        assert!(sink.matches("Built-in Audio Analog Stereo"));
+        assert!(sink.matches("alsa_output.pci-0000_00_1f.3.analog-stereo"));
+        assert!(!sink.matches("HDMI"));
+        assert_eq!(sink.display_name(), "Built-in Audio Analog Stereo");
     }
 }

@@ -24,11 +24,37 @@ use super::{BUFFER_SIZE, CHUNK_SIZE};
 
 const DEFAULT_SAMPLE_RATE: u32 = 44_100;
 
-pub struct SpeakerInput;
+pub struct SpeakerInput {
+    device: Option<String>,
+}
 
 impl SpeakerInput {
-    pub fn new() -> Result<Self> {
-        Ok(Self)
+    pub fn new(device: Option<String>) -> Result<Self> {
+        Ok(Self { device })
+    }
+
+    pub fn list_devices() -> Vec<String> {
+        if initialize_mta().is_err() {
+            return Vec::new();
+        }
+        let Ok(enumerator) = DeviceEnumerator::new() else {
+            return Vec::new();
+        };
+        let Ok(collection) = enumerator.get_device_collection(&Direction::Render) else {
+            return Vec::new();
+        };
+        let Ok(count) = collection.get_nbr_devices() else {
+            return Vec::new();
+        };
+        (0..count)
+            .filter_map(|index| {
+                collection
+                    .get_device_at_index(index)
+                    .ok()?
+                    .get_friendlyname()
+                    .ok()
+            })
+            .collect()
     }
 
     pub fn sample_rate(&self) -> u32 {
@@ -46,6 +72,7 @@ impl SpeakerInput {
         let current_sample_rate = Arc::new(AtomicU32::new(DEFAULT_SAMPLE_RATE));
         let dropped_samples = Arc::new(AtomicUsize::new(0));
         let (init_tx, init_rx) = std::sync::mpsc::channel();
+        let device = self.device.clone();
 
         let capture_thread = {
             let waker = waker.clone();
@@ -65,6 +92,7 @@ impl SpeakerInput {
                     current_sample_rate,
                     dropped_samples,
                     init_tx,
+                    device,
                 );
 
                 if let Err(err) = result {
@@ -132,6 +160,7 @@ fn capture_audio_loop(
     current_sample_rate: Arc<AtomicU32>,
     dropped_samples: Arc<AtomicUsize>,
     init_tx: std::sync::mpsc::Sender<Result<()>>,
+    preferred_device: Option<String>,
 ) -> Result<()> {
     let setup_result = (|| -> Result<_> {
         initialize_mta()
@@ -140,9 +169,7 @@ fn capture_audio_loop(
 
         let enumerator =
             DeviceEnumerator::new().context("Failed to create WASAPI device enumerator")?;
-        let device = enumerator
-            .get_default_device(&Direction::Render)
-            .context("Failed to get default render device")?;
+        let device = open_render_device(&enumerator, preferred_device.as_deref())?;
         let mut audio_client = device
             .get_iaudioclient()
             .context("Failed to get IAudioClient")?;
@@ -252,6 +279,31 @@ fn capture_audio_loop(
     let _ = audio_client.stop_stream();
 
     Ok(())
+}
+
+fn open_render_device(
+    enumerator: &DeviceEnumerator,
+    preferred: Option<&str>,
+) -> Result<wasapi::Device> {
+    if let Some(preferred) = preferred.filter(|name| !name.is_empty()) {
+        let collection = enumerator
+            .get_device_collection(&Direction::Render)
+            .context("Failed to list WASAPI render devices")?;
+        match collection.get_device_with_name(preferred) {
+            Ok(device) => return Ok(device),
+            Err(error) => {
+                tracing::warn!(
+                    preferred,
+                    error = %error,
+                    "speaker_device_unavailable_using_default"
+                );
+            }
+        }
+    }
+
+    enumerator
+        .get_default_device(&Direction::Render)
+        .context("Failed to get default render device")
 }
 
 fn push_wasapi_bytes(

@@ -19,6 +19,17 @@ pub async fn list_microphone_devices<R: tauri::Runtime>(
 
 #[tauri::command]
 #[specta::specta]
+pub async fn list_speaker_devices<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+) -> Result<Vec<String>, String> {
+    app.listener()
+        .list_speaker_devices()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn get_current_microphone_device<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
 ) -> Result<Option<String>, String> {

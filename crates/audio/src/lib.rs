@@ -33,6 +33,7 @@ pub struct CaptureConfig {
     pub sample_rate: u32,
     pub chunk_size: usize,
     pub mic_device: Option<String>,
+    pub speaker_device: Option<String>,
     pub enable_aec: bool,
 }
 
@@ -80,6 +81,7 @@ pub trait AudioProvider: Send + Sync {
     fn open_capture(&self, config: CaptureConfig) -> Result<CaptureStream, Error>;
     fn open_speaker_capture(
         &self,
+        device: Option<String>,
         sample_rate: u32,
         chunk_size: usize,
     ) -> Result<CaptureStream, Error>;
@@ -92,6 +94,7 @@ pub trait AudioProvider: Send + Sync {
 
     fn default_device_name(&self) -> String;
     fn list_mic_devices(&self) -> Vec<String>;
+    fn list_speaker_devices(&self) -> Vec<String>;
 
     fn play_silence(&self) -> std::sync::mpsc::Sender<()>;
     fn play_bytes(&self, bytes: &'static [u8]) -> std::sync::mpsc::Sender<()>;
