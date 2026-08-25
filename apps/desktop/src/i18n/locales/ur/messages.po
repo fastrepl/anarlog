@@ -399,6 +399,10 @@ msgstr ""
 msgid "Anarlog could not start cloud sync on this device."
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Anarlog couldn't complete this sync. Your notes are safe on this device."
+msgstr ""
+
 #: src/main/sync-status.tsx
 msgid "Anarlog couldn't read cloud sync status. Your notes are still available locally."
 msgstr ""

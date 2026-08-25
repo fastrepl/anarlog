@@ -399,6 +399,10 @@ msgstr "Anarlog could not read the local shared-note cache."
 msgid "Anarlog could not start cloud sync on this device."
 msgstr "Anarlog could not start cloud sync on this device."
 
+#: src/settings/sync/index.tsx
+msgid "Anarlog couldn't complete this sync. Your notes are safe on this device."
+msgstr "Anarlog couldn't complete this sync. Your notes are safe on this device."
+
 #: src/main/sync-status.tsx
 msgid "Anarlog couldn't read cloud sync status. Your notes are still available locally."
 msgstr "Anarlog couldn't read cloud sync status. Your notes are still available locally."

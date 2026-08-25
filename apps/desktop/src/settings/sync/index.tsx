@@ -211,7 +211,12 @@ function SyncLogEntry({ entry }: { entry: CloudsyncActivityEntry }) {
         </div>
         <p className="text-muted-foreground mt-0.5 text-xs">{summary}</p>
         {entry.error && (
-          <p className="mt-1 text-xs break-words text-red-500">{entry.error}</p>
+          <p className="mt-1 text-xs break-words text-red-500">
+            <Trans>
+              Anarlog couldn't complete this sync. Your notes are safe on this
+              device.
+            </Trans>
+          </p>
         )}
       </div>
     </li>

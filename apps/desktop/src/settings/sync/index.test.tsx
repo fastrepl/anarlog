@@ -454,7 +454,8 @@ describe("SettingsSync", () => {
           status: "failed",
           sent_bytes: 0,
           received_bytes: 0,
-          error: "Network unavailable",
+          error:
+            "sqlx error: error returned from database: (code: 1) Connection timed out after 5002 milliseconds",
         },
       ],
     });
@@ -466,7 +467,12 @@ describe("SettingsSync", () => {
     expect(screen.getByText("Manual sync")).toBeTruthy();
     expect(screen.getByText("Sent 2.0 KB · Received 1.0 KB")).toBeTruthy();
     expect(screen.getByText("Background sync")).toBeTruthy();
-    expect(screen.getByText("Network unavailable")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Anarlog couldn't complete this sync. Your notes are safe on this device.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/sqlx error/)).toBeNull();
     expect(screen.getByRole("button", { name: "Hide sync log" })).toBeTruthy();
   });
 
