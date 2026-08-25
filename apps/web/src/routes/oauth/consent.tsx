@@ -13,10 +13,13 @@ import {
   decideOAuthAuthorization,
   getOAuthAuthorizationDetails,
 } from "@/functions/oauth-consent";
-import { describeOAuthScopes } from "@/lib/oauth-consent";
+import {
+  describeOAuthScopes,
+  oauthAuthorizationIdSchema,
+} from "@/lib/oauth-consent";
 
 const searchSchema = z.object({
-  authorization_id: z.string().uuid(),
+  authorization_id: oauthAuthorizationIdSchema,
 });
 
 export const Route = createFileRoute("/oauth/consent")({

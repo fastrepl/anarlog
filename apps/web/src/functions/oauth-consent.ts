@@ -2,9 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { getSupabaseServerClient } from "@/functions/supabase";
+import { oauthAuthorizationIdSchema } from "@/lib/oauth-consent";
 
 const authorizationInput = z.object({
-  authorizationId: z.string().uuid(),
+  authorizationId: oauthAuthorizationIdSchema,
 });
 
 export const getOAuthAuthorizationDetails = createServerFn({ method: "GET" })

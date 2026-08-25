@@ -5,6 +5,7 @@ use crate::state::AppState;
 
 pub(crate) const OAUTH_SCOPES: &[&str] = &["openid", "email"];
 pub(crate) const MCP_RESOURCE: &str = "https://api.anarlog.so/mcp";
+const OPENAI_APPS_CHALLENGE: &str = "Rueo1ui7LUWfrc8duM53jXRiYcaxExDbCNrsLp2VdvU";
 
 #[derive(Clone)]
 pub(crate) struct OAuthResourceConfig {
@@ -82,6 +83,10 @@ pub fn metadata_router(state: AppState) -> Router {
             "/.well-known/oauth-protected-resource/mcp",
             get(protected_resource_metadata),
         )
+        .route(
+            "/.well-known/openai-apps-challenge",
+            get(|| async { OPENAI_APPS_CHALLENGE }),
+        )
         .with_state(state)
 }
 
@@ -138,6 +143,27 @@ mod tests {
                 serde_json::json!(["openid", "email"])
             );
         }
+    }
+
+    #[tokio::test]
+    async fn publishes_openai_domain_verification_challenge() {
+        let state = AppState::new(
+            CloudApiConfig::new("https://auth.example.com", "service-role-key").unwrap(),
+        );
+        let response = metadata_router(state)
+            .oneshot(
+                Request::get("/.well-known/openai-apps-challenge")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert!(response.status().is_success());
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(body, OPENAI_APPS_CHALLENGE);
     }
 
     #[test]
