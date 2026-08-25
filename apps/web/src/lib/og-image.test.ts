@@ -56,10 +56,9 @@ test("normalizes shared note metadata", () => {
   });
 
   assert.match(svg, />Shared note<\/text>/);
-  assert.match(
-    svg,
-    />The team aligned on launch scope and the remaining blockers\.<\/text>/,
-  );
+  assert.match(svg, /The team aligned on launch scope/);
+  assert.match(svg, /remaining blockers/);
+  assert.match(svg, /data-summary="meeting"/);
   assert.match(svg, /John, Artem \+3 more/);
   assert.doesNotMatch(svg, />\+3<\/text>/);
   assert.equal(svg.match(/data-avatar=/g)?.length, 5);
@@ -119,6 +118,44 @@ test("renders a large social image for a shared note", async () => {
     })) > 400,
     "expected participant and date text to rasterize as filled glyphs",
   );
+});
+
+test("wraps shared-note summaries inside even horizontal insets", () => {
+  const svg = createSharedNoteOgSvg({
+    title: "DEFCON 1",
+    summary:
+      "Artem worked on connecting notes and Charlie through different states so the team could keep context across the whole workflow.",
+    participants: ["John Jeong", "Artem"],
+    meetingAt: "2026-08-25T00:00:00Z",
+  });
+
+  assert.equal(svg.match(/data-summary="meeting"/g)?.length, 2);
+  assert.match(
+    svg,
+    /<text data-summary="meeting" x="72" y="210"[^>]*>Artem worked on connecting notes and Charlie through different<\/text>/,
+  );
+  assert.match(
+    svg,
+    /<text data-summary="meeting" x="72" y="252"[^>]*>states so the team could keep context across the whole workflow\.<\/text>/,
+  );
+  assert.doesNotMatch(svg, /data-summary="meeting"[^>]*>[^<]*\.\.\./);
+  assert.match(svg, /d="M72 424 H1128"/);
+  assert.match(svg, /<text x="72" y="152"/);
+  assert.match(svg, /x="963"/);
+});
+
+test("ellipsizes overflow on the last wrapped summary line", () => {
+  const svg = createSharedNoteOgSvg({
+    title: "DEFCON 1",
+    summary:
+      "Artem worked on connecting notes and Charlie through different states so the team could keep context across the whole workflow and still have room for follow-ups.",
+    participants: ["John Jeong", "Artem"],
+    meetingAt: "2026-08-25T00:00:00Z",
+  });
+
+  assert.equal(svg.match(/data-summary="meeting"/g)?.length, 2);
+  assert.match(svg, /data-summary="meeting"[^>]*>[^<]*\.\.\./);
+  assert.doesNotMatch(svg, /still have room for follow-ups/);
 });
 
 test("caps participant avatars in crowded shared-note previews", () => {

@@ -16,6 +16,15 @@ import { createSharedNoteParticipantPresentation } from "./shared-note-presentat
 
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
+const CONTENT_INSET_X = 72;
+const CONTENT_RIGHT_X = OG_WIDTH - CONTENT_INSET_X;
+const AVATAR_RADIUS = 28;
+const AVATAR_STEP = 42;
+const AVATAR_LABEL_GAP = 16;
+const SUMMARY_FONT_SIZE = 31;
+const SUMMARY_LINE_HEIGHT = 42;
+const SUMMARY_MAX_LINES = 2;
+const WORDMARK_WIDTH = 165;
 const CACHE_CONTROL =
   "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800";
 const SHARED_NOTE_CACHE_CONTROL = "public, max-age=0, s-maxage=60";
@@ -83,6 +92,77 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
   return lines;
 }
 
+function wrapSansText(
+  value: string,
+  fontSize: number,
+  maxWidth: number,
+  maxLines: number,
+) {
+  if (!value) return [];
+
+  const words = value.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  const fits = (text: string) =>
+    estimateSansTextWidth(text, fontSize) <= maxWidth;
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (fits(next)) {
+      current = next;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      current = word;
+    } else {
+      lines.push(ellipsizeToWidth(word, fontSize, maxWidth));
+      current = "";
+    }
+
+    if (lines.length === maxLines) {
+      current = "";
+      break;
+    }
+  }
+
+  if (current && lines.length < maxLines) {
+    lines.push(current);
+  }
+
+  const consumed = lines.join(" ");
+  if (lines.length > 0 && words.join(" ").length > consumed.length) {
+    lines[lines.length - 1] = ellipsizeToWidth(
+      lines[lines.length - 1] ?? "",
+      fontSize,
+      maxWidth,
+    );
+  }
+
+  return lines.filter(Boolean);
+}
+
+function ellipsizeToWidth(value: string, fontSize: number, maxWidth: number) {
+  const fits = (text: string) =>
+    estimateSansTextWidth(text, fontSize) <= maxWidth;
+  let next = value.replace(/\.+$/, "").trimEnd();
+  if (fits(`${next}...`)) return `${next}...`;
+
+  const parts = next.split(/\s+/).filter(Boolean);
+  while (parts.length > 1) {
+    parts.pop();
+    next = parts.join(" ");
+    if (fits(`${next}...`)) return `${next}...`;
+  }
+
+  next = parts[0] ?? "";
+  while (next.length > 1 && !fits(`${next}...`)) {
+    next = next.slice(0, -1).trimEnd();
+  }
+  return next ? `${next}...` : "";
+}
+
 function formatDate(date: string | undefined) {
   if (!date) return "";
   const parsed = new Date(date);
@@ -146,10 +226,10 @@ function createParticipantAvatarStack(
 
   return avatars
     .map((avatar, index) => {
-      const centerX = 100 + index * 42;
+      const centerX = CONTENT_INSET_X + AVATAR_RADIUS + index * AVATAR_STEP;
       const gradientId = `avatar-gradient-${index}`;
       const clipId = `avatar-clip-${index}`;
-      return `<defs>${createAvatarGradientSvg(avatar.seed, gradientId)}<clipPath id="${clipId}"><circle cx="${centerX}" cy="${centerY}" r="28"/></clipPath></defs><g data-avatar="participant" data-avatar-renderer="app"><circle cx="${centerX}" cy="${centerY}" r="28" fill="url(#${gradientId})"/>${avatar.image ? `<image href="${avatar.image}" x="${centerX - 28}" y="${centerY - 28}" width="56" height="56" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>` : ""}<circle cx="${centerX}" cy="${centerY}" r="30" fill="none" stroke="#f4f0e8" stroke-width="4"/><text x="${centerX}" y="${centerY + 7}" fill="#ffffff" fill-opacity="0.82" font-family="${SANS_FONT_FAMILY}" font-size="18" font-weight="700" text-anchor="middle" style="mix-blend-mode:overlay">${escapeXml(avatar.label)}</text></g>`;
+      return `<defs>${createAvatarGradientSvg(avatar.seed, gradientId)}<clipPath id="${clipId}"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}"/></clipPath></defs><g data-avatar="participant" data-avatar-renderer="app"><circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS}" fill="url(#${gradientId})"/>${avatar.image ? `<image href="${avatar.image}" x="${centerX - AVATAR_RADIUS}" y="${centerY - AVATAR_RADIUS}" width="${AVATAR_RADIUS * 2}" height="${AVATAR_RADIUS * 2}" preserveAspectRatio="xMidYMid slice" clip-path="url(#${clipId})"/>` : ""}<circle cx="${centerX}" cy="${centerY}" r="${AVATAR_RADIUS + 2}" fill="none" stroke="#f4f0e8" stroke-width="4"/><text x="${centerX}" y="${centerY + 7}" fill="#ffffff" fill-opacity="0.82" font-family="${SANS_FONT_FAMILY}" font-size="18" font-weight="700" text-anchor="middle" style="mix-blend-mode:overlay">${escapeXml(avatar.label)}</text></g>`;
     })
     .reverse()
     .join("");
@@ -238,14 +318,25 @@ export function createSharedNoteOgSvg(
   );
   const participantSummary = clampText(participantPresentation.label, 42);
   const avatarParticipants = participantPresentation.avatarParticipants;
-  const summary = clampText(input.summary, 72);
+  const summary = wrapSansText(
+    clampText(input.summary, 180),
+    SUMMARY_FONT_SIZE,
+    CONTENT_RIGHT_X - CONTENT_INSET_X,
+    SUMMARY_MAX_LINES,
+  );
   const titleStartY = title.length === 1 ? 152 : title.length === 2 ? 116 : 90;
   const titleEndY = titleStartY + (title.length - 1) * 82;
   const summaryY = titleEndY + 58;
   const date = formatDate(input.meetingAt) || "Date unavailable";
   const footerCenterY = 500;
   const avatarCount = avatarParticipants.length;
-  const participantX = avatarCount ? 100 + (avatarCount - 1) * 42 + 44 : 72;
+  const firstAvatarX = CONTENT_INSET_X + AVATAR_RADIUS;
+  const participantX = avatarCount
+    ? firstAvatarX +
+      (avatarCount - 1) * AVATAR_STEP +
+      AVATAR_RADIUS +
+      AVATAR_LABEL_GAP
+    : CONTENT_INSET_X;
   const estimatedParticipantTextWidth = estimateSansTextWidth(
     participantSummary,
     27,
@@ -261,19 +352,28 @@ export function createSharedNoteOgSvg(
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="${OG_WIDTH}" height="${OG_HEIGHT}" viewBox="0 0 ${OG_WIDTH} ${OG_HEIGHT}" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="${OG_WIDTH}" height="${OG_HEIGHT}" fill="#f4f0e8"/>
-  <path d="M72 424 H1128" stroke="#cfc6ba" stroke-width="2"/>
+  <path d="M${CONTENT_INSET_X} 424 H${CONTENT_RIGHT_X}" stroke="#cfc6ba" stroke-width="2"/>
   ${title
     .map(
       (line, index) =>
-        `<text x="72" y="${titleStartY + index * 82}" fill="#181613" font-family="${SERIF_FONT_FAMILY}" font-size="${titleFontSize}" font-weight="400">${escapeXml(line)}</text>`,
+        `<text x="${CONTENT_INSET_X}" y="${titleStartY + index * 82}" fill="#181613" font-family="${SERIF_FONT_FAMILY}" font-size="${titleFontSize}" font-weight="400">${escapeXml(line)}</text>`,
     )
     .join("")}
-  ${summary ? `<text data-summary="meeting" x="72" y="${summaryY}" fill="#57534e" font-family="${SANS_FONT_FAMILY}" font-size="31" font-weight="500">${escapeXml(summary)}</text>` : ""}
+  ${summary
+    .map(
+      (line, index) =>
+        `<text data-summary="meeting" x="${CONTENT_INSET_X}" y="${summaryY + index * SUMMARY_LINE_HEIGHT}" fill="#57534e" font-family="${SANS_FONT_FAMILY}" font-size="${SUMMARY_FONT_SIZE}" font-weight="500">${escapeXml(line)}</text>`,
+    )
+    .join("")}
   ${createParticipantAvatarStack(avatarParticipants, avatarImages, footerCenterY)}
   <text x="${participantX}" y="${footerCenterY + 9}"${participantTextLength} fill="#37322d" font-family="${SANS_FONT_FAMILY}" font-size="27" font-weight="600">${escapeXml(participantSummary)}</text>
   <circle cx="${separatorX}" cy="${footerCenterY}" r="3" fill="#9d9387"/>
   <text x="${dateX}" y="${footerCenterY + 9}" fill="#57534e" font-family="${SANS_FONT_FAMILY}" font-size="27" font-weight="500">${escapeXml(date)}</text>
-  ${createAnarlogWordmark({ x: 963, y: 477, width: 165 })}
+  ${createAnarlogWordmark({
+    x: CONTENT_RIGHT_X - WORDMARK_WIDTH,
+    y: 477,
+    width: WORDMARK_WIDTH,
+  })}
 </svg>`;
 }
 
