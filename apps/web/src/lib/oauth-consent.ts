@@ -1,3 +1,11 @@
+import { z } from "zod";
+
+export const oauthAuthorizationIdSchema = z
+  .string()
+  .min(1)
+  .max(256)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
 const scopeDescriptions: Record<string, string> = {
   openid: "Confirm your Anarlog account identity",
   email: "Share your Anarlog account email with the connector",

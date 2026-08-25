@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { describeOAuthScopes } from "./oauth-consent.ts";
+import {
+  describeOAuthScopes,
+  oauthAuthorizationIdSchema,
+} from "./oauth-consent.ts";
+
+test("OAuth authorization IDs accept Supabase opaque identifiers", () => {
+  assert.equal(
+    oauthAuthorizationIdSchema.parse("2golbs6lfj6pkquumjxxlhplfrpugele"),
+    "2golbs6lfj6pkquumjxxlhplfrpugele",
+  );
+  assert.throws(() => oauthAuthorizationIdSchema.parse("invalid/id"));
+});
 
 test("OAuth scopes use clear user-facing descriptions", () => {
   assert.deepEqual(describeOAuthScopes("openid email"), [
