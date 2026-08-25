@@ -163,6 +163,11 @@ pub fn main() {
         run_crash_reporter_process();
     }
 
+    // AppKit abort()s in _RegisterApplication when launchservicesd is unreachable
+    // (inherited sandbox from a parent like a browser agent). Check before the
+    // event loop is created so we can relaunch via `open` or exit cleanly.
+    startup::ensure_macos_appkit_launch_context();
+
     // Keep a process-wide Tokio runtime for Tauri plugins, but leave it before
     // Builder::build(). tauri-plugin-single-instance's Linux setup uses zbus's
     // blocking Connection::build, which starts a nested runtime and panics if
