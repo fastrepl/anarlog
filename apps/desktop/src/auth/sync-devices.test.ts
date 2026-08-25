@@ -5,6 +5,7 @@ import {
   consumeDeviceEnrollment,
   registerDeviceEnrollment,
   removeSyncDevice,
+  renameSyncDevice,
   requestSyncDevices,
   sealDeviceEnrollment,
 } from "./sync-devices";
@@ -131,7 +132,7 @@ test("surfaces structured enrollment errors", async () => {
   });
 });
 
-test("posts approval, acknowledgement, and removal requests", async () => {
+test("posts approval, acknowledgement, removal, and rename requests", async () => {
   const fetchMock = vi.fn<
     (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
   >(() => Promise.resolve(new Response(null, { status: 204 })));
@@ -154,10 +155,20 @@ test("posts approval, acknowledgement, and removal requests", async () => {
     fingerprint: "fingerprint-current",
   });
   await removeSyncDevice("access-token", "fingerprint-old");
+  await renameSyncDevice("access-token", "fingerprint-current", "Desk Mac");
 
   expect(fetchMock.mock.calls.map(([url]) => url.toString())).toEqual([
     "https://api.test/sync/e2ee/device-enrollments/11111111-1111-4111-8111-111111111111/seal",
     "https://api.test/sync/e2ee/device-enrollments/11111111-1111-4111-8111-111111111111/consume",
     "https://api.test/sync/devices/fingerprint-old",
+    "https://api.test/sync/devices/fingerprint-current",
   ]);
+  expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+    method: "PATCH",
+    headers: {
+      Authorization: "Bearer access-token",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ deviceName: "Desk Mac" }),
+  });
 });

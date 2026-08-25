@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   registerDeviceEnrollment: vi.fn(),
   sealDeviceEnrollment: vi.fn(),
   removeSyncDevice: vi.fn(),
+  renameSyncDevice: vi.fn(),
   getDeviceIdentity: vi.fn(),
   repairKeychainAccess: vi.fn(),
   vaultBase: vi.fn(),
@@ -79,6 +80,7 @@ vi.mock("~/auth/cloudsync-credentials", () => ({
 vi.mock("~/auth/sync-devices", () => ({
   registerDeviceEnrollment: mocks.registerDeviceEnrollment,
   removeSyncDevice: mocks.removeSyncDevice,
+  renameSyncDevice: mocks.renameSyncDevice,
   requestSyncDevices: mocks.requestSyncDevices,
   sealDeviceEnrollment: mocks.sealDeviceEnrollment,
 }));
@@ -194,6 +196,7 @@ describe("SettingsSync", () => {
     });
     mocks.sealDeviceEnrollment.mockResolvedValue(undefined);
     mocks.removeSyncDevice.mockResolvedValue(undefined);
+    mocks.renameSyncDevice.mockResolvedValue(undefined);
     mocks.refreshCloudsyncForSession.mockResolvedValue("ok");
     mocks.getCloudsyncStatus.mockResolvedValue(syncedStatus());
     mocks.vaultBase.mockResolvedValue({
@@ -367,6 +370,45 @@ describe("SettingsSync", () => {
     expect(
       document.querySelectorAll("[data-device-kind='watch']"),
     ).toHaveLength(1);
+  });
+
+  it("renames the current device and refreshes the synced device list", async () => {
+    const currentDevice = {
+      deviceFingerprint: "current-device",
+      deviceName: "Johns-M4-Max.local",
+      createdAt: "2026-08-20T00:00:00Z",
+      lastSeenAt: "2026-08-20T00:00:00Z",
+    };
+    mocks.requestSyncDevices
+      .mockResolvedValueOnce({
+        devices: [currentDevice],
+        pendingDevices: [],
+        maxDevices: 5,
+      })
+      .mockResolvedValue({
+        devices: [{ ...currentDevice, deviceName: "Desk Mac" }],
+        pendingDevices: [],
+        maxDevices: 5,
+      });
+    renderSettings();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Rename device" }),
+    );
+    const input = screen.getByRole("textbox", { name: "Device name" });
+    expect((input as HTMLInputElement).value).toBe("Johns-M4-Max.local");
+    fireEvent.change(input, { target: { value: "  Desk Mac  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await vi.waitFor(() =>
+      expect(mocks.renameSyncDevice).toHaveBeenCalledWith(
+        "token",
+        "current-device",
+        "Desk Mac",
+      ),
+    );
+    expect(await screen.findByText("Desk Mac")).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("replaces an active device when the device limit is reached", async () => {

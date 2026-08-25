@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(27);
 
 select tests.create_supabase_user('enrollment_owner', 'enrollment-owner@example.com');
 select tests.create_supabase_user('enrollment_other', 'enrollment-other@example.com');
@@ -33,6 +33,16 @@ select ok(
     and not has_function_privilege(
       'authenticated',
       'public.consume_e2ee_device_enrollment(uuid, uuid, text, text)',
+      'EXECUTE'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'public.rename_sync_device(uuid, text, text)',
+      'EXECUTE'
+    )
+    and has_function_privilege(
+      'service_role',
+      'public.rename_sync_device(uuid, text, text)',
       'EXECUTE'
     ),
   'Enrollment rows and RPCs are restricted to trusted service code'
@@ -270,6 +280,47 @@ select ok(
       where id = (select request_id from enrollment_test_state)
     ),
   'Conversion removes the enrollment mailbox row'
+);
+
+select is(
+  public.rename_sync_device(
+    tests.get_supabase_uid('enrollment_owner'),
+    'device-0001',
+    'Desk Mac'
+  ),
+  true,
+  'A device can be renamed through the trusted account-scoped RPC'
+);
+
+select is(
+  (
+    select device_name
+    from public.sync_devices
+    where user_id = tests.get_supabase_uid('enrollment_owner')
+      and device_fingerprint = 'device-0001'
+  ),
+  'Desk Mac',
+  'The renamed device name is stored with the account'
+);
+
+select is(
+  (
+    with claimed as materialized (
+      select *
+      from public.claim_sync_device(
+        tests.get_supabase_uid('enrollment_owner'),
+        'device-0001',
+        'Automatic Hostname'
+      )
+    )
+    select device.device_name
+    from public.sync_devices as device
+    cross join claimed
+    where device.user_id = tests.get_supabase_uid('enrollment_owner')
+      and device.device_fingerprint = 'device-0001'
+  ),
+  'Desk Mac',
+  'Credential refreshes preserve a user-assigned device name'
 );
 
 do $$

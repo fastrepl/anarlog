@@ -742,6 +742,7 @@ msgstr ""
 #: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
+#: src/settings/sync/index.tsx
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
 #: src/templates/auto-format-examples-dialog.tsx
@@ -1652,6 +1653,10 @@ msgstr ""
 #: src/main/sync-status.tsx
 #: src/settings/sync/index.tsx
 msgid "Device limit reached"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Device name"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -3485,6 +3490,14 @@ msgstr ""
 msgid "Remove repository"
 msgstr ""
 
+#: src/settings/sync/index.tsx
+msgid "Rename device"
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "Rename this device"
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Rename workspace"
 msgstr ""
@@ -3648,6 +3661,7 @@ msgstr ""
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr ""
 
+#: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
 msgstr ""
@@ -4613,6 +4627,10 @@ msgstr ""
 
 #: src/session/components/outer-header/index.tsx
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
+msgstr ""
+
+#: src/settings/sync/index.tsx
+msgid "This name is synced to your other devices signed in to this account."
 msgstr ""
 
 #: src/chat/components/session-provider.tsx

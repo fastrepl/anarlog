@@ -351,3 +351,52 @@ async fn removes_active_or_pending_devices_through_one_rpc() {
 
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
 }
+
+#[tokio::test]
+async fn renames_a_sync_device_through_the_account_scoped_rpc() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/rename_sync_device"))
+        .and(body_partial_json(json!({
+            "p_actor_user_id": "user-123",
+            "p_device_fingerprint": "fingerprint-1234",
+            "p_device_name": "Desk Mac",
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!(true)))
+        .mount(&server)
+        .await;
+
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::patch("/devices/fingerprint-1234")
+                .header(http_header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({ "deviceName": "  Desk Mac  " })).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn rejects_an_empty_sync_device_name() {
+    let server = MockServer::start().await;
+
+    let response = test_router(&server, "issuer-key", &["hyprnote_pro"])
+        .oneshot(
+            Request::patch("/devices/fingerprint-1234")
+                .header(http_header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&json!({ "deviceName": "   " })).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(server.received_requests().await.unwrap().is_empty());
+}

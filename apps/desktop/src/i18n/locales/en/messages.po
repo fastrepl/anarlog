@@ -742,6 +742,7 @@ msgstr "Can view"
 #: src/settings/ai/llm/subscriptions/connect.tsx
 #: src/settings/general/e2ee-setup.tsx
 #: src/settings/general/storage/legacy-cleanup.tsx
+#: src/settings/sync/index.tsx
 #: src/settings/todo/github.tsx
 #: src/shared/ui/destructive-confirmation-dialog.tsx
 #: src/templates/auto-format-examples-dialog.tsx
@@ -1653,6 +1654,10 @@ msgstr "Device authentication is not available on this computer."
 #: src/settings/sync/index.tsx
 msgid "Device limit reached"
 msgstr "Device limit reached"
+
+#: src/settings/sync/index.tsx
+msgid "Device name"
+msgstr "Device name"
 
 #: src/settings/sync/index.tsx
 #: src/settings/team/index.tsx
@@ -3485,6 +3490,14 @@ msgstr "Remove photo"
 msgid "Remove repository"
 msgstr "Remove repository"
 
+#: src/settings/sync/index.tsx
+msgid "Rename device"
+msgstr "Rename device"
+
+#: src/settings/sync/index.tsx
+msgid "Rename this device"
+msgstr "Rename this device"
+
 #: src/settings/team/index.tsx
 msgid "Rename workspace"
 msgstr "Rename workspace"
@@ -3648,6 +3661,7 @@ msgstr "Runs after the recording finishes, not during the meeting."
 msgid "Runs once the AI summary for the meeting is ready."
 msgstr "Runs once the AI summary for the meeting is ready."
 
+#: src/settings/sync/index.tsx
 #: src/templates/auto-form.tsx
 msgid "Save"
 msgstr "Save"
@@ -4614,6 +4628,10 @@ msgstr "This device's sync identity does not match your account. Sign in again o
 #: src/session/components/outer-header/index.tsx
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
 msgstr "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
+
+#: src/settings/sync/index.tsx
+msgid "This name is synced to your other devices signed in to this account."
+msgstr "This name is synced to your other devices signed in to this account."
 
 #: src/chat/components/session-provider.tsx
 msgid "This recording is using batch transcription, so the transcript isn't available to chat yet. Ask again after transcription finishes, or switch to a Pro model for live transcription."

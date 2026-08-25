@@ -7,6 +7,7 @@ import {
   CloudSlash,
   Desktop,
   DeviceMobile,
+  PencilSimple,
   Plugs,
   Plus,
   Shield,
@@ -14,6 +15,7 @@ import {
   Warning,
   Watch,
 } from "@phosphor-icons/react";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -38,6 +40,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@anlg/ui/components/ui/dialog";
+import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
 import { cn, formatDistanceToNow } from "@anlg/utils";
 
@@ -57,6 +60,7 @@ import { getDeviceIdentity } from "~/auth/cloudsync-credentials";
 import {
   registerDeviceEnrollment,
   removeSyncDevice,
+  renameSyncDevice,
   requestSyncDevices,
   sealDeviceEnrollment,
   type SyncDeviceKind,
@@ -85,9 +89,11 @@ async function readE2eeIdentityStatus(accountUserId: string) {
 function DeviceTitle({
   name,
   current,
+  onRename,
 }: {
   name: string | null;
   current: boolean;
+  onRename?: () => void;
 }) {
   const { t } = useLingui();
   return (
@@ -100,7 +106,113 @@ function DeviceTitle({
           <Trans>This device</Trans>
         </Badge>
       ) : null}
+      {current && onRename ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground size-6 shrink-0"
+          aria-label={t`Rename device`}
+          onClick={onRename}
+        >
+          <PencilSimple className="size-3.5" />
+        </Button>
+      ) : null}
     </div>
+  );
+}
+
+function isValidDeviceName(name: string) {
+  const trimmed = name.trim();
+  return trimmed.length > 0 && new TextEncoder().encode(trimmed).length <= 128;
+}
+
+function RenameDeviceDialog({
+  name,
+  pending,
+  error,
+  onOpenChange,
+  onRename,
+}: {
+  name: string | null;
+  pending: boolean;
+  error: Error | null;
+  onOpenChange: (open: boolean) => void;
+  onRename: (name: string) => void;
+}) {
+  const { t } = useLingui();
+  const form = useForm({
+    defaultValues: { name: name ?? "" },
+    onSubmit: ({ value }) => {
+      if (isValidDeviceName(value.name)) {
+        onRename(value.name.trim());
+      }
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void form.handleSubmit();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              <Trans>Rename this device</Trans>
+            </DialogTitle>
+            <DialogDescription>
+              <Trans>
+                This name is synced to your other devices signed in to this
+                account.
+              </Trans>
+            </DialogDescription>
+          </DialogHeader>
+          <form.Field name="name">
+            {(field) => (
+              <Input
+                autoFocus
+                aria-label={t`Device name`}
+                className="mt-4"
+                maxLength={128}
+                value={field.state.value}
+                onBlur={field.handleBlur}
+                onChange={(event) => field.handleChange(event.target.value)}
+              />
+            )}
+          </form.Field>
+          {error ? (
+            <p className="mt-2 text-xs text-red-500">{error.message}</p>
+          ) : null}
+          <DialogFooter className="mt-5">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={pending}
+              onClick={() => onOpenChange(false)}
+            >
+              <Trans>Cancel</Trans>
+            </Button>
+            <form.Subscribe selector={(state) => state.values.name}>
+              {(value) => (
+                <Button
+                  type="submit"
+                  disabled={pending || !isValidDeviceName(value)}
+                >
+                  {pending ? (
+                    <CircleNotch className="size-4 animate-spin" />
+                  ) : null}
+                  <Trans>Save</Trans>
+                </Button>
+              )}
+            </form.Subscribe>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -232,6 +344,10 @@ export function SettingsSync() {
   const [e2eeSetupOpen, setE2eeSetupOpen] = useState(false);
   const [syncLogOpen, setSyncLogOpen] = useState(false);
   const [addDeviceOpen, setAddDeviceOpen] = useState(false);
+  const [renamingDevice, setRenamingDevice] = useState<{
+    fingerprint: string;
+    name: string | null;
+  } | null>(null);
   const lastTrackedSyncAtRef = useRef<number | null>(null);
   const lastTrackedFailureCountRef = useRef<number | null>(null);
   const manualSyncBaselineRef = useRef<number | null>(null);
@@ -286,6 +402,21 @@ export function SettingsSync() {
           await auth.signOut();
         }
       }
+    },
+  });
+  const renameDeviceMutation = useMutation({
+    mutationFn: ({
+      fingerprint,
+      name,
+    }: {
+      fingerprint: string;
+      name: string;
+    }) => renameSyncDevice(session!.access_token, fingerprint, name),
+    onSuccess: async () => {
+      setRenamingDevice(null);
+      await queryClient.invalidateQueries({
+        queryKey: ["sync-devices", session?.user.id],
+      });
     },
   });
   const approveDeviceMutation = useMutation({
@@ -897,7 +1028,21 @@ export function SettingsSync() {
               >
                 <DeviceKindIcon kind={device.deviceKind} />
                 <div className="min-w-0 flex-1">
-                  <DeviceTitle name={device.deviceName} current={current} />
+                  <DeviceTitle
+                    name={device.deviceName}
+                    current={current}
+                    onRename={
+                      current
+                        ? () => {
+                            renameDeviceMutation.reset();
+                            setRenamingDevice({
+                              fingerprint: device.deviceFingerprint,
+                              name: device.deviceName,
+                            });
+                          }
+                        : undefined
+                    }
+                  />
                   <p className="text-muted-foreground text-[11px]">{t`Last seen ${formatDistanceToNow(new Date(device.lastSeenAt))}`}</p>
                 </div>
                 {!current && (
@@ -943,7 +1088,21 @@ export function SettingsSync() {
               >
                 <DeviceKindIcon kind={device.deviceKind} />
                 <div className="min-w-0 flex-1">
-                  <DeviceTitle name={device.deviceName} current={current} />
+                  <DeviceTitle
+                    name={device.deviceName}
+                    current={current}
+                    onRename={
+                      current
+                        ? () => {
+                            renameDeviceMutation.reset();
+                            setRenamingDevice({
+                              fingerprint: device.deviceFingerprint,
+                              name: device.deviceName,
+                            });
+                          }
+                        : undefined
+                    }
+                  />
                   <p className="text-muted-foreground text-[11px]">
                     {device.status === "sealed"
                       ? t`Approved — waiting for this device to finish`
@@ -1081,6 +1240,25 @@ export function SettingsSync() {
           setSyncEnabledMutation.mutate(true);
         }}
       />
+      {renamingDevice ? (
+        <RenameDeviceDialog
+          key={renamingDevice.fingerprint}
+          name={renamingDevice.name}
+          pending={renameDeviceMutation.isPending}
+          error={renameDeviceMutation.error}
+          onOpenChange={(open) => {
+            if (!open && !renameDeviceMutation.isPending) {
+              setRenamingDevice(null);
+            }
+          }}
+          onRename={(name) =>
+            renameDeviceMutation.mutate({
+              fingerprint: renamingDevice.fingerprint,
+              name,
+            })
+          }
+        />
+      ) : null}
       <Dialog open={addDeviceOpen} onOpenChange={setAddDeviceOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

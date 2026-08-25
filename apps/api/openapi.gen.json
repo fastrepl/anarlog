@@ -2976,6 +2976,55 @@
             "bearer_auth": []
           }
         ]
+      },
+      "patch": {
+        "tags": [
+          "sync"
+        ],
+        "operationId": "patch_device",
+        "parameters": [
+          {
+            "name": "fingerprint",
+            "in": "path",
+            "description": "Device fingerprint",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameSyncDeviceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Device renamed"
+          },
+          "400": {
+            "description": "Invalid device fingerprint or name"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Anarlog Pro subscription required"
+          },
+          "502": {
+            "description": "Device service unavailable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
       }
     },
     "/sync/e2ee/device-enrollments": {
@@ -10352,6 +10401,18 @@
             ]
           }
         }
+      },
+      "RenameSyncDeviceRequest": {
+        "type": "object",
+        "required": [
+          "deviceName"
+        ],
+        "properties": {
+          "deviceName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "ReplicaCredentials": {
         "type": "object",

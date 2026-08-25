@@ -198,6 +198,30 @@ export async function removeSyncDevice(
   }
 }
 
+export async function renameSyncDevice(
+  accessToken: string,
+  fingerprint: string,
+  deviceName: string,
+) {
+  const response = await fetch(
+    new URL(
+      `/sync/devices/${encodeURIComponent(fingerprint)}`,
+      env.VITE_API_URL,
+    ),
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ deviceName }),
+    },
+  );
+  if (!response.ok) {
+    throw await responseError(response, "Could not rename this device.");
+  }
+}
+
 async function responseError(response: Response, fallback: string) {
   let code: string | null = null;
   let message = fallback;

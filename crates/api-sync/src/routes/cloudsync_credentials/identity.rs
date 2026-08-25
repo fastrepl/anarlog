@@ -66,6 +66,13 @@ struct RemoveSyncDeviceRpcRequest<'a> {
     p_device_fingerprint: &'a str,
 }
 
+#[derive(Serialize)]
+struct RenameSyncDeviceRpcRequest<'a> {
+    p_actor_user_id: &'a str,
+    p_device_fingerprint: &'a str,
+    p_device_name: &'a str,
+}
+
 pub(super) async fn list_sync_devices(
     state: &ReplicaState,
     account_user_id: &str,
@@ -117,6 +124,46 @@ pub(super) async fn remove_sync_device(
         .json(&RemoveSyncDeviceRpcRequest {
             p_actor_user_id: account_user_id,
             p_device_fingerprint: fingerprint,
+        })
+        .timeout(SUPABASE_REQUEST_TIMEOUT)
+        .send()
+        .await
+        .map_err(|_| SyncError::Upstream)?;
+    if !response.status().is_success() {
+        return Err(SyncError::Upstream);
+    }
+    Ok(())
+}
+
+pub(super) async fn rename_sync_device(
+    state: &ReplicaState,
+    account_user_id: &str,
+    fingerprint: &str,
+    name: &str,
+) -> Result<()> {
+    if !is_valid_device_fingerprint(fingerprint) {
+        return Err(SyncError::BadRequest(
+            "Sync device identity is invalid".to_string(),
+        ));
+    }
+    let name = name.trim();
+    if name.is_empty() || name.len() > MAX_DEVICE_NAME_BYTES {
+        return Err(SyncError::BadRequest(
+            "Sync device name must be between 1 and 128 bytes".to_string(),
+        ));
+    }
+    let response = state
+        .client
+        .post(format!(
+            "{}/rest/v1/rpc/rename_sync_device",
+            state.config.supabase_url
+        ))
+        .header("apikey", &state.config.supabase_service_role_key)
+        .bearer_auth(&state.config.supabase_service_role_key)
+        .json(&RenameSyncDeviceRpcRequest {
+            p_actor_user_id: account_user_id,
+            p_device_fingerprint: fingerprint,
+            p_device_name: name,
         })
         .timeout(SUPABASE_REQUEST_TIMEOUT)
         .send()

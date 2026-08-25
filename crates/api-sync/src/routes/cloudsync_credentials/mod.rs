@@ -3,7 +3,7 @@ use axum::{
     Extension, Json, Router,
     extract::{Path, State},
     http::{HeaderMap, HeaderValue, header},
-    routing::{delete, get, post, put},
+    routing::{get, patch, post, put},
 };
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
@@ -34,7 +34,7 @@ use grants::{
 use grants::{WorkspaceE2eeKeyGrant, fetch_workspace_key_grants};
 use identity::{
     SyncDeviceRow, claim_personal_e2ee_key, claim_sync_device, is_valid_e2ee_key_id,
-    list_sync_devices, publish_e2ee_member_identity, remove_sync_device,
+    list_sync_devices, publish_e2ee_member_identity, remove_sync_device, rename_sync_device,
 };
 pub use projection::CloudsyncWorkspace;
 pub(super) use projection::encode_workspace_token_attributes;
@@ -115,6 +115,7 @@ pub struct E2eeIdentity {
         create_replica_credentials,
         claim_e2ee_identity,
         get_devices,
+        patch_device,
         delete_device,
         register_e2ee_device_enrollment,
         seal_e2ee_device_enrollment,
@@ -132,6 +133,7 @@ pub struct E2eeIdentity {
         SetWorkspaceE2eeKeyResult,
         ClaimE2eeIdentityRequest,
         E2eeIdentity,
+        RenameSyncDeviceRequest,
         SyncDevicesResponse,
         SyncDeviceRow,
         E2eeDeviceEnrollmentSummary,
@@ -158,7 +160,10 @@ pub(super) fn replica_router() -> Router<ReplicaState> {
         .route("/replica/credentials", post(create_replica_credentials))
         .route("/e2ee/identity", put(claim_e2ee_identity))
         .route("/devices", get(get_devices))
-        .route("/devices/{fingerprint}", delete(delete_device))
+        .route(
+            "/devices/{fingerprint}",
+            patch(patch_device).delete(delete_device),
+        )
         .route(
             "/e2ee/device-enrollments",
             post(register_e2ee_device_enrollment),
@@ -300,6 +305,12 @@ pub struct SyncDevicesResponse {
     max_devices: u8,
 }
 
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RenameSyncDeviceRequest {
+    device_name: String,
+}
+
 #[utoipa::path(
     get,
     path = "/devices",
@@ -327,6 +338,33 @@ async fn get_devices(
         pending_devices,
         max_devices: 5,
     }))
+}
+
+#[utoipa::path(
+    patch,
+    path = "/devices/{fingerprint}",
+    tag = "sync",
+    params(("fingerprint" = String, Path, description = "Device fingerprint")),
+    request_body = RenameSyncDeviceRequest,
+    responses(
+        (status = 204, description = "Device renamed"),
+        (status = 400, description = "Invalid device fingerprint or name"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Anarlog Pro subscription required"),
+        (status = 502, description = "Device service unavailable")
+    )
+)]
+async fn patch_device(
+    Extension(auth): Extension<AuthContext>,
+    State(state): State<ReplicaState>,
+    Path(fingerprint): Path<String>,
+    Json(request): Json<RenameSyncDeviceRequest>,
+) -> Result<axum::http::StatusCode> {
+    if !auth.claims.is_pro() {
+        return Err(SyncError::ProPlanRequired);
+    }
+    rename_sync_device(&state, &auth.claims.sub, &fingerprint, &request.device_name).await?;
+    Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
