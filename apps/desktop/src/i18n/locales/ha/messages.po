@@ -2024,9 +2024,7 @@ msgstr ""
 msgid "General"
 msgstr ""
 
-#: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/general-access.tsx
-#: src/session-sharing/management-panel.tsx
 msgid "General access"
 msgstr ""
 

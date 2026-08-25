@@ -41,7 +41,7 @@ export function GeneralAccessSelector({
         : Globe;
 
   return (
-    <div className="flex items-center gap-2 rounded-lg px-1.5 py-1">
+    <div className="flex min-w-0 flex-1 items-center gap-1.5">
       <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-md">
         {pending ? (
           <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
@@ -59,7 +59,7 @@ export function GeneralAccessSelector({
       >
         <SelectTrigger
           aria-label={t`General access`}
-          className="h-8 min-w-0 flex-1 rounded-md border-0 bg-transparent px-2 text-xs shadow-none"
+          className="h-7 w-auto max-w-full min-w-0 justify-start gap-1 rounded-md border-0 bg-transparent px-1.5 text-xs shadow-none"
         >
           <SelectValue />
         </SelectTrigger>

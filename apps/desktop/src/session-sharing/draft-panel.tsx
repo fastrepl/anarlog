@@ -141,35 +141,23 @@ export function SessionShareDraftContent({
                 onSubmit={(channel) => onAction({ type: "slack", channel })}
               />
             )}
-
-            <section
-              aria-labelledby="general-access-heading"
-              className="border-border/60 border-t pt-2"
-            >
-              <h3
-                id="general-access-heading"
-                className="text-muted-foreground mb-1 text-[10px] font-medium"
-              >
-                <Trans>General access</Trans>
-              </h3>
-              <GeneralAccessSelector
-                value={generalAccessValue}
-                workspaces={workspaces}
-                disabled={disabled}
-                canExpand={!disabled}
-                pending={pendingAction?.type === "scope"}
-                allowedScopes={allowedScopes}
-                onValueChange={(target) => {
-                  if (target !== "restricted") {
-                    onAction({ type: "scope", target });
-                  }
-                }}
-              />
-            </section>
           </div>
         </div>
 
-        <footer className="border-border/60 flex items-center justify-end gap-1 border-t px-3 py-2">
+        <footer className="border-border/60 flex items-center gap-1 border-t px-3 py-2">
+          <GeneralAccessSelector
+            value={generalAccessValue}
+            workspaces={workspaces}
+            disabled={disabled}
+            canExpand={!disabled}
+            pending={pendingAction?.type === "scope"}
+            allowedScopes={allowedScopes}
+            onValueChange={(target) => {
+              if (target !== "restricted") {
+                onAction({ type: "scope", target });
+              }
+            }}
+          />
           <ShareRecapOverflowMenu onValueChange={setRecapMode} />
           <Button
             type="button"
@@ -177,7 +165,7 @@ export function SessionShareDraftContent({
             variant="outline"
             disabled={disabled || actionPending}
             onClick={() => onAction({ type: "copy-link" })}
-            className="h-7 rounded-md px-2.5 text-xs"
+            className="h-7 shrink-0 rounded-md px-2.5 text-xs"
           >
             {pendingAction?.type === "copy-link" ? (
               <CircleNotch

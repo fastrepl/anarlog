@@ -1401,6 +1401,22 @@ describe("SessionShareButton", () => {
     expect(screen.queryByText("Loading access…")).toBeNull();
   });
 
+  it("puts general access on the same row as copy link", async () => {
+    renderShareButton();
+    await openSharePopover();
+
+    const copyLink = screen.getByRole("button", { name: "Copy link" });
+    const linkAccess = screen.getByRole("button", {
+      name: "Anyone with the link",
+    });
+
+    expect(copyLink.closest("footer")).toBe(linkAccess.closest("footer"));
+    expect(copyLink.closest("footer")).not.toBeNull();
+    expect(
+      screen.queryByRole("heading", { name: "General access" }),
+    ).toBeNull();
+  });
+
   it("offers invited, workspace, and link access and can restrict a link share", async () => {
     mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
     mocks.management = defaultManagement({

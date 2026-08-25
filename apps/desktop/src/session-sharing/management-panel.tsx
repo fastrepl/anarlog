@@ -572,34 +572,22 @@ export function SessionSharePopoverContent({
                   }
                 />
               ) : null}
-
-              <section
-                aria-labelledby="general-access-heading"
-                className="border-border/60 border-t pt-2"
-              >
-                <h3
-                  id="general-access-heading"
-                  className="text-muted-foreground mb-1 text-[10px] font-medium"
-                >
-                  <Trans>General access</Trans>
-                </h3>
-                <GeneralAccessSelector
-                  value={shownScopeValue}
-                  workspaces={workspaces}
-                  disabled={!management}
-                  canExpand={canPublish}
-                  pending={scopeMutation.isPending}
-                  allowedScopes={allowedScopes}
-                  onValueChange={(target) => {
-                    setOptimisticScope(target);
-                    scopeMutation.mutate(target);
-                  }}
-                />
-              </section>
             </div>
           </div>
 
-          <footer className="border-border/60 flex items-center justify-end gap-1 border-t px-3 py-2">
+          <footer className="border-border/60 flex items-center gap-1 border-t px-3 py-2">
+            <GeneralAccessSelector
+              value={shownScopeValue}
+              workspaces={workspaces}
+              disabled={!management}
+              canExpand={canPublish}
+              pending={scopeMutation.isPending}
+              allowedScopes={allowedScopes}
+              onValueChange={(target) => {
+                setOptimisticScope(target);
+                scopeMutation.mutate(target);
+              }}
+            />
             <ShareRecapOverflowMenu onValueChange={setRecapMode} />
             <Button
               type="button"
@@ -613,7 +601,7 @@ export function SessionSharePopoverContent({
               onClick={() => {
                 generalCopyMutation.mutate();
               }}
-              className="h-7 rounded-md px-2.5 text-xs"
+              className="h-7 shrink-0 rounded-md px-2.5 text-xs"
             >
               {generalCopyMutation.isPending || scopeMutation.isPending ? (
                 <CircleNotch
