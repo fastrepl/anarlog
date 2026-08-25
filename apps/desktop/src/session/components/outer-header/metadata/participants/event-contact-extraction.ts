@@ -311,12 +311,17 @@ function normalizeExtractedContacts(
     if (!isLikelyPersonName(name) && email) {
       name = nameFromEmailLocalPart(email);
     }
-    if (!isLikelyPersonName(name) || isSelfReference(name, candidates)) {
+    if (
+      !isLikelyPersonName(name) ||
+      (!email && isSelfReference(name, candidates))
+    ) {
       continue;
     }
 
     const matchedEmail = email || matchCandidateEmail(name, candidates);
-    const companyName = normalizeCompanyName(contact.companyName);
+    const companyName =
+      normalizeCompanyName(contact.companyName) ??
+      inferCompanyNameFromEmail(matchedEmail);
     const normalizedContact: ExtractedEventContact = {
       name,
     };
@@ -495,8 +500,9 @@ function isSelfContactFromCandidates(
       return false;
     }
 
-    if (email && email === normalizeEmail(candidate.email)) {
-      return true;
+    const candidateEmail = normalizeEmail(candidate.email);
+    if (email) {
+      return Boolean(candidateEmail && email === candidateEmail);
     }
 
     return getCandidateAliases(candidate).has(name);
@@ -512,8 +518,9 @@ function isCurrentUserContact(
   }
 
   const email = normalizeEmail(contact.email);
-  if (email && email === normalizeEmail(stringCell(currentUser.email))) {
-    return true;
+  const currentEmail = normalizeEmail(stringCell(currentUser.email));
+  if (email && currentEmail) {
+    return email === currentEmail;
   }
 
   const currentUserCandidate: EventContactCandidate = {

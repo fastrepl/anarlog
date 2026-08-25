@@ -155,6 +155,7 @@ describe("event contact extraction", () => {
         {
           name: "Alice Kim",
           email: "alice@example.com",
+          companyName: "Example",
         },
       ],
     });
@@ -202,6 +203,22 @@ describe("event contact extraction", () => {
   });
 
   test("infers a company from a work email when creating a contact", () => {
+    const extraction = extractEventContacts({
+      context: {
+        title: "Check-in",
+        candidates: [
+          {
+            name: "John Jeong",
+            email: "john@example.com",
+            isCurrentUser: true,
+          },
+          {
+            name: "tom@kestroll.com",
+            email: "tom@kestroll.com",
+          },
+        ],
+      },
+    });
     const { result, changes } = planExtractedContactToHuman({
       humanId: "human-1",
       userId: "user-1",
@@ -212,7 +229,7 @@ describe("event contact extraction", () => {
         name: "tom@kestroll.com",
         email: "tom@kestroll.com",
       },
-      contacts: [],
+      contacts: extraction.contacts,
     });
 
     expect(result).toMatchObject({ matched: true, created: 1 });
@@ -220,6 +237,51 @@ describe("event contact extraction", () => {
       name: "Tom",
       email: "tom@kestroll.com",
       companyName: "Kestroll",
+    });
+  });
+
+  test("does not treat a shared first name with a different email as the current user", () => {
+    const extraction = extractEventContacts({
+      context: {
+        title: "Intro",
+        candidates: [
+          {
+            name: "John Jeong",
+            email: "john@example.com",
+            isCurrentUser: true,
+          },
+          {
+            name: "john@other.com",
+            email: "john@other.com",
+          },
+        ],
+      },
+    });
+    const { result, changes } = planExtractedContactToHuman({
+      humanId: "human-1",
+      userId: "user-1",
+      human: undefined,
+      currentUser: { name: "John Jeong", email: "john@example.com" },
+      mappingSource: "auto",
+      participant: {
+        name: "john@other.com",
+        email: "john@other.com",
+      },
+      contacts: extraction.contacts,
+    });
+
+    expect(extraction.contacts).toEqual([
+      {
+        name: "John",
+        email: "john@other.com",
+        companyName: "Other",
+      },
+    ]);
+    expect(result).toMatchObject({ matched: true, created: 1, skipped: 0 });
+    expect(changes).toEqual({
+      name: "John",
+      email: "john@other.com",
+      companyName: "Other",
     });
   });
 
