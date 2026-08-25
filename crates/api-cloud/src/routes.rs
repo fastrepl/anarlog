@@ -678,6 +678,67 @@ kHmPRiazukxPLb6ilpRAewjW8nihRANCAATDskChT+Altkm9X7MI69T3IUmrQU0L\n\
     }
 
     #[tokio::test]
+    async fn mcp_accepts_the_public_api_host() {
+        let server = MockServer::start().await;
+        let key = format!("anl_{}", "a".repeat(64));
+        let key_hash = Sha256::digest(key.as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>();
+        Mock::given(method("POST"))
+            .and(path("/rest/v1/rpc/verify_cloud_api_key"))
+            .and(body_json(serde_json::json!({ "p_key_hash": key_hash })))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!([{
+                    "user_id": "00000000-0000-0000-0000-000000000001",
+                    "status": "ok",
+                }])),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+        let state =
+            AppState::new(crate::CloudApiConfig::new(server.uri(), "service-role-key").unwrap());
+        let app = connector_router(state.clone()).route_layer(middleware::from_fn_with_state(
+            state,
+            crate::require_cloud_connector_auth,
+        ));
+
+        let response = app
+            .oneshot(
+                Request::post("/mcp")
+                    .header("host", "api.anarlog.so")
+                    .header("authorization", format!("Bearer {key}"))
+                    .header("content-type", "application/json")
+                    .header("accept", "application/json, text/event-stream")
+                    .body(Body::from(
+                        serde_json::json!({
+                            "jsonrpc": "2.0",
+                            "id": 1,
+                            "method": "initialize",
+                            "params": {
+                                "protocolVersion": "2025-06-18",
+                                "capabilities": {},
+                                "clientInfo": {
+                                    "name": "host-test",
+                                    "version": "1.0",
+                                },
+                            },
+                        })
+                        .to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body = String::from_utf8(body.to_vec()).unwrap();
+        assert!(body.contains("anarlog-cloud"));
+    }
+
+    #[tokio::test]
     async fn connector_routes_require_and_verify_cloud_api_keys() {
         let server = MockServer::start().await;
         let state =
