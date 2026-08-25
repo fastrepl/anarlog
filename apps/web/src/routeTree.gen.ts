@@ -25,6 +25,7 @@ import { Route as ChangelogIndexRouteImport } from './routes/changelog/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as TLinkIdRouteImport } from './routes/t/$linkId'
 import { Route as ShareShareIdRouteImport } from './routes/share/$shareId'
+import { Route as OauthConsentRouteImport } from './routes/oauth/consent'
 import { Route as InviteCodeRouteImport } from './routes/invite/$code'
 import { Route as ChangelogVersionRouteImport } from './routes/changelog/$version'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
@@ -159,6 +160,11 @@ const TLinkIdRoute = TLinkIdRouteImport.update({
 const ShareShareIdRoute = ShareShareIdRouteImport.update({
   id: '/share/$shareId',
   path: '/share/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteCodeRoute = InviteCodeRouteImport.update({
@@ -466,6 +472,7 @@ export interface FileRoutesByFullPath {
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
   '/invite/$code': typeof InviteCodeRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/share/$shareId': typeof ShareShareIdRoute
   '/t/$linkId': typeof TLinkIdRoute
   '/blog/': typeof BlogIndexRoute
@@ -538,6 +545,7 @@ export interface FileRoutesByTo {
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
   '/invite/$code': typeof InviteCodeRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/share/$shareId': typeof ShareShareIdRoute
   '/t/$linkId': typeof TLinkIdRoute
   '/blog': typeof BlogIndexRoute
@@ -613,6 +621,7 @@ export interface FileRoutesById {
   '/blog/$slug': typeof BlogSlugRoute
   '/changelog/$version': typeof ChangelogVersionRoute
   '/invite/$code': typeof InviteCodeRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/share/$shareId': typeof ShareShareIdRoute
   '/t/$linkId': typeof TLinkIdRoute
   '/blog/': typeof BlogIndexRoute
@@ -688,6 +697,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/changelog/$version'
     | '/invite/$code'
+    | '/oauth/consent'
     | '/share/$shareId'
     | '/t/$linkId'
     | '/blog/'
@@ -760,6 +770,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/changelog/$version'
     | '/invite/$code'
+    | '/oauth/consent'
     | '/share/$shareId'
     | '/t/$linkId'
     | '/blog'
@@ -834,6 +845,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/changelog/$version'
     | '/invite/$code'
+    | '/oauth/consent'
     | '/share/$shareId'
     | '/t/$linkId'
     | '/blog/'
@@ -908,6 +920,7 @@ export interface RootRouteChildren {
   BlogSlugRoute: typeof BlogSlugRoute
   ChangelogVersionRoute: typeof ChangelogVersionRoute
   InviteCodeRoute: typeof InviteCodeRoute
+  OauthConsentRoute: typeof OauthConsentRoute
   ShareShareIdRoute: typeof ShareShareIdRoute
   TLinkIdRoute: typeof TLinkIdRoute
   BlogIndexRoute: typeof BlogIndexRoute
@@ -1064,6 +1077,13 @@ declare module '@tanstack/react-router' {
       path: '/share/$shareId'
       fullPath: '/share/$shareId'
       preLoaderRoute: typeof ShareShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$code': {
@@ -1527,6 +1547,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogSlugRoute: BlogSlugRoute,
   ChangelogVersionRoute: ChangelogVersionRoute,
   InviteCodeRoute: InviteCodeRoute,
+  OauthConsentRoute: OauthConsentRoute,
   ShareShareIdRoute: ShareShareIdRoute,
   TLinkIdRoute: TLinkIdRoute,
   BlogIndexRoute: BlogIndexRoute,

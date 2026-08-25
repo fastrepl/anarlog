@@ -373,9 +373,10 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
         ))
         .route_layer(middleware::from_fn(auth::sentry_and_analytics))
         .route_layer(middleware::from_fn_with_state(
-            cloud_api_state,
-            anlg_api_cloud::require_cloud_api_key,
+            cloud_api_state.clone(),
+            anlg_api_cloud::require_cloud_connector_auth,
         ));
+    let cloud_api_oauth_routes = anlg_api_cloud::oauth_metadata_router(cloud_api_state);
 
     let integration_routes = match nango_config.clone() {
         Some(config) => {
@@ -458,6 +459,7 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
         .merge(shared_notes_routes)
         .merge(authenticated_shared_notes_routes)
         .merge(cloud_api_management_routes)
+        .merge(cloud_api_oauth_routes)
         .merge(cloud_api_connector_routes)
         .nest("/sync", sync_routes)
         .merge(integration_routes)

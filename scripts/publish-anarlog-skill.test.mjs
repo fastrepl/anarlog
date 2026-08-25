@@ -11,6 +11,7 @@ import {
 } from "./publish-anarlog-skill.mjs";
 
 const PLUGIN_ROOT = "agent-plugins/anarlog";
+const CLOUD_PLUGIN_ROOT = "agent-plugins/anarlog-cloud";
 const PLUGIN_MANIFESTS = [
   `${PLUGIN_ROOT}/plugin.json`,
   `${PLUGIN_ROOT}/.claude-plugin/plugin.json`,
@@ -69,10 +70,19 @@ test("repository marketplaces resolve the Anarlog plugin package", async () => {
 
   const codexMarketplace = await readJson(".agents/plugins/marketplace.json");
   assert.equal(codexMarketplace.name, "fastrepl");
+  assert.deepEqual(
+    codexMarketplace.plugins.map((plugin) => plugin.name),
+    ["anarlog", "anarlog-cloud"],
+  );
   assert.equal(codexMarketplace.plugins[0].source.path, `./${PLUGIN_ROOT}`);
+  assert.equal(
+    codexMarketplace.plugins[1].source.path,
+    `./${CLOUD_PLUGIN_ROOT}`,
+  );
+  assert.equal(codexMarketplace.plugins[1].policy.authentication, "ON_USE");
 });
 
-test("every MCP configuration starts the Anarlog stdio server", async () => {
+test("every Anarlog MCP configuration starts the local stdio server", async () => {
   const portable = await readJson(`${PLUGIN_ROOT}/mcp.json`);
   const native = await readJson(`${PLUGIN_ROOT}/.mcp.json`);
   const cursor = await readJson(`${PLUGIN_ROOT}/.cursor-plugin/plugin.json`);
@@ -88,13 +98,30 @@ test("every MCP configuration starts the Anarlog stdio server", async () => {
   }
   assert.equal(portable.mcpServers.anarlog.type, "stdio");
 
-  for (const manifestPath of [
-    `${PLUGIN_ROOT}/.claude-plugin/plugin.json`,
+  const claude = await readJson(`${PLUGIN_ROOT}/.claude-plugin/plugin.json`);
+  assert.equal(claude.mcpServers, "./.mcp.json");
+
+  const codexManifest = await readJson(
     `${PLUGIN_ROOT}/.codex-plugin/plugin.json`,
-  ]) {
-    const manifest = await readJson(manifestPath);
-    assert.equal(manifest.mcpServers, "./.mcp.json");
-  }
+  );
+  assert.equal(codexManifest.mcpServers, "./.mcp.json");
+});
+
+test("Anarlog Cloud is a distinct MCP-only OAuth plugin", async () => {
+  const manifest = await readJson(
+    `${CLOUD_PLUGIN_ROOT}/.codex-plugin/plugin.json`,
+  );
+  const mcp = await readJson(`${CLOUD_PLUGIN_ROOT}/.mcp.json`);
+
+  assert.equal(manifest.name, "anarlog-cloud");
+  assert.equal(manifest.version, "1.0.0");
+  assert.equal(manifest.license, "MIT");
+  assert.equal(manifest.skills, undefined);
+  assert.equal(manifest.mcpServers, "./.mcp.json");
+  assert.deepEqual(mcp.mcpServers["anarlog-cloud"], {
+    type: "http",
+    url: "https://api.anarlog.so/mcp",
+  });
 });
 
 test("marketplace icon is a 400px square PNG", async () => {
