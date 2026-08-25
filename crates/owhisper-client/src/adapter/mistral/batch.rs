@@ -4,7 +4,10 @@ use owhisper_interface::ListenParams;
 use owhisper_interface::batch::{Alternatives, Channel, Response as BatchResponse, Results, Word};
 use reqwest::multipart::{Form, Part};
 
-use crate::adapter::{BatchFuture, BatchSttAdapter, ClientWithMiddleware, append_path_if_missing};
+use crate::adapter::{
+    BatchFuture, BatchSttAdapter, ClientWithMiddleware, MIXED_CAPTURE_CHANNEL,
+    append_path_if_missing,
+};
 use crate::error::Error;
 
 use super::MistralAdapter;
@@ -12,7 +15,7 @@ use super::MistralAdapter;
 use crate::providers::{Provider, is_meta_model};
 
 const DEFAULT_API_BASE: &str = "https://api.mistral.ai/v1";
-const TIMESTAMP_GRANULARITY: &str = "word";
+const TIMESTAMP_GRANULARITY: &str = "segment";
 
 impl BatchSttAdapter for MistralAdapter {
     fn provider_name(&self) -> &'static str {
@@ -45,6 +48,8 @@ struct MistralSegment {
     text: String,
     start: f64,
     end: f64,
+    #[serde(default)]
+    speaker_id: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -95,16 +100,9 @@ async fn do_transcribe_file(
         .mime_str(mime_type)
         .map_err(|e| Error::AudioProcessing(e.to_string()))?;
 
-    let model = resolve_batch_model(params.model.as_deref());
-
-    let mut form = Form::new()
-        .part("file", file_part)
-        .text("model", model.to_string())
-        .text("response_format", "verbose_json")
-        .text("timestamp_granularities[]", TIMESTAMP_GRANULARITY);
-
-    if let Some(lang) = params.languages.first() {
-        form = form.text("language", lang.iso639().code().to_string());
+    let mut form = Form::new().part("file", file_part);
+    for (name, value) in multipart_text_fields(params) {
+        form = form.text(name, value);
     }
 
     let mut url: url::Url = if api_base.is_empty() {
@@ -154,74 +152,67 @@ fn resolve_batch_model(model: Option<&str>) -> &str {
     }
 }
 
-fn convert_response(response: MistralBatchResponse) -> BatchResponse {
-    let (words, timing_source): (Vec<Word>, &str) = if !response.words.is_empty() {
+fn multipart_text_fields(params: &ListenParams) -> Vec<(&'static str, String)> {
+    let mut fields = vec![
         (
-            response
-                .words
-                .into_iter()
-                .map(|w| {
-                    let normalized = strip_punctuation(&w.word);
-                    Word {
-                        word: if normalized.is_empty() {
-                            w.word.clone()
-                        } else {
-                            normalized
-                        },
-                        start: w.start,
-                        end: w.end,
-                        confidence: 1.0,
-                        channel: 0,
-                        speaker: None,
-                        punctuated_word: Some(w.word),
-                    }
-                })
-                .collect(),
-            "provider_word",
-        )
-    } else if !response.segments.is_empty() {
-        (
-            response
-                .segments
-                .iter()
-                .flat_map(|segment| {
-                    let seg_duration = segment.end - segment.start;
-                    let segment_words: Vec<&str> = segment.text.split_whitespace().collect();
-                    let word_count = segment_words.len();
-                    if word_count == 0 {
-                        return vec![];
-                    }
-                    let word_duration = seg_duration / word_count as f64;
+            "model",
+            resolve_batch_model(params.model.as_deref()).to_string(),
+        ),
+        ("response_format", "verbose_json".to_string()),
+        ("diarize", "true".to_string()),
+        ("timestamp_granularities", TIMESTAMP_GRANULARITY.to_string()),
+    ];
 
-                    segment_words
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, w)| {
-                            let word_start = segment.start + (i as f64 * word_duration);
-                            let word_end = word_start + word_duration;
-                            let normalized = strip_punctuation(w);
-                            Word {
-                                word: if normalized.is_empty() {
-                                    w.to_string()
-                                } else {
-                                    normalized
-                                },
-                                start: word_start,
-                                end: word_end,
-                                confidence: 1.0,
-                                channel: 0,
-                                speaker: None,
-                                punctuated_word: Some(w.to_string()),
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect(),
-            "provider_segment_interpolated",
-        )
-    } else {
-        (Vec::new(), "synthetic_text")
-    };
+    if let Some(language) = params.languages.first() {
+        fields.push(("language", language.iso639().code().to_string()));
+    }
+
+    fields
+}
+
+fn convert_response(response: MistralBatchResponse) -> BatchResponse {
+    let has_diarized_segments = response.segments.iter().any(|segment| {
+        segment
+            .speaker_id
+            .as_deref()
+            .is_some_and(|label| !label.is_empty())
+    });
+
+    let (words, speaker_labels, timing_source): (Vec<Word>, Vec<String>, &str) =
+        if has_diarized_segments {
+            let (words, speaker_labels) = convert_segments(&response.segments, true);
+            (words, speaker_labels, "provider_segment_interpolated")
+        } else if !response.words.is_empty() {
+            (
+                response
+                    .words
+                    .into_iter()
+                    .map(|w| {
+                        let normalized = strip_punctuation(&w.word);
+                        Word {
+                            word: if normalized.is_empty() {
+                                w.word.clone()
+                            } else {
+                                normalized
+                            },
+                            start: w.start,
+                            end: w.end,
+                            confidence: 1.0,
+                            channel: 0,
+                            speaker: None,
+                            punctuated_word: Some(w.word),
+                        }
+                    })
+                    .collect(),
+                Vec::new(),
+                "provider_word",
+            )
+        } else if !response.segments.is_empty() {
+            let (words, speaker_labels) = convert_segments(&response.segments, false);
+            (words, speaker_labels, "provider_segment_interpolated")
+        } else {
+            (Vec::new(), Vec::new(), "synthetic_text")
+        };
 
     let alternatives = Alternatives {
         transcript: response.text.trim().to_string(),
@@ -235,6 +226,7 @@ fn convert_response(response: MistralBatchResponse) -> BatchResponse {
 
     let metadata = serde_json::json!({
         "language": response.language,
+        "speaker_labels": speaker_labels,
         "timing_source": timing_source,
     });
 
@@ -244,6 +236,61 @@ fn convert_response(response: MistralBatchResponse) -> BatchResponse {
             channels: vec![channel],
         },
     }
+}
+
+fn convert_segments(segments: &[MistralSegment], diarized: bool) -> (Vec<Word>, Vec<String>) {
+    let mut words = Vec::new();
+    let mut speaker_labels = Vec::new();
+
+    for segment in segments {
+        let speaker = segment.speaker_id.as_ref().and_then(|label| {
+            if label.is_empty() {
+                return None;
+            }
+
+            Some(
+                speaker_labels
+                    .iter()
+                    .position(|known| known == label)
+                    .unwrap_or_else(|| {
+                        speaker_labels.push(label.clone());
+                        speaker_labels.len() - 1
+                    }),
+            )
+        });
+        let tokens = segment.text.split_whitespace().collect::<Vec<_>>();
+        if tokens.is_empty() {
+            continue;
+        }
+
+        let duration = (segment.end - segment.start).max(0.0);
+        let word_duration = duration / tokens.len() as f64;
+        for (index, token) in tokens.iter().enumerate() {
+            let start = segment.start + word_duration * index as f64;
+            let end = if index + 1 == tokens.len() {
+                segment.end
+            } else {
+                segment.start + word_duration * (index + 1) as f64
+            };
+            let normalized = strip_punctuation(token);
+
+            words.push(Word {
+                word: if normalized.is_empty() {
+                    (*token).to_string()
+                } else {
+                    normalized
+                },
+                start,
+                end,
+                confidence: 1.0,
+                channel: if diarized { MIXED_CAPTURE_CHANNEL } else { 0 },
+                speaker,
+                punctuated_word: Some((*token).to_string()),
+            });
+        }
+    }
+
+    (words, speaker_labels)
 }
 
 #[cfg(test)]
@@ -261,6 +308,30 @@ mod tests {
     }
 
     #[test]
+    fn batch_fields_request_diarized_segments() {
+        let fields = multipart_text_fields(&ListenParams {
+            languages: vec![anlg_language::ISO639::En.into()],
+            ..Default::default()
+        });
+
+        assert!(
+            fields
+                .iter()
+                .any(|(name, value)| *name == "diarize" && value == "true")
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|(name, value)| { *name == "timestamp_granularities" && value == "segment" })
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|(name, value)| *name == "language" && value == "en")
+        );
+    }
+
+    #[test]
     fn convert_response_marks_segment_interpolated_words() {
         let response = convert_response(MistralBatchResponse {
             model: Some("voxtral-mini-latest".to_string()),
@@ -271,6 +342,7 @@ mod tests {
                 text: "hello world".to_string(),
                 start: 1.0,
                 end: 3.0,
+                speaker_id: None,
             }],
         });
 
@@ -280,6 +352,53 @@ mod tests {
         assert_eq!(
             response.metadata["timing_source"],
             "provider_segment_interpolated"
+        );
+    }
+
+    #[test]
+    fn convert_response_preserves_diarized_speakers() {
+        let response = convert_response(MistralBatchResponse {
+            model: Some("voxtral-mini-2602".to_string()),
+            language: Some("en".to_string()),
+            text: "hello there welcome back".to_string(),
+            words: Vec::new(),
+            segments: vec![
+                MistralSegment {
+                    text: "hello there".to_string(),
+                    start: 1.0,
+                    end: 2.0,
+                    speaker_id: Some("speaker_1".to_string()),
+                },
+                MistralSegment {
+                    text: "welcome".to_string(),
+                    start: 2.0,
+                    end: 3.0,
+                    speaker_id: Some("speaker_2".to_string()),
+                },
+                MistralSegment {
+                    text: "back".to_string(),
+                    start: 3.0,
+                    end: 4.0,
+                    speaker_id: Some("speaker_1".to_string()),
+                },
+            ],
+        });
+
+        let words = &response.results.channels[0].alternatives[0].words;
+
+        assert_eq!(
+            words.iter().map(|word| word.speaker).collect::<Vec<_>>(),
+            vec![Some(0), Some(0), Some(1), Some(0)]
+        );
+        assert!(
+            words
+                .iter()
+                .all(|word| word.channel == MIXED_CAPTURE_CHANNEL)
+        );
+        assert_eq!(words.last().map(|word| word.end), Some(4.0));
+        assert_eq!(
+            response.metadata["speaker_labels"],
+            serde_json::json!(["speaker_1", "speaker_2"])
         );
     }
 
