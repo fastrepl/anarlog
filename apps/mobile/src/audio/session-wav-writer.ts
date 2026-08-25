@@ -23,7 +23,7 @@ export class SessionWavWriter {
     const directory = new Directory(Paths.document, "sessions", sessionId);
     directory.create({ intermediates: true, idempotent: true });
     this.file = new File(directory, "audio.wav");
-    this.file.create({ overwrite: true });
+    this.file.create();
     this.handle = this.file.open(FileMode.ReadWrite);
   }
 
@@ -68,6 +68,11 @@ export class SessionWavWriter {
     if (this.handle && this.initialized) this.writeHeader();
     this.handle?.close();
     this.handle = null;
+  }
+
+  closeAndDiscardEmpty() {
+    this.close();
+    if (this.dataBytes === 0 && this.file.exists) this.file.delete();
   }
 
   private writeHeader() {

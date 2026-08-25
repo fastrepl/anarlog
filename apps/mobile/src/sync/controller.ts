@@ -12,6 +12,7 @@ export type MobileSyncPhase =
 
 export type MobileSyncSnapshot = {
   phase: MobileSyncPhase;
+  accountUserId: string | null;
   hasRecoveryKey: boolean;
   running: boolean;
   syncingNow: boolean;
@@ -72,6 +73,7 @@ type ControllerTimers = {
 
 const initialSnapshot: MobileSyncSnapshot = {
   phase: "inactive",
+  accountUserId: null,
   hasRecoveryKey: false,
   running: false,
   syncingNow: false,
@@ -144,9 +146,17 @@ export class MobileSyncController {
   activate(session: MobileSyncSession): () => void {
     this.generation += 1;
     const generation = this.generation;
+    const hasRecoveryKey =
+      this.snapshot.accountUserId === session.accountUserId &&
+      this.snapshot.hasRecoveryKey;
     this.session = session;
     this.clearTimers();
-    this.update({ ...initialSnapshot, phase: "starting" });
+    this.update({
+      ...initialSnapshot,
+      phase: "starting",
+      accountUserId: session.accountUserId,
+      hasRecoveryKey,
+    });
     this.enqueue(async () => this.start(generation, session));
     return () => {
       if (this.generation === generation) {
@@ -159,7 +169,11 @@ export class MobileSyncController {
     this.generation += 1;
     this.session = null;
     this.clearTimers();
-    this.update(initialSnapshot);
+    this.update({
+      ...initialSnapshot,
+      accountUserId: this.snapshot.accountUserId,
+      hasRecoveryKey: this.snapshot.hasRecoveryKey,
+    });
     this.enqueue(async () => {
       await this.stopSafely();
     });
@@ -227,20 +241,27 @@ export class MobileSyncController {
     await this.stopSafely();
     if (generation !== this.generation) return;
 
-    let hasRecoveryKey = false;
+    let hasRecoveryKey =
+      this.snapshot.accountUserId === session.accountUserId &&
+      this.snapshot.hasRecoveryKey;
     try {
       const recoveryKey = await this.dependencies.readRecoveryKey(
         session.accountUserId,
       );
       if (generation !== this.generation) return;
       if (!recoveryKey) {
-        this.update({ ...initialSnapshot, phase: "setup_required" });
+        this.update({
+          ...initialSnapshot,
+          phase: "setup_required",
+          accountUserId: session.accountUserId,
+        });
         return;
       }
       hasRecoveryKey = true;
       this.update({
         ...initialSnapshot,
         phase: "starting",
+        accountUserId: session.accountUserId,
         hasRecoveryKey: true,
       });
 
@@ -256,6 +277,7 @@ export class MobileSyncController {
         this.update({
           ...initialSnapshot,
           phase: "account_mismatch",
+          accountUserId: session.accountUserId,
           hasRecoveryKey: true,
         });
         return;
@@ -264,6 +286,7 @@ export class MobileSyncController {
       this.update({
         ...initialSnapshot,
         phase: "ready",
+        accountUserId: session.accountUserId,
         hasRecoveryKey: true,
         running: true,
       });
@@ -277,6 +300,7 @@ export class MobileSyncController {
       this.update({
         ...initialSnapshot,
         phase,
+        accountUserId: session.accountUserId,
         hasRecoveryKey,
         errorMessage: errorMessage(error),
       });

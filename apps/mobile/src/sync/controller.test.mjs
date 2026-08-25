@@ -81,6 +81,7 @@ test("boots the native replica with the stored account key", async () => {
   ]);
   assert.deepEqual(controller.getSnapshot(), {
     phase: "ready",
+    accountUserId: "user-123",
     hasRecoveryKey: true,
     running: true,
     syncingNow: false,
@@ -295,6 +296,35 @@ test("stops native sync when the account lifecycle ends", async () => {
   controller.suspend();
   await waitFor(() => stopCount === 2);
   assert.equal(controller.getSnapshot().phase, "inactive");
+  assert.equal(controller.getSnapshot().accountUserId, session.accountUserId);
+  assert.equal(controller.getSnapshot().hasRecoveryKey, true);
+});
+
+test("preserves enrollment only for same-account restarts", async () => {
+  const controller = new MobileSyncController(dependencies(), 0, 0);
+  controller.activate(session);
+  await waitFor(() => controller.getSnapshot().phase === "ready");
+
+  controller.suspend();
+  assert.deepEqual(
+    {
+      phase: controller.getSnapshot().phase,
+      accountUserId: controller.getSnapshot().accountUserId,
+      hasRecoveryKey: controller.getSnapshot().hasRecoveryKey,
+    },
+    {
+      phase: "inactive",
+      accountUserId: "user-123",
+      hasRecoveryKey: true,
+    },
+  );
+
+  controller.activate({ ...session, accessToken: "refreshed-token" });
+  assert.equal(controller.getSnapshot().hasRecoveryKey, true);
+
+  controller.activate({ ...session, accountUserId: "user-456" });
+  assert.equal(controller.getSnapshot().accountUserId, "user-456");
+  assert.equal(controller.getSnapshot().hasRecoveryKey, false);
 });
 
 test("coalesces foreground and manual sync requests while one is active", async () => {

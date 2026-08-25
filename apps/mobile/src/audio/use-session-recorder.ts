@@ -166,7 +166,7 @@ export function useSessionRecorder(
   const streamRef = useRef(stream);
   streamRef.current = stream;
 
-  const start = useCallback(async () => {
+  const performStart = useCallback(async () => {
     const generation = ++startGenerationRef.current;
     const isCurrent = () =>
       activeRef.current && generation === startGenerationRef.current;
@@ -236,7 +236,7 @@ export function useSessionRecorder(
         stream.stop();
       } catch {}
       try {
-        writerRef.current?.close();
+        writerRef.current?.closeAndDiscardEmpty();
       } catch (cleanupError) {
         captureOperationalError(cleanupError, {
           operation: "recording_start_cleanup",
@@ -261,10 +261,29 @@ export function useSessionRecorder(
     unregisterCapture,
   ]);
 
+  const start = useCallback((): Promise<void> => {
+    const currentOperation = startRef.current;
+    if (currentOperation) return currentOperation;
+    if (
+      !["idle", "unavailable", "interrupted", "error"].includes(
+        phaseRef.current,
+      )
+    ) {
+      return Promise.resolve();
+    }
+    const operation = performStart();
+    startRef.current = operation;
+    const clearOperation = () => {
+      if (startRef.current === operation) startRef.current = null;
+    };
+    void operation.then(clearOperation, clearOperation);
+    return operation;
+  }, [performStart]);
+
   useMountEffect(() => {
     activeRef.current = true;
     if (!enabled) return;
-    startRef.current = start();
+    void start();
   });
 
   useMountEffect(() => {
@@ -275,7 +294,7 @@ export function useSessionRecorder(
         nextState === "active" &&
         phaseRef.current === "unavailable";
       previousState = nextState;
-      if (returnedFromSettings) startRef.current = start();
+      if (returnedFromSettings) void start();
     });
     return () => subscription.remove();
   });
@@ -361,8 +380,7 @@ export function useSessionRecorder(
       return stop();
     }
     if (["unavailable", "interrupted", "error"].includes(phaseRef.current)) {
-      startRef.current = start();
-      await startRef.current;
+      await start();
     }
     return "noop";
   };
@@ -372,7 +390,7 @@ export function useSessionRecorder(
   useMountEffect(() => () => {
     activeRef.current = false;
     startGenerationRef.current += 1;
-    void stopRef.current();
+    void stopRef.current().then(unregisterCapture, unregisterCapture);
   });
 
   return {

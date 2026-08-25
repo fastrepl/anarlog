@@ -163,7 +163,7 @@ function Gate() {
         accessToken={session.access_token}
         accountUserId={session.user.id}
       />
-      {canUseMobileCapture(sync) ? (
+      {canUseMobileCapture(sync, session.user.id) ? (
         <Screens accountUserId={session.user.id} />
       ) : (
         <SyncEnrollmentScreen />

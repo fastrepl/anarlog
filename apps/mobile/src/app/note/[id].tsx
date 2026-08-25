@@ -274,6 +274,7 @@ export default function NoteScreen() {
     : null;
   const localAudioAvailable =
     audio.data?.availableLocally === true && localAudioFile?.exists === true;
+  const hasRecordingHistory = audio.data !== null || transcripts.length > 0;
   const localNoteAttachments = noteAttachments.map((attachment) => {
     const file = attachment.localRelativePath
       ? new File(Paths.document, "sessions", id, attachment.localRelativePath)
@@ -295,9 +296,13 @@ export default function NoteScreen() {
   const showEmptyNoteCta =
     !listening &&
     !editorFocused &&
+    !audio.isLoading &&
     data !== null &&
     data.title.trim() === "" &&
-    data.noteText.trim() === "";
+    data.noteText.trim() === "" &&
+    !data.summary &&
+    !hasRecordingHistory &&
+    noteAttachments.length === 0;
 
   // The live query lags our own writes, so a body-only flush would otherwise
   // resend the pre-edit title and undo the title we just persisted.
@@ -636,7 +641,7 @@ export default function NoteScreen() {
 
   const handleListeningAction = () => {
     if (listening) void handleStop();
-    else {
+    else if (!audio.isLoading && !hasRecordingHistory) {
       setListening(true);
       void recorder.start();
     }
@@ -805,7 +810,7 @@ export default function NoteScreen() {
       )}
 
       <NoteActionsSheet
-        hasRecordingHistory={Boolean(audio.data || transcripts.length > 0)}
+        hasRecordingHistory={hasRecordingHistory}
         listening={listening}
         onClose={() => setActionsOpen(false)}
         onDelete={() => void handleDelete()}
