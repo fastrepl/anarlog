@@ -6,7 +6,7 @@ import {
   type FileHandle,
 } from "expo-file-system";
 
-import { wavHeader } from "@/audio/pcm-wav";
+import { WAV_HEADER_BYTES, wavHeader } from "@/audio/pcm-wav";
 
 export class SessionWavWriter {
   readonly file: File;
@@ -23,6 +23,9 @@ export class SessionWavWriter {
     const directory = new Directory(Paths.document, "sessions", sessionId);
     directory.create({ intermediates: true, idempotent: true });
     this.file = new File(directory, "audio.wav");
+    if (this.file.exists && this.file.size <= WAV_HEADER_BYTES) {
+      this.file.delete();
+    }
     this.file.create();
     this.handle = this.file.open(FileMode.ReadWrite);
   }
