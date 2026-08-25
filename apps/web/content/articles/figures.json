@@ -81,7 +81,16 @@
   "fathom-ai-alternatives": [],
   "fireflies-ai-alternatives": [],
   "free-ai-notetakers": [],
-  "free-transcription-software": [],
+  "free-transcription-software": [
+    {
+      "filename": "free-transcription-paths.png",
+      "content": "Title: Four Free Transcription Paths\nLive meetings with local control: desktop meeting notetaker\nPrivate audio and video files: on-device file transcription\nOne-off browser upload: no-signup web transcriber\nAutomatic calendar meetings: cloud meeting assistant",
+      "context": "Four-branch decision map for an Anarlog blog post showing that free transcription software falls into four practical workflows. Each need maps to one tool category, not a specific brand. Neutral reference diagram. Do not add rankings, scores, pros, cons, or invented features.",
+      "visualQuery": "mapping diagram",
+      "orientation": "horizontal",
+      "width": 1200
+    }
+  ],
   "google-gemini-data-retention-policy": [
     {
       "filename": "gemini-retention-by-tier.png",
