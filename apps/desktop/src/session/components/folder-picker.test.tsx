@@ -32,7 +32,7 @@ describe("FolderPicker", () => {
     cleanup();
   });
 
-  it("optically sizes the folder icon when no folder is selected", () => {
+  it("sizes the folder icon with the other header actions", () => {
     render(<FolderPicker sessionId="session-1" />);
 
     const trigger = screen.getByRole("combobox", { name: "Select folder" });
@@ -41,7 +41,7 @@ describe("FolderPicker", () => {
     expect(trigger.textContent).toBe("");
     expect(trigger.className).toContain("w-7");
     expect(icons).toHaveLength(1);
-    expect(icons[0]?.getAttribute("class")).toContain("size-[18px]");
+    expect(icons[0]?.getAttribute("class")).toContain("size-4");
   });
 
   it("shows the selected folder name without a chevron", () => {

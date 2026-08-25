@@ -125,7 +125,7 @@ export function OverflowButton({
             data-tauri-drag-region="false"
             className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
           >
-            <DotsThree size={16} />
+            <DotsThree className="size-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent variant="app" align="end" className="w-56">

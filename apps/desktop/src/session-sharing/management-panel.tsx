@@ -375,7 +375,7 @@ export function SessionSharePopoverContent({
                     <Trans>Access settings could not be loaded.</Trans>
                   </p>
                   <Button size="sm" variant="outline" onClick={onRetry}>
-                    <ArrowsClockwise className="size-3.5" aria-hidden="true" />
+                    <ArrowsClockwise className="size-4" aria-hidden="true" />
                     <Trans>Try again</Trans>
                   </Button>
                 </div>
@@ -413,12 +413,12 @@ export function SessionSharePopoverContent({
                         >
                           {openWebCopyMutation.isPending ? (
                             <CircleNotch
-                              className="size-3.5 animate-spin"
+                              className="size-4 animate-spin"
                               aria-hidden="true"
                             />
                           ) : (
                             <ArrowSquareOut
-                              className="size-3.5"
+                              className="size-4"
                               aria-hidden="true"
                             />
                           )}
@@ -432,7 +432,7 @@ export function SessionSharePopoverContent({
                         >
                           {keepDesktopMutation.isPending ? (
                             <CircleNotch
-                              className="size-3.5 animate-spin"
+                              className="size-4 animate-spin"
                               aria-hidden="true"
                             />
                           ) : null}
@@ -617,11 +617,11 @@ export function SessionSharePopoverContent({
             >
               {generalCopyMutation.isPending || scopeMutation.isPending ? (
                 <CircleNotch
-                  className="size-3.5 animate-spin"
+                  className="size-4 animate-spin"
                   aria-hidden="true"
                 />
               ) : (
-                <Copy className="size-3.5" aria-hidden="true" />
+                <Copy className="size-4" aria-hidden="true" />
               )}
               <Trans>Copy link</Trans>
             </Button>

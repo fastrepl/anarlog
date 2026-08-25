@@ -180,12 +180,9 @@ export function SessionShareDraftContent({
             className="h-7 rounded-md px-2.5 text-xs"
           >
             {pendingAction?.type === "copy-link" ? (
-              <CircleNotch
-                className="size-3.5 animate-spin"
-                aria-hidden="true"
-              />
+              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
             ) : (
-              <Copy className="size-3.5" aria-hidden="true" />
+              <Copy className="size-4" aria-hidden="true" />
             )}
             <Trans>Copy link</Trans>
           </Button>

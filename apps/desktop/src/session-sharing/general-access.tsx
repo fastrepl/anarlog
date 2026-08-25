@@ -44,9 +44,9 @@ export function GeneralAccessSelector({
     <div className="flex items-center gap-2 rounded-lg px-1.5 py-1">
       <span className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-md">
         {pending ? (
-          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+          <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
         ) : (
-          <AccessIcon className="size-3.5" aria-hidden="true" />
+          <AccessIcon className="size-4" aria-hidden="true" />
         )}
       </span>
       <Select

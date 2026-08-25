@@ -40,7 +40,7 @@ export function SessionAttachmentControls({
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="bg-muted flex size-7 shrink-0 items-center justify-center rounded-lg">
-            <Waveform className="size-3.5" aria-hidden="true" />
+            <Waveform className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <label

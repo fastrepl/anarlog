@@ -60,7 +60,7 @@ const TriggerInner = forwardRef<
         open && "bg-muted text-foreground",
       ])}
     >
-      <CalendarBlank size={16} />
+      <CalendarBlank className="size-4" />
     </Button>
   );
 });

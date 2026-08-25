@@ -332,7 +332,7 @@ export function AccessEntryRow({
       </div>
       {pending ? (
         <CircleNotch
-          className="text-muted-foreground size-3.5 animate-spin"
+          className="text-muted-foreground size-4 animate-spin"
           aria-label={t`Updating access`}
         />
       ) : entry.entryType === "request" ? (

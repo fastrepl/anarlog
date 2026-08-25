@@ -115,7 +115,7 @@ function ShareRecapFormHeading({
           aria-label={t`Back`}
           className="text-muted-foreground hover:text-foreground flex size-6 shrink-0 items-center justify-center rounded-md"
         >
-          <CaretLeft className="size-3.5" aria-hidden="true" />
+          <CaretLeft className="size-4" aria-hidden="true" />
         </button>
       ) : null}
       <h3 id={id} className="text-xs font-medium">
@@ -239,9 +239,9 @@ export function SlackRecapForm({
           className="h-8"
         >
           {openingAction ? (
-            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
           ) : (
-            <SlackBrandIcon size={14} />
+            <SlackBrandIcon size={16} />
           )}
           {reconnect ? (
             <Trans>Reconnect Slack</Trans>
@@ -301,7 +301,7 @@ export function SlackRecapForm({
           className="h-8 shrink-0"
         >
           {pending ? (
-            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+            <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
           ) : null}
           <Trans>Send</Trans>
         </Button>
