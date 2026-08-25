@@ -153,6 +153,9 @@ impl PluginDbRuntime {
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
         let join_handle = tokio::spawn(async move {
             let mut clean_receive_attempt_started = false;
+            let mut witness_repair_refreshed = false;
+            let mut witness_repair_batches = 0_u64;
+            let mut witness_repaired_records = 0_u64;
             loop {
                 if cloudsync_auth_generation.load(std::sync::atomic::Ordering::Acquire)
                     != auth_generation
@@ -205,6 +208,14 @@ impl PluginDbRuntime {
                             "CloudSync recovery generation changed while running",
                         )
                         .into());
+                    }
+                    if !matches!(
+                        state.phase,
+                        anlg_db_app::CloudsyncRecoveryPhase::NeedWitnessRepair
+                    ) {
+                        witness_repair_refreshed = false;
+                        witness_repair_batches = 0;
+                        witness_repaired_records = 0;
                     }
                     let key = e2ee_sync_hook
                         .workspace_key(&state.workspace_id)
@@ -409,21 +420,30 @@ impl PluginDbRuntime {
                                 return Ok(CloudsyncRecoveryStep::Deferred);
                             }
 
-                            witness
-                                .refresh_cancellable(db.pool(), &key, &witness_cancellation)
-                                .await?;
-                            if cloudsync_recovery_cancelled(&recovery_cancelled) {
-                                return Ok(CloudsyncRecoveryStep::Deferred);
-                            }
-                            witness
-                                .publish_and_refresh_cancellable(
-                                    db.pool(),
-                                    &key,
-                                    &witness_cancellation,
-                                )
-                                .await?;
-                            if cloudsync_recovery_cancelled(&recovery_cancelled) {
-                                return Ok(CloudsyncRecoveryStep::Deferred);
+                            if !witness_repair_refreshed {
+                                let received_before_publish = witness
+                                    .refresh_cancellable(db.pool(), &key, &witness_cancellation)
+                                    .await?;
+                                if cloudsync_recovery_cancelled(&recovery_cancelled) {
+                                    return Ok(CloudsyncRecoveryStep::Deferred);
+                                }
+                                let received_after_publish = witness
+                                    .publish_and_refresh_cancellable(
+                                        db.pool(),
+                                        &key,
+                                        &witness_cancellation,
+                                    )
+                                    .await?;
+                                if cloudsync_recovery_cancelled(&recovery_cancelled) {
+                                    return Ok(CloudsyncRecoveryStep::Deferred);
+                                }
+                                witness_repair_refreshed = true;
+                                tracing::info!(
+                                    phase = "witness_repair",
+                                    received_events = received_before_publish
+                                        .saturating_add(received_after_publish),
+                                    "CloudSync recovery refreshed encrypted witness"
+                                );
                             }
                             let keys = e2ee_sync_hook.snapshot();
                             let apply = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
@@ -455,6 +475,21 @@ impl PluginDbRuntime {
                                 return Ok(CloudsyncRecoveryStep::Deferred);
                             }
                             if repair.repaired_records > 0 {
+                                witness_repair_batches = witness_repair_batches.saturating_add(1);
+                                witness_repaired_records = witness_repaired_records
+                                    .saturating_add(repair.repaired_records);
+                                if witness_repair_batches == 1
+                                    || witness_repair_batches.is_multiple_of(16)
+                                    || !repair.remaining
+                                {
+                                    tracing::info!(
+                                        phase = "witness_repair",
+                                        batch = witness_repair_batches,
+                                        repaired_records = witness_repaired_records,
+                                        remaining = repair.remaining,
+                                        "CloudSync recovery repaired encrypted records"
+                                    );
+                                }
                                 return Ok(CloudsyncRecoveryStep::Progressed);
                             }
                             if repair.remaining || apply.remaining_replica_changes {
@@ -561,6 +596,13 @@ impl PluginDbRuntime {
                                     anlg_db_app::CloudsyncWorkspaceError::RecoveryConflict.into()
                                 );
                             }
+                            tracing::info!(
+                                phase = "witness_repair",
+                                batches = witness_repair_batches,
+                                repaired_records = witness_repaired_records,
+                                "CloudSync recovery finished encrypted witness repair"
+                            );
+                            witness_repair_refreshed = false;
                             Ok(CloudsyncRecoveryStep::Progressed)
                         }
                         anlg_db_app::CloudsyncRecoveryPhase::NeedBarrierCleanup => {
@@ -687,6 +729,7 @@ impl PluginDbRuntime {
                         }
                         match cancellation {
                             CloudsyncRecoveryCancellation::Activity => {
+                                witness_repair_refreshed = false;
                                 if matches!(drained_step, Ok(CloudsyncRecoveryStep::Complete)) {
                                     drained_step
                                 } else {

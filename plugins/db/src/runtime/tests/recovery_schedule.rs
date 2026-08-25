@@ -171,6 +171,235 @@ fn full_resync_schedule_tracks_generation_until_cancelled() {
     assert!(!schedule.is_active("generation-1"));
 }
 
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+#[tokio::test]
+async fn witness_repair_reuses_one_refresh_while_draining_bounded_batches() {
+    use std::io::{Read, Write};
+
+    let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
+    anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
+    anlg_db_app::claim_cloudsync_workspace(db.pool(), "workspace-1")
+        .await
+        .unwrap();
+    sqlx::query(
+        "CREATE TABLE sync_probe (
+            id TEXT PRIMARY KEY NOT NULL,
+            value TEXT NOT NULL DEFAULT ''
+        )",
+    )
+    .execute(db.pool())
+    .await
+    .unwrap();
+    db.cloudsync_init("sync_probe", None, None).await.unwrap();
+    let runtime = std::sync::Arc::new(PluginDbRuntime::new(std::sync::Arc::clone(&db)));
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    runtime
+        .set_e2ee_recovery_key("workspace-1", &recovery_key)
+        .unwrap();
+    let workspace_key = runtime.workspace_key("workspace-1").unwrap();
+    let witness_server = MockServer::start().await;
+    Mock::given(path("/sync/e2ee/witness/workspace-1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "initialized": true,
+            "initializedAt": "2026-08-26T00:00:00Z",
+            "headSequence": 130,
+            "throughSequence": 130,
+            "nextAfterSequence": 130,
+            "events": [],
+        })))
+        .mount(&witness_server)
+        .await;
+    runtime.e2ee_sync_hook.set_witness(
+        crate::e2ee_witness::E2eeWitnessClient::new(
+            crate::CloudsyncE2eeWitness {
+                endpoint: format!("{}/sync/e2ee/witness/workspace-1", witness_server.uri()),
+                access_token: "access-token".to_string(),
+            },
+            "workspace-1",
+        )
+        .unwrap(),
+    );
+
+    let cloudsync_listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    cloudsync_listener.set_nonblocking(true).unwrap();
+    let cloudsync_endpoint = format!("http://{}", cloudsync_listener.local_addr().unwrap());
+    let (cloudsync_shutdown_tx, cloudsync_shutdown_rx) = std::sync::mpsc::sync_channel(1);
+    let cloudsync_server = std::thread::spawn(move || {
+        loop {
+            if cloudsync_shutdown_rx.try_recv().is_ok() {
+                return;
+            }
+            let (mut stream, _) = match cloudsync_listener.accept() {
+                Ok(connection) => connection,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    continue;
+                }
+                Err(error) => panic!("failed to accept CloudSync status request: {error}"),
+            };
+            let mut request = [0_u8; 4096];
+            let size = stream.read(&mut request).unwrap();
+            assert!(
+                String::from_utf8_lossy(&request[..size]).contains("/status"),
+                "recovery made an unexpected CloudSync request"
+            );
+            let body =
+                r#"{"lastOptimisticVersion":9999999,"lastConfirmedVersion":9999999,"gaps":[]}"#;
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            )
+            .unwrap();
+            stream.flush().unwrap();
+        }
+    });
+    let config = anlg_db_core::CloudsyncRuntimeConfig {
+        connection_string: "test-database".to_string(),
+        auth: anlg_db_core::CloudsyncAuth::None,
+        tables: vec![],
+        sync_interval_ms: DEFAULT_CLOUDSYNC_INTERVAL_MS,
+        wait_ms: Some(5_000),
+        max_retries: Some(3),
+    };
+    db.cloudsync_prepare_manual_transport(config.clone())
+        .await
+        .unwrap();
+    sqlx::query("SELECT cloudsync_network_init_custom(?, ?)")
+        .bind(cloudsync_endpoint)
+        .bind("witness-repair-refresh-test")
+        .fetch_optional(db.pool())
+        .await
+        .unwrap();
+
+    let generation =
+        anlg_db_app::stage_cloudsync_poison_recovery(db.pool(), "workspace-1", "workspace-1")
+            .await
+            .unwrap();
+    anlg_db_app::ensure_cloudsync_recovery_state(
+        db.pool(),
+        &generation,
+        "workspace-1",
+        "workspace-1",
+        &workspace_key,
+    )
+    .await
+    .unwrap();
+    for (from, to) in [
+        (
+            anlg_db_app::CloudsyncRecoveryPhase::NeedFirstLogout,
+            anlg_db_app::CloudsyncRecoveryPhase::NeedBarrierInsert,
+        ),
+        (
+            anlg_db_app::CloudsyncRecoveryPhase::NeedBarrierInsert,
+            anlg_db_app::CloudsyncRecoveryPhase::NeedBarrierConfirm,
+        ),
+        (
+            anlg_db_app::CloudsyncRecoveryPhase::NeedBarrierConfirm,
+            anlg_db_app::CloudsyncRecoveryPhase::NeedCleanReceive,
+        ),
+        (
+            anlg_db_app::CloudsyncRecoveryPhase::NeedCleanReceive,
+            anlg_db_app::CloudsyncRecoveryPhase::NeedWitnessRepair,
+        ),
+    ] {
+        assert!(
+            anlg_db_app::advance_cloudsync_recovery_phase(db.pool(), &generation, from, to)
+                .await
+                .unwrap()
+        );
+    }
+
+    let events = (0..130)
+        .map(|index| {
+            let sealed = workspace_key
+                .seal_field(
+                    "workspace-1",
+                    "sessions",
+                    &format!("session-{index:03}"),
+                    "$row",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    1,
+                    false,
+                    serde_json::json!(true),
+                )
+                .unwrap();
+            anlg_db_app::E2eeWitnessEvent {
+                sequence: u64::try_from(index + 1).unwrap(),
+                record_id: sealed.record_id,
+                workspace_id: "workspace-1".to_string(),
+                payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+                payload: sealed.payload,
+            }
+        })
+        .collect::<Vec<_>>();
+    anlg_db_app::merge_e2ee_witness_events(db.pool(), &workspace_key, "workspace-1", &events)
+        .await
+        .unwrap();
+    anlg_db_app::advance_e2ee_witness_cursor(db.pool(), "workspace-1", 130)
+        .await
+        .unwrap();
+
+    let auth_generation = runtime.cloudsync_auth_generation();
+    runtime
+        .schedule_cloudsync_full_resync(generation, config, auth_generation)
+        .await;
+    let drain = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            let repaired: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+            if repaired == 130 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
+    })
+    .await;
+    let failure = if drain.is_err() {
+        let repaired: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let pending: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_witness_repair_pending")
+            .fetch_one(db.pool())
+            .await
+            .unwrap();
+        let phase = anlg_db_app::cloudsync_recovery_state(db.pool())
+            .await
+            .unwrap()
+            .map(|state| state.phase);
+        let witness_requests = witness_server.received_requests().await.unwrap().len();
+        Some(format!(
+            "witness repair did not drain all bounded batches: repaired={repaired}, pending={pending}, phase={phase:?}, witness_requests={witness_requests}"
+        ))
+    } else {
+        None
+    };
+    runtime.cancel_cloudsync_full_resync().await;
+    cloudsync_shutdown_tx.send(()).unwrap();
+    cloudsync_server.join().unwrap();
+    if let Some(failure) = failure {
+        panic!("{failure}");
+    }
+
+    let requests = witness_server.received_requests().await.unwrap();
+    let refreshes = requests
+        .iter()
+        .filter(|request| request.method == wiremock::http::Method::GET)
+        .count();
+    assert!(refreshes >= 2, "witness freshness was not established");
+    assert!(
+        refreshes <= 3,
+        "witness was refreshed {refreshes} times while draining three repair batches"
+    );
+}
+
 #[cfg(target_os = "macos")]
 #[tokio::test]
 async fn activity_drains_stalled_full_resync_before_immediate_local_write() {
