@@ -9,6 +9,7 @@ export const oauthAuthorizationIdSchema = z
 const scopeDescriptions: Record<string, string> = {
   openid: "Confirm your Anarlog account identity",
   email: "Share your Anarlog account email with the connector",
+  offline_access: "Stay connected without asking you to sign in every time",
 };
 
 export function describeOAuthScopes(scope: string) {
