@@ -43,7 +43,8 @@ function tierActionLabel(action: NonNullable<TierAction>): string {
 export function SettingsAccount() {
   const { t } = useLingui();
   const auth = useAuth();
-  const { plan, isPaid, isTrialing, trialDaysRemaining } = useBillingAccess();
+  const { plan, isPaid, isTrialing, isPaused, trialDaysRemaining } =
+    useBillingAccess();
 
   const isAuthenticated = !!auth?.session;
   const [isPending, setIsPending] = useState(false);
@@ -198,6 +199,7 @@ export function SettingsAccount() {
       <PlanBillingSection
         currentTier={currentTier}
         isTrialing={isTrialing}
+        isPaused={isPaused}
         trialDaysRemaining={trialDaysRemaining}
         isPaid={isPaid}
       />
@@ -208,11 +210,13 @@ export function SettingsAccount() {
 function PlanBillingSection({
   currentTier,
   isTrialing,
+  isPaused,
   trialDaysRemaining,
   isPaid,
 }: {
   currentTier: PlanTier;
   isTrialing: boolean;
+  isPaused: boolean;
   trialDaysRemaining: number | null;
   isPaid: boolean;
 }) {
@@ -222,7 +226,7 @@ function PlanBillingSection({
 
   const [actionPending, setActionPending] = useState(false);
 
-  // A cardless trial cancels at the end unless a card is added, so replace the
+  // A cardless trial pauses at the end unless a card is added, so replace the
   // static current-plan status with an explicit payment-method action.
   const needsPaymentMethod = isTrialing && !hasPaymentMethod;
 
@@ -253,6 +257,8 @@ function PlanBillingSection({
       <Trans>Pro trial</Trans>
       {trialDaysText != null && ` - ${trialDaysText}`}
     </>
+  ) : isPaused ? (
+    <Trans>Your Pro trial has ended</Trans>
   ) : (
     <Trans>
       You're on the <span className="font-semibold">{planLabel}</span> plan
@@ -341,6 +347,11 @@ function PlanBillingSection({
         return;
       }
 
+      if (isPaused) {
+        await openBillingUrl(() => buildWebAppUrl("/app/portal"));
+        return;
+      }
+
       void analyticsCommands.event({
         event: "upgrade_clicked",
         plan: action.plan,
@@ -358,7 +369,7 @@ function PlanBillingSection({
     };
 
     const isBusy = actionPending;
-    const label = tierActionLabel(action);
+    const label = isPaused ? t`Resume` : tierActionLabel(action);
 
     if (compact) {
       return (

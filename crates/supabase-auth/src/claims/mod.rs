@@ -45,10 +45,12 @@ impl Claims {
     }
 
     pub fn has_entitlement(&self, entitlement: &str) -> bool {
-        if entitlement == "hyprnote_pro"
-            && matches!(self.subscription_status, Some(SubscriptionStatus::Trialing))
-        {
-            return self.has_active_trial();
+        if entitlement == "hyprnote_pro" {
+            match self.subscription_status {
+                Some(SubscriptionStatus::Trialing) => return self.has_active_trial(),
+                Some(SubscriptionStatus::Paused) => return false,
+                _ => {}
+            }
         }
 
         self.entitlements.iter().any(|value| value == entitlement)
@@ -222,6 +224,23 @@ mod tests {
 
         assert!(!claims.has_active_trial());
         assert!(!claims.is_pro());
+    }
+
+    #[test]
+    fn test_paused_subscription_fails_closed_for_pro() {
+        let claims = Claims {
+            sub: "paused-user".to_string(),
+            email: None,
+            entitlements: vec!["hyprnote_pro".to_string(), "hyprnote_lite".to_string()],
+            subscription_status: Some(SubscriptionStatus::Paused),
+            trial_end: None,
+            has_payment_method: Some(false),
+        };
+
+        assert!(!claims.has_entitlement("hyprnote_pro"));
+        assert!(!claims.is_pro());
+        assert!(claims.is_lite());
+        assert!(claims.is_paid());
     }
 
     #[test]

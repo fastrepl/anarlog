@@ -30,6 +30,20 @@ test("an expired trial no longer grants Pro access", () => {
   expect(billing.plan).toBe("free");
 });
 
+test("a paused cardless trial loses access but remains resumable", () => {
+  const billing = deriveBillingInfo({
+    entitlements: ["hyprnote_pro"],
+    subscription_status: "paused",
+    trial_end: secondsFromNow(-60),
+  });
+
+  expect(billing.isPaused).toBe(true);
+  expect(billing.isTrialing).toBe(false);
+  expect(billing.isPro).toBe(false);
+  expect(billing.isPaid).toBe(false);
+  expect(billing.plan).toBe("free");
+});
+
 test("a trial without an end date fails closed", () => {
   const billing = deriveBillingInfo({
     entitlements: ["hyprnote_pro"],

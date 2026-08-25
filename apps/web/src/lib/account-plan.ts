@@ -30,6 +30,7 @@ export function formatAccountPlanDate(date: Date) {
 
 export function getAccountPlanCopy({
   isTrialing,
+  isPaused = false,
   isPaid,
   isLite,
   isPro,
@@ -40,6 +41,7 @@ export function getAccountPlanCopy({
   hasYcPerk = false,
 }: {
   isTrialing: boolean;
+  isPaused?: boolean;
   isPaid: boolean;
   isLite?: boolean;
   isPro?: boolean;
@@ -68,6 +70,13 @@ export function getAccountPlanCopy({
             day: "numeric",
           })}.`
         : "Your trial is running.",
+    };
+  }
+
+  if (isPaused) {
+    return {
+      planLabel,
+      planDetail: "Your Pro trial ended. Resume it to reactivate Pro.",
     };
   }
 

@@ -31,6 +31,7 @@ export type BillingInfo = {
   isLite: boolean;
   isPaid: boolean;
   isTrialing: boolean;
+  isPaused: boolean;
   trialEnd: Date | null;
   trialDaysRemaining: number | null;
   cancelAtPeriodEnd: boolean;
@@ -96,10 +97,15 @@ export function deriveBillingInfo(
 
   const hasProEntitlement = entitlements.includes("hyprnote_pro");
   const hasLiteEntitlement = entitlements.includes("hyprnote_lite");
-  // While status is "trialing", the entitlement alone does not count;
-  // Pro requires the trial clock to still be running (fails closed on expiry).
+  const isPaused = subscriptionStatus === "paused";
+  // Trial clocks and paused subscriptions override stale entitlements so every
+  // client fails closed consistently.
   const hasEffectiveProEntitlement =
-    subscriptionStatus === "trialing" ? isTrialing : hasProEntitlement;
+    subscriptionStatus === "trialing"
+      ? isTrialing
+      : isPaused
+        ? false
+        : hasProEntitlement;
   const hasPaidEntitlement = hasEffectiveProEntitlement || hasLiteEntitlement;
 
   const plan: Plan = isTrialing ? "trial" : hasPaidEntitlement ? "pro" : "free";
@@ -114,6 +120,7 @@ export function deriveBillingInfo(
     isLite: hasLiteEntitlement,
     isPaid: hasPaidEntitlement,
     isTrialing,
+    isPaused,
     trialEnd,
     trialDaysRemaining,
     cancelAtPeriodEnd: payload?.cancel_at_period_end === true,

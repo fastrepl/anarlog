@@ -154,6 +154,19 @@ select results_eq(
 select tests.clear_authentication();
 reset role;
 
+-- A resumable personal trial must not hide an effective workspace plan.
+update public.profiles
+set stripe_customer_id = 'cus_seat_member_paused'
+where id = tests.get_supabase_uid('seat_member');
+
+insert into stripe.customers (id)
+values ('cus_seat_member_paused')
+on conflict (id) do nothing;
+
+insert into stripe.subscriptions (id, customer, status)
+values ('sub_seat_member_paused', 'cus_seat_member_paused', 'paused'::stripe.subscription_status)
+on conflict (id) do nothing;
+
 select results_eq(
   $$
     select public.custom_access_token_hook(

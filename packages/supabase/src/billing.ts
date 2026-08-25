@@ -9,6 +9,7 @@ export type BillingInfo = {
   isLite: boolean;
   isPaid: boolean;
   isTrialing: boolean;
+  isPaused: boolean;
   hasPaymentMethod: boolean;
   trialEnd: Date | null;
   trialDaysRemaining: number | null;
@@ -39,10 +40,15 @@ export function deriveBillingInfo(
     trialDaysRemaining !== null &&
     trialDaysRemaining > 0;
 
+  const isPaused = subscriptionStatus === "paused";
   const hasProEntitlement = entitlements.includes("hyprnote_pro");
   const hasLiteEntitlement = entitlements.includes("hyprnote_lite");
   const hasEffectiveProEntitlement =
-    subscriptionStatus === "trialing" ? isTrialing : hasProEntitlement;
+    subscriptionStatus === "trialing"
+      ? isTrialing
+      : isPaused
+        ? false
+        : hasProEntitlement;
   const hasPaidEntitlement = hasEffectiveProEntitlement || hasLiteEntitlement;
 
   const isPro = hasEffectiveProEntitlement;
@@ -61,6 +67,7 @@ export function deriveBillingInfo(
     isLite,
     isPaid,
     isTrialing,
+    isPaused,
     hasPaymentMethod: payload?.has_payment_method === true,
     trialEnd,
     trialDaysRemaining,

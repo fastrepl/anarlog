@@ -1,5 +1,5 @@
 begin;
-select plan(62);
+select plan(63);
 
 select tests.create_supabase_user('pro_share_owner', 'pro-share-owner@example.com');
 select tests.create_supabase_user('pro_share_recipient', 'pro-share-recipient@example.com');
@@ -255,6 +255,34 @@ select throws_ok(
   '42501',
   'hyprnote pro entitlement required',
   'An expired trial no longer receives Pro sharing access even before entitlement propagation catches up'
+);
+
+select tests.authenticate_as('pro_share_owner');
+
+select set_config(
+  'request.jwt.claims',
+  jsonb_set(
+    jsonb_set(
+      (select auth.jwt()),
+      '{entitlements}',
+      '["hyprnote_pro"]'::jsonb,
+      true
+    ),
+    '{subscription_status}',
+    '"paused"'::jsonb,
+    true
+  )::text,
+  true
+);
+
+select throws_ok(
+  $$
+    select *
+    from public.create_session_share(auth.uid(), 'paused-trial-share')
+  $$,
+  '42501',
+  'hyprnote pro entitlement required',
+  'A paused trial cannot use SQL-gated Pro features when its entitlement lingers'
 );
 
 select tests.authenticate_as_hyprnote_pro('pro_share_owner');

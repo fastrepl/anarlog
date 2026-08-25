@@ -3608,6 +3608,7 @@ msgid "Restoring cloud sync..."
 msgstr "Restoring cloud sync..."
 
 #: src/session/components/outer-header/index.tsx
+#: src/settings/general/account.tsx
 msgid "Resume"
 msgstr "Resume"
 
@@ -5172,6 +5173,7 @@ msgid "Your Pro trial ends in 1 day"
 msgstr "Your Pro trial ends in 1 day"
 
 #: src/billing/trial-ended-dialog.tsx
+#: src/settings/general/account.tsx
 msgid "Your Pro trial has ended"
 msgstr "Your Pro trial has ended"
 

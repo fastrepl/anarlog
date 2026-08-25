@@ -37,7 +37,9 @@ export function PlanSection({
     queryKey: accountSubscriptionQueryKey,
     enabled:
       typeof window !== "undefined" &&
-      (billing?.isPaid === true || billing?.isTrialing === true),
+      (billing?.isPaid === true ||
+        billing?.isTrialing === true ||
+        billing?.isPaused === true),
     queryFn: () => getAccountSubscription(),
   });
 
@@ -54,6 +56,7 @@ export function PlanSection({
 
   const { planLabel, planDetail } = getAccountPlanCopy({
     isTrialing: billing?.isTrialing === true,
+    isPaused: billing?.isPaused === true,
     isPaid: billing?.isPaid === true,
     isLite: billing?.isLite,
     isPro: billing?.isPro,
@@ -104,7 +107,7 @@ export function PlanSection({
                 }}
                 className={accountPillPrimaryClassName}
               >
-                Upgrade to Pro
+                {billing?.isPaused ? "Resume Pro" : "Upgrade to Pro"}
               </Link>
             )}
           </>

@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 
+import { selectCurrentSubscription } from "./subscription-selection.ts";
 import { YC_FOUNDER_COUPON_ID } from "./yc-perk-promotion.ts";
 
 function couponId(
@@ -48,11 +49,7 @@ export function isYcPromotionAvailable(promotion: {
 export function pickCurrentSubscription<T extends { status: string }>(
   subscriptions: T[],
 ): T | null {
-  return (
-    subscriptions.find((subscription) => subscription.status === "active") ||
-    subscriptions.find((subscription) => subscription.status === "trialing") ||
-    null
-  );
+  return selectCurrentSubscription(subscriptions);
 }
 
 export async function findPromotionCodeByCustomerCode(

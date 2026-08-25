@@ -1,5 +1,5 @@
 begin;
-select plan(19);
+select plan(20);
 
 select tests.create_supabase_user('pro', 'pro@example.com');
 select tests.create_supabase_user('free', 'free@example.com');
@@ -194,6 +194,35 @@ select results_eq(
   $$,
   array['"active"'],
   'custom_access_token_hook sets subscription_status for active user'
+);
+
+select tests.create_supabase_user('paused', 'paused@example.com');
+
+update public.profiles
+set stripe_customer_id = 'cus_paused'
+where id = tests.get_supabase_uid('paused');
+
+insert into stripe.customers (id)
+values ('cus_paused')
+on conflict (id) do nothing;
+
+insert into stripe.subscriptions (id, customer, status, created)
+values ('sub_paused', 'cus_paused', 'paused', 2500)
+on conflict (id) do nothing;
+
+select results_eq(
+  $$
+  select (
+    public.custom_access_token_hook(
+      jsonb_build_object(
+        'user_id', tests.get_supabase_uid('paused')::text,
+        'claims', '{}'::jsonb
+      )
+    ) -> 'claims' -> 'subscription_status'
+  )::text
+  $$,
+  array['"paused"'],
+  'custom_access_token_hook sets subscription_status for paused user'
 );
 
 select is(

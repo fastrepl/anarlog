@@ -29,6 +29,24 @@ test("prefers cancel_at, then item period end, then subscription period end", ()
   assert.equal(getSubscriptionAccessEnd({}), null);
 });
 
+test("paused cardless trial copy explains that Pro can be resumed", () => {
+  assert.deepEqual(
+    getAccountPlanCopy({
+      isTrialing: false,
+      isPaused: true,
+      isPaid: false,
+      trialDaysRemaining: 0,
+      trialEnd: new Date("2026-08-24T00:00:00.000Z"),
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: null,
+    }),
+    {
+      planLabel: "Free",
+      planDetail: "Your Pro trial ended. Resume it to reactivate Pro.",
+    },
+  );
+});
+
 test("paid copy acknowledges a scheduled cancellation", () => {
   const currentPeriodEnd = new Date("2026-09-17T00:00:00.000Z");
 

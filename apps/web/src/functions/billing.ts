@@ -36,6 +36,10 @@ import {
   getStripeCustomerIdentityMetadata,
   getStripeCustomerOwnership,
 } from "@/lib/stripe-customer";
+import {
+  getPlanSwitchRoute,
+  selectCurrentSubscription,
+} from "@/lib/subscription-selection";
 import { WEB_TRIAL_CHECKOUT_FIELDS } from "@/lib/trial-policy";
 import {
   startWorkspaceCheckout,
@@ -145,7 +149,7 @@ const getBillingReturnUrl = (scheme?: z.infer<typeof desktopSchemeSchema>) => {
 
 export const portalIntentSchema = z.enum(["manage", "payment_method_update"]);
 
-// Cardless trials cancel unless a card is added, so add-card CTAs must land on
+// Cardless trials pause unless a card is added, so add-card CTAs must land on
 // the card form. The portal home page leads with "Cancel subscription".
 const paymentMethodUpdateFlow = (
   returnUrl: string,
@@ -177,11 +181,7 @@ async function getCurrentSubscription(
     ...(options?.expandDiscounts ? { expand: ["data.discounts"] } : {}),
   });
 
-  return (
-    subscriptions.data.find((sub) => sub.status === "active") ||
-    subscriptions.data.find((sub) => sub.status === "trialing") ||
-    null
-  );
+  return selectCurrentSubscription(subscriptions.data);
 }
 
 async function ensureStripeCustomerId(
@@ -493,15 +493,19 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       );
 
       if (stripeCustomerId) {
-        const activeSubscription = await getCurrentSubscription(
+        const currentSubscription = await getCurrentSubscription(
           stripe,
           stripeCustomerId,
         );
 
-        if (activeSubscription) {
+        if (currentSubscription) {
           if (reservationId) {
             await releaseTrialReservation(user.id, reservationId);
           }
+
+          // Resuming reuses the subscription's existing price. Checkout entry
+          // points often default to monthly, which must not silently rewrite a
+          // paused yearly trial.
 
           if (ycPromotion) {
             const result = await applyYcPromotionToCustomer({
@@ -516,16 +520,27 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
               result.status === "applied" ||
               result.status === "already_applied"
             ) {
-              return { url: getAccountYcPerkUrl(data.scheme, "applied") };
+              const perkUrl = getAccountYcPerkUrl(data.scheme, "applied");
+              if (currentSubscription.status === "paused") {
+                const portalSession =
+                  await stripe.billingPortal.sessions.create({
+                    customer: stripeCustomerId,
+                    return_url: perkUrl,
+                  });
+                return { url: portalSession.url };
+              }
+              return { url: perkUrl };
             }
           } else {
             const returnUrl = data.scheme
               ? `${getBillingReturnUrl(data.scheme)}&source=${data.source}`
               : toAbsoluteInternalReturnUrl(getRequestAppOrigin(), returnTo);
+            // Stripe's portal can reactivate a trial that ended in `paused`.
+            // Trialing subscriptions only need the focused add-card form.
             const portalSession = await stripe.billingPortal.sessions.create({
               customer: stripeCustomerId,
               return_url: returnUrl,
-              ...(activeSubscription.status === "trialing"
+              ...(currentSubscription.status === "trialing"
                 ? { flow_data: paymentMethodUpdateFlow(returnUrl) }
                 : {}),
             });
@@ -780,7 +795,11 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       });
     }
 
-    if (!activeSubscription.items.data[0]) {
+    const targetPriceId = getProPriceId(data.targetPeriod);
+    const returnUrl = getBillingReturnUrl(data.scheme);
+    const route = getPlanSwitchRoute(activeSubscription, targetPriceId);
+
+    if (route === "checkout") {
       return createCheckoutUrl({
         supabase,
         user,
@@ -789,20 +808,20 @@ export const createPlanSwitchSession = createServerFn({ method: "POST" })
       });
     }
 
-    const subscriptionItem = activeSubscription.items.data[0];
-    const targetPriceId = getProPriceId(data.targetPeriod);
-    const returnUrl = getBillingReturnUrl(data.scheme);
-
-    // Stripe rejects a subscription_update_confirm flow that changes nothing.
-    // Legacy desktop builds link here with the default monthly period, so a
-    // monthly subscriber lands on a no-op switch.
-    if (subscriptionItem.price.id === targetPriceId) {
+    // Stripe rejects a no-op subscription_update_confirm flow, and paused
+    // subscriptions must use the portal's Start subscription flow to resume.
+    if (route === "portal") {
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: stripeCustomerId,
         return_url: returnUrl,
       });
 
       return { url: portalSession.url };
+    }
+
+    const subscriptionItem = activeSubscription.items.data[0];
+    if (!subscriptionItem) {
+      throw new Error("Subscription item is unavailable");
     }
 
     const portalSession = await stripe.billingPortal.sessions.create({

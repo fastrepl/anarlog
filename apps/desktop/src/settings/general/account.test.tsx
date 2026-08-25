@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
     hasPaymentMethod: false,
     isPaid: false,
     isTrialing: false,
+    isPaused: false,
     plan: "free",
     trialDaysRemaining: null as number | null,
   },
@@ -89,6 +90,7 @@ describe("SettingsAccount", () => {
       hasPaymentMethod: false,
       isPaid: false,
       isTrialing: false,
+      isPaused: false,
       plan: "free",
       trialDaysRemaining: null,
     };
@@ -147,6 +149,7 @@ describe("SettingsAccount", () => {
       hasPaymentMethod: false,
       isPaid: true,
       isTrialing: true,
+      isPaused: false,
       plan: "trial",
       trialDaysRemaining: 3,
     };
@@ -169,12 +172,34 @@ describe("SettingsAccount", () => {
     });
   });
 
+  it("offers to resume a paused cardless trial", async () => {
+    mocks.billing = {
+      canStartTrial: { data: false, isPending: false },
+      hasPaymentMethod: false,
+      isPaid: false,
+      isTrialing: false,
+      isPaused: true,
+      plan: "free",
+      trialDaysRemaining: 0,
+    };
+
+    renderAccount();
+
+    expect(screen.getByText("Your Pro trial has ended")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+
+    await waitFor(() =>
+      expect(mocks.buildWebAppUrl).toHaveBeenCalledWith("/app/portal"),
+    );
+  });
+
   it("starts a cardless trial from the behavioral action variant", async () => {
     mocks.billing = {
       canStartTrial: { data: true, isPending: false },
       hasPaymentMethod: false,
       isPaid: false,
       isTrialing: false,
+      isPaused: false,
       plan: "free",
       trialDaysRemaining: null,
     };
@@ -241,6 +266,7 @@ describe("SettingsAccount", () => {
       hasPaymentMethod: true,
       isPaid: true,
       isTrialing: true,
+      isPaused: false,
       plan: "trial",
       trialDaysRemaining: 3,
     };

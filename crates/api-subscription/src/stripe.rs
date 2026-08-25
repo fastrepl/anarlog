@@ -310,7 +310,7 @@ fn build_trial_subscription(
         .trial_period_days(trial_days)
         .trial_settings(CreateSubscriptionTrialSettings::new(
             CreateSubscriptionTrialSettingsEndBehavior::new(
-                CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod::Cancel,
+                CreateSubscriptionTrialSettingsEndBehaviorMissingPaymentMethod::Pause,
             ),
         ))
 }
@@ -419,7 +419,7 @@ mod tests {
     }
 
     #[test]
-    fn native_trials_are_cardless_and_cancel_if_no_card_is_added() {
+    fn native_trials_are_cardless_and_pause_if_no_card_is_added() {
         let request = serde_json::to_value(build_trial_subscription(
             "cus_test",
             "price_test",
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(request["trial_period_days"], json!(pro_trial_days()));
         assert_eq!(
             request["trial_settings"]["end_behavior"]["missing_payment_method"],
-            json!("cancel")
+            json!("pause")
         );
         assert!(request.get("default_payment_method").is_none());
     }

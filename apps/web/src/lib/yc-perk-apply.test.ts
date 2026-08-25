@@ -71,7 +71,7 @@ test("treats a fully redeemed promotion as unavailable", () => {
   );
 });
 
-test("prefers an active subscription over a trial", () => {
+test("prefers active and trialing subscriptions but preserves paused trials", () => {
   assert.equal(
     pickCurrentSubscription([
       { status: "canceled" },
@@ -83,6 +83,11 @@ test("prefers an active subscription over a trial", () => {
   assert.equal(
     pickCurrentSubscription([{ status: "trialing" }])?.status,
     "trialing",
+  );
+  assert.equal(
+    pickCurrentSubscription([{ status: "canceled" }, { status: "paused" }])
+      ?.status,
+    "paused",
   );
   assert.equal(pickCurrentSubscription([{ status: "canceled" }]), null);
 });
@@ -123,6 +128,43 @@ test("applies the promotion to an existing subscription and clears a scheduled c
         discounts: [{ promotion_code: "promo_yc" }],
         cancel_at_period_end: false,
       },
+    },
+  ]);
+});
+
+test("applies the promotion to a paused cardless trial", async () => {
+  const updates: unknown[] = [];
+  const stripe = {
+    subscriptions: {
+      list: async () => ({
+        data: [
+          {
+            id: "sub_paused",
+            status: "paused",
+            cancel_at_period_end: false,
+            discounts: [],
+          },
+        ],
+      }),
+      update: async (id: string, params: unknown) => {
+        updates.push({ id, params });
+        return { id };
+      },
+    },
+  } as unknown as Stripe;
+
+  assert.deepEqual(
+    await applyYcPromotionToCustomer({
+      stripe,
+      customerId: "cus_trial",
+      promotion,
+    }),
+    { status: "applied", subscriptionId: "sub_paused" },
+  );
+  assert.deepEqual(updates, [
+    {
+      id: "sub_paused",
+      params: { discounts: [{ promotion_code: "promo_yc" }] },
     },
   ]);
 });
