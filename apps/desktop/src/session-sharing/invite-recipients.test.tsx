@@ -1,10 +1,14 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ShareInviteForm } from "./invite-recipients";
+import { ShareInviteForm, ShareInviteSuggestions } from "./invite-recipients";
 
 vi.mock("~/contacts/queries", () => ({
   useHumans: () => [],
+}));
+
+vi.mock("~/contacts/shared", () => ({
+  ContactFacehash: ({ name }: { name: string }) => <span>{name[0]}</span>,
 }));
 
 afterEach(cleanup);
@@ -49,6 +53,30 @@ describe("ShareInviteForm", () => {
     const inviteButton = screen.getByRole("button", { name: "Invite" });
 
     expect(inviteButton.textContent).toContain("(2)");
+  });
+});
+
+describe("ShareInviteSuggestions", () => {
+  it("marks suggested people as not invited without extra explanation", () => {
+    render(
+      <ShareInviteSuggestions
+        invite={createInvite({
+          recipients: [
+            { name: "Ada", email: "ada@example.com" },
+            { name: "Grace", email: "grace@example.com" },
+          ],
+        })}
+        disabled={false}
+      />,
+    );
+
+    expect(screen.getByText("Suggested attendees")).not.toBeNull();
+    expect(screen.getAllByText("Not invited")).toHaveLength(2);
+    expect(
+      screen.queryByText(
+        "Not invited yet. Nothing is sent until you click Invite.",
+      ),
+    ).toBeNull();
   });
 });
 

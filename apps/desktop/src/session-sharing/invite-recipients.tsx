@@ -239,18 +239,15 @@ export function ShareInviteSuggestions({
 
   return (
     <div className="mt-2">
-      <div className="px-1.5">
-        <h4 className="text-muted-foreground text-[10px] font-medium">
-          <Trans>Suggested attendees</Trans>
-        </h4>
-        <p className="text-muted-foreground mt-0.5 text-[10px] leading-4">
-          <Trans>
-            Not invited yet. Nothing is sent until you click Invite.
-          </Trans>
-        </p>
-      </div>
+      <h4 className="text-muted-foreground px-1.5 text-[10px] font-medium">
+        <Trans>Suggested attendees</Trans>
+      </h4>
       <div className="mt-1 space-y-0.5">
-        <ShareInviteRecipientRows invite={invite} disabled={disabled} />
+        <ShareInviteRecipientRows
+          invite={invite}
+          disabled={disabled}
+          status={<Trans>Not invited</Trans>}
+        />
       </div>
     </div>
   );
@@ -259,9 +256,11 @@ export function ShareInviteSuggestions({
 export function ShareInviteRecipientRows({
   invite,
   disabled,
+  status,
 }: {
   invite: ReturnType<typeof useShareInvite>;
   disabled: boolean;
+  status?: ReactNode;
 }) {
   return invite.recipients.map((recipient) => {
     const label = recipient.name || recipient.email;
@@ -279,6 +278,11 @@ export function ShareInviteRecipientRows({
             </p>
           ) : null}
         </div>
+        {status ? (
+          <span className="text-muted-foreground shrink-0 text-[11px]">
+            {status}
+          </span>
+        ) : null}
         <button
           type="button"
           aria-label={`Remove ${label}`}

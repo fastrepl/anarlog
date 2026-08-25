@@ -2936,8 +2936,8 @@ msgid "Not installed"
 msgstr "Not installed"
 
 #: src/session-sharing/invite-recipients.tsx
-msgid "Not invited yet. Nothing is sent until you click Invite."
-msgstr "Not invited yet. Nothing is sent until you click Invite."
+msgid "Not invited"
+msgstr "Not invited"
 
 #: src/billing/trial-payment-reminder-dialog.tsx
 msgid "Not now"
