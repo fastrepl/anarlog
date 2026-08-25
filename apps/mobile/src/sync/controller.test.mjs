@@ -81,6 +81,7 @@ test("boots the native replica with the stored account key", async () => {
   ]);
   assert.deepEqual(controller.getSnapshot(), {
     phase: "ready",
+    hasRecoveryKey: true,
     running: true,
     syncingNow: false,
     hasUnsentChanges: false,

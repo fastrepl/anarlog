@@ -27,6 +27,7 @@ export type TranscriptionState = "idle" | "running" | "failed";
 
 const states = new Map<string, TranscriptionState>();
 const inflight = new Map<string, Promise<void>>();
+const automaticRetryBlocked = new Set<string>();
 const listeners = new Set<() => void>();
 const MAX_RETAINED_FAILED_STATES = 100;
 const transcriptionAdmission = new TranscriptionAdmission(2, 32);
@@ -84,6 +85,21 @@ WHERE attachment.session_id = ?
   AND attachment.deleted_at IS NULL
   AND COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') <> 'complete'
 LIMIT 1
+`;
+
+const PENDING_TRANSCRIPTION_RETRY_SQL = `
+SELECT attachment.session_id
+FROM session_attachments AS attachment
+JOIN attachment_local_state AS local_state
+  ON local_state.attachment_id = attachment.id
+ AND local_state.availability = 'present'
+WHERE attachment.source_type = 'session_audio'
+  AND attachment.deleted_at IS NULL
+  AND attachment.size_bytes > 0
+  AND attachment.size_bytes <= ?
+  AND COALESCE(json_extract(attachment.metadata_json, '$.transcript_status'), '') <> 'complete'
+ORDER BY attachment.updated_at, attachment.id
+LIMIT 8
 `;
 
 const TRANSCRIPT_TOMBSTONE_SQL = `
@@ -290,6 +306,16 @@ function transcriptionStage(error: unknown): TranscriptionStage | "unknown" {
     : "unknown";
 }
 
+function isPermanentTranscriptionFailure(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: unknown }).code;
+  return [
+    "audio_missing",
+    "audio_too_large",
+    "stt_response_too_large",
+  ].includes(String(code));
+}
+
 function requestTimeoutMs(sizeBytes: number): number {
   // The abort covers the whole /stt/listen round trip, not just the upload, so
   // budgeting for transfer alone aborts long recordings the provider is still
@@ -469,6 +495,7 @@ export function transcribeSession(sessionId: string): Promise<void> {
           mode: "batch",
           entry_point: "mobile_audio",
         });
+        automaticRetryBlocked.delete(sessionId);
         clearStateSilently(sessionId);
       })
       .catch((error: unknown) => {
@@ -484,6 +511,9 @@ export function transcribeSession(sessionId: string): Promise<void> {
           entry_point: "mobile_audio",
           failure_stage: "transcription",
         });
+        if (isPermanentTranscriptionFailure(error)) {
+          automaticRetryBlocked.add(sessionId);
+        }
         setState(sessionId, "failed");
       }),
   );
@@ -507,4 +537,37 @@ export function transcribeSession(sessionId: string): Promise<void> {
   });
   inflight.set(sessionId, task);
   return task;
+}
+
+let pendingRetryPass: Promise<void> | null = null;
+
+export function retryPendingTranscriptions(): Promise<void> {
+  if (pendingRetryPass) return pendingRetryPass;
+
+  const pass = execute<{ session_id: string }>(
+    PENDING_TRANSCRIPTION_RETRY_SQL,
+    [MAX_TRANSCRIPTION_AUDIO_BYTES],
+  )
+    .then((rows) =>
+      Promise.all(
+        rows
+          .map((row) => row.session_id)
+          .filter(
+            (sessionId) =>
+              !automaticRetryBlocked.has(sessionId) && !inflight.has(sessionId),
+          )
+          .map((sessionId) => transcribeSession(sessionId)),
+      ),
+    )
+    .then(() => {})
+    .catch((error) => {
+      captureOperationalError(error, {
+        operation: "transcription_retry_pending",
+        level: "warning",
+      });
+    });
+  pendingRetryPass = pass.finally(() => {
+    pendingRetryPass = null;
+  });
+  return pendingRetryPass;
 }

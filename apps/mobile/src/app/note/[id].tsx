@@ -10,6 +10,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -21,10 +22,12 @@ import { useSessionRecorder } from "@/audio/use-session-recorder";
 import { useAuth } from "@/auth/context";
 import { AudioChip } from "@/components/audio-chip";
 import { EditorAccessory } from "@/components/editor-accessory";
-import { HandoffCard } from "@/components/handoff-card";
 import { ListeningSheet } from "@/components/listening-sheet";
+import { NoteActionsSheet } from "@/components/note-actions-sheet";
 import { NoteAttachmentCard } from "@/components/note-attachment-card";
+import { RecordingSyncCard } from "@/components/recording-sync-card";
 import { RemoteAudioCard } from "@/components/remote-audio-card";
+import { StartListeningButton } from "@/components/start-listening-button";
 import { Card } from "@/components/ui/card";
 import { IconButton } from "@/components/ui/icon-button";
 import { Colors, Spacing, Typography } from "@/constants/theme";
@@ -66,6 +69,7 @@ function BodyEditor({
   onAttach,
   onChangeText,
   onCommit,
+  onFocusChange,
 }: {
   accessoryId: string;
   defaultBodyFormat: "prosemirror_json" | "markdown";
@@ -77,6 +81,7 @@ function BodyEditor({
     bodyFormat: "prosemirror_json" | "markdown",
   ) => void;
   onCommit: () => void;
+  onFocusChange: (focused: boolean) => void;
 }) {
   const inputRef = useRef<TextInput>(null);
   const textRef = useRef(defaultValue);
@@ -199,6 +204,8 @@ function BodyEditor({
         placeholderTextColor={Colors.muted}
         textAlignVertical="top"
         onChangeText={handleChangeText}
+        onBlur={() => onFocusChange(false)}
+        onFocus={() => onFocusChange(true)}
         onSelectionChange={(event) => {
           selectionRef.current = event.nativeEvent.selection;
         }}
@@ -243,6 +250,8 @@ export default function NoteScreen() {
   const transcripts = useSessionTranscripts(id);
   const transcription = useTranscriptionState(id);
   const [listening, setListening] = useState(listen === "1");
+  const [editorFocused, setEditorFocused] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const recorder = useSessionRecorder(id, listening);
   const [audioRestoreError, setAudioRestoreError] = useState<string | null>(
     null,
@@ -283,6 +292,12 @@ export default function NoteScreen() {
     bodyFormat?: "prosemirror_json" | "markdown";
   }>({});
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showEmptyNoteCta =
+    !listening &&
+    !editorFocused &&
+    data !== null &&
+    data.title.trim() === "" &&
+    data.noteText.trim() === "";
 
   // The live query lags our own writes, so a body-only flush would otherwise
   // resend the pre-edit title and undo the title we just persisted.
@@ -585,6 +600,55 @@ export default function NoteScreen() {
     }
   };
 
+  const handleExport = async () => {
+    const current = dataRef.current;
+    if (!current) return;
+    const draft = { ...draftRef.current };
+    flush();
+
+    const title = (draft.title ?? current.title).trim() || "Untitled";
+    const note = (draft.body ?? current.noteText).trim();
+    const transcript = transcripts
+      .map((segment) => segment.text)
+      .join("\n\n")
+      .trim();
+    const sections = [`# ${title}`];
+    if (current.summary) {
+      sections.push(
+        `## ${current.summary.title}\n\n${current.summary.text}`.trim(),
+      );
+    }
+    if (note) sections.push(`## Notes\n\n${note}`);
+    if (transcript) sections.push(`## Transcript\n\n${transcript}`);
+
+    try {
+      await Share.share({
+        title,
+        message: sections.join("\n\n"),
+      });
+    } catch (error) {
+      captureOperationalError(error, {
+        operation: "session_export",
+        tags: { entry_point: "mobile_note" },
+      });
+    }
+  };
+
+  const handleListeningAction = () => {
+    if (listening) void handleStop();
+    else {
+      setListening(true);
+      void recorder.start();
+    }
+  };
+
+  const handleMoreActions = () => {
+    if (!data) return;
+    Keyboard.dismiss();
+    setEditorFocused(false);
+    setActionsOpen(true);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -595,9 +659,11 @@ export default function NoteScreen() {
           onPress={() => void handleBack()}
         />
         <IconButton
-          accessibilityLabel="Delete note"
-          icon="trash-outline"
-          onPress={() => void handleDelete()}
+          accessibilityLabel="More actions"
+          disabled={!data}
+          icon="ellipsis-horizontal"
+          iconSize={22}
+          onPress={handleMoreActions}
           tone="muted"
         />
       </View>
@@ -609,7 +675,9 @@ export default function NoteScreen() {
             defaultValue={data.title}
             placeholder="Untitled"
             placeholderTextColor={Colors.muted}
+            onBlur={() => setEditorFocused(false)}
             onChangeText={(title) => onEdit({ title })}
+            onFocus={() => setEditorFocused(true)}
           />
           {data.summary && (
             <Card style={styles.summary} tone="muted">
@@ -631,10 +699,7 @@ export default function NoteScreen() {
                 filename={audio.data.filename}
                 sizeBytes={audio.data.sizeBytes}
               />
-              <HandoffCard
-                uri={localAudioFile.uri}
-                filename={audio.data.filename}
-              />
+              <RecordingSyncCard audio={audio.data} />
             </View>
           )}
           {audio.data && !localAudioAvailable && (
@@ -710,7 +775,6 @@ export default function NoteScreen() {
               ))}
             </View>
           )}
-          <Text style={styles.noteLabel}>Notes</Text>
           {!data.plainEditable && (
             <View style={styles.readOnlyChip}>
               <Ionicons
@@ -731,9 +795,24 @@ export default function NoteScreen() {
             onAttach={handleAttachFile}
             onChangeText={(body, bodyFormat) => onEdit({ body, bodyFormat })}
             onCommit={flush}
+            onFocusChange={setEditorFocused}
           />
         </View>
       )}
+
+      {showEmptyNoteCta && (
+        <StartListeningButton onPress={handleListeningAction} />
+      )}
+
+      <NoteActionsSheet
+        hasRecordingHistory={Boolean(audio.data || transcripts.length > 0)}
+        listening={listening}
+        onClose={() => setActionsOpen(false)}
+        onDelete={() => void handleDelete()}
+        onExport={() => void handleExport()}
+        onToggleListening={handleListeningAction}
+        visible={actionsOpen}
+      />
 
       {listening && (
         <ListeningSheet
@@ -761,7 +840,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.md,
   },
   editor: {
@@ -835,12 +914,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   attachmentLabel: {
-    ...Typography.captionStrong,
-    color: Colors.muted,
-  },
-  noteLabel: {
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.md,
     ...Typography.captionStrong,
     color: Colors.muted,
   },

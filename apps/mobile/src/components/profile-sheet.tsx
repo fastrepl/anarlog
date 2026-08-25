@@ -1,9 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useState, useSyncExternalStore } from "react";
 import {
   KeyboardAvoidingView,
-  Modal,
   Platform,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -32,14 +31,12 @@ import {
 } from "@/sync/mobile-sync";
 import { syncStatusPresentation } from "@/sync/status-presentation";
 
-type SheetMode = "status" | "choose" | "import" | "generated";
+export type SettingsMode = "status" | "choose" | "import" | "generated";
 
-export function ProfileSheet({
-  visible,
-  onClose,
+export function SettingsContent({
+  initialMode = "status",
 }: {
-  visible: boolean;
-  onClose: () => void;
+  initialMode?: SettingsMode;
 }) {
   const auth = useAuth();
   const sync = useSyncExternalStore(
@@ -47,7 +44,7 @@ export function ProfileSheet({
     getMobileSyncSnapshot,
     getMobileSyncSnapshot,
   );
-  const [mode, setMode] = useState<SheetMode>("status");
+  const [mode, setMode] = useState<SettingsMode>(initialMode);
   const [recoveryKey, setRecoveryKey] = useState("");
   const [generatedKey, setGeneratedKey] = useState("");
   const [busy, setBusy] = useState(false);
@@ -61,14 +58,6 @@ export function ProfileSheet({
         ? "Pro"
         : "Free";
   const presentation = syncStatusPresentation(sync);
-
-  const close = () => {
-    if (mode === "generated" || busy) return;
-    setMode("status");
-    setRecoveryKey("");
-    setActionError(null);
-    onClose();
-  };
 
   const createRecoveryKey = async () => {
     setBusy(true);
@@ -196,10 +185,7 @@ export function ProfileSheet({
         <View style={styles.actions}>
           <Button
             label="Sign out"
-            onPress={() => {
-              close();
-              void auth.signOut();
-            }}
+            onPress={() => void auth.signOut()}
             size="small"
             variant="outline"
           />
@@ -222,227 +208,214 @@ export function ProfileSheet({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={close}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.container}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.backdrop}
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Pressable style={styles.backdropPressable} onPress={close}>
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.handle} />
-            <ScrollView
-              contentContainerStyle={styles.content}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.row}>
-                <Text style={styles.email} numberOfLines={1}>
-                  {auth.bypass
-                    ? "Not signed in"
-                    : (auth.session?.user.email ?? "")}
-                </Text>
-                <View style={styles.planChip}>
-                  <Text style={styles.planLabel}>{planLabel}</Text>
-                </View>
-              </View>
+        <View style={styles.accountCard}>
+          <View style={styles.accountIcon}>
+            <Ionicons name="person-outline" size={22} color={Colors.ink} />
+          </View>
+          <View style={styles.accountIdentity}>
+            <Text style={styles.accountLabel}>Account</Text>
+            <Text style={styles.email} numberOfLines={1}>
+              {auth.bypass ? "Not signed in" : (auth.session?.user.email ?? "")}
+            </Text>
+          </View>
+          <View style={styles.planChip}>
+            <Text style={styles.planLabel}>{planLabel}</Text>
+          </View>
+        </View>
 
-              {mode === "status" && (
-                <View style={styles.syncCard}>
-                  <View style={styles.statusHeading}>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        presentation.healthy
-                          ? styles.statusDotReady
-                          : presentation.retrying || presentation.pending
-                            ? styles.statusDotRetrying
-                            : styles.statusDotQuiet,
-                      ]}
-                    />
-                    <Text style={styles.eyebrow}>Cloud sync</Text>
-                  </View>
-                  <Text style={styles.syncTitle}>{presentation.title}</Text>
-                  <Text style={styles.syncDescription}>
-                    {presentation.description}
-                  </Text>
-                  {presentation.detail && (
-                    <Text style={styles.syncDetail}>{presentation.detail}</Text>
-                  )}
-                  {renderStatusActions()}
-                </View>
-              )}
+        {mode === "status" && (
+          <View style={styles.syncCard}>
+            <View style={styles.statusHeading}>
+              <View
+                style={[
+                  styles.statusDot,
+                  presentation.healthy
+                    ? styles.statusDotReady
+                    : presentation.retrying || presentation.pending
+                      ? styles.statusDotRetrying
+                      : styles.statusDotQuiet,
+                ]}
+              />
+              <Text style={styles.eyebrow}>Cloud sync</Text>
+            </View>
+            <Text style={styles.syncTitle}>{presentation.title}</Text>
+            <Text style={styles.syncDescription}>
+              {presentation.description}
+            </Text>
+            {presentation.detail && (
+              <Text style={styles.syncDetail}>{presentation.detail}</Text>
+            )}
+            {renderStatusActions()}
+          </View>
+        )}
 
-              {mode === "choose" && (
-                <View style={styles.setup}>
-                  <Text style={styles.setupTitle}>Set up encrypted sync</Text>
-                  <Text style={styles.setupDescription}>
-                    Your recovery key protects every synced note. Anarlog cannot
-                    recover it for you.
-                  </Text>
-                  <Button
-                    label="Create a recovery key"
-                    loading={busy}
-                    onPress={() => void createRecoveryKey()}
-                  />
-                  <Button
-                    label="Use an existing key"
-                    disabled={busy}
-                    onPress={() => {
-                      setActionError(null);
-                      setMode("import");
-                    }}
-                    variant="outline"
-                  />
-                  <Button
-                    label="Back"
-                    disabled={busy}
-                    onPress={() => setMode("status")}
-                    size="small"
-                    variant="ghost"
-                  />
-                </View>
-              )}
+        {mode === "choose" && (
+          <View style={styles.setup}>
+            <Text style={styles.setupTitle}>Set up encrypted sync</Text>
+            <Text style={styles.setupDescription}>
+              Your recovery key protects every synced note. Anarlog cannot
+              recover it for you.
+            </Text>
+            <Button
+              label="Create a recovery key"
+              loading={busy}
+              onPress={() => void createRecoveryKey()}
+            />
+            <Button
+              label="Use an existing key"
+              disabled={busy}
+              onPress={() => {
+                setActionError(null);
+                setMode("import");
+              }}
+              variant="outline"
+            />
+            <Button
+              label="Back"
+              disabled={busy}
+              onPress={() => setMode("status")}
+              size="small"
+              variant="ghost"
+            />
+          </View>
+        )}
 
-              {mode === "import" && (
-                <View style={styles.setup}>
-                  <Text style={styles.setupTitle}>Use a recovery key</Text>
-                  <Text style={styles.setupDescription}>
-                    Enter the key saved from Anarlog on another device.
-                  </Text>
-                  <TextInput
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!busy}
-                    multiline
-                    onChangeText={setRecoveryKey}
-                    placeholder="Paste recovery key"
-                    placeholderTextColor={Colors.muted}
-                    style={styles.keyInput}
-                    value={recoveryKey}
-                  />
-                  <Button
-                    label="Use this key"
-                    loading={busy}
-                    onPress={() => void importRecoveryKey()}
-                  />
-                  <Button
-                    label="Back"
-                    disabled={busy}
-                    onPress={() => {
-                      setActionError(null);
-                      setMode(
-                        sync.phase === "identity_mismatch"
-                          ? "status"
-                          : "choose",
-                      );
-                    }}
-                    size="small"
-                    variant="ghost"
-                  />
-                </View>
-              )}
+        {mode === "import" && (
+          <View style={styles.setup}>
+            <Text style={styles.setupTitle}>Use a recovery key</Text>
+            <Text style={styles.setupDescription}>
+              Enter the key saved from Anarlog on another device.
+            </Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!busy}
+              multiline
+              onChangeText={setRecoveryKey}
+              placeholder="Paste recovery key"
+              placeholderTextColor={Colors.muted}
+              style={styles.keyInput}
+              value={recoveryKey}
+            />
+            <Button
+              label="Use this key"
+              loading={busy}
+              onPress={() => void importRecoveryKey()}
+            />
+            <Button
+              label="Back"
+              disabled={busy}
+              onPress={() => {
+                setActionError(null);
+                setMode(
+                  sync.phase === "identity_mismatch" ? "status" : "choose",
+                );
+              }}
+              size="small"
+              variant="ghost"
+            />
+          </View>
+        )}
 
-              {mode === "generated" && (
-                <View style={styles.setup}>
-                  <Text style={styles.setupTitle}>Save your recovery key</Text>
-                  <Text style={styles.setupDescription}>
-                    Keep this in a password manager. You will need it to add
-                    another device or recover your synced notes.
-                  </Text>
-                  <View style={styles.generatedKeyBox}>
-                    <Text selectable style={styles.generatedKey}>
-                      {generatedKey}
-                    </Text>
-                  </View>
-                  <Button
-                    label="Save recovery key"
-                    onPress={() => void shareRecoveryKey()}
-                    variant="outline"
-                  />
-                  <Button
-                    label="I saved it"
-                    loading={busy}
-                    onPress={() => void finishRecoveryKey()}
-                  />
-                  <Button
-                    label="Cancel"
-                    disabled={busy}
-                    onPress={discardGeneratedKey}
-                    size="small"
-                    variant="ghost"
-                  />
-                </View>
-              )}
+        {mode === "generated" && (
+          <View style={styles.setup}>
+            <Text style={styles.setupTitle}>Save your recovery key</Text>
+            <Text style={styles.setupDescription}>
+              Keep this in a password manager. You will need it to add another
+              device or recover your synced notes.
+            </Text>
+            <View style={styles.generatedKeyBox}>
+              <Text selectable style={styles.generatedKey}>
+                {generatedKey}
+              </Text>
+            </View>
+            <Button
+              label="Save recovery key"
+              onPress={() => void shareRecoveryKey()}
+              variant="outline"
+            />
+            <Button
+              label="I saved it"
+              loading={busy}
+              onPress={() => void finishRecoveryKey()}
+            />
+            <Button
+              label="Cancel"
+              disabled={busy}
+              onPress={discardGeneratedKey}
+              size="small"
+              variant="ghost"
+            />
+          </View>
+        )}
 
-              {actionError && (
-                <Text accessibilityLiveRegion="polite" style={styles.error}>
-                  {actionError}
-                </Text>
-              )}
+        {actionError && (
+          <Text accessibilityLiveRegion="polite" style={styles.error}>
+            {actionError}
+          </Text>
+        )}
 
-              {!auth.bypass && mode === "status" && (
-                <Button
-                  label="Sign out"
-                  onPress={() => {
-                    close();
-                    void auth.signOut();
-                  }}
-                  size="small"
-                  style={styles.signOut}
-                  variant="ghost"
-                />
-              )}
-            </ScrollView>
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+        {!auth.bypass && mode === "status" && (
+          <Button
+            label="Sign out"
+            onPress={() => void auth.signOut()}
+            size="small"
+            style={styles.signOut}
+            variant="ghost"
+          />
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  container: {
     flex: 1,
-  },
-  backdropPressable: {
-    flex: 1,
-    justifyContent: "flex-end",
-    backgroundColor: Colors.scrim,
-  },
-  sheet: {
-    maxHeight: "88%",
-    backgroundColor: Colors.surface,
-    borderTopLeftRadius: Radius.sheet,
-    borderTopRightRadius: Radius.sheet,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    paddingTop: Spacing.sm,
+    backgroundColor: Colors.background,
   },
   content: {
-    paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.roomy,
   },
-  handle: {
-    alignSelf: "center",
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.border,
-    marginBottom: Spacing.md,
-  },
-  row: {
+  accountCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: Spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.surface,
+    padding: Spacing.md,
+  },
+  accountIcon: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.pill,
+    borderCurve: CornerCurve.squircle,
+    backgroundColor: Colors.accentSurface,
+  },
+  accountIdentity: {
+    flex: 1,
+  },
+  accountLabel: {
+    ...Typography.captionStrong,
+    color: Colors.muted,
   },
   email: {
-    flex: 1,
+    marginTop: Spacing.xs,
     ...Typography.section,
     color: Colors.ink,
   },
@@ -465,7 +438,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: Radius.card,
     borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.background,
+    backgroundColor: Colors.surface,
     padding: Spacing.md,
   },
   statusHeading: {

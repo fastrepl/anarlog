@@ -9,7 +9,15 @@ export type SessionAudioRow = {
   available_locally: number;
   local_relative_path: string;
   cloud_object_key: string;
+  upload_phase: string | null;
+  upload_error: string;
 };
+
+export type SessionAudioDeliveryState =
+  | "queued"
+  | "uploading"
+  | "synced"
+  | "failed";
 
 export type SessionAudio = {
   attachmentId: string;
@@ -22,6 +30,9 @@ export type SessionAudio = {
   availableLocally: boolean;
   localRelativePath: string | null;
   cloudObjectKey: string | null;
+  deliveryState: SessionAudioDeliveryState;
+  uploadPhase: string | null;
+  uploadError: string | null;
 };
 
 export function mapSessionAudioRows(
@@ -31,6 +42,16 @@ export function mapSessionAudioRows(
   if (!row) return null;
   const availableLocally =
     row.available_locally === 1 && row.local_relative_path !== "";
+  const cloudObjectKey = row.cloud_object_key || null;
+  const deliveryState: SessionAudioDeliveryState = cloudObjectKey
+    ? "synced"
+    : row.upload_phase === "failed"
+      ? "failed"
+      : ["preparing", "ready", "transferring", "finalizing"].includes(
+            row.upload_phase ?? "",
+          )
+        ? "uploading"
+        : "queued";
   return {
     attachmentId: row.id,
     filename: row.filename,
@@ -41,6 +62,9 @@ export function mapSessionAudioRows(
     createdAt: row.created_at,
     availableLocally,
     localRelativePath: availableLocally ? row.local_relative_path : null,
-    cloudObjectKey: row.cloud_object_key || null,
+    cloudObjectKey,
+    deliveryState,
+    uploadPhase: row.upload_phase,
+    uploadError: row.upload_error || null,
   };
 }

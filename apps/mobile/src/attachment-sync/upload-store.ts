@@ -330,6 +330,33 @@ export async function failMobileAttachmentUpload(
   ]);
 }
 
+export async function requeueMobileAttachmentUpload(
+  attachmentId: string,
+): Promise<number> {
+  const now = nowIso();
+  const [count = 0] = await executeTransaction([
+    {
+      sql: `
+        UPDATE attachment_transfer_jobs
+        SET phase = 'retry_wait', next_attempt_at = ?, last_error = '', updated_at = ?
+        WHERE attachment_id = ?
+          AND direction = 'upload'
+          AND phase IN ('failed', 'retry_wait')
+          AND EXISTS (
+            SELECT 1 FROM session_attachments AS attachment
+            WHERE attachment.id = attachment_transfer_jobs.attachment_id
+              AND attachment.sha256 = attachment_transfer_jobs.expected_sha256
+              AND attachment.size_bytes = attachment_transfer_jobs.expected_size_bytes
+              AND attachment.deleted_at IS NULL
+              AND attachment.cloud_sync_enabled = 1
+          )
+      `,
+      params: [now, now, attachmentId],
+    },
+  ]);
+  return count;
+}
+
 async function updateJob(
   job: MobileAttachmentUploadJob,
   phase: "preparing" | "transferring" | "finalizing",
@@ -391,5 +418,6 @@ export const mobileAttachmentUploadStore = {
   complete: completeMobileAttachmentUpload,
   completeWithoutTransfer: completeMobileAttachmentUploadWithoutTransfer,
   retry: retryMobileAttachmentUpload,
+  requeue: requeueMobileAttachmentUpload,
   fail: failMobileAttachmentUpload,
 };

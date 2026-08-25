@@ -3,9 +3,43 @@ import test from "node:test";
 
 import {
   buildSessionList,
+  dayLabel,
   mapTimelineRows,
   nextTimelineRefreshAt,
+  relativeLabel,
 } from "./timeline-model.ts";
+
+test("uses calendar labels around the current day", () => {
+  const now = new Date(2026, 7, 17, 12).getTime();
+
+  assert.equal(dayLabel(new Date(2026, 7, 17, 23).toISOString(), now), "Today");
+  assert.equal(
+    dayLabel(new Date(2026, 7, 18, 0).toISOString(), now),
+    "Tomorrow",
+  );
+  assert.equal(
+    dayLabel(new Date(2026, 7, 16, 23).toISOString(), now),
+    "Yesterday",
+  );
+});
+
+test("uses readable relative units instead of unbounded hours", () => {
+  const now = new Date("2026-08-17T12:00:00.000Z").getTime();
+
+  assert.equal(relativeLabel(new Date(now - 29_000).toISOString(), now), "now");
+  assert.equal(
+    relativeLabel(new Date(now - 90 * 60_000).toISOString(), now),
+    "2 hours ago",
+  );
+  assert.equal(
+    relativeLabel(new Date(now - 205 * 60 * 60_000).toISOString(), now),
+    "9 days ago",
+  );
+  assert.equal(
+    relativeLabel(new Date(now + 2 * 24 * 60 * 60_000).toISOString(), now),
+    "in 2 days",
+  );
+});
 
 test("groups upcoming meetings nearest-first and past meetings newest-first", () => {
   const now = new Date(2026, 7, 17, 12).getTime();

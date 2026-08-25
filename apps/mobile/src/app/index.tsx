@@ -1,29 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/auth/context";
-import { ProfileSheet } from "@/components/profile-sheet";
 import { SessionCard } from "@/components/session-card";
+import { StartListeningButton } from "@/components/start-listening-button";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
-import {
-  Colors,
-  CornerCurve,
-  LISTENING_CONTROL_HEIGHT,
-  LISTENING_CONTROL_RADIUS,
-  Spacing,
-  Typography,
-} from "@/constants/theme";
+import { Colors, ControlSize, Spacing, Typography } from "@/constants/theme";
 import { importVoiceMemos } from "@/data/import-voice-memo";
 import { useSessionSearch } from "@/data/search";
 import { createSession, deleteSession } from "@/data/session";
@@ -48,7 +34,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const auth = useAuth();
   const { items, isLoading } = useTimelineSessions();
-  const [profileOpen, setProfileOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState<string | null>(null);
   const [settledSearchQuery, setSettledSearchQuery] = useState("");
@@ -172,9 +157,9 @@ export default function HomeScreen() {
         ) : (
           <>
             <IconButton
-              accessibilityLabel="Open profile"
+              accessibilityLabel="Open settings"
               icon="person-outline"
-              onPress={() => setProfileOpen(true)}
+              onPress={() => router.push("/settings")}
               variant="surface"
             />
             <IconButton
@@ -261,48 +246,41 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.actions}>
-        <Button
-          label="New meeting"
-          onPress={() => void createAndOpen()}
-          leading={
-            <Ionicons name="create-outline" size={17} color={Colors.ink} />
-          }
-          style={styles.secondaryButton}
-          variant="outline"
-        />
-        <Button
-          label={importing ? "Importing…" : "Import recording"}
-          onPress={handleImport}
-          disabled={importing}
-          leading={
-            <Ionicons
-              name="cloud-upload-outline"
-              size={17}
-              color={Colors.ink}
+      {!searching && (
+        <>
+          <View style={styles.actions}>
+            <Button
+              label="New meeting"
+              onPress={() => void createAndOpen()}
+              leading={
+                <Ionicons name="create-outline" size={17} color={Colors.ink} />
+              }
+              style={styles.secondaryButton}
+              variant="outline"
             />
-          }
-          loading={importing}
-          style={styles.secondaryButton}
-          variant="outline"
-        />
-      </View>
+            <Button
+              label={importing ? "Importing…" : "Import recording"}
+              onPress={handleImport}
+              disabled={importing}
+              leading={
+                <Ionicons
+                  name="cloud-upload-outline"
+                  size={17}
+                  color={Colors.ink}
+                />
+              }
+              loading={importing}
+              style={styles.secondaryButton}
+              variant="outline"
+            />
+          </View>
 
-      <Pressable
-        onPress={() => void createAndOpen("?listen=1")}
-        style={({ pressed }) => [
-          styles.listenButton,
-          pressed && styles.pressed,
-        ]}
-      >
-        <View style={styles.listenDot} />
-        <Text style={styles.listenLabel}>Start listening</Text>
-      </Pressable>
-
-      <ProfileSheet
-        visible={profileOpen}
-        onClose={() => setProfileOpen(false)}
-      />
+          <StartListeningButton
+            bottomSpacing={Spacing.xs}
+            onPress={() => void createAndOpen("?listen=1")}
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -317,14 +295,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.md,
   },
   searchInput: {
     flex: 1,
+    height: ControlSize.compact,
     marginRight: Spacing.sm,
+    paddingVertical: Spacing.sm,
     ...Typography.body,
     color: Colors.ink,
-    paddingVertical: 0,
+    textAlignVertical: "center",
   },
   list: {
     flex: 1,
@@ -367,31 +348,5 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-  },
-  pressed: {
-    opacity: 0.6,
-  },
-  listenButton: {
-    height: LISTENING_CONTROL_HEIGHT,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: Spacing.sm,
-    marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderRadius: LISTENING_CONTROL_RADIUS,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.primary,
-  },
-  listenDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderCurve: CornerCurve.squircle,
-    backgroundColor: Colors.accent,
-  },
-  listenLabel: {
-    ...Typography.section,
-    color: Colors.primaryForeground,
   },
 });

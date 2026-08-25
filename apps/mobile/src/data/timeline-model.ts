@@ -28,31 +28,42 @@ function startOfDay(timestamp: number): number {
 export function dayLabel(iso: string, now = Date.now()): string {
   const timestamp = new Date(iso).getTime();
   if (!Number.isFinite(timestamp)) return "Date unavailable";
-  const today = startOfDay(now);
-  const day = startOfDay(timestamp);
-  if (day === today) return "Today";
-  if (day === today + DAY) return "Tomorrow";
-  if (day === today - DAY) return "Yesterday";
-  const date = new Date(day);
-  const sameYear = date.getFullYear() === new Date(today).getFullYear();
-  return date.toLocaleDateString(undefined, {
+  const today = new Date(startOfDay(now));
+  const day = new Date(startOfDay(timestamp));
+  const dayOffset = Math.round(
+    (Date.UTC(day.getFullYear(), day.getMonth(), day.getDate()) -
+      Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) /
+      DAY,
+  );
+  if (dayOffset === 0) return "Today";
+  if (dayOffset === 1) return "Tomorrow";
+  if (dayOffset === -1) return "Yesterday";
+  const sameYear = day.getFullYear() === today.getFullYear();
+  return day.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     ...(sameYear ? {} : { year: "numeric" }),
   });
 }
 
-export function relativeLabel(iso: string): string {
+export function relativeLabel(iso: string, now = Date.now()): string {
   const timestamp = new Date(iso).getTime();
   if (!Number.isFinite(timestamp)) return "date unavailable";
-  const diff = timestamp - Date.now();
+  const diff = timestamp - now;
   const minutes = Math.round(Math.abs(diff) / 60000);
   if (minutes < 1) return "now";
-  const unit =
+  const [value, label] =
     minutes < 60
-      ? `${minutes} min${minutes === 1 ? "" : "s"}`
-      : `${Math.round(minutes / 60)} hour${Math.round(minutes / 60) === 1 ? "" : "s"}`;
-  return diff > 0 ? `${unit} later` : `${unit} ago`;
+      ? [minutes, "min"]
+      : minutes < 24 * 60
+        ? [Math.round(minutes / 60), "hour"]
+        : minutes < 30 * 24 * 60
+          ? [Math.round(minutes / (24 * 60)), "day"]
+          : minutes < 365 * 24 * 60
+            ? [Math.round(minutes / (30 * 24 * 60)), "month"]
+            : [Math.round(minutes / (365 * 24 * 60)), "year"];
+  const unit = `${value} ${label}${value === 1 ? "" : "s"}`;
+  return diff > 0 ? `in ${unit}` : `${unit} ago`;
 }
 
 export function buildSessionList(

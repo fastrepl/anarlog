@@ -1,9 +1,13 @@
 import * as Sentry from "@sentry/react-native";
 import { type ErrorBoundaryProps, Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
+import {
+  getMobileCaptureActive,
+  subscribeMobileCapture,
+} from "@/audio/capture-lifecycle";
 import { recoverInterruptedRecordings } from "@/audio/recover-recordings";
 import { AuthProvider, useAuth } from "@/auth/context";
 import { PaywallScreen, SignInScreen } from "@/auth/screens";
@@ -16,7 +20,10 @@ import {
   initializeErrorReporting,
 } from "@/lib/error-reporting";
 import { useMountEffect } from "@/lib/use-mount-effect";
+import { canUseMobileCapture } from "@/sync/capture-access";
+import { getMobileSyncSnapshot, subscribeMobileSync } from "@/sync/mobile-sync";
 import { MobileSyncLifecycle } from "@/sync/mobile-sync-lifecycle";
+import { SyncEnrollmentScreen } from "@/sync/sync-enrollment-screen";
 import { initializeWatchConnectivity } from "@/watch-connectivity";
 
 initializeErrorReporting();
@@ -77,6 +84,16 @@ function Screens({ accountUserId }: { accountUserId: string | null }) {
 
 function Gate() {
   const auth = useAuth();
+  const captureActive = useSyncExternalStore(
+    subscribeMobileCapture,
+    getMobileCaptureActive,
+    getMobileCaptureActive,
+  );
+  const sync = useSyncExternalStore(
+    subscribeMobileSync,
+    getMobileSyncSnapshot,
+    getMobileSyncSnapshot,
+  );
   const [signingIn, setSigningIn] = useState(false);
 
   const handleSignIn = async () => {
@@ -91,6 +108,22 @@ function Gate() {
   };
 
   if (auth.bypass) return <Screens accountUserId={null} />;
+
+  if (captureActive) {
+    const activeSession = auth.session;
+    return (
+      <>
+        {activeSession && (
+          <MobileSyncLifecycle
+            key={`${activeSession.user.id}:${activeSession.access_token}`}
+            accessToken={activeSession.access_token}
+            accountUserId={activeSession.user.id}
+          />
+        )}
+        <Screens accountUserId={activeSession?.user.id ?? null} />
+      </>
+    );
+  }
 
   if (
     auth.status === "loading" ||
@@ -130,7 +163,11 @@ function Gate() {
         accessToken={session.access_token}
         accountUserId={session.user.id}
       />
-      <Screens accountUserId={session.user.id} />
+      {canUseMobileCapture(sync) ? (
+        <Screens accountUserId={session.user.id} />
+      ) : (
+        <SyncEnrollmentScreen />
+      )}
     </>
   );
 }

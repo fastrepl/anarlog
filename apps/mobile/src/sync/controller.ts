@@ -12,6 +12,7 @@ export type MobileSyncPhase =
 
 export type MobileSyncSnapshot = {
   phase: MobileSyncPhase;
+  hasRecoveryKey: boolean;
   running: boolean;
   syncingNow: boolean;
   hasUnsentChanges: boolean | null;
@@ -71,6 +72,7 @@ type ControllerTimers = {
 
 const initialSnapshot: MobileSyncSnapshot = {
   phase: "inactive",
+  hasRecoveryKey: false,
   running: false,
   syncingNow: false,
   hasUnsentChanges: null,
@@ -225,6 +227,7 @@ export class MobileSyncController {
     await this.stopSafely();
     if (generation !== this.generation) return;
 
+    let hasRecoveryKey = false;
     try {
       const recoveryKey = await this.dependencies.readRecoveryKey(
         session.accountUserId,
@@ -234,6 +237,12 @@ export class MobileSyncController {
         this.update({ ...initialSnapshot, phase: "setup_required" });
         return;
       }
+      hasRecoveryKey = true;
+      this.update({
+        ...initialSnapshot,
+        phase: "starting",
+        hasRecoveryKey: true,
+      });
 
       const device = await this.dependencies.getDevice();
       if (generation !== this.generation) return;
@@ -244,11 +253,20 @@ export class MobileSyncController {
       );
       if (generation !== this.generation) return;
       if (result === "account_mismatch") {
-        this.update({ ...initialSnapshot, phase: "account_mismatch" });
+        this.update({
+          ...initialSnapshot,
+          phase: "account_mismatch",
+          hasRecoveryKey: true,
+        });
         return;
       }
 
-      this.update({ ...initialSnapshot, phase: "ready", running: true });
+      this.update({
+        ...initialSnapshot,
+        phase: "ready",
+        hasRecoveryKey: true,
+        running: true,
+      });
       await this.refreshStatus(generation);
       if (generation !== this.generation) return;
       this.startPolling(generation);
@@ -259,6 +277,7 @@ export class MobileSyncController {
       this.update({
         ...initialSnapshot,
         phase,
+        hasRecoveryKey,
         errorMessage: errorMessage(error),
       });
       if (phase === "error") {

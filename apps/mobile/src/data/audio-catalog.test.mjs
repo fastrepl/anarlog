@@ -15,6 +15,8 @@ const row = {
   local_relative_path: "audio.wav",
   cloud_object_key:
     "e8d8149f-af6a-4c14-8b91-066fa196187c/02425e17-c452-41c9-869c-196d09f75c91.anb1",
+  upload_phase: "completed",
+  upload_error: "",
 };
 
 test("maps a device-local audio attachment to a playable file", () => {
@@ -30,6 +32,9 @@ test("maps a device-local audio attachment to a playable file", () => {
     localRelativePath: "audio.wav",
     cloudObjectKey:
       "e8d8149f-af6a-4c14-8b91-066fa196187c/02425e17-c452-41c9-869c-196d09f75c91.anb1",
+    deliveryState: "synced",
+    uploadPhase: "completed",
+    uploadError: null,
   });
 });
 
@@ -50,7 +55,29 @@ test("does not treat synced metadata as a local audio file", () => {
       localRelativePath: null,
       cloudObjectKey:
         "e8d8149f-af6a-4c14-8b91-066fa196187c/02425e17-c452-41c9-869c-196d09f75c91.anb1",
+      deliveryState: "synced",
+      uploadPhase: "completed",
+      uploadError: null,
     },
+  );
+});
+
+test("maps the durable upload job to a per-record delivery state", () => {
+  assert.equal(
+    mapSessionAudioRows([
+      {
+        ...row,
+        cloud_object_key: "",
+        upload_phase: "transferring",
+      },
+    ])?.deliveryState,
+    "uploading",
+  );
+  assert.equal(
+    mapSessionAudioRows([
+      { ...row, cloud_object_key: "", upload_phase: "failed" },
+    ])?.deliveryState,
+    "failed",
   );
 });
 

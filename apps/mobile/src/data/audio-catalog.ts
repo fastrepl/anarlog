@@ -1,6 +1,7 @@
 import { File, FileMode, Paths } from "expo-file-system";
 
 import { requestMobileAttachmentUploads } from "@/attachment-sync/upload-runner";
+import { requeueMobileAttachmentUpload } from "@/attachment-sync/upload-store";
 import { executeTransaction, useLiveQuery } from "@/db";
 import { id, nowIso } from "@/lib/ids";
 
@@ -128,10 +129,23 @@ SELECT
   attachment.created_at,
   CASE WHEN local_state.availability = 'present' THEN 1 ELSE 0 END AS available_locally,
   COALESCE(local_state.relative_path, '') AS local_relative_path,
-  attachment.cloud_object_key
+  attachment.cloud_object_key,
+  upload.phase AS upload_phase,
+  COALESCE(upload.last_error, '') AS upload_error
 FROM session_attachments AS attachment
 LEFT JOIN attachment_local_state AS local_state
   ON local_state.attachment_id = attachment.id
+LEFT JOIN attachment_transfer_jobs AS upload
+  ON upload.id = (
+    SELECT candidate.id
+    FROM attachment_transfer_jobs AS candidate
+    WHERE candidate.attachment_id = attachment.id
+      AND candidate.direction = 'upload'
+      AND candidate.expected_sha256 = attachment.sha256
+      AND candidate.expected_size_bytes = attachment.size_bytes
+    ORDER BY candidate.updated_at DESC, candidate.id DESC
+    LIMIT 1
+  )
 WHERE attachment.session_id = ?
   AND attachment.source_type = 'session_audio'
   AND attachment.deleted_at IS NULL
@@ -151,4 +165,11 @@ export function useSessionAudio(sessionId: string): {
     mapRows: mapSessionAudioRows,
   });
   return { data: data ?? null, isLoading };
+}
+
+export async function retrySessionAudioUpload(
+  attachmentId: string,
+): Promise<void> {
+  await requeueMobileAttachmentUpload(attachmentId);
+  requestMobileAttachmentUploads();
 }
