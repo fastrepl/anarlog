@@ -1314,11 +1314,45 @@ impl PluginDbRuntime {
         for workspace_id in workspace_ids {
             let witness = &witnesses[workspace_id];
             witness
-                .initialize_keyring_cancellable(self.db.pool(), &keys[workspace_id], cancellation)
+                .initialize_keyring_with_page_handler_cancellable(
+                    self.db.pool(),
+                    &keys[workspace_id],
+                    || self.materialize_authenticated_e2ee_changes(keys, cancellation),
+                    cancellation,
+                )
                 .await?;
             cancellation.check()?;
         }
         Ok(())
+    }
+
+    async fn materialize_authenticated_e2ee_changes(
+        &self,
+        keys: &HashMap<String, anlg_e2ee::WorkspaceKeyring>,
+        cancellation: &crate::e2ee_witness::E2eeWitnessCancellation,
+    ) -> std::io::Result<()> {
+        loop {
+            cancellation.check()?;
+            let stats = anlg_db_app::apply_received_e2ee_replica_changes_with_witness_cancellable(
+                self.db.pool(),
+                keys,
+                true,
+                || cancellation.is_cancelled(),
+            )
+            .await
+            .map_err(|error| {
+                std::io::Error::other(format!("E2EE witness hydration failed: {error}"))
+            })?;
+            cancellation.check()?;
+            tracing::debug!(
+                applied_fields = stats.applied_fields,
+                remaining = stats.remaining_replica_changes,
+                "materialized authenticated E2EE changes"
+            );
+            if !stats.remaining_replica_changes {
+                return Ok(());
+            }
+        }
     }
 
     async fn legacy_e2ee_cutover_required(&self) -> Result<bool> {

@@ -214,6 +214,26 @@ impl E2eeWitnessClient {
         keyring: &anlg_e2ee::WorkspaceKeyring,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<()> {
+        self.initialize_keyring_with_page_handler_cancellable(
+            pool,
+            keyring,
+            || std::future::ready(Ok(())),
+            cancellation,
+        )
+        .await
+    }
+
+    pub async fn initialize_keyring_with_page_handler_cancellable<F, Fut>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        mut on_merged_page: F,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<()>
+    where
+        F: FnMut() -> Fut,
+        Fut: Future<Output = io::Result<()>>,
+    {
         let cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
         let status = self
             .read_page_cancellable(cursor, None, cancellation)
@@ -224,8 +244,13 @@ impl E2eeWitnessClient {
         }
 
         if status.initialized {
-            self.refresh_keyring_cancellable(pool, keyring, cancellation)
-                .await?;
+            self.refresh_keyring_with_page_handler_cancellable(
+                pool,
+                keyring,
+                &mut on_merged_page,
+                cancellation,
+            )
+            .await?;
             self.publish_pending(pool, keyring.active(), false, cancellation)
                 .await?;
         } else {
@@ -243,9 +268,14 @@ impl E2eeWitnessClient {
                 .await?;
         }
 
-        self.refresh_keyring_cancellable(pool, keyring, cancellation)
-            .await
-            .map(|_| ())
+        self.refresh_keyring_with_page_handler_cancellable(
+            pool,
+            keyring,
+            &mut on_merged_page,
+            cancellation,
+        )
+        .await?;
+        Ok(())
     }
 
     #[cfg(test)]
@@ -386,11 +416,55 @@ impl E2eeWitnessClient {
         &self,
         pool: &sqlx::SqlitePool,
         keyring: &anlg_e2ee::WorkspaceKeyring,
-        mut on_events: F,
+        on_events: F,
         cancellation: &E2eeWitnessCancellation,
     ) -> io::Result<usize>
     where
         F: FnMut(),
+    {
+        self.refresh_keyring_with_handlers_cancellable(
+            pool,
+            keyring,
+            on_events,
+            || std::future::ready(Ok(())),
+            cancellation,
+        )
+        .await
+    }
+
+    pub async fn refresh_keyring_with_page_handler_cancellable<F, Fut>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        on_merged_page: F,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize>
+    where
+        F: FnMut() -> Fut,
+        Fut: Future<Output = io::Result<()>>,
+    {
+        self.refresh_keyring_with_handlers_cancellable(
+            pool,
+            keyring,
+            || {},
+            on_merged_page,
+            cancellation,
+        )
+        .await
+    }
+
+    async fn refresh_keyring_with_handlers_cancellable<F, G, Fut>(
+        &self,
+        pool: &sqlx::SqlitePool,
+        keyring: &anlg_e2ee::WorkspaceKeyring,
+        mut on_events: F,
+        mut on_merged_page: G,
+        cancellation: &E2eeWitnessCancellation,
+    ) -> io::Result<usize>
+    where
+        F: FnMut(),
+        G: FnMut() -> Fut,
+        Fut: Future<Output = io::Result<()>>,
     {
         let mut cursor = witness_cursor_cancellable(pool, &self.workspace_id, cancellation).await?;
         let mut page = self
@@ -409,8 +483,9 @@ impl E2eeWitnessClient {
         let through = page.through_sequence;
         let mut received_events = 0_usize;
         loop {
+            let page_has_events = !page.events.is_empty();
             received_events = received_events.saturating_add(page.events.len());
-            if !page.events.is_empty() {
+            if page_has_events {
                 on_events();
             }
             let events = page
@@ -436,6 +511,10 @@ impl E2eeWitnessClient {
             .map_err(replica_error)?;
             cancellation.check()?;
             let after = page.next_after_sequence;
+            if page_has_events {
+                on_merged_page().await?;
+                cancellation.check()?;
+            }
             if after != cursor {
                 cancellation.check()?;
                 anlg_db_app::advance_e2ee_witness_cursor(pool, &self.workspace_id, after)

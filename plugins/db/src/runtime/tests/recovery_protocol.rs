@@ -277,6 +277,72 @@ async fn legacy_cutover_snapshots_local_state_before_initializing_the_witness() 
 }
 
 #[tokio::test]
+async fn witness_hydration_drains_more_than_one_replica_apply_batch() {
+    let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
+    anlg_db_app::prepare_schema(db.as_ref()).await.unwrap();
+    let runtime = PluginDbRuntime::new(std::sync::Arc::clone(&db));
+    let workspace_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap()
+    .workspace_key("workspace-1")
+    .unwrap();
+    let events = (0..20)
+        .map(|index| {
+            let sealed = workspace_key
+                .seal_field(
+                    "workspace-1",
+                    "sessions",
+                    &format!("session-{index:02}"),
+                    "$row",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    1,
+                    false,
+                    serde_json::json!(true),
+                )
+                .unwrap();
+            anlg_db_app::E2eeWitnessEvent {
+                sequence: u64::try_from(index + 1).unwrap(),
+                record_id: sealed.record_id,
+                workspace_id: "workspace-1".to_string(),
+                payload_hash: anlg_e2ee::payload_hash(&sealed.payload),
+                payload: sealed.payload,
+            }
+        })
+        .collect::<Vec<_>>();
+    anlg_db_app::merge_e2ee_witness_events(db.pool(), &workspace_key, "workspace-1", &events)
+        .await
+        .unwrap();
+    let keys = HashMap::from([(
+        "workspace-1".to_string(),
+        anlg_e2ee::WorkspaceKeyring::new(workspace_key),
+    )]);
+
+    runtime
+        .materialize_authenticated_e2ee_changes(
+            &keys,
+            &crate::e2ee_witness::E2eeWitnessCancellation::default(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM sessions WHERE id LIKE 'session-%'",)
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+        20
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM e2ee_replica_pending")
+            .fetch_one(db.pool())
+            .await
+            .unwrap(),
+        0
+    );
+}
+
+#[tokio::test]
 async fn reconciliation_barrier_blocks_renderer_writes() {
     let db = std::sync::Arc::new(Db::connect_memory_plain().await.unwrap());
     let runtime = std::sync::Arc::new(PluginDbRuntime::new(db));

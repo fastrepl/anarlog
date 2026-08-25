@@ -97,6 +97,29 @@ impl Respond for InterruptedPage {
     }
 }
 
+#[derive(Clone)]
+struct PagedWitness {
+    events: Vec<serde_json::Value>,
+    page_size: usize,
+}
+
+impl Respond for PagedWitness {
+    fn respond(&self, request: &Request) -> ResponseTemplate {
+        let after = request
+            .url
+            .query_pairs()
+            .find_map(|(key, value)| (key == "afterSequence").then(|| value.parse().unwrap()))
+            .unwrap_or(0);
+        let start = usize::try_from(after).unwrap();
+        let end = start.saturating_add(self.page_size).min(self.events.len());
+        witness_page(
+            &self.events[start..end],
+            self.events.len() as u64,
+            self.events.len() as u64,
+        )
+    }
+}
+
 fn witness_page(
     events: &[serde_json::Value],
     head_sequence: u64,
@@ -368,6 +391,106 @@ async fn empty_refresh_does_not_write_an_unchanged_cursor() {
             .unwrap(),
         0
     );
+}
+
+#[tokio::test]
+async fn merged_witness_pages_can_materialize_rows_before_refresh_completes() {
+    let db = anlg_db_core::Db::connect_memory_plain().await.unwrap();
+    anlg_db_app::prepare_schema(&db).await.unwrap();
+    let recovery_key = anlg_e2ee::RecoveryKey::parse(
+        "anarlog-e2ee-v1:BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+    )
+    .unwrap();
+    let key = recovery_key.workspace_key("user-a").unwrap();
+    let writer_id = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    let manifest = key
+        .seal_field(
+            "user-a",
+            "sessions",
+            "session-1",
+            "$row",
+            writer_id,
+            1,
+            false,
+            json!(true),
+        )
+        .unwrap();
+    let title = key
+        .seal_field(
+            "user-a",
+            "sessions",
+            "session-1",
+            "title",
+            writer_id,
+            1,
+            false,
+            json!("Remote"),
+        )
+        .unwrap();
+    let events = [manifest, title]
+        .into_iter()
+        .enumerate()
+        .map(|(index, sealed)| {
+            json!({
+                "sequence": index + 1,
+                "recordId": sealed.record_id,
+                "payloadHash": anlg_e2ee::payload_hash(&sealed.payload),
+                "payload": sealed.payload,
+            })
+        })
+        .collect::<Vec<_>>();
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/sync/e2ee/witness/user-a"))
+        .respond_with(PagedWitness {
+            events,
+            page_size: 1,
+        })
+        .expect(2)
+        .mount(&server)
+        .await;
+    let client = E2eeWitnessClient::new(
+        E2eeWitnessConfig {
+            endpoint: format!("{}/sync/e2ee/witness/user-a", server.uri()),
+            access_token: "access-token".to_string(),
+        },
+        "user-a",
+    )
+    .unwrap();
+    let keys = HashMap::from([("user-a".to_string(), key.clone().into())]);
+    let observed_titles = Arc::new(Mutex::new(Vec::new()));
+    let observed_titles_for_handler = Arc::clone(&observed_titles);
+
+    client
+        .refresh_keyring_with_page_handler_cancellable(
+            db.pool(),
+            &keys["user-a"],
+            || {
+                let observed_titles = Arc::clone(&observed_titles_for_handler);
+                let pool = db.pool().clone();
+                let keys = keys.clone();
+                async move {
+                    anlg_db_app::apply_received_e2ee_replica_changes_with_witness(
+                        &pool, &keys, true,
+                    )
+                    .await
+                    .map_err(replica_error)?;
+                    let title = sqlx::query_scalar::<_, String>(
+                        "SELECT title FROM sessions WHERE id = 'session-1'",
+                    )
+                    .fetch_one(&pool)
+                    .await
+                    .map_err(|error| io::Error::other(error.to_string()))?;
+                    observed_titles.lock().unwrap().push(title);
+                    Ok(())
+                }
+            },
+            &E2eeWitnessCancellation::default(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(*observed_titles.lock().unwrap(), ["", "Remote"]);
 }
 
 #[tokio::test]
