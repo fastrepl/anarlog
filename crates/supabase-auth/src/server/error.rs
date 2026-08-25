@@ -10,6 +10,10 @@ pub enum Error {
     JwksFetchFailed,
     #[error("invalid token")]
     InvalidToken,
+    #[error("OAuth token is missing a client identifier")]
+    MissingOAuthClient,
+    #[error("OAuth token is missing scope: {0}")]
+    MissingScope(String),
     #[error("missing entitlement: {0}")]
     MissingEntitlement(String),
 }

@@ -35,10 +35,13 @@ copilot plugin install anarlog@fastrepl
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
   --sparse .agents/plugins \
-  --sparse agent-plugins/anarlog
+  --sparse agent-plugins/anarlog \
+  --sparse agent-plugins/anarlog-cloud
 ```
 
 Restart the ChatGPT desktop app, open the Plugins Directory, select the Fastrepl source, and install Anarlog.
+
+Install the separate **Anarlog Cloud** plugin from the same source when you want hosted OAuth access instead of the local CLI and bundled skill.
 
 ### Cursor
 
@@ -59,7 +62,7 @@ Clients that do not install plugins can start the local stdio server with:
 }
 ```
 
-For a remote agent, enable **Cloud API & Connectors** in Anarlog and follow the [remote MCP setup](https://docs.anarlog.so/reference/api-cloud#remote-mcp). Hosted access requires Anarlog Pro, explicit opt-in, and a cloud API key.
+For hosted OAuth access, install the sibling **Anarlog Cloud** plugin. Static remote clients can enable **Cloud API & Connectors** in Anarlog and follow the [remote MCP setup](https://docs.anarlog.so/reference/api-cloud#remote-mcp) with a cloud API key.
 
 ## Data access
 

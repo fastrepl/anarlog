@@ -20,6 +20,7 @@ utoipa = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+jsonwebtoken = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 tower = { workspace = true }
 wiremock = { workspace = true }

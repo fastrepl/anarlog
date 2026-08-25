@@ -21,7 +21,9 @@ The published file is self-contained. The repository package adds references for
 
 ## Install the plugin
 
-The agent plugin bundles the complete skill and a local MCP configuration. [Install the Anarlog CLI](/installation) before enabling the plugin.
+The `Anarlog` plugin bundles the complete skill and a local MCP configuration. [Install the Anarlog CLI](/installation) before enabling it.
+
+`Anarlog Cloud` is a separate MCP-only plugin for ChatGPT and Codex. It connects to the hosted server with OAuth and does not run the local CLI or bundle the skill.
 
 For Claude Code:
 
@@ -42,8 +44,11 @@ For ChatGPT and Codex, add the repository source, restart the ChatGPT desktop ap
 ```bash
 codex plugin marketplace add fastrepl/anarlog \
   --sparse .agents/plugins \
-  --sparse agent-plugins/anarlog
+  --sparse agent-plugins/anarlog \
+  --sparse agent-plugins/anarlog-cloud
 ```
+
+Choose **Anarlog** for local CLI and skill workflows. Choose **Anarlog Cloud** for hosted access, then enable **Settings → Developers → Cloud API & Connectors** in Anarlog. The first cloud tool use opens Anarlog's OAuth sign-in and consent flow; no cloud API key or local CLI is required.
 
 Cursor Teams and Enterprise administrators can import `https://github.com/fastrepl/anarlog` as a team marketplace.
 

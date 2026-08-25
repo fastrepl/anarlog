@@ -1,11 +1,13 @@
 mod auth;
 mod error;
 mod mcp;
+mod oauth;
 mod routes;
 mod state;
 
-pub use auth::require_cloud_api_key;
+pub use auth::require_cloud_connector_auth;
 pub use error::CloudApiError;
+pub use oauth::metadata_router as oauth_metadata_router;
 pub use routes::{connector_router, management_router};
 pub use state::{AppState, CloudApiConfig};
 

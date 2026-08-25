@@ -17,7 +17,7 @@ The Cloud API lets remote agents read your Anarlog meetings while the desktop ap
 1. Open **Settings → Developers → Cloud API & Connectors**.
 2. Review the disclosure and turn the feature on.
 3. Wait for Anarlog to upload your existing meetings.
-4. Create a cloud API key and copy it. The key is shown once.
+4. If your client does not support OAuth, create a cloud API key and copy it. The key is shown once.
 
 Keys start with `anl_` and are stored hashed. Revoke a key from the same settings page when you no longer use it.
 
@@ -76,6 +76,30 @@ It exposes the same four read-only tools as the local MCP server:
 - `get_meeting_transcript`
 - `get_recurring_meeting_history`
 
+## OAuth
+
+ChatGPT and Codex connect your Anarlog account with OAuth 2.1. Add the **Anarlog Cloud** plugin, open it, and select **Connect**. The host discovers Anarlog's authorization server from the MCP endpoint, opens the Anarlog sign-in and consent flow, and stores the resulting connection. You do not need to create or paste a cloud API key.
+
+The connection requests the `openid` and `email` scopes. Meeting access remains limited to the server-readable snapshots you explicitly opted in to upload. Every MCP tool is read-only, and every access token is checked for its signature, issuer, expiry, MCP resource audience, OAuth client identifier, and required scopes.
+
+Anarlog publishes OAuth protected-resource metadata at:
+
+```text
+https://api.anarlog.so/.well-known/oauth-protected-resource/mcp
+```
+
+The metadata points the host to Anarlog's existing Supabase authorization server. That server uses dynamic client registration and PKCE with SHA-256. The host sends the MCP `resource` value during authorization and token exchange; Anarlog binds issued OAuth tokens to `https://api.anarlog.so/mcp` and rejects tokens minted for another resource.
+
+<Note>
+  OAuth does not bypass Anarlog's product controls. The account must have an active Pro subscription and **Cloud API & Connectors** must remain enabled. Disabling the feature deletes the uploaded snapshots and makes existing connector tokens unusable for meeting access.
+</Note>
+
+### Source install versus publication
+
+The separate `Anarlog Cloud` plugin can be installed from the Fastrepl source and connects to the hosted MCP endpoint. The existing `Anarlog` plugin continues to use the local CLI and bundled skill. Appearing in the universal OpenAI Plugins Directory is a separate review and publication step; installing the source package does not submit or publish it.
+
+## API-key clients
+
 ### Claude Code
 
 Add the server with the cloud key in the authorization header:
@@ -115,7 +139,7 @@ Choose Streamable HTTP, use `https://api.anarlog.so/mcp` as the server URL, and 
 Authorization: Bearer anl_...
 ```
 
-Web connector setup in claude.ai and ChatGPT depends on the authentication methods those products accept. Anarlog currently supports static bearer headers. OAuth account connection is forthcoming.
+Use OAuth account connection when the host supports MCP OAuth 2.1. Use the static bearer header only for clients that do not.
 
 ## Disable cloud access
 
