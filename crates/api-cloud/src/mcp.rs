@@ -21,7 +21,9 @@ pub(crate) struct CloudMcpServer {
 #[tool_router]
 impl CloudMcpServer {
     #[tool(
+        title = "List meetings",
         description = "List Anarlog meetings with optional title/id search, recurring series filter, and pagination.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
         meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
@@ -54,7 +56,9 @@ impl CloudMcpServer {
     }
 
     #[tool(
+        title = "Get meeting",
         description = "Get notes, summaries, participants, and action items for an Anarlog meeting.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::Meeting>(),
         meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
@@ -78,7 +82,9 @@ impl CloudMcpServer {
     }
 
     #[tool(
+        title = "Get meeting transcript",
         description = "Get a bounded page of transcript words and readable text for an Anarlog meeting. Pass pagination.next_offset as offset to continue.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::TranscriptPage>(),
         meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
@@ -107,7 +113,9 @@ impl CloudMcpServer {
     }
 
     #[tool(
+        title = "Get recurring meeting history",
         description = "List meetings in the same recurring series as the supplied meeting, newest first, with pagination metadata.",
+        output_schema = rmcp::handler::server::tool::schema_for_type::<access::MeetingPage>(),
         meta = oauth_security_meta(),
         annotations(
             read_only_hint = true,
@@ -233,6 +241,7 @@ mod tests {
                     "scopes": ["openid", "email"],
                 }]))
             );
+            assert_eq!(tool.output_schema.unwrap().get("type").unwrap(), "object");
         }
     }
 
