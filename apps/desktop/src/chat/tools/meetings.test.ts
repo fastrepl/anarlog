@@ -106,7 +106,7 @@ describe("canonical meeting chat tools", () => {
     };
 
     const canonicalReadTools = contract.tools.filter((tool) =>
-      Object.hasOwn(chatTools, tool.name),
+      Object.prototype.hasOwnProperty.call(chatTools, tool.name),
     );
 
     expect(Object.keys(chatTools).sort()).toEqual(
