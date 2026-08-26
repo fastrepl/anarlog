@@ -21,6 +21,7 @@ describe("session content SQLite snapshots", () => {
       {
         id: "session-1",
         owner_user_id: "user-1",
+        owner_email: "user@example.com",
         title: "Planning",
         created_at: "2026-07-10T09:00:00.000Z",
         event_json: JSON.stringify({ title: "Weekly planning" }),
@@ -77,6 +78,7 @@ describe("session content SQLite snapshots", () => {
           {
             human_id: "human-1",
             name: "Alice",
+            email: "alice@example.com",
             job_title: "Engineer",
           },
         ]),
@@ -88,6 +90,7 @@ describe("session content SQLite snapshots", () => {
     expect(snapshot).toMatchObject({
       sessionId: "session-1",
       ownerUserId: "user-1",
+      ownerEmail: "user@example.com",
       title: "Planning",
       createdAt: "2026-07-10T09:00:00.000Z",
       event: { title: "Weekly planning" },
@@ -109,13 +112,19 @@ describe("session content SQLite snapshots", () => {
         },
       ],
       participants: [
-        { humanId: "human-1", name: "Alice", jobTitle: "Engineer" },
+        {
+          humanId: "human-1",
+          name: "Alice",
+          email: "alice@example.com",
+          jobTitle: "Engineer",
+        },
       ],
     });
     expect(snapshot?.rawMarkdown).toContain("Raw note");
     expect(mocks.execute).toHaveBeenCalledWith(expect.any(String), [
       "session-1",
     ]);
+    expect(mocks.execute.mock.calls[0][0]).toContain("self_human.email");
   });
 
   it("lists only active SQLite session ids", async () => {

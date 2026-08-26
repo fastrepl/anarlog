@@ -6,6 +6,7 @@ import type { SpeakerHintWithId, WordWithId } from "~/stt/types";
 type SessionContentSqlRow = {
   id: string;
   owner_user_id: string;
+  owner_email: string | null;
   title: string;
   created_at: string;
   event_json: string;
@@ -40,12 +41,14 @@ type TranscriptJson = {
 type ParticipantJson = {
   human_id: string;
   name: string;
+  email?: string;
   job_title: string;
 };
 
 export type SessionContentSnapshot = {
   sessionId: string;
   ownerUserId: string;
+  ownerEmail?: string | null;
   title: string;
   createdAt: string;
   event: unknown;
@@ -77,6 +80,7 @@ export type SessionContentSnapshot = {
   participants: Array<{
     humanId: string;
     name: string;
+    email?: string;
     jobTitle: string;
   }>;
 };
@@ -85,6 +89,12 @@ const SESSION_CONTENT_SQL = `
   SELECT
     session.id,
     session.owner_user_id,
+    (
+      SELECT NULLIF(lower(self_human.email), '')
+      FROM humans AS self_human
+      WHERE self_human.id = session.owner_user_id
+        AND self_human.deleted_at IS NULL
+    ) AS owner_email,
     session.title,
     session.created_at,
     session.event_json,
@@ -124,6 +134,7 @@ const SESSION_CONTENT_SQL = `
       SELECT json_group_array(json_object(
         'human_id', participant.human_id,
         'name', COALESCE(NULLIF(human.name, ''), participant.display_name),
+        'email', COALESCE(NULLIF(human.email, ''), participant.email),
         'job_title', COALESCE(human.job_title, '')
       ))
       FROM session_participants AS participant
@@ -134,6 +145,18 @@ const SESSION_CONTENT_SQL = `
         AND participant.human_id <> ''
         AND participant.source <> 'excluded'
         AND participant.deleted_at IS NULL
+        AND (
+          participant.human_id = session.owner_user_id
+          OR NULLIF(lower(human.email), '') IS NULL
+          OR NOT EXISTS (
+            SELECT 1
+            FROM humans AS self_human
+            WHERE self_human.id = session.owner_user_id
+              AND self_human.deleted_at IS NULL
+              AND NULLIF(lower(self_human.email), '') IS NOT NULL
+              AND lower(self_human.email) = lower(human.email)
+          )
+        )
     ), '[]') AS participants_json
   FROM sessions AS session
   LEFT JOIN session_documents AS note
@@ -228,6 +251,7 @@ function mapSessionContentRow(
     .map((participant) => ({
       humanId: participant.human_id,
       name: participant.name,
+      email: participant.email,
       jobTitle: participant.job_title,
     }))
     .sort(
@@ -239,6 +263,7 @@ function mapSessionContentRow(
   return {
     sessionId: row.id,
     ownerUserId: row.owner_user_id,
+    ownerEmail: row.owner_email,
     title: row.title,
     createdAt: row.created_at,
     event: parseJson(row.event_json),

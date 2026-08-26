@@ -370,6 +370,31 @@ async fn get_active_voiceprint_candidate_in_transaction(
     .await
 }
 
+pub async fn list_active_voiceprint_candidates_for_transcript(
+    pool: &SqlitePool,
+    workspace_id: &str,
+    transcript_id: &str,
+) -> Result<Vec<VoiceprintCandidate>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT
+           id, workspace_id, keyring_scope, keyring_key, sync_scope,
+           model_provider, model_version, capture_domain,
+           source_session_id, source_transcript_id, source_attachment_id,
+           source_speaker_label, speaker_channel, speaker_index,
+           source_start_ms, source_end_ms, quality_score, expires_at,
+           created_at, updated_at, deleted_at
+         FROM voiceprint_candidates
+         WHERE workspace_id = ?
+           AND source_transcript_id = ?
+           AND deleted_at IS NULL
+         ORDER BY speaker_channel, speaker_index, source_start_ms, id",
+    )
+    .bind(workspace_id)
+    .bind(transcript_id)
+    .fetch_all(pool)
+    .await
+}
+
 pub async fn list_active_voiceprint_candidates_for_speaker(
     pool: &SqlitePool,
     workspace_id: &str,

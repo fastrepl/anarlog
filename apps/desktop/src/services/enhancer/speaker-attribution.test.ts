@@ -186,6 +186,43 @@ describe("inferAutomaticSpeakerAssignments", () => {
     expect(automaticHumanIds(updates[0]!)).toEqual(["human-marco"]);
   });
 
+  it("treats a calendar copy of the current user as the same 1:1", async () => {
+    const snapshot = createOneOnOneSnapshot();
+    snapshot.ownerEmail = "john@example.com";
+    snapshot.participants = [
+      {
+        humanId: "self",
+        name: "John Jeong",
+        email: "john@example.com",
+        jobTitle: "Host",
+      },
+      {
+        humanId: "john-cal",
+        name: "John Jeong",
+        email: "john@example.com",
+        jobTitle: "",
+      },
+      {
+        humanId: "human-marco",
+        name: "Marco Bambini",
+        email: "marco@example.com",
+        jobTitle: "Founder",
+      },
+    ];
+
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary:
+        "Marco (Speaker 1) confirmed he had already relaxed all limitations.",
+      model: {} as LanguageModel,
+      snapshot,
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).not.toHaveBeenCalled();
+    expect(automaticHumanIds(updates[0]!)).toEqual(["human-marco"]);
+    expect(updates[0]?.expectedParticipantHumanIdsJson).toBe('["human-marco"]');
+  });
+
   it("does not guess when one other participant has two unassigned speakers", async () => {
     const snapshot = createSnapshot();
     snapshot.participants = [

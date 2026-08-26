@@ -276,6 +276,17 @@ export function persistGeneratedEnhancedNote({
                   NULLIF(human.name, ''),
                   participant.display_name
                 )) <> ''
+                AND (
+                  NULLIF(lower(human.email), '') IS NULL
+                  OR NOT EXISTS (
+                    SELECT 1
+                    FROM humans AS self_human
+                    WHERE self_human.id = ?
+                      AND self_human.deleted_at IS NULL
+                      AND NULLIF(lower(self_human.email), '') IS NOT NULL
+                      AND lower(self_human.email) = lower(human.email)
+                  )
+                )
             ) = json_array_length(?)
             AND NOT EXISTS (
               SELECT 1
@@ -296,6 +307,17 @@ export function persistGeneratedEnhancedNote({
                     NULLIF(human.name, ''),
                     participant.display_name
                   )) <> ''
+                  AND (
+                    NULLIF(lower(human.email), '') IS NULL
+                    OR NOT EXISTS (
+                      SELECT 1
+                      FROM humans AS self_human
+                      WHERE self_human.id = ?
+                        AND self_human.deleted_at IS NULL
+                        AND NULLIF(lower(self_human.email), '') IS NOT NULL
+                        AND lower(self_human.email) = lower(human.email)
+                    )
+                  )
               )
             )
         `,
@@ -308,9 +330,11 @@ export function persistGeneratedEnhancedNote({
           transcript.currentSpeakerHintsJson,
           sessionId,
           ownerUserId,
+          ownerUserId,
           transcript.expectedParticipantHumanIdsJson,
           transcript.expectedParticipantHumanIdsJson,
           sessionId,
+          ownerUserId,
           ownerUserId,
         ],
         expectedRowsAffected: 1,

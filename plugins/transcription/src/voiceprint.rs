@@ -2,9 +2,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 use anlg_voiceprint::{
-    MIN_UNIQUE_MARGIN, MIN_UNIQUE_SCORE, SelectedSpan, SpanConfig, SpanWord, VoiceprintSpeakerKey,
-    collect_match_scores, pick_unique_voiceprint_assignments, remote_participant_human_ids,
-    select_speaker_spans,
+    MIN_UNIQUE_MARGIN, MIN_UNIQUE_SCORE, SelectedSpan, SpanConfig, SpanWord, VoiceprintAssignment,
+    VoiceprintSpeakerKey, collect_match_scores, pick_unique_voiceprint_assignments,
+    remote_participant_human_ids, select_speaker_spans,
 };
 use base64::Engine;
 use tauri::Manager;
@@ -94,6 +94,18 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
     .await
     .map_err(|error| error.to_string())?;
     if already_extracted {
+        if let Err(error) = maybe_assign_speakers_from_voiceprints(
+            &app,
+            &pool,
+            &session_id,
+            &transcript_id,
+            &workspace_id,
+            None,
+        )
+        .await
+        {
+            tracing::warn!(%error, "voiceprint_assignment_failed");
+        }
         return Ok(0);
     }
 
@@ -182,9 +194,7 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
         &session_id,
         &transcript_id,
         &workspace_id,
-        &words_json,
-        &hints_json,
-        &embeddings,
+        Some(&embeddings),
     )
     .await
     {
@@ -603,15 +613,28 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
     session_id: &str,
     transcript_id: &str,
     workspace_id: &str,
-    words_json: &str,
-    hints_json: &str,
-    embeddings: &[SpanEmbedding],
+    embeddings: Option<&[SpanEmbedding]>,
 ) -> Result<(), String> {
-    if embeddings.is_empty() {
-        return Ok(());
-    }
+    let stored_embeddings;
+    let embeddings = match embeddings.filter(|embeddings| !embeddings.is_empty()) {
+        Some(embeddings) => embeddings,
+        None => {
+            stored_embeddings =
+                embeddings_from_stored_candidates(app, pool, workspace_id, transcript_id).await?;
+            if stored_embeddings.is_empty() {
+                return Ok(());
+            }
+            stored_embeddings.as_slice()
+        }
+    };
 
-    let index = speaker_index_from_transcript(words_json, hints_json)?;
+    let Some((words_json, hints_json)) =
+        load_transcript_words_and_hints(pool, session_id, transcript_id).await?
+    else {
+        return Ok(());
+    };
+
+    let index = speaker_index_from_transcript(&words_json, &hints_json)?;
     let owner_user_id = sqlx::query_scalar::<_, String>(
         "SELECT owner_user_id FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1",
     )
@@ -714,11 +737,124 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
         return Ok(());
     }
 
+    let mut words_json = words_json;
+    let mut hints_json = hints_json;
+    let mut index = index;
+    for attempt in 0..2 {
+        let Some(next_json) = assignment_hints_json(&hints_json, &index, &assignments)? else {
+            return Ok(());
+        };
+        if write_speaker_assignment_hints(
+            pool,
+            session_id,
+            transcript_id,
+            &words_json,
+            &hints_json,
+            &next_json,
+        )
+        .await?
+        {
+            tracing::info!(
+                session_id,
+                transcript_id,
+                assigned = assignments.len(),
+                "voiceprint_speakers_assigned"
+            );
+            return Ok(());
+        }
+        if attempt == 0 {
+            tracing::warn!(transcript_id, "voiceprint_assignment_hints_conflict");
+            let Some(latest) =
+                load_transcript_words_and_hints(pool, session_id, transcript_id).await?
+            else {
+                return Ok(());
+            };
+            words_json = latest.0;
+            hints_json = latest.1;
+            index = speaker_index_from_transcript(&words_json, &hints_json)?;
+        }
+    }
+    Ok(())
+}
+
+async fn load_transcript_words_and_hints(
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+    transcript_id: &str,
+) -> Result<Option<(String, String)>, String> {
+    sqlx::query_as::<_, (String, String)>(
+        "SELECT words_json, speaker_hints_json
+         FROM transcripts
+         WHERE id = ? AND session_id = ? AND deleted_at IS NULL
+         LIMIT 1",
+    )
+    .bind(transcript_id)
+    .bind(session_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| error.to_string())
+}
+
+async fn embeddings_from_stored_candidates<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    pool: &sqlx::SqlitePool,
+    workspace_id: &str,
+    transcript_id: &str,
+) -> Result<Vec<SpanEmbedding>, String> {
+    let candidates = anlg_db_app::list_active_voiceprint_candidates_for_transcript(
+        pool,
+        workspace_id,
+        transcript_id,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+
+    let mut embeddings = Vec::new();
+    for candidate in candidates {
+        if candidate.model_provider != MODEL_PROVIDER || candidate.model_version != MODEL_VERSION {
+            continue;
+        }
+        let Ok(Some(secret_value)) = tauri_plugin_store2::read_secret(
+            app.clone(),
+            candidate.keyring_scope.clone(),
+            candidate.keyring_key.clone(),
+        )
+        .await
+        else {
+            continue;
+        };
+        let Some(embedding) = decode_embedding(&secret_value) else {
+            continue;
+        };
+        embeddings.push((
+            SelectedSpan {
+                channel: candidate.speaker_channel,
+                speaker_index: candidate.speaker_index,
+                start_ms: candidate.source_start_ms,
+                end_ms: candidate.source_end_ms,
+                quality_score: candidate.quality_score,
+            },
+            embedding,
+        ));
+    }
+    Ok(embeddings)
+}
+
+fn assignment_hints_json(
+    hints_json: &str,
+    index: &SpeakerIndex,
+    assignments: &[VoiceprintAssignment],
+) -> Result<Option<String>, String> {
     let Ok(mut hints) = serde_json::from_str::<Vec<serde_json::Value>>(hints_json) else {
-        return Ok(());
+        return Ok(None);
     };
     let mut assigned = 0u32;
     for assignment in assignments {
+        if index.assigned_speakers.contains(&assignment.speaker)
+            || index.assigned_human_ids.contains(&assignment.human_id)
+        {
+            continue;
+        }
         let Some(word_id) = index.first_word_id.get(&assignment.speaker) else {
             continue;
         };
@@ -730,10 +866,21 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
         assigned += 1;
     }
     if assigned == 0 {
-        return Ok(());
+        return Ok(None);
     }
+    serde_json::to_string(&hints)
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
 
-    let next_json = serde_json::to_string(&hints).map_err(|error| error.to_string())?;
+async fn write_speaker_assignment_hints(
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+    transcript_id: &str,
+    words_json: &str,
+    hints_json: &str,
+    next_json: &str,
+) -> Result<bool, String> {
     let now = chrono::Utc::now()
         .format("%Y-%m-%dT%H:%M:%S%.3fZ")
         .to_string();
@@ -743,7 +890,7 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
          WHERE id = ? AND session_id = ? AND words_json = ? AND speaker_hints_json = ?
            AND deleted_at IS NULL",
     )
-    .bind(&next_json)
+    .bind(next_json)
     .bind(&now)
     .bind(transcript_id)
     .bind(session_id)
@@ -752,19 +899,7 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
     .execute(pool)
     .await
     .map_err(|error| error.to_string())?;
-
-    if result.rows_affected() == 0 {
-        tracing::warn!(transcript_id, "voiceprint_assignment_hints_conflict");
-        return Ok(());
-    }
-
-    tracing::info!(
-        session_id,
-        transcript_id,
-        assigned,
-        "voiceprint_speakers_assigned"
-    );
-    Ok(())
+    Ok(result.rows_affected() > 0)
 }
 
 #[derive(Debug, Default)]
@@ -1096,6 +1231,50 @@ mod tests {
             serde_json::from_str(hint["value"].as_str().unwrap()).unwrap();
         assert_eq!(value["human_id"], "marco");
         assert_eq!(value["source"], "voiceprint");
+    }
+
+    #[test]
+    fn assignment_hints_skip_speakers_that_are_already_named() {
+        let words = r#"[
+            {"id": "w1", "text": "hello", "start_ms": 0, "end_ms": 2000, "channel": 1, "speaker_index": 0},
+            {"id": "w2", "text": "there", "start_ms": 2100, "end_ms": 4000, "channel": 1, "speaker_index": 1}
+        ]"#;
+        let hints = r#"[
+            {"word_id": "w1", "type": "automatic_speaker_assignment", "value": {"human_id": "marco"}}
+        ]"#;
+        let index = speaker_index_from_transcript(words, hints).unwrap();
+        let next = assignment_hints_json(
+            hints,
+            &index,
+            &[
+                VoiceprintAssignment {
+                    speaker: VoiceprintSpeakerKey {
+                        channel: 1,
+                        speaker_index: Some(0),
+                    },
+                    human_id: "marco".to_string(),
+                    score: 0.9,
+                },
+                VoiceprintAssignment {
+                    speaker: VoiceprintSpeakerKey {
+                        channel: 1,
+                        speaker_index: Some(1),
+                    },
+                    human_id: "ada".to_string(),
+                    score: 0.88,
+                },
+            ],
+        )
+        .unwrap()
+        .unwrap();
+
+        let parsed: Vec<serde_json::Value> = serde_json::from_str(&next).unwrap();
+        let assigned: Vec<_> = parsed
+            .iter()
+            .filter(|hint| hint["type"] == "automatic_speaker_assignment")
+            .map(|hint| hint["word_id"].as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(assigned, vec!["w1".to_string(), "w2".to_string()]);
     }
 
     struct SyntheticStereoSource {

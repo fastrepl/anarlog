@@ -256,11 +256,8 @@ function buildSpeakerAttributionContext(
   const candidates = Array.from(
     new Map(
       snapshot.participants
-        .filter(
-          (participant) =>
-            participant.humanId &&
-            participant.humanId !== snapshot.ownerUserId &&
-            participant.name.trim(),
+        .filter((participant) =>
+          isRemoteAttributionCandidate(participant, snapshot),
         )
         .map((participant) => [
           participant.humanId,
@@ -858,6 +855,23 @@ function attributionTokens(value: string) {
       }
       return token.length > 5 ? token.slice(0, 5) : token;
     });
+}
+
+function isRemoteAttributionCandidate(
+  participant: SessionContentSnapshot["participants"][number],
+  snapshot: SessionContentSnapshot,
+): boolean {
+  if (
+    !participant.humanId ||
+    participant.humanId === snapshot.ownerUserId ||
+    !participant.name.trim()
+  ) {
+    return false;
+  }
+
+  const ownerEmail = snapshot.ownerEmail?.trim().toLowerCase();
+  const participantEmail = participant.email?.trim().toLowerCase();
+  return !ownerEmail || !participantEmail || ownerEmail !== participantEmail;
 }
 
 function completeClosedCandidateSet(

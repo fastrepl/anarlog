@@ -325,6 +325,17 @@ async fn candidates_match_on_channel_and_nullable_speaker_index() {
     .unwrap();
     assert_eq!(unindexed.len(), 1);
     assert_eq!(unindexed[0].id, "candidate-noidx");
+
+    let all =
+        list_active_voiceprint_candidates_for_transcript(db.pool(), "workspace-1", "transcript-1")
+            .await
+            .unwrap();
+    assert_eq!(
+        all.iter()
+            .map(|candidate| candidate.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["candidate-noidx", "candidate-idx"]
+    );
 }
 
 #[tokio::test]
