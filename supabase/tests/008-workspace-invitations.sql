@@ -942,8 +942,14 @@ select ok(
   )
     and exists (
       select 1
-      from public.workspace_invitations
-      where id = (
+      from public.list_workspace_invitations(
+        (
+          select workspace_id
+          from workspace_invitation_test_state
+          where name = 'shared_workspace'
+        )
+      )
+      where invitation_id = (
         select invitation_id
         from workspace_invitation_test_state
         where name = 'resend_source'
