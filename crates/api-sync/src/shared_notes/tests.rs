@@ -152,6 +152,77 @@ async fn verifies_and_sends_a_resend_shared_note_invitation_email() {
 }
 
 #[tokio::test]
+async fn verifies_and_sends_a_workspace_invitation_email() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/rest/v1/rpc/list_workspace_invitations"))
+        .and(header("apikey", "service-role-key"))
+        .and(header("authorization", "Bearer user-token"))
+        .and(body_partial_json(json!({ "p_workspace_id": SHARE_ID })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!([{
+            "invitation_id": INVITATION_ID,
+            "invitee_email": "invitee@example.com",
+            "accepted_at": null,
+            "revoked_at": null,
+            "expires_at": "2099-01-01T00:00:00Z"
+        }])))
+        .expect(1)
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/emails"))
+        .and(header("authorization", "Bearer resend-key"))
+        .and(header("idempotency-key", INVITATION_ID))
+        .and(body_partial_json(json!({
+            "from": "Owner via Anarlog <notes@send.anarlog.so>",
+            "to": "invitee@example.com",
+            "reply_to": "owner@example.com",
+            "subject": "Owner invited you to Fastrepl",
+            "text": "Owner invited you to join \"Fastrepl\" in Anarlog.\n\nAccept the invitation:\nhttps://anarlog.so/team/invite/66666666-6666-4666-8666-666666666666/#token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n\nReply to this email to contact Owner."
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({ "id": "email-id" })))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let config = SharedNotesConfig::new(server.uri(), "service-role-key")
+        .unwrap()
+        .with_resend_email("resend-key", "notes@send.anarlog.so")
+        .unwrap()
+        .with_resend_api_base(reqwest::Url::parse(&format!("{}/", server.uri())).unwrap());
+    let app = authenticated_router(SharedNotesState::new(config)).layer(Extension(AuthContext {
+        token: "user-token".to_string(),
+        claims: Claims {
+            sub: OWNER_ID.to_string(),
+            email: Some("owner@example.com".to_string()),
+            entitlements: vec![],
+            subscription_status: None,
+            trial_end: None,
+            has_payment_method: None,
+        },
+    }));
+
+    let response = app
+        .oneshot(
+            Request::post(format!("/workspaces/invitations/{INVITATION_ID}/email"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    json!({
+                        "workspaceId": SHARE_ID,
+                        "inviteToken": LINK_TOKEN,
+                        "workspaceName": "Fastrepl",
+                        "fromName": "Owner"
+                    })
+                    .to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
 async fn authorizes_and_sends_a_meeting_recap_to_each_recipient() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))

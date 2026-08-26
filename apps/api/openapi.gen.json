@@ -4878,6 +4878,52 @@
         ]
       }
     },
+    "/workspaces/invitations/{invitation_id}/email": {
+      "post": {
+        "tags": [
+          "shared-notes"
+        ],
+        "operationId": "send_workspace_invitation_email",
+        "parameters": [
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "description": "Workspace invitation ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceInvitationEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Invitation email sent"
+          },
+          "400": {
+            "description": "Invalid invitation email request"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Invitation unavailable"
+          },
+          "502": {
+            "description": "Invitation email service unavailable"
+          }
+        }
+      }
+    },
     "/zoom/import-meetings": {
       "post": {
         "tags": [
@@ -12267,6 +12313,29 @@
             "type": "string"
           }
         }
+      },
+      "WorkspaceInvitationEmailRequest": {
+        "type": "object",
+        "required": [
+          "workspaceId",
+          "inviteToken",
+          "workspaceName"
+        ],
+        "properties": {
+          "fromName": {
+            "type": "string"
+          },
+          "inviteToken": {
+            "type": "string"
+          },
+          "workspaceId": {
+            "type": "string"
+          },
+          "workspaceName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
       },
       "ZoomImportMeetingsRequest": {
         "type": "object",

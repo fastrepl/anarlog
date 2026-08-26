@@ -1,5 +1,5 @@
 begin;
-select plan(36);
+select plan(40);
 
 select tests.create_supabase_user('invite_owner', 'invite-owner@example.com');
 select tests.create_supabase_user('invite_recipient', 'invite-recipient@example.com');
@@ -179,6 +179,11 @@ select ok(
       'public.list_workspace_memberships(uuid)',
       'EXECUTE'
     )
+    and has_function_privilege(
+      'authenticated',
+      'public.inspect_my_workspace_invitation(uuid,text)',
+      'EXECUTE'
+    )
     and not has_function_privilege(
       'anon',
       'public.create_workspace_invitation(uuid,text)',
@@ -208,6 +213,11 @@ select ok(
       'anon',
       'public.list_workspace_memberships(uuid)',
       'EXECUTE'
+    )
+    and not has_function_privilege(
+      'anon',
+      'public.inspect_my_workspace_invitation(uuid,text)',
+      'EXECUTE'
     ),
   'Only authenticated clients can execute invitation RPC wrappers'
 );
@@ -226,7 +236,8 @@ select ok(
         'revoke_workspace_invitation',
         'revoke_workspace_membership',
         'list_workspace_invitations',
-        'list_workspace_memberships'
+        'list_workspace_memberships',
+        'inspect_my_workspace_invitation'
       )
       and (
         not proc.prosecdef
@@ -241,7 +252,8 @@ select ok(
         'revoke_workspace_invitation',
         'revoke_workspace_membership',
         'list_workspace_invitations',
-        'list_workspace_memberships'
+        'list_workspace_memberships',
+        'inspect_my_workspace_invitation'
       )
       and (
         proc.prosecdef
@@ -412,6 +424,26 @@ select throws_ok(
   'A valid token cannot be accepted by an account with the wrong email'
 );
 
+select results_eq(
+  $$
+    select count(*)
+    from public.inspect_my_workspace_invitation(
+      (
+        select invitation_id
+        from workspace_invitation_test_state
+        where name = 'first_invite'
+      ),
+      (
+        select invite_token
+        from workspace_invitation_test_state
+        where name = 'first_invite'
+      )
+    )
+  $$,
+  array[0::bigint],
+  'A valid token cannot be inspected by an account with the wrong email'
+);
+
 select tests.clear_authentication();
 select tests.authenticate_as('invite_recipient');
 
@@ -430,6 +462,42 @@ select throws_ok(
   '22023',
   'workspace invitation is invalid or unavailable',
   'A recipient cannot accept with the wrong token'
+);
+
+select results_eq(
+  $$
+    select count(*)
+    from public.inspect_my_workspace_invitation(
+      (
+        select invitation_id
+        from workspace_invitation_test_state
+        where name = 'first_invite'
+      ),
+      'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+    )
+  $$,
+  array[0::bigint],
+  'A recipient cannot inspect with the wrong token'
+);
+
+select results_eq(
+  $$
+    select status, workspace_name
+    from public.inspect_my_workspace_invitation(
+      (
+        select invitation_id
+        from workspace_invitation_test_state
+        where name = 'first_invite'
+      ),
+      (
+        select invite_token
+        from workspace_invitation_test_state
+        where name = 'first_invite'
+      )
+    )
+  $$,
+  $$values ('pending'::text, 'Invitation test workspace'::text)$$,
+  'The intended recipient can inspect a pending invitation'
 );
 
 select lives_ok(
@@ -457,6 +525,35 @@ select lives_ok(
     )
   $$,
   'The intended recipient can atomically accept the invitation'
+);
+
+select results_eq(
+  $$
+    select status, workspace_id
+    from public.inspect_my_workspace_invitation(
+      (
+        select invitation_id
+        from workspace_invitation_test_state
+        where name = 'first_invite'
+      ),
+      (
+        select invite_token
+        from workspace_invitation_test_state
+        where name = 'first_invite'
+      )
+    )
+  $$,
+  $$
+    values (
+      'accepted'::text,
+      (
+        select workspace_id
+        from workspace_invitation_test_state
+        where name = 'shared_workspace'
+      )
+    )
+  $$,
+  'The intended recipient can inspect an accepted invitation'
 );
 
 select results_eq(

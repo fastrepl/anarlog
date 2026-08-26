@@ -8,7 +8,9 @@ export function isShareRoutePathname(pathname: string) {
     pathname === "/share" ||
     pathname.startsWith("/share/") ||
     pathname === "/t" ||
-    pathname.startsWith("/t/")
+    pathname.startsWith("/t/") ||
+    pathname === "/team/invite" ||
+    pathname.startsWith("/team/invite/")
   );
 }
 
@@ -16,7 +18,8 @@ export function isCapabilityShareRoutePathname(pathname: string) {
   return (
     /^\/share\/invite\/[^/]+\/?$/.test(pathname) ||
     /^\/share\/link\/[^/]+\/?$/.test(pathname) ||
-    /^\/t\/[^/]+\/?$/.test(pathname)
+    /^\/t\/[^/]+\/?$/.test(pathname) ||
+    /^\/team\/invite\/[^/]+\/?$/.test(pathname)
   );
 }
 

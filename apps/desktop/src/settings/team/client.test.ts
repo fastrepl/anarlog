@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createWorkspace,
+  createWorkspaceInvitation,
   getSeatUsage,
   getWorkspacePolicy,
   intersectAllowedShareScopes,
@@ -9,6 +10,7 @@ import {
   listWorkspaceMembers,
   removeMember,
   requireTeamContext,
+  sendWorkspaceInvitationEmail,
   setWorkspaceShareSlug,
   TeamError,
   type TeamContext,
@@ -169,5 +171,67 @@ describe("failure handling", () => {
     const { context: ctx } = context([]);
 
     await expect(getSeatUsage(ctx, WORKSPACE_ID)).rejects.toThrow(TeamError);
+  });
+});
+
+describe("invitations", () => {
+  const inviteToken = "A".repeat(43);
+
+  it("returns the invite token so the client can send the email", async () => {
+    const { context: ctx, rpc } = context([
+      {
+        invitation_id: WORKSPACE_ID,
+        invite_token: inviteToken,
+        invitation_expires_at: "2026-09-01T00:00:00Z",
+        was_created: true,
+      },
+    ]);
+
+    await expect(
+      createWorkspaceInvitation(ctx, WORKSPACE_ID, " Person@Example.com "),
+    ).resolves.toEqual({
+      invitationId: WORKSPACE_ID,
+      inviteToken,
+      expiresAt: "2026-09-01T00:00:00Z",
+      wasCreated: true,
+    });
+    expect(rpc).toHaveBeenCalledWith("create_workspace_invitation", {
+      p_workspace_id: WORKSPACE_ID,
+      p_invitee_email: "person@example.com",
+    });
+  });
+
+  it("sends an invitation email through the authenticated API", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+
+    await expect(
+      sendWorkspaceInvitationEmail({
+        apiBaseUrl: "https://api.anarlog.so",
+        accessToken: "token",
+        workspaceId: WORKSPACE_ID,
+        invitationId: USER_ID,
+        inviteToken,
+        workspaceName: "Fastrepl",
+        senderName: "Owner",
+        fetcher,
+      }),
+    ).resolves.toBeUndefined();
+
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(url.toString()).toBe(
+      `https://api.anarlog.so/workspaces/invitations/${USER_ID}/email`,
+    );
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer token");
+    expect(init.body).toBe(
+      JSON.stringify({
+        workspaceId: WORKSPACE_ID,
+        inviteToken,
+        workspaceName: "Fastrepl",
+        fromName: "Owner",
+      }),
+    );
   });
 });

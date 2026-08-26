@@ -23,6 +23,7 @@ test("identifies every shared-note route as telemetry private", () => {
     "/share/link/abc/",
     "/t/abc/",
     "/share/public/s_abc/",
+    "/team/invite/abc/",
   ]) {
     assert.equal(isShareRoutePathname(pathname), true);
   }
@@ -33,6 +34,7 @@ test("identifies only invitation and link routes as capability routes", () => {
   assert.equal(isCapabilityShareRoutePathname("/share/invite/abc/"), true);
   assert.equal(isCapabilityShareRoutePathname("/share/link/abc/"), true);
   assert.equal(isCapabilityShareRoutePathname("/t/abc/"), true);
+  assert.equal(isCapabilityShareRoutePathname("/team/invite/abc/"), true);
   assert.equal(isCapabilityShareRoutePathname("/share/abc/"), false);
   assert.equal(isCapabilityShareRoutePathname("/share/public/s_abc/"), false);
 });

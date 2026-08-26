@@ -152,16 +152,88 @@ export async function getSeatUsage(
   };
 }
 
-export async function inviteMember(
+const INVITE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const INVITATION_EMAIL_TIMEOUT_MS = 10_000;
+
+export async function createWorkspaceInvitation(
   context: TeamContext,
   workspaceId: string,
   email: string,
 ) {
   assertWorkspaceId(workspaceId);
-  await callRpc(context, "create_workspace_invitation", {
-    p_workspace_id: workspaceId,
-    p_invitee_email: email,
+  const row = rows(
+    await callRpc(context, "create_workspace_invitation", {
+      p_workspace_id: workspaceId,
+      p_invitee_email: normalizeEmail(email),
+    }),
+  )[0];
+  if (!row) throw new TeamError();
+  const invitationId = text(row.invitation_id);
+  assertWorkspaceId(invitationId);
+  const inviteToken =
+    row.invite_token === null || row.invite_token === undefined
+      ? null
+      : inviteTokenValue(row.invite_token);
+  return {
+    invitationId,
+    inviteToken,
+    expiresAt: text(row.invitation_expires_at),
+    wasCreated: row.was_created === true,
+  };
+}
+
+export async function sendWorkspaceInvitationEmail(input: {
+  apiBaseUrl: string;
+  accessToken: string;
+  workspaceId: string;
+  invitationId: string;
+  inviteToken: string;
+  workspaceName: string;
+  senderName: string;
+  signal?: AbortSignal;
+  fetcher?: typeof fetch;
+}) {
+  assertWorkspaceId(input.workspaceId);
+  assertWorkspaceId(input.invitationId);
+  const inviteToken = inviteTokenValue(input.inviteToken);
+  const body = JSON.stringify({
+    workspaceId: input.workspaceId,
+    inviteToken,
+    workspaceName: input.workspaceName.trim(),
+    fromName: input.senderName.trim(),
   });
+  if (new TextEncoder().encode(body).byteLength > 8 * 1024) {
+    throw new TeamError();
+  }
+  const url = invitationEmailUrl(input.apiBaseUrl, input.invitationId);
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (input.signal?.aborted) controller.abort();
+  else input.signal?.addEventListener("abort", abort, { once: true });
+  const timeout = setTimeout(abort, INVITATION_EMAIL_TIMEOUT_MS);
+  try {
+    const response = await (input.fetcher ?? fetch)(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${input.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body,
+      cache: "no-store",
+      credentials: "omit",
+      redirect: "error",
+      referrerPolicy: "no-referrer",
+      signal: controller.signal,
+    });
+    if (response.status !== 204) throw new TeamError();
+  } catch (error) {
+    if (error instanceof TeamError) throw error;
+    throw new TeamError();
+  } finally {
+    clearTimeout(timeout);
+    input.signal?.removeEventListener("abort", abort);
+  }
 }
 
 export async function revokeInvitation(
@@ -419,6 +491,48 @@ export async function listMyWorkspaces(context: TeamContext) {
       isOwner: ownerUserId === context.session.user.id,
     };
   });
+}
+
+function normalizeEmail(value: string) {
+  const email = value.trim().toLowerCase();
+  if (
+    email.length === 0 ||
+    email.length > 320 ||
+    !/^[^\s@]+@[^\s@]+$/.test(email) ||
+    /[\u0000-\u001f\u007f]/.test(email)
+  ) {
+    throw new TeamError();
+  }
+  return email;
+}
+
+function inviteTokenValue(value: unknown) {
+  if (typeof value !== "string" || !INVITE_TOKEN_PATTERN.test(value)) {
+    throw new TeamError();
+  }
+  return value;
+}
+
+function invitationEmailUrl(apiBaseUrl: string, invitationId: string) {
+  try {
+    const base = new URL(apiBaseUrl);
+    if (
+      !["http:", "https:"].includes(base.protocol) ||
+      base.username !== "" ||
+      base.password !== "" ||
+      base.search !== "" ||
+      base.hash !== ""
+    ) {
+      throw new TeamError();
+    }
+    return new URL(
+      `/workspaces/invitations/${invitationId}/email`,
+      base.origin,
+    );
+  } catch (error) {
+    if (error instanceof TeamError) throw error;
+    throw new TeamError();
+  }
 }
 
 function assertWorkspaceId(value: string) {

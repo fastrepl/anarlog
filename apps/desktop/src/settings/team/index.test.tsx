@@ -38,7 +38,6 @@ const mocks = vi.hoisted(() => ({
       email: string;
       expiresAt: string;
     }>,
-    inviteMember: vi.fn(() => Promise.resolve()),
     revokeInvitation: vi.fn(() => Promise.resolve()),
     renameWorkspace: vi.fn(() => Promise.resolve()),
     getWorkspacePolicy: vi.fn(() =>
@@ -56,6 +55,11 @@ const mocks = vi.hoisted(() => ({
         shareSlug: "fastrepl",
         shareBaseUrl: "https://fastrepl.anarlog.so",
       }),
+    ),
+  },
+  invitation: {
+    deliverWorkspaceInvitation: vi.fn(() =>
+      Promise.resolve({ deliveredBy: "email" as const }),
     ),
   },
 }));
@@ -84,6 +88,12 @@ vi.mock("~/env", () => ({
   env: { VITE_ENTERPRISE_API_URL: undefined },
 }));
 
+vi.mock("./invitation", () => ({
+  deliverWorkspaceInvitation: mocks.invitation.deliverWorkspaceInvitation,
+  getTeamSenderName: () => "Owner",
+  reportWorkspaceInvitation: vi.fn(),
+}));
+
 vi.mock("./mirror", () => ({
   MY_WORKSPACES_QUERY_KEY: "team-workspaces",
   useMyWorkspacesWithMirror: () => mocks.workspaces,
@@ -95,7 +105,6 @@ vi.mock("./client", () => ({
   deleteWorkspace: vi.fn(() => Promise.resolve()),
   getSeatUsage: () =>
     Promise.resolve({ seatLimit: null, usedSeats: 1, isBilled: false }),
-  inviteMember: mocks.client.inviteMember,
   leaveWorkspace: vi.fn(() => Promise.resolve()),
   listWorkspaceInvitations: () => Promise.resolve(mocks.client.invitations),
   listWorkspaceMembers: () => Promise.resolve(mocks.client.members),
@@ -147,11 +156,11 @@ describe("SettingsTeam", () => {
     mocks.workspaces.isPending = false;
     mocks.client.members = [];
     mocks.client.invitations = [];
-    mocks.client.inviteMember.mockClear();
     mocks.client.revokeInvitation.mockClear();
     mocks.client.renameWorkspace.mockClear();
     mocks.client.getWorkspacePolicy.mockClear();
     mocks.client.setWorkspaceShareSlug.mockClear();
+    mocks.invitation.deliverWorkspaceInvitation.mockClear();
   });
 
   afterEach(cleanup);
@@ -259,7 +268,7 @@ describe("SettingsTeam", () => {
     );
   });
 
-  it("resends a pending invitation by revoking and reinviting", async () => {
+  it("resends a pending invitation by delivering a fresh invite", async () => {
     mocks.billing.isPro = true;
     mocks.workspaces.data = [
       {
@@ -284,15 +293,13 @@ describe("SettingsTeam", () => {
     );
 
     await waitFor(() =>
-      expect(mocks.client.inviteMember).toHaveBeenCalledWith(
-        expect.anything(),
-        "00000000-0000-4000-8000-000000000001",
-        "teammate@company.com",
-      ),
-    );
-    expect(mocks.client.revokeInvitation).toHaveBeenCalledWith(
-      expect.anything(),
-      "00000000-0000-4000-8000-00000000000a",
+      expect(mocks.invitation.deliverWorkspaceInvitation).toHaveBeenCalledWith({
+        context: expect.anything(),
+        workspaceId: "00000000-0000-4000-8000-000000000001",
+        workspaceName: "Fastrepl",
+        email: "teammate@company.com",
+        senderName: "Owner",
+      }),
     );
   });
 });

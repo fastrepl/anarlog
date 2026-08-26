@@ -37,6 +37,7 @@ import { Route as ViewAppIndexRouteImport } from './routes/_view/app/index'
 import { Route as SharePublicPublicSlugRouteImport } from './routes/share/public/$publicSlug'
 import { Route as ShareLinkShareIdRouteImport } from './routes/share/link/$shareId'
 import { Route as ShareInviteInvitationIdRouteImport } from './routes/share/invite/$invitationId'
+import { Route as TeamInviteInvitationIdRouteImport } from './routes/team/invite/$invitationId'
 import { Route as ApiWebhooksSlackInteractiveRouteImport } from './routes/api/webhooks/slack-interactive'
 import { Route as ApiTweetIdRouteImport } from './routes/api/tweet.$id'
 import { Route as ApiAssetsSplatRouteImport } from './routes/api/assets.$'
@@ -219,6 +220,11 @@ const ShareLinkShareIdRoute = ShareLinkShareIdRouteImport.update({
 const ShareInviteInvitationIdRoute = ShareInviteInvitationIdRouteImport.update({
   id: '/share/invite/$invitationId',
   path: '/share/invite/$invitationId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamInviteInvitationIdRoute = TeamInviteInvitationIdRouteImport.update({
+  id: '/team/invite/$invitationId',
+  path: '/team/invite/$invitationId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiWebhooksSlackInteractiveRoute =
@@ -489,6 +495,7 @@ export interface FileRoutesByFullPath {
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
+  '/team/invite/$invitationId': typeof TeamInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/app/': typeof ViewAppIndexRoute
@@ -561,6 +568,7 @@ export interface FileRoutesByTo {
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
+  '/team/invite/$invitationId': typeof TeamInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/app': typeof ViewAppIndexRoute
@@ -636,6 +644,7 @@ export interface FileRoutesById {
   '/api/tweet/$id': typeof ApiTweetIdRoute
   '/api/webhooks/slack-interactive': typeof ApiWebhooksSlackInteractiveRoute
   '/share/invite/$invitationId': typeof ShareInviteInvitationIdRoute
+  '/team/invite/$invitationId': typeof TeamInviteInvitationIdRoute
   '/share/link/$shareId': typeof ShareLinkShareIdRoute
   '/share/public/$publicSlug': typeof SharePublicPublicSlugRoute
   '/_view/app/': typeof ViewAppIndexRoute
@@ -711,6 +720,7 @@ export interface FileRouteTypes {
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/share/invite/$invitationId'
+    | '/team/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/app/'
@@ -783,6 +793,7 @@ export interface FileRouteTypes {
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/share/invite/$invitationId'
+    | '/team/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/app'
@@ -857,6 +868,7 @@ export interface FileRouteTypes {
     | '/api/tweet/$id'
     | '/api/webhooks/slack-interactive'
     | '/share/invite/$invitationId'
+    | '/team/invite/$invitationId'
     | '/share/link/$shareId'
     | '/share/public/$publicSlug'
     | '/_view/app/'
@@ -919,6 +931,7 @@ export interface RootRouteChildren {
   ApiTweetIdRoute: typeof ApiTweetIdRoute
   ApiWebhooksSlackInteractiveRoute: typeof ApiWebhooksSlackInteractiveRoute
   ShareInviteInvitationIdRoute: typeof ShareInviteInvitationIdRoute
+  TeamInviteInvitationIdRoute: typeof TeamInviteInvitationIdRoute
   ShareLinkShareIdRoute: typeof ShareLinkShareIdRoute
   SharePublicPublicSlugRoute: typeof SharePublicPublicSlugRoute
   ApiAdminBlogUploadImageRoute: typeof ApiAdminBlogUploadImageRoute
@@ -1148,6 +1161,13 @@ declare module '@tanstack/react-router' {
       path: '/share/invite/$invitationId'
       fullPath: '/share/invite/$invitationId'
       preLoaderRoute: typeof ShareInviteInvitationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team/invite/$invitationId': {
+      id: '/team/invite/$invitationId'
+      path: '/team/invite/$invitationId'
+      fullPath: '/team/invite/$invitationId'
+      preLoaderRoute: typeof TeamInviteInvitationIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/webhooks/slack-interactive': {
@@ -1538,6 +1558,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTweetIdRoute: ApiTweetIdRoute,
   ApiWebhooksSlackInteractiveRoute: ApiWebhooksSlackInteractiveRoute,
   ShareInviteInvitationIdRoute: ShareInviteInvitationIdRoute,
+  TeamInviteInvitationIdRoute: TeamInviteInvitationIdRoute,
   ShareLinkShareIdRoute: ShareLinkShareIdRoute,
   SharePublicPublicSlugRoute: SharePublicPublicSlugRoute,
   ApiAdminBlogUploadImageRoute: ApiAdminBlogUploadImageRoute,

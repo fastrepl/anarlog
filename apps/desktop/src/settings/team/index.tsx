@@ -37,7 +37,6 @@ import {
   deleteWorkspace,
   getWorkspacePolicy,
   getWorkspaceUsageOverview,
-  inviteMember,
   leaveWorkspace,
   listWorkspaceInvitations,
   listWorkspaceMembers,
@@ -54,6 +53,11 @@ import {
   type WorkspacePolicy,
   type WorkspaceRole,
 } from "./client";
+import {
+  deliverWorkspaceInvitation,
+  getTeamSenderName,
+  reportWorkspaceInvitation,
+} from "./invitation";
 import { MY_WORKSPACES_QUERY_KEY, useMyWorkspacesWithMirror } from "./mirror";
 
 import { useAuth } from "~/auth";
@@ -332,10 +336,17 @@ function WorkspacePanel({
 
   const invite = useMutation({
     mutationFn: (value: string) =>
-      inviteMember(requireTeamContext(auth), workspaceId, value),
-    onSuccess: () => {
+      deliverWorkspaceInvitation({
+        context: requireTeamContext(auth),
+        workspaceId,
+        workspaceName,
+        email: value,
+        senderName: getTeamSenderName(auth.session?.user ?? {}),
+      }),
+    onSuccess: (result) => {
       setEmail("");
       refresh();
+      reportWorkspaceInvitation(result.deliveredBy);
     },
   });
   const changeRole = useMutation({
@@ -358,15 +369,19 @@ function WorkspacePanel({
       revokeInvitation(requireTeamContext(auth), invitationId),
     onSuccess: refresh,
   });
-  // The create RPC returns the existing invitation untouched while it is still
-  // valid, so resending must revoke first to get a fresh token and expiry.
   const resendInvite = useMutation({
-    mutationFn: async (invitation: { invitationId: string; email: string }) => {
-      const context = requireTeamContext(auth);
-      await revokeInvitation(context, invitation.invitationId);
-      await inviteMember(context, workspaceId, invitation.email);
+    mutationFn: (invitation: { email: string }) =>
+      deliverWorkspaceInvitation({
+        context: requireTeamContext(auth),
+        workspaceId,
+        workspaceName,
+        email: invitation.email,
+        senderName: getTeamSenderName(auth.session?.user ?? {}),
+      }),
+    onSuccess: (result) => {
+      refresh();
+      reportWorkspaceInvitation(result.deliveredBy);
     },
-    onSuccess: refresh,
   });
   const transfer = useMutation({
     mutationFn: (userId: string) =>
@@ -572,15 +587,14 @@ function WorkspacePanel({
                             title={t`Resend invitation`}
                             onClick={() =>
                               resendInvite.mutate({
-                                invitationId: invitation.invitationId,
                                 email: invitation.email,
                               })
                             }
                             disabled={resendInvite.isPending}
                           >
                             {resendInvite.isPending &&
-                            resendInvite.variables?.invitationId ===
-                              invitation.invitationId ? (
+                            resendInvite.variables?.email ===
+                              invitation.email ? (
                               <CircleNotch className="size-4 animate-spin" />
                             ) : (
                               <PaperPlaneTilt className="size-4" />

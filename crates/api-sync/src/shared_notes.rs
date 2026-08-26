@@ -25,7 +25,9 @@ use gateway::{
     sign_attachment_download, validate_handoff, validate_handoff_lease, validate_snapshot,
 };
 use invitation::__path_send_shared_note_invitation_email;
+use invitation::__path_send_workspace_invitation_email;
 use invitation::send_shared_note_invitation_email;
+use invitation::send_workspace_invitation_email;
 
 use crate::{
     SharedNotesConfig,
@@ -159,6 +161,16 @@ pub struct SharedNoteInvitationEmailRequest {
     share_id: String,
     invite_token: String,
     note_title: String,
+    #[serde(default)]
+    from_name: String,
+}
+
+#[derive(Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct WorkspaceInvitationEmailRequest {
+    workspace_id: String,
+    invite_token: String,
+    workspace_name: String,
     #[serde(default)]
     from_name: String,
 }
@@ -427,7 +439,8 @@ struct GatewayHandoffRow {
         download_public_shared_attachment,
         download_link_shared_attachment,
         download_access_shared_attachment,
-        send_shared_note_invitation_email
+        send_shared_note_invitation_email,
+        send_workspace_invitation_email
     ),
     components(schemas(
         SharedNoteLinkRequest,
@@ -435,6 +448,7 @@ struct GatewayHandoffRow {
         SharedNoteHandoffClaimRequest,
         SharedNoteHandoffAttachmentRequest,
         SharedNoteInvitationEmailRequest,
+        WorkspaceInvitationEmailRequest,
         SharedNoteSnapshot,
         StableSharedNoteSnapshot,
         SharedNotePreview,
@@ -522,6 +536,11 @@ pub fn authenticated_router(state: SharedNotesState) -> Router {
         .route(
             "/shared-notes/invitations/{invitation_id}/email",
             post(send_shared_note_invitation_email)
+                .layer(DefaultBodyLimit::max(MAX_INVITATION_EMAIL_REQUEST_BYTES)),
+        )
+        .route(
+            "/workspaces/invitations/{invitation_id}/email",
+            post(send_workspace_invitation_email)
                 .layer(DefaultBodyLimit::max(MAX_INVITATION_EMAIL_REQUEST_BYTES)),
         )
         .route(

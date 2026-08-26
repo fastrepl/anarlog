@@ -170,6 +170,37 @@ impl EmailDelivery {
         }
     }
 
+    pub(super) async fn send_workspace_invitation(
+        &self,
+        recipient: &str,
+        owner_email: &str,
+        sender_name: &str,
+        workspace_name: &str,
+        invitation_url: &str,
+        invitation_id: &str,
+    ) -> Result<(), String> {
+        let Self::Resend(client) = self else {
+            return Err("Resend is not configured".to_string());
+        };
+        let sender_name = safe_sender_name(sender_name);
+        client
+            .send(
+                recipient,
+                owner_email,
+                &sender_name,
+                format!("{sender_name} invited you to {workspace_name}"),
+                format!(
+                    "{} invited you to join \"{}\" in Anarlog.\n\nAccept the invitation:\n{}\n\nReply to this email to contact {}.",
+                    sender_name,
+                    workspace_name,
+                    invitation_url,
+                    sender_name
+                ),
+                invitation_id,
+            )
+            .await
+    }
+
     pub(super) async fn send_recap(
         &self,
         recipients: &[String],
