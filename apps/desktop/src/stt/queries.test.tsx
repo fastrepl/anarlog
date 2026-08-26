@@ -268,6 +268,8 @@ describe("transcript SQLite queries", () => {
 
     expect(result.current).toEqual(["human-1", "human-2"]);
     expect(mocks.queryOptions[0]?.sql).toContain("deleted_at IS NULL");
+    expect(mocks.queryOptions[0]?.sql).toContain("source <> 'excluded'");
+    expect(mocks.queryOptions[0]?.sql).toContain("owner_user_id");
   });
 
   it("deduplicates and sorts ids before loading named humans", () => {

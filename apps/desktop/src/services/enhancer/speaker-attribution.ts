@@ -108,6 +108,19 @@ export async function inferAutomaticSpeakerAssignments({
     [...clustersByTranscript.entries()].map(
       async ([transcriptId, clusters]) => {
         const directMappings: SpeakerAttributionMapping[] = [];
+        const isClosedOneOnOne =
+          context.candidates.length === 1 && clusters.length === 1;
+        if (isClosedOneOnOne) {
+          return {
+            transcriptId,
+            mappings: completeClosedCandidateSet(
+              clusters,
+              context.candidates,
+              directMappings,
+            ),
+          };
+        }
+
         const usePublicEvidenceFallback =
           context.candidates.length === 2 &&
           clusters.length === 2 &&
@@ -261,7 +274,7 @@ function buildSpeakerAttributionContext(
   ).sort((left, right) => left.humanId.localeCompare(right.humanId));
 
   if (
-    candidates.length < 2 ||
+    candidates.length === 0 ||
     candidates.length > MAX_ATTRIBUTION_ITEMS ||
     new Set(candidates.map((candidate) => candidate.name.toLocaleLowerCase()))
       .size !== candidates.length
@@ -374,7 +387,7 @@ function buildSpeakerAttributionContext(
       });
 
     if (
-      transcriptClusters.length < 2 ||
+      transcriptClusters.length === 0 ||
       transcriptClusters.length > MAX_ATTRIBUTION_ITEMS ||
       candidates.length < transcriptClusters.length ||
       transcriptClusters.some(

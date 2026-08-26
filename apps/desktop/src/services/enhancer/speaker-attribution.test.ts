@@ -14,6 +14,24 @@ import { inferAutomaticSpeakerAssignments } from "./speaker-attribution";
 
 import type { SessionContentSnapshot } from "~/session/content-queries";
 
+function createOneOnOneSnapshot(): SessionContentSnapshot {
+  const snapshot = createSnapshot();
+  snapshot.participants = [
+    { humanId: "self", name: "John Jeong", jobTitle: "Host" },
+    { humanId: "human-marco", name: "Marco Bambini", jobTitle: "Founder" },
+  ];
+  snapshot.transcripts[0]!.words = snapshot.transcripts[0]!.words.slice(2);
+  snapshot.transcripts[0]!.speaker_hints =
+    snapshot.transcripts[0]!.speaker_hints.filter((hint) =>
+      hint.word_id?.startsWith("george-"),
+    );
+  snapshot.transcripts[0]!.wordsJson = "remote words";
+  snapshot.transcripts[0]!.speakerHintsJson = JSON.stringify(
+    snapshot.transcripts[0]!.speaker_hints,
+  );
+  return snapshot;
+}
+
 function createSnapshot(channel = 1): SessionContentSnapshot {
   const speakerHints = [
     {
@@ -147,6 +165,42 @@ function automaticHumanIds(update: { nextSpeakerHintsJson: string }): string[] {
 describe("inferAutomaticSpeakerAssignments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("assigns the only other participant to the only remote speaker", async () => {
+    const updates = await inferAutomaticSpeakerAssignments({
+      generatedSummary:
+        "Marco (Speaker 1) confirmed he had already relaxed all limitations.",
+      model: {} as LanguageModel,
+      snapshot: createOneOnOneSnapshot(),
+      signal: new AbortController().signal,
+    });
+
+    expect(mocks.generateText).not.toHaveBeenCalled();
+    expect(updates).toEqual([
+      expect.objectContaining({
+        id: "transcript-1",
+        expectedParticipantHumanIdsJson: '["human-marco"]',
+      }),
+    ]);
+    expect(automaticHumanIds(updates[0]!)).toEqual(["human-marco"]);
+  });
+
+  it("does not guess when one other participant has two unassigned speakers", async () => {
+    const snapshot = createSnapshot();
+    snapshot.participants = [
+      { humanId: "self", name: "John Jeong", jobTitle: "Host" },
+      { humanId: "human-marco", name: "Marco Bambini", jobTitle: "Founder" },
+    ];
+    await expect(
+      inferAutomaticSpeakerAssignments({
+        generatedSummary: "Marco discussed device limits.",
+        model: {} as LanguageModel,
+        snapshot,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toEqual([]);
+    expect(mocks.generateText).not.toHaveBeenCalled();
   });
 
   it("creates guarded automatic hints from direct candidate matches", async () => {

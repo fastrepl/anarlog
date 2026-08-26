@@ -244,13 +244,37 @@ export async function getTranscriptRecord(
 
 export function useSessionParticipantHumanIds(sessionId: string): string[] {
   const { data = EMPTY_IDS } = useLiveQuery<ParticipantHumanSqlRow, string[]>({
+    // Drop excluded people and any contact that is the current user (or a
+    // calendar copy with the same email) so a 1:1 meeting still has one remote.
     sql: `
-      SELECT DISTINCT human_id
-      FROM session_participants
-      WHERE session_id = ?
-        AND human_id <> ''
-        AND deleted_at IS NULL
-      ORDER BY human_id
+      SELECT DISTINCT participant.human_id
+      FROM session_participants AS participant
+      LEFT JOIN humans AS human
+        ON human.id = participant.human_id
+        AND human.deleted_at IS NULL
+      WHERE participant.session_id = ?
+        AND participant.human_id <> ''
+        AND participant.source <> 'excluded'
+        AND participant.deleted_at IS NULL
+        AND participant.human_id <> COALESCE((
+          SELECT session.owner_user_id
+          FROM sessions AS session
+          WHERE session.id = participant.session_id
+        ), '')
+        AND (
+          NULLIF(lower(human.email), '') IS NULL
+          OR NOT EXISTS (
+            SELECT 1
+            FROM humans AS self_human
+            JOIN sessions AS session
+              ON session.owner_user_id = self_human.id
+            WHERE session.id = participant.session_id
+              AND self_human.deleted_at IS NULL
+              AND NULLIF(lower(self_human.email), '') IS NOT NULL
+              AND lower(self_human.email) = lower(human.email)
+          )
+        )
+      ORDER BY participant.human_id
     `,
     params: [sessionId],
     enabled: Boolean(sessionId),
