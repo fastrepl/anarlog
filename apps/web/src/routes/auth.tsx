@@ -1,8 +1,8 @@
 import { Icon } from "@iconify-icon/react";
-import { ArrowLeft, Envelope } from "@phosphor-icons/react";
+import { ArrowLeft, Buildings, Envelope } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 
 import { cn } from "@anlg/utils";
@@ -177,8 +177,11 @@ function Component() {
                 onClick={() => setView("email")}
                 className={authSecondaryButtonClassName}
               >
-                <Envelope className="size-4" />
-                Sign in with Email
+                <AuthProviderContent
+                  icon={<Envelope className="size-[18px]" aria-hidden="true" />}
+                >
+                  Sign in with Email
+                </AuthProviderContent>
               </button>
             )}
             {showEmail && (
@@ -186,7 +189,13 @@ function Component() {
                 onClick={() => setView("sso")}
                 className={authSecondaryButtonClassName}
               >
-                Sign in with SSO
+                <AuthProviderContent
+                  icon={
+                    <Buildings className="size-[18px]" aria-hidden="true" />
+                  }
+                >
+                  Sign in with SSO
+                </AuthProviderContent>
               </button>
             )}
           </div>
@@ -832,6 +841,23 @@ function MagicLinkForm({
   );
 }
 
+function AuthProviderContent({
+  icon,
+  children,
+}: {
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <span className="flex w-56 items-center gap-3 text-left">
+      <span className="flex size-[18px] shrink-0 items-center justify-center">
+        {icon}
+      </span>
+      {children}
+    </span>
+  );
+}
+
 function OAuthButton({
   flow,
   scheme,
@@ -901,16 +927,19 @@ function OAuthButton({
       disabled={isPending}
       className={authSecondaryButtonClassName}
     >
-      {provider === "google" && (
-        <Icon icon="logos:google-icon" width="18" height="18" />
-      )}
-      {provider === "github" && (
-        <Icon icon="logos:github-icon" width="18" height="18" />
-      )}
-      {provider === "azure" && (
-        <Icon icon="logos:microsoft-icon" width="18" height="18" />
-      )}
-      Sign in with {getOAuthProviderName(provider)}
+      <AuthProviderContent
+        icon={
+          provider === "google" ? (
+            <Icon icon="logos:google-icon" width="18" height="18" />
+          ) : provider === "github" ? (
+            <Icon icon="logos:github-icon" width="18" height="18" />
+          ) : (
+            <Icon icon="logos:microsoft-icon" width="18" height="18" />
+          )
+        }
+      >
+        Sign in with {getOAuthProviderName(provider)}
+      </AuthProviderContent>
     </button>
   );
 }
