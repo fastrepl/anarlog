@@ -9,8 +9,6 @@ use reqwest::StatusCode;
 use tower_http::cors::{self, CorsLayer};
 
 use super::{ServerInfo, ServerStatus};
-use anlg_whisper_local_model::WhisperModel;
-
 pub enum InternalSTTMessage {
     GetHealth(RpcReplyPort<ServerInfo>),
     ServerError(String),
@@ -18,13 +16,14 @@ pub enum InternalSTTMessage {
 
 #[derive(Clone)]
 pub struct InternalSTTArgs {
-    pub model_type: WhisperModel,
-    pub model_cache_dir: PathBuf,
+    pub model: Option<anlg_whisper_local_model::WhisperModel>,
+    pub model_path: PathBuf,
 }
 
 pub struct InternalSTTState {
     base_url: String,
-    model: WhisperModel,
+    model: Option<anlg_whisper_local_model::WhisperModel>,
+    model_path: PathBuf,
     shutdown: tokio::sync::watch::Sender<()>,
     server_task: tokio::task::JoinHandle<()>,
 }
@@ -48,16 +47,11 @@ impl Actor for InternalSTTActor {
         myself: ActorRef<Self::Msg>,
         args: Self::Arguments,
     ) -> Result<Self::State, ActorProcessingErr> {
-        let InternalSTTArgs {
-            model_type,
-            model_cache_dir,
-        } = args;
-
-        let model_path = model_cache_dir.join(model_type.file_name());
+        let InternalSTTArgs { model, model_path } = args;
 
         let whisper_service = HandleError::new(
             anlg_transcribe_whisper_local::TranscribeService::builder()
-                .model_path(model_path)
+                .model_path(model_path.clone())
                 .build(),
             move |err: String| async move {
                 let _ = myself.send_message(InternalSTTMessage::ServerError(err.clone()));
@@ -93,7 +87,8 @@ impl Actor for InternalSTTActor {
 
         Ok(InternalSTTState {
             base_url,
-            model: model_type,
+            model,
+            model_path,
             shutdown: shutdown_tx,
             server_task,
         })
@@ -121,7 +116,11 @@ impl Actor for InternalSTTActor {
                 let info = ServerInfo {
                     url: Some(state.base_url.clone()),
                     status: ServerStatus::Ready,
-                    model: Some(crate::LocalModel::Whisper(state.model.clone())),
+                    model: state.model.clone().map(crate::LocalModel::Whisper),
+                    custom_model_path: state
+                        .model
+                        .is_none()
+                        .then(|| state.model_path.to_string_lossy().into_owned()),
                 };
 
                 if let Err(e) = reply_port.send(info) {

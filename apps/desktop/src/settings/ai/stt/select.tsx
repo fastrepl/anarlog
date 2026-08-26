@@ -39,6 +39,7 @@ import { cn } from "@anlg/utils";
 
 import { useSttSettings } from "./context";
 import { HealthStatusIndicator, useConnectionHealth } from "./health";
+import { LocalFileModel } from "./local-file-model";
 import { LocalModelBackendBadge, LocalModelLabel } from "./model-icon";
 import { recommendOnDeviceModel } from "./on-device-recommendation";
 import {
@@ -78,8 +79,10 @@ import {
   canAppleSpeechTranscribe,
   isConfiguredSttModel,
   getSttModelTranscriptionMode,
-  isOnDeviceSttModel,
+  isDesktopLocalSttAvailable,
   isLiveTranscriptionSupported,
+  isLocalFileSttModel,
+  isOnDeviceSttModel,
   isRealtimeLocalModel,
   isSupportedLanguagesBatch,
   isSupportedLanguagesLive,
@@ -291,7 +294,11 @@ export function SelectProviderAndModel() {
 
         <span className="text-muted-foreground">/</span>
 
-        {visibleProvider === "custom" ? (
+        {visibleProvider === "local_file" ? (
+          <div className="min-w-0 flex-3">
+            <LocalFileModel healthStatus={health.status} />
+          </div>
+        ) : visibleProvider === "custom" ? (
           <div className="min-w-0 flex-3">
             <Input
               value={displayedSttModel || ""}
@@ -495,10 +502,9 @@ function useTranscriptionLanguageWarning() {
     ? current_stt_model
     : undefined;
   const isConfigured = !!(current_stt_provider && selectedSttModel);
-  const isOnDeviceModel = isOnDeviceSttModel(
-    current_stt_provider,
-    selectedSttModel,
-  );
+  const isOnDeviceModel =
+    isOnDeviceSttModel(current_stt_provider, selectedSttModel) ||
+    isLocalFileSttModel(current_stt_provider, selectedSttModel);
   const useLiveOnDeviceModel =
     isOnDeviceModel && isRealtimeLocalModel(selectedSttModel);
   const hasError = isConfigured && health.status === "error";
@@ -611,6 +617,9 @@ function useConfiguredMapping(): {
   const billing = useBillingAccess();
   const { providers: configuredProviders, isReady } =
     useAiProvidersState("stt");
+  const { local_stt_model_path } = useConfigValues([
+    "local_stt_model_path",
+  ] as const);
 
   const deviceInfo = useQuery({
     queryKey: ["device-info"],
@@ -698,6 +707,26 @@ function useConfiguredMapping(): {
           deviceInfo.data?.totalMemoryBytes,
         );
         return [provider.id, { configured: models.length > 0, models }];
+      }
+
+      if (provider.id === "local_file") {
+        const available = isDesktopLocalSttAvailable(
+          deviceInfo.data?.platform ?? "",
+          deviceInfo.data?.arch ?? "",
+        );
+        return [
+          provider.id,
+          {
+            configured: available,
+            models: [
+              {
+                id: "local-file",
+                isDownloaded: !!local_stt_model_path?.trim(),
+                mode: "batch" as const,
+              },
+            ],
+          },
+        ];
       }
 
       if (provider.id === "custom") {

@@ -18,7 +18,7 @@ import {
   XAI,
   ZAI,
 } from "@lobehub/icons";
-import { Shuffle, Waveform } from "@phosphor-icons/react";
+import { FolderOpen, Shuffle, Waveform } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import type { LocalModel } from "@anlg/plugin-local-stt";
@@ -65,6 +65,10 @@ const OPENROUTER_MODEL_LABELS: Record<string, string> = {
 export const displayModelId = (model: string): string => {
   if (model === "cloud") {
     return "Pro (Cloud)";
+  }
+
+  if (model === "local-file") {
+    return "Local model file";
   }
 
   if (model === "nova-3" || model === "nova-3-general") {
@@ -325,6 +329,17 @@ const _PROVIDERS = [
     builtIn: true,
     icon: <ProviderLobeIcon icon={Apple} />,
     models: [],
+    requirements: [],
+  },
+  {
+    disabled: false,
+    id: "local_file",
+    displayName: "Local file",
+    badge: "Batch only",
+    baseUrl: "",
+    builtIn: true,
+    icon: <FolderOpen />,
+    models: ["local-file"],
     requirements: [],
   },
   {
@@ -898,6 +913,7 @@ const _PROVIDERS = [
 const PROVIDER_ORDER = [
   "soniqo",
   "apple_speech",
+  "local_file",
   "deepgram",
   "assemblyai",
   "openai",

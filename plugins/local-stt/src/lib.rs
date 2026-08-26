@@ -4,6 +4,7 @@ use ractor::{ActorCell, ActorRef};
 use tauri::{Manager, Wry};
 
 mod commands;
+mod custom_model;
 mod download_pollers;
 mod error;
 mod ext;
@@ -52,6 +53,8 @@ fn make_specta_builder<R: tauri::Runtime>() -> tauri_specta::Builder<R> {
             commands::start_server::<Wry>,
             commands::stop_server::<Wry>,
             commands::list_supported_models,
+            commands::inspect_custom_model_path::<Wry>,
+            commands::start_server_for_path::<Wry>,
         ])
         .events(tauri_specta::collect_events![
             types::DownloadProgressPayload,

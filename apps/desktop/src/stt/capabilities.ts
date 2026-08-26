@@ -103,6 +103,13 @@ export function isOnDeviceSttModel(
   return provider === "anarlog";
 }
 
+export function isLocalFileSttModel(
+  provider?: string | null,
+  model?: string | null,
+) {
+  return provider === "local_file" && model === "local-file";
+}
+
 export function isDesktopLocalSttAvailable(
   currentPlatform: string,
   currentArch: string,
@@ -119,7 +126,8 @@ export function getUnsupportedDesktopLocalSttRepair(
 ) {
   if (
     isDesktopLocalSttAvailable(currentPlatform, currentArch) ||
-    !isOnDeviceSttModel(provider, model)
+    (!isOnDeviceSttModel(provider, model) &&
+      !isLocalFileSttModel(provider, model))
   ) {
     return null;
   }
@@ -149,6 +157,10 @@ export function isConfiguredSttModel(
     return model === "apple-speech";
   }
 
+  if (provider === "local_file") {
+    return model === "local-file";
+  }
+
   return true;
 }
 
@@ -160,6 +172,10 @@ export function getSttModelTranscriptionMode(
   provider?: string | null,
   model?: string | null,
 ): TranscriptionMode | undefined {
+  if (isLocalFileSttModel(provider, model)) {
+    return "batch";
+  }
+
   if (provider === "cohere" && model === "cohere-transcribe-03-2026") {
     return "batch";
   }
@@ -237,6 +253,10 @@ function baseLanguageCode(language: string) {
 }
 
 function languageSupportProvider(provider: string) {
+  if (provider === "local_file") {
+    return "anarlog";
+  }
+
   if (provider === "custom" || provider === "cloudflare_workers_ai") {
     return "deepgram";
   }
@@ -344,6 +364,13 @@ export async function getLiveTranscriptionConfig({
   model?: string | null;
   languages: readonly string[];
 }): Promise<LiveTranscriptionConfig> {
+  if (isLocalFileSttModel(provider, model)) {
+    return {
+      languages: [...languages],
+      transcriptionMode: "batch",
+    };
+  }
+
   if (isOnDeviceSttModel(provider, model)) {
     return getOnDeviceTranscriptionConfig(model, languages);
   }
@@ -384,6 +411,10 @@ export async function isLiveTranscriptionSupported(
   model?: string | null,
 ) {
   if (!provider || !model) {
+    return false;
+  }
+
+  if (isLocalFileSttModel(provider, model)) {
     return false;
   }
 

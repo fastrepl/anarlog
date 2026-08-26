@@ -12,6 +12,7 @@ import { useAiProvider } from "~/settings/providers";
 import { useConfigValues } from "~/shared/config";
 import {
   isAnarlogCloudSttModel,
+  isLocalFileSttModel,
   isOnDeviceSttModel,
   isRealtimeLocalModel,
 } from "~/stt/capabilities";
@@ -20,13 +21,16 @@ import { localSttQueries } from "~/stt/useLocalSttModel";
 export const useSTTConnection = () => {
   const auth = useAuth();
   const billing = useBillingAccess();
-  const { current_stt_provider, current_stt_model } = useConfigValues([
-    "current_stt_provider",
-    "current_stt_model",
-  ] as const) as {
-    current_stt_provider: ProviderId | undefined;
-    current_stt_model: string | undefined;
-  };
+  const { current_stt_provider, current_stt_model, local_stt_model_path } =
+    useConfigValues([
+      "current_stt_provider",
+      "current_stt_model",
+      "local_stt_model_path",
+    ] as const) as {
+      current_stt_provider: ProviderId | undefined;
+      current_stt_model: string | undefined;
+      local_stt_model_path: string | undefined;
+    };
 
   const providerConfig = useAiProvider("stt", current_stt_provider) as
     | AIProviderStorage
@@ -35,7 +39,11 @@ export const useSTTConnection = () => {
   const localModel = isOnDeviceSttModel(current_stt_provider, current_stt_model)
     ? current_stt_model
     : null;
-  const isLocalModel = !!localModel;
+  const isLocalFile = isLocalFileSttModel(
+    current_stt_provider,
+    current_stt_model,
+  );
+  const isLocalModel = !!localModel || isLocalFile;
 
   const isCloudModel = isAnarlogCloudSttModel(
     current_stt_provider,
@@ -48,10 +56,44 @@ export const useSTTConnection = () => {
 
   const local = useQuery({
     enabled: isLocalModel,
-    queryKey: ["stt-connection", current_stt_provider, localModel],
+    queryKey: [
+      "stt-connection",
+      current_stt_provider,
+      localModel,
+      local_stt_model_path,
+    ],
     refetchInterval: (query) =>
       query.state.data?.status === "loading" ? 1000 : false,
     queryFn: async () => {
+      if (isLocalFile) {
+        const path = local_stt_model_path?.trim();
+        if (!path) {
+          return {
+            status: "not_selected" as const,
+            connection: null,
+          };
+        }
+
+        const started = await localSttCommands.startServerForPath(path);
+        if (started.status === "error") {
+          return {
+            status: "error" as const,
+            error: started.error,
+            connection: null,
+          };
+        }
+
+        return {
+          status: "ready" as const,
+          connection: {
+            provider: "local_file" as const,
+            model: "local-file" as const,
+            baseUrl: started.data,
+            apiKey: "",
+          },
+        };
+      }
+
       if (!localModel) {
         return null;
       }

@@ -26,6 +26,7 @@ import type { BatchPersistCallback } from "~/store/zustand/listener/transcript";
 import {
   getTranscriptionLanguages,
   isDesktopLocalSttAvailable,
+  isLocalFileSttModel,
   isOnDeviceSttModel,
   isSupportedLanguagesBatch,
 } from "~/stt/capabilities";
@@ -112,6 +113,10 @@ export function getBatchProvider(
 ): TranscriptionParams["provider"] | null {
   if (provider === "cloudflare_workers_ai") {
     return "deepgram";
+  }
+
+  if (isLocalFileSttModel(provider, model)) {
+    return "whispercpp";
   }
 
   if (provider === "anarlog") {
@@ -734,7 +739,8 @@ export const useRunBatch = (sessionId: string) => {
           : null;
       const selectedOnDeviceUnsupported = !!(
         selectedTarget &&
-        isOnDeviceSttModel(selectedProviderId, selectedModel) &&
+        (isOnDeviceSttModel(selectedProviderId, selectedModel) ||
+          isLocalFileSttModel(selectedProviderId, selectedModel)) &&
         !isDesktopLocalSttAvailable(currentPlatform, currentArch)
       );
       const selectedTargetSupported =

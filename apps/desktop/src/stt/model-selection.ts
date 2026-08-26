@@ -9,6 +9,7 @@ type PreferredProviderModelOptions = {
 };
 
 const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
+  local_file: "local-file",
   deepgram: "nova-3-general",
   assemblyai: "universal-3-pro",
   openai: "gpt-live-transcribe",

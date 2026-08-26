@@ -481,7 +481,8 @@ function applySettingSideEffects(values: SettingValues): void {
   }
   if (
     values.current_stt_provider !== undefined ||
-    values.current_stt_model !== undefined
+    values.current_stt_model !== undefined ||
+    values.local_stt_model_path !== undefined
   ) {
     void syncLocalSttServer().catch(console.error);
   }
@@ -500,9 +501,12 @@ async function syncLocalSttServer(): Promise<void> {
   const { values } = await getStoredSettingValues();
   const provider = values.current_stt_provider;
   let model = values.current_stt_model;
+  const localModelPath = values.local_stt_model_path?.trim();
 
   if (
-    ["anarlog", "soniqo", "apple_speech"].includes(provider ?? "") &&
+    ["anarlog", "soniqo", "apple_speech", "local_file"].includes(
+      provider ?? "",
+    ) &&
     model &&
     !isConfiguredSttModel(provider, model)
   ) {
@@ -519,6 +523,13 @@ async function syncLocalSttServer(): Promise<void> {
         params: [JSON.stringify(model), new Date().toISOString()],
       },
     ]);
+  }
+
+  if (provider === "local_file") {
+    if (model !== "local-file" || !localModelPath) {
+      await localSttCommands.stopServer(null);
+    }
+    return;
   }
 
   if (isOnDeviceSttModel(provider, model)) {

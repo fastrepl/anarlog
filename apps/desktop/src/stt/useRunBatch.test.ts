@@ -150,6 +150,10 @@ vi.mock("~/stt/capabilities", () => {
       currentPlatform: string,
       currentArch: string,
     ) => currentPlatform === "macos" && currentArch === "aarch64",
+    isLocalFileSttModel: (
+      provider: string | null | undefined,
+      model: string | null | undefined,
+    ) => provider === "local_file" && model === "local-file",
     isOnDeviceSttModel: (
       provider: string | null | undefined,
       model: string | null | undefined,
@@ -226,6 +230,10 @@ describe("getBatchProvider", () => {
     expect(getBatchProvider("apple_speech", "apple-speech")).toBe(
       "applespeech",
     );
+  });
+
+  test("maps local model files to whisper.cpp", () => {
+    expect(getBatchProvider("local_file", "local-file")).toBe("whispercpp");
   });
 });
 

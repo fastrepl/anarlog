@@ -101,6 +101,22 @@ async listSupportedModels() : Promise<Result<SttModelInfo[], string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async inspectCustomModelPath(path: string) : Promise<Result<CustomSttModelInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-stt|inspect_custom_model_path", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async startServerForPath(path: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("plugin:local-stt|start_server_for_path", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -125,11 +141,13 @@ export type AmModel = "am-parakeet-v2" | "am-parakeet-v3" | "am-whisper-large-v3
  * selected by locale rather than by model, so this carries one variant.
  */
 export type AppleSpeechModel = "apple-speech"
+export type CustomSttModelFormat = "ggml"
+export type CustomSttModelInfo = { path: string; name: string; sizeBytes: number; format: CustomSttModelFormat }
 export type DownloadProgressPayload = { model: LocalModel; status: DownloadStatus }
 export type DownloadStatus = { downloading: number } | "completed" | { failed: string }
 export type GgufLlmModel = "Llama3p2_3bQ4" | "Gemma3_4bQ4" | "AnarlogLLM"
 export type LocalModel = SoniqoModel | AppleSpeechModel | WhisperModel | AmModel | GgufLlmModel
-export type ServerInfo = { url: string | null; status: ServerStatus; model: LocalModel | null }
+export type ServerInfo = { url: string | null; status: ServerStatus; model: LocalModel | null; custom_model_path: string | null }
 export type ServerStatus = "unreachable" | "loading" | "ready"
 export type ServerType = "internal" | "external"
 export type SoniqoModel = "soniqo-parakeet-streaming" | "soniqo-parakeet-batch" | "soniqo-omnilingual" | "soniqo-qwen3-small" | "soniqo-qwen3-large"

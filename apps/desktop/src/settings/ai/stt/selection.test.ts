@@ -10,6 +10,7 @@ import {
 
 describe("getDefaultSttModel", () => {
   test("repairs external providers with their first supported model", () => {
+    expect(getDefaultSttModel("local_file")).toBe("local-file");
     expect(getDefaultSttModel("deepgram")).toBe("nova-3-general");
     expect(getDefaultSttModel("soniox")).toBe("stt-rt-v5");
     expect(getDefaultSttModel("cohere")).toBe("cohere-transcribe-03-2026");

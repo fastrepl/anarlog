@@ -28,6 +28,14 @@ pub enum Error {
     UnsupportedModelType,
     #[error("On-device transcription is only available on Apple Silicon")]
     UnsupportedPlatform,
+    #[error("Invalid local transcription model: {0}")]
+    InvalidModelPath(String),
+    #[error(
+        "transcribe.cpp GGUF models are not supported yet. Select a whisper.cpp .bin model instead"
+    )]
+    GgufModelUnsupported,
+    #[error("Could not load the whisper.cpp model: {0}")]
+    WhisperModelLoadFailed(String),
     #[error("Model delete failed: {0}")]
     ModelDeleteFailed(String),
     #[error("Model unpack failed: {0}")]

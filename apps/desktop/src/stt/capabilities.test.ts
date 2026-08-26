@@ -22,6 +22,7 @@ import {
   getUnsupportedDesktopLocalSttRepair,
   isConfiguredSttModel,
   isDesktopLocalSttAvailable,
+  isLocalFileSttModel,
   isOnDeviceSttModel,
   isSupportedLanguagesBatch,
   isSupportedLanguagesLive,
@@ -67,6 +68,9 @@ describe("getOnDeviceTranscriptionMode", () => {
 
 describe("getSttModelTranscriptionMode", () => {
   test("distinguishes external batch and realtime model variants", () => {
+    expect(getSttModelTranscriptionMode("local_file", "local-file")).toBe(
+      "batch",
+    );
     expect(getSttModelTranscriptionMode("openai", "gpt-live-transcribe")).toBe(
       "live",
     );
@@ -151,6 +155,14 @@ describe("isOnDeviceSttModel", () => {
   });
 });
 
+describe("isLocalFileSttModel", () => {
+  test("matches only the stable local-file provider and model ids", () => {
+    expect(isLocalFileSttModel("local_file", "local-file")).toBe(true);
+    expect(isLocalFileSttModel("local_file", "ggml-small.bin")).toBe(false);
+    expect(isLocalFileSttModel("anarlog", "local-file")).toBe(false);
+  });
+});
+
 describe("getOnDeviceTranscriptionConfig", () => {
   test("keeps languages Apple Speech supports but Parakeet does not", () => {
     expect(getOnDeviceTranscriptionConfig("apple-speech", ["ko"])).toEqual({
@@ -206,6 +218,8 @@ describe("isConfiguredSttModel", () => {
     expect(
       isConfiguredSttModel("apple_speech", "soniqo-parakeet-streaming"),
     ).toBe(false);
+    expect(isConfiguredSttModel("local_file", "local-file")).toBe(true);
+    expect(isConfiguredSttModel("local_file", "ggml-small.bin")).toBe(false);
   });
 
   test("allows custom model ids for external providers", () => {
@@ -260,6 +274,18 @@ describe("getUnsupportedDesktopLocalSttRepair", () => {
         false,
       ),
     ).toBeNull();
+  });
+
+  test("repairs local model files on unsupported platforms", () => {
+    expect(
+      getUnsupportedDesktopLocalSttRepair(
+        "linux",
+        "x86_64",
+        "local_file",
+        "local-file",
+        true,
+      ),
+    ).toEqual({ provider: "anarlog", model: "cloud" });
   });
 
   test.each([
@@ -332,6 +358,20 @@ describe("getOnDeviceTranscriptionConfig", () => {
 });
 
 describe("getLiveTranscriptionConfig", () => {
+  test("runs local model files after recording", async () => {
+    await expect(
+      getLiveTranscriptionConfig({
+        provider: "local_file",
+        model: "local-file",
+        languages: ["en", "ko"],
+      }),
+    ).resolves.toEqual({
+      languages: ["en", "ko"],
+      transcriptionMode: "batch",
+    });
+    expect(isSupportedLanguagesLiveMock).not.toHaveBeenCalled();
+  });
+
   test("uses the dedicated OpenAI live model during recording", async () => {
     await expect(
       getLiveTranscriptionConfig({
