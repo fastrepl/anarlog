@@ -115,6 +115,7 @@ jobs:
           persist-credentials: false
       - id: validate
         env:
+          BUILD_NUMBER: ${{ inputs.build_number }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           EXECUTION_REF: ${{ github.ref }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -150,7 +151,22 @@ jobs:
             echo "::error::Checked out $checked_out_sha instead of candidate $candidate_sha"
             exit 1
           fi
-          if [[ "$tag_sha" != "$candidate_sha" ]]; then
+          if [[ -n "$BUILD_NUMBER" ]]; then
+            if [[ ! "$BUILD_NUMBER" =~ ^[0-9]{1,4}(\.[0-9]{1,2}){0,2}$ ]]; then
+              echo "::error::macOS build number must contain one to three numeric components"
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$tag_sha" "$candidate_sha"; then
+              echo "::error::Replacement candidate $candidate_sha does not include release tag $tag"
+              exit 1
+            fi
+            comparison=$(gh api "repos/$GITHUB_REPOSITORY/compare/$candidate_sha...main")
+            comparison_status=$(jq -r '.status' <<< "$comparison")
+            if [[ "$comparison_status" != "identical" && "$comparison_status" != "ahead" ]]; then
+              echo "::error::Replacement candidate $candidate_sha is not on main"
+              exit 1
+            fi
+          elif [[ "$tag_sha" != "$candidate_sha" ]]; then
             echo "::error::Tag $tag points to $tag_sha instead of candidate $candidate_sha"
             exit 1
           fi

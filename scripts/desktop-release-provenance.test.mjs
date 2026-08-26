@@ -399,6 +399,9 @@ test("keeps Mac App Store privacy metadata and replacement builds reviewable", a
     /match calendar attendees with names and email addresses saved on your Mac/,
   );
   assert.match(storeWorkflow, /build_number:/);
+  assert.match(storeWorkflow, /git merge-base --is-ancestor/);
+  assert.match(storeWorkflow, /compare\/\$candidate_sha\.\.\.main/);
+  assert.match(storeWorkflow, /comparison_status.*identical/);
   assert.match(storeWorkflow, /bundleVersion = \$build/);
   assert.match(storeWorkflow, /--build-version "\$BUILD_NUMBER"/);
   assert.match(submitScript, /"filter\[version\]": buildVersion/);
