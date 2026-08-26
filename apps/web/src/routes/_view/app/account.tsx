@@ -79,6 +79,7 @@ const accountTabPreloaders: Record<AccountTabId, () => Promise<unknown>> = {
       loadProfileInfoSection(),
       loadPlanSection(),
       loadReferralSection(),
+      loadAccountAccessSection(),
       loadDangerAreaSection(),
     ]),
   connections: () =>
@@ -87,8 +88,7 @@ const accountTabPreloaders: Record<AccountTabId, () => Promise<unknown>> = {
       loadDevicesSection(),
       loadSharedNotesSection(),
     ]),
-  developer: () =>
-    Promise.all([loadApiKeysSection(), loadAccountAccessSection()]),
+  developer: () => Promise.all([loadApiKeysSection()]),
 };
 
 function preloadAccountTab(tabId: AccountTabId) {

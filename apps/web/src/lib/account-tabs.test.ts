@@ -10,6 +10,7 @@ import {
 test("maps section hashes to the tab that contains them", () => {
   assert.equal(accountTabForSection("plan"), "account");
   assert.equal(accountTabForSection("referrals"), "account");
+  assert.equal(accountTabForSection("session"), "account");
   assert.equal(accountTabForSection("integrations"), "connections");
   assert.equal(accountTabForSection("shares"), "connections");
   assert.equal(accountTabForSection("api-keys"), "developer");
@@ -19,6 +20,10 @@ test("maps section hashes to the tab that contains them", () => {
 test("prefers a section hash over the tab search param", () => {
   assert.equal(
     resolveAccountTab({ tab: "developer", hash: "#referrals" }),
+    "account",
+  );
+  assert.equal(
+    resolveAccountTab({ tab: "developer", hash: "#session" }),
     "account",
   );
   assert.equal(
@@ -44,6 +49,10 @@ test("an empty hash after a tab click does not override the tab param", () => {
 test("lists the sections for a tab in page order", () => {
   assert.deepEqual(
     sectionsForAccountTab("account").map((section) => section.id),
-    ["profile", "plan", "referrals", "danger"],
+    ["profile", "plan", "referrals", "session", "danger"],
+  );
+  assert.deepEqual(
+    sectionsForAccountTab("developer").map((section) => section.id),
+    ["api-keys"],
   );
 });

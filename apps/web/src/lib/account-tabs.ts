@@ -16,7 +16,7 @@ export const ACCOUNT_TABS = [
   {
     id: "account",
     label: "Account",
-    sectionIds: ["profile", "plan", "referrals", "danger"],
+    sectionIds: ["profile", "plan", "referrals", "session", "danger"],
   },
   {
     id: "connections",
@@ -26,7 +26,7 @@ export const ACCOUNT_TABS = [
   {
     id: "developer",
     label: "Developer",
-    sectionIds: ["api-keys", "session"],
+    sectionIds: ["api-keys"],
   },
 ] as const;
 
@@ -38,12 +38,12 @@ const SECTION_TAB: Record<AccountSectionId, AccountTabId> = {
   profile: "account",
   plan: "account",
   referrals: "account",
+  session: "account",
   danger: "account",
   integrations: "connections",
   devices: "connections",
   shares: "connections",
   "api-keys": "developer",
-  session: "developer",
 };
 
 export function isAccountTabId(value: string): value is AccountTabId {
