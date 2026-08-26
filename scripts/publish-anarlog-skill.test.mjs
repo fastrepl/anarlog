@@ -118,9 +118,11 @@ test("the transformation changes nothing but the defined reference links", async
 test("non-link drift in the published mirror is detected", async () => {
   const canonical = await readFile(CANONICAL_SKILL_PATH, "utf8");
   const published = await readFile(PUBLISHED_SKILL_PATH, "utf8");
+  const sentinel = "staging proposals";
 
+  assert.match(canonical, new RegExp(sentinel));
   assert.notEqual(
-    publishSkill(canonical.replace("read-only", "writable")),
+    publishSkill(canonical.replace(sentinel, "direct writes")),
     published,
   );
 });
