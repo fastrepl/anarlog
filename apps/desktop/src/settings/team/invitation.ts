@@ -6,6 +6,7 @@ import { sonnerToast } from "@anlg/ui/components/ui/toast";
 
 import {
   createWorkspaceInvitation,
+  resendWorkspaceInvitation,
   revokeInvitation,
   sendWorkspaceInvitationEmail,
   type TeamContext,
@@ -29,8 +30,10 @@ export async function deliverWorkspaceInvitation({
 }) {
   let invitation = await createWorkspaceInvitation(context, workspaceId, email);
   if (!invitation.inviteToken) {
-    await revokeInvitation(context, invitation.invitationId);
-    invitation = await createWorkspaceInvitation(context, workspaceId, email);
+    invitation = await resendWorkspaceInvitation(
+      context,
+      invitation.invitationId,
+    );
   }
   const inviteToken = invitation.inviteToken;
   if (!inviteToken) throw new TeamError();

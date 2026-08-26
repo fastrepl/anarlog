@@ -10,6 +10,7 @@ import {
   listWorkspaceMembers,
   removeMember,
   requireTeamContext,
+  resendWorkspaceInvitation,
   sendWorkspaceInvitationEmail,
   setWorkspaceShareSlug,
   TeamError,
@@ -198,6 +199,28 @@ describe("invitations", () => {
     expect(rpc).toHaveBeenCalledWith("create_workspace_invitation", {
       p_workspace_id: WORKSPACE_ID,
       p_invitee_email: "person@example.com",
+    });
+  });
+
+  it("returns a fresh token from the atomic resend RPC", async () => {
+    const { context: ctx, rpc } = context([
+      {
+        invitation_id: USER_ID,
+        invite_token: inviteToken,
+        invitation_expires_at: "2026-09-01T00:00:00Z",
+      },
+    ]);
+
+    await expect(resendWorkspaceInvitation(ctx, WORKSPACE_ID)).resolves.toEqual(
+      {
+        invitationId: USER_ID,
+        inviteToken,
+        expiresAt: "2026-09-01T00:00:00Z",
+        wasCreated: true,
+      },
+    );
+    expect(rpc).toHaveBeenCalledWith("resend_workspace_invitation", {
+      p_invitation_id: WORKSPACE_ID,
     });
   });
 

@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(10);
 
 select tests.create_supabase_user('team_pro_owner', 'team-pro-owner@example.com');
 select tests.create_supabase_user('team_free_member', 'team-free-member@example.com');
@@ -36,6 +36,11 @@ select ok(
     and not has_function_privilege(
       'authenticated',
       'private.create_workspace_invitation(uuid,text)',
+      'EXECUTE'
+    )
+    and not has_function_privilege(
+      'authenticated',
+      'private.resend_workspace_invitation(uuid)',
       'EXECUTE'
     )
     and not has_function_privilege(
@@ -118,6 +123,37 @@ select lives_ok(
     )
   $$,
   'A Pro account can invite a Team member'
+);
+
+select tests.clear_authentication();
+select tests.authenticate_as('team_pro_owner');
+
+select throws_ok(
+  $$
+    select *
+    from public.resend_workspace_invitation(
+      (select invitation_id from team_pro_test_state where name = 'member_invite')
+    )
+  $$,
+  '42501',
+  'hyprnote pro entitlement required',
+  'A free account cannot resend a Team invitation'
+);
+
+select results_eq(
+  $$
+    select invitation_id
+    from public.list_workspace_invitations(
+      (select workspace_id from team_pro_test_state where name = 'hq')
+    )
+    where accepted_at is null and revoked_at is null
+  $$,
+  $$
+    select invitation_id
+    from team_pro_test_state
+    where name = 'member_invite'
+  $$,
+  'Rejected resend preserves the original pending invitation'
 );
 
 select tests.clear_authentication();

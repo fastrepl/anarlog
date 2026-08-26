@@ -182,6 +182,27 @@ export async function createWorkspaceInvitation(
   };
 }
 
+export async function resendWorkspaceInvitation(
+  context: TeamContext,
+  invitationId: string,
+) {
+  assertWorkspaceId(invitationId);
+  const row = rows(
+    await callRpc(context, "resend_workspace_invitation", {
+      p_invitation_id: invitationId,
+    }),
+  )[0];
+  if (!row) throw new TeamError();
+  const nextInvitationId = text(row.invitation_id);
+  assertWorkspaceId(nextInvitationId);
+  return {
+    invitationId: nextInvitationId,
+    inviteToken: inviteTokenValue(row.invite_token),
+    expiresAt: text(row.invitation_expires_at),
+    wasCreated: true as const,
+  };
+}
+
 export async function sendWorkspaceInvitationEmail(input: {
   apiBaseUrl: string;
   accessToken: string;
