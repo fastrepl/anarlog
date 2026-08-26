@@ -13,34 +13,17 @@ Use this for stable desktop releases. A stable release must come from `main`, af
 
 Do not trigger a stable release from an unmerged branch. First make the changelog up to date, merge that changelog change to `main`, then run the stable release from `main`.
 
-## QA Gate
+## Scope Boundary
 
-After the changelog is merged to `main`, read and run
-`../qa-critical-ux/SKILL.md` against that final commit. Require a recorded PASS
-for both:
+Release and QA are separate, explicitly requested workflows. Do not read or
+run `qa-critical-ux` or `qa-cli-mcp-api` solely because the user asked for a
+release. A release does not require a QA report or QA PASS.
 
-- native Dev QA pinned with `ANARLOG_QA_GIT_SHA` and a helper manifest with
-  `git_dirty=false`
-- the run-scoped staging artifact whose Actions head SHA exactly matches the
-  Dev manifest's `git_head_sha`
+If the user explicitly asks for both release and QA, follow the requested
+order and report the outcomes separately. Do not infer that a QA result
+approves or blocks the release.
 
-The QA gate is the Pro user journey only: launch without hanging, capture
-microphone and system audio, and produce an automated summary. AEC quality
-(`ANLG-98`), automatic speaker identification (`ANLG-222`), real-world capture
-(`ANLG-284`), and the deferred QA lanes (`ANLG-285`–`ANLG-288`) are explicitly
-non-blocking; record incidental failures against their tickets and do not
-delay a release, patch the candidate, or run dedicated fixtures or matrices
-for them. AEC and speaker identification resume as gates only when their
-issues are completed.
-
-The manifest's `git_head_sha` is the exact final `main` commit, including the
-changelog, not a synthetic GitButler workspace HEAD. The report must include
-that Dev SHA, staging run URL and head SHA, staging artifact SHA-256, and the
-applicable critical checklist results. Any applicable failure, missing
-evidence, SHA mismatch, rebuild, or later source change blocks stable unless
-the user explicitly waives that specific gate. The non-gate exclusions above
-(`ANLG-98`, `ANLG-222`, `ANLG-284`–`ANLG-288`) are already authorized policy,
-not missing evidence.
+## Release Workflow Requirements
 
 This release path approves macOS, Windows, and Linux. Mobile remains closed.
 The patched CloudSync vendor bundle is rebuilt from source and
@@ -123,8 +106,7 @@ Only after the changelog is accurate and validation passes:
 3. Wait for CI and required review state to be clear.
 4. Merge the changelog PR to `main`.
 5. Verify `main` contains `packages/changelog/content/<version>.md`.
-6. Record the resulting `main` SHA and complete the QA Gate against that exact
-   commit before triggering stable.
+6. Record the resulting `main` SHA as the release candidate.
 
 If using GitButler, prefer:
 
@@ -140,8 +122,8 @@ Use actual IDs from `but diff` / `but status -fv`; do not invent IDs.
 
 ## Trigger Stable Release
 
-After the changelog merge and QA Gate pass on the same `main` SHA, verify
-`main` has not moved, then build the stable candidate without publishing:
+After the changelog merge, verify `main` has not moved, then build the stable
+candidate without publishing:
 
 ```bash
 gh workflow run desktop_cd.yaml \
@@ -158,12 +140,12 @@ gh run view <run-id> --json headSha,url
 gh run watch <run-id>
 ```
 
-The run's `headSha` must equal the Dev/staging candidate SHA. A mismatch blocks
-acceptance even if the workflow succeeds.
+The run's `headSha` must equal the recorded release-candidate SHA. A mismatch
+blocks acceptance even if the workflow succeeds.
 
-Do not use GitHub's rerun button for a failed stable candidate or Linux audio
-gate. Dispatch a fresh run instead; publication only accepts first-attempt run
-IDs so evidence cannot be mixed across attempts.
+Do not use GitHub's rerun button for a failed stable candidate or optional
+Linux audio QA run. Dispatch a fresh run instead; publication only accepts
+first-attempt run IDs so evidence cannot be mixed across attempts.
 
 The dry-run workflow must:
 
@@ -205,15 +187,9 @@ Before reporting success, capture:
 - whether CrabNebula publish completed
 - changelog URL
 - stable DMG SHA-256
-- installed stable critical-QA PASS
 
 If the workflow fails, inspect the failed job logs with:
 
 ```bash
 gh run view <run-id> --log-failed
 ```
-
-After the workflow succeeds, follow the QA skill's post-publish stable gate:
-download the matching DMG from the GitHub release, install it, and use Computer
-Use to repeat the core checks. Do not declare the release complete until both
-the stable workflow and installed stable QA succeed.

@@ -1,26 +1,29 @@
 ---
 name: qa-critical-ux
-description: QA the critical Pro user journey before a desktop release — onboards from scratch, launches without hanging, captures microphone and system audio, and produces an automated summary. Use before cutting a stable release or when asked to QA the app.
+description: QA Anarlog's critical Pro user journey when explicitly asked — onboarding, responsive launch, microphone and system-audio capture, and automated summaries.
 ---
 
 # QA: Critical User Experience
 
-The release gate is one thing: **the Pro user journey works, starting from
-onboarding**.
+This is a standalone QA workflow. Run it only when the user explicitly asks
+for QA; a release request alone does not invoke it. QA results do not approve
+or block a release.
+
+Keep the QA scope focused on the Pro user journey, starting from onboarding:
 
 1. The app launches and never hangs.
 2. Onboarding completes from scratch: permissions, sign-in, provider setup.
 3. A recording captures both microphone and system audio.
 4. Stopping the recording produces an automated summary.
 
-Everything else is explicitly not a gate. Do not expand the run because more
-checks are imaginable.
+Everything else is outside this skill's scope. Do not expand the run because
+more checks are imaginable.
 
-## Not a gate — tracked in Linear instead
+## Out of Scope — Tracked in Linear Instead
 
 If you hit a failure in one of these areas incidentally, record it as an
-informational note against the ticket and keep going. Do not patch the release
-candidate, block publication, or run dedicated fixtures/matrices for them.
+informational note against the ticket and keep the requested QA focused. Do
+not run dedicated fixtures or matrices for them.
 
 - AEC quality (echo leakage, residual-echo metrics, double-talk): `ANLG-98`
 - Automatic speaker identification / voiceprints: `ANLG-222`
@@ -30,9 +33,8 @@ candidate, block publication, or run dedicated fixtures/matrices for them.
 - CloudSync activity deferral, leases, transcript-integrity hashes: `ANLG-287`
 - On-device STT/LLM provider matrix: `ANLG-288`
 
-AEC and speaker identification return to being gates only when their issues
-are completed; real-device and real-participant evaluation belongs to
-`ANLG-284`, not to this checklist.
+Real-device and real-participant evaluation belongs to `ANLG-284`, not to this
+checklist.
 
 ## Setup
 
@@ -52,16 +54,16 @@ evaluates process-scoped permissions against the bundle identity. Do not run
 the executable under `Contents/MacOS` directly. Reuse an already-current
 bundle with `--launch-only`.
 
-Pin release-gate builds to the intended candidate commit:
+When QA targets a specific candidate, pin the build to that commit:
 
 ```bash
 ANARLOG_QA_GIT_SHA=<candidate-commit-sha> \
   .agents/skills/qa-critical-ux/scripts/run-native-dev-qa.sh
 ```
 
-In a GitButler workspace, take the branch tip's full `commitId` from
-`but status --format json`; `git rev-parse HEAD` is a synthetic workspace
-commit and is not release provenance.
+In a GitButler workspace, identify the branch tip with `but status` and inspect
+it with `but show <branch>`; `git rev-parse HEAD` is a synthetic workspace
+commit and is not the candidate identity.
 
 A freshly rebuilt Dev bundle can trigger a login-Keychain prompt for the E2EE
 recovery key (its code-signing hash changed). Enter the password the user
@@ -75,8 +77,8 @@ helper's preflight enforces this.
 
 ### Start from onboarding
 
-Dev and staging runs begin at first launch, not in an already-configured app.
-Reset the channel before the run:
+When Dev or staging QA is requested from first launch, reset that channel
+before the run:
 
 1. Quit the app, then delete its app data so `app.db` is gone:
 
@@ -157,22 +159,24 @@ From-scratch onboarding evidence comes from the Dev and staging passes.
   for the untitled note, and a transcript is attached to the session.
 - Restart the app: the note, transcript, and summary are still there.
 
-## Release-candidate order
+## Choose the Requested Channel
 
-1. Run the checklist on a Dev build of the exact candidate SHA from a clean
-   checkout (`git_dirty=false` in the helper manifest; `git_head_sha` is the
-   candidate commit, not GitButler's synthetic HEAD). The manifest is
-   `${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target-v2}/.anarlog-native-dev-qa-manifest`.
-2. Trigger `desktop_cd.yaml` with `channel=staging` from that exact SHA and
-   verify the Actions run's head SHA matches the manifest. Download that
-   run's artifact (`gh run download <run-id> --name
-   hyprnote-staging-macos-silicon` — never a "latest staging" download),
-   record the DMG SHA-256, install it, reset the staging channel, and repeat
-   the checklist from onboarding.
-3. Stable is allowed only when Dev and that exact staging artifact pass for
-   the final `main` SHA. After stable publishes, download the release DMG,
-   record its SHA-256, install, verify the reported version, and run the
-   checklist once more against the existing stable data (no reset).
+Run only the channel or channels the user requests. If no channel is
+specified, default to the native Dev build and report staging and stable as
+`NOT REQUESTED`.
+
+- **Dev:** Run the checklist on the requested commit from a clean checkout
+  (`git_dirty=false` in the helper manifest; `git_head_sha` is the candidate
+  commit, not GitButler's synthetic HEAD). The manifest is
+  `${ANARLOG_QA_TARGET_DIR:-$HOME/Library/Caches/anarlog/native-dev-qa-target-v2}/.anarlog-native-dev-qa-manifest`.
+- **Staging:** Trigger `desktop_cd.yaml` with `channel=staging` from the
+  requested SHA. Verify the Actions run's head SHA, download that run's
+  artifact (`gh run download <run-id> --name
+  hyprnote-staging-macos-silicon` — never a "latest staging" download), record
+  the DMG SHA-256, install it, reset staging, and run from onboarding.
+- **Stable:** When explicitly requested, download the named release DMG,
+  record its SHA-256, install it, verify the reported version, and run against
+  the existing stable data without resetting it.
 
 Do not repurpose the Dev helper as a staging build; staging evidence must come
 from the signed `desktop_cd.yaml` artifact.
@@ -188,7 +192,8 @@ from the signed `desktop_cd.yaml` artifact.
 
 ## Reporting
 
-Report the candidate SHA, app version, artifact SHA-256s (staging/stable when
-applicable), and PASS/FAIL with one line of evidence for each of the four
-checklist items. Any FAIL or SHA mismatch blocks release. Failures in
-non-gate areas go to their Linear ticket as informational notes.
+Report the requested channel, candidate SHA, app version, applicable artifact
+SHA-256s, and PASS/FAIL with one line of evidence for each of the four
+checklist items. A FAIL or SHA mismatch means the QA run failed; it does not
+automatically block a release. Out-of-scope failures go to their Linear ticket
+as informational notes.

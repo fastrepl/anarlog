@@ -1,6 +1,6 @@
 ---
 name: qa-cli-mcp-api
-description: Select and run risk-based QA for Anarlog's CLI, webhooks, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes for a branch or regression; use every lane only for an explicit programmatic-interface release gate.
+description: Select and run explicitly requested, risk-based QA for Anarlog's CLI, webhooks, stdio MCP, hosted Cloud API, and remote MCP. Test only affected lanes unless comprehensive coverage is requested.
 ---
 
 # QA: CLI, MCP, and API
@@ -8,6 +8,9 @@ description: Select and run risk-based QA for Anarlog's CLI, webhooks, stdio MCP
 Default to the smallest set of programmatic-interface lanes that can prove the
 change. Automated tests are necessary but do not replace a live smoke test when
 the changed boundary is only exercised by a real client or deployment.
+
+This QA workflow is independent from releasing. A release request alone does
+not invoke it, and its results do not approve or block a release.
 
 ## Choose the scope first
 
@@ -44,12 +47,11 @@ deployment, account, fixture, or client is unavailable, mark that check
 `BLOCKED`; do not substitute unrelated lanes. Stop when the mapped risks are
 covered.
 
-### Full interface release-gate mode
+### Comprehensive Interface QA
 
 Run every fixture, baseline, live lane, lifecycle case, privacy check, and
-cross-surface comparison below only when the user explicitly requests full
-programmatic-interface QA or a release is being gated. Any required `FAIL` or
-`BLOCKED` result prevents release approval.
+cross-surface comparison below only when the user explicitly requests full or
+comprehensive programmatic-interface QA.
 
 ## Safety and evidence
 
@@ -63,13 +65,13 @@ programmatic-interface QA or a release is being gated. Any required `FAIL` or
   Remove that directory and revoke all generated keys after the run.
 - Record the exact candidate commit, app version, API deployment, Supabase
   migration version, operating system, and client versions.
-- In a GitButler workspace, use the selected branch tip from
-  `but status --format json`; do not use the synthetic workspace `HEAD` as
-  release provenance.
+- In a GitButler workspace, identify the selected branch tip with `but status`
+  and inspect it with `but show <branch>`; do not use the synthetic workspace
+  `HEAD` as the candidate identity.
 - Mark a lane `BLOCKED`, not `PASS`, when its required deployment, account,
   fixture, or client is unavailable.
 
-## Full release-gate fixture
+## Comprehensive QA Fixture
 
 Create two completed QA meetings through the desktop app:
 
@@ -90,7 +92,7 @@ The fixture must include:
 Record the meeting IDs and expected visible values. Do not seed SQLite or
 Postgres directly for the live happy-path tests.
 
-## Full release-gate automated baseline
+## Comprehensive Automated Baseline
 
 Run from the repository root:
 
@@ -110,7 +112,7 @@ pnpm exec dprint check
 
 Require the CLI and MCP contract snapshots, OpenAPI composition tests,
 authentication tests, desktop account-switch tests, and database policy tests
-to pass without updating snapshots or generated clients during the gate.
+to pass without updating snapshots or generated clients during the run.
 
 If the change touches a shared DTO or generated client, regenerate it using the
 repository command that owns the artifact, then require a clean second
@@ -248,10 +250,10 @@ or fields outside the disclosed server-readable copy.
 
 For targeted mode, report the candidate branch/commit, base, selected lane and
 risk, `PASS`/`FAIL`/`BLOCKED`, and a one-line evidence note. List unrelated
-lanes once as `NOT APPLICABLE`, and say explicitly that the result is not full
-interface release certification.
+lanes once as `NOT APPLICABLE`, and say explicitly that the result is not
+comprehensive interface QA.
 
-For full release-gate mode, produce one table with rows for:
+For comprehensive mode, produce one table with rows for:
 
 - automated baseline;
 - CLI;
@@ -267,4 +269,5 @@ Use `PASS`, `FAIL`, or `BLOCKED` with a one-line evidence note. Include the
 candidate and deployment identifiers, fixture marker, clients tested, and
 redacted response artifact locations. List every skipped negative case.
 
-Do not approve the release when any required row is `FAIL` or `BLOCKED`.
+Any required `FAIL` or `BLOCKED` result means comprehensive QA did not pass.
+Report that outcome without inferring release approval or blocking.
