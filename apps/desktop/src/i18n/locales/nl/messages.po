@@ -1840,6 +1840,7 @@ msgstr ""
 
 #: src/session-sharing/access-management.tsx
 #: src/session-sharing/invitation-management.ts
+#: src/settings/team/invitation.ts
 msgid "Email unavailable. Invite link copied instead."
 msgstr ""
 
@@ -2314,6 +2315,7 @@ msgstr ""
 
 #: src/session-sharing/access-management.tsx
 #: src/session-sharing/invitation-management.ts
+#: src/settings/team/invitation.ts
 msgid "Invitation sent."
 msgstr ""
 

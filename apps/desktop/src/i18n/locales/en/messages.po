@@ -1840,6 +1840,7 @@ msgstr "Email or name"
 
 #: src/session-sharing/access-management.tsx
 #: src/session-sharing/invitation-management.ts
+#: src/settings/team/invitation.ts
 msgid "Email unavailable. Invite link copied instead."
 msgstr "Email unavailable. Invite link copied instead."
 
@@ -2314,6 +2315,7 @@ msgstr "Invitation pending"
 
 #: src/session-sharing/access-management.tsx
 #: src/session-sharing/invitation-management.ts
+#: src/settings/team/invitation.ts
 msgid "Invitation sent."
 msgstr "Invitation sent."
 
