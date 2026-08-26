@@ -116,9 +116,9 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
         .to_string();
 
     let mut stored: u32 = 0;
-    for (span, embedding) in embeddings {
+    for (span, embedding) in &embeddings {
         let id = uuid::Uuid::new_v4().to_string();
-        let encoded = encode_embedding(&embedding);
+        let encoded = encode_embedding(embedding);
 
         if let Err(error) = tauri_plugin_store2::write_secret(
             app.clone(),
