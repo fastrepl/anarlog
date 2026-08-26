@@ -901,7 +901,15 @@ function WorkspacePolicyForm({
             <Switch checked={allowPublic} onCheckedChange={setAllowPublic} />
           </label>
           <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
-            <Trans>Require SSO</Trans>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <Trans>Require SSO</Trans>
+              <span className="text-muted-foreground text-xs font-normal">
+                <Trans>
+                  Members on a claimed email domain must sign in with SSO
+                  instead of Google, GitHub, or email.
+                </Trans>
+              </span>
+            </span>
             <Switch checked={requireSso} onCheckedChange={setRequireSso} />
           </label>
         </div>

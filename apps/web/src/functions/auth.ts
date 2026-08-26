@@ -15,6 +15,12 @@ import {
 import { oauthProviderScopes } from "@/functions/oauth-provider";
 import { claimPendingReferral } from "@/functions/referrals";
 import {
+  mapSsoAuthError,
+  normalizeSsoDomain,
+  sessionUsesSso,
+  SSO_REQUIRED_MESSAGE,
+} from "@/functions/sso-domain";
+import {
   getSupabaseAdminClient,
   getSupabaseDesktopFlowClient,
   getSupabaseServerClient,
@@ -37,6 +43,19 @@ type Flow = z.infer<typeof shared>["flow"];
 type FlowTokenResult =
   | { ok: true; access_token: string; refresh_token: string }
   | { ok: false; error: string };
+
+async function rejectIfEmailRequiresSso(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<{ error: true; message: string } | null> {
+  const { data, error } = await supabase.rpc("email_requires_sso", {
+    p_email: email,
+  });
+  if (error || data !== true) {
+    return null;
+  }
+  return { error: true, message: SSO_REQUIRED_MESSAGE };
+}
 
 async function prepareNewAccountTrial(
   flow: Flow,
@@ -137,6 +156,12 @@ async function resolveTokensForFlow({
   email?: string;
 }): Promise<FlowTokenResult> {
   if (flow === "web") {
+    return tokenSuccess(session);
+  }
+
+  // Desktop normally mints a magic-link session. That is not an SSO method, so
+  // hand the current tokens through when this sign-in already satisfied SSO.
+  if (sessionUsesSso(session)) {
     return tokenSuccess(session);
   }
 
@@ -273,27 +298,30 @@ export const doAuth = createServerFn({ method: "POST" })
 export const doSsoAuth = createServerFn({ method: "POST" })
   .inputValidator(
     shared.extend({
-      domain: z
-        .string()
-        .trim()
-        .min(1)
-        .max(253)
-        .regex(/^[a-z0-9.-]+$/i),
+      domain: z.string().trim().min(1).max(320),
     }),
   )
   .handler(async ({ data }) => {
+    const domain = normalizeSsoDomain(data.domain);
+    if (!domain) {
+      return {
+        error: true,
+        message: "Enter a company domain or work email.",
+      };
+    }
+
     const supabase = getSupabaseServerClient();
     const params = buildAuthCallbackParams(data);
 
     const { data: authData, error } = await supabase.auth.signInWithSSO({
-      domain: data.domain.toLowerCase(),
+      domain,
       options: {
         redirectTo: buildAuthCallbackUrl(params),
       },
     });
 
     if (error) {
-      return { error: true, message: error.message };
+      return { error: true, message: mapSsoAuthError(error.message) };
     }
 
     return { success: true, url: authData.url };
@@ -307,6 +335,10 @@ export const doMagicLinkAuth = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
+    const blocked = await rejectIfEmailRequiresSso(supabase, data.email);
+    if (blocked) {
+      return blocked;
+    }
     const params = buildAuthCallbackParams(data);
 
     const { error } = await supabase.auth.signInWithOtp({
@@ -378,7 +410,10 @@ export const exchangeOAuthCode = createServerFn({ method: "POST" })
       await supabase.auth.exchangeCodeForSession(data.code);
 
     if (error || !authData.session) {
-      return { success: false, error: error?.message || "Unknown error" };
+      return {
+        success: false,
+        error: mapSsoAuthError(error?.message || "Unknown error"),
+      };
     }
 
     await upsertAdminGithubTokenIfNeeded(supabase, authData.session);
@@ -412,6 +447,10 @@ export const doPasswordSignUp = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
+    const blocked = await rejectIfEmailRequiresSso(supabase, data.email);
+    if (blocked) {
+      return blocked;
+    }
     const params = buildAuthCallbackParams(data);
 
     const { data: authData, error } = await supabase.auth.signUp({
@@ -467,6 +506,10 @@ export const doPasswordSignIn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
+    const blocked = await rejectIfEmailRequiresSso(supabase, data.email);
+    if (blocked) {
+      return blocked;
+    }
 
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: data.email,
@@ -522,7 +565,10 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
     }
 
     if (error || !authData.session) {
-      return { success: false, error: error?.message || "Unknown error" };
+      return {
+        success: false,
+        error: mapSsoAuthError(error?.message || "Unknown error"),
+      };
     }
 
     const trial = await prepareNewAccountTrial(
@@ -550,6 +596,13 @@ export const exchangeOtpToken = createServerFn({ method: "POST" })
 export const createDesktopSession = createServerFn({ method: "POST" }).handler(
   async () => {
     const supabase = getSupabaseServerClient();
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session && sessionUsesSso(sessionData.session)) {
+      return {
+        access_token: sessionData.session.access_token,
+        refresh_token: sessionData.session.refresh_token,
+      };
+    }
     return mintDesktopSessionForAuthenticatedUser({
       getUser: () => supabase.auth.getUser(),
       mintSession: mintDesktopSessionFromEmail,
@@ -568,6 +621,10 @@ export const doPasswordResetRequest = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const supabase = getSupabaseServerClient();
+    const blocked = await rejectIfEmailRequiresSso(supabase, data.email);
+    if (blocked) {
+      return blocked;
+    }
     const params = buildAuthCallbackParams(data);
     params.set("type", "recovery");
 

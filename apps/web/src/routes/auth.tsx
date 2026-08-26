@@ -446,7 +446,7 @@ function SsoAuthView({
         <input
           type="text"
           autoComplete="organization"
-          placeholder="company.com"
+          placeholder="you@company.com"
           value={domain}
           onChange={(event) => setDomain(event.target.value)}
           className={authInputClassName}

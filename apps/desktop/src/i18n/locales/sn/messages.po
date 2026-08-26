@@ -2666,6 +2666,10 @@ msgstr ""
 msgid "Members"
 msgstr ""
 
+#: src/settings/team/index.tsx
+msgid "Members on a claimed email domain must sign in with SSO instead of Google, GitHub, or email."
+msgstr ""
+
 #: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Memo"
