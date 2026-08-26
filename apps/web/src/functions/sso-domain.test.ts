@@ -6,6 +6,7 @@ import {
   normalizeSsoDomain,
   sessionUsesSso,
   SSO_REQUIRED_MESSAGE,
+  SSO_UNAVAILABLE_MESSAGE,
 } from "./sso-domain.ts";
 
 function jwtWithAmr(methods: string[]) {
@@ -41,7 +42,14 @@ test("normalizeSsoDomain rejects incomplete hosts", () => {
 test("mapSsoAuthError explains a missing Supabase SSO provider", () => {
   assert.equal(
     mapSsoAuthError("No SSO provider assigned for this domain"),
-    "No SSO provider is configured for this domain.",
+    SSO_UNAVAILABLE_MESSAGE,
+  );
+});
+
+test("mapSsoAuthError hides a project-level SAML-disabled error", () => {
+  assert.equal(
+    mapSsoAuthError("SAML 2.0 is disabled"),
+    SSO_UNAVAILABLE_MESSAGE,
   );
 });
 

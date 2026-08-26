@@ -74,20 +74,26 @@ export function normalizeSsoDomain(input: string): string | null {
   return domain;
 }
 
+export const SSO_UNAVAILABLE_MESSAGE =
+  "No SSO provider is configured for this domain.";
+
 export function mapSsoAuthError(message: string): string {
   const lower = message.toLowerCase();
-  if (
-    lower.includes("sso") &&
-    (lower.includes("not found") ||
-      lower.includes("no sso") ||
-      lower.includes("provider") ||
-      lower.includes("does not exist"))
-  ) {
-    return "No SSO provider is configured for this domain.";
-  }
-
   if (lower.includes("organization requires sso")) {
     return SSO_REQUIRED_MESSAGE;
+  }
+
+  if (
+    lower.includes("saml 2.0 is disabled") ||
+    lower.includes("saml is disabled") ||
+    (lower.includes("sso") &&
+      (lower.includes("not found") ||
+        lower.includes("no sso") ||
+        lower.includes("provider") ||
+        lower.includes("does not exist") ||
+        lower.includes("disabled")))
+  ) {
+    return SSO_UNAVAILABLE_MESSAGE;
   }
 
   return message;
