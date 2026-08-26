@@ -38,17 +38,33 @@ fn disable_drop_log(mut sink: MixerDeviceSink) -> MixerDeviceSink {
 }
 
 fn is_usable_output_device(device: &impl DeviceTrait) -> bool {
-    is_usable_output_driver(
-        device
-            .description()
-            .ok()
-            .as_ref()
-            .and_then(|description| description.driver()),
-    )
+    if device
+        .id()
+        .ok()
+        .is_some_and(|id| is_silent_output_pcm(&id.1))
+    {
+        return false;
+    }
+
+    let Some(description) = device.description().ok() else {
+        return false;
+    };
+    if is_silent_output_pcm(description.name())
+        || description.driver().is_some_and(is_silent_output_pcm)
+    {
+        return false;
+    }
+
+    description.driver().is_some()
 }
 
-fn is_usable_output_driver(driver: Option<&str>) -> bool {
-    driver.is_some_and(|driver| driver != "null")
+fn is_silent_output_pcm(id: &str) -> bool {
+    matches!(
+        id.trim()
+            .split_once([':', ','])
+            .map_or(id.trim(), |(plugin, _)| plugin),
+        "null" | "dummy"
+    )
 }
 
 fn log_audio_stream_error(err: cpal::StreamError) {
@@ -57,7 +73,7 @@ fn log_audio_stream_error(err: cpal::StreamError) {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_usable_output_driver, log_audio_stream_error};
+    use super::{is_silent_output_pcm, log_audio_stream_error};
     use rodio::cpal::StreamError;
 
     #[test]
@@ -66,9 +82,13 @@ mod tests {
     }
 
     #[test]
-    fn skips_null_and_unknown_output_drivers() {
-        assert!(!is_usable_output_driver(None));
-        assert!(!is_usable_output_driver(Some("null")));
-        assert!(is_usable_output_driver(Some("alsa")));
+    fn skips_alsa_discard_pcms() {
+        assert!(is_silent_output_pcm("null"));
+        assert!(is_silent_output_pcm("dummy"));
+        assert!(is_silent_output_pcm("null:CARD=Dummy"));
+        assert!(!is_silent_output_pcm("alsa"));
+        assert!(!is_silent_output_pcm("default"));
+        assert!(!is_silent_output_pcm("pipewire"));
+        assert!(!is_silent_output_pcm("hw:0,0"));
     }
 }
