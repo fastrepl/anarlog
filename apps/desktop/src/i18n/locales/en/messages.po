@@ -962,6 +962,10 @@ msgstr "Choose the speakers that play other participants so Anarlog records them
 msgid "Choose which day begins your calendar week."
 msgstr "Choose which day begins your calendar week."
 
+#: src/settings/general/default-share-access.tsx
+msgid "Choose who can access notes from new meetings."
+msgstr "Choose who can access notes from new meetings."
+
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr "Claim email domain"
@@ -1594,6 +1598,10 @@ msgstr "Decline"
 msgid "Default"
 msgstr "Default"
 
+#: src/settings/general/default-share-access.tsx
+msgid "Default sharing"
+msgstr "Default sharing"
+
 #: src/contacts/contact-page-header.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
 #: src/sidebar/automations.tsx
@@ -1918,6 +1926,14 @@ msgstr "Event notifications"
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
 msgstr "Everyone in {0}"
+
+#: src/settings/general/default-share-access.tsx
+msgid "Everyone in {workspaceLabel}"
+msgstr "Everyone in {workspaceLabel}"
+
+#: src/settings/general/default-share-access.tsx
+msgid "Everyone in the workspace"
+msgstr "Everyone in the workspace"
 
 #: src/imports/screen.tsx
 msgid "Everything is already here."
@@ -3070,6 +3086,10 @@ msgstr "Oldest"
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr "On-device models can take a few minutes to warm up before text appears."
 
+#: src/settings/general/default-share-access.tsx
+msgid "Only me"
+msgstr "Only me"
+
 #: src/session-sharing/general-access.tsx
 msgid "Only people invited"
 msgstr "Only people invited"
@@ -3259,6 +3279,10 @@ msgstr "Paused"
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
 msgstr "People"
+
+#: src/settings/general/default-share-access.tsx
+msgid "People in the meeting"
+msgstr "People in the meeting"
 
 #: src/session-sharing/draft-panel.tsx
 #: src/session-sharing/management-panel.tsx
@@ -3898,6 +3922,10 @@ msgstr "Select an organization to view details"
 #: src/settings/general/week-start.tsx
 msgid "Select day"
 msgstr "Select day"
+
+#: src/settings/general/default-share-access.tsx
+msgid "Select default sharing"
+msgstr "Select default sharing"
 
 #: src/session/components/folder-picker.tsx
 msgid "Select folder"

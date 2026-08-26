@@ -962,6 +962,10 @@ msgstr ""
 msgid "Choose which day begins your calendar week."
 msgstr ""
 
+#: src/settings/general/default-share-access.tsx
+msgid "Choose who can access notes from new meetings."
+msgstr ""
+
 #: src/settings/team/index.tsx
 msgid "Claim email domain"
 msgstr ""
@@ -1594,6 +1598,10 @@ msgstr ""
 msgid "Default"
 msgstr ""
 
+#: src/settings/general/default-share-access.tsx
+msgid "Default sharing"
+msgstr ""
+
 #: src/contacts/contact-page-header.tsx
 #: src/session/components/outer-header/overflow/delete.tsx
 #: src/sidebar/automations.tsx
@@ -1917,6 +1925,14 @@ msgstr ""
 #. placeholder {0}: workspace.name
 #: src/session-sharing/general-access.tsx
 msgid "Everyone in {0}"
+msgstr ""
+
+#: src/settings/general/default-share-access.tsx
+msgid "Everyone in {workspaceLabel}"
+msgstr ""
+
+#: src/settings/general/default-share-access.tsx
+msgid "Everyone in the workspace"
 msgstr ""
 
 #: src/imports/screen.tsx
@@ -3070,6 +3086,10 @@ msgstr ""
 msgid "On-device models can take a few minutes to warm up before text appears."
 msgstr ""
 
+#: src/settings/general/default-share-access.tsx
+msgid "Only me"
+msgstr ""
+
 #: src/session-sharing/general-access.tsx
 msgid "Only people invited"
 msgstr ""
@@ -3258,6 +3278,10 @@ msgstr ""
 #: src/contacts/organization-details.tsx
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "People"
+msgstr ""
+
+#: src/settings/general/default-share-access.tsx
+msgid "People in the meeting"
 msgstr ""
 
 #: src/session-sharing/draft-panel.tsx
@@ -3897,6 +3921,10 @@ msgstr ""
 
 #: src/settings/general/week-start.tsx
 msgid "Select day"
+msgstr ""
+
+#: src/settings/general/default-share-access.tsx
+msgid "Select default sharing"
 msgstr ""
 
 #: src/session/components/folder-picker.tsx

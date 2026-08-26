@@ -22,6 +22,10 @@ import {
   ShareManagementError,
 } from "./client";
 import {
+  applyDefaultMeetingShareAccess,
+  normalizeDefaultMeetingShareAccess,
+} from "./default-access";
+import {
   deliverSessionShareRecapEmail,
   deliverSessionShareRecapToSlack,
 } from "./delivery-management";
@@ -64,6 +68,7 @@ import {
   useDurableSharedNote,
   useManagedDurableSharedNote,
 } from "~/shared-notes/cache";
+import { useConfigValue } from "~/shared/config";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
 
 export { sessionShareManagementQueryKey };
@@ -152,6 +157,9 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
     );
   };
   const accountUserId = auth.session?.user.id ?? null;
+  const defaultMeetingShareAccess = normalizeDefaultMeetingShareAccess(
+    useConfigValue("default_meeting_share_access"),
+  );
   const shareContextRef = useRef({ accountUserId, sessionId });
   if (
     shareContextRef.current.accountUserId !== accountUserId ||
@@ -276,6 +284,21 @@ export function SessionShareButton({ sessionId }: { sessionId: string }) {
           });
           context = requireActivePrepareContext(identity, signal);
         }
+        await applyDefaultMeetingShareAccess({
+          wasCreated: share.wasCreated,
+          actionType: action.type,
+          access: defaultMeetingShareAccess,
+          workspaces,
+          context,
+          shareId: share.shareId,
+          sessionId: source.sessionId,
+          noteTitle: source.title,
+          signal,
+          requireActive: () => {
+            requireActivePrepareContext(identity, signal);
+          },
+        });
+        context = requireActivePrepareContext(identity, signal);
         let actionResult:
           | { type: "invite"; deliveries: SessionShareInvitationDelivery[] }
           | { type: "email"; recipientCount: number }
