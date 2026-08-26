@@ -19,7 +19,7 @@ on:
       include_macos:
         description: "Build the signed Mac App Store package"
         type: boolean
-        default: true
+        default: false
       include_windows:
         description: "Prepare the Microsoft Store package update"
         type: boolean
@@ -83,7 +83,7 @@ on:
       include_macos:
         description: "Build the signed Mac App Store package"
         type: boolean
-        default: true
+        default: false
       include_windows:
         description: "Prepare the Microsoft Store package update"
         type: boolean

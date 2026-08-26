@@ -573,7 +573,7 @@ jobs:
     with:
       version: ${{ needs.parse.outputs.version }}
       candidate_sha: ${{ needs.parse.outputs.candidate_sha }}
-      include_macos: true
+      include_macos: false
       include_windows: true
       submit_to_stores: true
     secrets:

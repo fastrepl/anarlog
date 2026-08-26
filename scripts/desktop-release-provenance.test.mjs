@@ -268,7 +268,7 @@ test("repository release workflows match the authored release plan", async () =>
   verifyWorkflowPlatformCoverage({ publishWorkflow, cdWorkflow });
 });
 
-test("stable desktop releases submit both store packages", async () => {
+test("stable desktop releases submit only the Microsoft Store package", async () => {
   const [publishWorkflow, storeWorkflow] = await Promise.all([
     readFile(".github/workflows/desktop_publish.yaml", "utf8"),
     readFile(".github/workflows/desktop_store_publish.yaml", "utf8"),
@@ -294,7 +294,7 @@ test("stable desktop releases submit both store packages", async () => {
     storePublishJob,
     /uses: \.\/\.github\/workflows\/desktop_store_publish\.yaml/,
   );
-  assert.match(storePublishJob, /include_macos: true/);
+  assert.match(storePublishJob, /include_macos: false/);
   assert.match(storePublishJob, /include_windows: true/);
   assert.match(storePublishJob, /submit_to_stores: true/);
   assert.doesNotMatch(storePublishJob, /secrets: inherit/);
