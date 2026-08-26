@@ -53,8 +53,23 @@ impl Args {
                 MeetingCommand::History { .. } => "meetings_history",
                 MeetingCommand::Export { .. } => "meetings_export",
             },
+            Command::Proposals { command } => match command {
+                ProposalCommand::Create { .. } => "proposals_create",
+                ProposalCommand::List { .. } => "proposals_list",
+                ProposalCommand::Show { .. } => "proposals_show",
+                ProposalCommand::Decline { .. } => "proposals_decline",
+            },
             Command::Mcp => "mcp",
         }
+    }
+
+    pub fn needs_write(&self) -> bool {
+        matches!(
+            self.command,
+            Command::Proposals {
+                command: ProposalCommand::Create { .. } | ProposalCommand::Decline { .. },
+            } | Command::Mcp
+        )
     }
 }
 
@@ -72,8 +87,60 @@ pub enum Command {
         #[command(subcommand)]
         command: MeetingCommand,
     },
-    /// Run the read-only Anarlog MCP server over stdio
+    /// Propose meeting edits for desktop review
+    Proposals {
+        #[command(subcommand)]
+        command: ProposalCommand,
+    },
+    /// Run the Anarlog MCP server over stdio
     Mcp,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ProposalCommand {
+    /// Stage a summary or memo replacement for desktop review
+    Create {
+        #[arg(long = "meeting")]
+        meeting_id: String,
+        #[arg(long, value_enum)]
+        kind: ProposalKind,
+        #[arg(long = "target")]
+        target_id: Option<String>,
+        #[arg(long, required_unless_present = "content_file")]
+        content: Option<String>,
+        #[arg(long, value_name = "FILE", required_unless_present = "content")]
+        content_file: Option<PathBuf>,
+    },
+    /// List staged meeting proposals
+    List {
+        #[arg(long = "meeting")]
+        meeting_id: Option<String>,
+        #[arg(long)]
+        status: Option<String>,
+        #[arg(long, default_value_t = 20, value_parser = clap::value_parser!(u32).range(1..=200), help = "Maximum results (1-200)")]
+        limit: u32,
+        #[arg(long, default_value_t = 0, help = "Number of results to skip")]
+        offset: u32,
+    },
+    /// Show one proposal and its unified diff
+    Show { id: String },
+    /// Decline a pending proposal without changing the meeting
+    Decline { id: String },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum ProposalKind {
+    Summary,
+    Memo,
+}
+
+impl ProposalKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Summary => "summary",
+            Self::Memo => "memo",
+        }
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -179,6 +246,7 @@ mod tests {
         assert!(help.contains("meetings"));
         assert!(help.contains("mcp"));
         assert!(help.contains("doctor"));
+        assert!(help.contains("proposals"));
 
         let Command::Meetings { command } = Args::parse_from([
             "anarlog",

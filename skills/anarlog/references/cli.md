@@ -23,7 +23,13 @@ anarlog --json meetings get MEETING_ID
 anarlog --json meetings note MEETING_ID --kind note
 anarlog --json meetings note MEETING_ID --kind summary
 anarlog --json meetings history MEETING_ID --limit 20 --offset 0
+anarlog --json proposals list --meeting MEETING_ID
+anarlog --json proposals create --meeting MEETING_ID --kind summary --content "Replacement markdown"
+anarlog --json proposals show PROPOSAL_ID
+anarlog --json proposals decline PROPOSAL_ID
 ```
+
+`proposals create` stages a pending edit. Do not claim the meeting changed. A human applies or declines it in the Anarlog desktop app.
 
 `doctor` exits with status 1 when its response contains `ready: false`.
 

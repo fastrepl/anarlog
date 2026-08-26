@@ -233,6 +233,7 @@ dependencies = [
  "tiptap",
  "tokio",
  "utoipa",
+ "uuid",
 ]
 
 [[package]]
@@ -373,6 +374,7 @@ dependencies = [
  "reqwest 0.13.2",
  "rmcp",
  "rpassword",
+ "schemars 1.2.1",
  "sentry",
  "serde",
  "serde_json",

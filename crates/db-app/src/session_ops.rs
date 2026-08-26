@@ -2,7 +2,7 @@ use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 
 use crate::{
     ListSessions, SessionActionItemRow, SessionDocumentRow, SessionListItem, SessionParticipantRow,
-    SessionRow, SessionTranscriptRow,
+    SessionProposalRow, SessionRow, SessionTranscriptRow,
 };
 
 pub const MAX_SESSION_LIST_LIMIT: u32 = 500;
@@ -232,6 +232,116 @@ pub async fn list_recurring_sessions(
         },
     )
     .await
+}
+
+const SESSION_PROPOSAL_COLUMNS: &str = "
+    SELECT id, workspace_id, session_id, kind, target_id, base_updated_at,
+           current_markdown, proposed_markdown, status, source, created_at, updated_at
+    FROM session_proposals
+";
+
+pub struct InsertSessionProposal<'a> {
+    pub id: &'a str,
+    pub workspace_id: &'a str,
+    pub session_id: &'a str,
+    pub kind: &'a str,
+    pub target_id: &'a str,
+    pub base_updated_at: &'a str,
+    pub current_markdown: &'a str,
+    pub proposed_markdown: &'a str,
+    pub source: &'a str,
+}
+
+pub async fn insert_session_proposal(
+    pool: &SqlitePool,
+    input: InsertSessionProposal<'_>,
+) -> Result<SessionProposalRow, sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO session_proposals (
+            id, workspace_id, session_id, kind, target_id, base_updated_at,
+            current_markdown, proposed_markdown, status, source
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)",
+    )
+    .bind(input.id)
+    .bind(input.workspace_id)
+    .bind(input.session_id)
+    .bind(input.kind)
+    .bind(input.target_id)
+    .bind(input.base_updated_at)
+    .bind(input.current_markdown)
+    .bind(input.proposed_markdown)
+    .bind(input.source)
+    .execute(pool)
+    .await?;
+
+    get_session_proposal(pool, input.id)
+        .await?
+        .ok_or(sqlx::Error::RowNotFound)
+}
+
+pub async fn get_session_proposal(
+    pool: &SqlitePool,
+    proposal_id: &str,
+) -> Result<Option<SessionProposalRow>, sqlx::Error> {
+    let mut query = QueryBuilder::<Sqlite>::new(SESSION_PROPOSAL_COLUMNS);
+    query.push(" WHERE id = ");
+    query.push_bind(proposal_id);
+    query.push(" LIMIT 1");
+    query
+        .build_query_as::<SessionProposalRow>()
+        .fetch_optional(pool)
+        .await
+}
+
+pub async fn list_session_proposals(
+    pool: &SqlitePool,
+    session_id: Option<&str>,
+    status: Option<&str>,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<SessionProposalRow>, sqlx::Error> {
+    let mut query = QueryBuilder::<Sqlite>::new(SESSION_PROPOSAL_COLUMNS);
+    query.push(" WHERE 1 = 1");
+    if let Some(session_id) = session_id {
+        query.push(" AND session_id = ");
+        query.push_bind(session_id);
+    }
+    if let Some(status) = status {
+        query.push(" AND status = ");
+        query.push_bind(status);
+    }
+    query.push(" ORDER BY created_at DESC, id DESC LIMIT ");
+    query.push_bind(i64::from(limit));
+    query.push(" OFFSET ");
+    query.push_bind(i64::from(offset));
+    query
+        .build_query_as::<SessionProposalRow>()
+        .fetch_all(pool)
+        .await
+}
+
+pub async fn update_session_proposal_status(
+    pool: &SqlitePool,
+    proposal_id: &str,
+    expected_status: &str,
+    next_status: &str,
+) -> Result<Option<SessionProposalRow>, sqlx::Error> {
+    let updated = sqlx::query(
+        "UPDATE session_proposals
+         SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND status = ?",
+    )
+    .bind(next_status)
+    .bind(proposal_id)
+    .bind(expected_status)
+    .execute(pool)
+    .await?
+    .rows_affected();
+
+    if updated == 0 {
+        return get_session_proposal(pool, proposal_id).await;
+    }
+    get_session_proposal(pool, proposal_id).await
 }
 
 #[cfg(test)]
@@ -519,5 +629,48 @@ mod tests {
         );
         assert!(standalone.is_empty());
         assert!(missing.is_empty());
+    }
+
+    #[tokio::test]
+    async fn session_proposals_insert_list_and_transition_status() {
+        let db = test_db().await;
+        insert_session(db.pool(), "session-1", "Planning", "2026-01-01", "").await;
+        let created = insert_session_proposal(
+            db.pool(),
+            InsertSessionProposal {
+                id: "proposal-1",
+                workspace_id: "workspace-1",
+                session_id: "session-1",
+                kind: "summary_replace",
+                target_id: "summary-1",
+                base_updated_at: "2026-01-01T00:00:00Z",
+                current_markdown: "old",
+                proposed_markdown: "new",
+                source: "cli",
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(created.status, "pending");
+        assert_eq!(created.proposed_markdown, "new");
+
+        let pending = list_session_proposals(db.pool(), Some("session-1"), Some("pending"), 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(pending.len(), 1);
+
+        let applied = update_session_proposal_status(db.pool(), "proposal-1", "pending", "applied")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(applied.status, "applied");
+
+        let unchanged =
+            update_session_proposal_status(db.pool(), "proposal-1", "pending", "declined")
+                .await
+                .unwrap()
+                .unwrap();
+        assert_eq!(unchanged.status, "applied");
     }
 }

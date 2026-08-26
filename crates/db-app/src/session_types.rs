@@ -128,3 +128,19 @@ pub struct SessionActionItemRow {
     pub created_at: String,
     pub updated_at: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, sqlx::FromRow)]
+pub struct SessionProposalRow {
+    pub id: String,
+    pub workspace_id: String,
+    pub session_id: String,
+    pub kind: String,
+    pub target_id: String,
+    pub base_updated_at: String,
+    pub current_markdown: String,
+    pub proposed_markdown: String,
+    pub status: String,
+    pub source: String,
+    pub created_at: String,
+    pub updated_at: String,
+}

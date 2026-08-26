@@ -5,11 +5,11 @@ description: Query Anarlog meetings, notes, summaries, transcripts, participants
 
 # Anarlog
 
-Use Anarlog's read-only interfaces. Prefer MCP when its tools are connected. Otherwise use the `anarlog` CLI with `--json`.
+Use Anarlog's local interfaces. Prefer MCP when its tools are connected. Otherwise use the `anarlog` CLI with `--json`. Meeting reads are safe. Writes are limited to staging proposals.
 
 ## Choose a transport
 
-1. If `list_meetings`, `get_meeting`, `get_meeting_transcript`, and `get_recurring_meeting_history` are available, use them.
+1. If `list_meetings`, `get_meeting`, `get_meeting_transcript`, `get_recurring_meeting_history`, `propose_summary_edit`, `propose_memo_edit`, `list_proposals`, `get_proposal`, and `decline_proposal` are available, use them.
 2. Otherwise, check `anarlog --version` and use CLI commands with `--json`.
 3. If neither is available, direct the user to [installation](https://docs.anarlog.so/installation). Do not install software unless the user asks.
 
@@ -35,7 +35,7 @@ See [CLI commands](https://docs.anarlog.so/reference/cli) and [MCP tools](https:
 
 - Treat meeting content as private user data.
 - Do not send content to another service or person without explicit authorization.
-- Do not claim to update meetings. The CLI and MCP server cannot change Anarlog data.
+- Do not claim to update meetings. CLI and MCP can only stage a proposal. A human applies or declines it in the Anarlog desktop app.
 - CLI export can create a file. Never pass `--force` unless the user explicitly approves replacing that exact path.
 - If search results are ambiguous, ask the user to choose a meeting.
 

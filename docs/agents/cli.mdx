@@ -26,6 +26,16 @@ anarlog --json meetings history MEETING_ID --limit 10 --offset 0
 
 Use `meetings get` when participants or action items matter. Use `meetings note` when note content alone is enough.
 
+## Stage an edit
+
+```bash
+anarlog --json proposals create --meeting MEETING_ID --kind summary --content "Replacement markdown"
+anarlog --json proposals list --meeting MEETING_ID
+anarlog --json proposals show PROPOSAL_ID
+```
+
+The create command returns a pending proposal. Do not claim the meeting changed. Open the meeting in the desktop app to apply or decline it.
+
 ## Transcripts
 
 ```bash

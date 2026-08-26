@@ -14,6 +14,17 @@ pub async fn open(args: &Args) -> Result<anlg_db_core::Db> {
         .map_err(|error| Error::operation("open database", error.to_string()))
 }
 
+pub async fn open_write(args: &Args) -> Result<anlg_db_core::Db> {
+    let path = resolve_path(args)?;
+    if !path.is_file() {
+        return Err(Error::DatabaseNotFound(path));
+    }
+
+    anlg_db_core::Db::connect_local_read_write(&path)
+        .await
+        .map_err(|error| Error::operation("open database for writes", error.to_string()))
+}
+
 pub(crate) fn resolve_path(args: &Args) -> Result<PathBuf> {
     if let Some(path) = &args.db_path {
         return Ok(path.clone());

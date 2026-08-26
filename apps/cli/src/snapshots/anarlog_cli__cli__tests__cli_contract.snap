@@ -1,5 +1,6 @@
 ---
 source: apps/cli/src/cli.rs
+assertion_line: 367
 expression: canonicalize_json(contract)
 ---
 {
@@ -325,7 +326,148 @@ expression: canonicalize_json(contract)
       "synopsis": "anarlog meetings [-h] <command>"
     },
     {
-      "about": "Run the read-only Anarlog MCP server over stdio",
+      "about": "Propose meeting edits for desktop review",
+      "name": "anarlog proposals",
+      "options": [
+        {
+          "flags": "-h, --help",
+          "help": "Print help",
+          "is_flag": false,
+          "required": false
+        }
+      ],
+      "subcommands": [
+        {
+          "about": "Stage a summary or memo replacement for desktop review",
+          "name": "anarlog proposals create",
+          "options": [
+            {
+              "flags": "--meeting",
+              "is_flag": false,
+              "required": true,
+              "value_name": "MEETING_ID"
+            },
+            {
+              "flags": "--kind",
+              "is_flag": false,
+              "possible_values": [
+                "summary",
+                "memo"
+              ],
+              "required": true,
+              "value_name": "KIND"
+            },
+            {
+              "flags": "--target",
+              "is_flag": false,
+              "required": false,
+              "value_name": "TARGET_ID"
+            },
+            {
+              "flags": "--content",
+              "is_flag": false,
+              "required": false,
+              "value_name": "CONTENT"
+            },
+            {
+              "flags": "--content-file",
+              "is_flag": false,
+              "required": false,
+              "value_name": "FILE"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog proposals create <--meeting> <--kind> [--target] [--content] [--content-file] [-h]"
+        },
+        {
+          "about": "List staged meeting proposals",
+          "name": "anarlog proposals list",
+          "options": [
+            {
+              "flags": "--meeting",
+              "is_flag": false,
+              "required": false,
+              "value_name": "MEETING_ID"
+            },
+            {
+              "flags": "--status",
+              "is_flag": false,
+              "required": false,
+              "value_name": "STATUS"
+            },
+            {
+              "default": "20",
+              "flags": "--limit",
+              "help": "Maximum results (1-200)",
+              "is_flag": false,
+              "required": false,
+              "value_name": "LIMIT"
+            },
+            {
+              "default": "0",
+              "flags": "--offset",
+              "help": "Number of results to skip",
+              "is_flag": false,
+              "required": false,
+              "value_name": "OFFSET"
+            },
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog proposals list [--meeting] [--status] [--limit] [--offset] [-h]"
+        },
+        {
+          "about": "Show one proposal and its unified diff",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog proposals show",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog proposals show [-h] <id>"
+        },
+        {
+          "about": "Decline a pending proposal without changing the meeting",
+          "arguments": [
+            {
+              "name": "ID",
+              "required": true
+            }
+          ],
+          "name": "anarlog proposals decline",
+          "options": [
+            {
+              "flags": "-h, --help",
+              "help": "Print help",
+              "is_flag": false,
+              "required": false
+            }
+          ],
+          "synopsis": "anarlog proposals decline [-h] <id>"
+        }
+      ],
+      "synopsis": "anarlog proposals [-h] <command>"
+    },
+    {
+      "about": "Run the Anarlog MCP server over stdio",
       "name": "anarlog mcp",
       "options": [
         {

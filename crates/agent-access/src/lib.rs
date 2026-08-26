@@ -1,10 +1,18 @@
 #![forbid(unsafe_code)]
 
+mod proposals;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use specta::Type;
 use sqlx::SqlitePool;
+
+pub use proposals::{
+    CreateProposalInput, DeclineProposalInput, GetProposalInput, ListProposalsInput, Proposal,
+    ProposalPage, create_proposal, decline_proposal, get_proposal, list_proposals,
+    proposal_unified_diff,
+};
 
 pub const DEFAULT_LIST_LIMIT: u32 = 20;
 pub const MAX_LIST_LIMIT: u32 = 200;
@@ -15,6 +23,10 @@ pub const MAX_TRANSCRIPT_LIMIT: u32 = 500;
 pub enum Error {
     #[error("{0} not found")]
     NotFound(String),
+    #[error("{0}")]
+    Invalid(String),
+    #[error("{0}")]
+    Conflict(String),
     #[error("{action} failed: {source}")]
     Database {
         action: &'static str,
@@ -643,7 +655,7 @@ fn push_section(sections: &mut Vec<String>, title: &str, body: &str) {
     }
 }
 
-fn pagination(
+pub(crate) fn pagination(
     offset: u32,
     limit: u32,
     returned: usize,

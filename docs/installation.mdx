@@ -53,4 +53,4 @@ If you have an Anarlog data directory containing `app.db`, use:
 anarlog --base /path/to/anarlog-data --json meetings list
 ```
 
-The CLI opens the database in read-only query mode. It does not create a database or run migrations.
+The CLI opens the database in read-only query mode for meeting reads. Proposal create and decline commands, and `anarlog mcp`, open the same file for writes so they can stage or discard pending edits. They do not create a database or run migrations.

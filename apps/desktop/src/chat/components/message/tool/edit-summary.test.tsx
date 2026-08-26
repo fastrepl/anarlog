@@ -5,6 +5,10 @@ const tabState = vi.hoisted(() => ({
   close: vi.fn(),
   tabs: [] as Array<Record<string, unknown>>,
 }));
+const reviewMocks = vi.hoisted(() => ({
+  applyProposalReview: vi.fn(() => Promise.resolve()),
+  declineProposalReview: vi.fn(() => Promise.resolve()),
+}));
 
 vi.mock("streamdown", () => ({
   Streamdown: ({ children }: { children: React.ReactNode }) => (
@@ -16,6 +20,11 @@ vi.mock("~/store/zustand/tabs", () => ({
   useTabs: {
     getState: () => tabState,
   },
+}));
+
+vi.mock("~/session/proposal-review", () => ({
+  applyProposalReview: reviewMocks.applyProposalReview,
+  declineProposalReview: reviewMocks.declineProposalReview,
 }));
 
 import { ToolEditMemo, ToolEditSummary } from "./edit-summary";
@@ -52,26 +61,40 @@ describe("ToolEditSummary", () => {
     ];
   });
 
-  it.each([
-    ["Decline", false],
-    ["Apply to summary", true],
-  ])("resolves %s from the chat card", (label, approved) => {
-    const resolve = vi.fn();
+  it("applies a reviewed summary edit from the chat card", () => {
     usePendingEditStore.getState().addEdit({
       requestId: "tool-call-1",
       sessionId: "session-1",
       target: { kind: "summary", enhancedNoteId: "summary-1" },
       currentContent: "Current summary",
       proposedContent: "Updated summary",
-      resolve,
+      source: "chat",
+      resolve: vi.fn(),
     });
 
     render(<ToolEditSummary part={part} />);
-    fireEvent.click(screen.getByRole("button", { name: label }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply to summary" }));
 
-    expect(resolve).toHaveBeenCalledWith(approved);
-    expect(tabState.close).toHaveBeenCalledWith(tabState.tabs[0]);
-    expect(usePendingEditStore.getState().edits.has("tool-call-1")).toBe(false);
+    expect(reviewMocks.applyProposalReview).toHaveBeenCalledWith("tool-call-1");
+  });
+
+  it("declines a reviewed summary edit from the chat card", () => {
+    usePendingEditStore.getState().addEdit({
+      requestId: "tool-call-1",
+      sessionId: "session-1",
+      target: { kind: "summary", enhancedNoteId: "summary-1" },
+      currentContent: "Current summary",
+      proposedContent: "Updated summary",
+      source: "chat",
+      resolve: vi.fn(),
+    });
+
+    render(<ToolEditSummary part={part} />);
+    fireEvent.click(screen.getByRole("button", { name: "Decline" }));
+
+    expect(reviewMocks.declineProposalReview).toHaveBeenCalledWith(
+      "tool-call-1",
+    );
   });
 
   it("hides review actions when the edit is no longer pending", () => {
@@ -84,20 +107,19 @@ describe("ToolEditSummary", () => {
   });
 
   it("applies a reviewed memo edit from the chat card", () => {
-    const resolve = vi.fn();
     usePendingEditStore.getState().addEdit({
       requestId: "tool-call-1",
       sessionId: "session-1",
       target: { kind: "memo" },
       currentContent: "",
       proposedContent: "## Agenda",
-      resolve,
+      source: "chat",
+      resolve: vi.fn(),
     });
 
     render(<ToolEditMemo part={memoPart} />);
     fireEvent.click(screen.getByRole("button", { name: "Apply to memo" }));
 
-    expect(resolve).toHaveBeenCalledWith(true);
-    expect(tabState.close).toHaveBeenCalledWith(tabState.tabs[0]);
+    expect(reviewMocks.applyProposalReview).toHaveBeenCalledWith("tool-call-1");
   });
 });

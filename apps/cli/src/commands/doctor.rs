@@ -73,6 +73,7 @@ async fn schema_check(db: &anlg_db_core::Db) -> std::result::Result<(), String> 
         anlg_db_app::list_session_transcripts(db.pool(), "__anarlog_doctor__"),
         anlg_db_app::list_session_participants(db.pool(), "__anarlog_doctor__"),
         anlg_db_app::list_session_action_items(db.pool(), "__anarlog_doctor__"),
+        anlg_db_app::list_session_proposals(db.pool(), None, None, 1, 0),
     )
     .map(|_| ())
     .map_err(|error| format!("schema check failed: {error}"))

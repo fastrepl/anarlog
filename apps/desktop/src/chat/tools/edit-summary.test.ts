@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   loadSessionContentSnapshot: vi.fn(),
-  updateEnhancedNoteContent: vi.fn(),
+  persistChatSessionProposal: vi.fn(),
+  applySessionProposal: vi.fn(),
+  declineSessionProposal: vi.fn(),
 }));
 
 vi.mock("~/session/content-queries", () => ({
@@ -10,7 +12,9 @@ vi.mock("~/session/content-queries", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
-  updateEnhancedNoteContent: mocks.updateEnhancedNoteContent,
+  persistChatSessionProposal: mocks.persistChatSessionProposal,
+  applySessionProposal: mocks.applySessionProposal,
+  declineSessionProposal: mocks.declineSessionProposal,
 }));
 
 import { buildEditSummaryTool } from "./edit-summary";
@@ -21,7 +25,9 @@ describe("edit summary chat tool", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     usePendingEditStore.setState({ edits: new Map() });
-    mocks.updateEnhancedNoteContent.mockResolvedValue(undefined);
+    mocks.persistChatSessionProposal.mockResolvedValue(undefined);
+    mocks.applySessionProposal.mockResolvedValue(undefined);
+    mocks.declineSessionProposal.mockResolvedValue(undefined);
     mocks.loadSessionContentSnapshot.mockResolvedValue({
       enhancedNotes: [
         {
@@ -35,7 +41,7 @@ describe("edit summary chat tool", () => {
     });
   });
 
-  it("awaits the reviewed SQLite summary write", async () => {
+  it("persists a proposal and applies it after review", async () => {
     const openEditTab = vi.fn((requestId: string) => {
       const pending = usePendingEditStore.getState().edits.get(requestId);
       expect(pending).toMatchObject({
@@ -43,6 +49,7 @@ describe("edit summary chat tool", () => {
         target: { kind: "summary", enhancedNoteId: "summary-1" },
         currentContent: "Current summary",
         proposedContent: "Updated summary",
+        source: "chat",
       });
       usePendingEditStore.getState().resolveEdit(requestId, true);
     });
@@ -59,12 +66,36 @@ describe("edit summary chat tool", () => {
       ),
     ).resolves.toEqual({ status: "applied" });
 
+    expect(mocks.persistChatSessionProposal).toHaveBeenCalledWith({
+      id: "request-1",
+      sessionId: "session-1",
+      kind: "summary_replace",
+      targetId: "summary-1",
+      currentMarkdown: "Current summary",
+      proposedMarkdown: "Updated summary",
+    });
     expect(openEditTab).toHaveBeenCalledWith("request-1");
-    expect(mocks.updateEnhancedNoteContent).toHaveBeenCalledWith(
-      "summary-1",
-      "session-1",
-      expect.stringContaining("Updated summary"),
-    );
+    expect(mocks.applySessionProposal).toHaveBeenCalledWith("request-1");
+  });
+
+  it("declines the persisted proposal when review is rejected", async () => {
+    const editTool = buildEditSummaryTool({
+      getSessionId: () => "session-1",
+      getEnhancedNoteId: () => undefined,
+      openEditTab: (requestId) => {
+        usePendingEditStore.getState().resolveEdit(requestId, false);
+      },
+    });
+
+    await expect(
+      (editTool as any).execute(
+        { content: "Updated summary" },
+        { toolCallId: "request-1", messages: [] },
+      ),
+    ).resolves.toEqual({ status: "declined" });
+
+    expect(mocks.declineSessionProposal).toHaveBeenCalledWith("request-1");
+    expect(mocks.applySessionProposal).not.toHaveBeenCalled();
   });
 
   it("returns canonical candidates when the requested summary is unrelated", async () => {
@@ -93,6 +124,6 @@ describe("edit summary chat tool", () => {
         },
       ],
     });
-    expect(mocks.updateEnhancedNoteContent).not.toHaveBeenCalled();
+    expect(mocks.persistChatSessionProposal).not.toHaveBeenCalled();
   });
 });

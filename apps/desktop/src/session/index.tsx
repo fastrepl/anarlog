@@ -16,6 +16,7 @@ import {
 } from "./components/note-input/header";
 import { SearchProvider } from "./components/note-input/search/context";
 import { OuterHeader } from "./components/outer-header";
+import { PendingProposalsBanner } from "./components/pending-proposals-banner";
 import { SessionSurface } from "./components/session-surface";
 import {
   computeCurrentNoteTab,
@@ -349,6 +350,9 @@ function TabContentNoteInner({
         }
       >
         <div className="flex h-full min-h-0 flex-col">
+          {!lockOverlay ? (
+            <PendingProposalsBanner sessionId={sessionId} />
+          ) : null}
           {showTopAudioPlayer && !lockOverlay ? (
             <div
               data-session-top-audio-player

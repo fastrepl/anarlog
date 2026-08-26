@@ -6,6 +6,7 @@ type PendingEdit = {
   target: { kind: "memo" } | { kind: "summary"; enhancedNoteId: string };
   currentContent: string;
   proposedContent: string;
+  source?: string;
   resolve: (approved: boolean) => void;
 };
 

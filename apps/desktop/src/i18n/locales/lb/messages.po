@@ -45,6 +45,11 @@ msgstr ""
 msgid "{0} opened on"
 msgstr ""
 
+#. placeholder {0}: proposals.length
+#: src/session/components/pending-proposals-banner.tsx
+msgid "{0} pending edits"
+msgstr ""
+
 #. placeholder {0}: Math.round((percentage ?? 0) * 100)
 #: src/session/components/note-input/transcript/screens/empty.tsx
 msgid "{0}% complete"
@@ -97,6 +102,10 @@ msgstr ""
 
 #: src/settings/general/audio-settings.tsx
 msgid "1 month"
+msgstr ""
+
+#: src/session/components/pending-proposals-banner.tsx
+msgid "1 pending edit"
 msgstr ""
 
 #: src/settings/general/audio-settings.tsx
@@ -527,6 +536,14 @@ msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/speaker-assign.tsx
 msgid "Apply to all"
+msgstr ""
+
+#: src/edit/tab-content.tsx
+msgid "Apply to memo"
+msgstr ""
+
+#: src/edit/tab-content.tsx
+msgid "Apply to summary"
 msgstr ""
 
 #: src/settings/sync/index.tsx
@@ -1548,6 +1565,10 @@ msgstr ""
 msgid "Date and time are required"
 msgstr ""
 
+#: src/edit/tab-content.tsx
+msgid "Decline"
+msgstr ""
+
 #: src/settings/appearance/app-icon.tsx
 msgid "Default"
 msgstr ""
@@ -2473,6 +2494,10 @@ msgstr ""
 msgid "Loading devices"
 msgstr ""
 
+#: src/edit/tab-content.tsx
+msgid "Loading edit…"
+msgstr ""
+
 #: src/settings/ai/shared/model-combobox.tsx
 msgid "Loading models..."
 msgstr ""
@@ -2641,6 +2666,7 @@ msgstr ""
 msgid "Members"
 msgstr ""
 
+#: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Memo"
 msgstr ""
@@ -3652,6 +3678,14 @@ msgstr ""
 msgid "Retry"
 msgstr ""
 
+#: src/session/components/pending-proposals-banner.tsx
+msgid "Review memo"
+msgstr ""
+
+#: src/session/components/pending-proposals-banner.tsx
+msgid "Review summary"
+msgstr ""
+
 #: src/settings/developers/api-key-row.tsx
 msgid "Revoke"
 msgstr ""
@@ -4417,6 +4451,7 @@ msgid "Summaries"
 msgstr ""
 
 #: src/contacts/details.tsx
+#: src/edit/tab-content.tsx
 #: src/session/components/outer-header/overflow/export-modal.tsx
 msgid "Summary"
 msgstr ""
@@ -4633,6 +4668,10 @@ msgstr ""
 msgid "This device's sync identity does not match your account. Sign in again or check Sync settings."
 msgstr ""
 
+#: src/edit/tab-content.tsx
+msgid "This edit is no longer pending."
+msgstr ""
+
 #: src/session/components/outer-header/index.tsx
 msgid "This is a prerecorded demo, so your camera stays off. Click Join & record to see Anarlog in action."
 msgstr ""
@@ -4837,6 +4876,10 @@ msgstr ""
 
 #: src/contacts/related-notes.tsx
 msgid "Untitled Note"
+msgstr ""
+
+#: src/edit/tab-content.tsx
+msgid "Untitled session"
 msgstr ""
 
 #: src/settings/team/index.tsx

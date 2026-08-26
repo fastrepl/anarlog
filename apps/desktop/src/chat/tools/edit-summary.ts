@@ -1,13 +1,15 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { md2json } from "@anlg/editor/markdown";
-
 import type { ToolDependencies } from "./types";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
-import { updateEnhancedNoteContent } from "~/session/queries";
+import {
+  applySessionProposal,
+  declineSessionProposal,
+  persistChatSessionProposal,
+} from "~/session/queries";
 
 type SummaryCandidate = {
   enhancedNoteId: string;
@@ -122,6 +124,22 @@ export const buildEditSummaryTool = (
       const currentContent =
         notes.find((note) => note.id === enhancedNoteId)?.markdown ?? "";
 
+      try {
+        await persistChatSessionProposal({
+          id: toolCallId,
+          sessionId,
+          kind: "summary_replace",
+          targetId: enhancedNoteId,
+          currentMarkdown: currentContent,
+          proposedMarkdown: params.content,
+        });
+      } catch {
+        return {
+          status: "error",
+          message: "Failed to save the proposed summary edit.",
+        };
+      }
+
       const approved = await new Promise<boolean>((resolve) => {
         usePendingEditStore.getState().addEdit({
           requestId: toolCallId,
@@ -129,22 +147,19 @@ export const buildEditSummaryTool = (
           target: { kind: "summary", enhancedNoteId },
           currentContent,
           proposedContent: params.content,
+          source: "chat",
           resolve,
         });
         deps.openEditTab(toolCallId);
       });
 
       if (!approved) {
+        await declineSessionProposal(toolCallId);
         return { status: "declined" };
       }
 
       try {
-        const json = md2json(params.content);
-        await updateEnhancedNoteContent(
-          enhancedNoteId,
-          sessionId,
-          JSON.stringify(json),
-        );
+        await applySessionProposal(toolCallId);
       } catch {
         return {
           status: "error",

@@ -213,6 +213,41 @@ impl Db {
         })
     }
 
+    pub async fn connect_local_read_write(path: impl AsRef<Path>) -> Result<Self, sqlx::Error> {
+        let path = path.as_ref();
+        if !path.is_file() {
+            return Err(sqlx::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("database file not found: {}", path.display()),
+            )));
+        }
+
+        let options = apply_internal_connect_policy(SqliteConnectOptions::new())
+            .filename(path)
+            .create_if_missing(false)
+            .pragma("foreign_keys", "ON")
+            .pragma("journal_mode", "WAL");
+        let (change_notifier, pool_options) = anlg_db_change::ChangeNotifier::new();
+        let pool = apply_internal_pool_policy(pool_options)
+            .connect_with(options)
+            .await?;
+
+        Ok(Self {
+            cloudsync_enabled: false,
+            cloudsync_path: None,
+            cloudsync_initializer: anlg_cloudsync::CloudsyncConnectionInitializer::default(),
+            cloudsync_connection: Arc::new(tokio::sync::Mutex::new(None)),
+            cloudsync_interrupt: Arc::new(CloudsyncInterruptHandle::default()),
+            cloudsync_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
+            cloudsync_sync_operation: Arc::new(tokio::sync::Mutex::new(())),
+            cloudsync_sync_requested: Arc::new(tokio::sync::Notify::new()),
+            cloudsync_runtime: Arc::new(Mutex::new(CloudsyncRuntimeState::default())),
+            cloudsync_sync_hook: Arc::new(Mutex::new(None)),
+            pool,
+            change_notifier,
+        })
+    }
+
     pub async fn connect_local_read_only(path: impl AsRef<Path>) -> Result<Self, sqlx::Error> {
         let options = apply_internal_connect_policy(SqliteConnectOptions::new())
             .filename(path)

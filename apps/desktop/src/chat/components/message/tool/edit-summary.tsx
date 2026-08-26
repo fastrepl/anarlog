@@ -12,7 +12,10 @@ import {
 
 import { parseMcpObjectOutput } from "~/chat/mcp/mcp-output-parser";
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
-import { useTabs } from "~/store/zustand/tabs";
+import {
+  applyProposalReview,
+  declineProposalReview,
+} from "~/session/proposal-review";
 
 type EditSummaryOutput = {
   status?: string;
@@ -39,23 +42,10 @@ function EditActions({
   const editPending = usePendingEditStore((state) =>
     state.edits.has(toolCallId),
   );
-  const resolveEdit = usePendingEditStore((state) => state.resolveEdit);
 
   if (!editPending) {
     return null;
   }
-
-  const resolve = (approved: boolean) => {
-    resolveEdit(toolCallId, approved);
-
-    const tabs = useTabs.getState();
-    const reviewTab = tabs.tabs.find(
-      (tab) => tab.type === "edit" && tab.requestId === toolCallId,
-    );
-    if (reviewTab) {
-      tabs.close(reviewTab);
-    }
-  };
 
   return (
     <div className="border-border/80 flex justify-end gap-2 border-t px-3.5 py-2.5">
@@ -63,11 +53,15 @@ function EditActions({
         type="button"
         size="sm"
         variant="outline"
-        onClick={() => resolve(false)}
+        onClick={() => void declineProposalReview(toolCallId)}
       >
         Decline
       </Button>
-      <Button type="button" size="sm" onClick={() => resolve(true)}>
+      <Button
+        type="button"
+        size="sm"
+        onClick={() => void applyProposalReview(toolCallId)}
+      >
         Apply to {target}
       </Button>
     </div>

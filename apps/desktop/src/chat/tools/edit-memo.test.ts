@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   loadSessionContentSnapshot: vi.fn(),
-  updateSession: vi.fn(),
+  persistChatSessionProposal: vi.fn(),
+  applySessionProposal: vi.fn(),
+  declineSessionProposal: vi.fn(),
 }));
 
 vi.mock("~/session/content-queries", () => ({
@@ -10,7 +12,9 @@ vi.mock("~/session/content-queries", () => ({
 }));
 
 vi.mock("~/session/queries", () => ({
-  updateSession: mocks.updateSession,
+  persistChatSessionProposal: mocks.persistChatSessionProposal,
+  applySessionProposal: mocks.applySessionProposal,
+  declineSessionProposal: mocks.declineSessionProposal,
 }));
 
 import { buildEditMemoTool } from "./edit-memo";
@@ -21,14 +25,20 @@ describe("edit memo chat tool", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     usePendingEditStore.setState({ edits: new Map() });
-    mocks.updateSession.mockResolvedValue(undefined);
+    mocks.persistChatSessionProposal.mockResolvedValue(undefined);
+    mocks.applySessionProposal.mockResolvedValue(undefined);
+    mocks.declineSessionProposal.mockResolvedValue(undefined);
     mocks.loadSessionContentSnapshot.mockResolvedValue({
       rawMarkdown: "Existing notes",
+      rawNoteId: "session-1",
     });
   });
 
-  it("creates meeting preparation in an empty memo after review", async () => {
-    mocks.loadSessionContentSnapshot.mockResolvedValue({ rawMarkdown: "" });
+  it("persists meeting preparation and applies it after review", async () => {
+    mocks.loadSessionContentSnapshot.mockResolvedValue({
+      rawMarkdown: "",
+      rawNoteId: "session-1",
+    });
     const openEditTab = vi.fn((requestId: string) => {
       expect(usePendingEditStore.getState().edits.get(requestId)).toMatchObject(
         {
@@ -36,6 +46,7 @@ describe("edit memo chat tool", () => {
           target: { kind: "memo" },
           currentContent: "",
           proposedContent: "## Agenda\n\n- Review blockers",
+          source: "chat",
         },
       );
       usePendingEditStore.getState().resolveEdit(requestId, true);
@@ -52,10 +63,16 @@ describe("edit memo chat tool", () => {
       ),
     ).resolves.toEqual({ status: "applied" });
 
-    expect(openEditTab).toHaveBeenCalledWith("request-1");
-    expect(mocks.updateSession).toHaveBeenCalledWith("session-1", {
-      raw_md: expect.stringContaining("Review blockers"),
+    expect(mocks.persistChatSessionProposal).toHaveBeenCalledWith({
+      id: "request-1",
+      sessionId: "session-1",
+      kind: "memo_replace",
+      targetId: "session-1",
+      currentMarkdown: "",
+      proposedMarkdown: "## Agenda\n\n- Review blockers",
     });
+    expect(openEditTab).toHaveBeenCalledWith("request-1");
+    expect(mocks.applySessionProposal).toHaveBeenCalledWith("request-1");
   });
 
   it("does not overwrite the memo when the review is declined", async () => {
@@ -73,6 +90,8 @@ describe("edit memo chat tool", () => {
       ),
     ).resolves.toEqual({ status: "declined" });
 
-    expect(mocks.updateSession).not.toHaveBeenCalled();
+    expect(mocks.persistChatSessionProposal).toHaveBeenCalled();
+    expect(mocks.declineSessionProposal).toHaveBeenCalledWith("request-1");
+    expect(mocks.applySessionProposal).not.toHaveBeenCalled();
   });
 });

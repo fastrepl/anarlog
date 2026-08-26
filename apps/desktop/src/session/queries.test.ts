@@ -28,12 +28,15 @@ vi.mock("~/db", () => ({
 
 import {
   addSessionParticipant,
+  applySessionProposal,
   buildSessionTombstoneStatements,
   createSession,
+  declineSessionProposal,
   deleteEnhancedNote,
   getOrCreateSessionForEventId,
   isSessionEmpty,
   loadSessionEvent,
+  persistChatSessionProposal,
   removeSessionParticipant,
   restoreDeletedSession,
   softDeleteSession,
@@ -474,5 +477,112 @@ describe("session SQLite operations", () => {
     ]) {
       expect(sql).toContain(table);
     }
+  });
+
+  it("persists a chat proposal against the current document timestamp", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      { updated_at: "2026-08-26T00:00:00Z" },
+    ]);
+
+    await persistChatSessionProposal({
+      id: "proposal-1",
+      sessionId: "session-1",
+      kind: "summary_replace",
+      targetId: "summary-1",
+      currentMarkdown: "Current",
+      proposedMarkdown: "Proposed",
+    });
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.sql).toContain("INSERT INTO session_proposals");
+    expect(statement.params).toEqual([
+      "proposal-1",
+      "session-1",
+      "summary_replace",
+      "summary-1",
+      "2026-08-26T00:00:00Z",
+      "Current",
+      "Proposed",
+      "chat",
+    ]);
+  });
+
+  it("applies a pending summary proposal and marks it applied", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([
+        {
+          id: "proposal-1",
+          session_id: "session-1",
+          kind: "summary_replace",
+          target_id: "summary-1",
+          base_updated_at: "2026-08-26T00:00:00Z",
+          current_markdown: "Current",
+          proposed_markdown: "Proposed",
+          status: "pending",
+          source: "cli",
+          created_at: "2026-08-26T00:00:00Z",
+          updated_at: "2026-08-26T00:00:00Z",
+        },
+      ])
+      .mockResolvedValueOnce([{ updated_at: "2026-08-26T00:00:00Z" }]);
+
+    await applySessionProposal("proposal-1");
+
+    const writes = mocks.executeTransaction.mock.calls.map(
+      (call) => call[0] as Array<{ sql: string; params: unknown[] }>,
+    );
+    expect(writes[0][0].sql).toContain("UPDATE session_documents");
+    expect(writes[1][0].sql).toContain("UPDATE session_proposals");
+    expect(writes[1][0].params[0]).toBe("applied");
+    expect(writes[1][0].params[2]).toBe("proposal-1");
+  });
+
+  it("rejects a stale proposal instead of writing the meeting", async () => {
+    mocks.execute
+      .mockResolvedValueOnce([
+        {
+          id: "proposal-1",
+          session_id: "session-1",
+          kind: "memo_replace",
+          target_id: "session-1",
+          base_updated_at: "2026-08-26T00:00:00Z",
+          current_markdown: "Current",
+          proposed_markdown: "Proposed",
+          status: "pending",
+          source: "mcp",
+          created_at: "2026-08-26T00:00:00Z",
+          updated_at: "2026-08-26T00:00:00Z",
+        },
+      ])
+      .mockResolvedValueOnce([{ updated_at: "2026-08-26T01:00:00Z" }]);
+
+    await expect(applySessionProposal("proposal-1")).rejects.toThrow(
+      "This proposal is stale. The meeting changed after it was created.",
+    );
+    expect(mocks.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it("declines only pending proposals", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        id: "proposal-1",
+        session_id: "session-1",
+        kind: "summary_replace",
+        target_id: "summary-1",
+        base_updated_at: "2026-08-26T00:00:00Z",
+        current_markdown: "Current",
+        proposed_markdown: "Proposed",
+        status: "pending",
+        source: "cli",
+        created_at: "2026-08-26T00:00:00Z",
+        updated_at: "2026-08-26T00:00:00Z",
+      },
+    ]);
+
+    await declineSessionProposal("proposal-1");
+
+    const statement = mocks.executeTransaction.mock.calls[0][0][0];
+    expect(statement.sql).toContain("UPDATE session_proposals");
+    expect(statement.params[0]).toBe("declined");
   });
 });

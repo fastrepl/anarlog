@@ -1,13 +1,15 @@
 import { tool } from "ai";
 import { z } from "zod";
 
-import { md2json } from "@anlg/editor/markdown";
-
 import type { ToolDependencies } from "./types";
 
 import { usePendingEditStore } from "~/chat/tools/pending-edit-store";
 import { loadSessionContentSnapshot } from "~/session/content-queries";
-import { updateSession } from "~/session/queries";
+import {
+  applySessionProposal,
+  declineSessionProposal,
+  persistChatSessionProposal,
+} from "~/session/queries";
 
 export const buildEditMemoTool = (
   deps: Pick<ToolDependencies, "getSessionId" | "openEditTab">,
@@ -43,6 +45,22 @@ export const buildEditMemoTool = (
         return { status: "error", message: "Session not found." };
       }
 
+      try {
+        await persistChatSessionProposal({
+          id: toolCallId,
+          sessionId,
+          kind: "memo_replace",
+          targetId: snapshot.rawNoteId || sessionId,
+          currentMarkdown: snapshot.rawMarkdown,
+          proposedMarkdown: params.content,
+        });
+      } catch {
+        return {
+          status: "error",
+          message: "Failed to save the proposed memo edit.",
+        };
+      }
+
       const approved = await new Promise<boolean>((resolve) => {
         usePendingEditStore.getState().addEdit({
           requestId: toolCallId,
@@ -50,19 +68,19 @@ export const buildEditMemoTool = (
           target: { kind: "memo" },
           currentContent: snapshot.rawMarkdown,
           proposedContent: params.content,
+          source: "chat",
           resolve,
         });
         deps.openEditTab(toolCallId);
       });
 
       if (!approved) {
+        await declineSessionProposal(toolCallId);
         return { status: "declined" };
       }
 
       try {
-        await updateSession(sessionId, {
-          raw_md: JSON.stringify(md2json(params.content)),
-        });
+        await applySessionProposal(toolCallId);
       } catch {
         return {
           status: "error",

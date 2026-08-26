@@ -1,9 +1,10 @@
 ---
 source: apps/cli/src/mcp.rs
-expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_version, \"instructions\":\n    info.instructions, \"tools\": tools, \"resource_templates\": templates,\n})"
+assertion_line: 589
+expression: "canonicalize_json(serde_json::json!({\n    \"protocol_version\": info.protocol_version, \"instructions\":\n    info.instructions, \"tools\": tools, \"resource_templates\": templates,\n}))"
 ---
 {
-  "instructions": "Read-only, local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Never invent meeting ids, access SQLite directly, or claim a write occurred: every tool is idempotent and performs no writes. Documentation: https://docs.anarlog.so",
+  "instructions": "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting ids, access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
   "protocol_version": "2024-11-05",
   "resource_templates": [
     {
@@ -26,6 +27,30 @@ expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_versio
     }
   ],
   "tools": [
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Decline a pending proposal without changing the meeting. Applied proposals cannot be declined.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "proposal_id": {
+            "description": "Proposal id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id"
+        ],
+        "title": "DeclineProposalInput",
+        "type": "object"
+      },
+      "name": "decline_proposal"
+    },
     {
       "annotations": {
         "destructiveHint": false,
@@ -92,6 +117,30 @@ expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_versio
         "type": "object"
       },
       "name": "get_meeting_transcript"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "Get one staged Anarlog proposal, including its unified diff. The proposal is not applied.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "proposal_id": {
+            "description": "Proposal id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id"
+        ],
+        "title": "GetProposalInput",
+        "type": "object"
+      },
+      "name": "get_proposal"
     },
     {
       "annotations": {
@@ -185,6 +234,116 @@ expression: "serde_json::json!({\n    \"protocol_version\": info.protocol_versio
         "type": "object"
       },
       "name": "list_meetings"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "description": "List staged Anarlog meeting proposals. Defaults to pending proposals. Pass status all to include applied and declined rows, and next_offset as offset to continue.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "limit": {
+            "description": "Maximum results; defaults to 20 and is capped at 200",
+            "format": "uint32",
+            "maximum": 200,
+            "minimum": 1,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "meeting_id": {
+            "description": "Limit results to one meeting",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "offset": {
+            "description": "Number of results to skip; defaults to 0",
+            "format": "uint32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "status": {
+            "description": "pending, applied, or declined. Defaults to pending.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "title": "ListProposalsInput",
+        "type": "object"
+      },
+      "name": "list_proposals"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Propose a complete memo replacement. The proposal stays pending until a human applies it in the Anarlog desktop app.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "meeting_id",
+          "content"
+        ],
+        "title": "ProposeMemoInput",
+        "type": "object"
+      },
+      "name": "propose_memo_edit"
+    },
+    {
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "description": "Propose a complete summary replacement. The proposal stays pending until a human applies it in the Anarlog desktop app. Specify target_id when the meeting has multiple summaries.",
+      "inputSchema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "content": {
+            "type": "string"
+          },
+          "meeting_id": {
+            "type": "string"
+          },
+          "target_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "meeting_id",
+          "content"
+        ],
+        "title": "ProposeSummaryInput",
+        "type": "object"
+      },
+      "name": "propose_summary_edit"
     }
   ]
 }

@@ -114,6 +114,134 @@ impl AnarlogMcpServer {
             .map_err(command_error)?;
         structured(&page)
     }
+
+    #[tool(
+        description = "Propose a complete summary replacement. The proposal stays pending until a human applies it in the Anarlog desktop app. Specify target_id when the meeting has multiple summaries.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn propose_summary_edit(
+        &self,
+        Parameters(input): Parameters<ProposeSummaryInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        let proposal = access::create_proposal(
+            self.db.pool(),
+            access::CreateProposalInput {
+                meeting_id: input.meeting_id,
+                kind: "summary_replace".to_string(),
+                target_id: input.target_id,
+                content: input.content,
+                source: Some("mcp".to_string()),
+            },
+        )
+        .await
+        .map_err(command_error)?;
+        structured(&proposal)
+    }
+
+    #[tool(
+        description = "Propose a complete memo replacement. The proposal stays pending until a human applies it in the Anarlog desktop app.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn propose_memo_edit(
+        &self,
+        Parameters(input): Parameters<ProposeMemoInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        let proposal = access::create_proposal(
+            self.db.pool(),
+            access::CreateProposalInput {
+                meeting_id: input.meeting_id,
+                kind: "memo_replace".to_string(),
+                target_id: None,
+                content: input.content,
+                source: Some("mcp".to_string()),
+            },
+        )
+        .await
+        .map_err(command_error)?;
+        structured(&proposal)
+    }
+
+    #[tool(
+        description = "List staged Anarlog meeting proposals. Defaults to pending proposals. Pass status all to include applied and declined rows, and next_offset as offset to continue.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn list_proposals(
+        &self,
+        Parameters(input): Parameters<access::ListProposalsInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        let page = access::list_proposals(self.db.pool(), input)
+            .await
+            .map_err(command_error)?;
+        structured(&page)
+    }
+
+    #[tool(
+        description = "Get one staged Anarlog proposal, including its unified diff. The proposal is not applied.",
+        annotations(
+            read_only_hint = true,
+            destructive_hint = false,
+            idempotent_hint = true,
+            open_world_hint = false
+        )
+    )]
+    async fn get_proposal(
+        &self,
+        Parameters(input): Parameters<access::GetProposalInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        let proposal = access::get_proposal(self.db.pool(), input)
+            .await
+            .map_err(command_error)?;
+        structured(&proposal)
+    }
+
+    #[tool(
+        description = "Decline a pending proposal without changing the meeting. Applied proposals cannot be declined.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = false,
+            open_world_hint = false
+        )
+    )]
+    async fn decline_proposal(
+        &self,
+        Parameters(input): Parameters<access::DeclineProposalInput>,
+    ) -> std::result::Result<CallToolResult, McpError> {
+        let proposal = access::decline_proposal(self.db.pool(), input)
+            .await
+            .map_err(command_error)?;
+        structured(&proposal)
+    }
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+struct ProposeSummaryInput {
+    meeting_id: String,
+    content: String,
+    target_id: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+struct ProposeMemoInput {
+    meeting_id: String,
+    content: String,
 }
 
 #[tool_handler]
@@ -131,7 +259,7 @@ impl ServerHandler for AnarlogMcpServer {
             env!("CARGO_PKG_VERSION"),
         ))
         .with_instructions(
-            "Read-only, local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. Never invent meeting ids, access SQLite directly, or claim a write occurred: every tool is idempotent and performs no writes. Documentation: https://docs.anarlog.so",
+            "Local access to Anarlog meeting data. Start with list_meetings to resolve a meeting_id, then call get_meeting for notes, summaries, participants, and action items. Request transcript pages with get_meeting_transcript and continue with pagination.next_offset; each page is capped at 500 words. Use get_recurring_meeting_history for series context. To persist an edit, call propose_summary_edit or propose_memo_edit; the result stays pending until a human applies it in the desktop app. List or inspect staged work with list_proposals and get_proposal. decline_proposal discards a pending proposal without changing the meeting. Never invent meeting ids, access SQLite directly, or claim a proposal was applied. Documentation: https://docs.anarlog.so",
         )
     }
 
@@ -406,7 +534,8 @@ mod tests {
         let instructions = info.instructions.unwrap();
         assert!(instructions.contains("Start with list_meetings"));
         assert!(instructions.contains("https://docs.anarlog.so"));
-        assert!(instructions.contains("performs no writes"));
+        assert!(instructions.contains("propose_summary_edit"));
+        assert!(instructions.contains("claim a proposal was applied"));
     }
 
     #[tokio::test]
@@ -475,10 +604,15 @@ mod tests {
         assert_eq!(
             tool_names,
             [
+                "decline_proposal",
                 "get_meeting",
                 "get_meeting_transcript",
+                "get_proposal",
                 "get_recurring_meeting_history",
                 "list_meetings",
+                "list_proposals",
+                "propose_memo_edit",
+                "propose_summary_edit",
             ]
         );
         let mcp_docs = include_str!("../../../docs/reference/mcp.mdx");
@@ -506,9 +640,13 @@ mod tests {
                 );
             }
             let annotations = tool.annotations.expect("tool annotations");
-            assert_eq!(annotations.read_only_hint, Some(true));
+            let write_tool = matches!(
+                tool.name.as_ref(),
+                "propose_summary_edit" | "propose_memo_edit" | "decline_proposal"
+            );
+            assert_eq!(annotations.read_only_hint, Some(!write_tool));
             assert_eq!(annotations.destructive_hint, Some(false));
-            assert_eq!(annotations.idempotent_hint, Some(true));
+            assert_eq!(annotations.idempotent_hint, Some(!write_tool));
             assert_eq!(annotations.open_world_hint, Some(false));
         }
 

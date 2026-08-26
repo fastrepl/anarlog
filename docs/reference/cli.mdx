@@ -44,6 +44,17 @@ On Linux, the CLI uses Secret Service when it is available. Headless systems wit
 | `meetings history ID` | `--limit 1..200`, `--offset NUMBER` | A page of meetings from the same recurring series. Defaults to 20 from offset 0. |
 | `meetings export ID` | `--format markdown\|json`, `-o, --output FILE`, `--force` | A complete meeting export, including transcripts. Defaults to Markdown on stdout. Existing files require `--force`. |
 
+## Proposal commands
+
+These commands insert or inspect staged edits. They do not apply the edit to the meeting. Apply happens in the desktop app.
+
+| Command | Options | Result |
+| --- | --- | --- |
+| `proposals create` | `--meeting ID`, `--kind summary\|memo`, `--target ID`, `--content TEXT` or `--content-file FILE` | Stages a pending replacement. `--target` is required when the meeting has multiple summaries. |
+| `proposals list` | `--meeting ID`, `--status pending\|applied\|declined\|all`, `--limit 1..200`, `--offset NUMBER` | Proposals, newest first. Defaults to pending rows, 20 results. |
+| `proposals show ID` | — | Proposal metadata and a unified diff. |
+| `proposals decline ID` | — | Marks a pending proposal declined. The meeting is unchanged. |
+
 ## JSON response contract
 
 Successful `--json` responses contain:

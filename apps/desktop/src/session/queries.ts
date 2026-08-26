@@ -18,6 +18,17 @@ export {
 } from "./queries/creation";
 export { useFolderPaths } from "./queries/folders";
 export {
+  applySessionProposal,
+  declineSessionProposal,
+  insertSessionProposal,
+  loadPendingSessionProposals,
+  loadSessionProposal,
+  persistChatSessionProposal,
+  sessionProposalsQueryKey,
+  usePendingSessionProposals,
+} from "./queries/proposals";
+export type { SessionProposalRecord } from "./queries/proposals";
+export {
   addSessionParticipant,
   removeSessionParticipant,
   useSessionParticipant,

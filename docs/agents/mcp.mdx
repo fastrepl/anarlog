@@ -45,4 +45,6 @@ Transcript pages default to 200 words and cap at 500. Follow `pagination.next_of
 
 Use `get_recurring_meeting_history` with a known meeting ID when a task depends on earlier meetings in the same series.
 
+To persist an edit, call `propose_summary_edit` or `propose_memo_edit`. The tool returns a pending proposal. Do not claim the meeting changed. Use `list_proposals` and `get_proposal` to inspect staged work. `decline_proposal` discards a pending proposal.
+
 See the [MCP reference](/reference/mcp) for exact parameters and resources.

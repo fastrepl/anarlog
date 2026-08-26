@@ -115,6 +115,7 @@ jobs:
           target/release/anarlog auth --help
           target/release/anarlog meetings --help
           target/release/anarlog mcp --help
+          target/release/anarlog proposals --help
           if doctor_output="$(target/release/anarlog --json --db-path "$RUNNER_TEMP/missing.db" doctor)"; then
             echo "doctor unexpectedly reported a missing database as ready"
             exit 1

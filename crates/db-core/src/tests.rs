@@ -110,6 +110,42 @@ async fn connect_local_plain_creates_parent_dirs() {
 }
 
 #[tokio::test]
+async fn connect_local_read_write_does_not_create_missing_database() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db_path = tmp.path().join("missing.db");
+
+    let result = Db::connect_local_read_write(&db_path).await;
+
+    assert!(result.is_err());
+    assert!(!db_path.exists());
+}
+
+#[tokio::test]
+async fn connect_local_read_write_accepts_writes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let db_path = tmp.path().join("app.db");
+    let created = Db::connect_local_plain(&db_path).await.unwrap();
+    sqlx::query("CREATE TABLE records (id TEXT PRIMARY KEY NOT NULL)")
+        .execute(created.pool())
+        .await
+        .unwrap();
+    created.pool().close().await;
+
+    let writable = Db::connect_local_read_write(&db_path).await.unwrap();
+    sqlx::query("INSERT INTO records (id) VALUES ('written')")
+        .execute(writable.pool())
+        .await
+        .unwrap();
+    let rows: Vec<String> = sqlx::query_scalar("SELECT id FROM records")
+        .fetch_all(writable.pool())
+        .await
+        .unwrap();
+    writable.pool().close().await;
+
+    assert_eq!(rows, vec!["written"]);
+}
+
+#[tokio::test]
 async fn connect_local_read_only_does_not_create_missing_database() {
     let tmp = tempfile::tempdir().unwrap();
     let db_path = tmp.path().join("missing.db");

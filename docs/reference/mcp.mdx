@@ -3,7 +3,7 @@ title: "MCP reference"
 description: "Tools, resources, limits, and transport details exposed by Anarlog MCP."
 ---
 
-Run the server with `anarlog mcp`. It uses the MCP `2024-11-05` protocol over stdio. Every tool is read-only, idempotent, and local to your computer. The desktop app only needs to have created the database once; it does not need to stay open.
+Run the server with `anarlog mcp`. It uses the MCP `2024-11-05` protocol over stdio. Meeting reads are local and idempotent. Proposal tools can insert or decline staged edits; they never apply those edits. The desktop app only needs to have created the database once. Open it to review and apply pending proposals.
 
 ## Tools
 
@@ -33,6 +33,42 @@ The result includes `meeting_id`, `text`, `words`, and a `pagination` object. Pa
 ### `get_recurring_meeting_history`
 
 Accepts required string `meeting_id` plus optional integer `limit` and `offset`. The limit defaults to 20 and is clamped to `1..200`; the offset defaults to 0.
+
+### `propose_summary_edit`
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `meeting_id` | string | required | A returned Anarlog meeting ID. |
+| `content` | string | required | Complete replacement summary in markdown. |
+| `target_id` | string | — | Summary document ID. Required when the meeting has multiple summaries. |
+
+The result is a pending proposal. It does not change the meeting until a human applies it in the desktop app.
+
+### `propose_memo_edit`
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `meeting_id` | string | required | A returned Anarlog meeting ID. |
+| `content` | string | required | Complete replacement memo in markdown. |
+
+The result is a pending proposal. It does not change the meeting until a human applies it in the desktop app.
+
+### `list_proposals`
+
+| Parameter | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `meeting_id` | string | — | Limit results to one meeting. |
+| `status` | string | `pending` | `pending`, `applied`, `declined`, or `all`. |
+| `limit` | integer | `20` | Clamped to `1..200`. |
+| `offset` | integer | `0` | Number of results to skip. |
+
+### `get_proposal`
+
+Accepts required string `proposal_id`. Returns metadata and a unified `diff`.
+
+### `decline_proposal`
+
+Accepts required string `proposal_id`. Marks a pending proposal declined without changing the meeting.
 
 ## Resources
 

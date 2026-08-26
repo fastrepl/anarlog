@@ -123,6 +123,7 @@ async fn migrations_apply_cleanly() {
             "session_documents",
             "session_participant_consent",
             "session_participants",
+            "session_proposals",
             "session_share_activation",
             "session_share_sync_state",
             "session_tags",

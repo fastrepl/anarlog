@@ -25,7 +25,7 @@ Prefer MCP when it is connected because each tool carries its input schema. Use 
 
 Agents should use an Anarlog interface, not SQLite. The supported interfaces apply Anarlog's rules for canonical notes, generated summaries, excluded participants, recurring meetings, and transcript text.
 
-The CLI and both MCP endpoints are read-only. An agent cannot update a note, action item, or meeting through them. CLI export can create a separate file; replacing a file requires `--force`.
+Meeting reads stay local and bounded. An agent cannot apply a note or summary change. It can stage a proposal with CLI `proposals` commands or the local MCP `propose_*` tools. A human reviews the unified diff in the desktop app and applies or declines it. Hosted Cloud API and remote MCP stay read-only. CLI export can create a separate file; replacing a file requires `--force`.
 
 Local CLI and MCP access stays on your computer. Cloud access uploads a separate server-readable copy of your meeting data. Review the [Cloud API disclosure](/reference/api-cloud) before enabling it.
 

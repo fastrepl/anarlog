@@ -22,13 +22,21 @@ pub async fn run(args: Args) -> Result<u8> {
         return Ok(if ready { 0 } else { 1 });
     }
 
-    let db = std::sync::Arc::new(db::open(&args).await?);
+    let json = args.json;
+    let db = std::sync::Arc::new(if args.needs_write() {
+        db::open_write(&args).await?
+    } else {
+        db::open(&args).await?
+    });
 
     match args.command {
         cli::Command::Auth { .. } => unreachable!("auth returns before opening the database"),
         cli::Command::Doctor => unreachable!("doctor returns before opening the database"),
         cli::Command::Meetings { command } => {
-            commands::meetings::run(db.as_ref(), command, args.json).await?
+            commands::meetings::run(db.as_ref(), command, json).await?
+        }
+        cli::Command::Proposals { command } => {
+            commands::proposals::run(db.as_ref(), command, json).await?
         }
         cli::Command::Mcp => mcp::serve(db).await?,
     }
@@ -98,5 +106,69 @@ mod tests {
         let exported = std::fs::read_to_string(output_path).unwrap();
         assert!(exported.contains("# Planning"));
         assert!(exported.contains("Decide the launch date."));
+    }
+
+    #[tokio::test]
+    async fn proposal_create_lists_and_declines_without_changing_the_note() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("app.db");
+        let db = anlg_db_core::Db::connect_local_plain(&db_path)
+            .await
+            .unwrap();
+        anlg_db_app::prepare_schema(&db).await.unwrap();
+        sqlx::query(
+            "INSERT INTO sessions (id, title, started_at) VALUES ('meeting-1', 'Planning', '2026-07-13')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO session_documents (id, session_id, kind, body_format, body)
+             VALUES
+             ('meeting-1', 'meeting-1', 'note', 'markdown', 'Original memo'),
+             ('summary-1', 'meeting-1', 'summary', 'markdown', 'Original summary')",
+        )
+        .execute(db.pool())
+        .await
+        .unwrap();
+        db.pool().close().await;
+
+        run(Args {
+            base: None,
+            db_path: Some(db_path.clone()),
+            json: true,
+            command: cli::Command::Proposals {
+                command: cli::ProposalCommand::Create {
+                    meeting_id: "meeting-1".to_string(),
+                    kind: cli::ProposalKind::Summary,
+                    target_id: None,
+                    content: Some("Revised summary".to_string()),
+                    content_file: None,
+                },
+            },
+        })
+        .await
+        .unwrap();
+
+        let read = anlg_db_core::Db::connect_local_read_only(&db_path)
+            .await
+            .unwrap();
+        let pending: Vec<(String, String)> =
+            sqlx::query_as("SELECT status, proposed_markdown FROM session_proposals")
+                .fetch_all(read.pool())
+                .await
+                .unwrap();
+        let note: String =
+            sqlx::query_scalar("SELECT body FROM session_documents WHERE id = 'summary-1'")
+                .fetch_one(read.pool())
+                .await
+                .unwrap();
+        read.pool().close().await;
+
+        assert_eq!(
+            pending,
+            vec![("pending".to_string(), "Revised summary".to_string())]
+        );
+        assert_eq!(note, "Original summary");
     }
 }

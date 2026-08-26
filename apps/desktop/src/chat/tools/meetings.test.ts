@@ -105,12 +105,16 @@ describe("canonical meeting chat tools", () => {
       get_recurring_meeting_history: buildGetRecurringMeetingHistoryTool(),
     };
 
+    const canonicalReadTools = contract.tools.filter((tool) =>
+      Object.hasOwn(chatTools, tool.name),
+    );
+
     expect(Object.keys(chatTools).sort()).toEqual(
-      contract.tools.map((tool) => tool.name).sort(),
+      canonicalReadTools.map((tool) => tool.name).sort(),
     );
 
     for (const [name, chatTool] of Object.entries(chatTools)) {
-      const canonical = contract.tools.find((tool) => tool.name === name);
+      const canonical = canonicalReadTools.find((tool) => tool.name === name);
       expect(canonical).toBeDefined();
       expect(chatTool.description).toBe(canonical?.description);
       const chatSchema = await asSchema(
