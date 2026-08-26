@@ -849,11 +849,11 @@ function AuthProviderContent({
   children: ReactNode;
 }) {
   return (
-    <span className="flex w-56 items-center gap-3 text-left">
-      <span className="flex size-[18px] shrink-0 items-center justify-center">
+    <span className="grid w-56 grid-cols-[18px_1fr] items-center gap-3 text-left">
+      <span className="flex size-[18px] items-center justify-center overflow-hidden [&_iconify-icon]:block">
         {icon}
       </span>
-      {children}
+      <span>{children}</span>
     </span>
   );
 }
