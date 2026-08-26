@@ -156,11 +156,11 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
     #[tracing::instrument(skip_all)]
     pub async fn start_server_for_path(&self, path: &str) -> Result<String, crate::Error> {
         Self::ensure_custom_model_supported()?;
-        let (model_path, _) = crate::custom_model::inspect_custom_model_path(path)?;
+        let (_model_path, _) = crate::custom_model::inspect_custom_model_path(path)?;
 
         #[cfg(feature = "whisper-cpp")]
         {
-            let canonical_path = model_path.to_string_lossy().into_owned();
+            let canonical_path = _model_path.to_string_lossy().into_owned();
             if let Some(info) = internal_health().await
                 && info.custom_model_path.as_deref() == Some(canonical_path.as_str())
             {
@@ -169,7 +169,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                 });
             }
 
-            let probe_path = model_path.clone();
+            let probe_path = _model_path.clone();
             tokio::task::spawn_blocking(move || {
                 anlg_whisper_local::LoadedWhisper::builder()
                     .model_path(probe_path.to_string_lossy().into_owned())
@@ -185,7 +185,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                 .await
                 .map_err(|error| crate::Error::ServerStopFailed(error.to_string()))?;
 
-            start_internal_server(&supervisor, model_path, None).await
+            start_internal_server(&supervisor, _model_path, None).await
         }
 
         #[cfg(not(feature = "whisper-cpp"))]

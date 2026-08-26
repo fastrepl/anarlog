@@ -17956,6 +17956,7 @@ dependencies = [
  "tauri-plugin-sidecar2",
  "tauri-plugin-windows",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tokio-tungstenite 0.29.0",

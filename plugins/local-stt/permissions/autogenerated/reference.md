@@ -16,6 +16,8 @@ Default permissions for the plugin
 - `allow-get-servers`
 - `allow-list-supported-models`
 - `allow-list-supported-languages`
+- `allow-inspect-custom-model-path`
+- `allow-start-server-for-path`
 
 ## Permission Table
 
@@ -152,6 +154,32 @@ Enables the get_servers command without any pre-configured scope.
 <td>
 
 Denies the get_servers command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-stt:allow-inspect-custom-model-path`
+
+</td>
+<td>
+
+Enables the inspect_custom_model_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-stt:deny-inspect-custom-model-path`
+
+</td>
+<td>
+
+Denies the inspect_custom_model_path command without any pre-configured scope.
 
 </td>
 </tr>
@@ -334,6 +362,32 @@ Enables the start_server command without any pre-configured scope.
 <td>
 
 Denies the start_server command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-stt:allow-start-server-for-path`
+
+</td>
+<td>
+
+Enables the start_server_for_path command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`local-stt:deny-start-server-for-path`
+
+</td>
+<td>
+
+Denies the start_server_for_path command without any pre-configured scope.
 
 </td>
 </tr>

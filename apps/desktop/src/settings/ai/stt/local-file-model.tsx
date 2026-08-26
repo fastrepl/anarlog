@@ -81,8 +81,8 @@ export function LocalFileModel({
     onError: () => sonnerToast.error(t`Could not clear the selected model`),
   });
 
-  const filename =
-    modelInfo.data?.name || modelPath.split(/[/\\]/).filter(Boolean).at(-1);
+  const pathParts = modelPath.split(/[/\\]/).filter(Boolean);
+  const filename = modelInfo.data?.name || pathParts[pathParts.length - 1];
   const isPending = chooseModel.isPending || clearModel.isPending;
 
   return (

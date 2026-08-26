@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-start-server-for-path"
+description = "Enables the start_server_for_path command without any pre-configured scope."
+commands.allow = ["start_server_for_path"]
+
+[[permission]]
+identifier = "deny-start-server-for-path"
+description = "Denies the start_server_for_path command without any pre-configured scope."
+commands.deny = ["start_server_for_path"]

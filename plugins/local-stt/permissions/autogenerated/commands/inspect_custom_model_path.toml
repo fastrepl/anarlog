@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-inspect-custom-model-path"
+description = "Enables the inspect_custom_model_path command without any pre-configured scope."
+commands.allow = ["inspect_custom_model_path"]
+
+[[permission]]
+identifier = "deny-inspect-custom-model-path"
+description = "Denies the inspect_custom_model_path command without any pre-configured scope."
+commands.deny = ["inspect_custom_model_path"]
