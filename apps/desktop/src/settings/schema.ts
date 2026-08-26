@@ -251,6 +251,12 @@ export const SETTING_DEFINITIONS = {
     type: "string",
     path: ["general", "selected_template_id"],
   },
+  default_meeting_share_access: {
+    type: "string",
+    path: ["general", "default_meeting_share_access"],
+    default: "me" as string,
+    synced: true,
+  },
   todo_linear_filter: {
     type: "string",
     path: ["todo", "linear_filter"],

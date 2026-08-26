@@ -9,6 +9,10 @@ import {
 } from "@anlg/ui/components/ui/popover";
 
 import {
+  defaultGeneralAccessTarget,
+  normalizeDefaultMeetingShareAccess,
+} from "./default-access";
+import {
   EmailRecapForm,
   ShareRecapOverflowMenu,
   SlackRecapForm,
@@ -28,6 +32,7 @@ import { useWorkspaceShareScopes } from "./workspace-policy";
 
 import { useAuth } from "~/auth";
 import { ContactFacehash } from "~/contacts/shared";
+import { useConfigValue } from "~/shared/config";
 
 export type DraftShareAction =
   | { type: "invite"; emails: string[] }
@@ -62,8 +67,13 @@ export function SessionShareDraftContent({
   const invite = useShareInvite({ sessionId, ownerEmail, invitedEmails: [] });
   const actionPending = pendingAction !== null;
   const allowedScopes = useWorkspaceShareScopes(workspaces);
+  const defaultAccess = normalizeDefaultMeetingShareAccess(
+    useConfigValue("default_meeting_share_access"),
+  );
   const generalAccessValue =
-    pendingAction?.type === "scope" ? pendingAction.target : "restricted";
+    pendingAction?.type === "scope"
+      ? pendingAction.target
+      : defaultGeneralAccessTarget(defaultAccess, workspaces);
 
   return (
     <PopoverContent

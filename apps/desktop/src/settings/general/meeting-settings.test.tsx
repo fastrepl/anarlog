@@ -9,6 +9,12 @@ vi.mock("@tauri-apps/plugin-os", () => ({
   platform: mocks.platform,
 }));
 
+vi.mock("./default-share-access", () => ({
+  DefaultMeetingShareAccessSelector: () => (
+    <span>Default sharing selector</span>
+  ),
+}));
+
 import { MeetingSettingsView } from "./meeting-settings";
 
 function setting(value = true) {
@@ -48,6 +54,7 @@ describe("MeetingSettingsView", () => {
   it("keeps the floating bar setting available on macOS", () => {
     renderMeetingSettings({ floatingBar: false });
 
+    expect(screen.getByText("Default sharing selector")).toBeTruthy();
     expect(screen.getByText("Show floating bar")).toBeTruthy();
   });
 

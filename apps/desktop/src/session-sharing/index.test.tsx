@@ -66,6 +66,7 @@ const mocks = vi.hoisted(() => ({
   contacts: [] as any[],
   participants: [] as any[],
   workspaces: [] as { id: string; name: string }[],
+  defaultMeetingShareAccess: "me",
 }));
 
 vi.mock("./workspace-policy", () => ({
@@ -97,6 +98,10 @@ vi.mock("~/contacts/shared", () => ({
 
 vi.mock("~/session/queries", () => ({
   useSessionParticipants: () => mocks.participants,
+}));
+
+vi.mock("~/shared/config", () => ({
+  useConfigValue: () => mocks.defaultMeetingShareAccess,
 }));
 
 vi.mock("@anlg/plugin-opener2", () => ({
@@ -391,6 +396,7 @@ describe("SessionShareButton", () => {
     mocks.contacts = [];
     mocks.participants = [];
     mocks.workspaces = [];
+    mocks.defaultMeetingShareAccess = "me";
     mocks.auth.session = createSession();
     mocks.auth.supabase = {};
     mocks.billing.isReady = true;
@@ -816,6 +822,29 @@ describe("SessionShareButton", () => {
     expect(
       screen.getByRole("textbox", { name: "Invitee email" }),
     ).not.toBeNull();
+  });
+
+  it("applies workspace default access when a new share is created", async () => {
+    mocks.defaultMeetingShareAccess = "workspace";
+    mocks.workspaces = [{ id: WORKSPACE_ID, name: "Fastrepl" }];
+    mocks.managedNote = null;
+    mocks.loadManagedSharedNoteForSession.mockResolvedValue(null);
+    renderShareButton();
+
+    await openSharePopover();
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+
+    await waitFor(() =>
+      expect(mocks.setSessionShareScope).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          shareId: SHARE_ID,
+          scope: "workspace",
+          workspaceId: WORKSPACE_ID,
+        },
+      ),
+    );
+    expect(mocks.events).toContain("set-scope");
   });
 
   it("bootstraps an existing share after its first snapshot publish failed", async () => {
