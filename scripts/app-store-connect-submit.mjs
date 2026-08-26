@@ -234,11 +234,12 @@ async function ensureMacVersion(client, app, version) {
   return { appStoreVersion: response.data, alreadySubmitted: false };
 }
 
-async function listBuilds(client, appId, version) {
+async function listBuilds(client, appId, version, buildVersion) {
   const response = await client.request("GET", "/v1/builds", {
     query: {
       "fields[builds]": "processingState,uploadedDate,version",
       "filter[app]": appId,
+      "filter[version]": buildVersion,
       "filter[preReleaseVersion.platform]": "MAC_OS",
       "filter[preReleaseVersion.version]": version,
       limit: 10,
@@ -250,6 +251,7 @@ async function listBuilds(client, appId, version) {
 
 async function waitForBuild({
   appId,
+  buildVersion,
   client,
   pollIntervalMs,
   sleep,
@@ -258,7 +260,7 @@ async function waitForBuild({
 }) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const builds = await listBuilds(client, appId, version);
+    const builds = await listBuilds(client, appId, version, buildVersion);
     const validBuild = builds.find(
       (build) => build.attributes.processingState === "VALID",
     );
@@ -278,7 +280,7 @@ async function waitForBuild({
   }
 
   throw new Error(
-    `Timed out waiting for App Store Connect to process macOS ${version}`,
+    `Timed out waiting for App Store Connect to process macOS ${version} build ${buildVersion}`,
   );
 }
 
@@ -305,7 +307,7 @@ async function ensureReviewSubmission(client, appId, appStoreVersionId) {
       query: {
         "fields[reviewSubmissions]": "platform,state",
         "filter[platform]": "MAC_OS",
-        "filter[state]": "READY_FOR_REVIEW",
+        "filter[state]": "READY_FOR_REVIEW,UNRESOLVED_ISSUES",
         limit: 10,
       },
     },
@@ -393,6 +395,7 @@ async function runAltool(packagePath, keyId, issuerId) {
 }
 
 export async function publishMacApp({
+  buildVersion,
   bundleId,
   client,
   packagePath,
@@ -411,12 +414,13 @@ export async function publishMacApp({
     };
   }
 
-  let builds = await listBuilds(client, app.id, version);
+  let builds = await listBuilds(client, app.id, version, buildVersion);
   if (builds.length === 0) {
     await upload(packagePath);
   }
   const build = await waitForBuild({
     appId: app.id,
+    buildVersion,
     client,
     pollIntervalMs,
     sleep,
@@ -454,6 +458,7 @@ function parseArgs(argv) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const required = [
+    "build-version",
     "bundle-id",
     "issuer-id",
     "key-id",
@@ -476,6 +481,7 @@ async function main() {
     privateKey,
   });
   const result = await publishMacApp({
+    buildVersion: args["build-version"],
     bundleId: args["bundle-id"],
     client,
     packagePath: args.package,

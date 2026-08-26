@@ -137,7 +137,7 @@ test("reuses the editable first version and submits a processed build", async ()
                 resource("builds", "build-id", {
                   processingState: "VALID",
                   uploadedDate: "2026-08-25T00:00:00Z",
-                  version: "1.4.13",
+                  version: "2608.26.1",
                 }),
               ],
             }
@@ -171,6 +171,7 @@ test("reuses the editable first version and submits a processed build", async ()
   };
 
   const result = await publishMacApp({
+    buildVersion: "2608.26.1",
     bundleId: "com.hyprnote.desktop",
     client,
     packagePath: "/tmp/Anarlog.pkg",
@@ -196,6 +197,12 @@ test("reuses the editable first version and submits a processed build", async ()
         request.pathname === "/v1/appStoreVersions/placeholder-id",
     ).body.data.attributes,
     { releaseType: "AFTER_APPROVAL", versionString: "1.4.13" },
+  );
+  assert.equal(
+    requests.find((request) => request.pathname === "/v1/builds").query[
+      "filter[version]"
+    ],
+    "2608.26.1",
   );
   assert.deepEqual(requests.at(-1).body.data.attributes, { submitted: true });
 });
@@ -266,6 +273,7 @@ test("reuses an existing processing build instead of uploading it again", async 
   };
 
   const result = await publishMacApp({
+    buildVersion: "1.4.13",
     bundleId: "com.hyprnote.desktop",
     client,
     packagePath: "/tmp/Anarlog.pkg",
@@ -307,6 +315,7 @@ test("treats an already submitted version as an idempotent success", async () =>
   };
 
   const result = await publishMacApp({
+    buildVersion: "1.4.13",
     bundleId: "com.hyprnote.desktop",
     client,
     packagePath: "/tmp/Anarlog.pkg",
@@ -345,6 +354,7 @@ test("refuses to choose between multiple editable placeholder versions", async (
 
   await assert.rejects(
     publishMacApp({
+      buildVersion: "1.4.13",
       bundleId: "com.hyprnote.desktop",
       client,
       packagePath: "/tmp/Anarlog.pkg",

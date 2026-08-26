@@ -11,6 +11,11 @@ on:
         description: "Exact 40-character commit tagged for the stable release"
         required: true
         type: string
+      build_number:
+        description: "Optional macOS CFBundleVersion for a replacement build"
+        required: false
+        type: string
+        default: ""
       include_macos:
         description: "Build the signed Mac App Store package"
         type: boolean
@@ -70,6 +75,11 @@ on:
         description: "Exact 40-character commit tagged for the stable release"
         required: true
         type: string
+      build_number:
+        description: "Optional macOS CFBundleVersion for a replacement build"
+        required: false
+        type: string
+        default: ""
       include_macos:
         description: "Build the signed Mac App Store package"
         type: boolean
@@ -175,9 +185,21 @@ jobs:
           fetch-tags: true
           persist-credentials: false
           submodules: recursive
-      - env:
+      - name: Set release and build versions
+        env:
+          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
           VERSION: ${{ needs.validate.outputs.version }}
-        run: ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "$VERSION"
+        run: |
+          set -euo pipefail
+          ./scripts/version.sh "./apps/desktop/src-tauri/tauri.conf.json" "$VERSION"
+          if [[ ! "$BUILD_NUMBER" =~ ^[0-9]{1,4}(\.[0-9]{1,2}){0,2}$ ]]; then
+            echo "::error::macOS build number must contain one to three numeric components"
+            exit 1
+          fi
+          jq --arg build "$BUILD_NUMBER" '
+            .bundle.macOS.bundleVersion = $build
+          ' apps/desktop/src-tauri/tauri.conf.app-store.json > "$RUNNER_TEMP/tauri.conf.app-store.json"
+          mv "$RUNNER_TEMP/tauri.conf.app-store.json" apps/desktop/src-tauri/tauri.conf.app-store.json
       - name: Verify Mac App Store configuration
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
@@ -331,11 +353,34 @@ jobs:
           set -euo pipefail
 
           asset_output="$RUNNER_TEMP/mac-app-store-assets"
-          asset_source="$RUNNER_TEMP/AppIcon.icon"
+          asset_source="$RUNNER_TEMP/AnarlogAssets.xcassets"
+          extracted_iconset="$RUNNER_TEMP/AppIcon.iconset"
+          iconset="$asset_source/AppIcon.appiconset"
           asset_catalog="apps/desktop/src-tauri/resources/app-store/Assets.car"
           app_store_config="apps/desktop/src-tauri/tauri.conf.app-store.json"
-          mkdir -p "$asset_output" "$(dirname "$asset_catalog")"
-          cp -R apps/desktop/src-tauri/icons/src/stable.icon "$asset_source"
+          mkdir -p "$asset_output" "$asset_source" "$(dirname "$asset_catalog")"
+          iconutil \
+            --convert iconset \
+            --output "$extracted_iconset" \
+            apps/desktop/src-tauri/icons/stable/icon.icns
+          mv "$extracted_iconset" "$iconset"
+          cat > "$iconset/Contents.json" <<'JSON'
+          {
+            "images": [
+              { "filename": "icon_16x16.png", "idiom": "mac", "scale": "1x", "size": "16x16" },
+              { "filename": "icon_16x16@2x.png", "idiom": "mac", "scale": "2x", "size": "16x16" },
+              { "filename": "icon_32x32.png", "idiom": "mac", "scale": "1x", "size": "32x32" },
+              { "filename": "icon_32x32@2x.png", "idiom": "mac", "scale": "2x", "size": "32x32" },
+              { "filename": "icon_128x128.png", "idiom": "mac", "scale": "1x", "size": "128x128" },
+              { "filename": "icon_128x128@2x.png", "idiom": "mac", "scale": "2x", "size": "128x128" },
+              { "filename": "icon_256x256.png", "idiom": "mac", "scale": "1x", "size": "256x256" },
+              { "filename": "icon_256x256@2x.png", "idiom": "mac", "scale": "2x", "size": "256x256" },
+              { "filename": "icon_512x512.png", "idiom": "mac", "scale": "1x", "size": "512x512" },
+              { "filename": "icon_512x512@2x.png", "idiom": "mac", "scale": "2x", "size": "512x512" }
+            ],
+            "info": { "author": "xcode", "version": 1 }
+          }
+          JSON
           xcrun actool \
             "$asset_source" \
             --compile "$asset_output" \
@@ -386,6 +431,7 @@ jobs:
         name: Verify and package Mac App Store application
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
           INSTALLER_CERT_ID: ${{ steps.apple-store-cert.outputs.installer-cert-id }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
@@ -406,12 +452,19 @@ jobs:
           app_version=$(
             /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist"
           )
+          app_build_number=$(
+            /usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist"
+          )
           if [[ "$app_identifier" != "com.hyprnote.desktop" ]]; then
             echo "::error::Mac App Store application has bundle ID $app_identifier"
             exit 1
           fi
           if [[ "$app_version" != "$VERSION" ]]; then
             echo "::error::Mac App Store application has version $app_version, expected $VERSION"
+            exit 1
+          fi
+          if [[ "$app_build_number" != "$BUILD_NUMBER" ]]; then
+            echo "::error::Mac App Store application has build number $app_build_number, expected $BUILD_NUMBER"
             exit 1
           fi
           if [[ ! -f "$app/Contents/embedded.provisionprofile" ]]; then
@@ -507,6 +560,7 @@ jobs:
           APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
           APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
           PKG_PATH: ${{ steps.package.outputs.path }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
@@ -537,6 +591,7 @@ jobs:
           chmod 600 "$key_path"
 
           node workflow-source/scripts/app-store-connect-submit.mjs \
+            --build-version "$BUILD_NUMBER" \
             --bundle-id com.hyprnote.desktop \
             --issuer-id "$APPSTORE_ISSUER_ID" \
             --key-id "$APPSTORE_API_KEY_ID" \
@@ -545,12 +600,14 @@ jobs:
             --version "$VERSION"
       - name: Summarize Mac App Store release
         env:
+          BUILD_NUMBER: ${{ inputs.build_number || needs.validate.outputs.version }}
           SUBMITTED: ${{ inputs.submit_to_stores }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
           {
             echo "## Mac App Store"
             echo "- Version: \`$VERSION\`"
+            echo "- Build: \`$BUILD_NUMBER\`"
             echo "- Architecture: Apple Silicon"
             echo "- Submitted to App Review: \`$SUBMITTED\`"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -355,8 +355,10 @@ test("Mac App Store builds include a compiled app icon catalog", async () => {
 
   assert.match(storeWorkflow, /name: Compile Mac App Store asset catalog/);
   assert.match(storeWorkflow, /xcrun actool/);
-  assert.match(storeWorkflow, /icons\/src\/stable\.icon/);
-  assert.match(storeWorkflow, /AppIcon\.icon/);
+  assert.match(storeWorkflow, /icons\/stable\/icon\.icns/);
+  assert.match(storeWorkflow, /AppIcon\.appiconset/);
+  assert.match(storeWorkflow, /icon_512x512@2x\.png/);
+  assert.doesNotMatch(storeWorkflow, /icons\/src\/stable\.icon/);
   assert.match(storeWorkflow, /Contents\/Resources\/Assets\.car/);
   assert.match(
     storeWorkflow,
@@ -378,6 +380,31 @@ test("Mac App Store builds include a compiled app icon catalog", async () => {
   assert.equal(
     stableConfig.bundle.macOS.files["Resources/Assets.car"],
     undefined,
+  );
+});
+
+test("keeps Mac App Store privacy metadata and replacement builds reviewable", async () => {
+  const [entitlements, infoPlist, storeWorkflow, submitScript] =
+    await Promise.all([
+      readFile("apps/desktop/src-tauri/Entitlements.app-store.plist", "utf8"),
+      readFile("apps/desktop/src-tauri/Info.plist", "utf8"),
+      readFile(".github/workflows/desktop_store_publish.yaml", "utf8"),
+      readFile("scripts/app-store-connect-submit.mjs", "utf8"),
+    ]);
+
+  assert.doesNotMatch(entitlements, /com\.apple\.security\.network\.server/);
+  assert.match(infoPlist, /NSContactsUsageDescription/);
+  assert.match(
+    infoPlist,
+    /match calendar attendees with names and email addresses saved on your Mac/,
+  );
+  assert.match(storeWorkflow, /build_number:/);
+  assert.match(storeWorkflow, /bundleVersion = \$build/);
+  assert.match(storeWorkflow, /--build-version "\$BUILD_NUMBER"/);
+  assert.match(submitScript, /"filter\[version\]": buildVersion/);
+  assert.match(
+    submitScript,
+    /"filter\[state\]": "READY_FOR_REVIEW,UNRESOLVED_ISSUES"/,
   );
 });
 
