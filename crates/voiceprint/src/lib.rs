@@ -1,6 +1,14 @@
 //! Selects clean single-speaker audio spans from transcript words so a
 //! speaker-embedding model can turn them into voiceprint candidates.
 
+mod matching;
+
+pub use matching::{
+    MIN_UNIQUE_MARGIN, MIN_UNIQUE_SCORE, VoiceprintAssignment, VoiceprintSpeakerKey,
+    collect_match_scores, cosine_similarity, pick_unique_voiceprint_assignments,
+    remote_participant_human_ids,
+};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpanWord {
     pub start_ms: i64,

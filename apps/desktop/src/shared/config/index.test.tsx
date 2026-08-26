@@ -48,6 +48,24 @@ describe("resolveConfigValue", () => {
     ).toBe(true);
   });
 
+  test("keeps remember speakers on until explicitly disabled", () => {
+    expect(
+      resolveConfigValue("remember_speakers", {
+        values: {},
+        hasValues: new Set(),
+      }),
+    ).toBe(true);
+  });
+
+  test("respects an explicit remember speakers opt-out", () => {
+    expect(
+      resolveConfigValue("remember_speakers", {
+        values: { remember_speakers: false },
+        hasValues: new Set(["remember_speakers"]),
+      }),
+    ).toBe(false);
+  });
+
   test("uses disabled legacy bounce preferences for the general setting", () => {
     expect(
       resolveConfigValue("notification_bounce", {

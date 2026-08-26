@@ -1,7 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-use anlg_voiceprint::{SelectedSpan, SpanConfig, SpanWord, select_speaker_spans};
+use anlg_voiceprint::{
+    MIN_UNIQUE_MARGIN, MIN_UNIQUE_SCORE, SelectedSpan, SpanConfig, SpanWord, VoiceprintSpeakerKey,
+    collect_match_scores, pick_unique_voiceprint_assignments, remote_participant_human_ids,
+    select_speaker_spans,
+};
 use base64::Engine;
 use tauri::Manager;
 
@@ -171,6 +175,22 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
         stored,
         "voiceprint_candidates_extracted"
     );
+
+    if let Err(error) = maybe_assign_speakers_from_voiceprints(
+        &app,
+        &pool,
+        &session_id,
+        &transcript_id,
+        &workspace_id,
+        &words_json,
+        &hints_json,
+        &embeddings,
+    )
+    .await
+    {
+        tracing::warn!(%error, "voiceprint_assignment_failed");
+    }
+
     Ok(stored)
 }
 
@@ -346,14 +366,7 @@ fn spans_from_transcript(words_json: &str, hints_json: &str) -> Result<Vec<Selec
     let words: Vec<StoredWord> =
         serde_json::from_str(words_json).map_err(|error| error.to_string())?;
     let hints: Vec<StoredHint> = serde_json::from_str(hints_json).unwrap_or_default();
-
-    let hinted_speaker_by_word: HashMap<String, i64> = hints
-        .iter()
-        .filter(|hint| hint.hint_type == "provider_speaker_index")
-        .filter_map(|hint| {
-            speaker_index_from_hint_value(&hint.value).map(|index| (hint.word_id.clone(), index))
-        })
-        .collect();
+    let hinted_speaker_by_word = provider_speaker_index_by_word(&hints);
 
     let span_words: Vec<SpanWord> = words
         .iter()
@@ -568,6 +581,306 @@ fn encode_embedding(embedding: &[f32]) -> String {
     base64::engine::general_purpose::STANDARD.encode(bytes)
 }
 
+fn decode_embedding(encoded: &str) -> Option<Vec<f32>> {
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .ok()?;
+    if bytes.len() % 4 != 0 || bytes.is_empty() {
+        return None;
+    }
+    bytes
+        .chunks_exact(4)
+        .map(|chunk| {
+            let chunk: [u8; 4] = chunk.try_into().ok()?;
+            Some(f32::from_le_bytes(chunk))
+        })
+        .collect()
+}
+
+async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+    transcript_id: &str,
+    workspace_id: &str,
+    words_json: &str,
+    hints_json: &str,
+    embeddings: &[SpanEmbedding],
+) -> Result<(), String> {
+    if embeddings.is_empty() {
+        return Ok(());
+    }
+
+    let index = speaker_index_from_transcript(words_json, hints_json)?;
+    let owner_user_id = sqlx::query_scalar::<_, String>(
+        "SELECT owner_user_id FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+    )
+    .bind(session_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| error.to_string())?;
+    let Some(owner_user_id) = owner_user_id else {
+        return Ok(());
+    };
+
+    let owner_email: Option<String> = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT NULLIF(lower(email), '') FROM humans WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+    )
+    .bind(&owner_user_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|error| error.to_string())?
+    .flatten();
+
+    let participants = anlg_db_app::list_session_participants(pool, session_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    let remote_human_ids = remote_participant_human_ids(
+        participants
+            .iter()
+            .map(|participant| (participant.human_id.as_str(), participant.email.as_str())),
+        &owner_user_id,
+        owner_email.as_deref(),
+    );
+    // 1:1 meetings are named from the participant list. Voiceprints only
+    // identify people when the calendar cannot uniquely name the remotes.
+    if remote_human_ids.len() < 2 {
+        return Ok(());
+    }
+
+    let mut exemplars = Vec::new();
+    for human_id in &remote_human_ids {
+        if index.assigned_human_ids.contains(human_id) {
+            continue;
+        }
+        let rows =
+            anlg_db_app::list_active_voiceprint_exemplars_for_human(pool, workspace_id, human_id)
+                .await
+                .map_err(|error| error.to_string())?;
+        for exemplar in rows {
+            if exemplar.model_provider != MODEL_PROVIDER || exemplar.model_version != MODEL_VERSION
+            {
+                continue;
+            }
+            let Ok(Some(secret_value)) = tauri_plugin_store2::read_secret(
+                app.clone(),
+                exemplar.keyring_scope.clone(),
+                exemplar.keyring_key.clone(),
+            )
+            .await
+            else {
+                continue;
+            };
+            let Some(embedding) = decode_embedding(&secret_value) else {
+                continue;
+            };
+            exemplars.push((exemplar.human_id, exemplar.capture_domain, embedding));
+        }
+    }
+    if exemplars.is_empty() {
+        return Ok(());
+    }
+
+    let samples: Vec<_> = embeddings
+        .iter()
+        .filter(|(span, _)| span.channel != 0)
+        .filter(|(span, _)| {
+            !index.assigned_speakers.contains(&VoiceprintSpeakerKey {
+                channel: span.channel,
+                speaker_index: span.speaker_index,
+            })
+        })
+        .map(|(span, embedding)| {
+            (
+                VoiceprintSpeakerKey {
+                    channel: span.channel,
+                    speaker_index: span.speaker_index,
+                },
+                capture_domain(span.channel),
+                embedding.as_slice(),
+            )
+        })
+        .collect();
+    let scores = collect_match_scores(&samples, &exemplars);
+    let assignments = pick_unique_voiceprint_assignments(
+        &scores
+            .iter()
+            .map(|(speaker, human_id, score)| (*speaker, human_id.as_str(), *score))
+            .collect::<Vec<_>>(),
+        MIN_UNIQUE_SCORE,
+        MIN_UNIQUE_MARGIN,
+    );
+    if assignments.is_empty() {
+        return Ok(());
+    }
+
+    let Ok(mut hints) = serde_json::from_str::<Vec<serde_json::Value>>(hints_json) else {
+        return Ok(());
+    };
+    let mut assigned = 0u32;
+    for assignment in assignments {
+        let Some(word_id) = index.first_word_id.get(&assignment.speaker) else {
+            continue;
+        };
+        hints.push(automatic_voiceprint_hint(
+            word_id,
+            &assignment.human_id,
+            assignment.score,
+        ));
+        assigned += 1;
+    }
+    if assigned == 0 {
+        return Ok(());
+    }
+
+    let next_json = serde_json::to_string(&hints).map_err(|error| error.to_string())?;
+    let now = chrono::Utc::now()
+        .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+        .to_string();
+    let result = sqlx::query(
+        "UPDATE transcripts
+         SET speaker_hints_json = ?, updated_at = ?
+         WHERE id = ? AND session_id = ? AND words_json = ? AND speaker_hints_json = ?
+           AND deleted_at IS NULL",
+    )
+    .bind(&next_json)
+    .bind(&now)
+    .bind(transcript_id)
+    .bind(session_id)
+    .bind(words_json)
+    .bind(hints_json)
+    .execute(pool)
+    .await
+    .map_err(|error| error.to_string())?;
+
+    if result.rows_affected() == 0 {
+        tracing::warn!(transcript_id, "voiceprint_assignment_hints_conflict");
+        return Ok(());
+    }
+
+    tracing::info!(
+        session_id,
+        transcript_id,
+        assigned,
+        "voiceprint_speakers_assigned"
+    );
+    Ok(())
+}
+
+#[derive(Debug, Default)]
+struct SpeakerIndex {
+    first_word_id: HashMap<VoiceprintSpeakerKey, String>,
+    assigned_speakers: HashSet<VoiceprintSpeakerKey>,
+    assigned_human_ids: HashSet<String>,
+}
+
+fn speaker_index_from_transcript(
+    words_json: &str,
+    hints_json: &str,
+) -> Result<SpeakerIndex, String> {
+    let words: Vec<StoredWord> =
+        serde_json::from_str(words_json).map_err(|error| error.to_string())?;
+    let hints: Vec<StoredHint> = serde_json::from_str(hints_json).unwrap_or_default();
+    let hinted_speaker_by_word = provider_speaker_index_by_word(&hints);
+
+    let mut ordered: Vec<&StoredWord> = words.iter().collect();
+    ordered.sort_by(|left, right| left.start_ms.total_cmp(&right.start_ms));
+
+    let mut first_word_id = HashMap::new();
+    let mut speaker_by_word_id = HashMap::new();
+    for word in ordered {
+        let Some(word_id) = word.id.as_ref() else {
+            continue;
+        };
+        let speaker = speaker_key_for_word(word, hinted_speaker_by_word.get(word_id).copied());
+        speaker_by_word_id.insert(word_id.clone(), speaker);
+        first_word_id
+            .entry(speaker)
+            .or_insert_with(|| word_id.clone());
+    }
+
+    let mut assigned_speakers = HashSet::new();
+    let mut assigned_human_ids = HashSet::new();
+    for hint in &hints {
+        if hint.hint_type != "automatic_speaker_assignment"
+            && hint.hint_type != "user_speaker_assignment"
+        {
+            continue;
+        }
+        let Some(human_id) = human_id_from_hint_value(&hint.value) else {
+            continue;
+        };
+        assigned_human_ids.insert(human_id);
+        if let Some(speaker) = speaker_key_from_hint_value(&hint.value)
+            .or_else(|| speaker_by_word_id.get(&hint.word_id).copied())
+        {
+            assigned_speakers.insert(speaker);
+        }
+    }
+
+    Ok(SpeakerIndex {
+        first_word_id,
+        assigned_speakers,
+        assigned_human_ids,
+    })
+}
+
+fn provider_speaker_index_by_word(hints: &[StoredHint]) -> HashMap<String, i64> {
+    hints
+        .iter()
+        .filter(|hint| hint.hint_type == "provider_speaker_index")
+        .filter_map(|hint| {
+            speaker_index_from_hint_value(&hint.value).map(|index| (hint.word_id.clone(), index))
+        })
+        .collect()
+}
+
+fn speaker_key_for_word(word: &StoredWord, hinted_index: Option<i64>) -> VoiceprintSpeakerKey {
+    VoiceprintSpeakerKey {
+        channel: word.channel,
+        speaker_index: hinted_index.or(word.speaker_index),
+    }
+}
+
+fn speaker_key_from_hint_value(value: &serde_json::Value) -> Option<VoiceprintSpeakerKey> {
+    let object = hint_value_object(value)?;
+    let channel = object.get("channel")?.as_i64()?;
+    Some(VoiceprintSpeakerKey {
+        channel,
+        speaker_index: object.get("speaker_index").and_then(|value| value.as_i64()),
+    })
+}
+
+fn human_id_from_hint_value(value: &serde_json::Value) -> Option<String> {
+    let object = hint_value_object(value)?;
+    object
+        .get("human_id")?
+        .as_str()
+        .filter(|human_id| !human_id.is_empty())
+        .map(str::to_string)
+}
+
+fn hint_value_object(value: &serde_json::Value) -> Option<serde_json::Value> {
+    match value {
+        serde_json::Value::String(raw) => serde_json::from_str(raw).ok(),
+        other => Some(other.clone()),
+    }
+}
+
+fn automatic_voiceprint_hint(word_id: &str, human_id: &str, score: f32) -> serde_json::Value {
+    serde_json::json!({
+        "id": format!("{word_id}:automatic_speaker_assignment"),
+        "word_id": word_id,
+        "type": "automatic_speaker_assignment",
+        "value": serde_json::json!({
+            "human_id": human_id,
+            "confidence": score,
+            "source": "voiceprint",
+        })
+        .to_string(),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::num::NonZero;
@@ -737,15 +1050,52 @@ mod tests {
     #[test]
     fn embedding_round_trips_through_base64() {
         let embedding = vec![0.5_f32, -1.25, 3.0];
-        let encoded = encode_embedding(&embedding);
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(encoded)
-            .unwrap();
-        let decoded: Vec<f32> = bytes
-            .chunks_exact(4)
-            .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
-            .collect();
-        assert_eq!(decoded, embedding);
+        assert_eq!(
+            decode_embedding(&encode_embedding(&embedding)),
+            Some(embedding)
+        );
+        assert_eq!(decode_embedding("not-base64"), None);
+        assert_eq!(decode_embedding(""), None);
+    }
+
+    #[test]
+    fn speaker_index_reads_existing_assignments() {
+        let words = r#"[
+            {"id": "w1", "text": "hello", "start_ms": 0, "end_ms": 2000, "channel": 1, "speaker_index": 0},
+            {"id": "w2", "text": "there", "start_ms": 2100, "end_ms": 4000, "channel": 1, "speaker_index": 1}
+        ]"#;
+        let hints = r#"[
+            {"word_id": "w1", "type": "automatic_speaker_assignment", "value": {"human_id": "marco"}}
+        ]"#;
+
+        let index = speaker_index_from_transcript(words, hints).unwrap();
+        assert_eq!(
+            index.first_word_id.get(&VoiceprintSpeakerKey {
+                channel: 1,
+                speaker_index: Some(0)
+            }),
+            Some(&"w1".to_string())
+        );
+        assert!(index.assigned_human_ids.contains("marco"));
+        assert!(index.assigned_speakers.contains(&VoiceprintSpeakerKey {
+            channel: 1,
+            speaker_index: Some(0)
+        }));
+        assert!(!index.assigned_speakers.contains(&VoiceprintSpeakerKey {
+            channel: 1,
+            speaker_index: Some(1)
+        }));
+    }
+
+    #[test]
+    fn unique_voiceprint_hint_uses_voiceprint_source() {
+        let hint = automatic_voiceprint_hint("w1", "marco", 0.84);
+        assert_eq!(hint["type"], "automatic_speaker_assignment");
+        assert_eq!(hint["word_id"], "w1");
+        let value: serde_json::Value =
+            serde_json::from_str(hint["value"].as_str().unwrap()).unwrap();
+        assert_eq!(value["human_id"], "marco");
+        assert_eq!(value["source"], "voiceprint");
     }
 
     struct SyntheticStereoSource {

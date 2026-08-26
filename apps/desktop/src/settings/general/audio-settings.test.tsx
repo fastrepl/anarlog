@@ -87,4 +87,17 @@ describe("AudioSettingsView", () => {
     toggle.click();
     expect(onChange).toHaveBeenCalledWith(true);
   });
+
+  it("can turn remember speakers off after it is on", () => {
+    const onChange = vi.fn();
+    renderAudioSettings({
+      rememberSpeakers: { value: true, onChange },
+    });
+
+    const toggle = screen.getByRole("switch", { name: "Remember speakers" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+
+    toggle.click();
+    expect(onChange).toHaveBeenCalledWith(false);
+  });
 });

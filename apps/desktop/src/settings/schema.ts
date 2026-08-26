@@ -94,7 +94,7 @@ export const SETTING_DEFINITIONS = {
   remember_speakers: {
     type: "boolean",
     path: ["general", "remember_speakers"],
-    default: false as boolean,
+    default: true as boolean,
   },
   microphone_device: {
     type: "string",
