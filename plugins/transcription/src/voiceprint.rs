@@ -194,7 +194,7 @@ pub async fn extract_voiceprint_candidates<R: tauri::Runtime>(
         &session_id,
         &transcript_id,
         &workspace_id,
-        Some(&embeddings),
+        Some((&embeddings, &words_json, &hints_json)),
     )
     .await
     {
@@ -613,28 +613,35 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
     session_id: &str,
     transcript_id: &str,
     workspace_id: &str,
-    embeddings: Option<&[SpanEmbedding]>,
+    extracted: Option<(&[SpanEmbedding], &str, &str)>,
 ) -> Result<(), String> {
     let stored_embeddings;
-    let embeddings = match embeddings.filter(|embeddings| !embeddings.is_empty()) {
-        Some(embeddings) => embeddings,
+    let (embeddings, words_json, mut hints_json) = match extracted
+        .filter(|(embeddings, _, _)| !embeddings.is_empty())
+    {
+        Some((embeddings, words_json, hints_json)) => {
+            (embeddings, words_json.to_string(), hints_json.to_string())
+        }
         None => {
             stored_embeddings =
                 embeddings_from_stored_candidates(app, pool, workspace_id, transcript_id).await?;
             if stored_embeddings.is_empty() {
                 return Ok(());
             }
-            stored_embeddings.as_slice()
+            let Some((words_json, hints_json)) =
+                load_transcript_words_and_hints(pool, session_id, transcript_id).await?
+            else {
+                return Ok(());
+            };
+            let index = speaker_index_from_transcript(&words_json, &hints_json)?;
+            if !embeddings_match_current_speakers(&stored_embeddings, &index) {
+                return Ok(());
+            }
+            (stored_embeddings.as_slice(), words_json, hints_json)
         }
     };
 
-    let Some((words_json, hints_json)) =
-        load_transcript_words_and_hints(pool, session_id, transcript_id).await?
-    else {
-        return Ok(());
-    };
-
-    let index = speaker_index_from_transcript(&words_json, &hints_json)?;
+    let mut index = speaker_index_from_transcript(&words_json, &hints_json)?;
     let owner_user_id = sqlx::query_scalar::<_, String>(
         "SELECT owner_user_id FROM sessions WHERE id = ? AND deleted_at IS NULL LIMIT 1",
     )
@@ -737,9 +744,6 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
         return Ok(());
     }
 
-    let mut words_json = words_json;
-    let mut hints_json = hints_json;
-    let mut index = index;
     for attempt in 0..2 {
         let Some(next_json) = assignment_hints_json(&hints_json, &index, &assignments)? else {
             return Ok(());
@@ -769,7 +773,11 @@ async fn maybe_assign_speakers_from_voiceprints<R: tauri::Runtime>(
             else {
                 return Ok(());
             };
-            words_json = latest.0;
+            // Embeddings were scored against this words snapshot. A newer
+            // diarization would map those speaker keys onto the wrong clusters.
+            if latest.0 != words_json {
+                return Ok(());
+            }
             hints_json = latest.1;
             index = speaker_index_from_transcript(&words_json, &hints_json)?;
         }
@@ -907,6 +915,16 @@ struct SpeakerIndex {
     first_word_id: HashMap<VoiceprintSpeakerKey, String>,
     assigned_speakers: HashSet<VoiceprintSpeakerKey>,
     assigned_human_ids: HashSet<String>,
+}
+
+fn embeddings_match_current_speakers(embeddings: &[SpanEmbedding], index: &SpeakerIndex) -> bool {
+    !embeddings.is_empty()
+        && embeddings.iter().all(|(span, _)| {
+            index.first_word_id.contains_key(&VoiceprintSpeakerKey {
+                channel: span.channel,
+                speaker_index: span.speaker_index,
+            })
+        })
 }
 
 fn speaker_index_from_transcript(
@@ -1220,6 +1238,38 @@ mod tests {
             channel: 1,
             speaker_index: Some(1)
         }));
+    }
+
+    #[test]
+    fn stored_embeddings_require_current_speaker_keys() {
+        let words = r#"[
+            {"id": "w1", "text": "hello", "start_ms": 0, "end_ms": 2000, "channel": 1, "speaker_index": 0}
+        ]"#;
+        let index = speaker_index_from_transcript(words, "[]").unwrap();
+        let matching = vec![(
+            SelectedSpan {
+                channel: 1,
+                speaker_index: Some(0),
+                start_ms: 0,
+                end_ms: 2000,
+                quality_score: 0.1,
+            },
+            vec![0.1_f32],
+        )];
+        let remapped = vec![(
+            SelectedSpan {
+                channel: 1,
+                speaker_index: Some(9),
+                start_ms: 0,
+                end_ms: 2000,
+                quality_score: 0.1,
+            },
+            vec![0.1_f32],
+        )];
+
+        assert!(embeddings_match_current_speakers(&matching, &index));
+        assert!(!embeddings_match_current_speakers(&remapped, &index));
+        assert!(!embeddings_match_current_speakers(&[], &index));
     }
 
     #[test]

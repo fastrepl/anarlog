@@ -125,6 +125,9 @@ describe("session content SQLite snapshots", () => {
       "session-1",
     ]);
     expect(mocks.execute.mock.calls[0][0]).toContain("self_human.email");
+    expect(mocks.execute.mock.calls[0][0]).toContain(
+      "COALESCE(NULLIF(human.email, ''), participant.email)",
+    );
   });
 
   it("lists only active SQLite session ids", async () => {

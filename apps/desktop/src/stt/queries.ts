@@ -262,7 +262,7 @@ export function useSessionParticipantHumanIds(sessionId: string): string[] {
           WHERE session.id = participant.session_id
         ), '')
         AND (
-          NULLIF(lower(human.email), '') IS NULL
+          NULLIF(lower(COALESCE(NULLIF(human.email, ''), participant.email)), '') IS NULL
           OR NOT EXISTS (
             SELECT 1
             FROM humans AS self_human
@@ -271,7 +271,7 @@ export function useSessionParticipantHumanIds(sessionId: string): string[] {
             WHERE session.id = participant.session_id
               AND self_human.deleted_at IS NULL
               AND NULLIF(lower(self_human.email), '') IS NOT NULL
-              AND lower(self_human.email) = lower(human.email)
+              AND lower(self_human.email) = lower(COALESCE(NULLIF(human.email, ''), participant.email))
           )
         )
       ORDER BY participant.human_id

@@ -277,14 +277,14 @@ export function persistGeneratedEnhancedNote({
                   participant.display_name
                 )) <> ''
                 AND (
-                  NULLIF(lower(human.email), '') IS NULL
+                  NULLIF(lower(COALESCE(NULLIF(human.email, ''), participant.email)), '') IS NULL
                   OR NOT EXISTS (
                     SELECT 1
                     FROM humans AS self_human
                     WHERE self_human.id = ?
                       AND self_human.deleted_at IS NULL
                       AND NULLIF(lower(self_human.email), '') IS NOT NULL
-                      AND lower(self_human.email) = lower(human.email)
+                      AND lower(self_human.email) = lower(COALESCE(NULLIF(human.email, ''), participant.email))
                   )
                 )
             ) = json_array_length(?)
@@ -308,14 +308,14 @@ export function persistGeneratedEnhancedNote({
                     participant.display_name
                   )) <> ''
                   AND (
-                    NULLIF(lower(human.email), '') IS NULL
+                    NULLIF(lower(COALESCE(NULLIF(human.email, ''), participant.email)), '') IS NULL
                     OR NOT EXISTS (
                       SELECT 1
                       FROM humans AS self_human
                       WHERE self_human.id = ?
                         AND self_human.deleted_at IS NULL
                         AND NULLIF(lower(self_human.email), '') IS NOT NULL
-                        AND lower(self_human.email) = lower(human.email)
+                        AND lower(self_human.email) = lower(COALESCE(NULLIF(human.email, ''), participant.email))
                     )
                   )
               )
