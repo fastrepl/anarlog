@@ -290,6 +290,86 @@ test("reuses an existing processing build instead of uploading it again", async 
   assert.equal(buildRequestCount, 2);
 });
 
+test("resubmits an unresolved review without adding its item twice", async () => {
+  const requests = [];
+  const client = {
+    async request(method, pathname, options = {}) {
+      requests.push({ method, pathname, ...options });
+      if (pathname === "/v1/apps") {
+        return { data: [resource("apps", "app-id")] };
+      }
+      if (pathname === "/v1/apps/app-id/appStoreVersions") {
+        return {
+          data: [
+            resource("appStoreVersions", "version-id", {
+              appStoreState: "REJECTED",
+              platform: "MAC_OS",
+              releaseType: "AFTER_APPROVAL",
+              versionString: "1.4.13",
+            }),
+          ],
+        };
+      }
+      if (pathname === "/v1/builds") {
+        return {
+          data: [
+            resource("builds", "replacement-build-id", {
+              processingState: "VALID",
+              version: "2608.26.1",
+            }),
+          ],
+        };
+      }
+      if (pathname === "/v1/appStoreVersions/version-id/relationships/build") {
+        return null;
+      }
+      if (pathname === "/v1/apps/app-id/reviewSubmissions") {
+        return {
+          data: [
+            resource("reviewSubmissions", "submission-id", {
+              platform: "MAC_OS",
+              state: "UNRESOLVED_ISSUES",
+            }),
+          ],
+        };
+      }
+      if (
+        method === "PATCH" &&
+        pathname === "/v1/reviewSubmissions/submission-id"
+      ) {
+        return { data: resource("reviewSubmissions", "submission-id") };
+      }
+      throw new Error(`Unexpected request ${method} ${pathname}`);
+    },
+  };
+
+  const result = await publishMacApp({
+    buildVersion: "2608.26.1",
+    bundleId: "com.hyprnote.desktop",
+    client,
+    packagePath: "/tmp/Anarlog.pkg",
+    pollIntervalMs: 0,
+    sleep: async () => {},
+    upload: async () => assert.fail("replacement build already exists"),
+    version: "1.4.13",
+  });
+
+  assert.deepEqual(result, {
+    alreadySubmitted: false,
+    appStoreVersionId: "version-id",
+    buildId: "replacement-build-id",
+    reviewSubmissionId: "submission-id",
+  });
+  assert.equal(
+    requests.some(
+      (request) =>
+        request.pathname === "/v1/reviewSubmissions/submission-id/items" ||
+        request.pathname === "/v1/reviewSubmissionItems",
+    ),
+    false,
+  );
+});
+
 test("treats an already submitted version as an idempotent success", async () => {
   const requests = [];
   const client = {

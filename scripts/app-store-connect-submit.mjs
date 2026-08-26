@@ -328,27 +328,29 @@ async function ensureReviewSubmission(client, appId, appStoreVersionId) {
     submission = response.data;
   }
 
-  const itemsResponse = await client.request(
-    "GET",
-    `/v1/reviewSubmissions/${submission.id}/items`,
-    { query: { limit: 50 } },
-  );
-  if (!submissionContainsVersion(itemsResponse.data, appStoreVersionId)) {
-    await client.request("POST", "/v1/reviewSubmissionItems", {
-      body: {
-        data: {
-          relationships: {
-            appStoreVersion: {
-              data: { id: appStoreVersionId, type: "appStoreVersions" },
+  if (submission.attributes?.state !== "UNRESOLVED_ISSUES") {
+    const itemsResponse = await client.request(
+      "GET",
+      `/v1/reviewSubmissions/${submission.id}/items`,
+      { query: { limit: 50 } },
+    );
+    if (!submissionContainsVersion(itemsResponse.data, appStoreVersionId)) {
+      await client.request("POST", "/v1/reviewSubmissionItems", {
+        body: {
+          data: {
+            relationships: {
+              appStoreVersion: {
+                data: { id: appStoreVersionId, type: "appStoreVersions" },
+              },
+              reviewSubmission: {
+                data: { id: submission.id, type: "reviewSubmissions" },
+              },
             },
-            reviewSubmission: {
-              data: { id: submission.id, type: "reviewSubmissions" },
-            },
+            type: "reviewSubmissionItems",
           },
-          type: "reviewSubmissionItems",
         },
-      },
-    });
+      });
+    }
   }
 
   await client.request("PATCH", `/v1/reviewSubmissions/${submission.id}`, {
