@@ -173,7 +173,7 @@ fn full_resync_schedule_tracks_generation_until_cancelled() {
 
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 #[tokio::test]
-async fn witness_repair_reuses_one_refresh_while_draining_bounded_batches() {
+async fn witness_repair_refresh_is_reused_until_activity_invalidates_it() {
     use std::io::{Read, Write};
 
     let db = std::sync::Arc::new(Db::connect_memory().await.unwrap());
@@ -240,6 +240,7 @@ async fn witness_repair_reuses_one_refresh_while_draining_bounded_batches() {
                 }
                 Err(error) => panic!("failed to accept CloudSync status request: {error}"),
             };
+            stream.set_nonblocking(false).unwrap();
             let mut request = [0_u8; 4096];
             let size = stream.read(&mut request).unwrap();
             assert!(
@@ -348,6 +349,28 @@ async fn witness_repair_reuses_one_refresh_while_draining_bounded_batches() {
     runtime
         .schedule_cloudsync_full_resync(generation, config, auth_generation)
         .await;
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let repaired: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records")
+                .fetch_one(db.pool())
+                .await
+                .unwrap();
+            if repaired >= 64 {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .expect("witness repair did not finish its first bounded batch");
+    runtime
+        .begin_cloudsync_activity("capture".to_string(), "session-1".to_string())
+        .await
+        .unwrap();
+    runtime
+        .end_cloudsync_activity("capture".to_string(), "session-1".to_string())
+        .await
+        .unwrap();
     let drain = tokio::time::timeout(std::time::Duration::from_secs(15), async {
         loop {
             let repaired: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM e2ee_records")
@@ -393,10 +416,13 @@ async fn witness_repair_reuses_one_refresh_while_draining_bounded_batches() {
         .iter()
         .filter(|request| request.method == wiremock::http::Method::GET)
         .count();
-    assert!(refreshes >= 2, "witness freshness was not established");
     assert!(
-        refreshes <= 3,
-        "witness was refreshed {refreshes} times while draining three repair batches"
+        refreshes >= 4,
+        "witness freshness was not re-established after activity"
+    );
+    assert!(
+        refreshes <= 5,
+        "witness was refreshed {refreshes} times while draining three batches around one activity"
     );
 }
 

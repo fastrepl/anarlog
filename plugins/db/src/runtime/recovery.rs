@@ -153,7 +153,7 @@ impl PluginDbRuntime {
         let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel();
         let join_handle = tokio::spawn(async move {
             let mut clean_receive_attempt_started = false;
-            let mut witness_repair_refreshed = false;
+            let mut witness_repair_refresh_epoch = None;
             let mut witness_repair_batches = 0_u64;
             let mut witness_repaired_records = 0_u64;
             loop {
@@ -213,7 +213,7 @@ impl PluginDbRuntime {
                         state.phase,
                         anlg_db_app::CloudsyncRecoveryPhase::NeedWitnessRepair
                     ) {
-                        witness_repair_refreshed = false;
+                        witness_repair_refresh_epoch = None;
                         witness_repair_batches = 0;
                         witness_repaired_records = 0;
                     }
@@ -420,7 +420,8 @@ impl PluginDbRuntime {
                                 return Ok(CloudsyncRecoveryStep::Deferred);
                             }
 
-                            if !witness_repair_refreshed {
+                            let activity_epoch = e2ee_sync_hook.activity_epoch();
+                            if witness_repair_refresh_epoch != Some(activity_epoch) {
                                 let received_before_publish = witness
                                     .refresh_cancellable(db.pool(), &key, &witness_cancellation)
                                     .await?;
@@ -437,7 +438,10 @@ impl PluginDbRuntime {
                                 if cloudsync_recovery_cancelled(&recovery_cancelled) {
                                     return Ok(CloudsyncRecoveryStep::Deferred);
                                 }
-                                witness_repair_refreshed = true;
+                                if e2ee_sync_hook.activity_epoch() != activity_epoch {
+                                    return Ok(CloudsyncRecoveryStep::Deferred);
+                                }
+                                witness_repair_refresh_epoch = Some(activity_epoch);
                                 tracing::info!(
                                     phase = "witness_repair",
                                     received_events = received_before_publish
@@ -602,7 +606,7 @@ impl PluginDbRuntime {
                                 repaired_records = witness_repaired_records,
                                 "CloudSync recovery finished encrypted witness repair"
                             );
-                            witness_repair_refreshed = false;
+                            witness_repair_refresh_epoch = None;
                             Ok(CloudsyncRecoveryStep::Progressed)
                         }
                         anlg_db_app::CloudsyncRecoveryPhase::NeedBarrierCleanup => {
@@ -729,7 +733,7 @@ impl PluginDbRuntime {
                         }
                         match cancellation {
                             CloudsyncRecoveryCancellation::Activity => {
-                                witness_repair_refreshed = false;
+                                witness_repair_refresh_epoch = None;
                                 if matches!(drained_step, Ok(CloudsyncRecoveryStep::Complete)) {
                                     drained_step
                                 } else {

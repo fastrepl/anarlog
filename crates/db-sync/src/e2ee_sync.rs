@@ -83,6 +83,7 @@ pub struct E2eeSyncHook {
     pub replica_sync_requested: tokio::sync::Notify,
     replica_status: std::sync::Mutex<ReplicaSyncStatus>,
     activities: std::sync::RwLock<HashSet<CloudsyncActivity>>,
+    activity_epoch: std::sync::atomic::AtomicU64,
     pub activity_changed: tokio::sync::Notify,
     reconciliation_requested_epoch: std::sync::atomic::AtomicU64,
     reconciliation_completed_epoch: std::sync::atomic::AtomicU64,
@@ -278,10 +279,15 @@ impl E2eeSyncHook {
     }
 
     pub fn begin_activity(&self, activity: String, key: String) {
-        self.activities
+        let inserted = self
+            .activities
             .write()
             .unwrap()
             .insert(CloudsyncActivity { activity, key });
+        if inserted {
+            self.activity_epoch
+                .fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+        }
         self.activity_changed.notify_waiters();
     }
 
@@ -296,6 +302,11 @@ impl E2eeSyncHook {
 
     pub fn activity_paused(&self) -> bool {
         !self.activities.read().unwrap().is_empty()
+    }
+
+    pub fn activity_epoch(&self) -> u64 {
+        self.activity_epoch
+            .load(std::sync::atomic::Ordering::Acquire)
     }
 
     pub fn has_activity_lease(&self, activity: &str, key: &str) -> bool {
