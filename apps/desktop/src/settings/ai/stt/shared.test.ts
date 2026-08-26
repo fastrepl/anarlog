@@ -9,6 +9,7 @@ describe("STT providers", () => {
       "anarlog",
       "soniqo",
       "apple_speech",
+      "local_file",
       "deepgram",
       "assemblyai",
       "openai",
@@ -70,6 +71,7 @@ describe("STT model display labels", () => {
       "Whisper Large V3 Turbo",
     );
     expect(displayModelLabel("xai-stt")).toBe("xAI Speech to Text");
+    expect(displayModelLabel("local-file")).toBe("Local model file");
     expect(displayModelLabel("fast-transcription")).toBe("Fast Transcription");
     expect(displayModelLabel("openai/gpt-4o-mini-transcribe")).toBe(
       "GPT-4o mini Transcribe",
@@ -115,6 +117,10 @@ describe("STT model display labels", () => {
     expect(
       "builtIn" in providers.apple_speech && providers.apple_speech.builtIn,
     ).toBe(true);
+    expect(
+      "builtIn" in providers.local_file && providers.local_file.builtIn,
+    ).toBe(true);
+    expect(providers.local_file.badge).toBe("Batch only");
   });
 
   test("names on-device models instead of collapsing them", () => {

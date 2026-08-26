@@ -318,6 +318,7 @@ msgstr ""
 msgid "Advanced"
 msgstr ""
 
+#: src/settings/ai/stt/local-file-model.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "After recording"
 msgstr ""
@@ -881,6 +882,10 @@ msgstr ""
 msgid "Choose a team"
 msgstr ""
 
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Choose a transcription model"
+msgstr ""
+
 #: src/settings/ai/stt/select.tsx
 msgid "Choose a transcription model to start listening."
 msgstr ""
@@ -933,6 +938,10 @@ msgstr ""
 msgid "Choose how much detail generated meeting summaries include."
 msgstr ""
 
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Choose model file"
+msgstr ""
+
 #: src/onboarding/folder-location.tsx
 msgid "Choose storage location"
 msgstr ""
@@ -977,6 +986,10 @@ msgstr ""
 #: src/templates/template-icon-picker.tsx
 #: src/templates/template-sidebar.tsx
 msgid "Clear search"
+msgstr ""
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Clear selected model"
 msgstr ""
 
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
@@ -1342,6 +1355,10 @@ msgstr ""
 msgid "Could not check the CLI: {0}"
 msgstr ""
 
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Could not clear the selected model"
+msgstr ""
+
 #: src/settings/developers/cli.tsx
 msgid "Could not copy the MCP configuration"
 msgstr ""
@@ -1469,6 +1486,10 @@ msgstr ""
 
 #: src/session-sharing/access-management.tsx
 msgid "Could not update this person's access."
+msgstr ""
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Could not use the selected model"
 msgstr ""
 
 #: src/settings/team/index.tsx
@@ -2523,6 +2544,10 @@ msgstr ""
 #: src/contacts/details.tsx
 #: src/task/resource-view.tsx
 msgid "Loading..."
+msgstr ""
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Local transcription models"
 msgstr ""
 
 #: src/settings/privacy/index.tsx

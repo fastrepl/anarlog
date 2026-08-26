@@ -11,6 +11,8 @@ const COMMANDS: &[&str] = &[
     "get_servers",
     "list_supported_models",
     "list_supported_languages",
+    "inspect_custom_model_path",
+    "start_server_for_path",
 ];
 
 fn main() {

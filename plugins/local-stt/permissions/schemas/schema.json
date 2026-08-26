@@ -355,6 +355,18 @@
           "markdownDescription": "Denies the get_servers command without any pre-configured scope."
         },
         {
+          "description": "Enables the inspect_custom_model_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-inspect-custom-model-path",
+          "markdownDescription": "Enables the inspect_custom_model_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the inspect_custom_model_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-inspect-custom-model-path",
+          "markdownDescription": "Denies the inspect_custom_model_path command without any pre-configured scope."
+        },
+        {
           "description": "Enables the is_model_downloaded command without any pre-configured scope.",
           "type": "string",
           "const": "allow-is-model-downloaded",
@@ -439,6 +451,18 @@
           "markdownDescription": "Denies the start_server command without any pre-configured scope."
         },
         {
+          "description": "Enables the start_server_for_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-start-server-for-path",
+          "markdownDescription": "Enables the start_server_for_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the start_server_for_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-start-server-for-path",
+          "markdownDescription": "Denies the start_server_for_path command without any pre-configured scope."
+        },
+        {
           "description": "Enables the stop_server command without any pre-configured scope.",
           "type": "string",
           "const": "allow-stop-server",
@@ -451,10 +475,10 @@
           "markdownDescription": "Denies the stop_server command without any pre-configured scope."
         },
         {
-          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-server-for-model`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`",
+          "description": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-server-for-model`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`\n- `allow-inspect-custom-model-path`\n- `allow-start-server-for-path`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-server-for-model`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`"
+          "markdownDescription": "Default permissions for the plugin\n#### This default permission set includes:\n\n- `allow-models-dir`\n- `allow-is-model-downloaded`\n- `allow-is-model-downloading`\n- `allow-download-model`\n- `allow-cancel-download`\n- `allow-delete-model`\n- `allow-start-server`\n- `allow-stop-server`\n- `allow-get-server-for-model`\n- `allow-get-servers`\n- `allow-list-supported-models`\n- `allow-list-supported-languages`\n- `allow-inspect-custom-model-path`\n- `allow-start-server-for-path`"
         }
       ]
     }

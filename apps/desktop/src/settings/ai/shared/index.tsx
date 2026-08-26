@@ -154,7 +154,7 @@ export function AiIconSlot({
       aria-label={title}
       data-slot="ai-icon"
       className={cn([
-        "bg-muted text-foreground flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md",
+        "text-foreground flex size-5 shrink-0 items-center justify-center overflow-hidden",
         "[&_[data-slot=provider-brand-icon]]:[filter:var(--provider-brand-filter)]",
         className,
       ])}
@@ -162,7 +162,7 @@ export function AiIconSlot({
       <span
         data-slot="ai-icon-art"
         className={cn([
-          "flex size-3.5 items-center justify-center overflow-hidden",
+          "flex size-full items-center justify-center overflow-hidden",
           "[&>img]:block [&>img]:size-full [&>svg]:block [&>svg]:size-full [&>svg]:text-inherit",
         ])}
       >

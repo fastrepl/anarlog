@@ -38,6 +38,17 @@ pub async fn list_supported_models() -> Result<Vec<SttModelInfo>, String> {
 
 #[tauri::command]
 #[specta::specta]
+pub async fn inspect_custom_model_path<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+) -> Result<crate::CustomSttModelInfo, String> {
+    app.local_stt()
+        .inspect_custom_model_path(&path)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub async fn is_model_downloaded<R: tauri::Runtime>(
     app: tauri::AppHandle<R>,
     model: LocalModel,
@@ -106,6 +117,18 @@ pub async fn start_server<R: tauri::Runtime>(
         .start_server(model)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn start_server_for_path<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
+    path: String,
+) -> Result<String, String> {
+    app.local_stt()
+        .start_server_for_path(&path)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]

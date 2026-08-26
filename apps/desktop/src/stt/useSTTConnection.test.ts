@@ -1,12 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const { config, startServerForPathMock } = vi.hoisted(() => ({
+  config: {
+    current_stt_provider: "anarlog",
+    current_stt_model: "cloud",
+    local_stt_model_path: "",
+  },
+  startServerForPathMock: vi.fn(),
+}));
 
 vi.mock("@anlg/plugin-local-stt", () => ({
   commands: {
     getServerForModel: vi.fn(),
     isModelDownloaded: vi.fn(),
+    startServerForPath: startServerForPathMock,
   },
 }));
 
@@ -31,14 +41,14 @@ vi.mock("~/settings/providers", () => ({
 }));
 
 vi.mock("~/shared/config", () => ({
-  useConfigValues: () => ({
-    current_stt_provider: "anarlog",
-    current_stt_model: "cloud",
-  }),
+  useConfigValues: () => config,
 }));
 
 vi.mock("~/stt/capabilities", () => ({
-  isAnarlogCloudSttModel: () => true,
+  isAnarlogCloudSttModel: (provider: string, model: string) =>
+    provider === "anarlog" && model === "cloud",
+  isLocalFileSttModel: (provider: string, model: string) =>
+    provider === "local_file" && model === "local-file",
   isOnDeviceSttModel: () => false,
   isRealtimeLocalModel: () => false,
 }));
@@ -46,6 +56,13 @@ vi.mock("~/stt/capabilities", () => ({
 import { useSTTConnection } from "./useSTTConnection";
 
 describe("useSTTConnection", () => {
+  beforeEach(() => {
+    config.current_stt_provider = "anarlog";
+    config.current_stt_model = "cloud";
+    config.local_stt_model_path = "";
+    startServerForPathMock.mockReset();
+  });
+
   it("uses the hosted STT URL when the stored Anarlog URL is blank", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -61,5 +78,34 @@ describe("useSTTConnection", () => {
       baseUrl: "https://api.anarlog.so/stt",
       apiKey: "access-token",
     });
+  });
+
+  it("starts a selected local model file and exposes its local URL", async () => {
+    config.current_stt_provider = "local_file";
+    config.current_stt_model = "local-file";
+    config.local_stt_model_path = "/models/ggml-small.bin";
+    startServerForPathMock.mockResolvedValue({
+      status: "ok",
+      data: "http://127.0.0.1:4040/v1",
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const { result } = renderHook(() => useSTTConnection(), { wrapper });
+
+    await waitFor(() =>
+      expect(result.current.conn).toEqual({
+        provider: "local_file",
+        model: "local-file",
+        baseUrl: "http://127.0.0.1:4040/v1",
+        apiKey: "",
+      }),
+    );
+    expect(startServerForPathMock).toHaveBeenCalledWith(
+      "/models/ggml-small.bin",
+    );
   });
 });

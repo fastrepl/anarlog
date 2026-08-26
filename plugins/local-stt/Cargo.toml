@@ -31,6 +31,7 @@ reqwest = { workspace = true }
 rodio = { workspace = true }
 similar = { workspace = true }
 specta-typescript = { workspace = true }
+tempfile = { workspace = true }
 tokio-tungstenite = { workspace = true }
 tower = { workspace = true }
 

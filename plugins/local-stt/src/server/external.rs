@@ -257,6 +257,7 @@ impl Actor for ExternalSTTActor {
                     url: Some(state.base_url.clone()),
                     status,
                     model: Some(LocalModel::Am(state.model.clone())),
+                    custom_model_path: None,
                 };
 
                 if let Err(e) = reply_port.send(info) {

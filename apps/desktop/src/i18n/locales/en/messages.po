@@ -318,6 +318,7 @@ msgstr "Admin"
 msgid "Advanced"
 msgstr "Advanced"
 
+#: src/settings/ai/stt/local-file-model.tsx
 #: src/settings/ai/stt/select.tsx
 msgid "After recording"
 msgstr "After recording"
@@ -881,6 +882,10 @@ msgstr "Choose a starter from the sidebar, or create a workflow and add steps li
 msgid "Choose a team"
 msgstr "Choose a team"
 
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Choose a transcription model"
+msgstr "Choose a transcription model"
+
 #: src/settings/ai/stt/select.tsx
 msgid "Choose a transcription model to start listening."
 msgstr "Choose a transcription model to start listening."
@@ -933,6 +938,10 @@ msgstr "Choose how long recordings stay on this device."
 msgid "Choose how much detail generated meeting summaries include."
 msgstr "Choose how much detail generated meeting summaries include."
 
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Choose model file"
+msgstr "Choose model file"
+
 #: src/onboarding/folder-location.tsx
 msgid "Choose storage location"
 msgstr "Choose storage location"
@@ -978,6 +987,10 @@ msgstr "Cleaning up..."
 #: src/templates/template-sidebar.tsx
 msgid "Clear search"
 msgstr "Clear search"
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Clear selected model"
+msgstr "Clear selected model"
 
 #: src/session/components/note-input/transcript/renderer/selection-menu.tsx
 msgid "Clear selection"
@@ -1342,6 +1355,10 @@ msgstr "Copy this signing secret now — it is only shown once."
 msgid "Could not check the CLI: {0}"
 msgstr "Could not check the CLI: {0}"
 
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Could not clear the selected model"
+msgstr "Could not clear the selected model"
+
 #: src/settings/developers/cli.tsx
 msgid "Could not copy the MCP configuration"
 msgstr "Could not copy the MCP configuration"
@@ -1470,6 +1487,10 @@ msgstr "Could not update the note date."
 #: src/session-sharing/access-management.tsx
 msgid "Could not update this person's access."
 msgstr "Could not update this person's access."
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Could not use the selected model"
+msgstr "Could not use the selected model"
 
 #: src/settings/team/index.tsx
 msgid "Create"
@@ -2524,6 +2545,10 @@ msgstr "Loading teams…"
 #: src/task/resource-view.tsx
 msgid "Loading..."
 msgstr "Loading..."
+
+#: src/settings/ai/stt/local-file-model.tsx
+msgid "Local transcription models"
+msgstr "Local transcription models"
 
 #: src/settings/privacy/index.tsx
 msgid "Lock app"

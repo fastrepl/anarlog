@@ -133,6 +133,65 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
         Ok(downloader.is_downloaded(model).await?)
     }
 
+    fn ensure_custom_model_supported() -> Result<(), crate::Error> {
+        if cfg!(all(
+            target_os = "macos",
+            target_arch = "aarch64",
+            feature = "whisper-cpp"
+        )) {
+            Ok(())
+        } else {
+            Err(crate::Error::UnsupportedPlatform)
+        }
+    }
+
+    pub fn inspect_custom_model_path(
+        &self,
+        path: &str,
+    ) -> Result<crate::CustomSttModelInfo, crate::Error> {
+        Self::ensure_custom_model_supported()?;
+        crate::custom_model::inspect_custom_model_path(path).map(|(_, info)| info)
+    }
+
+    #[tracing::instrument(skip_all)]
+    pub async fn start_server_for_path(&self, path: &str) -> Result<String, crate::Error> {
+        Self::ensure_custom_model_supported()?;
+        let (_model_path, _) = crate::custom_model::inspect_custom_model_path(path)?;
+
+        #[cfg(feature = "whisper-cpp")]
+        {
+            let canonical_path = _model_path.to_string_lossy().into_owned();
+            if let Some(info) = internal_health().await
+                && info.custom_model_path.as_deref() == Some(canonical_path.as_str())
+            {
+                return info.url.ok_or_else(|| {
+                    crate::Error::ServerStartFailed("missing_health_url".to_string())
+                });
+            }
+
+            let probe_path = _model_path.clone();
+            tokio::task::spawn_blocking(move || {
+                anlg_whisper_local::LoadedWhisper::builder()
+                    .model_path(probe_path.to_string_lossy().into_owned())
+                    .build()
+                    .map(|_| ())
+                    .map_err(|error| crate::Error::WhisperModelLoadFailed(error.to_string()))
+            })
+            .await
+            .map_err(|error| crate::Error::WhisperModelLoadFailed(error.to_string()))??;
+
+            let supervisor = self.get_supervisor().await?;
+            supervisor::stop_all_stt_servers(&supervisor)
+                .await
+                .map_err(|error| crate::Error::ServerStopFailed(error.to_string()))?;
+
+            start_internal_server(&supervisor, _model_path, None).await
+        }
+
+        #[cfg(not(feature = "whisper-cpp"))]
+        Err(crate::Error::UnsupportedPlatform)
+    }
+
     #[tracing::instrument(skip_all)]
     pub async fn start_server(&self, model: LocalModel) -> Result<String, crate::Error> {
         Self::ensure_stt_model(&model)?;
@@ -207,12 +266,12 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             ServerType::Internal => {
                 #[cfg(feature = "whisper-cpp")]
                 {
-                    let cache_dir = self.models_dir();
                     let whisper_model = match model {
                         LocalModel::Whisper(m) => m,
                         _ => return Err(crate::Error::UnsupportedModelType),
                     };
-                    start_internal_server(&supervisor, cache_dir, whisper_model).await
+                    let model_path = self.models_dir().join(whisper_model.file_name());
+                    start_internal_server(&supervisor, model_path, Some(whisper_model)).await
                 }
                 #[cfg(not(feature = "whisper-cpp"))]
                 Err(crate::Error::UnsupportedModelType)
@@ -271,6 +330,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                     ServerStatus::Unreachable
                 },
                 model: Some(model.clone()),
+                custom_model_path: None,
             }));
         }
 
@@ -288,6 +348,7 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
                     ServerStatus::Unreachable
                 },
                 model: Some(model.clone()),
+                custom_model_path: None,
             }));
         }
 
@@ -317,18 +378,21 @@ impl<'a, R: Runtime, M: Manager<R>> LocalStt<'a, R, M> {
             url: None,
             status: ServerStatus::Unreachable,
             model: None,
+            custom_model_path: None,
         });
         #[cfg(not(feature = "whisper-cpp"))]
         let internal_info = ServerInfo {
             url: None,
             status: ServerStatus::Unreachable,
             model: None,
+            custom_model_path: None,
         };
 
         let external_info = external_health().await.unwrap_or(ServerInfo {
             url: None,
             status: ServerStatus::Unreachable,
             model: None,
+            custom_model_path: None,
         });
 
         Ok([
@@ -757,18 +821,12 @@ impl<R: Runtime, T: Manager<R>> LocalSttPluginExt<R> for T {
 #[cfg(feature = "whisper-cpp")]
 async fn start_internal_server(
     supervisor: &supervisor::SupervisorRef,
-    cache_dir: PathBuf,
-    model: anlg_whisper_local_model::WhisperModel,
+    model_path: PathBuf,
+    model: Option<anlg_whisper_local_model::WhisperModel>,
 ) -> Result<String, crate::Error> {
-    supervisor::start_internal_stt(
-        supervisor,
-        internal::InternalSTTArgs {
-            model_cache_dir: cache_dir,
-            model_type: model,
-        },
-    )
-    .await
-    .map_err(|e| crate::Error::ServerStartFailed(e.to_string()))?;
+    supervisor::start_internal_stt(supervisor, internal::InternalSTTArgs { model, model_path })
+        .await
+        .map_err(|e| crate::Error::ServerStartFailed(e.to_string()))?;
 
     internal_health()
         .await
