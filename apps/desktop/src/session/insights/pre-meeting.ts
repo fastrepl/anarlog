@@ -5,7 +5,7 @@ import {
   commands as templateCommands,
   type JsonValue,
 } from "@anlg/plugin-template";
-import { safeParseDate } from "@anlg/utils";
+import { parseEventInstant } from "@anlg/utils";
 
 import systemPromptTemplate from "./pre-meeting-brief.system.md.jinja?raw";
 import userPromptTemplate from "./pre-meeting-brief.user.md.jinja?raw";
@@ -58,7 +58,7 @@ export function shouldShowPreMeetingBrief(
     return false;
   }
 
-  const startMs = safeParseDate(event.started_at)?.getTime();
+  const startMs = parseEventInstant(event.started_at)?.getTime();
   if (startMs == null) {
     return false;
   }
@@ -66,7 +66,7 @@ export function shouldShowPreMeetingBrief(
     return true;
   }
 
-  const endMs = safeParseDate(event.ended_at)?.getTime();
+  const endMs = parseEventInstant(event.ended_at)?.getTime();
   const hideAfterMs =
     endMs == null
       ? startMs + AFTER_START_GRACE_MS

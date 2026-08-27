@@ -2,7 +2,7 @@ import { useCallback, useRef } from "react";
 
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { getCurrentWebviewWindowLabel } from "@anlg/plugin-windows";
-import { safeParseDate } from "@anlg/utils";
+import { parseEventInstant } from "@anlg/utils";
 
 import { getIgnoredEventSets } from "~/calendar/ignored-events";
 import { liveQueryClient } from "~/db";
@@ -65,7 +65,7 @@ export function selectDueMeetings({
       continue;
     }
 
-    const startedAt = safeParseDate(row.started_at);
+    const startedAt = parseEventInstant(row.started_at);
     if (!startedAt) {
       continue;
     }
@@ -176,7 +176,7 @@ export function ScheduledMeetingAutoStart() {
       const now = Date.now();
       const nextStart = rows.reduce((earliest, row) => {
         if (firedEventIds.has(row.id)) return earliest;
-        const start = safeParseDate(row.started_at)?.getTime();
+        const start = parseEventInstant(row.started_at)?.getTime();
         return start !== undefined && start > now
           ? Math.min(earliest, start)
           : earliest;

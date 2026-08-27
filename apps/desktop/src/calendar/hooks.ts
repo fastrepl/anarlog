@@ -1,9 +1,9 @@
 import { format } from "date-fns";
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
-import { safeParseDate } from "@anlg/utils";
-import { TZDate } from "@anlg/utils";
+import { parseEventInstant, safeParseDate, TZDate } from "@anlg/utils";
 
+import { eventCalendarDay } from "./event-day";
 import { useIgnoredEvents } from "./ignored-events";
 import {
   useCalendarRow,
@@ -166,9 +166,13 @@ export type CalendarData = {
   sessionsById: NonNullable<TimelineSessionsTable>;
 };
 
-function compareNullableDates(a: string | undefined, b: string | undefined) {
-  const aDate = a ? safeParseDate(a) : null;
-  const bDate = b ? safeParseDate(b) : null;
+function compareNullableDates(
+  a: string | undefined,
+  b: string | undefined,
+  parse: (value: unknown) => Date | null = safeParseDate,
+) {
+  const aDate = a ? parse(a) : null;
+  const bDate = b ? parse(b) : null;
 
   if (aDate && bDate) {
     return aDate.getTime() - bDate.getTime();
@@ -193,11 +197,10 @@ export function useCalendarData(): CalendarData {
     if (eventsTable) {
       for (const [eventId, row] of Object.entries(eventsTable)) {
         if (!row.title) continue;
-        const raw = safeParseDate(row.started_at);
-        if (!raw) continue;
         if (isIgnored(row.tracking_id_event, row.recurrence_series_id))
           continue;
-        const day = format(toTz(raw, tz), "yyyy-MM-dd");
+        const day = eventCalendarDay(row.started_at, row.is_all_day, tz);
+        if (!day) continue;
         (eventIdsByDate[day] ??= []).push(eventId);
       }
 
@@ -211,6 +214,7 @@ export function useCalendarData(): CalendarData {
           const startCompare = compareNullableDates(
             eventsTable[a]?.started_at as string | undefined,
             eventsTable[b]?.started_at as string | undefined,
+            parseEventInstant,
           );
           if (startCompare !== 0) return startCompare;
 

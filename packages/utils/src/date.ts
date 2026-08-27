@@ -15,27 +15,28 @@ export function safeParseDate(value: unknown): Date | null {
     return isValid(value) ? value : null;
   }
 
-  if (typeof value === "number") {
+  if (typeof value === "string" || typeof value === "number") {
     const date = new Date(value);
-    return isValid(date) ? date : null;
-  }
-
-  if (typeof value === "string") {
-    const date = new Date(toAbsoluteIso(value));
     return isValid(date) ? date : null;
   }
 
   return null;
 }
 
-function toAbsoluteIso(value: string): string {
-  const trimmed = value.trim();
-  // Graph/SQLite event times are UTC instants. A timezone-naive ISO string is
-  // local in JS Date, which shifts CEST (and similar) notifications early.
-  if (NAIVE_DATE_TIME.test(trimmed)) {
-    return `${trimmed}Z`;
+// Timed calendar events: leftover Graph strings are UTC wall-clock.
+// Do not use for datetime-local values or all-day calendar dates.
+export function parseEventInstant(value: unknown): Date | null {
+  if (typeof value !== "string") {
+    return safeParseDate(value);
   }
-  return trimmed;
+
+  const trimmed = value.trim();
+  if (NAIVE_DATE_TIME.test(trimmed)) {
+    const date = new Date(`${trimmed}Z`);
+    return isValid(date) ? date : null;
+  }
+
+  return safeParseDate(trimmed);
 }
 
 export function safeFormat(

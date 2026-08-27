@@ -107,6 +107,16 @@ describe("pre-meeting brief visibility", () => {
         nowMs,
       ),
     ).toBe(false);
+    expect(
+      shouldShowPreMeetingBrief(
+        {
+          started_at: "2026-08-21T08:02:00.0000000",
+          ended_at: "2026-08-21T09:00:00.0000000",
+          is_all_day: false,
+        },
+        nowMs,
+      ),
+    ).toBe(true);
   });
 
   it("requires an upcoming event or added participants, plus usable prior meetings", () => {

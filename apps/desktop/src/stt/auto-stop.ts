@@ -1,5 +1,5 @@
 import { commands as notificationCommands } from "@anlg/plugin-notification";
-import { safeParseDate } from "@anlg/utils";
+import { parseEventInstant } from "@anlg/utils";
 
 import {
   AUTO_STOP_CONFIRM_TIMEOUT_SECONDS,
@@ -26,7 +26,7 @@ function parseEventTimeMs(value: string | undefined): number | null {
     return null;
   }
 
-  return safeParseDate(value)?.getTime() ?? null;
+  return parseEventInstant(value)?.getTime() ?? null;
 }
 
 export async function shouldPromptBeforeAutoStopping({
