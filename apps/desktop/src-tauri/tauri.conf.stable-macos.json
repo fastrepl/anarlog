@@ -2,7 +2,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://desktop2.hyprnote.com/update/{{target}}-{{arch}}/{{current_version}}?channel=stable"
+        "https://cdn.crabnebula.app/update/fastrepl/hyprnote2/{{target}}-{{arch}}/{{current_version}}?channel=stable"
       ]
     }
   }
