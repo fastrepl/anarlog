@@ -397,6 +397,23 @@ fn test_zoom_web_chat_scope_accepts_live_message_list_and_composer_labels() {
 }
 
 #[test]
+fn test_zoom_web_chat_scope_ignores_help_text_when_matching_exact_label() {
+    let mut scope = fixture_node(2, "AXGroup", "Chat", &[4, 0]);
+    scope.description = Some("View messages shared during this meeting".to_string());
+    let nodes = vec![
+        fixture_node(0, "AXWebArea", "John Jeong's Zoom Meeting", &[]),
+        fixture_node(1, "AXButton", "Leave", &[0]),
+        scope,
+        fixture_composer(3, "Type message here ...", &[4, 1, 0]),
+    ];
+
+    assert_eq!(
+        validated_chat_capture_scope(&MeetingPlatform::Zoom, &nodes),
+        Some((vec![4], vec![4, 1, 0]))
+    );
+}
+
+#[test]
 fn test_native_webex_chat_scope_accepts_live_history_and_composer_labels() {
     let nodes = vec![
         fixture_node(0, "AXWindow", "John's meeting", &[]),

@@ -2181,22 +2181,7 @@ fn slack_huddle_context(nodes: &[AxNode]) -> Option<(String, String)> {
         return Some(context);
     }
 
-    if !nodes.iter().any(is_slack_huddle_actions_toolbar) {
-        return None;
-    }
-
-    let mut channels = nodes.iter().filter_map(|node| {
-        (node.role.as_deref() == Some("AXWindow"))
-            .then(|| node.title.as_deref())
-            .flatten()
-            .and_then(slack_huddle_channel_from_window_title)
-    });
-    let channel = channels.next()?;
-    if channels.next().is_some() {
-        return None;
-    }
-
-    Some((format!("Huddle in {channel}"), channel))
+    None
 }
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
@@ -2216,25 +2201,6 @@ fn slack_huddle_channel_from_label(label: &str) -> Option<String> {
     }
 
     (!channel.is_empty()).then_some(channel.to_string())
-}
-
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
-fn slack_huddle_channel_from_window_title(title: &str) -> Option<String> {
-    let title = title.trim();
-    let slack_suffix = " - slack";
-    if !title.to_ascii_lowercase().ends_with(slack_suffix) {
-        return None;
-    }
-
-    let without_slack = title[..title.len() - slack_suffix.len()].trim_end();
-    let (channel, workspace) = without_slack.rsplit_once(" - ")?;
-    (!channel.trim().is_empty() && !workspace.trim().is_empty()).then(|| channel.trim().to_string())
-}
-
-#[cfg(any(test, target_os = "macos", target_os = "linux"))]
-fn is_slack_huddle_actions_toolbar(node: &AxNode) -> bool {
-    node.role.as_deref() == Some("AXToolbar")
-        && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("Huddles actions"))
 }
 
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]

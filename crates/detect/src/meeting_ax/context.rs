@@ -1,8 +1,6 @@
 #[cfg(target_os = "macos")]
 use super::analysis::meeting_chat_surface_is_visible;
-use super::analysis::{
-    candidate_chat_target, chat_scope_label, is_explicit_chat_input, is_zoom_chat_scope_node,
-};
+use super::analysis::{candidate_chat_target, is_explicit_chat_input, is_zoom_chat_scope_node};
 use super::{
     AxNode, BrowserMeetingRoot, MeetingPlatform, NativeMeetingRoot, browser_platform_from_url,
     is_platform_active_call_control, is_slack_huddle_composer, is_slack_thread_container_label,
@@ -52,6 +50,20 @@ fn common_tree_path(left: &[usize], right: &[usize]) -> Vec<usize> {
         .collect()
 }
 
+fn chat_scope_labels(node: &AxNode) -> impl Iterator<Item = String> + '_ {
+    [
+        node.title.as_deref(),
+        node.value.as_deref(),
+        node.description.as_deref(),
+        node.placeholder.as_deref(),
+    ]
+    .into_iter()
+    .flatten()
+    .map(str::trim)
+    .filter(|value| !value.is_empty())
+    .map(str::to_ascii_lowercase)
+}
+
 fn is_chat_scope_container(node: &AxNode) -> bool {
     if !matches!(
         node.role.as_deref(),
@@ -65,25 +77,26 @@ fn is_chat_scope_container(node: &AxNode) -> bool {
         return false;
     }
 
-    let label = chat_scope_label(node);
-    matches!(
-        label.trim(),
-        "chat"
-            | "messages"
-            | "meeting chat"
-            | "in-call messages"
-            | "conversation"
-            | "message list"
-            | "chat message list"
-            | "chat list"
-            | "huddle chat"
-            | "chat with everyone"
-    ) || label.contains("meeting chat")
-        || label.contains("in-call messages")
-        || label.contains("chat messages")
-        || label.contains("chat with everyone")
-        || label.contains("messages panel")
-        || label.contains("huddle chat")
+    chat_scope_labels(node).any(|label| {
+        matches!(
+            label.as_str(),
+            "chat"
+                | "messages"
+                | "meeting chat"
+                | "in-call messages"
+                | "conversation"
+                | "message list"
+                | "chat message list"
+                | "chat list"
+                | "huddle chat"
+                | "chat with everyone"
+        ) || label.contains("meeting chat")
+            || label.contains("in-call messages")
+            || label.contains("chat messages")
+            || label.contains("chat with everyone")
+            || label.contains("messages panel")
+            || label.contains("huddle chat")
+    })
 }
 
 fn is_platform_chat_scope_container(platform: &MeetingPlatform, node: &AxNode) -> bool {
@@ -95,8 +108,7 @@ fn is_platform_chat_scope_container(platform: &MeetingPlatform, node: &AxNode) -
 }
 
 fn is_platform_chat_scope_label(platform: &MeetingPlatform, node: &AxNode) -> bool {
-    let label = chat_scope_label(node);
-    match platform {
+    chat_scope_labels(node).any(|label| match platform {
         MeetingPlatform::GoogleMeet => {
             label == "in-call messages" || label.contains("in-call messages")
         }
@@ -121,7 +133,7 @@ fn is_platform_chat_scope_label(platform: &MeetingPlatform, node: &AxNode) -> bo
                 || label.contains("chat tab list, everyone tab")
         }
         MeetingPlatform::Discord | MeetingPlatform::Unknown => false,
-    }
+    })
 }
 
 fn is_chat_message_list(node: &AxNode) -> bool {
@@ -132,14 +144,15 @@ fn is_chat_message_list(node: &AxNode) -> bool {
         return false;
     }
 
-    let label = chat_scope_label(node);
-    label == "conversation"
-        || label == "message list"
-        || label == "chat message list"
-        || label == "chat list"
-        || label == "in-call messages"
-        || label.contains("chat messages")
-        || label.contains("meeting messages")
+    chat_scope_labels(node).any(|label| {
+        label == "conversation"
+            || label == "message list"
+            || label == "chat message list"
+            || label == "chat list"
+            || label == "in-call messages"
+            || label.contains("chat messages")
+            || label.contains("meeting messages")
+    })
 }
 
 fn is_platform_chat_message_list(platform: &MeetingPlatform, node: &AxNode) -> bool {
@@ -148,7 +161,7 @@ fn is_platform_chat_message_list(platform: &MeetingPlatform, node: &AxNode) -> b
             node.role.as_deref(),
             Some("AXGroup") | Some("AXList") | Some("AXScrollArea") | Some("AXTable")
         )
-        && chat_scope_label(node).contains("thread conversation history"))
+        && chat_scope_labels(node).any(|label| label.contains("thread conversation history")))
         || (is_chat_message_list(node) && is_platform_chat_scope_container(platform, node))
 }
 
