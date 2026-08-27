@@ -1,6 +1,26 @@
 use super::*;
 
 #[test]
+fn test_bounds_are_only_requested_for_visibility_sensitive_nodes() {
+    assert!(!node_needs_bounds(
+        &Some("AXStaticText".to_string()),
+        false,
+        Some("meeting transcript"),
+    ));
+    assert!(node_needs_bounds(
+        &Some("AXButton".to_string()),
+        false,
+        Some("leave call"),
+    ));
+    assert!(node_needs_bounds(&Some("AXGroup".to_string()), true, None,));
+    assert!(node_needs_bounds(
+        &Some("AXStaticText".to_string()),
+        false,
+        Some("Write a message to everyone, press Shift + Enter for new line"),
+    ));
+}
+
+#[test]
 fn test_chat_inspection_does_not_use_writable_value_as_label() {
     let mut input = node(6, "AXTextArea", "", None);
     input.title = None;

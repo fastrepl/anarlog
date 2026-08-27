@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::hash::{Hash, Hasher};
+use std::sync::{OnceLock, mpsc};
 
 use atspi::proxy::accessible::{AccessibleProxy, ObjectRefExt};
 use atspi::proxy::action::ActionProxy;
@@ -18,7 +19,7 @@ use super::context::{
     native_capture_context_id, slack_capture_context_id, validated_chat_scope,
     zoom_capture_context_id,
 };
-use super::node::{node_labels, searchable_node_text};
+use super::node::{node_labels, node_needs_bounds, searchable_node_text};
 use super::platform::{
     MEETING_APP_BUNDLES, classify_bundle, classify_platform, classify_surface, is_browser_bundle,
     meeting_app_family, running_apps_for_bundle, running_meeting_apps, select_active_bundle_ids,
@@ -45,25 +46,46 @@ struct LiveNode {
     path: String,
 }
 
-fn block_on_atspi<T>(future: impl Future<Output = T> + Send) -> T
-where
-    T: Send,
-{
-    // These sync entrypoints are invoked from async Tauri commands that already
-    // run on the desktop Tokio runtime. Handle::block_on / Runtime::block_on on
-    // that thread panics with "Cannot start a runtime from within a runtime".
-    std::thread::scope(|scope| {
-        scope
-            .spawn(|| {
-                tokio::runtime::Builder::new_current_thread()
+type AtspiJob = Box<dyn FnOnce(&tokio::runtime::Runtime) + Send + 'static>;
+
+fn atspi_worker() -> &'static mpsc::Sender<AtspiJob> {
+    static WORKER: OnceLock<mpsc::Sender<AtspiJob>> = OnceLock::new();
+
+    WORKER.get_or_init(|| {
+        let (sender, receiver) = mpsc::channel::<AtspiJob>();
+        std::thread::Builder::new()
+            .name("meeting-atspi".to_string())
+            .spawn(move || {
+                let runtime = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
                     .build()
-                    .expect("linux AT-SPI runtime")
-                    .block_on(future)
+                    .expect("linux AT-SPI runtime");
+                while let Ok(job) = receiver.recv() {
+                    job(&runtime);
+                }
             })
-            .join()
-            .expect("linux AT-SPI thread panicked")
+            .expect("linux AT-SPI worker");
+        sender
     })
+}
+
+fn block_on_atspi<T>(future: impl Future<Output = T> + Send + 'static) -> T
+where
+    T: Send + 'static,
+{
+    let (sender, receiver) = mpsc::sync_channel(1);
+    atspi_worker()
+        .send(Box::new(move |runtime| {
+            let result =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| runtime.block_on(future)));
+            let _ = sender.send(result);
+        }))
+        .expect("linux AT-SPI worker stopped");
+
+    match receiver.recv().expect("linux AT-SPI worker stopped") {
+        Ok(output) => output,
+        Err(panic) => std::panic::resume_unwind(panic),
+    }
 }
 
 fn ax_role(role: Role) -> &'static str {
@@ -174,7 +196,14 @@ async fn snapshot_live_node(
             Some("AXTextField") | Some("AXTextArea") | Some("AXSecureTextField")
         );
 
-    let text_value = if let Some(text) = TextProxy::builder(accessible.inner().connection())
+    let role = if editable && matches!(role.as_deref(), Some("AXStaticText") | Some("AXGroup")) {
+        Some("AXTextArea".to_string())
+    } else {
+        role
+    };
+    let text_value = if settable_value {
+        None
+    } else if let Some(text) = TextProxy::builder(accessible.inner().connection())
         .destination(bus_name.clone())
         .ok()
         .and_then(|builder| builder.path(object_path.clone()).ok())
@@ -198,37 +227,29 @@ async fn snapshot_live_node(
         .cloned()
         .filter(|value| !value.is_empty());
 
-    let bounds = match ComponentProxy::builder(accessible.inner().connection())
-        .destination(bus_name.clone())
-        .ok()?
-        .path(object_path.clone())
-        .ok()?
-        .build()
-        .await
-    {
-        Ok(component) => {
-            component
-                .get_extents(CoordType::Screen)
+    let bounds =
+        if node_needs_bounds(&role, settable_value, title.as_deref()) {
+            match ComponentProxy::builder(accessible.inner().connection())
+                .destination(bus_name.clone())
+                .ok()?
+                .path(object_path.clone())
+                .ok()?
+                .build()
                 .await
-                .ok()
-                .map(|(x, y, width, height)| AxRect {
-                    x: f64::from(x),
-                    y: f64::from(y),
-                    width: f64::from(width),
-                    height: f64::from(height),
-                })
-        }
-        Err(_) => None,
-    };
-
-    if matches!(role.as_deref(), Some("AXStaticText")) && editable {
-        // Chromium often exposes editable composers as Role::Text.
-    }
-    let role = if editable && matches!(role.as_deref(), Some("AXStaticText") | Some("AXGroup")) {
-        Some("AXTextArea".to_string())
-    } else {
-        role
-    };
+            {
+                Ok(component) => component.get_extents(CoordType::Screen).await.ok().map(
+                    |(x, y, width, height)| AxRect {
+                        x: f64::from(x),
+                        y: f64::from(y),
+                        width: f64::from(width),
+                        height: f64::from(height),
+                    },
+                ),
+                Err(_) => None,
+            }
+        } else {
+            None
+        };
 
     let text = searchable_node_text(
         &role,
@@ -1458,6 +1479,14 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn atspi_worker_is_reused() {
+        let first = block_on_atspi(async { std::thread::current().id() });
+        let second = block_on_atspi(async { std::thread::current().id() });
+
+        assert_eq!(first, second);
+    }
 
     #[test]
     fn object_replacement_text_does_not_pollute_accessible_labels() {

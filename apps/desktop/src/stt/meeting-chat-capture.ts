@@ -34,6 +34,7 @@ export function startMeetingChatCapture({
   let stopped = false;
   let inFlight: Promise<void> | null = null;
   let pendingPersistence: Promise<void> | null = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
   let lastWarning = "";
   const captureIsEnabled =
     isEnabled ??
@@ -50,27 +51,7 @@ export function startMeetingChatCapture({
         return;
       }
 
-      const applications = await detectCommands.listMicUsingApplications();
-      if (stopped || !(await captureIsEnabled())) {
-        baselineContext = null;
-        return;
-      }
-      if (applications.status === "error") {
-        console.warn(
-          "[listener] failed to identify active meeting app",
-          applications.error,
-        );
-        return;
-      }
-
-      const bundleIds = [
-        ...new Set(applications.data.map((app) => app.id).filter(Boolean)),
-      ];
-      if (bundleIds.length === 0) {
-        return;
-      }
-
-      const result = await detectCommands.captureMeetingChatMessages(bundleIds);
+      const result = await detectCommands.captureMeetingChatMessages();
       if (stopped || !(await captureIsEnabled())) {
         baselineContext = null;
         return;
@@ -85,7 +66,7 @@ export function startMeetingChatCapture({
 
       const contextId = result.data.contextId?.trim();
       const bundleId = result.data.app?.id;
-      if (!bundleId || !bundleIds.includes(bundleId) || !contextId) {
+      if (!bundleId || !contextId) {
         return;
       }
 
@@ -203,6 +184,17 @@ export function startMeetingChatCapture({
     }
   };
 
+  const scheduleCapture = () => {
+    if (stopped || timeout) {
+      return;
+    }
+
+    timeout = setTimeout(() => {
+      timeout = null;
+      void capture();
+    }, MEETING_CHAT_CAPTURE_INTERVAL_MS);
+  };
+
   const capture = () => {
     if (stopped || inFlight) {
       return inFlight ?? Promise.resolve();
@@ -211,6 +203,7 @@ export function startMeetingChatCapture({
     const pendingCapture = captureOnce().finally(() => {
       if (inFlight === pendingCapture) {
         inFlight = null;
+        scheduleCapture();
       }
     });
     inFlight = pendingCapture;
@@ -218,13 +211,13 @@ export function startMeetingChatCapture({
   };
 
   void capture();
-  const interval = setInterval(() => {
-    void capture();
-  }, MEETING_CHAT_CAPTURE_INTERVAL_MS);
 
   return async () => {
     stopped = true;
-    clearInterval(interval);
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
     await pendingPersistence;
   };
 }

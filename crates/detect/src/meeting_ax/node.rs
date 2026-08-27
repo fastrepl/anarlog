@@ -44,6 +44,31 @@ pub(super) fn is_text_input_role(role: &Option<String>) -> bool {
     )
 }
 
+pub(super) fn node_needs_bounds(
+    role: &Option<String>,
+    settable_value: bool,
+    title: Option<&str>,
+) -> bool {
+    settable_value
+        || matches!(
+            role.as_deref(),
+            Some("AXButton")
+                | Some("AXMenuItem")
+                | Some("AXPopUpButton")
+                | Some("AXTextArea")
+                | Some("AXTextField")
+                | Some("AXSecureTextField")
+                | Some("AXComboBox")
+        )
+        || (role.as_deref() == Some("AXStaticText")
+            && title.is_some_and(|title| {
+                title
+                    .trim()
+                    .to_ascii_lowercase()
+                    .starts_with("write a message to ")
+            }))
+}
+
 pub(super) fn node_labels(node: &AxNode) -> impl Iterator<Item = &str> {
     [
         node.title.as_deref(),

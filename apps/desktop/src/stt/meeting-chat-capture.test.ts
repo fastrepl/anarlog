@@ -6,7 +6,6 @@ import { startMeetingChatCapture } from "./meeting-chat-capture";
 
 const {
   captureMeetingChatMessagesMock,
-  listMicUsingApplicationsMock,
   persistMeetingChatRecordsMock,
   persistParticipantConsentMock,
   sonnerToastWarningMock,
@@ -14,7 +13,6 @@ const {
   captureSettingState,
 } = vi.hoisted(() => ({
   captureMeetingChatMessagesMock: vi.fn(),
-  listMicUsingApplicationsMock: vi.fn(),
   persistMeetingChatRecordsMock: vi.fn(),
   persistParticipantConsentMock: vi.fn(),
   sonnerToastWarningMock: vi.fn(),
@@ -25,7 +23,6 @@ const {
 vi.mock("@anlg/plugin-detect", () => ({
   commands: {
     captureMeetingChatMessages: captureMeetingChatMessagesMock,
-    listMicUsingApplications: listMicUsingApplicationsMock,
   },
 }));
 
@@ -67,10 +64,6 @@ describe("startMeetingChatCapture", () => {
     vi.useFakeTimers();
     vi.clearAllMocks();
     captureSettingState.value = true;
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "ok",
-      data: [{ id: "us.zoom.xos", name: "Zoom" }],
-    });
     captureMeetingChatMessagesMock.mockResolvedValue(
       captureResult([capturedMessage]),
     );
@@ -447,7 +440,32 @@ describe("startMeetingChatCapture", () => {
     expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
   });
 
-  test("does not inspect apps while disabled and re-baselines when enabled", async () => {
+  test("waits a full interval after a slow capture finishes", async () => {
+    let resolveCapture: ((value: unknown) => void) | undefined;
+    captureMeetingChatMessagesMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCapture = resolve;
+      }),
+    );
+    const stop = startMeetingChatCapture({
+      sessionId: "session-1",
+      isEnabled: () => true,
+    });
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledOnce();
+
+    resolveCapture?.(captureResult([capturedMessage]));
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledTimes(2);
+    await stop();
+  });
+
+  test("does not capture while disabled and re-baselines when enabled", async () => {
     let enabled = false;
     const stop = startMeetingChatCapture({
       sessionId: "session-1",
@@ -455,13 +473,11 @@ describe("startMeetingChatCapture", () => {
     });
     await vi.advanceTimersByTimeAsync(0);
 
-    expect(listMicUsingApplicationsMock).not.toHaveBeenCalled();
+    expect(captureMeetingChatMessagesMock).not.toHaveBeenCalled();
 
     enabled = true;
     await vi.advanceTimersByTimeAsync(5_000);
-    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith([
-      "us.zoom.xos",
-    ]);
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith();
     expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
 
     enabled = false;
@@ -479,14 +495,7 @@ describe("startMeetingChatCapture", () => {
     expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
   });
 
-  test("lets Rust fail closed when multiple recognized meeting apps use the mic", async () => {
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "ok",
-      data: [
-        { id: "us.zoom.xos", name: "Zoom" },
-        { id: "com.tinyspeck.slackmacgap", name: "Slack" },
-      ],
-    });
+  test("delegates mic-active app scoping to the native capture command", async () => {
     captureMeetingChatMessagesMock.mockResolvedValue({
       status: "ok",
       data: {
@@ -505,18 +514,11 @@ describe("startMeetingChatCapture", () => {
     await vi.advanceTimersByTimeAsync(0);
     stop();
 
-    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith([
-      "us.zoom.xos",
-      "com.tinyspeck.slackmacgap",
-    ]);
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith();
     expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
   });
 
-  test("recognizes the alternate Slack bundle id", async () => {
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "ok",
-      data: [{ id: "com.slack.Slack", name: "Slack" }],
-    });
+  test("accepts the alternate Slack bundle id selected natively", async () => {
     captureMeetingChatMessagesMock.mockResolvedValue({
       status: "ok",
       data: {
@@ -535,16 +537,10 @@ describe("startMeetingChatCapture", () => {
     await vi.advanceTimersByTimeAsync(0);
     stop();
 
-    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith([
-      "com.slack.Slack",
-    ]);
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith();
   });
 
-  test("passes a mic-active browser to Rust for provider resolution", async () => {
-    listMicUsingApplicationsMock.mockResolvedValue({
-      status: "ok",
-      data: [{ id: "com.google.Chrome", name: "Google Chrome" }],
-    });
+  test("accepts a browser meeting resolved natively", async () => {
     captureMeetingChatMessagesMock.mockResolvedValue({
       status: "ok",
       data: {
@@ -563,50 +559,7 @@ describe("startMeetingChatCapture", () => {
     await vi.advanceTimersByTimeAsync(0);
     stop();
 
-    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith([
-      "com.google.Chrome",
-    ]);
-    expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
-  });
-
-  test("rejects capture results for an app outside the caller-observed mic scope", async () => {
-    captureMeetingChatMessagesMock.mockResolvedValue({
-      status: "ok",
-      data: {
-        app: { id: "com.tinyspeck.slackmacgap", name: "Slack" },
-        contextId: "slack:test",
-        platform: "slack",
-        surface: "native",
-        messages: [{ ...capturedMessage, platform: "slack" }],
-        warnings: [],
-      },
-    });
-    const stop = startMeetingChatCapture({
-      sessionId: "session-1",
-      isEnabled: () => true,
-    });
-    await vi.advanceTimersByTimeAsync(0);
-
-    captureMeetingChatMessagesMock.mockResolvedValue({
-      status: "ok",
-      data: {
-        app: { id: "com.tinyspeck.slackmacgap", name: "Slack" },
-        contextId: "slack:test",
-        platform: "slack",
-        surface: "native",
-        messages: [
-          { ...capturedMessage, platform: "slack" },
-          { ...capturedMessage, id: "msg-2", platform: "slack" },
-        ],
-        warnings: [],
-      },
-    });
-    await vi.advanceTimersByTimeAsync(5_000);
-    stop();
-
-    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith([
-      "us.zoom.xos",
-    ]);
+    expect(captureMeetingChatMessagesMock).toHaveBeenCalledWith();
     expect(persistMeetingChatRecordsMock).not.toHaveBeenCalled();
   });
 

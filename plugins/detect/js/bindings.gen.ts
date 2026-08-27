@@ -94,9 +94,9 @@ async sendMeetingChatMessage(message: string, micActiveBundleIds: string[]) : Pr
     else return { status: "error", error: e  as any };
 }
 },
-async captureMeetingChatMessages(bundleIds: string[]) : Promise<Result<MeetingChatCaptureResult, string>> {
+async captureMeetingChatMessages() : Promise<Result<MeetingChatCaptureResult, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|capture_meeting_chat_messages", { bundleIds }) };
+    return { status: "ok", data: await TAURI_INVOKE("plugin:detect|capture_meeting_chat_messages") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

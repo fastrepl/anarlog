@@ -64,7 +64,7 @@ use node::node_text;
 #[cfg(any(test, target_os = "macos", target_os = "linux"))]
 use node::{
     is_platform_active_call_control, is_platform_meeting_control, node_has_positive_bounds,
-    node_labels, searchable_node_text, teams_has_active_call_evidence,
+    node_labels, node_needs_bounds, searchable_node_text, teams_has_active_call_evidence,
 };
 #[cfg(any(test, target_os = "linux"))]
 use platform::is_browser_active_call_control;
@@ -2039,15 +2039,21 @@ fn snapshot_node(element: &ax::UiElement, index: usize) -> AxNode {
     let role = string_attr(element, ax::attr::role());
     let identifier = string_attr(element, ax::attr::id());
     let title = string_attr(element, ax::attr::title());
-    let value = string_attr(element, ax::attr::value());
+    let settable_value = ax_is_settable(element, ax::attr::value());
+    let value = (!settable_value)
+        .then(|| string_attr(element, ax::attr::value()))
+        .flatten();
     let description =
         string_attr(element, ax::attr::desc()).or_else(|| string_attr(element, ax::attr::help()));
     let placeholder = string_attr(element, ax::attr::placeholder_value());
     let enabled = ax_bool_attr(element, ax::attr::enabled());
-    let settable_value = ax_is_settable(element, ax::attr::value());
-    let bounds = ax_frame(element)
-        .or_else(|| rect_from_position_and_size(element))
-        .map(AxRect::from);
+    let bounds = node_needs_bounds(&role, settable_value, title.as_deref())
+        .then(|| {
+            ax_frame(element)
+                .or_else(|| rect_from_position_and_size(element))
+                .map(AxRect::from)
+        })
+        .flatten();
     let text = searchable_node_text(
         &role,
         &title,
