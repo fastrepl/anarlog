@@ -20,6 +20,9 @@ test("offers macOS, Windows, and Linux downloads", () => {
     "Galaxy Watch",
   ]);
 
+  const macosDownloads = desktopDownloadSections.find(
+    (section) => section.platform === "macos",
+  )!.downloads;
   const windowsDownloads = desktopDownloadSections.find(
     (section) => section.platform === "windows",
   )!.downloads;
@@ -27,7 +30,14 @@ test("offers macOS, Windows, and Linux downloads", () => {
     (section) => section.platform === "linux",
   )!.downloads;
 
-  assert.match(windowsDownloads[0].url, /\/nsis-x86_64\?/);
+  assert.match(
+    macosDownloads[0].url,
+    /^https:\/\/anarlog\.so\/releases\/latest\/platform\/dmg-aarch64\?/,
+  );
+  assert.match(
+    windowsDownloads[0].url,
+    /^https:\/\/anarlog\.so\/releases\/latest\/platform\/nsis-x86_64\?/,
+  );
   assert.deepEqual(
     linuxDownloads.map((download) =>
       new URL(download.url).pathname.split("/").at(-1),

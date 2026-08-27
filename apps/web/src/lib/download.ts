@@ -1,5 +1,4 @@
-const latestStableDownloadUrl =
-  "https://cdn.crabnebula.app/download/fastrepl/hyprnote2/latest/platform";
+const latestStableDownloadUrl = "https://anarlog.so/releases/latest/platform";
 
 function getStableDownloadUrl(platform: string) {
   return `${latestStableDownloadUrl}/${platform}?channel=stable`;
