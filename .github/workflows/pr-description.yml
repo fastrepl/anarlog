@@ -1,0 +1,175 @@
+name: PR description
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - env:
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          node <<'NODE'
+          const title = (process.env.PR_TITLE || "").trim();
+          const body = process.env.PR_BODY || "";
+          const errors = [];
+
+          if (process.env.PR_AUTHOR_TYPE === "Bot") {
+            console.log("Automated bot pull request; description validation is not required.");
+            process.exit(0);
+          }
+
+          if (title.length < 12) {
+            errors.push("Title must be at least 12 characters.");
+          }
+
+          if (title.split(/\s+/).length < 3) {
+            errors.push("Title must state the intended outcome in at least three words.");
+          }
+
+          if (/^(wip|draft|changes?|updates?|fix(?:es)?|pull request|pr)(?:\s*[:#-]?\s*\d+)?$/i.test(title)) {
+            errors.push("Title is too generic. State what this PR intends to accomplish.");
+          }
+
+          function stripHtmlComments(markdown) {
+            let inComment = false;
+            let fenceMarker = "";
+
+            return markdown.split("\n").map((line) => {
+              const leadingMarker = line.match(/^ {0,3}(`+|~+)/)?.[1] || "";
+              if (!inComment && leadingMarker.length >= 3) {
+                if (!fenceMarker) {
+                  fenceMarker = leadingMarker;
+                } else if (
+                  leadingMarker[0] === fenceMarker[0] &&
+                  leadingMarker.length >= fenceMarker.length &&
+                  line.trimStart().slice(leadingMarker.length).trim() === ""
+                ) {
+                  fenceMarker = "";
+                }
+                return line;
+              }
+
+              if (fenceMarker) return line;
+
+              let visible = "";
+              let inlineTicks = 0;
+              for (let index = 0; index < line.length;) {
+                if (inComment) {
+                  const commentEnd = line.indexOf("-->", index);
+                  if (commentEnd === -1) return visible;
+                  inComment = false;
+                  index = commentEnd + 3;
+                  continue;
+                }
+
+                if (line[index] === "`") {
+                  let tickEnd = index + 1;
+                  while (line[tickEnd] === "`") tickEnd++;
+                  const tickCount = tickEnd - index;
+                  if (inlineTicks === 0) {
+                    const closingTicks = new RegExp("(^|[^`])" + "`".repeat(tickCount) + "(?!`)");
+                    if (closingTicks.test(line.slice(tickEnd))) inlineTicks = tickCount;
+                  } else if (tickCount === inlineTicks) {
+                    inlineTicks = 0;
+                  }
+                  visible += line.slice(index, tickEnd);
+                  index = tickEnd;
+                  continue;
+                }
+
+                if (inlineTicks === 0 && line[index - 1] !== "\\" && line.startsWith("<!--", index)) {
+                  inComment = true;
+                  index += 4;
+                  continue;
+                }
+
+                visible += line[index];
+                index++;
+              }
+              return visible;
+            }).join("\n");
+          }
+
+          function markCodeLines(markdown) {
+            let fenceMarker = "";
+
+            return markdown.split("\n").map((text) => {
+              const leadingMarker = text.match(/^ {0,3}(`+|~+)/)?.[1] || "";
+              if (!fenceMarker && leadingMarker.length >= 3) {
+                fenceMarker = leadingMarker;
+                return { text, isCode: true };
+              }
+
+              if (fenceMarker) {
+                if (
+                  leadingMarker[0] === fenceMarker[0] &&
+                  leadingMarker.length >= fenceMarker.length &&
+                  text.trimStart().slice(leadingMarker.length).trim() === ""
+                ) {
+                  fenceMarker = "";
+                }
+                return { text, isCode: true };
+              }
+
+              return { text, isCode: /^(?: {4}|\t)/.test(text) };
+            });
+          }
+
+          const visibleLines = markCodeLines(stripHtmlComments(body));
+          const summaryHeading = /^##\s+summary\s*$/i;
+          const verificationHeading = /^##\s+verification\s*$/i;
+          const summaryIndex = visibleLines.findIndex(
+            (line) => !line.isCode && summaryHeading.test(line.text.trim()),
+          );
+          const verificationIndex = visibleLines.findIndex(
+            (line, index) =>
+              index > summaryIndex && !line.isCode && verificationHeading.test(line.text.trim()),
+          );
+          const summaryLines = summaryIndex === -1
+            ? []
+            : visibleLines.slice(
+                summaryIndex + 1,
+                verificationIndex === -1 ? visibleLines.length : verificationIndex,
+              );
+          const problemLabel = /^\*\*Problem:\*\*\s*/i;
+          const fixLabel = /^\*\*Fix:\*\*\s*/i;
+          const problemIndex = summaryLines.findIndex(
+            (line) => !line.isCode && problemLabel.test(line.text),
+          );
+          const fixIndex = summaryLines.findIndex(
+            (line, index) => index > problemIndex && !line.isCode && fixLabel.test(line.text),
+          );
+          const problem = problemIndex === -1
+            ? ""
+            : summaryLines[problemIndex].text.replace(problemLabel, "").trim();
+          const fix = fixIndex === -1
+            ? ""
+            : summaryLines[fixIndex].text.replace(fixLabel, "").trim();
+
+          if (problem.length < 40) {
+            errors.push("Write at least 40 characters after **Problem:** on its labeled line.");
+          }
+
+          if (fix.length < 40) {
+            errors.push("Write at least 40 characters after **Fix:** on its labeled line.");
+          }
+
+          if (errors.length) {
+            console.error(errors.map((error) => `- ${error}`).join("\n"));
+            process.exit(1);
+          }
+
+          console.log("PR title and summary are complete.");
+          NODE

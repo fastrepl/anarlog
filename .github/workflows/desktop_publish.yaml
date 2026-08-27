@@ -693,8 +693,19 @@ jobs:
             exit 0
           fi
 
+          BODY=$(printf '%s\n' \
+            "## Summary" \
+            "" \
+            "**Problem:** The desktop_v$VERSION release changed Linux artifacts, leaving the AUR package and signed APT repository metadata on the previous version." \
+            "" \
+            "**Fix:** Refresh the AUR package and signed APT repository metadata so Linux package managers install the current desktop_v$VERSION release." \
+            "" \
+            "## Verification" \
+            "" \
+            "- Generated and verified the signed APT repository metadata during the desktop publish run.")
+
           gh pr create \
             --base main \
             --head "$BRANCH" \
             --title "chore(packaging): publish Linux packages for $VERSION" \
-            --body "Automated follow-up from the desktop_v$VERSION publish run. Refreshes the AUR package and signed APT repository metadata for the current Linux release."
+            --body "$BODY"

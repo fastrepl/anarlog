@@ -112,6 +112,13 @@ mint broken-links --check-anchors --check-redirects
 
 Check the affected workflow under `.github/workflows/` for stricter package-specific commands.
 
+## Open a pull request
+
+- Write the title as a specific action that states the intended outcome. Do not use a file name, ticket number, or a generic label as the title.
+- Write the description yourself as a concise executive summary: on the labeled `Problem` and `Fix` lines, explain the problem, why it mattered, and how the change fixes it. Do not paste a generated commit log or a file-by-file recap.
+- List the commands and manual checks you used to verify the change.
+- External contributors must sign the [Fastrepl Contributor License Agreement](https://gist.github.com/ComputelessComputer/9d8243ec8e2ce92541c5b67462f092a0) through CLA Assistant when prompted.
+
 ## Licensing and contribution boundary
 
 By submitting a contribution outside `enterprise/`, you agree that it may be distributed under the repository's [MIT License](LICENSE). Only submit material you have the right to license this way.
