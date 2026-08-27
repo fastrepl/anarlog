@@ -12,9 +12,11 @@ use anlg_google_calendar::{
     EventStatus as GoogleEventStatus,
 };
 use anlg_outlook_calendar::{
-    Attendee as OutlookAttendee, AttendeeType, Calendar as OutlookCalendar, Event as OutlookEvent,
-    EventShowAs, ResponseType as OutlookResponseType,
+    Attendee as OutlookAttendee, AttendeeType, Calendar as OutlookCalendar,
+    DateTimeTimeZone as OutlookDateTimeTimeZone, Event as OutlookEvent, EventShowAs,
+    ResponseType as OutlookResponseType,
 };
+use chrono::{DateTime, MappedLocalTime, NaiveDateTime, Utc};
 
 pub fn convert_google_calendars(calendars: Vec<GoogleCalendar>) -> Vec<CalendarListItem> {
     calendars
@@ -197,12 +199,12 @@ fn convert_outlook_event(event: OutlookEvent, calendar_id: &str) -> CalendarEven
     let started_at = event
         .start
         .as_ref()
-        .map(|start| start.date_time.clone())
+        .map(outlook_datetime_to_iso)
         .unwrap_or_default();
     let ended_at = event
         .end
         .as_ref()
-        .map(|end| end.date_time.clone())
+        .map(outlook_datetime_to_iso)
         .unwrap_or_default();
     let timezone = event
         .start
@@ -315,6 +317,114 @@ fn convert_apple_event(event: AppleEvent) -> CalendarEvent {
         recurring_event_id,
         raw,
     }
+}
+
+// Graph stores start/end as a timezone-naive `{date}T{time}` plus a separate
+// timeZone field (often Windows IDs, default UTC). Persisting that string as-is
+// makes JS `Date` treat UTC wall-clock values as local, so CEST notifications
+// fire two hours early.
+fn outlook_datetime_to_iso(value: &OutlookDateTimeTimeZone) -> String {
+    let raw = value.date_time.trim();
+    if raw.is_empty() {
+        return String::new();
+    }
+
+    if let Ok(dt) = DateTime::parse_from_rfc3339(raw) {
+        return dt.with_timezone(&Utc).to_rfc3339();
+    }
+
+    let Some(naive) = parse_outlook_naive(raw) else {
+        return value.date_time.clone();
+    };
+
+    naive_in_timezone(naive, value.time_zone.as_deref()).to_rfc3339()
+}
+
+fn parse_outlook_naive(value: &str) -> Option<NaiveDateTime> {
+    const FORMATS: [&str; 4] = [
+        "%Y-%m-%dT%H:%M:%S%.f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d %H:%M:%S%.f",
+        "%Y-%m-%d %H:%M:%S",
+    ];
+
+    FORMATS
+        .iter()
+        .find_map(|format| NaiveDateTime::parse_from_str(value, format).ok())
+}
+
+fn naive_in_timezone(naive: NaiveDateTime, time_zone: Option<&str>) -> DateTime<Utc> {
+    let tz_name = time_zone.map(str::trim).filter(|name| !name.is_empty());
+    let Some(tz_name) = tz_name else {
+        return naive.and_utc();
+    };
+
+    if is_utc_timezone(tz_name) {
+        return naive.and_utc();
+    }
+
+    let iana = windows_tz_to_iana(tz_name).unwrap_or(tz_name);
+    let Ok(tz) = iana.parse::<chrono_tz::Tz>() else {
+        return naive.and_utc();
+    };
+
+    match naive.and_local_timezone(tz) {
+        MappedLocalTime::Single(dt) => dt.with_timezone(&Utc),
+        MappedLocalTime::Ambiguous(earliest, _) => earliest.with_timezone(&Utc),
+        MappedLocalTime::None => naive.and_utc(),
+    }
+}
+
+fn is_utc_timezone(name: &str) -> bool {
+    name.eq_ignore_ascii_case("UTC")
+        || name.eq_ignore_ascii_case("GMT")
+        || name.eq_ignore_ascii_case("Etc/UTC")
+        || name.eq_ignore_ascii_case("Etc/GMT")
+        || name
+            .rsplit('/')
+            .next()
+            .is_some_and(|part| part.eq_ignore_ascii_case("UTC"))
+}
+
+fn windows_tz_to_iana(name: &str) -> Option<&'static str> {
+    Some(match name {
+        "GMT Standard Time" => "Europe/London",
+        "Greenwich Standard Time" => "Atlantic/Reykjavik",
+        "W. Europe Standard Time" => "Europe/Berlin",
+        "Romance Standard Time" => "Europe/Paris",
+        "Central Europe Standard Time" => "Europe/Budapest",
+        "Central European Standard Time" => "Europe/Warsaw",
+        "GTB Standard Time" => "Europe/Bucharest",
+        "FLE Standard Time" => "Europe/Helsinki",
+        "E. Europe Standard Time" => "Europe/Chisinau",
+        "Russian Standard Time" => "Europe/Moscow",
+        "Egypt Standard Time" => "Africa/Cairo",
+        "South Africa Standard Time" => "Africa/Johannesburg",
+        "Israel Standard Time" => "Asia/Jerusalem",
+        "Arabic Standard Time" => "Asia/Baghdad",
+        "Arab Standard Time" => "Asia/Riyadh",
+        "Arabian Standard Time" => "Asia/Dubai",
+        "Iran Standard Time" => "Asia/Tehran",
+        "India Standard Time" => "Asia/Kolkata",
+        "SE Asia Standard Time" => "Asia/Bangkok",
+        "Singapore Standard Time" => "Asia/Singapore",
+        "China Standard Time" => "Asia/Shanghai",
+        "Tokyo Standard Time" => "Asia/Tokyo",
+        "Korea Standard Time" => "Asia/Seoul",
+        "AUS Eastern Standard Time" => "Australia/Sydney",
+        "New Zealand Standard Time" => "Pacific/Auckland",
+        "Pacific Standard Time" => "America/Los_Angeles",
+        "Mountain Standard Time" => "America/Denver",
+        "Central Standard Time" => "America/Chicago",
+        "Eastern Standard Time" => "America/New_York",
+        "US Eastern Standard Time" => "America/Indiana/Indianapolis",
+        "Atlantic Standard Time" => "America/Halifax",
+        "E. South America Standard Time" => "America/Sao_Paulo",
+        "SA Eastern Standard Time" => "America/Cayenne",
+        "Alaskan Standard Time" => "America/Anchorage",
+        "Hawaiian Standard Time" => "Pacific/Honolulu",
+        _ => return None,
+    })
 }
 
 fn event_datetime_to_iso(edt: &EventDateTime) -> Option<String> {
@@ -585,5 +695,68 @@ mod meeting_link_tests {
 
         let converted = convert_outlook_events(vec![event], "cal-2");
         assert_eq!(converted[0].meeting_link.as_deref(), Some(CAL_LINK));
+    }
+
+    fn outlook_event_with_start(date_time: &str, time_zone: Option<&str>) -> OutlookEvent {
+        serde_json::from_value(serde_json::json!({
+            "id": "evt-tz",
+            "subject": "Timezone check",
+            "start": { "dateTime": date_time, "timeZone": time_zone },
+            "end": { "dateTime": date_time, "timeZone": time_zone },
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn outlook_naive_utc_datetimes_become_rfc3339_utc() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T12:00:00.0000000",
+                Some("UTC"),
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
+        assert_eq!(converted[0].ended_at, "2026-08-27T12:00:00+00:00");
+    }
+
+    #[test]
+    fn outlook_cest_windows_timezone_converts_to_utc_instant() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T14:00:00.0000000",
+                Some("W. Europe Standard Time"),
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
+    }
+
+    #[test]
+    fn outlook_iana_timezone_converts_to_utc_instant() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T14:00:00",
+                Some("Europe/Paris"),
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
+    }
+
+    #[test]
+    fn outlook_rfc3339_offset_is_normalized_to_utc() {
+        let converted = convert_outlook_events(
+            vec![outlook_event_with_start(
+                "2026-08-27T14:00:00+02:00",
+                Some("UTC"),
+            )],
+            "cal-2",
+        );
+
+        assert_eq!(converted[0].started_at, "2026-08-27T12:00:00+00:00");
     }
 }

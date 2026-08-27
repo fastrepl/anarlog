@@ -66,6 +66,29 @@ describe("checkEventNotifications", () => {
     expect(mocks.execute.mock.calls[0]?.[0]).toContain("is_all_day = 0");
   });
 
+  test("treats timezone-naive Graph timestamps as UTC", async () => {
+    mocks.execute.mockResolvedValueOnce([
+      {
+        id: "event-1",
+        started_at: "2026-05-15T12:02:00.0000000",
+        tracking_id_event: "tracking-1",
+        recurrence_series_id: "",
+        title: "Design Review",
+        is_all_day: 0,
+      },
+    ]);
+
+    await checkEventNotifications(true, new Map());
+
+    expect(mocks.showNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: { type: "calendar_event", event_id: "event-1" },
+        message: "Starting in 2 minutes",
+        start_time: new Date("2026-05-15T12:02:00.000Z").getTime() / 1000,
+      }),
+    );
+  });
+
   test("does not query or notify when event notifications are disabled", async () => {
     await checkEventNotifications(false, new Map());
 
