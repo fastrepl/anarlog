@@ -11,9 +11,9 @@ type PreferredProviderModelOptions = {
 const DEFAULT_EXTERNAL_STT_MODELS: Record<string, string> = {
   local_file: "local-file",
   deepgram: "nova-3-general",
-  assemblyai: "universal-3-pro",
+  assemblyai: "universal-3-5-pro",
   openai: "gpt-live-transcribe",
-  openrouter: "openai/gpt-4o-mini-transcribe",
+  openrouter: "openai/gpt-transcribe",
   cartesia: "ink-2",
   cloudflare_workers_ai: "nova-3",
   gladia: "solaria-1",
@@ -43,7 +43,7 @@ export function normalizeStoredSttModel(
   model: string | undefined,
 ) {
   if (provider === "assemblyai" && model === "universal") {
-    return "universal-3-pro";
+    return "universal-3-5-pro";
   }
 
   if (provider === "soniox") {
@@ -79,6 +79,10 @@ const normalizeSavedModel = (
   models: ModelEntry[],
 ) => {
   if (savedModel === "universal") {
+    if (models.some((model) => model.id === "universal-3-5-pro")) {
+      return "universal-3-5-pro";
+    }
+
     if (models.some((model) => model.id === "universal-3-pro")) {
       return "universal-3-pro";
     }

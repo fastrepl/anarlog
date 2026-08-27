@@ -87,12 +87,20 @@ export const displayModelId = (model: string): string => {
     return "Flux General English";
   }
 
-  if (model === "u3-rt-pro") {
+  if (model === "universal-3-5-pro-realtime") {
     return "Universal 3.5 Pro Realtime";
   }
 
-  if (model === "universal-3-pro" || model === "universal") {
+  if (model === "universal-3-5-pro") {
     return "Universal 3.5 Pro";
+  }
+
+  if (model === "u3-rt-pro") {
+    return "Universal 3 Pro Realtime";
+  }
+
+  if (model === "universal-3-pro" || model === "universal") {
+    return "Universal 3 Pro";
   }
 
   if (model === "whisper-rt") {
@@ -271,6 +279,24 @@ export const displayModelId = (model: string): string => {
   return model;
 };
 
+const DEPRECATED_STT_MODELS: Record<string, readonly string[]> = {
+  assemblyai: ["universal-3-pro", "u3-rt-pro"],
+  openai: ["gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+  openrouter: ["openai/gpt-4o-transcribe", "openai/gpt-4o-mini-transcribe"],
+  soniox: ["stt-rt-v4", "stt-async-v4", "stt-v4"],
+};
+
+export function isDeprecatedSttModel(
+  provider?: string | null,
+  model?: string | null,
+) {
+  if (!provider || !model) {
+    return false;
+  }
+
+  return DEPRECATED_STT_MODELS[provider]?.includes(model) === true;
+}
+
 export function displayModelLabel(model: string, displayName?: string) {
   return displayName ?? displayModelId(model);
 }
@@ -374,7 +400,12 @@ const _PROVIDERS = [
     badge: null,
     icon: <ProviderLobeIcon icon={AssemblyAI} />,
     baseUrl: "https://api.assemblyai.com",
-    models: ["universal-3-pro", "u3-rt-pro"],
+    models: [
+      "universal-3-5-pro",
+      "universal-3-5-pro-realtime",
+      "universal-3-pro",
+      "u3-rt-pro",
+    ],
     requirements: [{ kind: "requires_config", fields: ["api_key"] }],
     links: {
       models: {
@@ -422,6 +453,7 @@ const _PROVIDERS = [
     icon: <ProviderLobeIcon icon={OpenRouter} />,
     baseUrl: "https://openrouter.ai/api/v1",
     models: [
+      "openai/gpt-transcribe",
       "openai/gpt-4o-mini-transcribe",
       "openai/gpt-4o-transcribe",
       "mistralai/voxtral-mini-transcribe",

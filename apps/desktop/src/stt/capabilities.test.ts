@@ -89,6 +89,15 @@ describe("getSttModelTranscriptionMode", () => {
     expect(getSttModelTranscriptionMode("assemblyai", "universal-3-pro")).toBe(
       "batch",
     );
+    expect(
+      getSttModelTranscriptionMode("assemblyai", "universal-3-5-pro"),
+    ).toBe("batch");
+    expect(
+      getSttModelTranscriptionMode("assemblyai", "universal-3-5-pro-realtime"),
+    ).toBe("live");
+    expect(getSttModelTranscriptionMode("assemblyai", "u3-rt-pro")).toBe(
+      "live",
+    );
     expect(getSttModelTranscriptionMode("mistral", "voxtral-mini-2602")).toBe(
       "batch",
     );

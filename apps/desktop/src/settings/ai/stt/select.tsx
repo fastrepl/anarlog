@@ -51,6 +51,7 @@ import {
   displayModelLabel,
   formatDownloadProgress,
   formatModelSize,
+  isDeprecatedSttModel,
   type ProviderId,
   PROVIDERS,
   sttModelQueries,
@@ -743,6 +744,7 @@ function useConfiguredMapping(): {
               id: model,
               isDownloaded: true,
               mode: mode === "live" ? "realtime" : mode,
+              isDeprecated: isDeprecatedSttModel(provider.id, model),
             };
           }),
         },
@@ -828,6 +830,7 @@ function ModelSelectItem({
       />
       <div className="flex shrink-0 items-center gap-2 text-[11px]">
         <LocalModelBackendBadge model={model.id} />
+        {isDeprecated && <DeprecatedBadge />}
         {model.mode !== "realtime" && <ModelModeBadge mode={model.mode} />}
         {!model.isDownloaded && sizeLabel && (
           <span className="text-muted-foreground font-mono">{sizeLabel}</span>
@@ -930,8 +933,22 @@ function ModelSelectedValue({ model }: { model: ModelEntry }) {
         className={cn(["min-w-0", isDeprecated && "opacity-60"])}
         labelClassName={cn([isDeprecated && "text-muted-foreground"])}
       />
+      {isDeprecated && <DeprecatedBadge />}
       <ModelModeBadge mode={model.mode} />
     </div>
+  );
+}
+
+function DeprecatedBadge() {
+  return (
+    <span
+      className={cn([
+        "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+        "bg-amber-50 text-amber-800",
+      ])}
+    >
+      <Trans>Deprecated</Trans>
+    </span>
   );
 }
 

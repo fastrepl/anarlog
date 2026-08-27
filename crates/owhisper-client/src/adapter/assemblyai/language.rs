@@ -1,5 +1,11 @@
 use crate::adapter::{LanguageQuality, LanguageSupport};
 
+// https://www.assemblyai.com/docs/streaming/select-the-speech-model
+pub(super) const U35_STREAMING_LANGUAGES: &[&str] = &[
+    "en", "es", "de", "fr", "pt", "it", "tr", "nl", "sv", "no", "da", "fi", "hi", "vi", "ar", "he",
+    "ja", "zh",
+];
+
 // https://www.assemblyai.com/docs/api-reference/streaming-api/universal-3-pro-streaming/universal-3-pro-streaming
 pub(super) const U3_STREAMING_LANGUAGES: &[&str] = &["en", "es", "fr", "de", "it", "pt"];
 
@@ -20,7 +26,7 @@ pub(super) const STREAMING_LANGUAGES: &[&str] = BATCH_LANGUAGES;
 
 pub(super) fn single_language_support_live(language: &anlg_language::Language) -> LanguageSupport {
     let code = language.iso639().code();
-    if U3_STREAMING_LANGUAGES.contains(&code) {
+    if U35_STREAMING_LANGUAGES.contains(&code) {
         LanguageSupport::Supported {
             quality: LanguageQuality::High,
         }

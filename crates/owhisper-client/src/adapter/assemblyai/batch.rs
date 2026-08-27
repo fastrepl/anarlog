@@ -139,11 +139,14 @@ impl AssemblyAIAdapter {
             Some("u3-rt-pro" | "universal-3-pro") => {
                 vec!["universal-3-pro".to_string(), "universal-2".to_string()]
             }
+            Some("universal-3-5-pro" | "universal-3-5-pro-realtime") => {
+                vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
+            }
             Some(m) if !m.is_empty() && !crate::providers::is_meta_model(m) => {
                 vec![m.to_string()]
             }
             _ => {
-                vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+                vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
             }
         }
     }
@@ -407,12 +410,12 @@ mod tests {
     fn batch_defaults_expand_to_current_model_stack() {
         assert_eq!(
             AssemblyAIAdapter::resolve_batch_speech_models(&ListenParams::default()),
-            vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+            vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
         );
     }
 
     #[test]
-    fn batch_explicit_u3_models_expand_to_current_model_stack() {
+    fn batch_explicit_u3_models_expand_to_legacy_model_stack() {
         for model in ["u3-rt-pro", "universal-3-pro"] {
             let params = ListenParams {
                 model: Some(model.to_string()),
@@ -422,6 +425,21 @@ mod tests {
             assert_eq!(
                 AssemblyAIAdapter::resolve_batch_speech_models(&params),
                 vec!["universal-3-pro".to_string(), "universal-2".to_string()]
+            );
+        }
+    }
+
+    #[test]
+    fn batch_explicit_u35_models_expand_to_current_model_stack() {
+        for model in ["universal-3-5-pro", "universal-3-5-pro-realtime"] {
+            let params = ListenParams {
+                model: Some(model.to_string()),
+                ..Default::default()
+            };
+
+            assert_eq!(
+                AssemblyAIAdapter::resolve_batch_speech_models(&params),
+                vec!["universal-3-5-pro".to_string(), "universal-2".to_string()]
             );
         }
     }

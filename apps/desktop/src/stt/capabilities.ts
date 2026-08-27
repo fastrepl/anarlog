@@ -209,8 +209,12 @@ export function getSttModelTranscriptionMode(
   }
 
   if (provider === "assemblyai") {
-    if (model === "universal-3-pro") return "batch";
-    if (model === "u3-rt-pro") return "live";
+    if (model === "universal-3-pro" || model === "universal-3-5-pro") {
+      return "batch";
+    }
+    if (model === "u3-rt-pro" || model === "universal-3-5-pro-realtime") {
+      return "live";
+    }
   }
 
   if (provider === "elevenlabs") {

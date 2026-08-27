@@ -50,7 +50,7 @@ impl BatchSttAdapter for OpenRouterAdapter {
                 OpenAICompatibleBatchConfig {
                     provider: "openrouter",
                     default_api_base: "https://openrouter.ai/api/v1",
-                    default_model: "openai/gpt-4o-mini-transcribe",
+                    default_model: "openai/gpt-transcribe",
                     transcription_path: "audio/transcriptions",
                     response_format: None,
                     timestamp_field: None,

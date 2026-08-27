@@ -4,7 +4,7 @@ use owhisper_interface::stream::{Alternatives, Channel, Metadata, StreamResponse
 use serde::Deserialize;
 
 use super::AssemblyAIAdapter;
-use super::language::U3_STREAMING_LANGUAGES;
+use super::language::{U3_STREAMING_LANGUAGES, U35_STREAMING_LANGUAGES};
 use crate::adapter::RealtimeSttAdapter;
 use crate::adapter::parsing::{WordBuilder, calculate_time_span, ms_to_secs};
 
@@ -57,7 +57,10 @@ impl RealtimeSttAdapter for AssemblyAIAdapter {
                 query_pairs.append_pair("max_turn_silence", max_silence);
             }
 
-            if matches!(resolved_model, ResolvedLiveModel::U3RtPro) {
+            if matches!(
+                resolved_model,
+                ResolvedLiveModel::Universal35Pro | ResolvedLiveModel::U3RtPro
+            ) {
                 if Self::streaming_speaker_labels_enabled(params) {
                     query_pairs.append_pair("speaker_labels", "true");
                 }
@@ -207,23 +210,29 @@ struct AssemblyAIWord {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ResolvedLiveModel {
+    Universal35Pro,
     U3RtPro,
     WhisperRt,
 }
 
 impl AssemblyAIAdapter {
     fn resolve_live_model(params: &ListenParams) -> ResolvedLiveModel {
-        match params.model.as_deref() {
-            Some("whisper-rt") => ResolvedLiveModel::WhisperRt,
-            _ if params.languages.is_empty() => ResolvedLiveModel::U3RtPro,
-            _ if params
+        let requested = match params.model.as_deref() {
+            Some("whisper-rt") => return ResolvedLiveModel::WhisperRt,
+            Some("u3-rt-pro" | "universal-3-pro") => ResolvedLiveModel::U3RtPro,
+            _ => ResolvedLiveModel::Universal35Pro,
+        };
+        let supported_languages = requested.streaming_languages();
+
+        if params.languages.is_empty()
+            || params
                 .languages
                 .iter()
-                .all(|language| U3_STREAMING_LANGUAGES.contains(&language.iso639().code())) =>
-            {
-                ResolvedLiveModel::U3RtPro
-            }
-            _ => ResolvedLiveModel::WhisperRt,
+                .all(|language| supported_languages.contains(&language.iso639().code()))
+        {
+            requested
+        } else {
+            ResolvedLiveModel::WhisperRt
         }
     }
 
@@ -345,8 +354,17 @@ impl AssemblyAIAdapter {
 }
 
 impl ResolvedLiveModel {
+    fn streaming_languages(self) -> &'static [&'static str] {
+        match self {
+            Self::Universal35Pro => U35_STREAMING_LANGUAGES,
+            Self::U3RtPro => U3_STREAMING_LANGUAGES,
+            Self::WhisperRt => &[],
+        }
+    }
+
     fn query_config(self, params: &ListenParams) -> (&'static str, bool) {
         match self {
+            Self::Universal35Pro => ("universal-3-5-pro", params.languages.len() > 1),
             Self::U3RtPro => ("u3-rt-pro", params.languages.len() > 1),
             Self::WhisperRt => ("whisper-rt", params.languages.len() > 1),
         }
@@ -376,14 +394,14 @@ mod tests {
                     name: "english_only",
                     model: None,
                     languages: &[ISO639::En],
-                    contains: &["speech_model=u3-rt-pro"],
+                    contains: &["speech_model=universal-3-5-pro"],
                     not_contains: &["format_turns", "language=", "language_detection"],
                 },
                 UrlTestCase {
                     name: "empty_defaults_to_english",
                     model: None,
                     languages: &[],
-                    contains: &["speech_model=u3-rt-pro"],
+                    contains: &["speech_model=universal-3-5-pro"],
                     not_contains: &["format_turns", "language=", "language_detection"],
                 },
             ],
@@ -397,17 +415,31 @@ mod tests {
             API_BASE,
             &[
                 UrlTestCase {
-                    name: "explicit_supported_language_keeps_u3",
+                    name: "explicit_supported_language_keeps_u35",
+                    model: Some("universal-3-5-pro-realtime"),
+                    languages: &[ISO639::Es],
+                    contains: &["speech_model=universal-3-5-pro"],
+                    not_contains: &["format_turns", "language=", "speech_model=whisper-rt"],
+                },
+                UrlTestCase {
+                    name: "legacy_u3_model_keeps_u3",
                     model: Some("u3-rt-pro"),
                     languages: &[ISO639::Es],
                     contains: &["speech_model=u3-rt-pro"],
                     not_contains: &["format_turns", "language=", "speech_model=whisper-rt"],
                 },
                 UrlTestCase {
-                    name: "supported_multi_language_keeps_u3",
+                    name: "supported_multi_language_keeps_u35",
                     model: None,
                     languages: &[ISO639::En, ISO639::Es],
-                    contains: &["speech_model=u3-rt-pro", "language_detection=true"],
+                    contains: &["speech_model=universal-3-5-pro", "language_detection=true"],
+                    not_contains: &["format_turns", "language=", "speech_model=whisper-rt"],
+                },
+                UrlTestCase {
+                    name: "u35_language_outside_legacy_u3_keeps_u35",
+                    model: Some("universal-3-5-pro-realtime"),
+                    languages: &[ISO639::Ja],
+                    contains: &["speech_model=universal-3-5-pro"],
                     not_contains: &["format_turns", "language=", "speech_model=whisper-rt"],
                 },
                 UrlTestCase {
@@ -437,7 +469,7 @@ mod tests {
         let url = AssemblyAIAdapter.build_ws_url(
             API_BASE,
             &owhisper_interface::ListenParams {
-                model: Some("u3-rt-pro".to_string()),
+                model: Some("universal-3-5-pro-realtime".to_string()),
                 num_speakers: Some(3),
                 ..Default::default()
             },
@@ -454,7 +486,7 @@ mod tests {
         let url = AssemblyAIAdapter.build_ws_url(
             API_BASE,
             &owhisper_interface::ListenParams {
-                model: Some("u3-rt-pro".to_string()),
+                model: Some("universal-3-5-pro-realtime".to_string()),
                 min_speakers: Some(2),
                 ..Default::default()
             },
@@ -494,17 +526,32 @@ mod tests {
     }
 
     #[test]
-    fn test_resolve_live_model_prefers_u3_then_whisper_fallback() {
+    fn test_resolve_live_model_prefers_u35_then_whisper_fallback() {
         assert_eq!(
             AssemblyAIAdapter::resolve_live_model(&ListenParams::default()),
-            ResolvedLiveModel::U3RtPro
+            ResolvedLiveModel::Universal35Pro
         );
         assert_eq!(
             AssemblyAIAdapter::resolve_live_model(&ListenParams {
                 languages: vec![ISO639::Es.into()],
                 ..Default::default()
             }),
-            ResolvedLiveModel::U3RtPro
+            ResolvedLiveModel::Universal35Pro
+        );
+        assert_eq!(
+            AssemblyAIAdapter::resolve_live_model(&ListenParams {
+                languages: vec![ISO639::Ja.into()],
+                ..Default::default()
+            }),
+            ResolvedLiveModel::Universal35Pro
+        );
+        assert_eq!(
+            AssemblyAIAdapter::resolve_live_model(&ListenParams {
+                model: Some("u3-rt-pro".to_string()),
+                languages: vec![ISO639::Ja.into()],
+                ..Default::default()
+            }),
+            ResolvedLiveModel::WhisperRt
         );
         assert_eq!(
             AssemblyAIAdapter::resolve_live_model(&ListenParams {

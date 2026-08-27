@@ -1675,6 +1675,11 @@ msgstr "Deleting..."
 msgid "Deny"
 msgstr "Deny"
 
+#: src/settings/ai/shared/model-combobox.tsx
+#: src/settings/ai/stt/select.tsx
+msgid "Deprecated"
+msgstr "Deprecated"
+
 #: src/templates/template-form.tsx
 msgid "Describe the template purpose..."
 msgstr "Describe the template purpose..."

@@ -1,7 +1,12 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { displayModelLabel, formatDownloadProgress, PROVIDERS } from "./shared";
+import {
+  displayModelLabel,
+  formatDownloadProgress,
+  isDeprecatedSttModel,
+  PROVIDERS,
+} from "./shared";
 
 describe("STT providers", () => {
   test("orders providers by popularity", () => {
@@ -56,7 +61,12 @@ describe("STT model display labels", () => {
 
   test("uses product-facing labels for hosted provider models", () => {
     expect(displayModelLabel("stt-rt-v5")).toBe("Soniox 5");
-    expect(displayModelLabel("u3-rt-pro")).toBe("Universal 3.5 Pro Realtime");
+    expect(displayModelLabel("u3-rt-pro")).toBe("Universal 3 Pro Realtime");
+    expect(displayModelLabel("universal-3-pro")).toBe("Universal 3 Pro");
+    expect(displayModelLabel("universal-3-5-pro")).toBe("Universal 3.5 Pro");
+    expect(displayModelLabel("universal-3-5-pro-realtime")).toBe(
+      "Universal 3.5 Pro Realtime",
+    );
     expect(displayModelLabel("gpt-4o-transcribe-diarize")).toBe(
       "GPT-4o Transcribe Diarize",
     );
@@ -143,5 +153,39 @@ describe("STT model display labels", () => {
     expect(formatDownloadProgress(0)).toBeNull();
     expect(formatDownloadProgress(12.4)).toBe("12%");
     expect(formatDownloadProgress(100)).toBe("100%");
+  });
+});
+
+describe("STT model deprecation", () => {
+  test("lists current AssemblyAI models ahead of the Universal 3 pair", () => {
+    const assemblyai = PROVIDERS.find(
+      (provider) => provider.id === "assemblyai",
+    );
+
+    expect(assemblyai?.models).toEqual([
+      "universal-3-5-pro",
+      "universal-3-5-pro-realtime",
+      "universal-3-pro",
+      "u3-rt-pro",
+    ]);
+  });
+
+  test("marks superseded hosted models as deprecated", () => {
+    expect(isDeprecatedSttModel("assemblyai", "universal-3-pro")).toBe(true);
+    expect(isDeprecatedSttModel("assemblyai", "u3-rt-pro")).toBe(true);
+    expect(isDeprecatedSttModel("assemblyai", "universal-3-5-pro")).toBe(false);
+    expect(
+      isDeprecatedSttModel("assemblyai", "universal-3-5-pro-realtime"),
+    ).toBe(false);
+    expect(isDeprecatedSttModel("openai", "gpt-4o-transcribe")).toBe(true);
+    expect(isDeprecatedSttModel("openai", "gpt-transcribe")).toBe(false);
+    expect(
+      isDeprecatedSttModel("openrouter", "openai/gpt-4o-mini-transcribe"),
+    ).toBe(true);
+    expect(isDeprecatedSttModel("openrouter", "openai/gpt-transcribe")).toBe(
+      false,
+    );
+    expect(isDeprecatedSttModel("soniox", "stt-rt-v4")).toBe(true);
+    expect(isDeprecatedSttModel("soniox", "stt-rt-v5")).toBe(false);
   });
 });

@@ -122,6 +122,9 @@ export function ModelCombobox({
   );
   const canSelectFreeform = trimmedQuery.length > 0 && !hasExactMatch;
   const hasIgnoredOptions = ignoredOptions.length > 0;
+  const isSelectedDeprecated = ignoredOptions.some(
+    (option) => option.id === value && option.reasons.includes("old_model"),
+  );
 
   const handleSelect = useCallback(
     (option: string) => {
@@ -153,8 +156,16 @@ export function ModelCombobox({
         >
           <span className="flex w-full min-w-0 items-center justify-between gap-2">
             {value && value.length > 0 ? (
-              <span className="truncate">
-                {getDisplayName(providerId, value)}
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className={cn([
+                    "truncate",
+                    isSelectedDeprecated && "text-muted-foreground",
+                  ])}
+                >
+                  {getDisplayName(providerId, value)}
+                </span>
+                {isSelectedDeprecated ? <DeprecatedBadge /> : null}
               </span>
             ) : (
               <span className="text-muted-foreground truncate">
@@ -260,8 +271,13 @@ export function ModelCombobox({
                     >
                       <Tooltip delayDuration={10}>
                         <TooltipTrigger asChild>
-                          <span className="w-full truncate">
-                            {getDisplayName(providerId, option.id)}
+                          <span className="flex w-full min-w-0 items-center gap-2">
+                            <span className="truncate">
+                              {getDisplayName(providerId, option.id)}
+                            </span>
+                            {option.reasons.includes("old_model") ? (
+                              <DeprecatedBadge />
+                            ) : null}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="right" className="text-xs">
@@ -339,5 +355,18 @@ export function ModelCombobox({
         </AppFloatingPanel>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function DeprecatedBadge() {
+  return (
+    <span
+      className={cn([
+        "shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
+        "bg-amber-50 text-amber-800",
+      ])}
+    >
+      <Trans>Deprecated</Trans>
+    </span>
   );
 }

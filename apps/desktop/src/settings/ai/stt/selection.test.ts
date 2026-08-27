@@ -12,12 +12,11 @@ describe("getDefaultSttModel", () => {
   test("repairs external providers with their first supported model", () => {
     expect(getDefaultSttModel("local_file")).toBe("local-file");
     expect(getDefaultSttModel("deepgram")).toBe("nova-3-general");
+    expect(getDefaultSttModel("assemblyai")).toBe("universal-3-5-pro");
     expect(getDefaultSttModel("soniox")).toBe("stt-rt-v5");
     expect(getDefaultSttModel("cohere")).toBe("cohere-transcribe-03-2026");
     expect(getDefaultSttModel("groq")).toBe("whisper-large-v3-turbo");
-    expect(getDefaultSttModel("openrouter")).toBe(
-      "openai/gpt-4o-mini-transcribe",
-    );
+    expect(getDefaultSttModel("openrouter")).toBe("openai/gpt-transcribe");
     expect(getDefaultSttModel("xai")).toBe("xai-stt");
     expect(getDefaultSttModel("together")).toBe("openai/whisper-large-v3");
     expect(getDefaultSttModel("speechmatics")).toBe("enhanced");
@@ -92,13 +91,13 @@ describe("getPreferredProviderModel", () => {
     ).toBe("");
   });
 
-  test("migrates AssemblyAI universal to universal-3-pro when available", () => {
+  test("migrates AssemblyAI universal to universal-3-5-pro when available", () => {
     expect(
       getPreferredProviderModel("universal", [
+        { id: "universal-3-5-pro" },
         { id: "universal-3-pro" },
-        { id: "universal-2" },
       ]),
-    ).toBe("universal-3-pro");
+    ).toBe("universal-3-5-pro");
   });
 
   test("migrates Soniox aliases to explicit realtime models", () => {
@@ -147,7 +146,7 @@ describe("getDefaultSttSelection", () => {
           },
           assemblyai: {
             configured: true,
-            models: [{ id: "universal-3-pro" }],
+            models: [{ id: "universal-3-5-pro" }],
           },
         },
         "deepgram",
