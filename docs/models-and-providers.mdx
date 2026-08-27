@@ -91,7 +91,7 @@ When you configure a provider with your own API key:
 
 - Anarlog sends requests directly from the desktop app to the configured base URL.
 - The provider and exact model shown in Settings handle the request.
-- Anarlog stores the API key in your operating system's secure credential store, not in the app's SQLite database.
+- Anarlog stores the API key in your operating system's secure credential store, not in the app database. Keys stay on that computer and do not [sync](/sync#what-cloud-sync-replicates) to your other devices.
 - The provider's pricing, retention, and training policies apply.
 
 Anarlog supports dedicated provider integrations and OpenAI-compatible endpoints. Intelligence model lists are loaded from the provider when its API supports discovery, so **Settings → Intelligence** is the current source of truth for available model IDs.

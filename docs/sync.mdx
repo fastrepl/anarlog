@@ -14,6 +14,30 @@ Sync runs automatically in the background. Use **Sync now** to send and receive 
 
 Pause sync when you want changes to remain only on the current device for a while. Resume it to send pending changes and receive updates from your other devices.
 
+## What Cloud Sync replicates
+
+Cloud Sync copies end-to-end encrypted notes across your signed-in devices. Anarlog cannot read this data.
+
+Each synced device receives:
+
+- Meeting notes, including titles, memos, and generated summaries
+- Transcripts and speaker assignments
+- Participants, people, and organizations
+- Action items
+- A few preferences: **Theme**, **App icon**, **Week starts on**, and **Default sharing**
+
+API keys, model selections, and most other settings stay on the computer where you entered them. After you add a new device, enter each Transcription and Intelligence API key again and choose the models you want on that computer. Anarlog stores those keys in the operating system's credential store and does not copy them between devices.
+
+Also set up on each device:
+
+- Calendar connections
+- Downloaded local models
+- Device-specific options such as audio devices, autostart, notifications, and recording retention
+
+Saved recordings and file attachments remain in the local storage folder on that computer. See [Don't combine sync with a cloud-storage folder](#dont-combine-sync-with-a-cloud-storage-folder).
+
+See [Data, privacy, and retention](/data-and-privacy) for what can leave your computer for hosted AI, sharing, and other features.
+
 ## Save the recovery key
 
 Your recovery key encrypts synced notes before they leave your device, so Anarlog cannot read or recover it.
@@ -36,10 +60,9 @@ The key is shown only during setup. Clipboard copies clear after 60 seconds when
 2. Open **Settings → Sync** and turn on Cloud sync.
 3. Choose the option to enter an existing recovery key.
 4. Paste the key from your password manager, then wait for the first sync to finish.
+5. Re-enter any Transcription or Intelligence API keys you use on this computer, then select those models under **Settings → Transcription** and **Settings → Intelligence**.
 
 One account can sync up to five devices. If you reach the limit, remove an unused device before enabling sync on another one.
-
-See [Data, privacy, and retention](/data-and-privacy) for what stays on your computer.
 
 Cloud API & Connectors is a separate, optional feature. If you enable it under **Settings → Developers**, Anarlog uploads a server-readable copy for remote agents; it does not decrypt or weaken your end-to-end encrypted sync data. See [Cloud API and connectors](/reference/api-cloud).
 
