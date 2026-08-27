@@ -325,10 +325,14 @@ impl StreamingProxy {
         }
     }
 
-    pub async fn handle_upgrade(&self, ws: WebSocketUpgrade) -> Response<Body> {
+    pub async fn handle_upgrade_with_guard<G: Send + 'static>(
+        &self,
+        ws: WebSocketUpgrade,
+        guard: G,
+    ) -> Response<Body> {
         match self {
-            Self::Single(proxy) => proxy.handle_upgrade(ws).await,
-            Self::ChannelSplit(proxy) => proxy.handle_upgrade(ws).await,
+            Self::Single(proxy) => proxy.handle_upgrade_with_guard(ws, guard).await,
+            Self::ChannelSplit(proxy) => proxy.handle_upgrade_with_guard(ws, guard).await,
         }
     }
 }

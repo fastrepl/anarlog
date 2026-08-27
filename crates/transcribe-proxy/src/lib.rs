@@ -8,6 +8,7 @@ mod provider_selector;
 mod query_params;
 mod relay;
 mod routes;
+mod session_gate;
 mod supabase;
 mod upstream_url;
 
@@ -20,5 +21,9 @@ pub use error::*;
 pub use openapi::openapi;
 pub use provider_selector::{ProviderSelector, SelectedProvider};
 pub use relay::{ClientRequestBuilder, UpstreamError, WebSocketProxy, detect_upstream_error};
-pub use routes::{callback_router, listen_router, router};
+pub use routes::{
+    callback_router, listen_router, listen_router_with_session_gate, router,
+    router_with_session_gate,
+};
+pub use session_gate::{ServerDraining, SessionGate, SessionPermit};
 pub use upstream_url::UpstreamUrlBuilder;

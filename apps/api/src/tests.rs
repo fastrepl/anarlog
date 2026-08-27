@@ -188,6 +188,51 @@ async fn boots_with_minimal_self_hosted_configuration() {
 }
 
 #[tokio::test]
+async fn drain_status_reports_live_streams_without_failing_health() {
+    let gate = anlg_transcribe_proxy::SessionGate::new();
+    let permit = gate.try_acquire().unwrap();
+    let app = app_with_session_gate(api_env(false), gate.clone()).await;
+
+    assert_eq!(
+        request_status(&app, Method::GET, "/health").await,
+        StatusCode::OK
+    );
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/drain")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: Value = serde_json::from_slice(&response_bytes(response).await).unwrap();
+    assert_eq!(body["draining"], false);
+    assert_eq!(body["active_streams"], 1);
+
+    gate.begin_drain();
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method(Method::GET)
+                .uri("/drain")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    let body: Value = serde_json::from_slice(&response_bytes(response).await).unwrap();
+    assert_eq!(body["draining"], true);
+    assert_eq!(body["active_streams"], 1);
+    drop(permit);
+}
+
+#[tokio::test]
 async fn hosted_configuration_keeps_optional_routes_mounted() {
     let app = app_with_env(api_env(true)).await;
 

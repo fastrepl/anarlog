@@ -21,6 +21,7 @@ use crate::anarlog_routing::{AnarlogRouter, RoutingMode, should_use_anarlog_rout
 use crate::config::SttProxyConfig;
 use crate::provider_selector::{ProviderSelector, SelectedProvider};
 use crate::query_params::QueryParams;
+use crate::session_gate::SessionGate;
 use crate::supabase::SupabaseClient;
 
 pub(crate) use error::{RouteError, parse_async_provider};
@@ -38,6 +39,7 @@ pub(crate) struct AppState {
     pub selector: ProviderSelector,
     pub router: Option<Arc<AnarlogRouter>>,
     pub client: reqwest::Client,
+    pub session_gate: SessionGate,
     batch_requests: Arc<Semaphore>,
 }
 
@@ -154,7 +156,7 @@ impl AppState {
     }
 }
 
-fn make_state(config: SttProxyConfig) -> AppState {
+fn make_state(config: SttProxyConfig, session_gate: SessionGate) -> AppState {
     let selector = config.provider_selector();
     let router = config.anarlog_router().map(Arc::new);
 
@@ -163,6 +165,7 @@ fn make_state(config: SttProxyConfig) -> AppState {
         selector,
         router,
         client: reqwest::Client::new(),
+        session_gate,
         batch_requests: BATCH_REQUEST_SLOTS.clone(),
     }
 }
@@ -172,7 +175,11 @@ fn with_common_layers(router: Router) -> Router {
 }
 
 pub fn router(config: SttProxyConfig) -> Router {
-    let state = make_state(config);
+    router_with_session_gate(config, SessionGate::new())
+}
+
+pub fn router_with_session_gate(config: SttProxyConfig, session_gate: SessionGate) -> Router {
+    let state = make_state(config, session_gate);
 
     with_common_layers(
         Router::new()
@@ -186,7 +193,14 @@ pub fn router(config: SttProxyConfig) -> Router {
 }
 
 pub fn listen_router(config: SttProxyConfig) -> Router {
-    let state = make_state(config);
+    listen_router_with_session_gate(config, SessionGate::new())
+}
+
+pub fn listen_router_with_session_gate(
+    config: SttProxyConfig,
+    session_gate: SessionGate,
+) -> Router {
+    let state = make_state(config, session_gate);
 
     with_common_layers(
         Router::new()
@@ -197,7 +211,7 @@ pub fn listen_router(config: SttProxyConfig) -> Router {
 }
 
 pub fn callback_router(config: SttProxyConfig) -> Router {
-    let state = make_state(config);
+    let state = make_state(config, SessionGate::new());
 
     Router::new()
         .route("/callback/{provider}/{id}", post(callback::handler))
@@ -219,7 +233,7 @@ mod tests {
             supabase_service_role_key: String::new(),
         };
 
-        make_state(SttProxyConfig::new(&env, &supabase))
+        make_state(SttProxyConfig::new(&env, &supabase), SessionGate::new())
     }
 
     #[test]
@@ -230,6 +244,37 @@ mod tests {
         let selected = state.resolve_provider(&mut params).unwrap();
 
         assert_eq!(selected.provider(), Provider::Deepgram);
+    }
+
+    #[tokio::test]
+    async fn draining_rejects_new_streaming_sessions() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let mut env = Env::default();
+        env.stt.deepgram_api_key = Some("deepgram-key".to_string());
+        let supabase = anlg_api_env::SupabaseEnv {
+            supabase_url: String::new(),
+            supabase_anon_key: String::new(),
+            supabase_service_role_key: String::new(),
+        };
+        let gate = SessionGate::new();
+        gate.begin_drain();
+        let app = listen_router_with_session_gate(SttProxyConfig::new(&env, &supabase), gate);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/listen")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(response.headers().get("retry-after").unwrap(), "2");
     }
 
     #[test]

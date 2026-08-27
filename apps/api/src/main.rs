@@ -148,12 +148,15 @@ fn build_sync_routes(
         .merge(web_edit_routes)
 }
 
-async fn app() -> Router {
-    let env = env();
-    app_with_env(env).await
+#[cfg(test)]
+async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
+    app_with_session_gate(env, anlg_transcribe_proxy::SessionGate::new()).await
 }
 
-async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
+async fn app_with_session_gate(
+    env: &'static crate::env::RuntimeConfig,
+    session_gate: anlg_transcribe_proxy::SessionGate,
+) -> Router {
     let analytics = build_analytics_client(env);
 
     let llm_config =
@@ -411,8 +414,14 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
     };
 
     let stt_routes = Router::new()
-        .merge(anlg_transcribe_proxy::listen_router(stt_config.clone()))
-        .nest("/stt", anlg_transcribe_proxy::router(stt_config))
+        .merge(anlg_transcribe_proxy::listen_router_with_session_gate(
+            stt_config.clone(),
+            session_gate.clone(),
+        ))
+        .nest(
+            "/stt",
+            anlg_transcribe_proxy::router_with_session_gate(stt_config, session_gate.clone()),
+        )
         .route_layer(middleware::from_fn_with_state(
             stt_rate_limit,
             rate_limit::rate_limit,
@@ -450,9 +459,14 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
             auth::require_auth,
         ));
 
+    let drain_routes = Router::new()
+        .route("/drain", axum::routing::get(drain_status))
+        .with_state(session_gate);
+
     Router::new()
         .route("/health", axum::routing::get(version))
         .route("/openapi.json", axum::routing::get(openapi_json))
+        .merge(drain_routes)
         .merge(webhook_routes)
         .merge(paid_routes)
         .merge(shared_notes_routes)
@@ -484,7 +498,7 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
                         .make_span_with(|request: &Request<Body>| {
                             let path = request.uri().path();
 
-                            if path == "/health" {
+                            if path == "/health" || path == "/drain" {
                                 return tracing::Span::none();
                             }
 
@@ -553,7 +567,8 @@ async fn app_with_env(env: &'static crate::env::RuntimeConfig) -> Router {
                         })
                         .on_request(|request: &Request<Body>, span: &tracing::Span| {
                             // Skip logging for health checks
-                            if request.uri().path() == "/health" {
+                            if request.uri().path() == "/health" || request.uri().path() == "/drain"
+                            {
                                 return;
                             }
                             if let Some(request_id) = request
@@ -685,7 +700,8 @@ fn main() -> std::io::Result<()> {
         .block_on(async {
             let addr = SocketAddr::from(([0, 0, 0, 0], env.port));
             let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-            let app = app().await;
+            let session_gate = anlg_transcribe_proxy::SessionGate::new();
+            let app = app_with_session_gate(env, session_gate.clone()).await;
             let cancellation = CancellationToken::new();
             let worker_task = env.anarlog_attachment_backup_gc_enabled.then(|| {
                 let (stripe, loops) = env
@@ -720,9 +736,10 @@ fn main() -> std::io::Result<()> {
             tracing::info!(addr = %addr, "server_listening");
 
             let shutdown_cancellation = cancellation.clone();
+            let shutdown_gate = session_gate.clone();
             let server_result = axum::serve(listener, app)
                 .with_graceful_shutdown(async move {
-                    shutdown_signal().await;
+                    drain_after_shutdown_signal(shutdown_gate).await;
                     shutdown_cancellation.cancel();
                 })
                 .await;
@@ -747,7 +764,53 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-async fn shutdown_signal() {
+const TERM_DRAIN_TIMEOUT: Duration = Duration::from_secs(270);
+
+async fn drain_status(
+    axum::extract::State(gate): axum::extract::State<anlg_transcribe_proxy::SessionGate>,
+) -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "draining": gate.is_draining(),
+        "active_streams": gate.active(),
+    }))
+}
+
+async fn drain_after_shutdown_signal(gate: anlg_transcribe_proxy::SessionGate) {
+    let force_timeout = wait_for_shutdown_kind().await;
+    gate.begin_drain();
+    tracing::info!(
+        active_streams = gate.active(),
+        force_timeout_ms = force_timeout.map(|timeout| timeout.as_millis() as u64),
+        "api_drain_started"
+    );
+
+    let idle = gate.wait_until_idle();
+    tokio::pin!(idle);
+
+    match force_timeout {
+        Some(timeout) => {
+            if tokio::time::timeout(timeout, idle).await.is_err() {
+                tracing::warn!(active_streams = gate.active(), "api_drain_timeout");
+            }
+        }
+        None => {
+            tokio::select! {
+                _ = &mut idle => {}
+                _ = stop_signal() => {
+                    tracing::info!(
+                        active_streams = gate.active(),
+                        "api_drain_force_stop_received"
+                    );
+                    if tokio::time::timeout(TERM_DRAIN_TIMEOUT, idle).await.is_err() {
+                        tracing::warn!(active_streams = gate.active(), "api_drain_timeout");
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn wait_for_shutdown_kind() -> Option<Duration> {
     let ctrl_c = async {
         tokio::signal::ctrl_c()
             .await
@@ -755,23 +818,50 @@ async fn shutdown_signal() {
     };
 
     #[cfg(unix)]
-    let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM signal handler")
-            .recv()
-            .await;
-    };
+    {
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("failed to install SIGTERM signal handler");
+        let mut drain =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::user_defined1())
+                .expect("failed to install SIGUSR1 signal handler");
 
-    #[cfg(unix)]
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
+        tokio::select! {
+            _ = ctrl_c => Some(TERM_DRAIN_TIMEOUT),
+            _ = terminate.recv() => Some(TERM_DRAIN_TIMEOUT),
+            _ = drain.recv() => None,
+        }
     }
 
     #[cfg(not(unix))]
-    ctrl_c.await;
+    {
+        ctrl_c.await;
+        Some(TERM_DRAIN_TIMEOUT)
+    }
+}
 
-    tracing::info!("shutdown_signal_received");
+async fn stop_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install CTRL+C signal handler");
+    };
+
+    #[cfg(unix)]
+    {
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("failed to install SIGTERM signal handler");
+        tokio::select! {
+            _ = ctrl_c => {}
+            _ = terminate.recv() => {}
+        }
+    }
+
+    #[cfg(not(unix))]
+    {
+        ctrl_c.await;
+    }
 }
 
 async fn openapi_json() -> axum::Json<utoipa::openapi::OpenApi> {

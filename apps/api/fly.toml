@@ -1,11 +1,14 @@
 app = 'anarlog-ai'
 primary_region = 'sjc'
 kill_signal = 'SIGTERM'
-kill_timeout = 30
+# Fly caps this at 300s. Meeting streams can last longer, so api_cd uses
+# cordoned replacement Machines + SIGUSR1 and leaves old Machines up until idle.
+kill_timeout = 300
 swap_size_mb = 512
 
-[deploy]
-strategy = "bluegreen"
+[[restart]]
+policy = "on-failure"
+processes = ["app"]
 
 [env]
 ANARLOG_ATTACHMENT_BACKUP_GC_ENABLED = "true"

@@ -28,7 +28,9 @@ jobs:
     needs: compute-version
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    concurrency: api-fly-deploy
+    concurrency:
+      group: api-fly-deploy
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
@@ -157,9 +159,10 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
           INFISICAL_PROJECT_ID: ${{ secrets.INFISICAL_PROJECT_ID }}
-      - run: flyctl deploy --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --remote-only --build-arg APP_VERSION=${{ needs.compute-version.outputs.version }}
+      - run: python3 .github/scripts/deploy_api_drain.py --app "$FLY_APP" --config apps/api/fly.toml --dockerfile apps/api/Dockerfile --version "$API_VERSION"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          API_VERSION: ${{ needs.compute-version.outputs.version }}
       - name: Verify Fly deployment
         run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 "https://${FLY_APP}.fly.dev/health"
       - if: failure()

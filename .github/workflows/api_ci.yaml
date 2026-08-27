@@ -4,6 +4,8 @@ on:
     branches:
       - main
     paths:
+      - .github/scripts/deploy_api_drain.py
+      - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
       - .github/scripts/verify_cloudsync_e2ee.py
       - .github/workflows/api_cd.yaml
@@ -14,6 +16,8 @@ on:
       - crates/transcribe-proxy/**
   pull_request:
     paths:
+      - .github/scripts/deploy_api_drain.py
+      - .github/scripts/test_deploy_api_drain.py
       - .github/scripts/test_verify_cloudsync_e2ee.py
       - .github/scripts/verify_cloudsync_e2ee.py
       - .github/workflows/api_cd.yaml
@@ -37,7 +41,10 @@ jobs:
           platform: linux
       - run: cargo check -p api
       - run: cargo test -p api-sync
+      - run: cargo test -p transcribe-proxy --lib
+      - run: cargo test -p api drain_status_reports_live_streams_without_failing_health
       - run: python3 .github/scripts/test_verify_cloudsync_e2ee.py
+      - run: python3 .github/scripts/test_deploy_api_drain.py
       - run: |
           cargo test -p api gen_openapi_json
           git diff --exit-code -- apps/api/openapi.gen.json

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{FromRequestParts, State, WebSocketUpgrade},
-    http::{StatusCode, request::Parts},
+    http::{StatusCode, header::RETRY_AFTER, request::Parts},
     response::{IntoResponse, Response},
 };
 use owhisper_client::Provider;
@@ -17,6 +17,7 @@ use owhisper_client::Provider;
 use crate::anarlog_routing::should_use_anarlog_routing;
 use crate::query_params::{QueryParams, QueryValue};
 use crate::relay::OnCloseCallback;
+use crate::session_gate::SessionPermit;
 
 use super::AppState;
 
@@ -43,6 +44,30 @@ pub fn parse_param<T: std::str::FromStr>(params: &QueryParams, key: &str, defaul
 pub struct AnalyticsContext {
     pub fingerprint: Option<String>,
     pub user_id: Option<String>,
+}
+
+pub struct DrainPermit(SessionPermit);
+
+impl FromRequestParts<AppState> for DrainPermit {
+    type Rejection = Response;
+
+    async fn from_request_parts(
+        _parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        match state.session_gate.try_acquire() {
+            Ok(permit) => Ok(Self(permit)),
+            Err(_) => {
+                tracing::info!("stt_ws_rejected_draining");
+                Err((
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    [(RETRY_AFTER, "2")],
+                    "server is draining existing sessions",
+                )
+                    .into_response())
+            }
+        }
+    }
 }
 
 pub fn build_on_close_callback(
@@ -97,7 +122,7 @@ where
 
 #[tracing::instrument(
     name = "stt.ws.upgrade",
-    skip(state, analytics_ctx, ws, params),
+    skip(state, permit, analytics_ctx, ws, params),
     fields(
         anarlog.subsystem = "stt",
         http.response.status_code = tracing::field::Empty,
@@ -115,6 +140,7 @@ where
 )]
 pub async fn handler(
     State(state): State<AppState>,
+    DrainPermit(permit): DrainPermit,
     analytics_ctx: AnalyticsContext,
     ws: WebSocketUpgrade,
     mut params: QueryParams,
@@ -264,5 +290,8 @@ pub async fn handler(
         }
     };
 
-    proxy.handle_upgrade(ws).await.into_response()
+    proxy
+        .handle_upgrade_with_guard(ws, permit)
+        .await
+        .into_response()
 }

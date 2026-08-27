@@ -136,11 +136,16 @@ impl WebSocketProxy {
         Ok(())
     }
 
-    pub async fn handle_upgrade(&self, ws: WebSocketUpgrade) -> Response<Body> {
+    pub async fn handle_upgrade_with_guard<G: Send + 'static>(
+        &self,
+        ws: WebSocketUpgrade,
+        guard: G,
+    ) -> Response<Body> {
         let proxy = self.clone();
         let hub = sentry::Hub::current();
         ws.on_upgrade(move |socket| {
             async move {
+                let _guard = guard;
                 if let Err(e) = proxy.handle(socket).await {
                     tracing::error!(
                         error = %e,
