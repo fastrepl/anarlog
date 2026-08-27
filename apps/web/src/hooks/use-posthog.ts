@@ -1,17 +1,18 @@
-import { usePostHog } from "@posthog/react";
 import { useCallback } from "react";
 
 import { env } from "@/env";
-import { usePostHogOperation, usePostHogReady } from "@/providers/posthog";
-
-export { usePostHog };
+import {
+  usePostHogClient,
+  usePostHogOperation,
+  usePostHogReady,
+} from "@/providers/posthog";
 
 /**
  * Hook for type-safe PostHog event tracking.
  * All callbacks are stable references that use the latest readiness state.
  */
 export function useAnalytics() {
-  const posthog = usePostHog();
+  const posthog = usePostHogClient();
   const analyticsReady = usePostHogReady();
   const runOrQueue = usePostHogOperation();
 

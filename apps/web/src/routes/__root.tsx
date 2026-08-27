@@ -27,9 +27,9 @@ interface RouterContext {
   queryClient: QueryClient;
 }
 
-const FONT_STYLESHEETS = [
-  "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Patrick+Hand&family=Reenie+Beanie&display=swap",
-] as const;
+const FONT_STYLESHEET =
+  "https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Patrick+Hand&family=Reenie+Beanie&display=swap";
+const FONT_STYLESHEET_ID = "anarlog-google-fonts";
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
@@ -68,10 +68,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         content: DEFAULT_OG_IMAGE_URL,
       },
     ],
-    // Render-blocking stylesheets are placed directly in the shell JSX
-    // (RootDocument) before <HeadContent /> so the browser discovers them
-    // before TanStack Router's 70+ modulepreload links. Only non-blocking
-    // links belong here.
+    // Stylesheets are placed directly in the shell JSX (RootDocument) before
+    // <HeadContent /> so the browser discovers them before TanStack Router's
+    // modulepreload links. Only non-blocking links belong here.
     links: [
       { rel: "icon", href: "/favicon.ico", sizes: "any" },
       {
@@ -126,9 +125,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-        {FONT_STYLESHEETS.map((href) => (
-          <link key={href} rel="stylesheet" href={href} />
-        ))}
+        <link rel="preload" as="style" href={FONT_STYLESHEET} />
+        <link
+          id={FONT_STYLESHEET_ID}
+          rel="stylesheet"
+          href={FONT_STYLESHEET}
+          media="print"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(() => { const link = document.getElementById("${FONT_STYLESHEET_ID}"); if (!link) return; const apply = () => { link.media = "all"; }; if (link.sheet) apply(); else link.addEventListener("load", apply, { once: true }); })();`,
+          }}
+        />
+        <noscript>
+          <link rel="stylesheet" href={FONT_STYLESHEET} />
+        </noscript>
         <link rel="stylesheet" href={appCss} />
         <HeadContent />
       </head>

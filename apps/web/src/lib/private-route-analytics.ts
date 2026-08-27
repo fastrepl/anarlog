@@ -1,5 +1,3 @@
-import posthog from "posthog-js";
-
 import { env } from "@/env";
 import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
 
@@ -127,9 +125,9 @@ export function resetPrivateRouteAnalyticsIdentity() {
   }
 
   privateRouteIdentity.reset();
-  try {
-    posthog.reset();
-  } catch {}
+  void import("posthog-js")
+    .then(({ default: client }) => client.reset())
+    .catch(() => undefined);
 }
 
 /**

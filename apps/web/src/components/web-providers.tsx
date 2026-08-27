@@ -8,6 +8,7 @@ import {
   type ClarityFunction,
 } from "@/lib/clarity-queue";
 import { hasGlobalPrivacyControl } from "@/lib/global-privacy-control";
+import { runWhenIdle } from "@/lib/run-when-idle";
 import { PostHogProvider } from "@/providers/posthog";
 import { bootstrapBrowserTelemetry, stopBrowserTelemetry } from "@/telemetry";
 
@@ -26,21 +27,6 @@ type AnalyticsWindow = Window &
     dataLayer?: unknown[];
     gtag?: (...args: unknown[]) => void;
   };
-
-/**
- * Defers third-party analytics script injection until the main thread is
- * idle so it stays off the critical rendering path (LCP/TBT). Falls back to
- * a timeout where `requestIdleCallback` is unavailable (e.g. Safari).
- */
-function runWhenIdle(callback: () => void): () => void {
-  if (typeof window.requestIdleCallback === "function") {
-    const idleId = window.requestIdleCallback(callback, { timeout: 5000 });
-    return () => window.cancelIdleCallback(idleId);
-  }
-
-  const timeoutId = window.setTimeout(callback, 2000);
-  return () => window.clearTimeout(timeoutId);
-}
 
 function GoogleAnalyticsScript() {
   useMountEffect(() => {

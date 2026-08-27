@@ -16,6 +16,7 @@ import {
   getOrderedDesktopDownloadSections,
 } from "@/lib/download";
 import { getResizedImageUrl } from "@/lib/image-cdn";
+import { runWhenIdle } from "@/lib/run-when-idle";
 import { createTrackedTimers } from "@/lib/tracked-timers";
 
 import { CredibilityLogoMarquee } from "./social-proof-sections";
@@ -106,9 +107,13 @@ function HeroWorkflowDemo() {
       }, 500);
     };
 
-    runAnimation();
+    const cancelIdle = runWhenIdle(runAnimation, {
+      timeout: 2000,
+      fallbackDelay: 1000,
+    });
 
     return () => {
+      cancelIdle();
       timers.clear();
     };
   });
