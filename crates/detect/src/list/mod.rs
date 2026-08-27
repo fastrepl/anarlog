@@ -81,8 +81,12 @@ pub fn list_mic_using_apps() -> Result<Vec<InstalledApp>, crate::Error> {
         {
             linux::list_mic_using_apps()?
         }
+        #[cfg(target_os = "windows")]
+        {
+            windows::list_mic_using_apps()?
+        }
 
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+        #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
         {
             Vec::<InstalledApp>::new()
         }

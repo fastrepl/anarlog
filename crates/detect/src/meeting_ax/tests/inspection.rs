@@ -75,7 +75,7 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
         node(1, "AXStaticText", "Video", None),
         node(2, "AXButton", "Camera preview", None),
     ];
-    let zoom_meeting = [node(
+    let zoom_participant_tile = [node(
         3,
         "AXGroup",
         "Video render Ada Lovelace, Computer audio unmuted",
@@ -87,9 +87,9 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
         &MeetingPlatform::Zoom,
         &settings,
     ));
-    assert!(native_meeting_window_is_validated(
+    assert!(!native_meeting_window_is_validated(
         &MeetingPlatform::Zoom,
-        &zoom_meeting,
+        &zoom_participant_tile,
     ));
     let current_linux_zoom = [
         node(4, "AXWindow", "Meeting", None),
@@ -130,7 +130,7 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
             ),
         ],
     ));
-    assert!(native_meeting_window_is_validated(
+    assert!(!native_meeting_window_is_validated(
         &MeetingPlatform::Zoom,
         &[node(
             9,
@@ -146,7 +146,7 @@ fn test_native_meeting_window_validation_is_evidence_backed() {
     for platform in [MeetingPlatform::MicrosoftTeams, MeetingPlatform::Webex] {
         assert!(!native_meeting_window_is_validated(
             &platform,
-            &zoom_meeting,
+            &zoom_participant_tile,
         ));
     }
     assert!(native_meeting_window_is_validated(

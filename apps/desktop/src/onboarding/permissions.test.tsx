@@ -76,7 +76,7 @@ describe("PermissionsSection", () => {
       screen
         .getByRole("button", { name: "Enable accessibility" })
         .getAttribute("title"),
-    ).toBe("Read meeting controls, visible chat, and participant status");
+    ).toBe("Read meeting controls and visible chat");
     expect(
       container.querySelectorAll("[data-testid='permission-action-arrow']"),
     ).toHaveLength(3);

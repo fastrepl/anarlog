@@ -1,0 +1,44 @@
+import { useQuery } from "@tanstack/react-query";
+
+import {
+  commands as detectCommands,
+  type MeetingAccessibilityInspection,
+} from "@anlg/plugin-detect";
+
+const MEETING_ACCESSIBILITY_POLL_INTERVAL_MS = 5_000;
+
+export function useMeetingAccessibilityActive(enabled: boolean): boolean {
+  const { data = false } = useQuery({
+    queryKey: ["meeting-accessibility-active"],
+    queryFn: async () => {
+      const result = await detectCommands.inspectMeetingAccessibility();
+      if (result.status === "error") return false;
+      return result.data.some(inspectionShowsActiveMeeting);
+    },
+    enabled,
+    refetchInterval: enabled ? MEETING_ACCESSIBILITY_POLL_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
+    retry: false,
+    staleTime: MEETING_ACCESSIBILITY_POLL_INTERVAL_MS - 500,
+  });
+
+  return enabled && data;
+}
+
+export function inspectionShowsActiveMeeting(
+  inspection: MeetingAccessibilityInspection,
+): boolean {
+  return Boolean(
+    inspection.accessibilityTrusted &&
+    inspection.platform !== "unknown" &&
+    inspection.windowTitle?.trim() &&
+    !inspection.warnings.some((warning) => {
+      const normalized = warning.toLowerCase();
+      return (
+        normalized.includes("ambiguous") ||
+        normalized.includes("incomplete") ||
+        normalized.includes("no uniquely validated")
+      );
+    }),
+  );
+}

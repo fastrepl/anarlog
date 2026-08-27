@@ -4808,6 +4808,8 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "wasapi",
+ "windows 0.62.2",
  "winreg 0.55.0",
  "zbus",
 ]

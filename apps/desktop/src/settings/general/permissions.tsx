@@ -209,7 +209,7 @@ function MacOSPermissions() {
         description={
           accessibilityGuidance
             ? t`Opens System Settings and guides you to add Anarlog to the ${accessibilityGuidance.paneTitle ?? "Privacy"} list.`
-            : t`Read meeting controls, chat, and participant status.`
+            : t`Read meeting controls and visible chat.`
         }
         status={accessibility.status}
         isPending={accessibility.isPending}

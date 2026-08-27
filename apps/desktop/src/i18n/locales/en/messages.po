@@ -438,8 +438,8 @@ msgid "Anarlog needs access to your microphone and system audio to record and tr
 msgstr "Anarlog needs access to your microphone and system audio to record and transcribe your meetings"
 
 #: src/onboarding/index.tsx
-msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
-msgstr "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat, and participant status."
+msgid "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat."
+msgstr "Anarlog needs microphone and system audio to transcribe your meetings, plus Accessibility to read meeting controls, visible chat."
 
 #: src/main/sync-status.tsx
 msgid "Anarlog Pro is required to use cloud sync."
@@ -3429,13 +3429,13 @@ msgstr "Re-transcribe this audio, or upload a transcript file."
 msgid "Re-transcription failed"
 msgstr "Re-transcription failed"
 
-#: src/settings/general/permissions.tsx
-msgid "Read meeting controls, chat, and participant status."
-msgstr "Read meeting controls, chat, and participant status."
-
 #: src/onboarding/permissions.tsx
-msgid "Read meeting controls, visible chat, and participant status"
-msgstr "Read meeting controls, visible chat, and participant status"
+msgid "Read meeting controls and visible chat"
+msgstr "Read meeting controls and visible chat"
+
+#: src/settings/general/permissions.tsx
+msgid "Read meeting controls and visible chat."
+msgstr "Read meeting controls and visible chat."
 
 #: src/onboarding/index.tsx
 msgid "Ready to go"

@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => ({
   }>,
   shareSessionIds: [] as string[],
   windowControlsGutter: true,
+  meetingAccessibilityActive: false,
 }));
 
 vi.mock("../folder-picker", () => ({
@@ -119,6 +120,10 @@ vi.mock("~/contexts/shell", () => ({
 vi.mock("~/session/hooks/useSessionEvent", () => ({
   useSessionEvent: (sessionId: string) =>
     mocks.sessionEvents[sessionId] ?? null,
+}));
+
+vi.mock("~/session/hooks/useMeetingAccessibilityActive", () => ({
+  useMeetingAccessibilityActive: () => mocks.meetingAccessibilityActive,
 }));
 
 vi.mock("~/shared/config", () => ({
@@ -202,6 +207,7 @@ describe("OuterHeader", () => {
     mocks.overflowProps = [];
     mocks.shareSessionIds = [];
     mocks.windowControlsGutter = true;
+    mocks.meetingAccessibilityActive = false;
   });
 
   afterEach(() => {
@@ -775,6 +781,33 @@ describe("OuterHeader", () => {
       null,
     );
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches from join-and-record to record when accessibility sees an active meeting", () => {
+    mocks.sessionEvents = {
+      "session-1": {
+        title: "Design Review",
+        started_at: "2026-06-05T10:00:00.000Z",
+        ended_at: "2026-06-05T10:30:00.000Z",
+        meeting_link: "https://meet.google.com/abc-defg-hij",
+      },
+    };
+    mocks.meetingAccessibilityActive = true;
+
+    render(
+      <OuterHeader
+        sessionId="session-1"
+        currentView={{ type: "raw" } as EditorView}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
+    const recordButton = screen.getByRole("button", { name: "Record" });
+
+    fireEvent.click(recordButton);
+
+    expect(mocks.openUrl).not.toHaveBeenCalled();
+    expect(mocks.startListening).toHaveBeenCalledOnce();
   });
 
   it("opens the welcome demo with an automatic completion callback", async () => {
