@@ -485,6 +485,38 @@ fn slack_roots_from_windows(
         .collect()
 }
 
+fn slack_chat_roots_from_windows(
+    windows: Vec<(Option<String>, Vec<LiveNode>, bool)>,
+) -> Vec<(String, String, Vec<LiveNode>)> {
+    let mut contexts = windows
+        .iter()
+        .filter(|(_, _, complete)| *complete)
+        .filter_map(|(_, live, _)| slack_huddle_context(&ax_nodes(live)))
+        .collect::<Vec<_>>();
+    contexts.sort();
+    contexts.dedup();
+    let [(label, channel)] = contexts.as_slice() else {
+        return Vec::new();
+    };
+
+    windows
+        .into_iter()
+        .filter_map(|(_, live, complete)| {
+            if !complete {
+                return None;
+            }
+            let mut composers = live.iter().filter(|node| {
+                is_slack_huddle_composer_in_thread(&node.node, &node.ancestors, channel)
+            });
+            composers.next()?;
+            if composers.next().is_some() {
+                return None;
+            }
+            Some((channel.clone(), label.clone(), live))
+        })
+        .collect()
+}
+
 fn browser_roots_from_windows(
     windows: Vec<(Option<String>, Vec<LiveNode>, bool)>,
     warnings: &mut Vec<String>,
@@ -1323,7 +1355,7 @@ pub(super) fn capture_meeting_chat_messages(bundle_ids: Vec<String>) -> MeetingC
                         }
                     }
                     MeetingPlatform::Slack => {
-                        for (channel, label, live) in slack_roots_from_windows(windows) {
+                        for (channel, label, live) in slack_chat_roots_from_windows(windows) {
                             let composer = live.iter().find(|node| {
                                 is_slack_huddle_composer_in_thread(
                                     &node.node,
@@ -1439,6 +1471,103 @@ mod tests {
             bus_name: "org.test.Browser".to_string(),
             path: format!("/org/test/{index}"),
         }
+    }
+
+    fn live_node(index: usize, role: &str, title: &str, path: &[usize]) -> LiveNode {
+        LiveNode {
+            node: AxNode {
+                index,
+                tree_path: path.to_vec(),
+                element_hash: Some(index),
+                role: Some(role.to_string()),
+                identifier: None,
+                title: Some(title.to_string()),
+                value: None,
+                description: None,
+                placeholder: None,
+                enabled: Some(true),
+                settable_value: false,
+                bounds: Some(AxRect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 320.0,
+                    height: 48.0,
+                }),
+                text: title.to_ascii_lowercase(),
+                within_zoom_meeting_scope: false,
+                within_zoom_chat_scope: false,
+                within_slack_huddle_scope: false,
+            },
+            ancestors: Vec::new(),
+            bus_name: "org.test.Slack".to_string(),
+            path: format!("/org/test/{index}"),
+        }
+    }
+
+    #[test]
+    fn slack_chat_scope_pairs_main_huddle_identity_with_popout_thread() {
+        let main = vec![
+            live_node(0, "AXGroup", "Huddle in test", &[0]),
+            live_node(1, "AXButton", "Leave Huddle", &[1]),
+        ];
+        let mut composer = live_node(2, "AXTextArea", "Message to test", &[2, 0]);
+        composer.node.settable_value = true;
+        composer.ancestors.push(AxAncestor {
+            path: vec![2],
+            labels: vec!["Thread in test (private channel, 1 reply)".to_string()],
+        });
+        let message = live_node(3, "AXCell", "John Jeong: Ship it. 12:03 PM.", &[2, 1]);
+
+        let roots = slack_chat_roots_from_windows(vec![
+            (
+                Some("test (Channel) - Fastrepl - Slack".to_string()),
+                main,
+                true,
+            ),
+            (
+                Some("test - Fastrepl - Slack".to_string()),
+                vec![composer, message],
+                true,
+            ),
+        ]);
+
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0].0, "test");
+        assert_eq!(roots[0].1, "Huddle in test");
+        assert!(roots[0].2.iter().any(|node| node.node.index == 3));
+    }
+
+    #[test]
+    fn slack_chat_scope_rejects_ambiguous_huddle_identity() {
+        let mut composer = live_node(4, "AXTextArea", "Message to test", &[4, 0]);
+        composer.node.settable_value = true;
+        composer.ancestors.push(AxAncestor {
+            path: vec![4],
+            labels: vec!["Thread in test".to_string()],
+        });
+
+        assert!(
+            slack_chat_roots_from_windows(vec![
+                (
+                    Some("test".to_string()),
+                    vec![
+                        live_node(0, "AXGroup", "Huddle in test", &[0]),
+                        live_node(1, "AXButton", "Leave Huddle", &[1]),
+                    ],
+                    true,
+                ),
+                (
+                    Some("random".to_string()),
+                    vec![
+                        live_node(2, "AXGroup", "Huddle in random", &[0]),
+                        live_node(3, "AXButton", "Leave Huddle", &[1]),
+                    ],
+                    true,
+                ),
+                (Some("thread".to_string()), vec![composer], true),
+            ])
+            .is_empty()
+        );
     }
 
     #[test]

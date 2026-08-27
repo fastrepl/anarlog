@@ -569,6 +569,51 @@ fn test_google_meet_capture_assembles_live_structured_message_leaves() {
 }
 
 #[test]
+fn test_google_meet_capture_keeps_firefox_link_only_message_rows() {
+    let active_control = fixture_node(0, "AXButton", "Leave call", &[1]);
+    let heading = fixture_node(1, "AXHeading", "In-call messages", &[4, 0]);
+    let composer = fixture_composer(2, "Send a message", &[4, 2, 0, 1, 2]);
+    let banner_link = fixture_node(
+        3,
+        "AXButton",
+        "https://support.google.com/meet/chat",
+        &[4, 2, 0, 0, 1],
+    );
+    let message_link = fixture_node(
+        4,
+        "AXButton",
+        "https://anarlog.so/linux-firefox-meet-atspi",
+        &[4, 2, 0, 1, 1, 0],
+    );
+    let pin = fixture_node(5, "AXButton", "Pin message", &[4, 2, 0, 1, 2, 0]);
+
+    let messages = extract_chat_messages(
+        &MeetingPlatform::GoogleMeet,
+        &MeetingSurface::Web,
+        &[
+            active_control,
+            heading,
+            composer,
+            banner_link,
+            message_link,
+            pin,
+        ],
+    );
+
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].sender, None);
+    assert_eq!(messages[0].timestamp, None);
+    assert_eq!(
+        messages[0].text,
+        "https://anarlog.so/linux-firefox-meet-atspi"
+    );
+    assert_eq!(
+        messages[0].links,
+        ["https://anarlog.so/linux-firefox-meet-atspi"]
+    );
+}
+
+#[test]
 fn test_google_meet_capture_assembles_timestamp_sibling_messages() {
     let active_control = fixture_node(0, "AXButton", "Leave call", &[1]);
     let heading = fixture_node(1, "AXHeading", "In-call messages", &[4, 0]);

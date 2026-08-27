@@ -278,6 +278,15 @@ pub(super) fn extract_chat_messages(
         parsed_nodes.extend(extract_google_meet_timestamp_sibling_messages(
             nodes, scope_path,
         ));
+        let parsed_paths = parsed_nodes
+            .iter()
+            .map(|(node, _)| node.tree_path.clone())
+            .collect::<Vec<_>>();
+        parsed_nodes.extend(extract_google_meet_link_only_messages(
+            nodes,
+            scope_path,
+            &parsed_paths,
+        ));
     }
     if *platform == MeetingPlatform::Webex
         && let Some(scope_path) = generic_scope_path.as_deref()
@@ -518,6 +527,92 @@ fn google_meet_chat_fragment(node: &AxNode) -> Option<String> {
         "hover over a message to pin it" | "pin message"
     ))
     .then_some(fragment)
+}
+
+fn extract_google_meet_link_only_messages<'a>(
+    nodes: &'a [AxNode],
+    scope_path: &[usize],
+    parsed_paths: &[Vec<usize>],
+) -> Vec<(&'a AxNode, ParsedChatMessage)> {
+    let pin_paths = nodes
+        .iter()
+        .filter(|node| {
+            node.tree_path.starts_with(scope_path)
+                && node.role.as_deref() == Some("AXButton")
+                && node_labels(node).any(|label| label.trim().eq_ignore_ascii_case("pin message"))
+        })
+        .map(|node| node.tree_path.as_slice())
+        .collect::<Vec<_>>();
+
+    let mut rows = Vec::<(Vec<usize>, Vec<(&AxNode, String)>)>::new();
+    for node in nodes.iter().filter(|node| {
+        node.tree_path.starts_with(scope_path)
+            && matches!(node.role.as_deref(), Some("AXLink") | Some("AXButton"))
+    }) {
+        let Some(url) = [
+            node.title.as_deref(),
+            node.description.as_deref(),
+            node.value.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        .map(normalize_chat_text)
+        .find(|value| value.starts_with("http://") || value.starts_with("https://")) else {
+            continue;
+        };
+        let Some(row_path) = (scope_path.len() + 1..node.tree_path.len())
+            .rev()
+            .find_map(|depth| {
+                let candidate = &node.tree_path[..depth];
+                (pin_paths
+                    .iter()
+                    .filter(|pin_path| {
+                        pin_path.starts_with(candidate)
+                            && pin_path.len() - candidate.len() <= 2
+                            && node.tree_path.len() - candidate.len() <= 2
+                    })
+                    .count()
+                    == 1)
+                    .then(|| candidate.to_vec())
+            })
+        else {
+            continue;
+        };
+        if parsed_paths
+            .iter()
+            .any(|path| path_is_ancestor(&row_path, path) || path_is_ancestor(path, &row_path))
+        {
+            continue;
+        }
+
+        if let Some((_, fragments)) = rows.iter_mut().find(|(path, _)| path == &row_path) {
+            if !fragments.iter().any(|(_, existing)| existing == &url) {
+                fragments.push((node, url));
+            }
+        } else {
+            rows.push((row_path, vec![(node, url)]));
+        }
+    }
+
+    rows.into_iter()
+        .filter_map(|(_, fragments)| {
+            let source = fragments.first()?.0;
+            let text = fragments
+                .into_iter()
+                .map(|(_, fragment)| fragment)
+                .collect::<Vec<_>>()
+                .join(" ");
+            (!text.is_empty()).then_some((
+                source,
+                ParsedChatMessage {
+                    sender: None,
+                    timestamp: None,
+                    direction: None,
+                    text,
+                },
+            ))
+        })
+        .collect()
 }
 
 fn extract_google_meet_timestamp_sibling_messages<'a>(
