@@ -10,7 +10,9 @@ use atspi::{AccessibilityConnection, CoordType, ObjectRef, Role, State};
 use zbus::fdo::DBusProxy;
 use zbus::names::BusName;
 
-use super::analysis::{extract_chat_messages, meeting_chat_surface_is_visible};
+use super::analysis::{
+    extract_chat_messages, meeting_chat_surface_is_visible, slack_huddle_is_active,
+};
 use super::context::{
     browser_capture_context_id, is_platform_chat_composer, is_platform_send_button,
     native_capture_context_id, slack_capture_context_id, validated_chat_scope,
@@ -29,12 +31,13 @@ use super::types::{
 use super::{
     BrowserMeetingSnapshot, MAX_NODES, MAX_TREE_DEPTH, MeetingAccessibilityInspection,
     browser_meeting_root_from_snapshot, browser_window_has_provider_signal, chat_input_is_owned,
-    inspection_label, is_chat_priority_label, is_slack_huddle_composer_in_thread,
-    is_slack_send_now_in_thread, is_slack_thread_control, native_meeting_window_is_validated,
-    slack_huddle_context, slack_thread_container_path, unique_scope_for_count,
-    validate_meeting_chat_message,
+    inspection_label, is_chat_priority_label, is_enabled_slack_leave_control,
+    is_slack_huddle_composer_in_thread, is_slack_send_now_in_thread, is_slack_thread_control,
+    native_meeting_window_is_validated, slack_huddle_context, slack_thread_container_path,
+    unique_scope_for_count, validate_meeting_chat_message,
 };
 
+#[derive(Clone)]
 struct LiveNode {
     node: AxNode,
     ancestors: Vec<AxAncestor>,
@@ -498,19 +501,42 @@ fn slack_chat_roots_from_windows(
     let [(label, channel)] = contexts.as_slice() else {
         return Vec::new();
     };
+    let Some(active_control) = windows.iter().find_map(|(_, live, complete)| {
+        if !complete
+            || slack_huddle_context(&ax_nodes(live)).as_ref()
+                != Some(&(label.clone(), channel.clone()))
+        {
+            return None;
+        }
+        live.iter()
+            .find(|node| is_enabled_slack_leave_control(&node.node))
+            .cloned()
+    }) else {
+        return Vec::new();
+    };
 
     windows
         .into_iter()
-        .filter_map(|(_, live, complete)| {
+        .filter_map(|(_, mut live, complete)| {
             if !complete {
                 return None;
             }
-            let mut composers = live.iter().filter(|node| {
+            let mut composers = live.iter().filter_map(|node| {
                 is_slack_huddle_composer_in_thread(&node.node, &node.ancestors, channel)
+                    .then(|| slack_thread_container_path(&node.ancestors, channel))
+                    .flatten()
             });
-            composers.next()?;
+            let thread_path = composers.next()?.to_vec();
             if composers.next().is_some() {
                 return None;
+            }
+            for node in &mut live {
+                if node.node.tree_path.starts_with(&thread_path) {
+                    node.node.within_slack_huddle_scope = true;
+                }
+            }
+            if !slack_huddle_is_active(&ax_nodes(&live)) {
+                live.push(active_control.clone());
             }
             Some((channel.clone(), label.clone(), live))
         })
@@ -1535,6 +1561,15 @@ mod tests {
         assert_eq!(roots[0].0, "test");
         assert_eq!(roots[0].1, "Huddle in test");
         assert!(roots[0].2.iter().any(|node| node.node.index == 3));
+        let messages = extract_chat_messages(
+            &MeetingPlatform::Slack,
+            &MeetingSurface::Native,
+            &ax_nodes(&roots[0].2),
+        );
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].sender.as_deref(), Some("John Jeong"));
+        assert_eq!(messages[0].timestamp.as_deref(), Some("12:03 PM"));
+        assert_eq!(messages[0].text, "Ship it");
     }
 
     #[test]
