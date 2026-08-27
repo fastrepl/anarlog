@@ -10,6 +10,7 @@ test("accepts one valid enterprise workspace subdomain", () => {
 
 test("rejects reserved, nested, and malformed workspace hosts", () => {
   assert.equal(isWorkspaceShareHostname("api.anarlog.so"), false);
+  assert.equal(isWorkspaceShareHostname("desktop.anarlog.so"), false);
   assert.equal(isWorkspaceShareHostname("www.anarlog.so"), false);
   assert.equal(isWorkspaceShareHostname("a.b.anarlog.so"), false);
   assert.equal(isWorkspaceShareHostname("-fastrepl.anarlog.so"), false);

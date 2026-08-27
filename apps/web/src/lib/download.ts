@@ -1,4 +1,5 @@
-const latestStableDownloadUrl = "https://anarlog.so/releases/latest/platform";
+const latestStableDownloadUrl =
+  "https://desktop.anarlog.so/download/latest/platform";
 
 function getStableDownloadUrl(platform: string) {
   return `${latestStableDownloadUrl}/${platform}?channel=stable`;

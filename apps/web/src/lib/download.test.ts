@@ -32,11 +32,11 @@ test("offers macOS, Windows, and Linux downloads", () => {
 
   assert.match(
     macosDownloads[0].url,
-    /^https:\/\/anarlog\.so\/releases\/latest\/platform\/dmg-aarch64\?/,
+    /^https:\/\/desktop\.anarlog\.so\/download\/latest\/platform\/dmg-aarch64\?/,
   );
   assert.match(
     windowsDownloads[0].url,
-    /^https:\/\/anarlog\.so\/releases\/latest\/platform\/nsis-x86_64\?/,
+    /^https:\/\/desktop\.anarlog\.so\/download\/latest\/platform\/nsis-x86_64\?/,
   );
   assert.deepEqual(
     linuxDownloads.map((download) =>

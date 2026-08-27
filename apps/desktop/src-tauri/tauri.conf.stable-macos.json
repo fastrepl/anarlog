@@ -2,7 +2,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://anarlog.so/update/{{target}}-{{arch}}/{{current_version}}?channel=stable"
+        "https://desktop.anarlog.so/update/{{target}}-{{arch}}/{{current_version}}?channel=stable"
       ]
     }
   }

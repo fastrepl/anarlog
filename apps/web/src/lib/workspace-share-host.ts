@@ -5,6 +5,7 @@ const RESERVED_WORKSPACE_SHARE_HOSTS = new Set([
   "assets",
   "auth",
   "cdn",
+  "desktop",
   "dev",
   "docs",
   "mail",
