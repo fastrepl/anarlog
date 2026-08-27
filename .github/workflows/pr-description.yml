@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - env:
+          PR_AUTHOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
           PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -24,9 +25,15 @@ jobs:
           const title = (process.env.PR_TITLE || "").trim();
           const body = process.env.PR_BODY || "";
           const errors = [];
+          const maintainerAssociations = new Set(["COLLABORATOR", "MEMBER", "OWNER"]);
 
-          if (process.env.PR_AUTHOR_TYPE === "Bot") {
-            console.log("Automated bot pull request; description validation is not required.");
+          if (
+            process.env.PR_AUTHOR_TYPE === "Bot" ||
+            maintainerAssociations.has(process.env.PR_AUTHOR_ASSOCIATION)
+          ) {
+            console.log(
+              "Maintainer or bot pull request; description validation is not required.",
+            );
             process.exit(0);
           }
 

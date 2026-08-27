@@ -117,7 +117,8 @@ Check the affected workflow under `.github/workflows/` for stricter package-spec
 - Write the title as a specific action that states the intended outcome. Do not use a file name, ticket number, or a generic label as the title.
 - Write the description yourself as a concise executive summary: on the labeled `Problem` and `Fix` lines, explain the problem, why it mattered, and how the change fixes it. Do not paste a generated commit log or a file-by-file recap.
 - List the commands and manual checks you used to verify the change.
-- External contributors must sign the [Fastrepl Contributor License Agreement](https://gist.github.com/ComputelessComputer/9d8243ec8e2ce92541c5b67462f092a0) through CLA Assistant when prompted.
+- CI enforces the title and labeled `Problem` / `Fix` summary for external contributors. Org members, collaborators, owners, and bots are not gated.
+- External contributors must sign the [Fastrepl Contributor License Agreement](https://gist.github.com/ComputelessComputer/9d8243ec8e2ce92541c5b67462f092a0) through CLA Assistant when prompted. CLA Assistant is a GitHub App, so maintainer exemptions are configured in its allowlist rather than in this repository.
 
 ## Licensing and contribution boundary
 

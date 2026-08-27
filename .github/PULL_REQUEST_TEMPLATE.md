@@ -15,4 +15,4 @@ Title: state the intended outcome with a specific action. For example, use
 
 <!-- List the commands and manual checks you ran. -->
 
-<!-- External contributors: CLA Assistant will post a signing link after the PR is opened. The CLA check must pass before merge. -->
+<!-- External contributors only: CLA Assistant will post a signing link after the PR is opened. The CLA check must pass before merge. Maintainers are not gated. -->
