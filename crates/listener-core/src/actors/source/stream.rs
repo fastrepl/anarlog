@@ -9,7 +9,7 @@ use anlg_audio_utils::chunk_size_for_stt;
 
 use super::{SourceFrame, SourceMsg, SourceState};
 
-const CAPTURE_FRAME_QUEUE_CAPACITY: usize = 8;
+const CAPTURE_FRAME_QUEUE_CAPACITY: usize = 32;
 
 pub(super) async fn start_source_loop(
     myself: &ActorRef<SourceMsg>,

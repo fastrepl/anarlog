@@ -1,3 +1,5 @@
+const MAX_RETRY_AFTER_SECONDS: u64 = 30;
+
 #[derive(thiserror::Error)]
 pub enum Error {
     #[error("unknown error")]
@@ -17,7 +19,11 @@ pub enum Error {
         retry_after_secs: Option<u64>,
     },
     #[error("connect retries exhausted after {attempts} attempts: {last_error}")]
-    ConnectRetriesExhausted { attempts: usize, last_error: String },
+    ConnectRetriesExhausted {
+        attempts: usize,
+        last_error: String,
+        retry_after_secs: Option<u64>,
+    },
     #[error("remote closed websocket{code_suffix}: {reason}")]
     RemoteClosed {
         code: Option<u16>,
@@ -73,7 +79,11 @@ impl std::fmt::Debug for Error {
             Error::ConnectRetriesExhausted {
                 attempts,
                 last_error,
-            } => write!(f, "ConnectRetriesExhausted({attempts}, {last_error})"),
+                retry_after_secs,
+            } => write!(
+                f,
+                "ConnectRetriesExhausted({attempts}, retry_after={retry_after_secs:?}, {last_error})"
+            ),
             Error::RemoteClosed { code, reason, .. } => {
                 write!(f, "RemoteClosed(code={code:?}, reason={reason})")
             }
@@ -127,10 +137,27 @@ impl Error {
         }
     }
 
-    pub fn connect_retries_exhausted(attempts: usize, last_error: impl Into<String>) -> Self {
+    pub fn retry_after_secs(&self) -> Option<u64> {
+        match self {
+            Error::ConnectFailed {
+                retry_after_secs, ..
+            }
+            | Error::ConnectRetriesExhausted {
+                retry_after_secs, ..
+            } => *retry_after_secs,
+            _ => None,
+        }
+    }
+
+    pub fn connect_retries_exhausted(
+        attempts: usize,
+        last_error: impl Into<String>,
+        retry_after_secs: Option<u64>,
+    ) -> Self {
         Self::ConnectRetriesExhausted {
             attempts,
             last_error: last_error.into(),
+            retry_after_secs,
         }
     }
 
@@ -221,7 +248,8 @@ fn extract_retry_after(error: &tokio_tungstenite::tungstenite::Error) -> Option<
             .headers()
             .get("retry-after")
             .and_then(|v| v.to_str().ok())
-            .and_then(|v| v.parse::<u64>().ok());
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(|seconds| seconds.clamp(1, MAX_RETRY_AFTER_SECONDS));
     }
     None
 }

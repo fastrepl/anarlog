@@ -1,6 +1,8 @@
 mod children;
 mod mode;
 
+use std::hash::{DefaultHasher, Hash, Hasher};
+
 use ractor::concurrency::Duration;
 use ractor::{Actor, ActorCell, ActorProcessingErr, ActorRef, SupervisionEvent};
 use tracing::Instrument;
@@ -22,6 +24,7 @@ const LISTENER_RETRY_DELAYS: [Duration; 5] = [
     Duration::from_secs(20),
     Duration::from_secs(30),
 ];
+const MAX_LISTENER_RETRY_AFTER: Duration = Duration::from_secs(30);
 
 pub struct SessionState {
     ctx: SessionContext,
@@ -115,8 +118,9 @@ impl Actor for SessionActor {
                 }
                 Err(error) => {
                     tracing::warn!(?error, "listener_spawn_failed");
+                    let retry_after = listener_retry_after(&error);
                     let degraded = classify_listener_spawn_failure(state, &error);
-                    handle_listener_failure(&myself, state, degraded).await;
+                    handle_listener_failure(&myself, state, degraded, retry_after).await;
                 }
             }
 
@@ -179,6 +183,7 @@ impl Actor for SessionActor {
                                 &myself,
                                 state,
                                 mode::parse_degraded_reason(reason.as_ref()),
+                                None,
                             )
                             .await;
                         }
@@ -222,6 +227,7 @@ impl Actor for SessionActor {
                                 DegradedError::StreamError {
                                     message: format!("{:?}", error),
                                 },
+                                None,
                             )
                             .await;
                         }
@@ -329,8 +335,9 @@ async fn refresh_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState
         }
         Err(error) => {
             tracing::warn!(?error, "listener_refresh_failed");
+            let retry_after = listener_retry_after(&error);
             let degraded = classify_listener_spawn_failure(state, &error);
-            handle_listener_failure(&myself, state, degraded).await;
+            handle_listener_failure(&myself, state, degraded, retry_after).await;
         }
     }
 }
@@ -357,6 +364,7 @@ async fn handle_listener_failure(
     myself: &ActorRef<SessionMsg>,
     state: &mut SessionState,
     degraded: DegradedError,
+    retry_after: Option<Duration>,
 ) {
     if should_stop_on_listener_failure(state) {
         tracing::warn!("listener_failed_stopping_session");
@@ -365,7 +373,7 @@ async fn handle_listener_failure(
         let should_retry = should_retry_listener_failure(&degraded);
         enter_batch_fallback(state, degraded).await;
         if should_retry {
-            schedule_listener_retry(myself, state);
+            schedule_listener_retry(myself, state, retry_after);
         }
     }
 }
@@ -399,19 +407,55 @@ fn classify_listener_spawn_failure(
     }
 }
 
-fn schedule_listener_retry(myself: &ActorRef<SessionMsg>, state: &mut SessionState) {
-    let delay = listener_retry_delay(state.listener_retry_attempt);
+fn listener_retry_after(error: &ractor::SpawnErr) -> Option<Duration> {
+    let ractor::SpawnErr::StartupFailed(error) = error else {
+        return None;
+    };
+    error
+        .downcast_ref::<ListenerInitError>()
+        .and_then(|error| error.retry_after)
+}
+
+fn schedule_listener_retry(
+    myself: &ActorRef<SessionMsg>,
+    state: &mut SessionState,
+    retry_after: Option<Duration>,
+) {
+    let delay = listener_retry_delay(
+        state.listener_retry_attempt,
+        retry_after,
+        &state.ctx.params.session_id,
+    );
     state.listener_retry_attempt = state.listener_retry_attempt.saturating_add(1);
     tracing::info!(
         ?delay,
+        ?retry_after,
         attempt = state.listener_retry_attempt,
         "listener_retry_scheduled"
     );
     myself.send_after(delay, || SessionMsg::RetryListener);
 }
 
-fn listener_retry_delay(attempt: usize) -> Duration {
+fn listener_retry_base_delay(attempt: usize) -> Duration {
     LISTENER_RETRY_DELAYS[attempt.min(LISTENER_RETRY_DELAYS.len() - 1)]
+}
+
+fn listener_retry_delay(
+    attempt: usize,
+    retry_after: Option<Duration>,
+    session_id: &str,
+) -> Duration {
+    let scheduled = listener_retry_base_delay(attempt);
+    let base = retry_after.map_or(scheduled, |minimum| {
+        scheduled.max(minimum.min(MAX_LISTENER_RETRY_AFTER))
+    });
+    let base_ms = base.as_millis().min(u64::MAX as u128) as u64;
+    let jitter_limit_ms = base_ms / 5;
+    let mut hasher = DefaultHasher::new();
+    session_id.hash(&mut hasher);
+    attempt.hash(&mut hasher);
+    let jitter_ms = hasher.finish() % jitter_limit_ms.saturating_add(1);
+    Duration::from_millis(base_ms.saturating_add(jitter_ms))
 }
 
 async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) {
@@ -437,8 +481,9 @@ async fn retry_listener(myself: ActorRef<SessionMsg>, state: &mut SessionState) 
         }
         Err(error) => {
             tracing::warn!(?error, "listener_retry_failed");
+            let retry_after = listener_retry_after(&error);
             let degraded = classify_listener_spawn_failure(state, &error);
-            handle_listener_failure(&myself, state, degraded).await;
+            handle_listener_failure(&myself, state, degraded, retry_after).await;
         }
     }
 }
@@ -768,9 +813,20 @@ mod tests {
         assert!(should_retry_listener_failure(
             &DegradedError::ConnectionTimeout
         ));
-        assert_eq!(listener_retry_delay(0), Duration::from_secs(2));
-        assert_eq!(listener_retry_delay(3), Duration::from_secs(20));
-        assert_eq!(listener_retry_delay(20), Duration::from_secs(30));
+        assert_eq!(listener_retry_base_delay(0), Duration::from_secs(2));
+        assert_eq!(listener_retry_base_delay(3), Duration::from_secs(20));
+        assert_eq!(listener_retry_base_delay(20), Duration::from_secs(30));
+    }
+
+    #[test]
+    fn listener_retry_delay_adds_jitter_and_honors_retry_after() {
+        let normal = listener_retry_delay(0, None, "session-a");
+        assert!(normal >= Duration::from_secs(2));
+        assert!(normal <= Duration::from_millis(2_400));
+
+        let rate_limited = listener_retry_delay(0, Some(Duration::from_secs(60)), "session-a");
+        assert!(rate_limited >= Duration::from_secs(30));
+        assert!(rate_limited <= Duration::from_secs(36));
     }
 
     #[test]
@@ -793,7 +849,9 @@ mod tests {
         let error = ractor::SpawnErr::StartupFailed(Box::new(ListenerInitError {
             message: "listener failed".to_string(),
             degraded: Some(degraded),
+            retry_after: Some(Duration::from_secs(7)),
         }));
+        assert_eq!(listener_retry_after(&error), Some(Duration::from_secs(7)));
         assert!(matches!(
             classify_listener_spawn_failure(&test_state(test_ctx()), &error),
             DegradedError::ProviderConfiguration { .. }

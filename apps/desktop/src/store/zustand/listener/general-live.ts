@@ -396,13 +396,19 @@ const createSessionEventHandlers = <T extends LiveStore>(
 
     if (payload.type === "transcript_delta") {
       const delta = payload.delta as unknown as LiveTranscriptDelta;
+      const currentLive = get().live;
+      const hasFinalWords = delta.new_words.length > 0;
       if (
-        get().live.sessionId === targetSessionId &&
-        (delta.new_words.length > 0 || delta.partials.length > 0)
+        currentLive.sessionId === targetSessionId &&
+        (hasFinalWords || delta.partials.length > 0) &&
+        (currentLive.stallAudibleSeconds !== 0 ||
+          (hasFinalWords &&
+            (currentLive.finalStallAudibleSeconds !== 0 ||
+              currentLive.transcriptionStalled)))
       ) {
         setLiveState(set, (live) => {
           noteLiveTranscriptActivity(live, {
-            hasFinalWords: delta.new_words.length > 0,
+            hasFinalWords,
           });
         });
       }

@@ -9,7 +9,6 @@ type PendingTranscriptWrite = {
     }
   >;
   replacedRootIds: Set<string>;
-  partials: LiveTranscriptDelta["partials"];
   wordCount: number;
   textLength: number;
 };
@@ -157,7 +156,11 @@ export function createTranscriptPersistenceWorker(
   };
 
   const enqueue = (delta: LiveTranscriptDelta) => {
-    if (overflowed || timedOut) {
+    if (
+      overflowed ||
+      timedOut ||
+      (delta.new_words.length === 0 && delta.replaced_ids.length === 0)
+    ) {
       return;
     }
 
@@ -242,7 +245,6 @@ function createPendingWrite(): PendingTranscriptWrite {
   return {
     wordsById: new Map(),
     replacedRootIds: new Set(),
-    partials: [],
     wordCount: 0,
     textLength: 0,
   };
@@ -290,16 +292,6 @@ function mergeDelta(
       0,
     );
   }
-
-  pendingWrite.textLength -= pendingWrite.partials.reduce(
-    (length, word) => length + word.text.length,
-    0,
-  );
-  pendingWrite.partials = [...delta.partials];
-  pendingWrite.textLength += pendingWrite.partials.reduce(
-    (length, word) => length + word.text.length,
-    0,
-  );
 }
 
 function toDelta(pendingWrite: PendingTranscriptWrite): LiveTranscriptDelta {
@@ -311,7 +303,7 @@ function toDelta(pendingWrite: PendingTranscriptWrite): LiveTranscriptDelta {
   return {
     new_words: newWords,
     replaced_ids: [...pendingWrite.replacedRootIds],
-    partials: pendingWrite.partials,
+    partials: [],
   };
 }
 
@@ -339,7 +331,6 @@ function removePendingWords(
 function exceedsSafeBounds(pendingWrite: PendingTranscriptWrite) {
   return (
     pendingWrite.wordCount > MAX_PENDING_WORDS ||
-    pendingWrite.partials.length > MAX_PENDING_WORDS ||
     pendingWrite.textLength > MAX_PENDING_TEXT_LENGTH ||
     pendingWrite.replacedRootIds.size > MAX_PENDING_REPLACED_IDS
   );

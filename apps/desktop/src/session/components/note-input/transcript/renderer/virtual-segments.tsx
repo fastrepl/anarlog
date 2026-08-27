@@ -47,6 +47,7 @@ export function useVirtualSegments({
   segmentKeys,
   scrollElement,
   activeMatchId,
+  searchEnabled,
   currentMs,
   offsetMs,
 }: {
@@ -54,6 +55,7 @@ export function useVirtualSegments({
   segmentKeys: string[];
   scrollElement: HTMLDivElement | null;
   activeMatchId: string | null;
+  searchEnabled: boolean;
   currentMs: number;
   offsetMs: number;
 }) {
@@ -222,19 +224,23 @@ export function useVirtualSegments({
 
   const searchIndex = useMemo(
     () =>
-      createTranscriptSearchIndex(
-        segments.flatMap((segment, index) =>
-          segment.words.map((word) => ({
-            id: word.id ?? null,
-            text: word.text.trim(),
-            scrollIntoView: () => scrollToIndexRef.current(index, "smooth"),
-          })),
-        ),
-      ),
-    [segments],
+      searchEnabled
+        ? createTranscriptSearchIndex(
+            segments.flatMap((segment, index) =>
+              segment.words.map((word) => ({
+                id: word.id ?? null,
+                text: word.text.trim(),
+                scrollIntoView: () => scrollToIndexRef.current(index, "smooth"),
+              })),
+            ),
+          )
+        : null,
+    [searchEnabled, segments],
   );
   searchSourceRef.current = (preparedQuery, options) =>
-    getTranscriptSearchIndexMatches(searchIndex, preparedQuery, options);
+    searchIndex
+      ? getTranscriptSearchIndexMatches(searchIndex, preparedQuery, options)
+      : [];
 
   const listRef = useCallback(
     (node: HTMLDivElement | null) => {

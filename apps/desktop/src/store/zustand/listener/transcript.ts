@@ -9,7 +9,7 @@ import type {
 
 import type { RuntimeSpeakerHint, WordLike } from "~/stt/segment";
 
-type WordsByChannel = Record<number, WordLike[]>;
+type WordsByChannel = Record<number, LiveTranscriptDelta["partials"][number][]>;
 type LiveCaptionFinalWord = LiveTranscriptDelta["new_words"][number];
 const LIVE_CAPTION_HISTORY_CHARACTERS = 2048;
 const LIVE_CAPTION_HISTORY_WORDS = 2048;
@@ -103,12 +103,17 @@ export const createTranscriptSlice = <
     );
   },
   handleTranscriptDelta: (sessionId, delta, options) => {
-    const handlePersist = get().handlePersistBySession[sessionId];
+    const state = get();
+    const handlePersist = state.handlePersistBySession[sessionId];
     const { wordsByChannel, hintsByChannel } = groupPartialsByChannel(
       delta.partials,
     );
+    const previewChanged =
+      delta.new_words.length > 0 ||
+      delta.replaced_ids.length > 0 ||
+      !partialWordsByChannelEqual(state.partialWordsByChannel, wordsByChannel);
 
-    if (options?.updateLivePreview !== false) {
+    if (options?.updateLivePreview !== false && previewChanged) {
       set((state) =>
         mutate(state, (draft) => {
           updateLiveCaptionFinalWords(draft.liveCaptionFinalWordsById, delta);
@@ -130,6 +135,9 @@ export const createTranscriptSlice = <
     handlePersist?.(delta);
   },
   handleTranscriptSegmentDelta: (delta) => {
+    if (delta.upserts.length === 0 && delta.removed_ids.length === 0) {
+      return;
+    }
     set((state) =>
       mutate(state, (draft) => {
         draft.liveSegments = applyLiveSegmentDelta(draft.liveSegments, delta);
@@ -190,6 +198,37 @@ function groupPartialsByChannel(partials: LiveTranscriptDelta["partials"]): {
   });
 
   return { wordsByChannel, hintsByChannel };
+}
+
+function partialWordsByChannelEqual(
+  left: WordsByChannel,
+  right: WordsByChannel,
+): boolean {
+  const leftChannels = Object.keys(left);
+  const rightChannels = Object.keys(right);
+  if (leftChannels.length !== rightChannels.length) {
+    return false;
+  }
+
+  return leftChannels.every((channelKey) => {
+    const channel = Number(channelKey);
+    const leftWords = left[channel] ?? [];
+    const rightWords = right[channel] ?? [];
+    return (
+      leftWords.length === rightWords.length &&
+      leftWords.every((word, index) => {
+        const other = rightWords[index];
+        return (
+          other !== undefined &&
+          word.text === other.text &&
+          word.start_ms === other.start_ms &&
+          word.end_ms === other.end_ms &&
+          word.channel === other.channel &&
+          word.speaker_index === other.speaker_index
+        );
+      })
+    );
+  });
 }
 
 function getCaptionTextFromDelta(

@@ -129,15 +129,27 @@ const TRANSCRIPT_METADATA_COLUMNS = `
   transcript.ended_at_ms,
   CASE
     WHEN trim(transcript.words_json) NOT IN ('', '[]', '{}', 'null')
+    THEN 1
+    ELSE 0
+  END AS has_words
+`;
+
+const TRANSCRIPT_METADATA_WITH_PENDING_COLUMNS = `
+  transcript.id,
+  transcript.session_id,
+  transcript.started_at_ms,
+  transcript.ended_at_ms,
+  CASE
+    WHEN trim(transcript.words_json) NOT IN ('', '[]', '{}', 'null')
     OR EXISTS (
       SELECT 1
       FROM transcript_live_deltas AS delta
       WHERE delta.transcript_id = transcript.id
         AND json_valid(delta.delta_json)
-        AND (
-          COALESCE(json_array_length(delta.delta_json, '$.new_words'), 0) > 0
-          OR COALESCE(json_array_length(delta.delta_json, '$.partials'), 0) > 0
-        )
+        AND COALESCE(
+          json_array_length(delta.delta_json, '$.new_words'),
+          0
+        ) > 0
     ) THEN 1
     ELSE 0
   END AS has_words
@@ -184,13 +196,18 @@ export function useTranscript(
 
 export function useSessionTranscriptMetadata(
   sessionId: string,
+  includePendingDeltas = true,
 ): TranscriptMetadata[] {
   const { data = EMPTY_TRANSCRIPT_METADATA } = useLiveQuery<
     TranscriptMetadataSqlRow,
     TranscriptMetadata[]
   >({
     sql: `
-      SELECT ${TRANSCRIPT_METADATA_COLUMNS}
+      SELECT ${
+        includePendingDeltas
+          ? TRANSCRIPT_METADATA_WITH_PENDING_COLUMNS
+          : TRANSCRIPT_METADATA_COLUMNS
+      }
       FROM transcripts AS transcript
       WHERE transcript.session_id = ? AND transcript.deleted_at IS NULL
       ORDER BY transcript.started_at_ms, transcript.created_at, transcript.id
@@ -204,13 +221,18 @@ export function useSessionTranscriptMetadata(
 
 export function useTranscriptMetadata(
   transcriptId: string,
+  includePendingDeltas = true,
 ): TranscriptMetadata | null {
   const { data = null } = useLiveQuery<
     TranscriptMetadataSqlRow,
     TranscriptMetadata | null
   >({
     sql: `
-      SELECT ${TRANSCRIPT_METADATA_COLUMNS}
+      SELECT ${
+        includePendingDeltas
+          ? TRANSCRIPT_METADATA_WITH_PENDING_COLUMNS
+          : TRANSCRIPT_METADATA_COLUMNS
+      }
       FROM transcripts AS transcript
       WHERE transcript.id = ? AND transcript.deleted_at IS NULL
       LIMIT 1

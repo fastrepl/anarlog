@@ -35,7 +35,7 @@ enum WriteRequest {
     AudioDual(Arc<[f32]>, Arc<[f32]>),
 }
 
-const WRITE_QUEUE_CAPACITY: usize = 8;
+const WRITE_QUEUE_CAPACITY: usize = 32;
 const MAX_CONCURRENT_WRITERS: usize = 4;
 const WRITER_SHUTDOWN_WARNING: Duration = Duration::from_secs(10);
 

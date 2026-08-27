@@ -28,9 +28,8 @@ const LISTENER_AUDIO_ACK_TIMEOUT: Duration = Duration::from_secs(1);
 const LISTENER_BACKPRESSURE_TIMEOUT: Duration = Duration::from_secs(1);
 const LISTENER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
 const MAX_BACKLOG_DISPATCH_PER_FRAME: usize = 2;
-const RECORDER_ENQUEUE_TIMEOUT: Duration = Duration::from_millis(500);
+const RECORDER_BACKPRESSURE_TIMEOUT: Duration = Duration::from_secs(2);
 const RECORDER_RPC_TIMEOUT: Duration = Duration::from_millis(100);
-const RECORDER_RETRY_DELAY: Duration = Duration::from_millis(10);
 
 #[derive(Clone)]
 struct BufferedAudio {
@@ -49,12 +48,20 @@ impl BufferedAudio {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum DispatchFrameResult {
+    Complete,
+    RecorderBackpressured,
+}
+
 pub(in crate::actors) struct Pipeline {
     vad_mask: VadMask,
     amplitude: AmplitudeEmitter,
     audio_buffer: AudioBuffer,
     replay_history: ReplayHistory,
     listener_dispatcher: ListenerDispatcher,
+    pending_recorder_item: Option<BufferedAudio>,
+    recorder_backpressure_started_at: Option<Instant>,
 }
 
 impl Pipeline {
@@ -64,6 +71,8 @@ impl Pipeline {
             audio_buffer: AudioBuffer::new(MAX_BUFFER_CHUNKS),
             replay_history: ReplayHistory::new(SAMPLE_RATE as usize * REPLAY_HISTORY_SECS),
             listener_dispatcher: ListenerDispatcher::new(),
+            pending_recorder_item: None,
+            recorder_backpressure_started_at: None,
             vad_mask: VadMask::default(),
         }
     }
@@ -73,6 +82,8 @@ impl Pipeline {
         self.audio_buffer.clear();
         self.replay_history.clear();
         self.listener_dispatcher.reset();
+        self.pending_recorder_item = None;
+        self.recorder_backpressure_started_at = None;
         self.vad_mask = VadMask::default();
     }
 
@@ -82,8 +93,44 @@ impl Pipeline {
         mode: ChannelMode,
         listener_routing: &ListenerRouting,
         recorder: Option<&ActorRef<RecMsg>>,
-    ) -> Result<(), String> {
+    ) -> Result<DispatchFrameResult, String> {
         self.dispatch(frame, mode, listener_routing, recorder).await
+    }
+
+    pub(super) fn has_pending_recorder_item(&self) -> bool {
+        self.pending_recorder_item.is_some()
+    }
+
+    pub(super) async fn retry_pending_recorder(
+        &mut self,
+        listener_routing: &ListenerRouting,
+        recorder: Option<&ActorRef<RecMsg>>,
+    ) -> Result<DispatchFrameResult, String> {
+        let Some(item) = self.pending_recorder_item.clone() else {
+            return Ok(DispatchFrameResult::Complete);
+        };
+        let Some(recorder) = recorder else {
+            return Ok(DispatchFrameResult::RecorderBackpressured);
+        };
+
+        match Self::write_to_recorder(recorder, &item).await? {
+            RecorderEnqueueResult::Accepted => {
+                self.pending_recorder_item = None;
+                self.recorder_backpressure_started_at = None;
+                self.complete_item(item, listener_routing);
+                Ok(DispatchFrameResult::Complete)
+            }
+            RecorderEnqueueResult::Backpressured => {
+                if self
+                    .recorder_backpressure_started_at
+                    .is_some_and(|started_at| started_at.elapsed() >= RECORDER_BACKPRESSURE_TIMEOUT)
+                {
+                    return Err("recorder queue remained full".into());
+                }
+                Ok(DispatchFrameResult::RecorderBackpressured)
+            }
+            RecorderEnqueueResult::Closed => Err("recorder writer is unavailable".into()),
+        }
     }
 
     pub(super) fn on_listener_routing_changed(&mut self, listener_routing: &ListenerRouting) {
@@ -118,20 +165,38 @@ impl Pipeline {
         mode: ChannelMode,
         listener_routing: &ListenerRouting,
         recorder: Option<&ActorRef<RecMsg>>,
-    ) -> Result<(), String> {
+    ) -> Result<DispatchFrameResult, String> {
+        if self.pending_recorder_item.is_some() {
+            return Err("recorder audio must be retried before dispatching another frame".into());
+        }
+
         let (mut processed_mic, processed_spk) = Self::select_tracks(frame, mode);
         self.vad_mask.process(&mut processed_mic);
         let processed_mic = Arc::<[f32]>::from(processed_mic);
         let item = BufferedAudio::new(processed_mic, processed_spk, mode);
 
-        self.replay_history.push(item.clone());
+        if let Some(actor) = recorder {
+            match Self::write_to_recorder(actor, &item).await? {
+                RecorderEnqueueResult::Accepted => {}
+                RecorderEnqueueResult::Backpressured => {
+                    self.pending_recorder_item = Some(item);
+                    self.recorder_backpressure_started_at = Some(Instant::now());
+                    return Ok(DispatchFrameResult::RecorderBackpressured);
+                }
+                RecorderEnqueueResult::Closed => {
+                    return Err("recorder writer is unavailable".into());
+                }
+            }
+        }
 
+        self.complete_item(item, listener_routing);
+        Ok(DispatchFrameResult::Complete)
+    }
+
+    fn complete_item(&mut self, item: BufferedAudio, listener_routing: &ListenerRouting) {
+        self.replay_history.push(item.clone());
         self.amplitude.observe_mic(&item.mic);
         self.amplitude.observe_spk(&item.spk);
-
-        if let Some(actor) = recorder {
-            Self::write_to_recorder(actor, &item).await?;
-        }
 
         match listener_routing {
             ListenerRouting::Buffering => {
@@ -153,70 +218,50 @@ impl Pipeline {
             }
             ListenerRouting::Dropped => {}
         }
-
-        Ok(())
     }
 
     async fn write_to_recorder(
         actor: &ActorRef<RecMsg>,
         item: &BufferedAudio,
-    ) -> Result<(), String> {
-        let started_at = Instant::now();
-
-        loop {
-            if started_at.elapsed() >= RECORDER_ENQUEUE_TIMEOUT {
-                return Err("recorder queue remained full".into());
+    ) -> Result<RecorderEnqueueResult, String> {
+        let result = match item.mode {
+            ChannelMode::MicOnly => {
+                let audio = Arc::clone(&item.mic);
+                actor
+                    .call(
+                        move |reply| RecMsg::AudioSingle(audio, reply),
+                        Some(RECORDER_RPC_TIMEOUT),
+                    )
+                    .await
             }
-
-            let result = match item.mode {
-                ChannelMode::MicOnly => {
-                    let audio = Arc::clone(&item.mic);
-                    actor
-                        .call(
-                            move |reply| RecMsg::AudioSingle(audio, reply),
-                            Some(RECORDER_RPC_TIMEOUT),
-                        )
-                        .await
-                }
-                ChannelMode::SpeakerOnly => {
-                    let audio = Arc::clone(&item.spk);
-                    actor
-                        .call(
-                            move |reply| RecMsg::AudioSingle(audio, reply),
-                            Some(RECORDER_RPC_TIMEOUT),
-                        )
-                        .await
-                }
-                ChannelMode::MicAndSpeaker => {
-                    let mic = Arc::clone(&item.mic);
-                    let spk = Arc::clone(&item.spk);
-                    actor
-                        .call(
-                            move |reply| RecMsg::AudioDual(mic, spk, reply),
-                            Some(RECORDER_RPC_TIMEOUT),
-                        )
-                        .await
-                }
-            };
-
-            match result {
-                Ok(CallResult::Success(RecorderEnqueueResult::Accepted)) => return Ok(()),
-                Ok(CallResult::Success(RecorderEnqueueResult::Backpressured)) => {
-                    tokio::time::sleep(RECORDER_RETRY_DELAY).await;
-                }
-                Ok(CallResult::Success(RecorderEnqueueResult::Closed)) => {
-                    return Err("recorder writer is unavailable".into());
-                }
-                Ok(CallResult::SenderError) => {
-                    return Err("recorder stopped before acknowledging audio".into());
-                }
-                Ok(CallResult::Timeout) => {
-                    return Err("recorder enqueue acknowledgement timed out".into());
-                }
-                Err(error) => {
-                    return Err(format!("failed to send audio to recorder: {error}"));
-                }
+            ChannelMode::SpeakerOnly => {
+                let audio = Arc::clone(&item.spk);
+                actor
+                    .call(
+                        move |reply| RecMsg::AudioSingle(audio, reply),
+                        Some(RECORDER_RPC_TIMEOUT),
+                    )
+                    .await
             }
+            ChannelMode::MicAndSpeaker => {
+                let mic = Arc::clone(&item.mic);
+                let spk = Arc::clone(&item.spk);
+                actor
+                    .call(
+                        move |reply| RecMsg::AudioDual(mic, spk, reply),
+                        Some(RECORDER_RPC_TIMEOUT),
+                    )
+                    .await
+            }
+        };
+
+        match result {
+            Ok(CallResult::Success(result)) => Ok(result),
+            Ok(CallResult::SenderError) => {
+                Err("recorder stopped before acknowledging audio".into())
+            }
+            Ok(CallResult::Timeout) => Err("recorder enqueue acknowledgement timed out".into()),
+            Err(error) => Err(format!("failed to send audio to recorder: {error}")),
         }
     }
 
@@ -706,6 +751,8 @@ mod tests {
 
     struct BackpressuredRecorderProbe;
 
+    struct RecoveringRecorderProbe(tokio::sync::mpsc::UnboundedSender<ProbeEvent>);
+
     struct BackpressuredListenerProbe(tokio::sync::mpsc::UnboundedSender<ProbeEvent>);
 
     struct StuckListenerProbe;
@@ -844,6 +891,42 @@ mod tests {
             match message {
                 RecMsg::AudioSingle(_, reply) | RecMsg::AudioDual(_, _, reply) => {
                     let _ = reply.send(RecorderEnqueueResult::Backpressured);
+                }
+                RecMsg::WriterFailed(_) => {}
+            }
+            Ok(())
+        }
+    }
+
+    #[ractor::async_trait]
+    impl Actor for RecoveringRecorderProbe {
+        type Msg = RecMsg;
+        type State = bool;
+        type Arguments = ();
+
+        async fn pre_start(
+            &self,
+            _myself: ActorRef<Self::Msg>,
+            _args: Self::Arguments,
+        ) -> Result<Self::State, ActorProcessingErr> {
+            Ok(false)
+        }
+
+        async fn handle(
+            &self,
+            _myself: ActorRef<Self::Msg>,
+            message: Self::Msg,
+            backpressured_once: &mut Self::State,
+        ) -> Result<(), ActorProcessingErr> {
+            match message {
+                RecMsg::AudioSingle(_, reply) | RecMsg::AudioDual(_, _, reply) => {
+                    if *backpressured_once {
+                        let _ = self.0.send(ProbeEvent::RecorderDual);
+                        let _ = reply.send(RecorderEnqueueResult::Accepted);
+                    } else {
+                        *backpressured_once = true;
+                        let _ = reply.send(RecorderEnqueueResult::Backpressured);
+                    }
                 }
                 RecMsg::WriterFailed(_) => {}
             }
@@ -1234,14 +1317,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn recorder_backpressure_fails_within_a_finite_deadline() {
+    async fn recorder_backpressure_yields_before_a_finite_deadline() {
         let mut pipeline = test_pipeline();
         let (recorder_ref, handle) = Actor::spawn(None, BackpressuredRecorderProbe, ())
             .await
             .unwrap();
         let started_at = Instant::now();
 
-        let error = pipeline
+        let result = pipeline
             .dispatch_frame(
                 source_frame(false),
                 ChannelMode::MicAndSpeaker,
@@ -1249,13 +1332,105 @@ mod tests {
                 Some(&recorder_ref),
             )
             .await
+            .unwrap();
+
+        assert_eq!(result, DispatchFrameResult::RecorderBackpressured);
+        assert!(pipeline.has_pending_recorder_item());
+        assert!(started_at.elapsed() < RECORDER_BACKPRESSURE_TIMEOUT);
+
+        pipeline.recorder_backpressure_started_at =
+            Some(Instant::now() - RECORDER_BACKPRESSURE_TIMEOUT);
+        let error = pipeline
+            .retry_pending_recorder(&ListenerRouting::Dropped, Some(&recorder_ref))
+            .await
             .unwrap_err();
 
         assert_eq!(error, "recorder queue remained full");
-        assert!(started_at.elapsed() >= RECORDER_ENQUEUE_TIMEOUT);
-        assert!(started_at.elapsed() < Duration::from_secs(1));
 
         handle.abort();
+    }
+
+    #[tokio::test]
+    async fn recorder_backpressure_retries_the_same_frame_without_dropping_it() {
+        let mut pipeline = test_pipeline();
+        let (probe_tx, mut probe_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (recorder_ref, handle) = Actor::spawn(None, RecoveringRecorderProbe(probe_tx), ())
+            .await
+            .unwrap();
+
+        let first_result = pipeline
+            .dispatch_frame(
+                source_frame(false),
+                ChannelMode::MicAndSpeaker,
+                &ListenerRouting::Dropped,
+                Some(&recorder_ref),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first_result, DispatchFrameResult::RecorderBackpressured);
+
+        let retry_result = pipeline
+            .retry_pending_recorder(&ListenerRouting::Dropped, Some(&recorder_ref))
+            .await
+            .unwrap();
+        assert_eq!(retry_result, DispatchFrameResult::Complete);
+        assert!(!pipeline.has_pending_recorder_item());
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(1), probe_rx.recv())
+                .await
+                .unwrap(),
+            Some(ProbeEvent::RecorderDual)
+        ));
+
+        handle.abort();
+    }
+
+    #[tokio::test]
+    async fn recorder_backpressure_survives_recorder_restart() {
+        let mut pipeline = test_pipeline();
+        let (backpressured_ref, backpressured_handle) =
+            Actor::spawn(None, BackpressuredRecorderProbe, ())
+                .await
+                .unwrap();
+
+        let first_result = pipeline
+            .dispatch_frame(
+                source_frame(false),
+                ChannelMode::MicAndSpeaker,
+                &ListenerRouting::Dropped,
+                Some(&backpressured_ref),
+            )
+            .await
+            .unwrap();
+        assert_eq!(first_result, DispatchFrameResult::RecorderBackpressured);
+
+        let missing_result = pipeline
+            .retry_pending_recorder(&ListenerRouting::Dropped, None)
+            .await
+            .unwrap();
+        assert_eq!(missing_result, DispatchFrameResult::RecorderBackpressured);
+        assert!(pipeline.has_pending_recorder_item());
+
+        let (probe_tx, mut probe_rx) = tokio::sync::mpsc::unbounded_channel();
+        let (replacement_ref, replacement_handle) = Actor::spawn(None, RecorderProbe(probe_tx), ())
+            .await
+            .unwrap();
+        let retry_result = pipeline
+            .retry_pending_recorder(&ListenerRouting::Dropped, Some(&replacement_ref))
+            .await
+            .unwrap();
+
+        assert_eq!(retry_result, DispatchFrameResult::Complete);
+        assert!(!pipeline.has_pending_recorder_item());
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(1), probe_rx.recv())
+                .await
+                .unwrap(),
+            Some(ProbeEvent::RecorderDual)
+        ));
+
+        backpressured_handle.abort();
+        replacement_handle.abort();
     }
 
     #[test]

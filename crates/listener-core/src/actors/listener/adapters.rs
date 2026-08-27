@@ -16,7 +16,7 @@ use owhisper_interface::{ControlMessage, MixedMessage};
 use super::stream::process_stream;
 use super::{
     ChannelSender, DEVICE_FINGERPRINT_HEADER, ListenerArgs, ListenerMsg, actor_error,
-    actor_error_with_degraded,
+    actor_error_with_degraded, actor_error_with_degraded_retry,
 };
 
 use crate::{DegradedError, SessionErrorEvent};
@@ -79,7 +79,12 @@ fn ws_connect_error(args: &ListenerArgs, error: anlg_ws_client::Error) -> ActorP
         error: message.clone(),
     });
 
-    actor_error_with_degraded(message, classify_ws_connect_failure(&provider, &error))
+    let retry_after = error.retry_after_secs().map(Duration::from_secs);
+    actor_error_with_degraded_retry(
+        message,
+        classify_ws_connect_failure(&provider, &error),
+        retry_after,
+    )
 }
 
 pub(super) async fn spawn_rx_task(
@@ -513,7 +518,7 @@ fn build_extra(args: &ListenerArgs) -> (f64, Extra) {
 fn desktop_connect_policy() -> anlg_ws_client::client::WebSocketConnectPolicy {
     anlg_ws_client::client::WebSocketConnectPolicy {
         connect_timeout: Duration::from_secs(4),
-        max_attempts: 2,
+        max_attempts: 1,
         retry_delay: Duration::from_secs(1),
     }
 }
@@ -779,12 +784,41 @@ mod tests {
         let error = anlg_ws_client::Error::ConnectRetriesExhausted {
             attempts: 3,
             last_error: "HTTP 503 Service Unavailable".to_string(),
+            retry_after_secs: None,
         };
 
         assert!(matches!(
             classify_ws_connect_failure("deepgram", &error),
             DegradedError::UpstreamUnavailable { .. }
         ));
+    }
+
+    #[test]
+    fn websocket_retry_after_reaches_the_session_supervisor() {
+        let error = anlg_ws_client::Error::ConnectFailed {
+            attempt: 1,
+            max_attempts: 1,
+            message: "HTTP 503 Service Unavailable".to_string(),
+            is_auth: false,
+            status_code: Some(503),
+            retryable: true,
+            retry_after_secs: Some(7),
+        };
+
+        let error = ws_connect_error(&listener_args("https://api.anarlog.so/stt", "cloud"), error);
+        let error = error
+            .downcast_ref::<super::super::ListenerInitError>()
+            .expect("listener init error");
+
+        assert_eq!(error.retry_after, Some(Duration::from_secs(7)));
+    }
+
+    #[test]
+    fn desktop_connection_attempts_are_owned_by_the_session_supervisor() {
+        let policy = desktop_connect_policy();
+
+        assert_eq!(policy.max_attempts, 1);
+        assert_eq!(policy.connect_timeout, Duration::from_secs(4));
     }
 
     #[test]

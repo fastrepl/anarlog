@@ -6,6 +6,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     mpsc::{self, Receiver},
 };
+use std::time::Duration;
 
 use ractor::{Actor, ActorName, ActorProcessingErr, ActorRef, RpcReplyPort};
 use tokio_util::sync::CancellationToken;
@@ -18,7 +19,7 @@ use crate::{
 };
 use anlg_audio::{AudioProvider, CaptureFrame};
 
-use pipeline::Pipeline;
+use pipeline::{DispatchFrameResult, Pipeline};
 use stream::start_source_loop;
 
 use anlg_device_monitor::{DeviceMonitorHandle, DeviceSwitch, DeviceSwitchMonitor};
@@ -85,6 +86,7 @@ pub struct SourceState {
 pub struct SourceActor;
 
 const MAX_CAPTURE_FRAMES_PER_TICK: usize = 4;
+const RECORDER_BACKPRESSURE_RETRY_DELAY: Duration = Duration::from_millis(10);
 
 struct DeviceChangeWatcher {
     _handle: DeviceMonitorHandle,
@@ -219,41 +221,57 @@ impl Actor for SourceActor {
                 SourceMsg::CaptureFramesReady => {
                     st.capture_wake_pending.store(false, Ordering::Release);
 
-                    for _ in 0..MAX_CAPTURE_FRAMES_PER_TICK {
-                        let frame = st
-                            .capture_frames
-                            .as_mut()
-                            .and_then(|frames| frames.try_recv().ok());
-                        let Some(frame) = frame else {
-                            break;
-                        };
+                    let pending_result = st
+                        .pipeline
+                        .retry_pending_recorder(&st.listener_routing, st.recorder.as_ref())
+                        .await;
+                    let mut recorder_backpressured = match pending_result {
+                        Ok(DispatchFrameResult::Complete) => false,
+                        Ok(DispatchFrameResult::RecorderBackpressured) => true,
+                        Err(reason) => return recorder_failure(st, reason),
+                    };
 
-                        if let Err(reason) = st
-                            .pipeline
-                            .dispatch_frame(
-                                frame,
-                                st.current_mode,
-                                &st.listener_routing,
-                                st.recorder.as_ref(),
-                            )
-                            .await
-                        {
-                            tracing::error!(%reason, "recorder_audio_write_failed");
-                            st.runtime.emit_error(SessionErrorEvent::AudioError {
-                                session_id: st.session_id.clone(),
-                                error: reason.clone(),
-                                device: st.mic_device.clone(),
-                                is_fatal: true,
-                            });
-                            return Err(std::io::Error::other(reason).into());
+                    if !recorder_backpressured {
+                        for _ in 0..MAX_CAPTURE_FRAMES_PER_TICK {
+                            let frame = st
+                                .capture_frames
+                                .as_mut()
+                                .and_then(|frames| frames.try_recv().ok());
+                            let Some(frame) = frame else {
+                                break;
+                            };
+
+                            match st
+                                .pipeline
+                                .dispatch_frame(
+                                    frame,
+                                    st.current_mode,
+                                    &st.listener_routing,
+                                    st.recorder.as_ref(),
+                                )
+                                .await
+                            {
+                                Ok(DispatchFrameResult::Complete) => {}
+                                Ok(DispatchFrameResult::RecorderBackpressured) => {
+                                    recorder_backpressured = true;
+                                    break;
+                                }
+                                Err(reason) => return recorder_failure(st, reason),
+                            }
                         }
                     }
 
-                    let has_more = st
+                    let has_queued_frames = st
                         .capture_frames
                         .as_ref()
                         .is_some_and(|frames| !frames.is_empty());
-                    if has_more
+                    if recorder_backpressured || st.pipeline.has_pending_recorder_item() {
+                        if !st.capture_wake_pending.swap(true, Ordering::AcqRel) {
+                            myself.send_after(RECORDER_BACKPRESSURE_RETRY_DELAY, || {
+                                SourceMsg::CaptureFramesReady
+                            });
+                        }
+                    } else if has_queued_frames
                         && !st.capture_wake_pending.swap(true, Ordering::AcqRel)
                         && myself.cast(SourceMsg::CaptureFramesReady).is_err()
                     {
@@ -296,6 +314,17 @@ impl Actor for SourceActor {
 
         Ok(())
     }
+}
+
+fn recorder_failure(state: &SourceState, reason: String) -> Result<(), ActorProcessingErr> {
+    tracing::error!(%reason, "recorder_audio_write_failed");
+    state.runtime.emit_error(SessionErrorEvent::AudioError {
+        session_id: state.session_id.clone(),
+        error: reason.clone(),
+        device: state.mic_device.clone(),
+        is_fatal: true,
+    });
+    Err(std::io::Error::other(reason).into())
 }
 
 #[cfg(test)]

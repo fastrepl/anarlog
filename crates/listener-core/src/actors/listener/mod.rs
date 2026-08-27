@@ -94,6 +94,7 @@ impl ListenerActor {
 pub(super) struct ListenerInitError {
     pub(super) message: String,
     pub(super) degraded: Option<DegradedError>,
+    pub(super) retry_after: Option<Duration>,
 }
 
 impl std::fmt::Display for ListenerInitError {
@@ -108,6 +109,7 @@ pub(super) fn actor_error(msg: impl Into<String>) -> ActorProcessingErr {
     Box::new(ListenerInitError {
         message: msg.into(),
         degraded: None,
+        retry_after: None,
     })
 }
 
@@ -115,9 +117,18 @@ pub(super) fn actor_error_with_degraded(
     msg: impl Into<String>,
     degraded: DegradedError,
 ) -> ActorProcessingErr {
+    actor_error_with_degraded_retry(msg, degraded, None)
+}
+
+pub(super) fn actor_error_with_degraded_retry(
+    msg: impl Into<String>,
+    degraded: DegradedError,
+    retry_after: Option<Duration>,
+) -> ActorProcessingErr {
     Box::new(ListenerInitError {
         message: msg.into(),
         degraded: Some(degraded),
+        retry_after,
     })
 }
 

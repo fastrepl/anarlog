@@ -41,6 +41,10 @@ pub(crate) async fn connect_with_retry(
     crate::Error,
 > {
     let max_attempts = policy.max_attempts.max(1);
+    if max_attempts == 1 {
+        return try_connect(request, policy.connect_timeout, 1, max_attempts).await;
+    }
+
     let attempts_made = Arc::new(AtomicUsize::new(0));
     let attempts_ref = attempts_made.clone();
 
@@ -94,9 +98,11 @@ pub(crate) async fn connect_with_retry(
         Err(error) if !error.is_retryable_connect_error() => Err(error),
         Err(error) => {
             let attempts = attempts_made.load(Ordering::SeqCst);
+            let retry_after_secs = error.retry_after_secs();
             Err(crate::Error::connect_retries_exhausted(
                 attempts,
                 error.to_string(),
+                retry_after_secs,
             ))
         }
     }

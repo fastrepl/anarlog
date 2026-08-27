@@ -231,6 +231,18 @@ describe("transcript SQLite queries", () => {
       expect(query.sql).not.toContain(
         "json_array_length(transcript.words_json)",
       );
+      expect(query.sql).toContain("FROM transcript_live_deltas AS delta");
+      expect(query.sql).toContain("'$.new_words'");
+      expect(query.sql).not.toContain("'$.partials'");
+    }
+  });
+
+  it("skips pending transcript journals while live state is visible", () => {
+    renderHook(() => useSessionTranscriptMetadata("session-1", false));
+    renderHook(() => useTranscriptMetadata("transcript-1", false));
+
+    for (const query of mocks.queryOptions) {
+      expect(query.sql).not.toContain("transcript_live_deltas");
     }
   });
 

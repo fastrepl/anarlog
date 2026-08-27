@@ -63,12 +63,10 @@ export function useTranscriptScreen({
     sessionMode: state.getSessionMode(sessionId),
   }));
   const { audioExists } = useAudioPlayer();
-
-  const { transcriptIds, liveSegments, hasTranscriptWords } =
-    useTranscriptContent(sessionId);
-
   const currentActive =
     sessionMode === "active" || sessionMode === "finalizing";
+  const { transcriptIds, liveSegments, hasTranscriptWords } =
+    useTranscriptContent(sessionId, !currentActive);
   const isRecordOnlyMode = sessionMode === "active" && captureMode !== "live";
   const hasVisibleTranscriptState =
     hasTranscriptWords || liveSegments.length > 0 || !!batchError;
@@ -113,8 +111,14 @@ export function useTranscriptScreen({
   };
 }
 
-function useTranscriptContent(sessionId: string) {
-  const transcripts = useSessionTranscriptMetadata(sessionId);
+function useTranscriptContent(
+  sessionId: string,
+  includePendingDeltas: boolean,
+) {
+  const transcripts = useSessionTranscriptMetadata(
+    sessionId,
+    includePendingDeltas,
+  );
   const liveSegments = useListener((state) => state.liveSegments);
 
   return {

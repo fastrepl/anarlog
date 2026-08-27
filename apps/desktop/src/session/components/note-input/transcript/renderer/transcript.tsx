@@ -136,6 +136,7 @@ function PersistedTranscript({
       segments={mergedSegments}
       scrollElement={scrollElement}
       transcriptId={transcriptId}
+      currentActive={currentActive}
       shouldScrollToEnd={shouldScrollToEnd}
       currentMs={currentMs}
       seek={seek}
@@ -152,6 +153,7 @@ function TranscriptSegments({
   segments: rawSegments,
   scrollElement,
   transcriptId,
+  currentActive,
   shouldScrollToEnd,
   currentMs,
   seek,
@@ -164,6 +166,7 @@ function TranscriptSegments({
   segments: Segment[];
   scrollElement: HTMLDivElement | null;
   transcriptId: string;
+  currentActive: boolean;
   shouldScrollToEnd: boolean;
   currentMs: number;
   seek: (sec: number) => void;
@@ -174,7 +177,10 @@ function TranscriptSegments({
   editMode: boolean;
 }) {
   const segments = useStableSegments(rawSegments);
-  const { offsetMs, sessionId } = useTranscriptTimelineMetadata(transcriptId);
+  const { offsetMs, sessionId } = useTranscriptTimelineMetadata(
+    transcriptId,
+    !currentActive,
+  );
   const labelContext = useMemo<RenderLabelContext | undefined>(() => {
     if (!request) return undefined;
 
@@ -304,6 +310,7 @@ const SegmentsList = memo(
       segmentKeys,
       scrollElement,
       activeMatchId: transcriptSearch.activeMatchId,
+      searchEnabled: transcriptSearch.query.length > 0,
       currentMs,
       offsetMs,
     });

@@ -123,12 +123,18 @@ export function getTranscriptTimelineOffsetMs(
     : 0;
 }
 
-export function useTranscriptTimelineMetadata(transcriptId: string): {
+export function useTranscriptTimelineMetadata(
+  transcriptId: string,
+  includePendingDeltas = true,
+): {
   offsetMs: number;
   sessionId?: string;
 } {
-  const transcript = useTranscriptMetadata(transcriptId);
-  const transcripts = useSessionTranscriptMetadata(transcript?.sessionId ?? "");
+  const transcript = useTranscriptMetadata(transcriptId, includePendingDeltas);
+  const transcripts = useSessionTranscriptMetadata(
+    transcript?.sessionId ?? "",
+    includePendingDeltas,
+  );
 
   return useMemo(() => {
     if (!transcript) {

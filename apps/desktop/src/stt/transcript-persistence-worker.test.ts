@@ -121,6 +121,27 @@ describe("createTranscriptPersistenceWorker", () => {
     expect(afterFlush).toHaveBeenCalledOnce();
   });
 
+  it("does not persist UI-only partials", async () => {
+    const persist = vi.fn(async (_delta: LiveTranscriptDelta) => undefined);
+    const worker = createImmediateTranscriptPersistenceWorker(persist, vi.fn());
+
+    worker.enqueue({
+      new_words: [],
+      replaced_ids: [],
+      partials: [
+        {
+          text: "still speaking",
+          start_ms: 0,
+          end_ms: 1,
+          channel: 0,
+        },
+      ],
+    });
+    await worker.flush();
+
+    expect(persist).not.toHaveBeenCalled();
+  });
+
   it("coalesces a long burst behind one in-flight write and flushes later work", async () => {
     const firstWrite = deferred();
     const secondWrite = deferred();
@@ -156,9 +177,7 @@ describe("createTranscriptPersistenceWorker", () => {
     await vi.waitFor(() => expect(persist).toHaveBeenCalledTimes(2));
 
     expect(writes[1]?.new_words).toHaveLength(1_000);
-    expect(writes[1]?.partials).toEqual([
-      expect.objectContaining({ text: "partial-1000" }),
-    ]);
+    expect(writes[1]?.partials).toEqual([]);
 
     secondWrite.resolve();
     worker.enqueue(delta("word-1001"));
@@ -204,9 +223,7 @@ describe("createTranscriptPersistenceWorker", () => {
       expect.objectContaining({ id: "word-5" }),
     ]);
     expect(writes[1]?.replaced_ids).toEqual(["word-1", "word-2"]);
-    expect(writes[1]?.partials).toEqual([
-      expect.objectContaining({ text: "latest partial" }),
-    ]);
+    expect(writes[1]?.partials).toEqual([]);
   });
 
   it("bounds a delayed correction burst while preserving final words and speaker hints", async () => {

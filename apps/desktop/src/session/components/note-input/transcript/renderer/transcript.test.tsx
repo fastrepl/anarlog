@@ -112,6 +112,7 @@ describe("RenderTranscript", () => {
     expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledTimes(1);
     expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledWith(
       "transcript-1",
+      false,
     );
   });
 
@@ -177,6 +178,10 @@ describe("RenderTranscript", () => {
       "transcript-1",
       false,
       0,
+    );
+    expect(mocks.useTranscriptTimelineMetadata).toHaveBeenCalledWith(
+      "transcript-1",
+      true,
     );
     expect(document.querySelectorAll("section")).toHaveLength(1);
   });

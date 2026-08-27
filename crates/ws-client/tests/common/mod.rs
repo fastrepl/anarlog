@@ -205,6 +205,7 @@ pub(crate) async fn reset_without_close_server() -> SocketAddr {
 pub(crate) async fn http_error_server(
     status_line: &'static str,
     body: &'static str,
+    headers: &'static str,
 ) -> (SocketAddr, Arc<AtomicUsize>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -215,7 +216,7 @@ pub(crate) async fn http_error_server(
         while let Ok((mut stream, _)) = listener.accept().await {
             attempts_for_task.fetch_add(1, Ordering::SeqCst);
             let response = format!(
-                "HTTP/1.1 {status_line}\r\nContent-Length: {}\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n{body}",
+                "HTTP/1.1 {status_line}\r\n{headers}Content-Length: {}\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n{body}",
                 body.len()
             );
             let _ = stream.write_all(response.as_bytes()).await;

@@ -91,6 +91,18 @@ describe("transcript slice", () => {
     ]);
   });
 
+  test("does not publish an identical partial snapshot twice", () => {
+    const delta = createDelta({ 0: 0, 2: 1 });
+    store.getState().handleTranscriptDelta("session-1", delta);
+    const subscriber = vi.fn();
+    const unsubscribe = store.subscribe(subscriber);
+
+    store.getState().handleTranscriptDelta("session-1", delta);
+
+    expect(subscriber).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+
   test("forwards persisted transcript deltas to the callback", () => {
     const persist = vi.fn();
     store.getState().setTranscriptPersist("session-1", persist);
@@ -344,6 +356,19 @@ describe("transcript slice", () => {
 
     expect(store.getState().liveSegments).toEqual([segment("later", 150)]);
     expect(store.getState()).not.toHaveProperty("liveSegmentsById");
+  });
+
+  test("does not publish an empty segment delta", () => {
+    const subscriber = vi.fn();
+    const unsubscribe = store.subscribe(subscriber);
+
+    store.getState().handleTranscriptSegmentDelta({
+      upserts: [],
+      removed_ids: [],
+    });
+
+    expect(subscriber).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
   test("bounds the retained segment preview independently of persistence", () => {
