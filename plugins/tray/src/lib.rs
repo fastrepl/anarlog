@@ -7,7 +7,7 @@ mod tray_icon;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub use ext::*;
-pub use menu_items::{AnlgMenuItem, UpdateMenuState, handle_agenda_menu_event};
+pub use menu_items::{AnlgMenuItem, UpdateMenuState, handle_agenda_menu_event, quit_completely};
 
 const PLUGIN_NAME: &str = "anlg-tray";
 static UPDATES_ENABLED: AtomicBool = AtomicBool::new(true);

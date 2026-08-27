@@ -22,7 +22,7 @@ pub use tray_check_update::{TrayCheckUpdate, UpdateMenuState};
 pub use tray_hide::TrayHide;
 pub use tray_open::TrayOpen;
 pub use tray_quit::TrayQuit;
-pub use tray_quit_completely::TrayQuitCompletely;
+pub use tray_quit_completely::{TrayQuitCompletely, quit_completely};
 pub use tray_settings::TraySettings;
 pub use tray_show_events::TrayShowEvents;
 pub use tray_start::TrayStart;

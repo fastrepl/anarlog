@@ -92,6 +92,7 @@ anlg-db-app = { workspace = true }
 anlg-db-core = { workspace = true }
 anlg-db-sync = { workspace = true }
 anlg-host = { workspace = true }
+anlg-intercept = { workspace = true }
 anlg-storage = { workspace = true }
 anlg-supervisor = { workspace = true }
 
@@ -123,7 +124,6 @@ automation = ["tauri-plugin-automation"]
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-automation = { version = "0.1", optional = true }
-anlg-intercept = { workspace = true }
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 tauri-plugin-local-stt = { workspace = true, features = ["metal"] }

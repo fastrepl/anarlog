@@ -29,8 +29,14 @@ impl MenuItemHandler for TrayQuitCompletely {
             ))
             .show(move |confirmed| {
                 if confirmed {
-                    app.exit(0);
+                    quit_completely(&app);
                 }
             });
     }
+}
+
+pub fn quit_completely(app: &AppHandle<tauri::Wry>) {
+    // Skip the frontend exit flush so the process terminates immediately.
+    anlg_intercept::set_force_quit();
+    app.exit(0);
 }

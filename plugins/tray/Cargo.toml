@@ -18,6 +18,7 @@ specta-typescript = { workspace = true }
 
 [dependencies]
 anlg-host = { workspace = true }
+anlg-intercept = { workspace = true }
 
 tauri = { workspace = true, features = ["tray-icon", "image-png"] }
 tauri-specta = { workspace = true, features = ["derive", "typescript"] }
@@ -36,9 +37,6 @@ specta = { workspace = true }
 tokio = { workspace = true, features = ["time"] }
 tracing = { workspace = true }
 unicode-width = { workspace = true }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-anlg-intercept = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 libloading = { workspace = true }

@@ -126,14 +126,8 @@ fn start_exit_hard_fallback() {
     });
 }
 
-fn should_force_quit() -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        return anlg_intercept::should_force_quit();
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    false
+fn should_allow_immediate_exit() -> bool {
+    EXIT_FLUSH_COMPLETE.load(Ordering::SeqCst) || anlg_intercept::should_force_quit()
 }
 
 fn create_audio_provider(_bundle_id: &str) -> std::sync::Arc<dyn anlg_audio_actual::AudioProvider> {
@@ -568,7 +562,7 @@ pub fn main() {
                 ctx.mark_exiting();
             }
 
-            if EXIT_FLUSH_COMPLETE.load(Ordering::SeqCst) || should_force_quit() {
+            if should_allow_immediate_exit() {
                 return;
             }
 
@@ -796,6 +790,13 @@ mod test {
             message,
             "Anarlog failed to start: legacy import did not pass parity verification"
         );
+    }
+
+    #[test]
+    fn complete_quit_allows_immediate_exit_without_frontend_flush() {
+        assert!(!should_allow_immediate_exit());
+        anlg_intercept::set_force_quit();
+        assert!(should_allow_immediate_exit());
     }
 
     #[test]
