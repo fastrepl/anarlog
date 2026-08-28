@@ -131,14 +131,9 @@ describe("FloatingMeetingWindowHost", () => {
           transcriptBubbles: null,
         }),
       );
-      expect(mocks.liveCaptionShow).toHaveBeenCalledOnce();
-      expect(mocks.liveCaptionUpdate).toHaveBeenLastCalledWith(
-        expect.objectContaining({
-          text: "we should ship this",
-          minimized: false,
-        }),
-      );
     });
+    expect(mocks.liveCaptionShow).not.toHaveBeenCalled();
+    expect(mocks.liveCaptionHide).toHaveBeenCalled();
     expect(mocks.floatingBarShow).toHaveBeenCalledOnce();
     expect(mocks.floatingBarHide).not.toHaveBeenCalled();
   });
@@ -154,5 +149,6 @@ describe("FloatingMeetingWindowHost", () => {
     });
     expect(mocks.liveCaptionHide).toHaveBeenCalled();
     expect(mocks.liveCaptionShow).not.toHaveBeenCalled();
+    expect(mocks.liveCaptionUpdate).not.toHaveBeenCalled();
   });
 });

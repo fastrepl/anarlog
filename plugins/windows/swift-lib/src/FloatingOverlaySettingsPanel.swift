@@ -3,7 +3,7 @@ import SwiftUI
 
 enum FloatingOverlaySettingsPanelLayout {
   static let width: CGFloat = 276
-  static let height: CGFloat = 282
+  static let height: CGFloat = 148
   static let cornerRadius: CGFloat = 16
   static let margin: CGFloat = 10
 }
@@ -134,41 +134,6 @@ private struct FloatingOverlaySettingsPanelView: View {
         value: settings.floatingBarOpacity,
         onChange: settings.setFloatingBarOpacity)
 
-      Divider()
-
-      OpacitySlider(
-        title: "Transcript opacity",
-        value: settings.liveCaptionOpacity,
-        range: FloatingOverlayOpacity.minLiveCaption...FloatingOverlayOpacity.maxLiveCaption,
-        onChange: settings.setLiveCaptionOpacity)
-
-      VStack(alignment: .leading, spacing: 8) {
-        Text("Transcript position")
-          .font(.system(size: 12, weight: .medium))
-          .foregroundStyle(.secondary)
-
-        LazyVGrid(
-          columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3),
-          spacing: 6
-        ) {
-          ForEach(LiveCaptionPosition.allCases, id: \.self) { position in
-            Button(action: { settings.setLiveCaptionPosition(position) }) {
-              Text(shortTitle(for: position))
-                .font(.system(size: 11, weight: .medium))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
-                .background(
-                  position == settings.liveCaptionPosition ? Color.accentColor : Color.clear
-                )
-                .foregroundStyle(position == settings.liveCaptionPosition ? .white : .primary)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(position.title)
-          }
-        }
-      }
-
       Button(
         action: { settings.setLiveCaptionMinimized(!settings.liveCaptionMinimized) }
       ) {
@@ -204,23 +169,6 @@ private struct FloatingOverlaySettingsPanelView: View {
       )
       .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
     )
-  }
-
-  private func shortTitle(for position: LiveCaptionPosition) -> String {
-    switch position {
-    case .topCenter:
-      return "Top"
-    case .topLeft:
-      return "TL"
-    case .topRight:
-      return "TR"
-    case .bottomLeft:
-      return "BL"
-    case .bottomRight:
-      return "BR"
-    case .bottomCenter:
-      return "Bottom"
-    }
   }
 }
 

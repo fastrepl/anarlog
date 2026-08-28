@@ -30,9 +30,11 @@ pub(crate) mod layout {
     use super::LiveCaptionPosition;
 
     pub const MIN_WIDTH: f64 = 260.0;
+    #[allow(dead_code)]
     pub const DEFAULT_WIDTH: f64 = 440.0;
     pub const MAX_WIDTH: f64 = 640.0;
     pub const MIN_LINE_COUNT: u32 = 1;
+    #[allow(dead_code)]
     pub const DEFAULT_LINE_COUNT: u32 = 1;
     pub const MAX_LINE_COUNT: u32 = 4;
     pub const LINE_HEIGHT: f64 = 22.0;
@@ -120,14 +122,12 @@ pub(crate) mod layout {
 
 #[cfg(target_os = "macos")]
 mod platform {
-    use swift_rs::{Bool, SRString, swift};
+    use swift_rs::{Bool, swift};
 
     use super::LiveCaptionState;
     use crate::Error;
 
-    swift!(fn _live_caption_show() -> Bool);
     swift!(fn _live_caption_hide() -> Bool);
-    swift!(fn _live_caption_update(json: &SRString) -> Bool);
 
     pub fn set_app_handle(_app: tauri::AppHandle<tauri::Wry>) {}
 
@@ -136,10 +136,7 @@ mod platform {
     }
 
     pub fn show() -> Result<(), Error> {
-        unsafe {
-            _live_caption_show();
-        }
-        Ok(())
+        hide()
     }
 
     pub fn hide() -> Result<(), Error> {
@@ -149,20 +146,8 @@ mod platform {
         Ok(())
     }
 
-    pub fn update(state: LiveCaptionState) -> Result<(), Error> {
-        let json = serde_json::to_string(&state).map_err(|error| {
-            Error::PanelError(format!("failed to serialize live caption state: {error}"))
-        })?;
-        let json = SRString::from(json.as_str());
-
-        let ok = unsafe { _live_caption_update(&json) };
-        if ok {
-            Ok(())
-        } else {
-            Err(Error::PanelError(
-                "failed to update native live caption".to_string(),
-            ))
-        }
+    pub fn update(_state: LiveCaptionState) -> Result<(), Error> {
+        hide()
     }
 }
 
@@ -170,14 +155,9 @@ mod platform {
 mod platform {
     use std::sync::{Mutex, OnceLock};
 
-    use tauri::{
-        LogicalPosition, LogicalSize, Manager, Position, Size, WebviewUrl, WebviewWindow,
-        WebviewWindowBuilder, window::Color,
-    };
-    use tauri_specta::Event;
+    use tauri::Manager;
 
-    use super::layout::{self, clamp_to_work_area, origin, window_size};
-    use super::{LiveCaptionPosition, LiveCaptionState, WINDOW_LABEL};
+    use super::{LiveCaptionState, WINDOW_LABEL};
     use crate::Error;
 
     static APP_HANDLE: OnceLock<tauri::AppHandle<tauri::Wry>> = OnceLock::new();
@@ -198,17 +178,7 @@ mod platform {
     }
 
     pub fn show() -> Result<(), Error> {
-        let app = app()?;
-        let window = ensure_window(app)?;
-        let state = current_state();
-        if state.as_ref().is_some_and(|value| value.minimized) {
-            window.hide()?;
-            return Ok(());
-        }
-        apply_layout(&window, state.as_ref(), true)?;
-        window.show()?;
-        crate::window::exclude_from_capture(&window);
-        Ok(())
+        hide()
     }
 
     pub fn hide() -> Result<(), Error> {
@@ -223,169 +193,8 @@ mod platform {
         Ok(())
     }
 
-    pub fn update(state: LiveCaptionState) -> Result<(), Error> {
-        let previous_position = current_state().map(|value| value.position);
-        if let Ok(mut last) = LAST_STATE.lock() {
-            *last = Some(state.clone());
-        }
-        let app = app()?;
-        let _ = crate::events::LiveCaptionOverlayState {
-            state: state.clone(),
-        }
-        .emit(app);
-        if state.minimized {
-            if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-                window.hide()?;
-            }
-            return Ok(());
-        }
-        if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-            let force_position = previous_position.is_some_and(|value| value != state.position);
-            apply_layout(&window, Some(&state), force_position)?;
-            if !window.is_visible().unwrap_or(false) {
-                window.show()?;
-                crate::window::exclude_from_capture(&window);
-            }
-        }
-        Ok(())
-    }
-
-    fn ensure_window(
-        app: &tauri::AppHandle<tauri::Wry>,
-    ) -> Result<WebviewWindow<tauri::Wry>, Error> {
-        if let Some(window) = app.get_webview_window(WINDOW_LABEL) {
-            return Ok(window);
-        }
-
-        let (width, height) = window_size(layout::DEFAULT_WIDTH, layout::DEFAULT_LINE_COUNT);
-        let builder = WebviewWindowBuilder::new(
-            app,
-            WINDOW_LABEL,
-            WebviewUrl::App("app/live-caption".into()),
-        )
-        .title("Anarlog")
-        .inner_size(width, height)
-        .visible(false)
-        .focused(false)
-        .decorations(false);
-        #[cfg(any(not(target_os = "macos"), feature = "macos-private-api"))]
-        let builder = builder.transparent(true);
-        let window = builder
-            .shadow(false)
-            .resizable(false)
-            .maximizable(false)
-            .minimizable(false)
-            .closable(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .content_protected(true)
-            .background_color(Color(0, 0, 0, 0))
-            .disable_drag_drop_handler()
-            .build()?;
-
-        crate::window::exclude_from_capture(&window);
-
-        Ok(window)
-    }
-
-    fn apply_layout(
-        window: &WebviewWindow<tauri::Wry>,
-        state: Option<&LiveCaptionState>,
-        force_default_position: bool,
-    ) -> Result<(), Error> {
-        let width = state
-            .map(|value| value.width)
-            .unwrap_or(layout::DEFAULT_WIDTH);
-        let line_count = state
-            .map(|value| value.line_count)
-            .unwrap_or(layout::DEFAULT_LINE_COUNT);
-        let position = state
-            .map(|value| value.position)
-            .unwrap_or(LiveCaptionPosition::TopCenter);
-        let (width, height) = window_size(width, line_count);
-        let next_size = LogicalSize::new(width, height);
-        let scale = window.scale_factor()?;
-        let current_size = window.outer_size()?.to_logical::<f64>(scale);
-        let current_position = window.outer_position()?.to_logical::<f64>(scale);
-        let size_changed = (current_size.width - width).abs() >= 0.5
-            || (current_size.height - height).abs() >= 0.5;
-
-        if size_changed {
-            window.set_size(Size::Logical(next_size))?;
-        }
-
-        let (next_x, next_y) =
-            if force_default_position || current_position.x == 0.0 && current_position.y == 0.0 {
-                default_origin(window, position, width, height)?
-            } else if size_changed {
-                (current_position.x, current_position.y)
-            } else {
-                return Ok(());
-            };
-
-        let (clamped_x, clamped_y) = clamp_origin(window, next_x, next_y, width, height)?;
-        window.set_position(Position::Logical(LogicalPosition::new(
-            clamped_x, clamped_y,
-        )))?;
-        Ok(())
-    }
-
-    fn default_origin(
-        window: &WebviewWindow<tauri::Wry>,
-        position: LiveCaptionPosition,
-        width: f64,
-        height: f64,
-    ) -> Result<(f64, f64), Error> {
-        let monitor = window
-            .current_monitor()
-            .ok()
-            .flatten()
-            .or_else(|| window.app_handle().primary_monitor().ok().flatten())
-            .ok_or(Error::MonitorNotFound)?;
-        let scale = monitor.scale_factor();
-        let work_area = monitor.work_area();
-        let origin_point = work_area.position.to_logical::<f64>(scale);
-        let size = work_area.size.to_logical::<f64>(scale);
-        Ok(origin(
-            position,
-            origin_point.x,
-            origin_point.y,
-            size.width,
-            size.height,
-            width,
-            height,
-        ))
-    }
-
-    fn clamp_origin(
-        window: &WebviewWindow<tauri::Wry>,
-        x: f64,
-        y: f64,
-        width: f64,
-        height: f64,
-    ) -> Result<(f64, f64), Error> {
-        let monitor = window
-            .current_monitor()
-            .ok()
-            .flatten()
-            .or_else(|| window.app_handle().primary_monitor().ok().flatten());
-        let Some(monitor) = monitor else {
-            return Ok((x, y));
-        };
-        let scale = monitor.scale_factor();
-        let work_area = monitor.work_area();
-        let origin_point = work_area.position.to_logical::<f64>(scale);
-        let size = work_area.size.to_logical::<f64>(scale);
-        Ok(clamp_to_work_area(
-            x,
-            y,
-            width,
-            height,
-            origin_point.x,
-            origin_point.y,
-            size.width,
-            size.height,
-        ))
+    pub fn update(_state: LiveCaptionState) -> Result<(), Error> {
+        hide()
     }
 }
 
