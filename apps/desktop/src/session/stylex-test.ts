@@ -50,7 +50,13 @@ export function expectStyle(
   sx: stylex.StyleXStyles,
 ) {
   expect(element).toBeTruthy();
-  expect(hasStyle(element, sx)).toBe(true);
+  const missingClassNames = getStyleClassNames(sx).filter(
+    (className) => !element?.classList.contains(className),
+  );
+  expect(
+    missingClassNames,
+    `Expected "${element?.className}" to include the StyleX classes`,
+  ).toEqual([]);
 }
 
 export function expectNotStyle(
