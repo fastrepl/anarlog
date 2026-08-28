@@ -5,17 +5,17 @@ import {
   Prohibit,
   SignIn,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 
 import { useShareRouteContinuation } from "@/components/share-route-continuation";
 import {
-  sharedPrimaryButtonClassName,
-  sharedSecondaryButtonClassName,
   SharedNoteLoading,
   SharedNotePrompt,
   SharedNoteTransientError,
   SharedNoteUnavailable,
+  sharedButtonStyles,
 } from "@/components/shared-note-viewer";
 import { fetchUser } from "@/functions/auth";
 import { clearShareRouteContinuation } from "@/functions/share-route-continuation";
@@ -38,19 +38,31 @@ import {
   sharedNoteDesktopSchemeSchema,
   invitationIdSchema,
 } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {
+    width: "1.5rem",
+    height: "1.5rem",
+  },
+  style2: {
+    flexBasis: "100%",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#b91c1c",
+  },
+});
 export const Route = createFileRoute("/share/invite/$invitationId")({
   validateSearch: (search) => ({
     scheme: sharedNoteDesktopSchemeSchema.parse(search.scheme),
   }),
   beforeLoad: () => prepareShareRoutePrivacy(),
-  loader: async () => ({ user: await fetchUser() }),
+  loader: async () => ({
+    user: await fetchUser(),
+  }),
   head: getPrivateShareHead,
   headers: () => privateShareHeaders,
   pendingComponent: SharedNoteLoading,
   component: Component,
 });
-
 function Component() {
   const { user } = Route.useLoaderData();
   const { invitationId } = Route.useParams();
@@ -65,7 +77,6 @@ function Component() {
     </ClientOnly>
   );
 }
-
 function InvitationClient({
   invitationId,
   signedIn,
@@ -104,7 +115,6 @@ function InvitationClient({
       if (!continuation.token || !parsedInvitationId) {
         throw new Error("shared note unavailable");
       }
-
       const result = await acceptSharedNoteInvitation({
         data: {
           invitationId: parsedInvitationId,
@@ -126,11 +136,9 @@ function InvitationClient({
       );
     },
   });
-
   if (continuation.isPending) {
     return <SharedNoteLoading />;
   }
-
   if (continuation.isError) {
     return (
       <SharedNoteTransientError
@@ -140,11 +148,9 @@ function InvitationClient({
       />
     );
   }
-
   if (!continuation.token || !parsedInvitationId) {
     return <SharedNoteUnavailable />;
   }
-
   if (!signedIn) {
     const search = new URLSearchParams({
       flow: "web",
@@ -152,13 +158,16 @@ function InvitationClient({
     });
     return (
       <SharedNotePrompt
-        icon={<SignIn className="size-6" aria-hidden="true" />}
+        icon={<SignIn {...stylex.props(styles.style1)} aria-hidden="true" />}
         title="Sign in to accept this invitation"
         description="Use the email address this note was shared with. Your invitation stays in this browser tab while you sign in."
         actions={
           <a
             href={`/auth/?${search.toString()}`}
-            className={sharedPrimaryButtonClassName}
+            {...stylex.props([
+              sharedButtonStyles.base,
+              sharedButtonStyles.primary,
+            ])}
           >
             Sign in to Anarlog
           </a>
@@ -166,11 +175,9 @@ function InvitationClient({
       />
     );
   }
-
   if (invitationQuery.isPending) {
     return <SharedNoteLoading />;
   }
-
   const invitationFailure = getInvitationRouteFailure({
     acceptanceFailed: acceptMutation.isError,
     inspectionFailed: invitationQuery.isError,
@@ -182,24 +189,26 @@ function InvitationClient({
   ) {
     return <SharedNoteUnavailable />;
   }
-
   const invitation = invitationQuery.data.invitation;
-
   if (invitation.status === "accepted") {
     const acceptedShareId = invitation.shareId;
     if (!acceptedShareId) {
       return <SharedNoteUnavailable />;
     }
-
     return (
       <SharedNotePrompt
-        icon={<CheckCircle className="size-6" aria-hidden="true" />}
+        icon={
+          <CheckCircle {...stylex.props(styles.style1)} aria-hidden="true" />
+        }
         title="Invitation accepted"
         description="This note is already available in your shared notes."
         actions={
           <button
             type="button"
-            className={sharedPrimaryButtonClassName}
+            {...stylex.props([
+              sharedButtonStyles.base,
+              sharedButtonStyles.primary,
+            ])}
             onClick={() => {
               void clearInvitationContinuation(pathname).then(() => {
                 window.location.assign(
@@ -217,37 +226,39 @@ function InvitationClient({
       />
     );
   }
-
   if (invitation.status === "revoked") {
     return (
       <SharedNotePrompt
-        icon={<Prohibit className="size-6" aria-hidden="true" />}
+        icon={<Prohibit {...stylex.props(styles.style1)} aria-hidden="true" />}
         title="This invitation was revoked"
         description="The person who shared the note has withdrawn this invitation."
       />
     );
   }
-
   if (invitation.status === "expired") {
     return (
       <SharedNotePrompt
-        icon={<Clock className="size-6" aria-hidden="true" />}
+        icon={<Clock {...stylex.props(styles.style1)} aria-hidden="true" />}
         title="This invitation has expired"
         description="Ask the person who shared the note to send a new invitation."
       />
     );
   }
-
   return (
     <SharedNotePrompt
-      icon={<EnvelopeOpen className="size-6" aria-hidden="true" />}
+      icon={
+        <EnvelopeOpen {...stylex.props(styles.style1)} aria-hidden="true" />
+      }
       title="A note was shared with you"
       description="Accept the invitation to add this note to your shared notes in Anarlog."
       actions={
         <>
           <button
             type="button"
-            className={sharedPrimaryButtonClassName}
+            {...stylex.props([
+              sharedButtonStyles.base,
+              sharedButtonStyles.primary,
+            ])}
             disabled={acceptMutation.isPending}
             onClick={() => acceptMutation.mutate()}
           >
@@ -255,7 +266,10 @@ function InvitationClient({
           </button>
           <button
             type="button"
-            className={sharedSecondaryButtonClassName}
+            {...stylex.props([
+              sharedButtonStyles.base,
+              sharedButtonStyles.secondary,
+            ])}
             onClick={() => {
               void clearInvitationContinuation(pathname).then(() => {
                 window.location.assign("/");
@@ -265,7 +279,7 @@ function InvitationClient({
             Not now
           </button>
           {invitationFailure === "accept-retry" && (
-            <p className="basis-full text-sm text-red-700" role="status">
+            <p {...stylex.props(styles.style2)} role="status">
               We couldn’t accept this invitation. Please try again.
             </p>
           )}
@@ -274,8 +288,9 @@ function InvitationClient({
     />
   );
 }
-
 async function clearInvitationContinuation(pathname: string) {
   clearShareRouteToken(pathname);
-  await clearShareRouteContinuation({ data: pathname }).catch(() => undefined);
+  await clearShareRouteContinuation({
+    data: pathname,
+  }).catch(() => undefined);
 }

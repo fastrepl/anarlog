@@ -1,5 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { ArrowRight, CaretDown } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
@@ -20,22 +21,374 @@ import { runWhenIdle } from "@/lib/run-when-idle";
 import { createTrackedTimers } from "@/lib/tracked-timers";
 
 import { CredibilityLogoMarquee } from "./social-proof-sections";
-
+const styles = stylex.create({
+  style1: {
+    isolation: "isolate",
+    paddingTop: {
+      default: "2.5rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+    paddingBottom: {
+      default: ".5rem",
+      "@media (width >= 48rem)": "1rem",
+    },
+  },
+  style2: {
+    display: "inline-flex",
+  },
+  style3: {
+    height: {
+      default: "2rem",
+      "@media (width >= 48rem)": "2.25rem",
+    },
+    width: "auto",
+  },
+  style4: {
+    marginInline: "auto",
+    marginTop: {
+      default: "3rem",
+      "@media (width >= 48rem)": "4rem",
+    },
+    fontSize: {
+      default: "3rem",
+      "@media (width >= 48rem)": "4.5rem",
+    },
+    lineHeight: {
+      default: ".98",
+      "@media (width >= 48rem)": "1",
+    },
+    "--tw-leading": ".98",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    textWrap: "balance",
+    position: {
+      default: null,
+      "@media (width >= 64rem)": "relative",
+    },
+    left: {
+      default: null,
+      "@media (width >= 64rem)": "50%",
+    },
+    width: {
+      default: null,
+      "@media (width >= 64rem)": "max-content",
+    },
+    maxWidth: {
+      default: null,
+      "@media (width >= 64rem)": "none",
+    },
+    "--tw-translate-x": {
+      default: null,
+      "@media (width >= 64rem)": "calc(calc(1 / 2 * 100%) * -1)",
+    },
+    translate: {
+      default: null,
+      "@media (width >= 64rem)": "calc(calc(1 / 2 * 100%) * -1) 0",
+    },
+    whiteSpace: {
+      default: null,
+      "@media (width >= 64rem)": "nowrap",
+    },
+  },
+  style5: {
+    display: {
+      default: "block",
+      "@media (width >= 64rem)": "inline",
+    },
+  },
+  style6: {
+    marginInline: "auto",
+    marginTop: "1.5rem",
+    fontSize: "1.125rem",
+    lineHeight: "2rem",
+    "--tw-leading": "2rem",
+    color: "#4f4940",
+  },
+  style7: {
+    marginTop: "2rem",
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    columnGap: "1.25rem",
+    rowGap: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style8: {
+    position: "relative",
+    left: "50%",
+    marginTop: "2.5rem",
+    width: "100vw",
+    maxWidth: "500px",
+    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
+    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
+    paddingInline: {
+      default: "2rem",
+      "@media (width >= 40rem)": "2.5rem",
+    },
+  },
+  style9: {
+    pointerEvents: "none",
+    position: "absolute",
+    top: "2.5rem",
+    bottom: "6rem",
+    left: {
+      default: "2rem",
+      "@media (width >= 40rem)": "2.5rem",
+    },
+    width: "3rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "oklab(14.4788% 7.45058e-9 7.45058e-9 / .1)",
+    "--tw-blur": "blur(40px)",
+    filter: "blur(40px)        ",
+  },
+  style10: {
+    pointerEvents: "none",
+    position: "absolute",
+    top: "2.5rem",
+    right: {
+      default: "2rem",
+      "@media (width >= 40rem)": "2.5rem",
+    },
+    bottom: "6rem",
+    width: "3rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "oklab(14.4788% 7.45058e-9 7.45058e-9 / .1)",
+    "--tw-blur": "blur(40px)",
+    filter: "blur(40px)        ",
+  },
+  style11: {
+    position: "relative",
+    marginInline: "auto",
+    maxWidth: "420px",
+    overflow: "hidden",
+    borderRadius: "1.5rem",
+    borderInlineStyle: "solid",
+    borderInlineWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    borderColor: "#e5e5e5",
+    backgroundColor: "#fff",
+    "--tw-shadow": "0 24px 70px #18161314",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 24px 70px var(--tw-shadow-color, #18161314)",
+    cornerShape: "squircle",
+  },
+  style12: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+    paddingInline: "1rem",
+    paddingBlock: ".75rem",
+  },
+  style13: {
+    display: "flex",
+    gap: ".5rem",
+  },
+  style14: {
+    height: ".75rem",
+    width: ".75rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "#f87171",
+  },
+  style15: {
+    height: ".75rem",
+    width: ".75rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "#facc15",
+  },
+  style16: {
+    height: ".75rem",
+    width: ".75rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "#4ade80",
+  },
+  style17: {
+    marginLeft: "auto",
+    display: "flex",
+    height: "1rem",
+    width: "1.5rem",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  style18: {
+    color: "#737373",
+  },
+  style19: {
+    position: "relative",
+    minHeight: {
+      default: "260px",
+      "@media (width >= 40rem)": "300px",
+    },
+    overflow: "hidden",
+    textAlign: "left",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style20: {
+    color: "#404040",
+  },
+  style21: {
+    marginTop: "1rem",
+    color: "#404040",
+  },
+  style22: {
+    marginTop: "1rem",
+    minHeight: "1.25rem",
+    color: "#404040",
+  },
+  style23: {
+    minHeight: "1.25rem",
+    color: "#404040",
+  },
+  style24: {},
+  style25: {
+    listStyleType: "disc",
+    paddingLeft: "1.25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#404040",
+  },
+  style26: {
+    height: "auto",
+    width: "100%",
+    borderRadius: ".75rem",
+  },
+  style27: {
+    insetInline: "0",
+    pointerEvents: "none",
+    position: "absolute",
+    bottom: "0",
+    height: "7rem",
+    "--tw-gradient-position": {
+      default: "to top",
+      "@supports (background-image: linear-gradient(in lab, red, red))":
+        "to top in oklab",
+    },
+    backgroundImage: "linear-gradient(var(--tw-gradient-stops))",
+    "--tw-gradient-from": "#fff",
+    "--tw-gradient-stops":
+      "var(--tw-gradient-position, #0000 0%, transparent 100%)",
+    "--tw-gradient-to": "transparent",
+  },
+  style28: {
+    position: "relative",
+    display: "inline-flex",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style29: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: ".375rem",
+    borderTopLeftRadius: "3.40282e38px",
+    borderBottomLeftRadius: "3.40282e38px",
+    backgroundColor: "#181613",
+    paddingBlock: ".75rem",
+    paddingRight: ".5rem",
+    paddingLeft: {
+      default: "1rem",
+      "@media (width >= 40rem)": "1.25rem",
+    },
+    fontSize: {
+      default: "13px",
+      "@media (width >= 40rem)": ".875rem",
+    },
+    color: "#fff",
+    lineHeight: {
+      default: null,
+      "@media (width >= 40rem)": "1.25rem",
+    },
+  },
+  style30: {
+    display: "inline-flex",
+    height: "100%",
+    cursor: "pointer",
+    alignItems: "center",
+    borderTopRightRadius: "3.40282e38px",
+    borderBottomRightRadius: "3.40282e38px",
+    backgroundColor: "#181613",
+    paddingBlock: ".75rem",
+    paddingRight: ".75rem",
+    paddingLeft: ".5rem",
+    color: "#fff",
+  },
+  style31: {
+    position: "absolute",
+    top: "calc(100% + .5rem)",
+    left: "0",
+    zIndex: "10",
+    width: "18rem",
+    maxWidth: "calc(100vw - 2.5rem)",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    padding: ".5rem",
+    textAlign: "left",
+    "--tw-shadow": "0 14px 40px #1816131f",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 14px 40px var(--tw-shadow-color, #1816131f)",
+  },
+  style32: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".75rem",
+    borderRadius: ".75rem",
+    paddingInline: ".75rem",
+    paddingBlock: ".625rem",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+  },
+  style33: {
+    marginLeft: "auto",
+    borderRadius: "3.40282e38px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: ".5rem",
+    paddingBlock: ".125rem",
+    fontSize: "11px",
+    "--tw-leading": "1",
+    lineHeight: "1",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    textTransform: "uppercase",
+  },
+  style34: {
+    marginTop: ".25rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: ".75rem",
+    paddingInline: ".75rem",
+    paddingBlock: ".625rem",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+  },
+  style35: {
+    flexShrink: "0",
+  },
+});
 export function HeroSection() {
   return (
-    <section className="isolate pt-10 pb-2 md:pt-12 md:pb-4">
-      <Link to="/" aria-label="Anarlog home" className="inline-flex">
-        <AnarlogLogo className="h-8 w-auto md:h-9" />
+    <section {...stylex.props(styles.style1)}>
+      <Link to="/" aria-label="Anarlog home" {...stylex.props(styles.style2)}>
+        <AnarlogLogo sx={styles.style3} />
       </Link>
-      <h1 className="font-hand mx-auto mt-12 max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:mt-16 md:text-7xl lg:relative lg:left-1/2 lg:w-max lg:max-w-none lg:-translate-x-1/2 lg:whitespace-nowrap">
-        <span className="font-hand block lg:inline">The AI notepad for</span>{" "}
-        <span className="font-hand block lg:inline">private meetings.</span>
+      <h1 {...stylex.props(styles.style4)}>
+        <span {...stylex.props(styles.style5)}>The AI notepad for</span>{" "}
+        <span {...stylex.props(styles.style5)}>private meetings.</span>
       </h1>
-      <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+      <p {...stylex.props(styles.style6)}>
         Take bot-free, open-source meeting notes while keeping sensitive
         conversations secure and under your control.
       </p>
-      <div className="mt-8 flex flex-wrap justify-center gap-x-5 gap-y-3 text-sm">
+      <div {...stylex.props(styles.style7)}>
         <DownloadButton />
       </div>
       <HeroWorkflowDemo />
@@ -43,25 +396,20 @@ export function HeroSection() {
     </section>
   );
 }
-
 function HeroWorkflowDemo() {
   const [typedText1, setTypedText1] = useState("");
   const [typedText2, setTypedText2] = useState("");
   const [enhancedLines, setEnhancedLines] = useState(0);
   const [isTypingActive, setIsTypingActive] = useState(false);
-
   const text1 = "metrisc w/ john";
   const text2 = "stakehlder mtg";
-
   useMountEffect(() => {
     const timers = createTrackedTimers();
-
     const runAnimation = () => {
       setTypedText1("");
       setTypedText2("");
       setEnhancedLines(0);
       setIsTypingActive(false);
-
       let currentIndex1 = 0;
       timers.setTimeout(() => {
         setIsTypingActive(true);
@@ -71,7 +419,6 @@ function HeroWorkflowDemo() {
             currentIndex1++;
           } else {
             timers.clearInterval(interval1);
-
             let currentIndex2 = 0;
             const interval2 = timers.setInterval(() => {
               if (currentIndex2 < text2.length) {
@@ -80,7 +427,6 @@ function HeroWorkflowDemo() {
               } else {
                 timers.clearInterval(interval2);
                 setIsTypingActive(false);
-
                 timers.setTimeout(() => {
                   setEnhancedLines(1);
                   timers.setTimeout(() => {
@@ -106,33 +452,23 @@ function HeroWorkflowDemo() {
         }, 50);
       }, 500);
     };
-
     const cancelIdle = runWhenIdle(runAnimation, {
       timeout: 2000,
       fallbackDelay: 1000,
     });
-
     return () => {
       cancelIdle();
       timers.clear();
     };
   });
-
   const isSummaryPhase = enhancedLines > 0;
   const isGeneratingSummary = enhancedLines > 0 && enhancedLines < 6;
-
   return (
-    <div className="relative left-1/2 mt-10 w-screen max-w-[500px] -translate-x-1/2 px-8 sm:px-10">
+    <div {...stylex.props(styles.style8)}>
+      <div {...stylex.props(styles.style9)} aria-hidden="true" />
+      <div {...stylex.props(styles.style10)} aria-hidden="true" />
       <div
-        className="pointer-events-none absolute top-10 bottom-24 left-8 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:left-10"
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute top-10 right-8 bottom-24 w-12 rounded-full bg-neutral-950/10 blur-2xl sm:right-10"
-        aria-hidden="true"
-      />
-      <div
-        className="relative mx-auto max-w-[420px] overflow-hidden rounded-3xl border-x border-t border-neutral-200 bg-white shadow-[0_24px_70px_rgba(24,22,19,0.08)] [corner-shape:squircle]"
+        {...stylex.props(styles.style11)}
         style={{
           WebkitMaskImage:
             "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
@@ -140,15 +476,15 @@ function HeroWorkflowDemo() {
             "linear-gradient(to bottom, black 0%, black calc(100% - 5rem), transparent 100%)",
         }}
       >
-        <div className="flex items-center gap-2 px-4 py-3">
-          <div className="flex gap-2 [&>*]:[corner-shape:round]">
-            <div className="h-3 w-3 rounded-full bg-red-400"></div>
-            <div className="h-3 w-3 rounded-full bg-yellow-400"></div>
-            <div className="h-3 w-3 rounded-full bg-green-400"></div>
+        <div {...stylex.props(styles.style12)}>
+          <div {...stylex.props(styles.style13)}>
+            <div {...stylex.props(styles.style14)}></div>
+            <div {...stylex.props(styles.style15)}></div>
+            <div {...stylex.props(styles.style16)}></div>
           </div>
-          <div className="ml-auto flex h-4 w-6 items-center justify-end">
+          <div {...stylex.props(styles.style17)}>
             {isGeneratingSummary ? (
-              <Spinner size={12} className="text-neutral-500" />
+              <Spinner size={12} {...stylex.props(styles.style18)} />
             ) : !isSummaryPhase ? (
               <DancingSticks
                 amplitude={isTypingActive ? 1 : 0}
@@ -158,21 +494,21 @@ function HeroWorkflowDemo() {
             ) : null}
           </div>
         </div>
-        <div className="relative min-h-[260px] overflow-hidden text-left text-sm sm:min-h-[300px]">
+        <div {...stylex.props(styles.style19)}>
           <div
-            className={cn([
+            {...stylex.props([
               "absolute inset-0 space-y-3 px-5 pt-2 pb-5 transition-opacity duration-500 sm:px-6 sm:pt-3 sm:pb-6",
               isSummaryPhase ? "opacity-0" : "opacity-100",
             ])}
           >
-            <div className="text-neutral-700">ui update - moble</div>
-            <div className="text-neutral-700">api</div>
-            <div className="mt-4 text-neutral-700">new dash - urgnet</div>
-            <div className="text-neutral-700">a/b tst next wk</div>
-            <div className="mt-4 min-h-5 text-neutral-700">
+            <div {...stylex.props(styles.style20)}>ui update - moble</div>
+            <div {...stylex.props(styles.style20)}>api</div>
+            <div {...stylex.props(styles.style21)}>new dash - urgnet</div>
+            <div {...stylex.props(styles.style20)}>a/b tst next wk</div>
+            <div {...stylex.props(styles.style22)}>
               {typedText1}
               <span
-                className={cn([
+                {...stylex.props([
                   typedText1 && typedText1.length < text1.length
                     ? "animate-pulse"
                     : "opacity-0",
@@ -181,10 +517,10 @@ function HeroWorkflowDemo() {
                 |
               </span>
             </div>
-            <div className="min-h-5 text-neutral-700">
+            <div {...stylex.props(styles.style23)}>
               {typedText2}
               <span
-                className={cn([
+                {...stylex.props([
                   typedText2 && typedText2.length < text2.length
                     ? "animate-pulse"
                     : "opacity-0",
@@ -195,23 +531,23 @@ function HeroWorkflowDemo() {
             </div>
           </div>
           <div
-            className={cn([
+            {...stylex.props([
               "absolute inset-0 space-y-4 overflow-hidden px-5 pt-2 pb-5 text-left transition-opacity duration-500 sm:px-6 sm:pt-3 sm:pb-6",
               isSummaryPhase ? "opacity-100" : "opacity-0",
             ])}
           >
-            <div className="space-y-2">
+            <div {...stylex.props(styles.style24)}>
               <h4
-                className={cn([
+                {...stylex.props([
                   "font-semibold text-stone-700 transition-opacity duration-500",
                   enhancedLines >= 1 ? "opacity-100" : "opacity-0",
                 ])}
               >
                 Mobile UI Update and API Adjustments
               </h4>
-              <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
+              <ul {...stylex.props(styles.style25)}>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 1 ? "opacity-100" : "opacity-0",
                   ])}
@@ -221,7 +557,7 @@ function HeroWorkflowDemo() {
                   better accessibility.
                 </li>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 2 ? "opacity-100" : "opacity-0",
                   ])}
@@ -231,7 +567,7 @@ function HeroWorkflowDemo() {
                   user data more efficiently.
                 </li>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 3 ? "opacity-100" : "opacity-0",
                   ])}
@@ -242,18 +578,18 @@ function HeroWorkflowDemo() {
                 </li>
               </ul>
             </div>
-            <div className="space-y-2">
+            <div {...stylex.props(styles.style24)}>
               <h4
-                className={cn([
+                {...stylex.props([
                   "font-semibold text-stone-700 transition-opacity duration-500",
                   enhancedLines >= 4 ? "opacity-100" : "opacity-0",
                 ])}
               >
                 New Dashboard - Urgent Priority
               </h4>
-              <ul className="list-disc space-y-2 pl-5 text-sm text-neutral-700">
+              <ul {...stylex.props(styles.style25)}>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 4 ? "opacity-100" : "opacity-0",
                   ])}
@@ -262,7 +598,7 @@ function HeroWorkflowDemo() {
                   prioritized due to increasing stakeholder demand.
                 </li>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 5 ? "opacity-100" : "opacity-0",
                   ])}
@@ -271,7 +607,7 @@ function HeroWorkflowDemo() {
                   metrics and a customizable reporting system.
                 </li>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 5 ? "opacity-100" : "opacity-0",
                   ])}
@@ -280,7 +616,7 @@ function HeroWorkflowDemo() {
                   to handle real-time data processing.
                 </li>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 5 ? "opacity-100" : "opacity-0",
                   ])}
@@ -289,7 +625,7 @@ function HeroWorkflowDemo() {
                   marketing efforts to maximize user adoption.
                 </li>
                 <li
-                  className={cn([
+                  {...stylex.props([
                     "transition-opacity duration-500",
                     enhancedLines >= 5 ? "opacity-100" : "opacity-0",
                   ])}
@@ -303,7 +639,7 @@ function HeroWorkflowDemo() {
         </div>
       </div>
       <div
-        className={cn([
+        {...stylex.props([
           "pointer-events-none absolute right-1 bottom-9 z-10 w-[66%] transition-all duration-500 sm:-right-2 sm:bottom-12 sm:w-[68%]",
           isSummaryPhase
             ? "translate-y-2 opacity-0"
@@ -317,25 +653,26 @@ function HeroWorkflowDemo() {
           srcSet={[300, 600, 900]
             .map(
               (width) =>
-                `${getResizedImageUrl("/images/hero-meeting-participants.webp", { width })} ${width}w`,
+                `${getResizedImageUrl(
+                  "/images/hero-meeting-participants.webp",
+                  {
+                    width,
+                  },
+                )} ${width}w`,
             )
             .join(", ")}
           sizes="(min-width: 640px) 286px, 66vw"
           alt="Four participants in a video meeting"
           width={1200}
           height={215}
-          className="h-auto w-full rounded-xl"
+          {...stylex.props(styles.style26)}
           decoding="async"
         />
       </div>
-      <div
-        className="pointer-events-none absolute right-0 bottom-0 left-0 h-28 bg-linear-to-t from-white to-transparent"
-        aria-hidden="true"
-      />
+      <div {...stylex.props(styles.style27)} aria-hidden="true" />
     </div>
   );
 }
-
 function DownloadButton() {
   const { track } = useAnalytics();
   const [open, setOpen] = useState(false);
@@ -349,10 +686,8 @@ function DownloadButton() {
     preferredSection.platform === "macos"
       ? `Download for ${preferredDownload.name}`
       : `Download for ${preferredSection.name}`;
-
   useMountEffect(() => {
     setPreferredPlatform(detectDesktopPlatform(navigator.userAgent));
-
     const onPointerDown = (event: MouseEvent | TouchEvent) => {
       if (
         containerRef.current &&
@@ -364,7 +699,6 @@ function DownloadButton() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("touchstart", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -374,12 +708,8 @@ function DownloadButton() {
       document.removeEventListener("keydown", onKeyDown);
     };
   });
-
   return (
-    <div
-      ref={containerRef}
-      className="relative inline-flex text-sm font-medium"
-    >
+    <div ref={containerRef} {...stylex.props(styles.style28)}>
       <a
         href={preferredDownload.url}
         onClick={() =>
@@ -389,7 +719,7 @@ function DownloadButton() {
             source: "homepage",
           })
         }
-        className="inline-flex items-center gap-1.5 rounded-l-full bg-[#181613] py-3 pr-2 pl-4 text-[13px] text-white sm:pl-5 sm:text-sm"
+        {...stylex.props(styles.style29)}
       >
         {getPlatformIcon(preferredSection.platform, 16)}
         <span>{preferredLabel}</span>
@@ -400,22 +730,18 @@ function DownloadButton() {
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((previous) => !previous)}
-        className="inline-flex h-full cursor-pointer items-center rounded-r-full bg-[#181613] py-3 pr-3 pl-2 text-white"
+        {...stylex.props(styles.style30)}
       >
         <CaretDown size={17} weight="bold" aria-hidden="true" />
       </button>
       {open && (
-        <div
-          role="menu"
-          className="surface border-color-brand absolute top-[calc(100%+0.5rem)] left-0 z-10 w-72 max-w-[calc(100vw-2.5rem)] rounded-2xl border p-2 text-left shadow-[0_14px_40px_rgba(24,22,19,0.12)]"
-        >
+        <div role="menu" {...stylex.props(styles.style31)}>
           {orderedSections.map((section) =>
             section.downloads.map((download) => {
               if (!download.showInMenu) return null;
               if (download.url === preferredDownload.url) {
                 return null;
               }
-
               return (
                 <a
                   key={download.url}
@@ -429,14 +755,14 @@ function DownloadButton() {
                     });
                     setOpen(false);
                   }}
-                  className="text-color hover:surface-subtle flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors"
+                  {...stylex.props(styles.style32)}
                 >
                   {getPlatformIcon(section.platform, 20)}
                   <span>
                     {getDownloadOptionLabel(section.platform, download.name)}
                   </span>
                   {section.status && (
-                    <span className="border-color-subtle text-color-muted ml-auto rounded-full border px-2 py-0.5 text-[11px] leading-none font-medium tracking-wide uppercase">
+                    <span {...stylex.props(styles.style33)}>
                       {section.status}
                     </span>
                   )}
@@ -448,7 +774,7 @@ function DownloadButton() {
             to="/download/"
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="text-color-muted hover:surface-subtle mt-1 flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors"
+            {...stylex.props(styles.style34)}
           >
             <span>View all downloads</span>
             <ArrowRight size={15} weight="bold" aria-hidden="true" />
@@ -458,7 +784,6 @@ function DownloadButton() {
     </div>
   );
 }
-
 function getPlatformIcon(platform: DesktopPlatform, size: number) {
   const icon =
     platform === "windows"
@@ -471,12 +796,11 @@ function getPlatformIcon(platform: DesktopPlatform, size: number) {
       icon={icon}
       width={size}
       height={size}
-      className="shrink-0"
+      {...stylex.props(styles.style35)}
       aria-hidden="true"
     />
   );
 }
-
 function getDownloadOptionLabel(
   platform: DesktopPlatform,
   downloadName: string,

@@ -1,4 +1,5 @@
 import { ArrowUpRight, Check, CircleNotch } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
@@ -11,34 +12,307 @@ import { fetchUser } from "@/functions/auth";
 import { applyYcPerk, submitYcPerkRequest } from "@/functions/yc-perk";
 import { getCanonicalUrl } from "@/lib/seo";
 import { validateYcVerificationUrl, ycPerkRequestSchema } from "@/lib/yc-perk";
-
+const styles = stylex.create({
+  style1: {
+    display: "flex",
+    minHeight: "100vh",
+    flexDirection: "column",
+    backgroundColor: "#fff",
+    color: "#181613",
+  },
+  style2: {
+    marginInline: "auto",
+    width: "100%",
+    maxWidth: "700px",
+    flex: "1",
+    paddingInline: {
+      default: "1.25rem",
+      "@media (width >= 48rem)": "2rem",
+    },
+    paddingTop: {
+      default: "1rem",
+      "@media (width >= 48rem)": "1rem",
+    },
+    paddingBottom: {
+      default: "2rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+  },
+  style3: {
+    paddingTop: {
+      default: "2.5rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+    paddingBottom: {
+      default: "5rem",
+      "@media (width >= 48rem)": "6rem",
+    },
+    textAlign: "center",
+  },
+  style4: {
+    display: "flex",
+    justifyContent: "center",
+  },
+  style5: {
+    height: {
+      default: "2rem",
+      "@media (width >= 48rem)": "2.25rem",
+    },
+    width: "auto",
+  },
+  style6: {
+    marginTop: {
+      default: "3rem",
+      "@media (width >= 48rem)": "4rem",
+    },
+    display: "inline-flex",
+    alignItems: "center",
+    gap: ".5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#756b5d",
+  },
+  style7: {
+    width: "1.25rem",
+    height: "1.25rem",
+    borderRadius: ".125rem",
+  },
+  style8: {
+    marginInline: "auto",
+    marginTop: "1.25rem",
+    fontSize: {
+      default: "3rem",
+      "@media (width >= 48rem)": "4.5rem",
+    },
+    lineHeight: {
+      default: ".98",
+      "@media (width >= 48rem)": "1",
+    },
+    "--tw-leading": ".98",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    textWrap: "balance",
+  },
+  style9: {
+    marginInline: "auto",
+    marginTop: "1.5rem",
+    fontSize: "1.125rem",
+    lineHeight: "2rem",
+    "--tw-leading": "2rem",
+    color: "#4f4940",
+  },
+  style10: {
+    marginInline: "auto",
+    marginTop: "2rem",
+  },
+  style11: {
+    marginInline: "auto",
+    borderRadius: "3px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#eadfce",
+    backgroundColor: "#fffaf0",
+    padding: "1.5rem",
+    textAlign: "left",
+    "--tw-shadow": "0 18px 50px #4436241f",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 18px 50px var(--tw-shadow-color, #4436241f)",
+  },
+  style12: {
+    display: "flex",
+    width: "2.5rem",
+    height: "2.5rem",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "#d1fae5",
+    color: "#047857",
+  },
+  style13: {
+    marginTop: "1.25rem",
+    fontSize: "1.25rem",
+    lineHeight: "1.75rem",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+  },
+  style14: {
+    marginTop: ".5rem",
+    fontSize: "1rem",
+    lineHeight: "1.75rem",
+    "--tw-leading": "1.75rem",
+    color: "#4f4940",
+  },
+  style15: {
+    marginTop: "1.25rem",
+    display: "inline-flex",
+    minHeight: "2.75rem",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "3.40282e38px",
+    backgroundColor: {
+      default: "#181613",
+      ":hover": "#363029",
+    },
+    paddingInline: "1.25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#fff",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+  },
+  style16: {
+    display: "flex",
+    flexDirection: "column",
+    gap: ".75rem",
+  },
+  style17: {
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+    borderWidth: "0",
+    width: "1px",
+    height: "1px",
+    margin: "-1px",
+    padding: "0",
+    position: "absolute",
+    overflow: "hidden",
+  },
+  style18: {
+    pointerEvents: "none",
+    position: "absolute",
+    left: "-10000px",
+  },
+  style19: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#b91c1c",
+  },
+  style20: {
+    marginInline: "auto",
+    marginTop: ".5rem",
+    display: "inline-flex",
+    minHeight: "3rem",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: ".5rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: {
+      default: "#181613",
+      ":hover": "#363029",
+    },
+    paddingInline: "1.25rem",
+    paddingBlock: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#fff",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+    cursor: {
+      default: null,
+      ":disabled": "not-allowed",
+    },
+    opacity: {
+      default: null,
+      ":disabled": ".6",
+    },
+  },
+  style21: {
+    width: "1.25rem",
+    height: "1.25rem",
+    animation: "1s linear infinite spin",
+  },
+  style22: {
+    marginInline: "auto",
+    marginTop: ".25rem",
+    display: "inline-flex",
+    width: "fit-content",
+    alignItems: "center",
+    gap: ".25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: {
+      default: "#756b5d",
+      ":hover": "#181613",
+    },
+    textDecorationLine: "underline",
+    textDecorationColor: "#b8afa4",
+    textUnderlineOffset: "4px",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+  },
+  style23: {
+    marginTop: ".375rem",
+    paddingInline: ".25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#b91c1c",
+  },
+});
 const title = "YC founder perk · Anarlog";
 const description =
   "YC founders get one year of Anarlog Pro free for private, bot-free meeting notes.";
-
 const invalidVerificationMessages = {
   not_verified: "This YC link is no longer active.",
   email_missing: "Update your YC link to include your email.",
 };
-
 export const Route = createFileRoute("/yc/")({
   component: YcPerkPage,
-  loader: async () => ({ user: await fetchUser() }),
+  loader: async () => ({
+    user: await fetchUser(),
+  }),
   head: () => ({
     meta: [
-      { title },
-      { name: "description", content: description },
-      { property: "og:title", content: title },
-      { property: "og:description", content: description },
-      { property: "og:url", content: getCanonicalUrl("/yc") },
-      { name: "twitter:title", content: title },
-      { name: "twitter:description", content: description },
-      { name: "twitter:url", content: getCanonicalUrl("/yc") },
+      {
+        title,
+      },
+      {
+        name: "description",
+        content: description,
+      },
+      {
+        property: "og:title",
+        content: title,
+      },
+      {
+        property: "og:description",
+        content: description,
+      },
+      {
+        property: "og:url",
+        content: getCanonicalUrl("/yc"),
+      },
+      {
+        name: "twitter:title",
+        content: title,
+      },
+      {
+        name: "twitter:description",
+        content: description,
+      },
+      {
+        name: "twitter:url",
+        content: getCanonicalUrl("/yc"),
+      },
     ],
-    links: [{ rel: "canonical", href: getCanonicalUrl("/yc") }],
+    links: [
+      {
+        rel: "canonical",
+        href: getCanonicalUrl("/yc"),
+      },
+    ],
   }),
 });
-
 function YcPerkPage() {
   const { user } = Route.useLoaderData();
   const navigate = useNavigate();
@@ -48,9 +322,15 @@ function YcPerkPage() {
       additionalComments: string;
     }) => {
       if (user) {
-        return applyYcPerk({ data: { value: data.verificationUrl } });
+        return applyYcPerk({
+          data: {
+            value: data.verificationUrl,
+          },
+        });
       }
-      return submitYcPerkRequest({ data });
+      return submitYcPerkRequest({
+        data,
+      });
     },
     onSuccess: (result) => {
       if (
@@ -75,7 +355,9 @@ function YcPerkPage() {
       verificationUrl: "",
       additionalComments: "",
     },
-    validators: { onSubmit: ycPerkRequestSchema },
+    validators: {
+      onSubmit: ycPerkRequestSchema,
+    },
     onSubmit: ({ value }) => requestMutation.mutate(value),
   });
   const appliedToAccount =
@@ -96,66 +378,57 @@ function YcPerkPage() {
       : requestMutation.data?.status === "invalid_code"
         ? "This YC code is not valid."
         : invalidVerificationMessage;
-
   return (
-    <div className="flex min-h-screen flex-col bg-white text-[#181613]">
-      <main className="mx-auto w-full max-w-[700px] flex-1 px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
-        <section className="pt-10 pb-20 text-center md:pt-12 md:pb-24">
+    <div {...stylex.props(styles.style1)}>
+      <main {...stylex.props(styles.style2)}>
+        <section {...stylex.props(styles.style3)}>
           <Link
             to="/"
             aria-label="Anarlog home"
-            className="flex justify-center"
+            {...stylex.props(styles.style4)}
           >
-            <AnarlogLogo className="h-8 w-auto md:h-9" />
+            <AnarlogLogo sx={styles.style5} />
           </Link>
 
-          <div className="mt-12 inline-flex items-center gap-2 text-sm font-medium text-[#756b5d] md:mt-16">
+          <div {...stylex.props(styles.style6)}>
             <img
               src="/icons/yc.svg"
               alt=""
               width={20}
               height={20}
-              className="size-5 rounded-sm"
+              {...stylex.props(styles.style7)}
             />
             YC founder perk
           </div>
 
-          <h1 className="font-hand mx-auto mt-5 max-w-3xl text-5xl leading-[0.98] font-semibold tracking-normal text-balance md:text-7xl">
+          <h1 {...stylex.props(styles.style8)}>
             Build the company. Keep every decision.
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+          <p {...stylex.props(styles.style9)}>
             Get 1 year of Anarlog Pro free for private, bot-free meeting notes.
           </p>
 
-          <div className="mx-auto mt-8 max-w-xl">
+          <div {...stylex.props(styles.style10)}>
             {requestSucceeded ? (
-              <div
-                className="mx-auto max-w-lg rounded-[3px] border border-[#eadfce] bg-[#fffaf0] p-6 text-left shadow-[0_18px_50px_rgba(68,54,36,0.12)]"
-                role="status"
-              >
-                <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <div {...stylex.props(styles.style11)} role="status">
+                <div {...stylex.props(styles.style12)}>
                   <Check size={20} weight="bold" aria-hidden="true" />
                 </div>
-                <h2 className="mt-5 text-xl font-semibold tracking-tight">
-                  You’re verified.
-                </h2>
-                <p className="mt-2 text-base leading-7 text-[#4f4940]">
+                <h2 {...stylex.props(styles.style13)}>You’re verified.</h2>
+                <p {...stylex.props(styles.style14)}>
                   {appliedToAccount
                     ? "Your YC year is on this account."
                     : "We sent your Pro code to your YC email."}
                 </p>
                 {appliedToAccount ? (
-                  <Link
-                    to="/app/account/"
-                    className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-[#181613] px-5 text-sm font-medium text-white transition-colors hover:bg-[#363029]"
-                  >
+                  <Link to="/app/account/" {...stylex.props(styles.style15)}>
                     View account
                   </Link>
                 ) : null}
               </div>
             ) : (
               <form
-                className="flex flex-col gap-3"
+                {...stylex.props(styles.style16)}
                 onSubmit={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -172,7 +445,10 @@ function YcPerkPage() {
                 >
                   {(field) => (
                     <div>
-                      <label htmlFor={field.name} className="sr-only">
+                      <label
+                        htmlFor={field.name}
+                        {...stylex.props(styles.style17)}
+                      >
                         YC verification link
                       </label>
                       <input
@@ -187,7 +463,7 @@ function YcPerkPage() {
                         onChange={(event) =>
                           field.handleChange(event.target.value)
                         }
-                        className={cn([
+                        {...stylex.props([
                           "min-h-13 w-full rounded-full border bg-white px-5 text-base text-[#181613] shadow-sm transition outline-none",
                           "placeholder:text-[#918a80] focus:border-[#756b5d] focus:ring-3 focus:ring-[#d8d3cc]/40",
                           field.state.meta.errors.length > 0
@@ -203,10 +479,7 @@ function YcPerkPage() {
 
                 <form.Field name="additionalComments">
                   {(field) => (
-                    <div
-                      className="pointer-events-none absolute -left-[10000px]"
-                      aria-hidden="true"
-                    >
+                    <div {...stylex.props(styles.style18)} aria-hidden="true">
                       <label htmlFor={field.name}>Additional comments</label>
                       <input
                         id={field.name}
@@ -224,7 +497,7 @@ function YcPerkPage() {
                 </form.Field>
 
                 {(requestMutation.isError || requestErrorMessage) && (
-                  <p className="text-sm text-red-700" role="alert">
+                  <p {...stylex.props(styles.style19)} role="alert">
                     {requestErrorMessage ??
                       "We couldn’t process this. Try again."}
                   </p>
@@ -233,12 +506,12 @@ function YcPerkPage() {
                 <button
                   type="submit"
                   disabled={requestMutation.isPending}
-                  className="mx-auto mt-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#363029] disabled:cursor-not-allowed disabled:opacity-60"
+                  {...stylex.props(styles.style20)}
                 >
                   {requestMutation.isPending ? (
                     <>
                       <CircleNotch
-                        className="size-5 animate-spin"
+                        {...stylex.props(styles.style21)}
                         aria-hidden="true"
                       />
                       Submitting…
@@ -252,7 +525,7 @@ function YcPerkPage() {
                   href="https://www.ycombinator.com/verify"
                   target="_blank"
                   rel="noreferrer"
-                  className="mx-auto mt-1 inline-flex w-fit items-center gap-1 text-sm text-[#756b5d] underline decoration-[#b8afa4] underline-offset-4 transition hover:text-[#181613]"
+                  {...stylex.props(styles.style22)}
                 >
                   Get verification link
                   <ArrowUpRight size={14} aria-hidden="true" />
@@ -266,7 +539,6 @@ function YcPerkPage() {
     </div>
   );
 }
-
 function FieldError({ errors }: { errors: Array<unknown> }) {
   const firstError = errors[0];
   const message =
@@ -275,9 +547,8 @@ function FieldError({ errors }: { errors: Array<unknown> }) {
       : firstError && typeof firstError === "object" && "message" in firstError
         ? String(firstError.message)
         : undefined;
-
   return message ? (
-    <p className="mt-1.5 px-1 text-sm text-red-700" role="alert">
+    <p {...stylex.props(styles.style23)} role="alert">
       {message}
     </p>
   ) : null;

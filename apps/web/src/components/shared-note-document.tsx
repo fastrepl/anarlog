@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import {
   Fragment,
@@ -21,18 +22,134 @@ import {
   type SharedNoteAttachmentDownload,
   type SharedNoteNode,
 } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {},
+  style2: {
+    marginTop: "2.5rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingTop: "1.5rem",
+  },
+  style3: {
+    marginBlock: "2rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+  },
+  style4: {
+    listStyleType: "disc",
+    paddingLeft: "1.5rem",
+  },
+  style5: {
+    listStyleType: "decimal",
+    paddingLeft: "1.5rem",
+  },
+  style6: {},
+  style7: {},
+  style8: {
+    minWidth: "0",
+    flex: "1",
+  },
+  style9: {
+    marginBlock: "1.5rem",
+    overflowX: "auto",
+  },
+  style10: {
+    width: "100%",
+    borderCollapse: "collapse",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    textAlign: "left",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style11: {
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: ".75rem",
+    paddingBlock: ".5rem",
+    verticalAlign: "top",
+  },
+  style12: {
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: ".75rem",
+    paddingBlock: ".5rem",
+    verticalAlign: "top",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style13: {
+    marginBlock: "1rem",
+    borderRadius: ".75rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: "1rem",
+    paddingBlock: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style14: {
+    marginBlock: "1.5rem",
+  },
+  style15: {
+    maxHeight: "70vh",
+    maxWidth: "100%",
+    borderRadius: ".75rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    objectFit: "contain",
+  },
+  style16: {
+    marginBlock: "1.25rem",
+  },
+  style17: {
+    marginBottom: ".5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style18: {
+    width: "100%",
+  },
+  style19: {
+    marginBlock: "1rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "1rem",
+    borderRadius: ".75rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: "1rem",
+    paddingBlock: ".75rem",
+    textDecorationLine: "none",
+  },
+  style20: {
+    minWidth: "0",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style21: {
+    flexShrink: "0",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+  },
+});
 export type SharedAttachmentResolver = (
   attachment: SharedNoteAttachment,
   signal: AbortSignal,
 ) => Promise<SharedNoteAttachmentDownload | null>;
-
 const AttachmentContext = createContext<{
   attachments: ReadonlyMap<string, SharedNoteAttachment>;
   excluded: ReadonlySet<string>;
   resolve: SharedAttachmentResolver | null;
-}>({ attachments: new Map(), excluded: new Set(), resolve: null });
-
+}>({
+  attachments: new Map(),
+  excluded: new Set(),
+  resolve: null,
+});
 export function SharedNoteDocument({
   attachments,
   document,
@@ -64,10 +181,10 @@ export function SharedNoteDocument({
   }, [attachments, document, excludedAttachmentIds]);
   return (
     <AttachmentContext.Provider value={context}>
-      <div className="ProseMirror prosemirror-editor note-typography session-note-editor shared-note-document text-color">
+      <div {...stylex.props(styles.style1)}>
         {renderChildren(document.content, "document")}
         {unreferencedAttachments.length > 0 ? (
-          <section className="border-color-subtle mt-10 border-t pt-6">
+          <section {...stylex.props(styles.style2)}>
             <h2>Attachments</h2>
             {unreferencedAttachments.map((attachment) => (
               <SharedAttachmentNode
@@ -76,7 +193,9 @@ export function SharedNoteDocument({
                   type: attachment.contentType.startsWith("audio/")
                     ? "clip"
                     : "fileAttachment",
-                  attrs: { sharedAttachmentId: attachment.id },
+                  attrs: {
+                    sharedAttachmentId: attachment.id,
+                  },
                 }}
               />
             ))}
@@ -86,7 +205,6 @@ export function SharedNoteDocument({
     </AttachmentContext.Provider>
   );
 }
-
 function collectSharedAttachmentIds(root: SharedNoteNode) {
   const ids = new Set<string>();
   const visit = (node: SharedNoteNode) => {
@@ -97,14 +215,11 @@ function collectSharedAttachmentIds(root: SharedNoteNode) {
   visit(root);
   return ids;
 }
-
 function renderChildren(nodes: SharedNoteNode[] | undefined, path: string) {
   return nodes?.map((node, index) => renderNode(node, `${path}-${index}`));
 }
-
 function renderNode(node: SharedNoteNode, key: string): ReactNode {
   const children = renderChildren(node.content, key);
-
   switch (node.type) {
     case "text":
       return <Fragment key={key}>{renderMarkedText(node, key)}</Fragment>;
@@ -114,7 +229,13 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       return <p key={key}>{children}</p>;
     case "heading": {
       const level = getIntegerAttr(node, "level", 1, 6, 2);
-      return createElement(`h${level}`, { key }, children);
+      return createElement(
+        `h${level}`,
+        {
+          key,
+        },
+        children,
+      );
     }
     case "blockquote":
       return <blockquote key={key}>{children}</blockquote>;
@@ -125,14 +246,14 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
         </pre>
       );
     case "horizontalRule":
-      return <hr key={key} className="border-color-subtle my-8 border-t" />;
+      return <hr key={key} {...stylex.props(styles.style3)} />;
     case "image":
     case "fileAttachment":
     case "clip":
       return <SharedAttachmentNode key={key} node={node} />;
     case "bulletList":
       return (
-        <ul key={key} className="list-disc pl-6">
+        <ul key={key} {...stylex.props(styles.style4)}>
           {children}
         </ul>
       );
@@ -141,12 +262,14 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       return (
         <ol
           key={key}
-          className="list-decimal pl-6"
+          {...stylex.props(styles.style5)}
           start={start}
           style={
             start === 1
               ? undefined
-              : { counterReset: `ol-counter ${start - 1}` }
+              : {
+                  counterReset: `ol-counter ${start - 1}`,
+                }
           }
         >
           {children}
@@ -166,23 +289,23 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
         node.attrs?.checked === true || node.attrs?.status === "done";
       return (
         <li key={key} data-checked={checked ? "true" : "false"}>
-          <label className="task-checkbox-label">
+          <label {...stylex.props(styles.style6)}>
             <input
               type="checkbox"
               checked={checked}
               disabled
               aria-label={checked ? "Completed task" : "Open task"}
-              className="task-checkbox"
+              {...stylex.props(styles.style7)}
             />
           </label>
-          <div className="min-w-0 flex-1">{children}</div>
+          <div {...stylex.props(styles.style8)}>{children}</div>
         </li>
       );
     }
     case "table":
       return (
-        <div key={key} className="my-6 overflow-x-auto">
-          <table className="border-color-subtle w-full border-collapse border text-left text-sm">
+        <div key={key} {...stylex.props(styles.style9)}>
+          <table {...stylex.props(styles.style10)}>
             <tbody>{children}</tbody>
           </table>
         </div>
@@ -195,7 +318,7 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
           key={key}
           colSpan={getIntegerAttr(node, "colspan", 1, 1000, 1)}
           rowSpan={getIntegerAttr(node, "rowspan", 1, 1000, 1)}
-          className="border-color-subtle border px-3 py-2 align-top"
+          {...stylex.props(styles.style11)}
         >
           {children}
         </td>
@@ -206,7 +329,7 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
           key={key}
           colSpan={getIntegerAttr(node, "colspan", 1, 1000, 1)}
           rowSpan={getIntegerAttr(node, "rowspan", 1, 1000, 1)}
-          className="surface-subtle border-color-subtle border px-3 py-2 align-top font-medium"
+          {...stylex.props(styles.style12)}
         >
           {children}
         </th>
@@ -215,7 +338,6 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       return null;
   }
 }
-
 function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
   const { attachments, excluded, resolve } = useContext(AttachmentContext);
   const [pinnedAudioDownload, setPinnedAudioDownload] =
@@ -248,35 +370,31 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
       ? downloadQuery.data
       : null;
   const activeDownload = isAudio ? (pinnedAudioDownload ?? download) : download;
-
   if (attachment && excluded.has(attachment.id)) {
     return null;
   }
-
   if (!attachment || !resolve || !activeDownload) {
     return (
-      <div className="surface-subtle border-color-subtle text-color-muted my-4 rounded-xl border px-4 py-3 text-sm">
+      <div {...stylex.props(styles.style13)}>
         {downloadQuery.isPending && attachment && resolve
           ? `Loading ${attachment.filename}…`
           : "Attachment unavailable"}
       </div>
     );
   }
-
   if (node.type === "image" && isInlineImage(attachment.contentType)) {
     return (
-      <figure className="my-6">
+      <figure {...stylex.props(styles.style14)}>
         <img
           src={activeDownload.signedUrl}
           alt={getStringAttr(node, "alt") ?? attachment.filename}
           loading="lazy"
           referrerPolicy="no-referrer"
-          className="border-color-subtle max-h-[70vh] max-w-full rounded-xl border object-contain"
+          {...stylex.props(styles.style15)}
         />
       </figure>
     );
   }
-
   if (isAudio) {
     const refreshAudioGrant = async (
       audio: HTMLAudioElement,
@@ -300,8 +418,8 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
       });
     };
     return (
-      <div className="my-5">
-        <p className="text-color-muted mb-2 text-sm">{attachment.filename}</p>
+      <div {...stylex.props(styles.style16)}>
+        <p {...stylex.props(styles.style17)}>{attachment.filename}</p>
         <audio
           ref={audioRef}
           controls
@@ -330,12 +448,11 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
               void refreshAudioGrant(event.currentTarget, audioPlaying);
             }
           }}
-          className="w-full"
+          {...stylex.props(styles.style18)}
         />
       </div>
     );
   }
-
   return (
     <a
       href={activeDownload.signedUrl}
@@ -343,18 +460,15 @@ function SharedAttachmentNode({ node }: { node: SharedNoteNode }) {
       target="_blank"
       rel="ugc noopener noreferrer"
       referrerPolicy="no-referrer"
-      className="surface-subtle border-color-subtle text-color my-4 flex items-center justify-between gap-4 rounded-xl border px-4 py-3 no-underline"
+      {...stylex.props(styles.style19)}
     >
-      <span className="min-w-0 truncate font-medium">
-        {attachment.filename}
-      </span>
-      <span className="text-color-muted shrink-0 text-xs">
+      <span {...stylex.props(styles.style20)}>{attachment.filename}</span>
+      <span {...stylex.props(styles.style21)}>
         {formatFileSize(attachment.sizeBytes)}
       </span>
     </a>
   );
 }
-
 function isInlineImage(contentType: string) {
   return [
     "image/avif",
@@ -364,21 +478,17 @@ function isInlineImage(contentType: string) {
     "image/webp",
   ].includes(contentType);
 }
-
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
 function getStringAttr(node: SharedNoteNode, name: string) {
   const value = node.attrs?.[name];
   return typeof value === "string" && value ? value : null;
 }
-
 function renderMarkedText(node: SharedNoteNode, key: string) {
   let content: ReactNode = node.text ?? "";
-
   for (const [index, mark] of (node.marks ?? []).entries()) {
     const markKey = `${key}-mark-${index}`;
     switch (mark.type) {
@@ -419,10 +529,8 @@ function renderMarkedText(node: SharedNoteNode, key: string) {
       }
     }
   }
-
   return content;
 }
-
 function getIntegerAttr(
   node: SharedNoteNode,
   name: string,

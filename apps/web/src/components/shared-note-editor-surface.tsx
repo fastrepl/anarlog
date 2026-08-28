@@ -5,6 +5,7 @@ import {
   Paperclip,
   WarningCircle,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import {
   type ComponentProps,
@@ -29,10 +30,7 @@ import {
   collectSharedNoteComments,
   useSharedNoteComments,
 } from "@/components/shared-note-comments-data";
-import {
-  sharedPrimaryButtonClassName,
-  sharedSecondaryButtonClassName,
-} from "@/components/shared-note-viewer";
+import { sharedButtonStyles } from "@/components/shared-note-viewer";
 import { editAuthenticatedSharedNote } from "@/functions/shared-notes";
 import { resolveSharedNoteCommentRanges } from "@/lib/shared-note-comment-anchors";
 import {
@@ -50,14 +48,224 @@ import type {
   SharedNoteSnapshot,
   SharedNoteWebEditSnapshot,
 } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {},
+  style2: {
+    marginBottom: "1.25rem",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    padding: "1rem",
+  },
+  style3: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style4: {
+    marginTop: ".25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style5: {
+    marginTop: ".75rem",
+  },
+  style6: {
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style7: {
+    marginTop: ".75rem",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: ".75rem",
+  },
+  style8: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    textDecorationLine: "underline",
+    textUnderlineOffset: "4px",
+  },
+  style9: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#b91c1c",
+    textDecorationLine: "underline",
+    textUnderlineOffset: "4px",
+  },
+  style10: {
+    marginTop: ".75rem",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    textDecorationLine: "underline",
+    textUnderlineOffset: "4px",
+  },
+  style11: {
+    marginBottom: "1.25rem",
+    display: "flex",
+    gap: ".75rem",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2",
+    padding: "1rem",
+    color: "#7f1d1d",
+  },
+  style12: {
+    marginTop: ".125rem",
+    width: "1rem",
+    height: "1rem",
+    flexShrink: "0",
+  },
+  style13: {
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style14: {
+    marginBottom: "1.25rem",
+    display: "flex",
+    gap: ".75rem",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#fde68a",
+    backgroundColor: "#fffbeb",
+    padding: "1rem",
+    color: "#451a03",
+  },
+  style15: {
+    marginBottom: "1.25rem",
+    display: "flex",
+    alignItems: "flex-start",
+    gap: ".75rem",
+    borderRadius: ".75rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: "1rem",
+    paddingBlock: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style16: {
+    marginTop: ".25rem",
+    width: "1rem",
+    height: "1rem",
+    flexShrink: "0",
+  },
+  style17: {
+    minHeight: "20rem",
+    "--tw-outline-style": "none",
+    outlineStyle: "none",
+    outlineOffset: {
+      default: null,
+      "@media (forced-colors: active)": "2px",
+    },
+    outline: {
+      default: null,
+      "@media (forced-colors: active)": "2px solid #0000",
+    },
+  },
+  style18: {
+    marginTop: "1.75rem",
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: ".75rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingTop: "1.25rem",
+  },
+  style19: {
+    marginRight: ".5rem",
+    width: "1rem",
+    height: "1rem",
+    animation: "1s linear infinite spin",
+  },
+  style20: {
+    marginBlock: ".75rem",
+    display: "flex",
+    alignItems: "center",
+    gap: ".75rem",
+    borderRadius: ".75rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: "1rem",
+    paddingBlock: ".75rem",
+  },
+  style21: {
+    display: "flex",
+    width: "2.5rem",
+    height: "2.5rem",
+    flexShrink: "0",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: ".5rem",
+  },
+  style22: {
+    width: "1.25rem",
+    height: "1.25rem",
+  },
+  style23: {
+    minWidth: "0",
+    flex: "1",
+  },
+  style24: {
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style25: {
+    marginTop: ".125rem",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+  },
+  style26: {
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    padding: "1.25rem",
+  },
+  style27: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: "1rem",
+    lineHeight: "1.5rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style28: {
+    marginTop: ".5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style29: {
+    marginTop: "1rem",
+  },
+});
 type EditorNodeView = NonNullable<NoteEditorProps["extraNodeViews"]>[string];
 type EditorNodeViewProps = ComponentProps<EditorNodeView>;
-
 const SharedEditorAttachmentsContext = createContext<
   ReadonlyMap<string, SharedNoteAttachment>
 >(new Map());
-
 export function SharedNoteEditorSurface({
   onCancel,
   onReloadLatest,
@@ -127,12 +335,13 @@ export function SharedNoteEditorSurface({
   }, [snapshot]);
   const mutation = useMutation({
     mutationFn: (input: SharedNoteWebEditInput) =>
-      editAuthenticatedSharedNote({ data: input }),
+      editAuthenticatedSharedNote({
+        data: input,
+      }),
     onSuccess: (result) => {
       if (result.status === "ready") onSaved(result);
     },
   });
-
   if (!initialContentIsValid) {
     return (
       <EditorMessage
@@ -142,7 +351,6 @@ export function SharedNoteEditorSurface({
       />
     );
   }
-
   const conflict = mutation.data?.status === "conflict" ? mutation.data : null;
   const hasServerError = mutation.isError || mutation.data?.status === "error";
   const availabilityIssue =
@@ -151,7 +359,6 @@ export function SharedNoteEditorSurface({
       : mutation.data?.status === "unavailable"
         ? "access_changed"
         : null;
-
   const save = () => {
     const view = editorRef.current?.view;
     if (!view) return;
@@ -170,7 +377,6 @@ export function SharedNoteEditorSurface({
       );
       return;
     }
-
     setClientError(null);
     const input = buildSharedNoteWebEditInput({
       body: canonicalBody,
@@ -184,37 +390,31 @@ export function SharedNoteEditorSurface({
       ),
     );
   };
-
   return (
-    <div className="shared-note-web-editor">
+    <div {...stylex.props(styles.style1)}>
       {conflict && (
-        <div
-          className="border-color-subtle bg-surface-subtle mb-5 rounded-2xl border p-4"
-          role="alert"
-        >
-          <p className="text-color font-mono text-sm font-medium">
-            This note changed elsewhere.
-          </p>
-          <p className="text-color-muted mt-1 text-sm leading-6">
+        <div {...stylex.props(styles.style2)} role="alert">
+          <p {...stylex.props(styles.style3)}>This note changed elsewhere.</p>
+          <p {...stylex.props(styles.style4)}>
             Reload the latest version before making more edits.
           </p>
           {confirmDiscard ? (
-            <div className="mt-3">
-              <p className="text-color-muted text-sm leading-6">
+            <div {...stylex.props(styles.style5)}>
+              <p {...stylex.props(styles.style6)}>
                 Reloading will discard this draft. Copy anything you want to
                 keep first.
               </p>
-              <div className="mt-3 flex flex-wrap gap-3">
+              <div {...stylex.props(styles.style7)}>
                 <button
                   type="button"
-                  className="text-color font-mono text-sm underline underline-offset-4"
+                  {...stylex.props(styles.style8)}
                   onClick={() => setConfirmDiscard(false)}
                 >
                   Keep draft
                 </button>
                 <button
                   type="button"
-                  className="font-mono text-sm text-red-700 underline underline-offset-4"
+                  {...stylex.props(styles.style9)}
                   onClick={() => onReloadLatest(conflict)}
                 >
                   Discard draft and reload
@@ -224,7 +424,7 @@ export function SharedNoteEditorSurface({
           ) : (
             <button
               type="button"
-              className="text-color mt-3 font-mono text-sm underline underline-offset-4"
+              {...stylex.props(styles.style10)}
               onClick={() => setConfirmDiscard(true)}
             >
               Reload latest
@@ -233,24 +433,18 @@ export function SharedNoteEditorSurface({
         </div>
       )}
       {(clientError || hasServerError) && (
-        <div
-          className="mb-5 flex gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900"
-          role="alert"
-        >
-          <WarningCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <p className="text-sm leading-6">
+        <div {...stylex.props(styles.style11)} role="alert">
+          <WarningCircle {...stylex.props(styles.style12)} aria-hidden />
+          <p {...stylex.props(styles.style13)}>
             {clientError ??
               "We couldn’t save this edit. Your draft is still here."}
           </p>
         </div>
       )}
       {availabilityIssue && (
-        <div
-          className="mb-5 flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950"
-          role="alert"
-        >
-          <WarningCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <p className="text-sm leading-6">
+        <div {...stylex.props(styles.style14)} role="alert">
+          <WarningCircle {...stylex.props(styles.style12)} aria-hidden />
+          <p {...stylex.props(styles.style13)}>
             {availabilityIssue === "sign_in_required"
               ? "Your session expired. Your draft is still here and can be copied before you leave the editor and sign in again."
               : "Your editing access changed. Your draft is still here and can be copied before you leave the editor."}
@@ -259,8 +453,8 @@ export function SharedNoteEditorSurface({
       )}
 
       {snapshot.attachments.length > 0 && (
-        <div className="border-color-subtle bg-surface-subtle text-color-muted mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm leading-6">
-          <Paperclip className="mt-1 size-4 shrink-0" aria-hidden />
+        <div {...stylex.props(styles.style15)}>
+          <Paperclip {...stylex.props(styles.style16)} aria-hidden />
           <span>
             {snapshot.attachments.length}{" "}
             {snapshot.attachments.length === 1 ? "attachment" : "attachments"}
@@ -272,7 +466,7 @@ export function SharedNoteEditorSurface({
       <SharedEditorAttachmentsContext.Provider value={attachmentById}>
         <NoteEditor
           ref={editorRef}
-          className="session-note-editor min-h-80 outline-hidden"
+          {...stylex.props(styles.style17)}
           commentAnchorsEnabled
           extraNodeViews={lockedAttachmentNodeViews}
           initialContent={initialContent}
@@ -292,10 +486,13 @@ export function SharedNoteEditorSurface({
         />
       </SharedEditorAttachmentsContext.Provider>
 
-      <div className="border-color-subtle mt-7 flex flex-wrap justify-end gap-3 border-t pt-5">
+      <div {...stylex.props(styles.style18)}>
         <button
           type="button"
-          className={sharedSecondaryButtonClassName}
+          {...stylex.props([
+            sharedButtonStyles.base,
+            sharedButtonStyles.secondary,
+          ])}
           disabled={mutation.isPending}
           onClick={() => {
             if (availabilityIssue) {
@@ -309,7 +506,10 @@ export function SharedNoteEditorSurface({
         </button>
         <button
           type="button"
-          className={sharedPrimaryButtonClassName}
+          {...stylex.props([
+            sharedButtonStyles.base,
+            sharedButtonStyles.primary,
+          ])}
           disabled={
             mutation.isPending ||
             conflict !== null ||
@@ -318,7 +518,7 @@ export function SharedNoteEditorSurface({
           onClick={save}
         >
           {mutation.isPending && (
-            <CircleNotch className="mr-2 size-4 animate-spin" aria-hidden />
+            <CircleNotch {...stylex.props(styles.style19)} aria-hidden />
           )}
           {mutation.isPending
             ? "Saving…"
@@ -330,7 +530,6 @@ export function SharedNoteEditorSurface({
     </div>
   );
 }
-
 const LockedSharedAttachmentView = forwardRef<
   HTMLDivElement,
   EditorNodeViewProps
@@ -343,23 +542,22 @@ const LockedSharedAttachmentView = forwardRef<
       : undefined;
   const isImage = nodeProps.node.type.name === "image";
   const Icon = isImage ? Image : File;
-
   return (
     <div
       ref={ref}
       {...htmlAttrs}
       contentEditable={false}
       suppressContentEditableWarning
-      className="border-color-subtle bg-surface-subtle my-3 flex items-center gap-3 rounded-xl border px-4 py-3"
+      {...stylex.props(styles.style20)}
     >
-      <div className="bg-surface flex size-10 shrink-0 items-center justify-center rounded-lg">
-        <Icon className="text-color-muted size-5" aria-hidden />
+      <div {...stylex.props(styles.style21)}>
+        <Icon {...stylex.props(styles.style22)} aria-hidden />
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-color truncate text-sm font-medium">
+      <div {...stylex.props(styles.style23)}>
+        <p {...stylex.props(styles.style24)}>
           {attachment?.filename ?? "Attachment unavailable"}
         </p>
-        <p className="text-color-muted mt-0.5 text-xs">
+        <p {...stylex.props(styles.style25)}>
           {attachment
             ? `${formatFileSize(attachment.sizeBytes)} · Included with shared note`
             : "Included attachment"}
@@ -368,12 +566,10 @@ const LockedSharedAttachmentView = forwardRef<
     </div>
   );
 });
-
 const lockedAttachmentNodeViews = {
   fileAttachment: LockedSharedAttachmentView,
   image: LockedSharedAttachmentView,
 };
-
 function EditorMessage({
   description,
   onCancel,
@@ -384,13 +580,16 @@ function EditorMessage({
   title: string;
 }) {
   return (
-    <div className="border-color-subtle bg-surface-subtle rounded-2xl border p-5">
-      <h2 className="text-color font-mono text-base font-medium">{title}</h2>
-      <p className="text-color-muted mt-2 text-sm leading-6">{description}</p>
-      <div className="mt-4">
+    <div {...stylex.props(styles.style26)}>
+      <h2 {...stylex.props(styles.style27)}>{title}</h2>
+      <p {...stylex.props(styles.style28)}>{description}</p>
+      <div {...stylex.props(styles.style29)}>
         <button
           type="button"
-          className={sharedSecondaryButtonClassName}
+          {...stylex.props([
+            sharedButtonStyles.base,
+            sharedButtonStyles.secondary,
+          ])}
           onClick={onCancel}
         >
           Back to note
@@ -399,7 +598,6 @@ function EditorMessage({
     </div>
   );
 }
-
 function isCanonicalEditorDocument(document: SharedNoteDocument) {
   const stack: SharedNoteNode[] = [document];
   while (stack.length > 0) {
@@ -412,7 +610,6 @@ function isCanonicalEditorDocument(document: SharedNoteDocument) {
     ) {
       return false;
     }
-
     for (const mark of node.marks ?? []) {
       const markType = schema.marks[mark.type];
       if (
@@ -424,7 +621,6 @@ function isCanonicalEditorDocument(document: SharedNoteDocument) {
     }
     if (node.content) stack.push(...node.content);
   }
-
   try {
     schema.nodeFromJSON(document).check();
     return true;
@@ -432,14 +628,12 @@ function isCanonicalEditorDocument(document: SharedNoteDocument) {
     return false;
   }
 }
-
 function hasUnknownAttributes(
   attrs: Record<string, unknown> | undefined,
   allowed: Record<string, unknown>,
 ) {
   return Object.keys(attrs ?? {}).some((key) => !(key in allowed));
 }
-
 function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

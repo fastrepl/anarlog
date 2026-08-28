@@ -5,10 +5,12 @@ import {
   Users,
   WarningCircle,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useSyncExternalStore } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Avatar } from "@anlg/ui/components/avatar";
-import { cn } from "@anlg/utils";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SharedNoteAudioPlayer } from "@/components/shared-note-audio-player";
@@ -29,20 +31,302 @@ import {
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
 } from "@/lib/shared-notes";
-
-export const sharedPrimaryButtonClassName = cn([
-  "inline-flex min-h-9 items-center justify-center rounded-full bg-stone-900 px-4 text-white",
-  "text-sm font-semibold transition-colors hover:bg-stone-800",
-  "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-  "disabled:cursor-not-allowed disabled:opacity-50",
-]);
-
-export const sharedSecondaryButtonClassName = cn([
-  "surface border-color-subtle inline-flex min-h-9 items-center justify-center rounded-full border px-4",
-  "text-color hover:bg-surface-subtle text-sm font-medium transition-colors",
-  "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:outline-hidden",
-]);
-
+const styles = stylex.create({
+  style1: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+  },
+  style2: {
+    overflow: {
+      default: null,
+      "@media (width >= 80rem)": "visible",
+    },
+  },
+  style3: {
+    marginBottom: "1.5rem",
+  },
+  style4: {
+    fontSize: "1.5rem",
+    lineHeight: "1.875rem",
+    "--tw-leading": "1.875rem",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    textWrap: "balance",
+  },
+  style5: {
+    marginTop: ".75rem",
+  },
+  style6: {
+    display: "inline-flex",
+    minHeight: "1.75rem",
+    alignItems: "center",
+    gap: ".375rem",
+  },
+  style7: {
+    width: ".875rem",
+    height: ".875rem",
+  },
+  style8: {
+    display: "flex",
+    flexShrink: "0",
+    alignItems: "center",
+  },
+  style9: {
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#44403c",
+  },
+  style10: {
+    borderRadius: "1.5rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: {
+      default: "1.5rem",
+      "@media (width >= 40rem)": "2.5rem",
+    },
+    paddingBlock: "2rem",
+  },
+  style11: {
+    marginBottom: "1.5rem",
+    width: "1.25rem",
+    height: "1.25rem",
+    animation: "1s linear infinite spin",
+  },
+  style12: {
+    height: "1.75rem",
+    width: "60%",
+    animation: "2s cubic-bezier(.4, 0, .6, 1) infinite pulse",
+    borderRadius: ".5rem",
+  },
+  style13: {
+    marginTop: "1.5rem",
+    height: "1rem",
+    width: "100%",
+    animation: "2s cubic-bezier(.4, 0, .6, 1) infinite pulse",
+    borderRadius: ".25rem",
+  },
+  style14: {
+    marginTop: ".75rem",
+    height: "1rem",
+    width: "80%",
+    animation: "2s cubic-bezier(.4, 0, .6, 1) infinite pulse",
+    borderRadius: ".25rem",
+  },
+  style15: {
+    width: "1.5rem",
+    height: "1.5rem",
+  },
+  style16: {
+    marginRight: ".5rem",
+    width: "1rem",
+    height: "1rem",
+  },
+  style17: {
+    borderRadius: "1.5rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: {
+      default: "1.5rem",
+      "@media (width >= 40rem)": "2.5rem",
+    },
+    paddingBlock: "3rem",
+    textAlign: "center",
+  },
+  style18: {
+    marginInline: "auto",
+    marginBottom: "1rem",
+    display: "flex",
+    justifyContent: "center",
+  },
+  style19: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: "1.5rem",
+    lineHeight: "2rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style20: {
+    marginInline: "auto",
+    marginTop: ".75rem",
+    fontSize: "1rem",
+    lineHeight: "1.75rem",
+    "--tw-leading": "1.75rem",
+  },
+  style21: {
+    marginTop: "1.75rem",
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: ".75rem",
+  },
+  style22: {
+    minHeight: "100vh",
+    overflowX: "clip",
+    backgroundColor: "#fff",
+    color: "#1c1917",
+  },
+  style23: {
+    display: "inline-flex",
+  },
+  style24: {
+    height: "1.75rem",
+    width: "auto",
+  },
+  style25: {
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+    color: "#78716c",
+  },
+  meetingMetadata: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    columnGap: ".5rem",
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: ".875rem",
+    minWidth: 0,
+    rowGap: ".5rem",
+  },
+  meetingMetadataAfterTitle: {
+    marginTop: ".75rem",
+  },
+  meetingMetadataWithoutTitle: {
+    marginBottom: "1.5rem",
+  },
+  participantAvatar: {
+    display: "inline-flex",
+    position: "relative",
+  },
+  participantAvatarOverlapping: {
+    marginLeft: "-.5rem",
+  },
+  publishedMetadata: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    columnGap: "1rem",
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: ".75rem",
+    minWidth: 0,
+    rowGap: ".25rem",
+  },
+  header: {
+    alignItems: "center",
+    backdropFilter: "blur(4px)",
+    backgroundColor: `color-mix(in oklab, ${colors.card} 95%, transparent)`,
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    display: "flex",
+    gap: "1rem",
+    height: "3.5rem",
+    justifyContent: "space-between",
+    left: 0,
+    paddingInline: {
+      default: "1rem",
+      "@media (min-width: 40rem)": "1.5rem",
+    },
+    position: "sticky",
+    top: 0,
+    transform: {
+      default: "translateY(0)",
+      "@media (prefers-reduced-motion: reduce)": "none",
+    },
+    transitionDuration: {
+      default: "200ms",
+      "@media (prefers-reduced-motion: reduce)": "0ms",
+    },
+    transitionProperty: "transform",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+    willChange: "transform",
+    zIndex: 1,
+  },
+  headerHidden: {
+    transform: {
+      default: "translateY(-100%)",
+      "@media (prefers-reduced-motion: reduce)": "none",
+    },
+  },
+  shellContent: {
+    marginInline: "auto",
+    maxWidth: {
+      default: "720px",
+      ":has([data-comment-rail])": {
+        "@media (min-width: 80rem)": "1028px",
+      },
+    },
+    paddingBlock: {
+      default: "2rem",
+      "@media (min-width: 40rem)": "2.5rem",
+    },
+    paddingLeft: {
+      default: "1.25rem",
+      "@media (min-width: 40rem)": "2rem",
+      ":has([data-comment-rail])": {
+        "@media (min-width: 80rem)": 0,
+      },
+    },
+    paddingRight: {
+      default: "1.25rem",
+      "@media (min-width: 40rem)": "2rem",
+      ":has([data-comment-rail])": {
+        "@media (min-width: 80rem)": "372px",
+      },
+    },
+    width: "100%",
+  },
+});
+export const sharedButtonStyles = stylex.create({
+  base: {
+    alignItems: "center",
+    borderRadius: radii.full,
+    boxShadow: {
+      default: null,
+      ":focus-visible": `0 0 0 2px ${colors.ring}, 0 0 0 4px ${colors.card}`,
+    },
+    cursor: {
+      default: "pointer",
+      ":disabled": "not-allowed",
+    },
+    display: "inline-flex",
+    fontSize: ".875rem",
+    justifyContent: "center",
+    minHeight: "2.25rem",
+    opacity: {
+      default: 1,
+      ":disabled": 0.5,
+    },
+    outline: {
+      default: null,
+      ":focus-visible": "none",
+    },
+    paddingInline: "1rem",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color, border-color, color",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  primary: {
+    backgroundColor: {
+      default: colors.foreground,
+      ":hover": colors.primary,
+    },
+    color: colors.primaryForeground,
+    fontWeight: 600,
+  },
+  secondary: {
+    backgroundColor: {
+      default: colors.card,
+      ":hover": colors.muted,
+    },
+    borderColor: colors.border,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.foreground,
+    fontWeight: 500,
+  },
+});
 export function SharedNoteViewer({
   accessLabel,
   actions,
@@ -75,48 +359,56 @@ export function SharedNoteViewer({
       has_collaboration_actions: Boolean(actions),
     });
   });
-
   return (
     <SharedNoteShell
       topActions={
         headerActions || actions ? (
-          <div className="flex items-center gap-2">
+          <div {...stylex.props(styles.style1)}>
             {headerActions}
             {actions}
           </div>
         ) : undefined
       }
     >
-      <article className="xl:overflow-visible">
-        <header className="mb-6">
+      <article {...stylex.props(styles.style2)}>
+        <header {...stylex.props(styles.style3)}>
           {showTitle && (
-            <h1 className="text-color text-2xl leading-[1.875rem] font-semibold text-balance">
+            <h1 {...stylex.props(styles.style4)}>
               {snapshot.title || "Untitled note"}
             </h1>
           )}
           {meetingMetadata ? (
             <SharedNoteMeetingMetadata
-              className={showTitle ? "mt-3" : "mb-6"}
+              sx={
+                showTitle
+                  ? styles.meetingMetadataAfterTitle
+                  : styles.meetingMetadataWithoutTitle
+              }
               meetingAt={meetingMetadata.meetingAt}
               participants={meetingMetadata.participants}
             />
           ) : (
             <div
-              className={cn([
-                "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-500",
-                showTitle ? "mt-3" : "mb-6",
+              {...stylex.props([
+                styles.publishedMetadata,
+                showTitle
+                  ? styles.meetingMetadataAfterTitle
+                  : styles.meetingMetadataWithoutTitle,
               ])}
             >
-              <span className="inline-flex min-h-7 items-center gap-1.5">
-                <Users className="size-3.5" aria-hidden="true" />
+              <span {...stylex.props(styles.style6)}>
+                <Users {...stylex.props(styles.style7)} aria-hidden="true" />
                 {accessLabel}
               </span>
               <time
-                className="inline-flex min-h-7 items-center gap-1.5"
+                {...stylex.props(styles.style6)}
                 dateTime={snapshot.publishedAt}
                 title={`Published ${formatSharedNotePublishedAt(snapshot.publishedAt)}`}
               >
-                <CalendarDots className="size-3.5" aria-hidden="true" />
+                <CalendarDots
+                  {...stylex.props(styles.style7)}
+                  aria-hidden="true"
+                />
                 {formatSharedNotePublishedAt(snapshot.publishedAt)}
               </time>
             </div>
@@ -146,31 +438,25 @@ export function SharedNoteViewer({
     </SharedNoteShell>
   );
 }
-
 function SharedNoteMeetingMetadata({
-  className,
   meetingAt,
   participants,
-}: Pick<SharedNotePreview, "meetingAt" | "participants"> & {
-  className?: string;
-}) {
+  sx,
+}: Pick<SharedNotePreview, "meetingAt" | "participants"> & {} & StyleXProps) {
   const presentation = createSharedNoteParticipantPresentation(participants);
-
   return (
-    <div
-      className={cn([
-        "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 text-sm text-stone-500",
-        className,
-      ])}
-    >
+    <div {...mergeStyleXProps([styles.meetingMetadata, sx])}>
       {presentation.participantCount > 0 ? (
         <div
           aria-label={`${presentation.participantCount} meeting participants`}
-          className="flex shrink-0 items-center"
+          {...stylex.props(styles.style8)}
         >
           {presentation.avatarParticipants.map((participant, index) => (
             <span
-              className={cn(["relative inline-flex", index > 0 && "-ml-2"])}
+              {...stylex.props(
+                styles.participantAvatar,
+                index > 0 && styles.participantAvatarOverlapping,
+              )}
               key={participant}
               style={{
                 zIndex: presentation.avatarParticipants.length - index,
@@ -181,62 +467,59 @@ function SharedNoteMeetingMetadata({
           ))}
         </div>
       ) : null}
-      <span className="font-medium text-stone-700">{presentation.label}</span>
+      <span {...stylex.props(styles.style9)}>{presentation.label}</span>
       <span aria-hidden="true">·</span>
       <time dateTime={meetingAt}>{formatSharedNoteMeetingAt(meetingAt)}</time>
     </div>
   );
 }
-
 export function SharedNoteLoading() {
   return (
     <SharedNoteShell>
-      <div
-        className="surface border-color-subtle rounded-3xl border px-6 py-8 sm:px-10"
-        aria-label="Loading shared note"
-      >
-        <CircleNotch
-          className="text-color-muted mb-6 size-5 animate-spin"
-          aria-hidden="true"
-        />
-        <div className="surface-subtle h-7 w-3/5 animate-pulse rounded-lg" />
-        <div className="surface-subtle mt-6 h-4 w-full animate-pulse rounded" />
-        <div className="surface-subtle mt-3 h-4 w-4/5 animate-pulse rounded" />
+      <div {...stylex.props(styles.style10)} aria-label="Loading shared note">
+        <CircleNotch {...stylex.props(styles.style11)} aria-hidden="true" />
+        <div {...stylex.props(styles.style12)} />
+        <div {...stylex.props(styles.style13)} />
+        <div {...stylex.props(styles.style14)} />
       </div>
     </SharedNoteShell>
   );
 }
-
 export function SharedNoteUnavailable() {
   return (
     <SharedNotePrompt
-      icon={<WarningCircle className="size-6" aria-hidden="true" />}
+      icon={
+        <WarningCircle {...stylex.props(styles.style15)} aria-hidden="true" />
+      }
       title="This shared note isn’t available"
       description="The link may have expired, access may have changed, or the note may no longer be shared."
     />
   );
 }
-
 export function SharedNoteTransientError({ retry }: { retry?: () => void }) {
   return (
     <SharedNotePrompt
-      icon={<WarningCircle className="size-6" aria-hidden="true" />}
+      icon={
+        <WarningCircle {...stylex.props(styles.style15)} aria-hidden="true" />
+      }
       title="We couldn’t load this shared note"
       description="Anarlog had a temporary problem loading the note. Please try again."
       actions={
         <button
           type="button"
-          className={sharedPrimaryButtonClassName}
+          {...stylex.props(sharedButtonStyles.base, sharedButtonStyles.primary)}
           onClick={retry ?? (() => window.location.reload())}
         >
-          <ArrowsClockwise className="mr-2 size-4" aria-hidden="true" />
+          <ArrowsClockwise
+            {...stylex.props(styles.style16)}
+            aria-hidden="true"
+          />
           Try again
         </button>
       }
     />
   );
 }
-
 export function SharedNotePrompt({
   actions,
   description,
@@ -250,26 +533,15 @@ export function SharedNotePrompt({
 }) {
   return (
     <SharedNoteShell>
-      <section className="surface border-color-subtle rounded-3xl border px-6 py-12 text-center sm:px-10">
-        {icon && (
-          <div className="text-color-muted mx-auto mb-4 flex justify-center">
-            {icon}
-          </div>
-        )}
-        <h1 className="text-color font-mono text-2xl font-medium">{title}</h1>
-        <p className="text-color-muted mx-auto mt-3 max-w-lg text-base leading-7">
-          {description}
-        </p>
-        {actions && (
-          <div className="mt-7 flex flex-wrap justify-center gap-3">
-            {actions}
-          </div>
-        )}
+      <section {...stylex.props(styles.style17)}>
+        {icon && <div {...stylex.props(styles.style18)}>{icon}</div>}
+        <h1 {...stylex.props(styles.style19)}>{title}</h1>
+        <p {...stylex.props(styles.style20)}>{description}</p>
+        {actions && <div {...stylex.props(styles.style21)}>{actions}</div>}
       </section>
     </SharedNoteShell>
   );
 }
-
 function SharedNoteShell({
   children,
   topActions,
@@ -282,39 +554,25 @@ function SharedNoteShell({
     getHeaderHidden,
     () => false,
   );
-
   return (
-    <main className="min-h-screen overflow-x-clip bg-white text-stone-900">
+    <main {...stylex.props(styles.style22)}>
       <header
-        className={cn([
-          "sticky top-0 z-40 flex h-14 items-center justify-between gap-4 border-b border-stone-200 bg-white/95 px-4 backdrop-blur-sm sm:px-6",
-          "transition-transform duration-200 will-change-transform motion-reduce:transition-none",
-          headerHidden && "-translate-y-full",
-        ])}
+        {...stylex.props(styles.header, headerHidden && styles.headerHidden)}
       >
-        <a href="/" aria-label="Anarlog home" className="inline-flex">
-          <AnarlogLogo className="h-7 w-auto" />
+        <a href="/" aria-label="Anarlog home" {...stylex.props(styles.style23)}>
+          <AnarlogLogo sx={styles.style24} />
         </a>
         {topActions ?? (
-          <span className="text-xs text-stone-500">Shared with Anarlog</span>
+          <span {...stylex.props(styles.style25)}>Shared with Anarlog</span>
         )}
       </header>
-      <div
-        className={cn([
-          "mx-auto w-full max-w-[720px] px-5 py-8 sm:px-8 sm:py-10",
-          "xl:has-[[data-comment-rail]]:max-w-[1028px] xl:has-[[data-comment-rail]]:pr-[372px] xl:has-[[data-comment-rail]]:pl-0",
-        ])}
-      >
-        {children}
-      </div>
+      <div {...stylex.props(styles.shellContent)}>{children}</div>
     </main>
   );
 }
-
 let headerHidden = false;
 let lastHeaderScrollY = 0;
 const headerVisibilityListeners = new Set<() => void>();
-
 function handleHeaderScroll() {
   const nextScrollY = window.scrollY;
   const nextHidden =
@@ -329,12 +587,13 @@ function handleHeaderScroll() {
   headerHidden = nextHidden;
   headerVisibilityListeners.forEach((listener) => listener());
 }
-
 function subscribeHeaderVisibility(onChange: () => void) {
   headerVisibilityListeners.add(onChange);
   if (headerVisibilityListeners.size === 1) {
     lastHeaderScrollY = window.scrollY;
-    window.addEventListener("scroll", handleHeaderScroll, { passive: true });
+    window.addEventListener("scroll", handleHeaderScroll, {
+      passive: true,
+    });
   }
   return () => {
     headerVisibilityListeners.delete(onChange);
@@ -344,7 +603,6 @@ function subscribeHeaderVisibility(onChange: () => void) {
     }
   };
 }
-
 function getHeaderHidden() {
   return headerHidden;
 }

@@ -1,4 +1,5 @@
 import { ArrowUp, CircleNotch, SignIn, Sparkle } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Streamdown } from "streamdown";
@@ -11,7 +12,7 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 import { cn } from "@anlg/utils";
 
-import { sharedPrimaryButtonClassName } from "@/components/shared-note-viewer";
+import { sharedButtonStyles } from "@/components/shared-note-viewer";
 import { useMountEffect } from "@/hooks/useMountEffect";
 import {
   appendSharedNoteChatMessage,
@@ -22,7 +23,187 @@ import {
   streamSharedNoteChat,
 } from "@/lib/shared-note-chat";
 import type { SharedNoteSnapshot } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {
+    position: "fixed",
+    bottom: "calc(.75rem + env(safe-area-inset-bottom))",
+    left: "50%",
+    zIndex: "30",
+    height: "2.5rem",
+    width: "180px",
+    maxWidth: "calc(100vw - 2rem)",
+    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
+    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
+    cursor: "text",
+    "--tw-outline-style": {
+      default: null,
+      ":focus-visible": "none",
+    },
+    outlineStyle: {
+      default: null,
+      ":focus-visible": "none",
+    },
+  },
+  style2: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".75rem",
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    paddingInline: "1.25rem",
+    paddingBlock: "1rem",
+    paddingRight: "3.5rem",
+  },
+  style3: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+  },
+  style4: {
+    width: "1rem",
+    height: "1rem",
+  },
+  style5: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style6: {
+    minHeight: "0",
+    flex: "1",
+    overflowY: "auto",
+    paddingInline: "1.25rem",
+    paddingBlock: "1rem",
+  },
+  style7: {
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style8: {
+    display: "flex",
+    justifyContent: "flex-end",
+  },
+  style9: {
+    maxWidth: "85%",
+    borderRadius: "1rem",
+    paddingInline: ".875rem",
+    paddingBlock: ".5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+    whiteSpace: "pre-wrap",
+  },
+  style10: {
+    minWidth: "0",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style11: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style12: {
+    width: "1rem",
+    height: "1rem",
+    animation: "1s linear infinite spin",
+  },
+  style13: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#b91c1c",
+  },
+  style14: {
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingInline: "1.25rem",
+    paddingBlock: "1rem",
+  },
+  style15: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: ".5rem",
+  },
+  style16: {
+    minHeight: "2.75rem",
+    flex: "1",
+    resize: "none",
+    borderRadius: "1rem",
+    paddingInline: "1rem",
+    paddingBlock: ".625rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+    "--tw-ring-shadow": {
+      default: null,
+      ":focus-visible": " 0 0 0 calc(2px + 0) currentcolor",
+    },
+    boxShadow: {
+      default: null,
+      ":focus-visible":
+        "0 0 #0000, 0 0 #0000, 0 0 #0000, var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor), 0 0 #0000",
+    },
+    "--tw-ring-color": {
+      default: null,
+      ":focus-visible": "#78716c",
+    },
+    "--tw-outline-style": {
+      default: null,
+      ":focus-visible": "none",
+    },
+    outlineStyle: {
+      default: null,
+      ":focus-visible": "none",
+    },
+    outlineOffset: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus-visible": "2px",
+      },
+    },
+    outline: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus-visible": "2px solid #0000",
+      },
+    },
+  },
+  style17: {
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: "1rem",
+    paddingBlock: "1.25rem",
+  },
+  style18: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style19: {
+    marginTop: ".25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style20: {
+    marginRight: ".5rem",
+    width: "1rem",
+    height: "1rem",
+  },
+});
 export function SharedNoteChatPanel({
   returnPath,
   signedIn,
@@ -40,18 +221,17 @@ export function SharedNoteChatPanel({
   const streamingRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
-
   useMountEffect(() => {
     setInteractive(true);
     return () => abortRef.current?.abort();
   });
-
   const scrollToBottom = () => {
     requestAnimationFrame(() =>
-      bottomRef.current?.scrollIntoView({ block: "nearest" }),
+      bottomRef.current?.scrollIntoView({
+        block: "nearest",
+      }),
     );
   };
-
   const sendMutation = useMutation({
     // The controller doubles as the request's identity: every callback of a
     // superseded request bails out so it can never touch the active stream.
@@ -61,7 +241,9 @@ export function SharedNoteChatPanel({
       abortRef.current = controller;
       streamingRef.current = "";
       setStreaming("");
-      return { controller };
+      return {
+        controller,
+      };
     },
     mutationFn: async (history: SharedNoteChatMessage[]) => {
       const controller = abortRef.current;
@@ -124,14 +306,12 @@ export function SharedNoteChatPanel({
     sendMutation.mutate(history);
     scrollToBottom();
   };
-
   const errorMessage = sendMutation.isError
     ? sendMutation.error instanceof SharedNoteChatError &&
       sendMutation.error.status === 429
       ? "You’ve reached the free AI limit for now. Try again later."
       : "The AI couldn’t answer right now. Please try again."
     : null;
-
   const body = (
     <ChatBody
       bottomRef={bottomRef}
@@ -146,22 +326,20 @@ export function SharedNoteChatPanel({
       onSend={send}
     />
   );
-
   if (!interactive) {
     return null;
   }
-
   return (
     <Dialog modal={false} open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
           type="button"
           aria-label="Ask anything about this note"
-          className="group/anarlog-chat-cta fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-1/2 z-30 h-10 w-[180px] max-w-[calc(100vw-2rem)] -translate-x-1/2 cursor-text focus-visible:outline-none"
+          {...stylex.props(styles.style1)}
         >
           <span
             aria-hidden="true"
-            className={cn([
+            {...stylex.props([
               "pointer-events-none absolute bottom-0 left-1/2 inline-flex h-2 w-[180px] -translate-x-1/2 items-center overflow-hidden rounded-full border border-transparent",
               "origin-bottom bg-[linear-gradient(180deg,#faf8f6_0%,#e3e1df_100%)] px-0 text-sm shadow-[0_0_0_1px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.16),0_4px_16px_rgba(0,0,0,0.1),inset_0_-1px_0_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.4)] transition-[width,height,padding,background-color,border-color,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
               "group-hover/anarlog-chat-cta:border-stone-300 group-hover/anarlog-chat-cta:bg-[#f4f4f5] group-focus-visible/anarlog-chat-cta:border-stone-300 group-focus-visible/anarlog-chat-cta:bg-[#f4f4f5]",
@@ -171,7 +349,7 @@ export function SharedNoteChatPanel({
             ])}
           >
             <span
-              className={cn([
+              {...stylex.props([
                 "text-color-muted min-w-0 flex-1 truncate text-left opacity-0",
                 "transition-opacity duration-100 ease-out",
                 "group-hover/anarlog-chat-cta:opacity-100 group-focus-visible/anarlog-chat-cta:opacity-100",
@@ -184,15 +362,17 @@ export function SharedNoteChatPanel({
       </DialogTrigger>
       <DialogContent
         showOverlay={false}
-        className={cn([
-          "surface border-color-subtle !top-auto !right-4 !bottom-[calc(1rem+env(safe-area-inset-bottom))] !left-4 !z-50 !mx-auto !flex !translate-x-0 !translate-y-0 flex-col overflow-hidden border shadow-2xl",
-          "!h-[min(680px,calc(100dvh-5rem-env(safe-area-inset-bottom)))] !w-auto !max-w-[648px] !gap-0 !rounded-[28px] !p-0",
-        ])}
+        className={[
+          [
+            "surface border-color-subtle !top-auto !right-4 !bottom-[calc(1rem+env(safe-area-inset-bottom))] !left-4 !z-50 !mx-auto !flex !translate-x-0 !translate-y-0 flex-col overflow-hidden border shadow-2xl",
+            "!h-[min(680px,calc(100dvh-5rem-env(safe-area-inset-bottom)))] !w-auto !max-w-[648px] !gap-0 !rounded-[28px] !p-0",
+          ],
+        ]}
       >
-        <header className="border-color-subtle flex items-center gap-3 border-b px-5 py-4 pr-14">
-          <div className="text-color flex items-center gap-2">
-            <Sparkle className="size-4" aria-hidden="true" />
-            <DialogTitle className="font-mono text-sm font-medium">
+        <header {...stylex.props(styles.style2)}>
+          <div {...stylex.props(styles.style3)}>
+            <Sparkle {...stylex.props(styles.style4)} aria-hidden="true" />
+            <DialogTitle {...stylex.props(styles.style5)}>
               Ask about this note
             </DialogTitle>
           </div>
@@ -202,7 +382,6 @@ export function SharedNoteChatPanel({
     </Dialog>
   );
 }
-
 function ChatBody({
   bottomRef,
   draft,
@@ -228,48 +407,49 @@ function ChatBody({
 }) {
   return (
     <>
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+      <div {...stylex.props(styles.style6)}>
         {messages.length === 0 && streaming === null && (
-          <p className="text-color-muted text-sm leading-6">
+          <p {...stylex.props(styles.style7)}>
             Ask anything about this note — a summary, action items, or details
             you may have missed.
           </p>
         )}
         {messages.map((message, index) =>
           message.role === "user" ? (
-            <div key={index} className="flex justify-end">
-              <p className="surface-subtle text-color max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-6 whitespace-pre-wrap">
-                {message.content}
-              </p>
+            <div key={index} {...stylex.props(styles.style8)}>
+              <p {...stylex.props(styles.style9)}>{message.content}</p>
             </div>
           ) : (
-            <div key={index} className="text-color min-w-0 text-sm leading-6">
+            <div key={index} {...stylex.props(styles.style10)}>
               <Streamdown>{message.content}</Streamdown>
             </div>
           ),
         )}
         {streaming !== null &&
           (streaming === "" ? (
-            <p className="text-color-muted flex items-center gap-2 text-sm">
-              <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
+            <p {...stylex.props(styles.style11)}>
+              <CircleNotch
+                {...stylex.props(styles.style12)}
+                aria-hidden="true"
+              />
               Thinking…
             </p>
           ) : (
-            <div className="text-color min-w-0 text-sm leading-6">
+            <div {...stylex.props(styles.style10)}>
               <Streamdown>{streaming}</Streamdown>
             </div>
           ))}
         {errorMessage && (
-          <p className="text-sm text-red-700" role="status">
+          <p {...stylex.props(styles.style13)} role="status">
             {errorMessage}
           </p>
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="border-color-subtle border-t px-5 py-4">
+      <div {...stylex.props(styles.style14)}>
         {signedIn ? (
           <form
-            className="flex items-end gap-2"
+            {...stylex.props(styles.style15)}
             onSubmit={(event) => {
               event.preventDefault();
               onSend();
@@ -277,7 +457,7 @@ function ChatBody({
           >
             <textarea
               autoFocus
-              className="surface-subtle text-color placeholder:text-color-muted min-h-11 flex-1 resize-none rounded-2xl px-4 py-2.5 text-sm leading-6 focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden"
+              {...stylex.props(styles.style16)}
               placeholder="Ask anything"
               maxLength={MAX_SHARED_NOTE_CHAT_MESSAGE_CHARS}
               rows={Math.min(3, draft.split("\n").length)}
@@ -293,7 +473,7 @@ function ChatBody({
             <button
               type="submit"
               aria-label="Send message"
-              className={cn([
+              {...stylex.props([
                 "inline-flex size-11 shrink-0 items-center justify-center rounded-full",
                 "bg-linear-to-t from-stone-600 to-stone-500 text-white transition-opacity hover:opacity-90",
                 "focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2 focus-visible:outline-hidden",
@@ -303,11 +483,11 @@ function ChatBody({
             >
               {pending ? (
                 <CircleNotch
-                  className="size-4 animate-spin"
+                  {...stylex.props(styles.style12)}
                   aria-hidden="true"
                 />
               ) : (
-                <ArrowUp className="size-4" aria-hidden="true" />
+                <ArrowUp {...stylex.props(styles.style4)} aria-hidden="true" />
               )}
             </button>
           </form>
@@ -318,25 +498,25 @@ function ChatBody({
     </>
   );
 }
-
 function SignInToChat({ returnPath }: { returnPath: string }) {
   const search = new URLSearchParams({
     flow: "web",
     redirect: returnPath,
   });
   return (
-    <div className="surface-subtle border-color-subtle rounded-2xl border px-4 py-5">
-      <p className="text-color font-mono text-sm font-medium">
-        Sign in to ask about this note
-      </p>
-      <p className="text-color-muted mt-1 text-sm leading-6">
+    <div {...stylex.props(styles.style17)}>
+      <p {...stylex.props(styles.style18)}>Sign in to ask about this note</p>
+      <p {...stylex.props(styles.style19)}>
         Sign in to chat with AI about this shared note.
       </p>
       <a
         href={`/auth/?${search.toString()}`}
-        className={cn([sharedPrimaryButtonClassName, "mt-4"])}
+        {...stylex.props([
+          [sharedButtonStyles.base, sharedButtonStyles.primary],
+          "mt-4",
+        ])}
       >
-        <SignIn className="mr-2 size-4" aria-hidden="true" />
+        <SignIn {...stylex.props(styles.style20)} aria-hidden="true" />
         Sign in
       </a>
     </div>

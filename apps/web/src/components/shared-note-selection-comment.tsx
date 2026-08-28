@@ -6,18 +6,23 @@ import {
   shift,
 } from "@floating-ui/dom";
 import { ChatCenteredDots } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { cn } from "@anlg/utils";
-
+const styles = stylex.create({
+  style1: {
+    width: "1rem",
+    height: "1rem",
+  },
+});
 export type SelectionRect = {
   left: number;
   top: number;
   right: number;
   bottom: number;
 };
-
 export function SharedNoteSelectionComment({
   onStart,
   rect,
@@ -30,7 +35,6 @@ export function SharedNoteSelectionComment({
   const [pill, setPill] = useState<HTMLButtonElement | null>(null);
   const rectRef = useRef(rect);
   rectRef.current = rect;
-
   const active = visible && rect !== null;
 
   // External sync: floating-ui keeps the portal pill aligned with the
@@ -56,7 +60,13 @@ export function SharedNoteSelectionComment({
     };
     const update = () => {
       void computePosition(reference, pill, {
-        middleware: [offset(8), flip(), shift({ padding: 8 })],
+        middleware: [
+          offset(8),
+          flip(),
+          shift({
+            padding: 8,
+          }),
+        ],
         placement: "top",
         strategy: "fixed",
       }).then(({ x, y }) => {
@@ -67,15 +77,18 @@ export function SharedNoteSelectionComment({
     };
     return autoUpdate(reference, pill, update);
   }, [pill, active, rect]);
-
   if (!active) return null;
-
   return createPortal(
     <button
       ref={setPill}
       type="button"
-      style={{ left: 0, position: "fixed", top: 0, visibility: "hidden" }}
-      className={cn([
+      style={{
+        left: 0,
+        position: "fixed",
+        top: 0,
+        visibility: "hidden",
+      }}
+      {...stylex.props([
         "z-50 inline-flex items-center gap-1.5",
         "surface border-color-subtle rounded-full border px-3 py-1.5 shadow-md",
         "text-color font-mono text-xs font-medium",
@@ -85,7 +98,7 @@ export function SharedNoteSelectionComment({
       onMouseDown={(event) => event.preventDefault()}
       onClick={onStart}
     >
-      <ChatCenteredDots className="size-4" aria-hidden="true" />
+      <ChatCenteredDots {...stylex.props(styles.style1)} aria-hidden="true" />
       Comment
     </button>,
     document.body,

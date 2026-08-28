@@ -1,4 +1,5 @@
 import { ArrowUp, CircleNotch, DotsThree } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useRef, useState } from "react";
 
 import { Avatar } from "@anlg/ui/components/avatar";
@@ -12,11 +13,301 @@ import type { AnchoredSharedNoteComment } from "@/lib/shared-note-comment-anchor
 import { layoutRailCards } from "@/lib/shared-note-comment-rail-layout";
 import { groupSharedNoteCommentThreads } from "@/lib/shared-note-comment-threads";
 import { formatSharedNoteRelativeTime } from "@/lib/shared-note-presentation";
-
+const styles = stylex.create({
+  style1: {
+    position: "relative",
+    height: "100%",
+  },
+  style2: {
+    position: "absolute",
+    insetInline: "0",
+    transitionProperty: "top",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".2s",
+    "--tw-duration": ".2s",
+  },
+  style3: {
+    padding: ".875rem",
+  },
+  style4: {
+    marginTop: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5",
+    "--tw-leading": "1.5",
+    whiteSpace: "pre-wrap",
+    color: "#292524",
+  },
+  style5: {
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    borderColor: "#e7e5e4",
+  },
+  style6: {
+    display: "flex",
+    gap: ".625rem",
+    borderBottomStyle: {
+      default: "solid",
+      ":last-child": "solid",
+    },
+    borderBottomWidth: {
+      default: "1px",
+      ":last-child": "0",
+    },
+    borderColor: "#f5f5f4",
+    paddingInline: ".875rem",
+    paddingBlock: ".75rem",
+  },
+  style7: {
+    minWidth: "0",
+    flex: "1",
+  },
+  style8: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: ".5rem",
+  },
+  style9: {
+    minWidth: "0",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    fontSize: "11px",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#44403c",
+  },
+  style10: {
+    "--tw-font-weight": "400",
+    fontWeight: "400",
+    color: "#78716c",
+  },
+  style11: {
+    marginTop: ".25rem",
+    fontSize: ".75rem",
+    lineHeight: "1.45",
+    "--tw-leading": "1.45",
+    whiteSpace: "pre-wrap",
+    color: "#44403c",
+  },
+  style12: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: ".75rem",
+  },
+  style13: {
+    display: "flex",
+    minWidth: "0",
+    alignItems: "center",
+    gap: ".5rem",
+  },
+  style14: {
+    minWidth: "0",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#292524",
+  },
+  style15: {
+    position: "relative",
+    flexShrink: "0",
+  },
+  style16: {
+    display: "grid",
+    width: "1.5rem",
+    height: "1.5rem",
+    placeItems: "center",
+    borderRadius: ".375rem",
+    color: {
+      default: "#78716c",
+      ":hover": "#44403c",
+    },
+    backgroundColor: {
+      default: null,
+      ":hover": "#f5f5f4",
+    },
+    "--tw-ring-shadow": {
+      default: null,
+      ":focus-visible": " 0 0 0 calc(2px + 0) currentcolor",
+    },
+    boxShadow: {
+      default: null,
+      ":focus-visible":
+        "0 0 #0000, 0 0 #0000, 0 0 #0000, var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor), 0 0 #0000",
+    },
+    "--tw-ring-color": {
+      default: null,
+      ":focus-visible": "#1c1917",
+    },
+    "--tw-outline-style": {
+      default: null,
+      ":focus-visible": "none",
+    },
+    outlineStyle: {
+      default: null,
+      ":focus-visible": "none",
+    },
+    outlineOffset: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus-visible": "2px",
+      },
+    },
+    outline: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus-visible": "2px solid #0000",
+      },
+    },
+  },
+  style17: {
+    width: ".875rem",
+    height: ".875rem",
+    animation: "1s linear infinite spin",
+  },
+  style18: {
+    width: "1rem",
+    height: "1rem",
+  },
+  style19: {
+    position: "absolute",
+    top: "1.75rem",
+    right: "0",
+    zIndex: "20",
+    width: "7rem",
+    borderRadius: ".5rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#e7e5e4",
+    backgroundColor: "#fff",
+    padding: ".25rem",
+    "--tw-shadow": "0 10px 15px -3px #0000001a, 0 4px 6px -4px #0000001a",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 10px 15px -3px var(--tw-shadow-color, #0000001a), 0 4px 6px -4px var(--tw-shadow-color, #0000001a)",
+  },
+  style20: {
+    width: "100%",
+    borderRadius: ".375rem",
+    paddingInline: ".5rem",
+    paddingBlock: ".375rem",
+    textAlign: "left",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+    color: "#44403c",
+    backgroundColor: {
+      default: null,
+      ":hover": "#f5f5f4",
+    },
+  },
+  style21: {
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    borderColor: "#e7e5e4",
+    paddingInline: ".75rem",
+    paddingBlock: ".625rem",
+  },
+  style22: {
+    display: "flex",
+    alignItems: "flex-end",
+    gap: ".5rem",
+    borderRadius: "10px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: {
+      default: "#d6d3d1",
+      ":focus-within": "#a8a29e",
+    },
+    backgroundColor: "#fff",
+    padding: ".375rem",
+    paddingLeft: ".5rem",
+    "--tw-ring-shadow": {
+      default: null,
+      ":focus-within": " 0 0 0 calc(2px + 0) currentcolor",
+    },
+    boxShadow: {
+      default: null,
+      ":focus-within":
+        "0 0 #0000, 0 0 #0000, 0 0 #0000, var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor), 0 0 #0000",
+    },
+    "--tw-ring-color": {
+      default: null,
+      ":focus-within": "#e7e5e4",
+    },
+  },
+  style23: {
+    maxHeight: "5rem",
+    minHeight: "1.5rem",
+    minWidth: "0",
+    flex: "1",
+    resize: "none",
+    backgroundColor: "#0000",
+    paddingBlock: ".125rem",
+    fontSize: ".75rem",
+    lineHeight: "18px",
+    "--tw-leading": "18px",
+    color: "#292524",
+    "::placeholder": {
+      default: null,
+      color: "#a8a29e",
+    },
+    "--tw-outline-style": {
+      default: null,
+      ":focus": "none",
+    },
+    outlineStyle: {
+      default: null,
+      ":focus": "none",
+    },
+    outlineOffset: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus": "2px",
+      },
+    },
+    outline: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus": "2px solid #0000",
+      },
+    },
+  },
+  style24: {
+    display: "grid",
+    width: "1.5rem",
+    height: "1.5rem",
+    flexShrink: "0",
+    placeItems: "center",
+    borderRadius: "3.40282e38px",
+    backgroundColor: {
+      default: "#1c1917",
+      ":disabled": "#e7e5e4",
+    },
+    color: {
+      default: "#fff",
+      ":disabled": "#a8a29e",
+    },
+  },
+  style25: {
+    width: ".875rem",
+    height: ".875rem",
+  },
+  style26: {
+    marginTop: ".375rem",
+    fontSize: "11px",
+    color: "#b91c1c",
+  },
+});
 export const DRAFT_COMMENT_ID = "draft";
-
 const RAIL_CARD_GAP = 10;
-
 export function SharedNoteCommentRail({
   activeCommentId,
   canDelete,
@@ -34,7 +325,9 @@ export function SharedNoteCommentRail({
   screenTops: ReadonlyMap<string, number>;
   activeCommentId: string | null;
   onActivate: (commentId: string | null) => void;
-  composer: { top: number } | null;
+  composer: {
+    top: number;
+  } | null;
   composerNode?: React.ReactNode;
   onDelete: (commentId: string) => void;
   onReply?: (
@@ -51,7 +344,6 @@ export function SharedNoteCommentRail({
   const measureRefs = useRef(
     new Map<string, (element: HTMLDivElement | null) => (() => void) | void>(),
   );
-
   const measureRef = (id: string) => {
     const cached = measureRefs.current.get(id);
     if (cached) return cached;
@@ -87,7 +379,6 @@ export function SharedNoteCommentRail({
     measureRefs.current.set(id, ref);
     return ref;
   };
-
   const threads = groupSharedNoteCommentThreads(
     items.filter((item) => item.range !== null),
   );
@@ -122,18 +413,18 @@ export function SharedNoteCommentRail({
   const topById = new Map(
     placements.map((placement) => [placement.id, placement.top]),
   );
-
   if (!composer && threads.length === 0) {
     return null;
   }
-
   return (
-    <div className="relative h-full">
+    <div {...stylex.props(styles.style1)}>
       {composer ? (
         <div
           ref={measureRef(DRAFT_COMMENT_ID)}
-          className="absolute inset-x-0 transition-[top] duration-200"
-          style={{ top: topById.get(DRAFT_COMMENT_ID) ?? composer.top }}
+          {...stylex.props(styles.style2)}
+          style={{
+            top: topById.get(DRAFT_COMMENT_ID) ?? composer.top,
+          }}
         >
           {composerNode}
         </div>
@@ -144,8 +435,10 @@ export function SharedNoteCommentRail({
           <div
             key={thread.id}
             ref={measureRef(thread.id)}
-            className="absolute inset-x-0 transition-[top] duration-200"
-            style={{ top: topById.get(thread.id) ?? 0 }}
+            {...stylex.props(styles.style2)}
+            style={{
+              top: topById.get(thread.id) ?? 0,
+            }}
           >
             <SharedNoteCommentCard
               active={active}
@@ -164,7 +457,6 @@ export function SharedNoteCommentRail({
     </div>
   );
 }
-
 export function SharedNoteCommentCard({
   active,
   canDelete,
@@ -205,14 +497,14 @@ export function SharedNoteCommentCard({
             }
           : undefined
       }
-      className={cn([
+      {...stylex.props([
         "overflow-hidden rounded-[22px] border bg-white text-left shadow-[0_7px_22px_rgba(0,0,0,0.08)]",
         "transition-[border-color,box-shadow]",
         active ? "border-stone-400 shadow-lg" : "border-stone-300",
         onActivate && "cursor-pointer",
       ])}
     >
-      <div className="p-3.5">
+      <div {...stylex.props(styles.style3)}>
         <CommentHeader
           canDelete={canDelete(comment)}
           comment={comment}
@@ -220,20 +512,15 @@ export function SharedNoteCommentCard({
           deleting={deletingCommentId === comment.commentId}
           onDelete={onDelete}
         />
-        <p className="mt-3 text-sm leading-[1.5] whitespace-pre-wrap text-stone-800">
-          {comment.body}
-        </p>
+        <p {...stylex.props(styles.style4)}>{comment.body}</p>
       </div>
       {replies.length ? (
         <div
-          className="border-t border-stone-200"
+          {...stylex.props(styles.style5)}
           onClick={(event) => event.stopPropagation()}
         >
           {replies.map((reply) => (
-            <div
-              key={reply.commentId}
-              className="flex gap-2.5 border-b border-stone-100 px-3.5 py-3 last:border-b-0"
-            >
+            <div key={reply.commentId} {...stylex.props(styles.style6)}>
               <Avatar
                 seed={
                   reply.isAuthor
@@ -243,12 +530,12 @@ export function SharedNoteCommentCard({
                 label={reply.isAuthor ? "You" : "Collaborator"}
                 size={24}
               />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 truncate text-[11px] font-semibold text-stone-700">
+              <div {...stylex.props(styles.style7)}>
+                <div {...stylex.props(styles.style8)}>
+                  <p {...stylex.props(styles.style9)}>
                     {reply.isAuthor ? "You" : "Collaborator"}{" "}
                     <time
-                      className="font-normal text-stone-500"
+                      {...stylex.props(styles.style10)}
                       dateTime={reply.createdAt}
                     >
                       {formatSharedNoteRelativeTime(reply.createdAt)}
@@ -262,9 +549,7 @@ export function SharedNoteCommentCard({
                     onDelete={onDelete}
                   />
                 </div>
-                <p className="mt-1 text-xs leading-[1.45] whitespace-pre-wrap text-stone-700">
-                  {reply.body}
-                </p>
+                <p {...stylex.props(styles.style11)}>{reply.body}</p>
               </div>
             </div>
           ))}
@@ -276,7 +561,6 @@ export function SharedNoteCommentCard({
     </div>
   );
 }
-
 function CommentHeader({
   canDelete,
   comment,
@@ -291,8 +575,8 @@ function CommentHeader({
   onDelete: (commentId: string) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex min-w-0 items-center gap-2">
+    <div {...stylex.props(styles.style12)}>
+      <div {...stylex.props(styles.style13)}>
         <Avatar
           seed={
             comment.isAuthor ? "shared-note:you" : "shared-note:collaborator"
@@ -300,12 +584,9 @@ function CommentHeader({
           label={comment.isAuthor ? "You" : "Collaborator"}
           size={25}
         />
-        <p className="min-w-0 truncate text-xs font-semibold text-stone-800">
+        <p {...stylex.props(styles.style14)}>
           {comment.isAuthor ? "You" : "Collaborator"}{" "}
-          <time
-            className="font-normal text-stone-500"
-            dateTime={comment.createdAt}
-          >
+          <time {...stylex.props(styles.style10)} dateTime={comment.createdAt}>
             {formatSharedNoteRelativeTime(comment.createdAt)}
           </time>
         </p>
@@ -320,7 +601,6 @@ function CommentHeader({
     </div>
   );
 }
-
 function CommentActions({
   canDelete,
   commentId,
@@ -336,14 +616,13 @@ function CommentActions({
 }) {
   const [open, setOpen] = useState(false);
   if (!canDelete) return null;
-
   return (
-    <div className="relative shrink-0">
+    <div {...stylex.props(styles.style15)}>
       <button
         type="button"
         aria-label="Comment actions"
         aria-expanded={open}
-        className="grid size-6 place-items-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-700 focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:outline-hidden"
+        {...stylex.props(styles.style16)}
         disabled={deleteDisabled}
         onClick={(event) => {
           event.stopPropagation();
@@ -351,19 +630,19 @@ function CommentActions({
         }}
       >
         {deleting ? (
-          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+          <CircleNotch {...stylex.props(styles.style17)} aria-hidden="true" />
         ) : (
-          <DotsThree className="size-4" aria-hidden="true" />
+          <DotsThree {...stylex.props(styles.style18)} aria-hidden="true" />
         )}
       </button>
       {open ? (
         <div
-          className="absolute top-7 right-0 z-20 w-28 rounded-lg border border-stone-200 bg-white p-1 shadow-lg"
+          {...stylex.props(styles.style19)}
           onClick={(event) => event.stopPropagation()}
         >
           <button
             type="button"
-            className="w-full rounded-md px-2 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-100"
+            {...stylex.props(styles.style20)}
             disabled={deleteDisabled}
             onClick={() => {
               setOpen(false);
@@ -377,7 +656,6 @@ function CommentActions({
     </div>
   );
 }
-
 function ReplyComposer({
   comment,
   onReply,
@@ -393,7 +671,6 @@ function ReplyComposer({
   const [error, setError] = useState(false);
   const validated = validateSharedNoteCommentBody(body);
   const tooLong = validated.byteLength > MAX_SHARED_NOTE_COMMENT_BYTES;
-
   const submit = async () => {
     if (!validated.valid || pending) return;
     setPending(true);
@@ -407,22 +684,21 @@ function ReplyComposer({
       setPending(false);
     }
   };
-
   return (
     <form
-      className="border-t border-stone-200 px-3 py-2.5"
+      {...stylex.props(styles.style21)}
       onClick={(event) => event.stopPropagation()}
       onSubmit={(event) => {
         event.preventDefault();
         void submit();
       }}
     >
-      <div className="flex items-end gap-2 rounded-[10px] border border-stone-300 bg-white p-1.5 pl-2 focus-within:border-stone-400 focus-within:ring-2 focus-within:ring-stone-200">
+      <div {...stylex.props(styles.style22)}>
         <Avatar seed="shared-note:you" label="You" size={24} />
         <textarea
           aria-label="Reply to comment"
           aria-invalid={tooLong}
-          className="max-h-20 min-h-6 min-w-0 flex-1 resize-none bg-transparent py-0.5 text-xs leading-[18px] text-stone-800 placeholder:text-stone-400 focus:outline-hidden"
+          {...stylex.props(styles.style23)}
           placeholder="Reply…"
           rows={1}
           value={body}
@@ -437,24 +713,24 @@ function ReplyComposer({
         <button
           type="submit"
           aria-label="Send reply"
-          className="grid size-6 shrink-0 place-items-center rounded-full bg-stone-900 text-white disabled:bg-stone-200 disabled:text-stone-400"
+          {...stylex.props(styles.style24)}
           disabled={!validated.valid || pending}
         >
           {pending ? (
-            <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+            <CircleNotch {...stylex.props(styles.style17)} aria-hidden="true" />
           ) : (
-            <ArrowUp className="size-3.5" aria-hidden="true" />
+            <ArrowUp {...stylex.props(styles.style25)} aria-hidden="true" />
           )}
         </button>
       </div>
       {tooLong ? (
-        <p className="mt-1.5 text-[11px] text-red-700" role="alert">
+        <p {...stylex.props(styles.style26)} role="alert">
           Reply is too long ({validated.byteLength.toLocaleString()}/
           {MAX_SHARED_NOTE_COMMENT_BYTES.toLocaleString()} bytes).
         </p>
       ) : null}
       {error ? (
-        <p className="mt-1.5 text-[11px] text-red-700" role="status">
+        <p {...stylex.props(styles.style26)} role="status">
           Your reply couldn’t be added. Try again.
         </p>
       ) : null}

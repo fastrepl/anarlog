@@ -1,4 +1,5 @@
 import { CircleNotch, Pause, Play, SpeakerHigh } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 
@@ -15,7 +16,68 @@ import {
   type SharedNoteAttachment,
   type SharedNoteAttachmentDownload,
 } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {
+    width: ".875rem",
+    height: ".875rem",
+    flexShrink: "0",
+    color: "#a8a29e",
+  },
+  style2: {
+    minWidth: "0",
+    flex: "1",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style3: {
+    display: "none",
+  },
+  style4: {
+    width: ".875rem",
+    height: ".875rem",
+    animation: "1s linear infinite spin",
+  },
+  style5: {
+    width: ".875rem",
+    height: ".875rem",
+  },
+  style6: {
+    marginLeft: ".125rem",
+    width: ".875rem",
+    height: ".875rem",
+  },
+  style7: {
+    display: "flex",
+    flexShrink: "0",
+    gap: ".25rem",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: "10px",
+    "--tw-numeric-spacing": "tabular-nums",
+    fontVariantNumeric: "   tabular-nums ",
+  },
+  style8: {
+    position: "relative",
+    display: "flex",
+    height: "1.5rem",
+    minWidth: "0",
+    flex: "1",
+    alignItems: "center",
+    gap: ".125rem",
+    overflow: "hidden",
+  },
+  style9: {
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%",
+    cursor: "pointer",
+    opacity: "0",
+  },
+});
 export function SharedNoteAudioPlayer({
   attachment,
   resolve,
@@ -59,7 +121,6 @@ export function SharedNoteAudioPlayer({
     : null;
   const activeDownload = pinnedAudioDownload ?? download;
   const progress = duration > 0 ? currentTime / duration : 0;
-
   const refreshAudioGrant = async (
     audio: HTMLAudioElement,
     resume: boolean,
@@ -96,7 +157,6 @@ export function SharedNoteAudioPlayer({
       resume: shouldResume,
     };
   };
-
   const togglePlayback = async () => {
     const audio = audioRef.current;
     if (!audio || !activeDownload) return;
@@ -106,26 +166,20 @@ export function SharedNoteAudioPlayer({
     }
     audio.pause();
   };
-
   if (downloadQuery.error && !activeDownload) {
     return (
       <section
         aria-label={`Audio recording: ${attachment.filename}`}
-        className={cn([
+        {...stylex.props([
           "mb-6 flex min-w-0 items-center gap-3 rounded-[22px] border border-stone-200 bg-white/80 px-3 py-2",
           "text-stone-600",
         ])}
       >
-        <SpeakerHigh
-          className="size-3.5 shrink-0 text-stone-400"
-          aria-hidden="true"
-        />
-        <span className="min-w-0 flex-1 truncate text-sm">
-          Attachment unavailable
-        </span>
+        <SpeakerHigh {...stylex.props(styles.style1)} aria-hidden="true" />
+        <span {...stylex.props(styles.style2)}>Attachment unavailable</span>
         <button
           type="button"
-          className={cn([
+          {...stylex.props([
             "shrink-0 rounded-full border border-stone-300 bg-white px-3 py-1 text-xs font-medium text-stone-700 shadow-xs",
             "hover:bg-stone-50",
             "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
@@ -138,11 +192,10 @@ export function SharedNoteAudioPlayer({
       </section>
     );
   }
-
   return (
     <section
       aria-label={`Audio recording: ${attachment.filename}`}
-      className={cn([
+      {...stylex.props([
         "mb-6 flex min-w-0 items-center gap-2 rounded-[22px] border border-stone-200 bg-white/80 p-1.5 pr-2",
         "text-stone-600",
       ])}
@@ -151,7 +204,7 @@ export function SharedNoteAudioPlayer({
         <audio
           key={activeDownload.signedUrl}
           ref={audioRef}
-          className="hidden"
+          {...stylex.props(styles.style3)}
           aria-hidden="true"
           src={activeDownload.signedUrl}
           preload="metadata"
@@ -202,7 +255,7 @@ export function SharedNoteAudioPlayer({
       <button
         type="button"
         aria-label={playing ? "Pause recording" : "Play recording"}
-        className={cn([
+        {...stylex.props([
           "grid size-7 shrink-0 place-items-center rounded-full border border-stone-300 bg-white text-stone-800 shadow-xs",
           "transition-transform hover:scale-105 hover:bg-stone-50",
           "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
@@ -212,36 +265,46 @@ export function SharedNoteAudioPlayer({
         onClick={() => void togglePlayback()}
       >
         {downloadQuery.isPending && resolve ? (
-          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+          <CircleNotch {...stylex.props(styles.style4)} aria-hidden="true" />
         ) : playing ? (
-          <Pause className="size-3.5" weight="fill" aria-hidden="true" />
+          <Pause
+            {...stylex.props(styles.style5)}
+            weight="fill"
+            aria-hidden="true"
+          />
         ) : (
-          <Play className="ml-0.5 size-3.5" weight="fill" aria-hidden="true" />
+          <Play
+            {...stylex.props(styles.style6)}
+            weight="fill"
+            aria-hidden="true"
+          />
         )}
       </button>
-      <span className="flex shrink-0 gap-1 font-mono text-[10px] tabular-nums">
+      <span {...stylex.props(styles.style7)}>
         <span>{formatSharedNotePlaybackTime(currentTime)}</span>
         <span aria-hidden="true">/</span>
         <span>{formatSharedNotePlaybackTime(duration)}</span>
       </span>
-      <div className="relative flex h-6 min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
+      <div {...stylex.props(styles.style8)}>
         {waveform.map((height, index) => (
           <span
             key={index}
             aria-hidden="true"
-            className={cn([
+            {...stylex.props([
               "min-h-0.5 min-w-px flex-1 rounded-full",
               index / waveform.length <= progress
                 ? "bg-stone-600"
                 : "bg-stone-300",
             ])}
-            style={{ height: `${height}%` }}
+            style={{
+              height: `${height}%`,
+            }}
           />
         ))}
         <input
           type="range"
           aria-label="Recording position"
-          className="absolute inset-0 size-full cursor-pointer opacity-0"
+          {...stylex.props(styles.style9)}
           min={0}
           max={duration || 0}
           step={0.1}
@@ -256,10 +319,7 @@ export function SharedNoteAudioPlayer({
         />
       </div>
       {!resolve ? (
-        <SpeakerHigh
-          className="size-3.5 shrink-0 text-stone-400"
-          aria-hidden="true"
-        />
+        <SpeakerHigh {...stylex.props(styles.style1)} aria-hidden="true" />
       ) : null}
     </section>
   );

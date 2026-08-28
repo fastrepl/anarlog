@@ -1,17 +1,18 @@
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
+
 export function AnarlogLogo({
-  className,
   compact,
+  sx,
 }: {
-  className?: string;
   compact?: boolean;
-}) {
+} & StyleXProps) {
   return (
     <img
+      {...mergeStyleXProps(sx)}
       src="/logo.svg"
       alt="Anarlog"
       width={1205}
       height={334}
-      className={className}
       data-compact={compact ? "true" : undefined}
     />
   );

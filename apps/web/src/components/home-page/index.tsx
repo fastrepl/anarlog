@@ -1,5 +1,6 @@
 import { Icon } from "@iconify-icon/react";
 import { ArrowRight } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 
 import { SiteFooter } from "@/components/site-footer";
@@ -10,7 +11,282 @@ import { HeroSection } from "./hero-section";
 import { PricingSection } from "./pricing-section";
 import { PrivacySection } from "./privacy-section";
 import { TestimonialsSection } from "./social-proof-sections";
-
+const styles = stylex.create({
+  style1: {
+    minHeight: "100vh",
+    backgroundColor: "#fff",
+    color: "#181613",
+  },
+  style2: {
+    marginInline: "auto",
+    width: "100%",
+    maxWidth: "700px",
+    paddingInline: {
+      default: "1.25rem",
+      "@media (width >= 48rem)": "2rem",
+    },
+    paddingTop: {
+      default: "1rem",
+      "@media (width >= 48rem)": "1rem",
+    },
+    paddingBottom: {
+      default: "2rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+  },
+  style3: {
+    minWidth: "0",
+    textAlign: "center",
+  },
+  style4: {
+    paddingTop: {
+      default: "7rem",
+      "@media (width >= 48rem)": "8rem",
+    },
+    paddingBottom: {
+      default: "3.5rem",
+      "@media (width >= 48rem)": "4rem",
+    },
+  },
+  style5: {
+    marginInline: "auto",
+    overflow: "hidden",
+    borderRadius: "3px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#eadfce",
+    backgroundColor: "#fffaf0",
+    paddingInline: {
+      default: "1.75rem",
+      "@media (width >= 40rem)": "2.5rem",
+    },
+    paddingBlock: {
+      default: "2.25rem",
+      "@media (width >= 40rem)": "3rem",
+    },
+    textAlign: "left",
+    "--tw-shadow": "0 18px 50px #4436241f",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 18px 50px var(--tw-shadow-color, #4436241f)",
+  },
+  style6: {
+    color: "#363029",
+  },
+  style7: {
+    fontSize: "18px",
+    "--tw-leading": "2rem",
+    lineHeight: "2rem",
+  },
+  style8: {
+    marginTop: "2.5rem",
+    display: "flex",
+    width: "100%",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    paddingTop: ".5rem",
+  },
+  style9: {
+    display: "flex",
+    width: "fit-content",
+    maxWidth: "100%",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: ".75rem",
+  },
+  style10: {
+    display: "flex",
+    gap: ".25rem",
+  },
+  style11: {
+    display: "block",
+    width: "30px",
+    height: "30px",
+    flexShrink: "0",
+    overflow: "hidden",
+    borderRadius: "3.40282e38px",
+    transitionProperty: "transform, translate, scale, rotate",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+    "--tw-translate-y": {
+      default: null,
+      ":hover": "calc(.125rem * -1)",
+    },
+    translate: {
+      default: null,
+      ":hover": "0 calc(.125rem * -1)",
+    },
+    outlineStyle: {
+      default: null,
+      ":focus-visible": "solid",
+    },
+    outlineWidth: {
+      default: null,
+      ":focus-visible": "2px",
+    },
+    outlineOffset: {
+      default: null,
+      ":focus-visible": "2px",
+    },
+    outlineColor: {
+      default: null,
+      ":focus-visible": "#181613",
+    },
+  },
+  style12: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  style13: {
+    display: "block",
+    width: "30px",
+    height: "30px",
+    flexShrink: "0",
+    overflow: "hidden",
+    borderRadius: "3.40282e38px",
+  },
+  style14: {
+    fontSize: "12px",
+    "--tw-leading": "1",
+    lineHeight: "1",
+    "--tw-tracking": ".04em",
+    letterSpacing: ".04em",
+    color: "#756b5d",
+  },
+  style15: {
+    position: "relative",
+    left: "50%",
+    marginTop: {
+      default: "2.5rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+    width: "100vw",
+    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
+    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
+    paddingBlock: {
+      default: "5rem",
+      "@media (width >= 48rem)": "6rem",
+    },
+  },
+  style16: {
+    marginInline: "auto",
+    maxWidth: "700px",
+    paddingInline: {
+      default: "1.25rem",
+      "@media (width >= 48rem)": "2rem",
+    },
+    textAlign: "center",
+  },
+  style17: {
+    marginInline: "auto",
+    fontSize: {
+      default: "2.25rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+    lineHeight: {
+      default: ".98",
+      "@media (width >= 48rem)": "1",
+    },
+    "--tw-leading": ".98",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    textWrap: "balance",
+    color: "#181613",
+  },
+  style18: {
+    marginInline: "auto",
+    marginTop: "1.5rem",
+    fontSize: "1.125rem",
+    lineHeight: "2rem",
+    "--tw-leading": "2rem",
+    color: "#4f4940",
+  },
+  style19: {
+    marginTop: "2rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: ".5rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "#181613",
+    paddingInline: "1.25rem",
+    paddingBlock: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#fff",
+  },
+  style20: {
+    position: "relative",
+    left: "50%",
+    width: "100vw",
+    maxWidth: "880px",
+    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
+    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
+    paddingBlock: {
+      default: "3rem",
+      "@media (width >= 48rem)": "3.5rem",
+    },
+  },
+  style21: {
+    marginInline: "auto",
+    maxWidth: "700px",
+    paddingInline: {
+      default: "1.25rem",
+      "@media (width >= 48rem)": "2rem",
+    },
+  },
+  style22: {
+    fontSize: "1.875rem",
+    lineHeight: "1",
+    "--tw-leading": "1",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#756b5d",
+  },
+  style23: {
+    marginInline: "auto",
+    marginTop: "1.25rem",
+    fontSize: "1.125rem",
+    lineHeight: "2rem",
+    "--tw-leading": "2rem",
+    color: "#4f4940",
+  },
+  style24: {
+    marginTop: "1.5rem",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: ".5rem",
+    borderRadius: "3.40282e38px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: {
+      default: "#d4d4d4",
+      ":hover": "#171717",
+    },
+    backgroundColor: {
+      default: "#fff",
+      ":hover": "#171717",
+    },
+    paddingInline: "1.25rem",
+    paddingBlock: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: {
+      default: "#171717",
+      ":hover": "#fff",
+    },
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+  },
+  style25: {
+    flexShrink: "0",
+  },
+});
 const manifestoLetter = [
   "To the people who still take notes,",
   "Notetaking matters more than note-takers. A note-taker is passive. A notepad is something you use. You stay present and in control while the room is still alive.",
@@ -18,18 +294,16 @@ const manifestoLetter = [
   "Interfaces change. Your meeting record should remain yours. Use on-device models or your own keys, not a service you cannot inspect.",
   "Anarlog is our attempt to build that meeting notepad.",
 ];
-
 const manifestoSigners = MANIFESTO_SIGNERS;
-
 export function HomePage({
   formattedGithubStars,
 }: {
   formattedGithubStars: string;
 }) {
   return (
-    <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
-        <div className="min-w-0 text-center">
+    <main {...stylex.props(styles.style1)}>
+      <div {...stylex.props(styles.style2)}>
+        <div {...stylex.props(styles.style3)}>
           <HeroSection />
 
           <PrivacySection />
@@ -40,9 +314,9 @@ export function HomePage({
 
           <PricingSection compareLink />
 
-          <section id="manifesto" className="pt-28 pb-14 md:pt-32 md:pb-16">
+          <section id="manifesto" {...stylex.props(styles.style4)}>
             <article
-              className="mx-auto max-w-3xl overflow-hidden rounded-[3px] border border-[#eadfce] bg-[#fffaf0] px-7 py-9 text-left shadow-[0_18px_50px_rgba(68,54,36,0.12)] sm:px-10 sm:py-12"
+              {...stylex.props(styles.style5)}
               style={{
                 backgroundImage:
                   "linear-gradient(115deg, rgba(255, 250, 240, 0.9), rgba(246, 236, 218, 0.82)), url('/textures/crumpled-paper.webp')",
@@ -50,16 +324,16 @@ export function HomePage({
                 backgroundSize: "cover",
               }}
             >
-              <div className="space-y-6 text-[#363029]">
+              <div {...stylex.props(styles.style6)}>
                 {manifestoLetter.map((paragraph) => (
-                  <p key={paragraph} className="text-[18px] leading-8">
+                  <p key={paragraph} {...stylex.props(styles.style7)}>
                     {paragraph}
                   </p>
                 ))}
               </div>
-              <div className="mt-10 flex w-full flex-col items-start pt-2">
-                <div className="flex w-fit max-w-full flex-col items-start gap-3">
-                  <div className="flex gap-1">
+              <div {...stylex.props(styles.style8)}>
+                <div {...stylex.props(styles.style9)}>
+                  <div {...stylex.props(styles.style10)}>
                     {manifestoSigners.map((member) =>
                       member.links.twitter ? (
                         <a
@@ -68,7 +342,7 @@ export function HomePage({
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`${member.name} on X`}
-                          className="block size-[30px] shrink-0 overflow-hidden rounded-full transition-transform hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#181613]"
+                          {...stylex.props(styles.style11)}
                         >
                           <img
                             src={getResizedImageUrl(member.avatar, {
@@ -79,7 +353,7 @@ export function HomePage({
                             alt=""
                             width={30}
                             height={30}
-                            className="size-full object-cover"
+                            {...stylex.props(styles.style12)}
                             decoding="async"
                             loading="lazy"
                           />
@@ -88,7 +362,7 @@ export function HomePage({
                         <span
                           key={member.id}
                           aria-label={`${member.name} profile picture`}
-                          className="block size-[30px] shrink-0 overflow-hidden rounded-full"
+                          {...stylex.props(styles.style13)}
                           role="img"
                         >
                           <img
@@ -100,7 +374,7 @@ export function HomePage({
                             alt=""
                             width={30}
                             height={30}
-                            className="size-full object-cover"
+                            {...stylex.props(styles.style12)}
                             decoding="async"
                             loading="lazy"
                           />
@@ -108,7 +382,7 @@ export function HomePage({
                       ),
                     )}
                   </div>
-                  <p className="text-[12px] leading-none tracking-[0.04em] text-[#756b5d]">
+                  <p {...stylex.props(styles.style14)}>
                     {manifestoSigners
                       .map((member) => member.name.split(" ")[0])
                       .join(", ")}
@@ -126,21 +400,17 @@ export function HomePage({
     </main>
   );
 }
-
 function FinalCtaSection() {
   return (
-    <section className="relative left-1/2 mt-10 w-screen -translate-x-1/2 py-20 md:mt-12 md:py-24">
-      <div className="mx-auto max-w-[700px] px-5 text-center md:px-8">
-        <h2 className="font-hand mx-auto max-w-3xl text-4xl leading-[0.98] font-semibold tracking-normal text-balance text-[#181613] md:text-5xl">
+    <section {...stylex.props(styles.style15)}>
+      <div {...stylex.props(styles.style16)}>
+        <h2 {...stylex.props(styles.style17)}>
           Keep your meeting notes yours.
         </h2>
-        <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+        <p {...stylex.props(styles.style18)}>
           Try Anarlog today and be present in meetings.
         </p>
-        <Link
-          to="/download/"
-          className="mt-8 inline-flex items-center gap-2 rounded-full bg-[#181613] px-5 py-3 text-sm font-medium text-white"
-        >
+        <Link to="/download/" {...stylex.props(styles.style19)}>
           <span>Download for free</span>
           <ArrowRight size={16} weight="bold" aria-hidden="true" />
         </Link>
@@ -148,7 +418,6 @@ function FinalCtaSection() {
     </section>
   );
 }
-
 function OpenSourceSection({
   formattedGithubStars,
 }: {
@@ -156,17 +425,14 @@ function OpenSourceSection({
 }) {
   return (
     <section
-      className="relative left-1/2 w-screen max-w-[880px] -translate-x-1/2 py-12 md:py-14"
+      {...stylex.props(styles.style20)}
       aria-labelledby="open-source-heading"
     >
-      <div className="mx-auto max-w-[700px] px-5 md:px-8">
-        <h2
-          id="open-source-heading"
-          className="font-hand text-3xl leading-none font-semibold text-[#756b5d]"
-        >
+      <div {...stylex.props(styles.style21)}>
+        <h2 id="open-source-heading" {...stylex.props(styles.style22)}>
           Open source by default
         </h2>
-        <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-[#4f4940]">
+        <p {...stylex.props(styles.style23)}>
           We deeply care about transparency. Anarlog is open source so anyone
           can inspect how meeting memory is handled.
         </p>
@@ -175,13 +441,13 @@ function OpenSourceSection({
           href="https://github.com/fastrepl/anarlog"
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-6 inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-5 py-3 text-sm font-medium text-neutral-900 transition-colors hover:border-neutral-900 hover:bg-neutral-900 hover:text-white"
+          {...stylex.props(styles.style24)}
         >
           <Icon
             icon="simple-icons:github"
             width={18}
             height={18}
-            className="shrink-0"
+            {...stylex.props(styles.style25)}
             aria-hidden="true"
           />
           <span>{formattedGithubStars} stars on GitHub</span>

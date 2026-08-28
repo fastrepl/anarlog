@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
 import {
@@ -26,7 +27,23 @@ import type {
   AuthenticatedSharedNote,
   SharedNoteSnapshot,
 } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {
+    textDecorationLine: "underline",
+    textUnderlineOffset: "4px",
+  },
+  style2: {
+    marginBottom: "1.5rem",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: "1rem",
+    paddingBlock: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+});
 export function SharedNoteEditableViewer({
   accessLabel,
   actions,
@@ -72,7 +89,10 @@ export function SharedNoteEditableViewer({
     source.snapshot !== initialSnapshot ||
     source.authenticatedNote !== authenticatedNote
   ) {
-    setSource({ authenticatedNote, snapshot: initialSnapshot });
+    setSource({
+      authenticatedNote,
+      snapshot: initialSnapshot,
+    });
     setSnapshot((current) =>
       initialSnapshot.contentRevision >= current.contentRevision
         ? initialSnapshot
@@ -84,7 +104,6 @@ export function SharedNoteEditableViewer({
       );
     }
   }
-
   const accessRevoked = authorization.state === "access_changed";
   const requiresSignIn = authorization.state === "sign_in_required";
   const readOnlySnapshot = getSharedNoteReadOnlySnapshot(
@@ -114,7 +133,6 @@ export function SharedNoteEditableViewer({
       hasCollaborationAccess: true,
       manageAccess: readyNote.manageAccess,
     });
-
   if (
     shouldRenderSharedNoteUnavailable({
       accessRevoked,
@@ -124,7 +142,6 @@ export function SharedNoteEditableViewer({
   ) {
     return <SharedNoteUnavailable />;
   }
-
   const accessNotice = accessRevoked ? (
     <SharedNoteEditNotice>
       Your editing access changed. The view-only shared note is still available.
@@ -133,13 +150,12 @@ export function SharedNoteEditableViewer({
   const signInNotice = requiresSignIn ? (
     <SharedNoteEditNotice>
       Your session expired.{" "}
-      <a className="underline underline-offset-4" href="/auth/?flow=web">
+      <a {...stylex.props(styles.style1)} href="/auth/?flow=web">
         Sign in again
       </a>{" "}
       to continue editing.
     </SharedNoteEditNotice>
   ) : null;
-
   const viewer = (
     <SharedNoteViewer
       accessLabel={
@@ -172,7 +188,6 @@ export function SharedNoteEditableViewer({
       snapshot={activeSnapshot}
     />
   );
-
   return (
     <>
       {viewer}
@@ -180,11 +195,6 @@ export function SharedNoteEditableViewer({
     </>
   );
 }
-
 function SharedNoteEditNotice({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="border-color-subtle bg-surface-subtle mb-6 rounded-2xl border px-4 py-3 text-sm leading-6">
-      {children}
-    </div>
-  );
+  return <div {...stylex.props(styles.style2)}>{children}</div>;
 }

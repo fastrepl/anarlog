@@ -7,6 +7,7 @@ import {
   Trash,
   X,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import {
   useInfiniteQuery,
   useMutation,
@@ -21,10 +22,7 @@ import {
   useDeleteSharedNoteComment,
   useSharedNoteComments,
 } from "@/components/shared-note-comments-data";
-import {
-  sharedPrimaryButtonClassName,
-  sharedSecondaryButtonClassName,
-} from "@/components/shared-note-viewer";
+import { sharedButtonStyles } from "@/components/shared-note-viewer";
 import {
   cancelMySharedNoteAccessRequest,
   getMySharedNoteAccessRequest,
@@ -44,7 +42,351 @@ import type {
   SharedNoteCapability,
   SharedNoteComment,
 } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {
+    marginTop: "1.5rem",
+    borderRadius: "1.5rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: {
+      default: "1.5rem",
+      "@media (width >= 40rem)": "2.5rem",
+    },
+    paddingBlock: "1.75rem",
+    "--tw-shadow": "0 1px 2px 0 #0000000d",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 1px 2px 0 var(--tw-shadow-color, #0000000d)",
+  },
+  style2: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "1.25rem",
+  },
+  style3: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+  },
+  style4: {
+    width: "1.25rem",
+    height: "1.25rem",
+  },
+  style5: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: "1.125rem",
+    lineHeight: "1.75rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style6: {
+    marginTop: ".25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style7: {
+    borderRadius: "3.40282e38px",
+    paddingInline: ".75rem",
+    paddingBlock: ".25rem",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+  },
+  style8: {
+    marginTop: "1.5rem",
+    borderRadius: "1rem",
+    paddingInline: "1rem",
+    paddingBlock: "1rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style9: {
+    marginTop: "1.5rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingTop: "1.25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+  },
+  style10: {
+    marginTop: "1.5rem",
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style11: {
+    width: "1rem",
+    height: "1rem",
+    animation: "1s linear infinite spin",
+  },
+  style12: {
+    marginTop: "1.5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#b91c1c",
+  },
+  style13: {
+    marginTop: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#b91c1c",
+  },
+  style14: {
+    marginTop: "1.5rem",
+    borderBlockStyle: "solid",
+    borderBlockWidth: "1px",
+  },
+  style15: {
+    paddingBlock: "1.25rem",
+  },
+  style16: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: "1rem",
+  },
+  style17: {
+    display: "flex",
+    minWidth: "0",
+    alignItems: "center",
+    gap: ".625rem",
+  },
+  style18: {
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style19: {
+    marginTop: ".125rem",
+    display: "block",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+  },
+  style20: {
+    borderRadius: "3.40282e38px",
+    padding: ".5rem",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+    "--tw-ring-shadow": {
+      default: null,
+      ":focus-visible": " 0 0 0 calc(2px + 0) currentcolor",
+    },
+    boxShadow: {
+      default: null,
+      ":focus-visible":
+        "0 0 #0000, 0 0 #0000, 0 0 #0000, var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor), 0 0 #0000",
+    },
+    "--tw-ring-color": {
+      default: null,
+      ":focus-visible": "#78716c",
+    },
+    "--tw-outline-style": {
+      default: null,
+      ":focus-visible": "none",
+    },
+    outlineStyle: {
+      default: null,
+      ":focus-visible": "none",
+    },
+    outlineOffset: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus-visible": "2px",
+      },
+    },
+    outline: {
+      default: null,
+      "@media (forced-colors: active)": {
+        default: null,
+        ":focus-visible": "2px solid #0000",
+      },
+    },
+    opacity: {
+      default: null,
+      ":disabled": ".5",
+    },
+  },
+  style21: {
+    width: "1rem",
+    height: "1rem",
+  },
+  style22: {
+    marginTop: ".75rem",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    borderLeftStyle: "solid",
+    borderLeftWidth: "2px",
+    paddingLeft: ".75rem",
+    fontSize: ".75rem",
+    lineHeight: "1.25rem",
+    "--tw-leading": "1.25rem",
+  },
+  style23: {
+    marginTop: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+    whiteSpace: "pre-wrap",
+  },
+  style24: {
+    marginTop: "1.5rem",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    paddingInline: "1rem",
+    paddingBlock: "1.25rem",
+    display: {
+      default: null,
+      "@media (width >= 40rem)": "flex",
+    },
+    alignItems: {
+      default: null,
+      "@media (width >= 40rem)": "center",
+    },
+    justifyContent: {
+      default: null,
+      "@media (width >= 40rem)": "space-between",
+    },
+    gap: {
+      default: null,
+      "@media (width >= 40rem)": "1.25rem",
+    },
+  },
+  style25: {
+    marginRight: ".5rem",
+    width: "1rem",
+    height: "1rem",
+  },
+  style26: {
+    marginTop: "1.5rem",
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingTop: "1.25rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+  },
+  style27: {
+    marginTop: "1.5rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingTop: "1.25rem",
+  },
+  style28: {
+    display: {
+      default: null,
+      "@media (width >= 40rem)": "flex",
+    },
+    alignItems: {
+      default: null,
+      "@media (width >= 40rem)": "center",
+    },
+    justifyContent: {
+      default: null,
+      "@media (width >= 40rem)": "space-between",
+    },
+    gap: {
+      default: null,
+      "@media (width >= 40rem)": "1.25rem",
+    },
+  },
+  style29: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style30: {
+    marginTop: {
+      default: "1rem",
+      "@media (width >= 40rem)": "0",
+    },
+    display: "flex",
+    flexShrink: "0",
+    gap: ".5rem",
+  },
+  style31: {
+    marginTop: ".75rem",
+  },
+  style32: {
+    borderRadius: "1rem",
+    paddingInline: "1rem",
+    paddingBlock: ".75rem",
+    display: {
+      default: null,
+      "@media (width >= 40rem)": "flex",
+    },
+    alignItems: {
+      default: null,
+      "@media (width >= 40rem)": "center",
+    },
+    justifyContent: {
+      default: null,
+      "@media (width >= 40rem)": "space-between",
+    },
+    gap: {
+      default: null,
+      "@media (width >= 40rem)": "1rem",
+    },
+  },
+  style33: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+  },
+  style34: {
+    marginTop: ".125rem",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+  },
+  style35: {
+    marginTop: {
+      default: ".75rem",
+      "@media (width >= 40rem)": "0",
+    },
+    display: "flex",
+    gap: ".5rem",
+  },
+  style36: {
+    marginRight: ".375rem",
+    width: "1rem",
+    height: "1rem",
+  },
+  style37: {
+    marginRight: ".375rem",
+    width: "1rem",
+    height: "1rem",
+    animation: "1s linear infinite spin",
+  },
+  style38: {
+    marginRight: ".5rem",
+    width: "1rem",
+    height: "1rem",
+    animation: "1s linear infinite spin",
+  },
+});
 const accessRequestQueryKey = (shareId: string) => [
   "shared-note-access-request",
   shareId,
@@ -53,7 +395,6 @@ const managerAccessQueryKey = (shareId: string) => [
   "shared-note-manager-access",
   shareId,
 ];
-
 export function SharedNoteCollaboration({
   capability,
   currentUserId,
@@ -69,11 +410,16 @@ export function SharedNoteCollaboration({
 }) {
   const queryClient = useQueryClient();
   const signedIn = currentUserId !== null;
-  const commentsQuery = useSharedNoteComments({ enabled: signedIn, shareId });
+  const commentsQuery = useSharedNoteComments({
+    enabled: signedIn,
+    shareId,
+  });
   const accessRequestQuery = useQuery({
     queryKey: accessRequestQueryKey(shareId),
     queryFn: async () => {
-      const result = await getMySharedNoteAccessRequest({ data: shareId });
+      const result = await getMySharedNoteAccessRequest({
+        data: shareId,
+      });
       if (result.status !== "ready") {
         throw new Error("access request unavailable");
       }
@@ -102,10 +448,14 @@ export function SharedNoteCollaboration({
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     retry: false,
   });
-  const deleteMutation = useDeleteSharedNoteComment({ shareId });
+  const deleteMutation = useDeleteSharedNoteComment({
+    shareId,
+  });
   const requestMutation = useMutation({
     mutationFn: async () => {
-      const result = await requestSharedNoteCommentAccess({ data: shareId });
+      const result = await requestSharedNoteCommentAccess({
+        data: shareId,
+      });
       if (result.status !== "ready") {
         throw new Error("access request unavailable");
       }
@@ -119,7 +469,9 @@ export function SharedNoteCollaboration({
   });
   const cancelRequestMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      const result = await cancelMySharedNoteAccessRequest({ data: requestId });
+      const result = await cancelMySharedNoteAccessRequest({
+        data: requestId,
+      });
       if (result.status !== "ready") {
         throw new Error("access request unavailable");
       }
@@ -143,8 +495,15 @@ export function SharedNoteCollaboration({
       const result = await reviewSharedNoteAccessRequest({
         data:
           decision === "approved"
-            ? { capability, decision, requestId }
-            : { decision, requestId },
+            ? {
+                capability,
+                decision,
+                requestId,
+              }
+            : {
+                decision,
+                requestId,
+              },
       });
       if (result.status !== "ready") {
         throw new Error("access request unavailable");
@@ -173,29 +532,28 @@ export function SharedNoteCollaboration({
     .filter(
       (entry) => entry.entryType === "request" && entry.status === "pending",
     );
-
   return (
     <section
       aria-labelledby="shared-note-comments-heading"
-      className="surface border-color-subtle mt-6 rounded-3xl border px-6 py-7 shadow-sm sm:px-10"
+      {...stylex.props(styles.style1)}
     >
-      <div className="flex items-start justify-between gap-5">
+      <div {...stylex.props(styles.style2)}>
         <div>
-          <div className="text-color flex items-center gap-2">
-            <Chat className="size-5" aria-hidden="true" />
+          <div {...stylex.props(styles.style3)}>
+            <Chat {...stylex.props(styles.style4)} aria-hidden="true" />
             <h2
               id="shared-note-comments-heading"
-              className="font-mono text-lg font-medium"
+              {...stylex.props(styles.style5)}
             >
               Comments
             </h2>
           </div>
-          <p className="text-color-muted mt-1 text-sm leading-6">
+          <p {...stylex.props(styles.style6)}>
             A private conversation for people with access to this note.
           </p>
         </div>
         {hasCollaborationAccess && commentsQuery.isSuccess && (
-          <span className="surface-subtle text-color-muted rounded-full px-3 py-1 font-mono text-xs">
+          <span {...stylex.props(styles.style7)}>
             {comments.length}
             {commentsQuery.hasNextPage ? "+" : ""}
           </span>
@@ -227,14 +585,14 @@ export function SharedNoteCollaboration({
               onLoadEarlier={() => void commentsQuery.fetchNextPage()}
             />
           ) : (
-            <p className="surface-subtle text-color-muted mt-6 rounded-2xl px-4 py-4 text-sm leading-6">
+            <p {...stylex.props(styles.style8)}>
               Comments are available after the note owner grants your account
               access.
             </p>
           )}
 
           {canCompose && (
-            <p className="border-color-subtle text-color-muted mt-6 border-t pt-5 text-sm leading-6">
+            <p {...stylex.props(styles.style9)}>
               Select text in the note to comment. Comments are visible only to
               people who can open this note.
             </p>
@@ -280,7 +638,11 @@ export function SharedNoteCollaboration({
               requests={pendingManagerRequests}
               onLoadEarlier={() => managerAccessQuery.fetchNextPage()}
               onReview={(requestId, decision, capability) =>
-                reviewMutation.mutate({ capability, decision, requestId })
+                reviewMutation.mutate({
+                  capability,
+                  decision,
+                  requestId,
+                })
               }
             />
           )}
@@ -289,7 +651,6 @@ export function SharedNoteCollaboration({
     </section>
   );
 }
-
 function CommentList({
   comments,
   deletePending,
@@ -317,48 +678,46 @@ function CommentList({
 }) {
   if (loading) {
     return (
-      <div className="text-color-muted mt-6 flex items-center gap-2 text-sm">
-        <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
+      <div {...stylex.props(styles.style10)}>
+        <CircleNotch {...stylex.props(styles.style11)} aria-hidden="true" />
         Loading comments…
       </div>
     );
   }
   if (error) {
     return (
-      <p className="mt-6 text-sm text-red-700" role="status">
+      <p {...stylex.props(styles.style12)} role="status">
         Comments couldn’t be loaded right now.
       </p>
     );
   }
   if (!comments.length) {
-    return (
-      <p className="surface-subtle text-color-muted mt-6 rounded-2xl px-4 py-4 text-sm leading-6">
-        No comments yet.
-      </p>
-    );
+    return <p {...stylex.props(styles.style8)}>No comments yet.</p>;
   }
-
   return (
     <>
       {hasEarlier && (
         <button
           type="button"
-          className={cn([sharedSecondaryButtonClassName, "mt-6"])}
+          {...stylex.props([
+            [sharedButtonStyles.base, sharedButtonStyles.secondary],
+            "mt-6",
+          ])}
           disabled={loadingEarlier}
           onClick={onLoadEarlier}
         >
           {loadingEarlier && (
-            <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
+            <CircleNotch {...stylex.props(styles.style11)} aria-hidden="true" />
           )}
           Load earlier comments
         </button>
       )}
       {loadEarlierError && (
-        <p className="mt-3 text-sm text-red-700" role="status">
+        <p {...stylex.props(styles.style13)} role="status">
           Earlier comments couldn’t be loaded. Please try again.
         </p>
       )}
-      <ol className="border-color-subtle mt-6 divide-y border-y">
+      <ol {...stylex.props(styles.style14)}>
         {comments.map((comment) => {
           const canDelete = comment.isAuthor || manageAccess;
           const deleting =
@@ -367,10 +726,10 @@ function CommentList({
             <li
               key={comment.commentId}
               id={`shared-comment-${comment.commentId}`}
-              className="py-5"
+              {...stylex.props(styles.style15)}
             >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-2.5">
+              <div {...stylex.props(styles.style16)}>
+                <div {...stylex.props(styles.style17)}>
                   <Avatar
                     seed={
                       comment.isAuthor
@@ -381,11 +740,11 @@ function CommentList({
                     size={28}
                   />
                   <div>
-                    <p className="text-color font-mono text-sm font-medium">
+                    <p {...stylex.props(styles.style18)}>
                       {comment.isAuthor ? "You" : "Collaborator"}
                     </p>
                     <time
-                      className="text-color-muted mt-0.5 block text-xs"
+                      {...stylex.props(styles.style19)}
                       dateTime={comment.createdAt}
                     >
                       {formatCommentDate(comment.createdAt)}
@@ -395,30 +754,31 @@ function CommentList({
                 {canDelete && (
                   <button
                     type="button"
-                    className="text-color-muted hover:text-color rounded-full p-2 transition-colors focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:outline-hidden disabled:opacity-50"
+                    {...stylex.props(styles.style20)}
                     aria-label="Delete comment"
                     disabled={deletePending}
                     onClick={() => onDelete(comment.commentId)}
                   >
                     {deleting ? (
                       <CircleNotch
-                        className="size-4 animate-spin"
+                        {...stylex.props(styles.style11)}
                         aria-hidden="true"
                       />
                     ) : (
-                      <Trash className="size-4" aria-hidden="true" />
+                      <Trash
+                        {...stylex.props(styles.style21)}
+                        aria-hidden="true"
+                      />
                     )}
                   </button>
                 )}
               </div>
               {comment.anchor && (
-                <p className="border-color-subtle text-color-muted mt-3 truncate border-l-2 pl-3 text-xs leading-5">
+                <p {...stylex.props(styles.style22)}>
                   {truncateSharedNoteCommentQuote(comment.anchor.quoteExact)}
                 </p>
               )}
-              <p className="text-color mt-3 text-sm leading-6 whitespace-pre-wrap">
-                {comment.body}
-              </p>
+              <p {...stylex.props(styles.style23)}>{comment.body}</p>
             </li>
           );
         })}
@@ -426,33 +786,34 @@ function CommentList({
     </>
   );
 }
-
 function SignInToCollaborate({ returnPath }: { returnPath: string }) {
   const search = new URLSearchParams({
     flow: "web",
     redirect: returnPath,
   });
   return (
-    <div className="surface-subtle border-color-subtle mt-6 rounded-2xl border px-4 py-5 sm:flex sm:items-center sm:justify-between sm:gap-5">
+    <div {...stylex.props(styles.style24)}>
       <div>
-        <p className="text-color font-mono text-sm font-medium">
+        <p {...stylex.props(styles.style18)}>
           Sign in to join the conversation
         </p>
-        <p className="text-color-muted mt-1 text-sm leading-6">
+        <p {...stylex.props(styles.style6)}>
           Sign in to view comments or request permission to comment.
         </p>
       </div>
       <a
         href={`/auth/?${search.toString()}`}
-        className={cn([sharedPrimaryButtonClassName, "mt-4 sm:mt-0"])}
+        {...stylex.props([
+          [sharedButtonStyles.base, sharedButtonStyles.primary],
+          "mt-4 sm:mt-0",
+        ])}
       >
-        <SignIn className="mr-2 size-4" aria-hidden="true" />
+        <SignIn {...stylex.props(styles.style25)} aria-hidden="true" />
         Sign in
       </a>
     </div>
   );
 }
-
 function AccessRequestPanel({
   error,
   loading,
@@ -470,13 +831,12 @@ function AccessRequestPanel({
 }) {
   if (loading) {
     return (
-      <div className="border-color-subtle text-color-muted mt-6 flex items-center gap-2 border-t pt-5 text-sm">
-        <CircleNotch className="size-4 animate-spin" aria-hidden="true" />
+      <div {...stylex.props(styles.style26)}>
+        <CircleNotch {...stylex.props(styles.style11)} aria-hidden="true" />
         Checking comment access…
       </div>
     );
   }
-
   const isPending = request?.status === "pending";
   const isApproved = request?.status === "approved";
   const description = isPending
@@ -488,24 +848,26 @@ function AccessRequestPanel({
         : request?.status === "cancelled"
           ? "Your previous request was cancelled."
           : "Ask the note owner for permission to join the conversation.";
-
   return (
-    <div className="border-color-subtle mt-6 border-t pt-5">
-      <div className="sm:flex sm:items-center sm:justify-between sm:gap-5">
+    <div {...stylex.props(styles.style27)}>
+      <div {...stylex.props(styles.style28)}>
         <div>
-          <p className="text-color flex items-center gap-2 font-mono text-sm font-medium">
-            {isPending && <Clock className="size-4" aria-hidden="true" />}
+          <p {...stylex.props(styles.style29)}>
+            {isPending && (
+              <Clock {...stylex.props(styles.style21)} aria-hidden="true" />
+            )}
             {isApproved ? "Comment access approved" : "Want to comment?"}
           </p>
-          <p className="text-color-muted mt-1 text-sm leading-6">
-            {description}
-          </p>
+          <p {...stylex.props(styles.style6)}>{description}</p>
         </div>
-        <div className="mt-4 flex shrink-0 gap-2 sm:mt-0">
+        <div {...stylex.props(styles.style30)}>
           {isPending ? (
             <button
               type="button"
-              className={sharedSecondaryButtonClassName}
+              {...stylex.props([
+                sharedButtonStyles.base,
+                sharedButtonStyles.secondary,
+              ])}
               disabled={pending}
               onClick={() => onCancel(request.requestId)}
             >
@@ -514,7 +876,10 @@ function AccessRequestPanel({
           ) : isApproved ? (
             <button
               type="button"
-              className={sharedPrimaryButtonClassName}
+              {...stylex.props([
+                sharedButtonStyles.base,
+                sharedButtonStyles.primary,
+              ])}
               onClick={() => window.location.reload()}
             >
               Reload note
@@ -522,7 +887,10 @@ function AccessRequestPanel({
           ) : (
             <button
               type="button"
-              className={sharedPrimaryButtonClassName}
+              {...stylex.props([
+                sharedButtonStyles.base,
+                sharedButtonStyles.primary,
+              ])}
               disabled={pending}
               onClick={onRequest}
             >
@@ -532,14 +900,13 @@ function AccessRequestPanel({
         </div>
       </div>
       {error && (
-        <p className="mt-3 text-sm text-red-700" role="status">
+        <p {...stylex.props(styles.style13)} role="status">
           Comment access couldn’t be updated. Try again.
         </p>
       )}
     </div>
   );
 }
-
 function ManagerRequests({
   error,
   hasEarlierRequests,
@@ -573,36 +940,28 @@ function ManagerRequests({
   if (!requests.length && !hasEarlierRequests && !error) {
     return null;
   }
-
   return (
-    <div className="border-color-subtle mt-6 border-t pt-5">
-      <h3 className="text-color font-mono text-sm font-medium">
-        Access requests
-      </h3>
+    <div {...stylex.props(styles.style27)}>
+      <h3 {...stylex.props(styles.style18)}>Access requests</h3>
       {requests.length > 0 && (
-        <ul className="mt-3 space-y-2">
+        <ul {...stylex.props(styles.style31)}>
           {requests.map((request) => {
             const pending = pendingRequestId === request.entryId;
             return (
-              <li
-                key={request.entryId}
-                className="surface-subtle rounded-2xl px-4 py-3 sm:flex sm:items-center sm:justify-between sm:gap-4"
-              >
+              <li key={request.entryId} {...stylex.props(styles.style32)}>
                 <div>
-                  <p className="text-color text-sm font-medium">
-                    {request.userEmail}
-                  </p>
-                  <p className="text-color-muted mt-0.5 text-xs">
+                  <p {...stylex.props(styles.style33)}>{request.userEmail}</p>
+                  <p {...stylex.props(styles.style34)}>
                     {formatSharedNoteAccessRequestDescription(
                       request.capability,
                     )}
                   </p>
                 </div>
-                <div className="mt-3 flex gap-2 sm:mt-0">
+                <div {...stylex.props(styles.style35)}>
                   <button
                     type="button"
-                    className={cn([
-                      sharedSecondaryButtonClassName,
+                    {...stylex.props([
+                      [sharedButtonStyles.base, sharedButtonStyles.secondary],
                       "min-h-9 px-3",
                     ])}
                     disabled={pendingRequestId !== null}
@@ -610,13 +969,13 @@ function ManagerRequests({
                       onReview(request.entryId, "denied", request.capability)
                     }
                   >
-                    <X className="mr-1.5 size-4" aria-hidden="true" />
+                    <X {...stylex.props(styles.style36)} aria-hidden="true" />
                     Deny
                   </button>
                   <button
                     type="button"
-                    className={cn([
-                      sharedPrimaryButtonClassName,
+                    {...stylex.props([
+                      [sharedButtonStyles.base, sharedButtonStyles.primary],
                       "min-h-9 px-3",
                     ])}
                     disabled={pendingRequestId !== null}
@@ -626,11 +985,14 @@ function ManagerRequests({
                   >
                     {pending ? (
                       <CircleNotch
-                        className="mr-1.5 size-4 animate-spin"
+                        {...stylex.props(styles.style37)}
                         aria-hidden="true"
                       />
                     ) : (
-                      <Check className="mr-1.5 size-4" aria-hidden="true" />
+                      <Check
+                        {...stylex.props(styles.style36)}
+                        aria-hidden="true"
+                      />
                     )}
                     Approve
                   </button>
@@ -643,28 +1005,27 @@ function ManagerRequests({
       {hasEarlierRequests && (
         <button
           type="button"
-          className={cn([sharedSecondaryButtonClassName, "mt-3"])}
+          {...stylex.props([
+            [sharedButtonStyles.base, sharedButtonStyles.secondary],
+            "mt-3",
+          ])}
           disabled={loadingEarlier}
           onClick={onLoadEarlier}
         >
           {loadingEarlier && (
-            <CircleNotch
-              className="mr-2 size-4 animate-spin"
-              aria-hidden="true"
-            />
+            <CircleNotch {...stylex.props(styles.style38)} aria-hidden="true" />
           )}
           {loadingEarlier ? "Loading…" : "Load earlier requests"}
         </button>
       )}
       {error && (
-        <p className="mt-3 text-sm text-red-700" role="status">
+        <p {...stylex.props(styles.style13)} role="status">
           Access requests couldn’t be updated. Try again.
         </p>
       )}
     </div>
   );
 }
-
 function formatCommentDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",

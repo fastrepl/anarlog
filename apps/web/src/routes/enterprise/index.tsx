@@ -1,4 +1,5 @@
 import { BellRinging, CheckCircle, HardDrives } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { cn } from "@anlg/utils";
@@ -11,28 +12,419 @@ import {
 import { SiteFooter } from "@/components/site-footer";
 import { BOOK_CALL_URL } from "@/lib/enterprise";
 import { getCanonicalUrl } from "@/lib/seo";
-
+const styles = stylex.create({
+  style1: {
+    minHeight: "100vh",
+    backgroundColor: "#fff",
+    color: "#181613",
+  },
+  style2: {
+    marginInline: "auto",
+    width: "100%",
+    maxWidth: "700px",
+    paddingInline: {
+      default: "1.25rem",
+      "@media (width >= 48rem)": "2rem",
+    },
+    paddingTop: {
+      default: "1rem",
+      "@media (width >= 48rem)": "1rem",
+    },
+    paddingBottom: {
+      default: "2rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+  },
+  style3: {
+    minWidth: "0",
+    textAlign: "center",
+  },
+  style4: {
+    paddingTop: {
+      default: "2.5rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+    paddingBottom: {
+      default: "1rem",
+      "@media (width >= 48rem)": "1.5rem",
+    },
+  },
+  style5: {
+    display: "inline-flex",
+  },
+  style6: {
+    height: {
+      default: "2rem",
+      "@media (width >= 48rem)": "2.25rem",
+    },
+    width: "auto",
+  },
+  style7: {
+    marginTop: {
+      default: "3rem",
+      "@media (width >= 48rem)": "4rem",
+    },
+    fontSize: {
+      default: "2.25rem",
+      "@media (width >= 48rem)": "3rem",
+    },
+    lineHeight: {
+      default: "1",
+      "@media (width >= 48rem)": "1",
+    },
+    "--tw-leading": "1",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#181613",
+  },
+  style8: {
+    marginInline: "auto",
+    marginTop: "1.5rem",
+    fontSize: "1.125rem",
+    lineHeight: "2rem",
+    "--tw-leading": "2rem",
+    color: "#4f4940",
+  },
+  style9: {
+    marginTop: "2rem",
+  },
+  style10: {
+    marginTop: ".75rem",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+    color: "#756b5d",
+  },
+  style11: {
+    paddingTop: {
+      default: "3rem",
+      "@media (width >= 48rem)": "4rem",
+    },
+    paddingBottom: {
+      default: "1rem",
+      "@media (width >= 48rem)": "1.5rem",
+    },
+  },
+  style12: {
+    fontSize: "1.875rem",
+    lineHeight: "1",
+    "--tw-leading": "1",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#756b5d",
+  },
+  style13: {
+    position: "relative",
+    left: "50%",
+    marginTop: "1.5rem",
+    width: "100vw",
+    maxWidth: "1120px",
+    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
+    translate: "calc(calc(1 / 2 * 100%) * -1) 0",
+  },
+  style14: {
+    display: "flex",
+    flexDirection: "column",
+    gap: {
+      default: "1rem",
+      "@media (width >= 48rem)": "2rem",
+    },
+  },
+  style15: {
+    display: "flex",
+    flexDirection: "column",
+    paddingInline: "1.5rem",
+    paddingBlock: ".75rem",
+    textAlign: "center",
+    width: {
+      default: null,
+      "@media (width >= 48rem)": "31%",
+    },
+    padding: {
+      default: null,
+      "@media (width >= 48rem)": "1rem",
+    },
+  },
+  style16: {
+    marginTop: {
+      default: "1.25rem",
+      "@media (width >= 48rem)": "1.75rem",
+    },
+    fontSize: "1rem",
+    lineHeight: "1.5rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#4f4940",
+  },
+  style17: {
+    marginInline: "auto",
+    marginTop: ".25rem",
+    maxWidth: "17rem",
+    fontSize: ".875rem",
+    lineHeight: "1.5rem",
+    "--tw-leading": "1.5rem",
+    color: "#4f4940",
+  },
+  style18: {
+    paddingTop: {
+      default: "3rem",
+      "@media (width >= 48rem)": "3.5rem",
+    },
+    paddingBottom: {
+      default: "1rem",
+      "@media (width >= 48rem)": "1.5rem",
+    },
+  },
+  style19: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: "1rem",
+    WebkitUserSelect: "none",
+    userSelect: "none",
+  },
+  style20: {
+    display: "inline-flex",
+  },
+  style21: {
+    height: {
+      default: "3rem",
+      "@media (width >= 48rem)": "3.5rem",
+    },
+    width: "auto",
+  },
+  style22: {
+    marginTop: ".625rem",
+    marginLeft: {
+      default: "-3rem",
+      "@media (width >= 48rem)": "-3.5rem",
+    },
+    display: "inline-flex",
+  },
+  style23: {
+    height: {
+      default: "3rem",
+      "@media (width >= 48rem)": "3.5rem",
+    },
+    width: "auto",
+    "--tw-scale-x": "calc(100% * -1)",
+    scale: "calc(100% * -1) 1",
+  },
+  style24: {
+    fontSize: "1.875rem",
+    lineHeight: "1",
+    "--tw-leading": "1",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#181613",
+  },
+  style25: {
+    marginInline: "auto",
+    marginTop: "1.25rem",
+    fontSize: "1rem",
+    lineHeight: "1.75rem",
+    "--tw-leading": "1.75rem",
+    color: "#4f4940",
+  },
+  style26: {
+    paddingTop: {
+      default: "2rem",
+      "@media (width >= 48rem)": "2.5rem",
+    },
+    paddingBottom: {
+      default: "5rem",
+      "@media (width >= 48rem)": "6rem",
+    },
+  },
+  style27: {
+    marginInline: "auto",
+    marginTop: "1.25rem",
+    fontSize: "1rem",
+    lineHeight: "1.75rem",
+    "--tw-leading": "1.75rem",
+    color: "#4f4940",
+  },
+  style28: {
+    marginTop: "2rem",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "1rem",
+  },
+  style29: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: {
+      default: "#756b5d",
+      ":hover": "#181613",
+    },
+    textDecorationLine: "underline",
+    textDecorationColor: "#d9cdb8",
+    textUnderlineOffset: "4px",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+  },
+  style30: {
+    display: "flex",
+    height: {
+      default: "5rem",
+      "@media (width >= 48rem)": "7rem",
+    },
+    alignItems: "center",
+    justifyContent: "center",
+    WebkitUserSelect: "none",
+    userSelect: "none",
+    width: {
+      default: null,
+      "@media (width >= 48rem)": "100%",
+    },
+  },
+  style31: {
+    display: "flex",
+    width: "100%",
+    maxWidth: "260px",
+    alignItems: "center",
+    gap: ".75rem",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#e5e5e5",
+    backgroundColor: "#fff",
+    paddingBlock: ".5rem",
+    paddingRight: ".75rem",
+    paddingLeft: "1rem",
+    textAlign: "left",
+    "--tw-shadow": "0 3px 10px #1816130a",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 3px 10px var(--tw-shadow-color, #1816130a)",
+  },
+  style32: {
+    color: "#44403c",
+  },
+  style33: {
+    display: "flex",
+    flexDirection: "column",
+    gap: ".25rem",
+  },
+  style34: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#292524",
+  },
+  style35: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#a8a29e",
+  },
+  style36: {
+    marginLeft: "auto",
+    color: "#10b981",
+  },
+  style37: {
+    display: "flex",
+  },
+  style38: {
+    display: "flex",
+    height: "1.75rem",
+    width: "1.75rem",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "3.40282e38px",
+    borderStyle: "solid",
+    borderWidth: "2px",
+    borderColor: "#fff",
+    backgroundColor: "#eadfce",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#756b5d",
+    cornerShape: "round",
+  },
+  style39: {
+    marginLeft: "auto",
+    height: ".625rem",
+    width: ".625rem",
+    borderRadius: "3.40282e38px",
+    backgroundColor: "#10b981",
+    cornerShape: "round",
+  },
+  style40: {
+    display: "inline-flex",
+    height: "2.75rem",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: "3.40282e38px",
+    backgroundColor: {
+      default: "#181613",
+      ":hover": "#4f4940",
+    },
+    paddingInline: "1.5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#fff",
+    transitionProperty: "all",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+    scale: {
+      default: null,
+      ":hover": "1.02",
+      ":active": ".98",
+    },
+  },
+});
 const title = "Enterprise · Anarlog";
 const description =
   "Anarlog for teams and enterprises: end-to-end encrypted meeting notes with no meeting bots, workspace admin controls, and a self-hostable server. Book a call with the founder.";
-
 export const Route = createFileRoute("/enterprise/")({
   component: EnterprisePage,
   head: () => ({
     meta: [
-      { title },
-      { name: "description", content: description },
-      { property: "og:title", content: title },
-      { property: "og:description", content: description },
-      { property: "og:url", content: getCanonicalUrl("/enterprise") },
-      { name: "twitter:title", content: title },
-      { name: "twitter:description", content: description },
-      { name: "twitter:url", content: getCanonicalUrl("/enterprise") },
+      {
+        title,
+      },
+      {
+        name: "description",
+        content: description,
+      },
+      {
+        property: "og:title",
+        content: title,
+      },
+      {
+        property: "og:description",
+        content: description,
+      },
+      {
+        property: "og:url",
+        content: getCanonicalUrl("/enterprise"),
+      },
+      {
+        name: "twitter:title",
+        content: title,
+      },
+      {
+        name: "twitter:description",
+        content: description,
+      },
+      {
+        name: "twitter:url",
+        content: getCanonicalUrl("/enterprise"),
+      },
     ],
-    links: [{ rel: "canonical", href: getCanonicalUrl("/enterprise") }],
+    links: [
+      {
+        rel: "canonical",
+        href: getCanonicalUrl("/enterprise"),
+      },
+    ],
   }),
 });
-
 const pillarRows = [
   [
     {
@@ -64,42 +456,43 @@ const pillarRows = [
     },
   ],
 ];
-
 function EnterprisePage() {
   return (
-    <main className="min-h-screen bg-white text-[#181613]">
-      <div className="mx-auto w-full max-w-[700px] px-5 pt-4 pb-8 md:px-8 md:pt-4 md:pb-12">
-        <div className="min-w-0 text-center">
-          <section className="pt-10 pb-4 md:pt-12 md:pb-6">
-            <Link to="/" aria-label="Anarlog home" className="inline-flex">
-              <AnarlogLogo className="h-8 w-auto md:h-9" />
+    <main {...stylex.props(styles.style1)}>
+      <div {...stylex.props(styles.style2)}>
+        <div {...stylex.props(styles.style3)}>
+          <section {...stylex.props(styles.style4)}>
+            <Link
+              to="/"
+              aria-label="Anarlog home"
+              {...stylex.props(styles.style5)}
+            >
+              <AnarlogLogo sx={styles.style6} />
             </Link>
-            <h1 className="font-hand mt-12 text-4xl leading-none font-semibold text-[#181613] md:mt-16 md:text-5xl">
+            <h1 {...stylex.props(styles.style7)}>
               Meeting memory your company owns
             </h1>
-            <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#4f4940]">
+            <p {...stylex.props(styles.style8)}>
               Bring Anarlog to your whole team without handing your
               conversations to another cloud. Notes stay on your machines, sync
               is end-to-end encrypted, and no bot ever joins a call.
             </p>
-            <div className="mt-8">
+            <div {...stylex.props(styles.style9)}>
               <BookCallButton />
             </div>
-            <p className="mt-3 text-xs text-[#756b5d]">
+            <p {...stylex.props(styles.style10)}>
               30 minutes, directly with the founder. No SDR queue.
             </p>
           </section>
 
-          <section className="pt-12 pb-4 md:pt-16 md:pb-6">
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#756b5d]">
-              Why teams pick Anarlog
-            </h2>
-            <div className="relative left-1/2 mt-6 w-screen max-w-[1120px] -translate-x-1/2">
-              <div className="flex flex-col gap-4 md:gap-8">
+          <section {...stylex.props(styles.style11)}>
+            <h2 {...stylex.props(styles.style12)}>Why teams pick Anarlog</h2>
+            <div {...stylex.props(styles.style13)}>
+              <div {...stylex.props(styles.style14)}>
                 {pillarRows.map((row) => (
                   <div
                     key={row[0].title}
-                    className={cn([
+                    {...stylex.props([
                       "grid gap-4 md:flex md:items-start md:gap-0",
                       row.length === 3
                         ? "md:justify-between"
@@ -107,17 +500,12 @@ function EnterprisePage() {
                     ])}
                   >
                     {row.map((pillar) => (
-                      <div
-                        key={pillar.title}
-                        className="flex flex-col px-6 py-3 text-center md:w-[31%] md:p-4"
-                      >
+                      <div key={pillar.title} {...stylex.props(styles.style15)}>
                         <pillar.Visual />
-                        <h3 className="mt-5 text-base font-medium text-[#4f4940] md:mt-7">
+                        <h3 {...stylex.props(styles.style16)}>
                           {pillar.title}
                         </h3>
-                        <p className="mx-auto mt-1 max-w-[17rem] text-sm leading-6 text-[#4f4940]">
-                          {pillar.body}
-                        </p>
+                        <p {...stylex.props(styles.style17)}>{pillar.body}</p>
                       </div>
                     ))}
                   </div>
@@ -126,28 +514,23 @@ function EnterprisePage() {
             </div>
           </section>
 
-          <section className="pt-12 pb-4 md:pt-14 md:pb-6">
-            <div
-              className="flex items-center justify-center pb-4 select-none"
-              aria-hidden="true"
-            >
-              <span className="partner-hand-left inline-flex">
+          <section {...stylex.props(styles.style18)}>
+            <div {...stylex.props(styles.style19)} aria-hidden="true">
+              <span {...stylex.props(styles.style20)}>
                 <PartnerHandSvg
                   sleeve="#181613"
-                  className="h-12 w-auto md:h-14"
+                  {...stylex.props(styles.style21)}
                 />
               </span>
-              <span className="partner-hand-right mt-2.5 -ml-12 inline-flex md:-ml-14">
+              <span {...stylex.props(styles.style22)}>
                 <PartnerHandSvg
                   sleeve="#eadfce"
-                  className="h-12 w-auto -scale-x-100 md:h-14"
+                  {...stylex.props(styles.style23)}
                 />
               </span>
             </div>
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
-              Built with early partners
-            </h2>
-            <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-[#4f4940]">
+            <h2 {...stylex.props(styles.style24)}>Built with early partners</h2>
+            <p {...stylex.props(styles.style25)}>
               Team workspaces with admin controls, SSO and SCIM, and the
               self-hosted server are in active development. Early enterprise
               partners work directly with the founding team and shape what ships
@@ -155,20 +538,15 @@ function EnterprisePage() {
             </p>
           </section>
 
-          <section className="pt-8 pb-20 md:pt-10 md:pb-24">
-            <h2 className="font-hand text-3xl leading-none font-semibold text-[#181613]">
-              Talk to us
-            </h2>
-            <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-[#4f4940]">
+          <section {...stylex.props(styles.style26)}>
+            <h2 {...stylex.props(styles.style24)}>Talk to us</h2>
+            <p {...stylex.props(styles.style27)}>
               Tell us about your team and your compliance needs — we'll show you
               what works today and what lands next.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-4">
+            <div {...stylex.props(styles.style28)}>
               <BookCallButton />
-              <Link
-                to="/pricing/"
-                className="text-sm text-[#756b5d] underline decoration-[#d9cdb8] underline-offset-4 transition-colors hover:text-[#181613]"
-              >
+              <Link to="/pricing/" {...stylex.props(styles.style29)}>
                 Compare plans and pricing
               </Link>
             </div>
@@ -180,7 +558,6 @@ function EnterprisePage() {
     </main>
   );
 }
-
 function PartnerHandSvg({
   sleeve,
   className,
@@ -229,81 +606,73 @@ function PartnerHandSvg({
     </svg>
   );
 }
-
 function ConsentNoticeVisual() {
   return (
-    <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
-      <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">
-        <BellRinging size={28} className="text-stone-700" aria-hidden="true" />
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-stone-800">
-            Consent notice sent
-          </span>
-          <span className="text-sm text-stone-400">org-wide policy</span>
+    <div {...stylex.props(styles.style30)}>
+      <div {...stylex.props(styles.style31)}>
+        <BellRinging
+          size={28}
+          {...stylex.props(styles.style32)}
+          aria-hidden="true"
+        />
+        <div {...stylex.props(styles.style33)}>
+          <span {...stylex.props(styles.style34)}>Consent notice sent</span>
+          <span {...stylex.props(styles.style35)}>org-wide policy</span>
         </div>
         <CheckCircle
           size={20}
           weight="fill"
-          className="ml-auto text-emerald-500"
+          {...stylex.props(styles.style36)}
           aria-hidden="true"
         />
       </div>
     </div>
   );
 }
-
 function WorkspaceAdminVisual() {
   return (
-    <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
-      <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">
-        <div className="flex -space-x-2.5" aria-hidden="true">
+    <div {...stylex.props(styles.style30)}>
+      <div {...stylex.props(styles.style31)}>
+        <div {...stylex.props(styles.style37)} aria-hidden="true">
           {["S", "B", "A"].map((initial) => (
-            <span
-              key={initial}
-              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#eadfce] text-xs font-semibold text-[#756b5d] [corner-shape:round]"
-            >
+            <span key={initial} {...stylex.props(styles.style38)}>
               {initial}
             </span>
           ))}
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-stone-800">
-            Design team
-          </span>
-          <span className="text-sm text-stone-400">12 seats</span>
+        <div {...stylex.props(styles.style33)}>
+          <span {...stylex.props(styles.style34)}>Design team</span>
+          <span {...stylex.props(styles.style35)}>12 seats</span>
         </div>
       </div>
     </div>
   );
 }
-
 function SelfHostVisual() {
   return (
-    <div className="flex h-20 items-center justify-center select-none md:h-28 md:w-full">
-      <div className="flex w-full max-w-[260px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white py-2 pr-3 pl-4 text-left shadow-[0_3px_10px_rgba(24,22,19,0.04)]">
-        <HardDrives size={28} className="text-stone-700" aria-hidden="true" />
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-medium text-stone-800">
-            notes.acme.internal
-          </span>
-          <span className="text-sm text-stone-400">your infrastructure</span>
-        </div>
-        <span
-          className="ml-auto h-2.5 w-2.5 rounded-full bg-emerald-500 [corner-shape:round]"
+    <div {...stylex.props(styles.style30)}>
+      <div {...stylex.props(styles.style31)}>
+        <HardDrives
+          size={28}
+          {...stylex.props(styles.style32)}
           aria-hidden="true"
         />
+        <div {...stylex.props(styles.style33)}>
+          <span {...stylex.props(styles.style34)}>notes.acme.internal</span>
+          <span {...stylex.props(styles.style35)}>your infrastructure</span>
+        </div>
+        <span {...stylex.props(styles.style39)} aria-hidden="true" />
       </div>
     </div>
   );
 }
-
 function BookCallButton() {
   return (
     <a
       href={BOOK_CALL_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex h-11 items-center justify-center rounded-full bg-[#181613] px-6 text-sm font-medium text-white transition-all hover:scale-[102%] hover:bg-[#4f4940] active:scale-[98%]"
+      {...stylex.props(styles.style40)}
     >
       Book a call with the founder
     </a>

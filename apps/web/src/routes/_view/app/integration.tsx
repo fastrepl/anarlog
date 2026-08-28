@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
@@ -14,7 +15,19 @@ import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { ConnectFlow } from "./-integrations-connect-flow";
 import { DisconnectFlow } from "./-integrations-disconnect-flow";
 import { UpgradePrompt } from "./-integrations-upgrade-prompt";
-
+const styles = stylex.create({
+  style1: {
+    color: "#737373",
+  },
+  style2: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  style3: {
+    color: "#525252",
+  },
+});
 const commonSearch = {
   integration_id: z.string().default("google-calendar"),
   connection_id: z.string().optional(),
@@ -22,12 +35,14 @@ const commonSearch = {
   return_to: z.string().optional(),
   handoff: z.literal("nango").optional(),
 };
-
 const validateSearch = flowSearchSchema(commonSearch);
-
 export const INTEGRATION_DISPLAY: Record<
   string,
-  { name: string; description: string; connectingHint: string }
+  {
+    name: string;
+    description: string;
+    connectingHint: string;
+  }
 > = {
   "google-calendar": {
     name: "Google Calendar",
@@ -94,7 +109,6 @@ export const INTEGRATION_DISPLAY: Record<
       "Finish authorization with Microsoft, then return to Anarlog",
   },
 };
-
 export function getIntegrationDisplay(integrationId: string) {
   return (
     INTEGRATION_DISPLAY[integrationId] ?? {
@@ -104,45 +118,43 @@ export function getIntegrationDisplay(integrationId: string) {
     }
   );
 }
-
 export const Route = createFileRoute("/_view/app/integration")({
   validateSearch,
   component: Component,
   head: () => ({
-    meta: [{ name: "robots", content: "noindex, nofollow" }],
+    meta: [
+      {
+        name: "robots",
+        content: "noindex, nofollow",
+      },
+    ],
   }),
 });
-
 function Component() {
   const search = Route.useSearch();
   const isDesktopHandoff =
     search.flow === "desktop" &&
     search.handoff === "nango" &&
     (search.action === "connect" || search.action === "reconnect");
-
   if (isDesktopHandoff) {
     return <DesktopHandoffConnect />;
   }
-
   return <BrowserAuthorizedIntegration />;
 }
-
 function DesktopHandoffConnect() {
   const desktopSessionToken = useNangoSessionHandoffToken();
-
   if (desktopSessionToken === undefined) {
     return (
       <IntegrationPageLayout>
-        <p className="text-neutral-500">Loading...</p>
+        <p {...stylex.props(styles.style1)}>Loading...</p>
       </IntegrationPageLayout>
     );
   }
-
   if (!desktopSessionToken) {
     return (
       <IntegrationPageLayout>
-        <div className="flex flex-col gap-4">
-          <p className="text-neutral-600">
+        <div {...stylex.props(styles.style2)}>
+          <p {...stylex.props(styles.style3)}>
             This connection link is invalid or expired. Return to Anarlog and
             try again.
           </p>
@@ -150,10 +162,8 @@ function DesktopHandoffConnect() {
       </IntegrationPageLayout>
     );
   }
-
   return <ConnectFlow sessionToken={desktopSessionToken} />;
 }
-
 function BrowserAuthorizedIntegration() {
   const search = Route.useSearch();
   const billing = useBilling();
@@ -172,7 +182,6 @@ function BrowserAuthorizedIntegration() {
     staleTime: Infinity,
     retry: 1,
   });
-
   const gate = getIntegrationBillingGate({
     action: search.action,
     isBillingReady: billing.isReady,
@@ -181,24 +190,21 @@ function BrowserAuthorizedIntegration() {
     verificationFailed: billingVerification.isError,
     verifiedIsPaid: billingVerification.data?.isPaid,
   });
-
   if (gate === "disconnect") {
     return <DisconnectFlow />;
   }
-
   if (gate === "loading") {
     return (
       <IntegrationPageLayout>
-        <p className="text-neutral-500">Loading...</p>
+        <p {...stylex.props(styles.style1)}>Loading...</p>
       </IntegrationPageLayout>
     );
   }
-
   if (gate === "retry") {
     return (
       <IntegrationPageLayout>
-        <div className="flex flex-col gap-4">
-          <p className="text-neutral-600">
+        <div {...stylex.props(styles.style2)}>
+          <p {...stylex.props(styles.style3)}>
             We couldn’t verify your plan. Please try again.
           </p>
           <IntegrationButton onClick={() => void billingVerification.refetch()}>
@@ -208,7 +214,6 @@ function BrowserAuthorizedIntegration() {
       </IntegrationPageLayout>
     );
   }
-
   if (gate === "upgrade") {
     return (
       <UpgradePrompt
@@ -218,6 +223,5 @@ function BrowserAuthorizedIntegration() {
       />
     );
   }
-
   return <ConnectFlow />;
 }

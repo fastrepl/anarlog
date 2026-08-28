@@ -1,4 +1,5 @@
 import { Chat } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 
 import { Avatar } from "@anlg/ui/components/avatar";
 import {
@@ -13,29 +14,150 @@ import { cn } from "@anlg/utils";
 import { truncateSharedNoteCommentQuote } from "@/lib/shared-note-collaboration";
 import { formatSharedNoteRelativeTime } from "@/lib/shared-note-presentation";
 import type { SharedNoteComment } from "@/lib/shared-notes";
-
+const styles = stylex.create({
+  style1: {
+    width: "19px",
+    height: "19px",
+  },
+  style2: {
+    position: "absolute",
+    top: "-.125rem",
+    right: "-.125rem",
+    display: "grid",
+    minWidth: "1rem",
+    placeItems: "center",
+    borderRadius: "3.40282e38px",
+    borderStyle: "solid",
+    borderWidth: "2px",
+    borderColor: "#fff",
+    backgroundColor: "#44403c",
+    paddingInline: ".125rem",
+    fontSize: "9px",
+    "--tw-leading": ".75rem",
+    lineHeight: ".75rem",
+    color: "#fff",
+  },
+  style3: {
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+    borderWidth: "0",
+    width: "1px",
+    height: "1px",
+    margin: "-1px",
+    padding: "0",
+    position: "absolute",
+    overflow: "hidden",
+  },
+  style4: {
+    display: "flex",
+    height: "3.5rem",
+    flexShrink: "0",
+    alignItems: "center",
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    borderColor: "#e7e5e4",
+    paddingInline: "1.25rem",
+    paddingRight: "3.5rem",
+  },
+  style5: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#1c1917",
+  },
+  style6: {
+    marginLeft: ".5rem",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+    color: "#78716c",
+  },
+  style7: {
+    minHeight: "0",
+    flex: "1",
+    overflowY: "auto",
+    padding: "1rem",
+  },
+  style8: {
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#e7e5e4",
+    backgroundColor: "#fff",
+    padding: ".875rem",
+    "--tw-shadow": "0 1px #0000000d",
+    boxShadow:
+      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 1px var(--tw-shadow-color, #0000000d)",
+  },
+  style9: {
+    display: "flex",
+    alignItems: "center",
+    gap: ".5rem",
+  },
+  style10: {
+    minWidth: "0",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    fontSize: ".75rem",
+    lineHeight: "1rem",
+    "--tw-font-weight": "600",
+    fontWeight: "600",
+    color: "#292524",
+  },
+  style11: {
+    "--tw-font-weight": "400",
+    fontWeight: "400",
+    color: "#78716c",
+  },
+  style12: {
+    marginTop: ".75rem",
+    borderLeftStyle: "solid",
+    borderLeftWidth: "2px",
+    borderColor: "#e7e5e4",
+    paddingLeft: ".5rem",
+    fontSize: ".75rem",
+    lineHeight: "1.25rem",
+    "--tw-leading": "1.25rem",
+    color: "#78716c",
+  },
+  style13: {
+    marginTop: ".5rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-leading": "1.25rem",
+    whiteSpace: "pre-wrap",
+    color: "#292524",
+  },
+  style14: {
+    paddingBlock: "2.5rem",
+    textAlign: "center",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#78716c",
+  },
+});
 export function SharedNoteCommentsDrawer({
   comments,
 }: {
   comments: SharedNoteComment[];
 }) {
   const count = comments.length;
-
   return (
     <Dialog modal={false}>
       <DialogTrigger asChild>
         <button
           type="button"
           aria-label={`Open comments${count ? ` (${count})` : ""}`}
-          className={cn([
+          {...stylex.props([
             "relative grid size-9 place-items-center rounded-lg bg-transparent text-stone-600",
             "transition-colors hover:text-stone-900",
             "focus-visible:ring-2 focus-visible:ring-stone-900 focus-visible:ring-offset-2 focus-visible:outline-hidden",
           ])}
         >
-          <Chat className="size-[19px]" aria-hidden="true" />
+          <Chat {...stylex.props(styles.style1)} aria-hidden="true" />
           {count > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 grid min-w-4 place-items-center rounded-full border-2 border-white bg-stone-700 px-0.5 text-[9px] leading-3 text-white">
+            <span {...stylex.props(styles.style2)}>
               {count > 99 ? "99+" : count}
             </span>
           ) : null}
@@ -43,29 +165,26 @@ export function SharedNoteCommentsDrawer({
       </DialogTrigger>
       <DialogContent
         showOverlay={false}
-        className={cn([
-          "!top-0 !right-0 !bottom-0 !left-auto !h-dvh !w-[min(380px,100vw)] !max-w-none !translate-x-0 !translate-y-0",
-          "!flex !gap-0 !rounded-none !border-y-0 !border-r-0 !border-l !border-stone-200 !bg-white !p-0",
-          "flex-col overflow-hidden shadow-2xl",
-        ])}
+        className={[
+          [
+            "!top-0 !right-0 !bottom-0 !left-auto !h-dvh !w-[min(380px,100vw)] !max-w-none !translate-x-0 !translate-y-0",
+            "!flex !gap-0 !rounded-none !border-y-0 !border-r-0 !border-l !border-stone-200 !bg-white !p-0",
+            "flex-col overflow-hidden shadow-2xl",
+          ],
+        ]}
       >
-        <DialogDescription className="sr-only">
+        <DialogDescription {...stylex.props(styles.style3)}>
           Comments attached to this shared note.
         </DialogDescription>
-        <header className="flex h-14 shrink-0 items-center border-b border-stone-200 px-5 pr-14">
-          <DialogTitle className="text-sm font-semibold text-stone-900">
-            Comments
-          </DialogTitle>
-          <span className="ml-2 text-xs text-stone-500">{count}</span>
+        <header {...stylex.props(styles.style4)}>
+          <DialogTitle {...stylex.props(styles.style5)}>Comments</DialogTitle>
+          <span {...stylex.props(styles.style6)}>{count}</span>
         </header>
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+        <div {...stylex.props(styles.style7)}>
           {comments.length ? (
             comments.map((comment) => (
-              <article
-                key={comment.commentId}
-                className="rounded-2xl border border-stone-200 bg-white p-3.5 shadow-xs"
-              >
-                <div className="flex items-center gap-2">
+              <article key={comment.commentId} {...stylex.props(styles.style8)}>
+                <div {...stylex.props(styles.style9)}>
                   <Avatar
                     seed={
                       comment.isAuthor
@@ -75,10 +194,10 @@ export function SharedNoteCommentsDrawer({
                     label={comment.isAuthor ? "You" : "Collaborator"}
                     size={25}
                   />
-                  <p className="min-w-0 truncate text-xs font-semibold text-stone-800">
+                  <p {...stylex.props(styles.style10)}>
                     {comment.isAuthor ? "You" : "Collaborator"}{" "}
                     <time
-                      className="font-normal text-stone-500"
+                      {...stylex.props(styles.style11)}
                       dateTime={comment.createdAt}
                     >
                       {formatSharedNoteRelativeTime(comment.createdAt)}
@@ -86,19 +205,15 @@ export function SharedNoteCommentsDrawer({
                   </p>
                 </div>
                 {comment.anchor ? (
-                  <p className="mt-3 border-l-2 border-stone-200 pl-2 text-xs leading-5 text-stone-500">
+                  <p {...stylex.props(styles.style12)}>
                     {truncateSharedNoteCommentQuote(comment.anchor.quoteExact)}
                   </p>
                 ) : null}
-                <p className="mt-2 text-sm leading-5 whitespace-pre-wrap text-stone-800">
-                  {comment.body}
-                </p>
+                <p {...stylex.props(styles.style13)}>{comment.body}</p>
               </article>
             ))
           ) : (
-            <p className="py-10 text-center text-sm text-stone-500">
-              No comments yet.
-            </p>
+            <p {...stylex.props(styles.style14)}>No comments yet.</p>
           )}
         </div>
       </DialogContent>

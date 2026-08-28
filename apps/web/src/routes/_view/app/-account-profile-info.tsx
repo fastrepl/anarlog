@@ -1,22 +1,144 @@
+import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { cn } from "@anlg/utils";
 
-import {
-  authInputClassName,
-  authNoticeClassName,
-} from "@/components/auth-shell";
+import { authStyles } from "@/components/auth-shell";
 import { updateUserEmail } from "@/functions/auth";
 import { getSupabaseBrowserClient } from "@/functions/supabase";
 
 import { accountSessionQueryKey, useAccountSession } from "./-account-session";
-import {
-  accountCardClassName,
-  accountPillPrimaryClassName,
-  accountPillSecondaryClassName,
-} from "./-account-ui";
-
+import { accountStyles } from "./-account-ui";
+const styles = stylex.create({
+  style1: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  style2: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#756b5d",
+  },
+  style3: {
+    display: "flex",
+    width: "100%",
+    flexDirection: "column",
+    gap: ".75rem",
+    maxWidth: {
+      default: null,
+      "@media (width >= 48rem)": "420px",
+    },
+  },
+  style4: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#dc2626",
+  },
+  style5: {
+    display: "flex",
+    justifyContent: {
+      default: "flex-start",
+      "@media (width >= 48rem)": "flex-end",
+    },
+    gap: ".5rem",
+  },
+  style6: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: ".75rem",
+  },
+  style7: {
+    fontSize: "1rem",
+    lineHeight: "1.5rem",
+    color: "#181613",
+  },
+  style8: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    "--tw-font-weight": "500",
+    fontWeight: "500",
+    color: "#4f4940",
+  },
+  style9: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    borderColor: "#ede7dc",
+    paddingTop: "1rem",
+  },
+  style10: {
+    display: "flex",
+    flexDirection: {
+      default: "column",
+      "@media (width >= 48rem)": "row",
+    },
+    gap: ".75rem",
+    alignItems: {
+      default: null,
+      "@media (width >= 48rem)": "center",
+    },
+    justifyContent: {
+      default: null,
+      "@media (width >= 48rem)": "space-between",
+    },
+  },
+  style11: {
+    fontSize: "1rem",
+    lineHeight: "1.5rem",
+    color: "#181613",
+    textDecorationLine: "underline",
+    textDecorationColor: "#d9cdb8",
+    textUnderlineOffset: "4px",
+  },
+  style12: {
+    fontSize: "1rem",
+    lineHeight: "1.5rem",
+    color: "#756b5d",
+  },
+  style13: {
+    display: "flex",
+    flexDirection: {
+      default: "column",
+      "@media (width >= 48rem)": "row",
+    },
+    gap: ".75rem",
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    borderColor: "#ede7dc",
+    paddingTop: "1rem",
+    alignItems: {
+      default: null,
+      "@media (width >= 48rem)": "center",
+    },
+    justifyContent: {
+      default: null,
+      "@media (width >= 48rem)": "space-between",
+    },
+  },
+  style14: {
+    display: "flex",
+    flexDirection: {
+      default: "column",
+      "@media (width >= 48rem)": "row",
+    },
+    gap: ".5rem",
+    alignItems: {
+      default: null,
+      "@media (width >= 48rem)": "center",
+    },
+    justifyContent: {
+      default: null,
+      "@media (width >= 48rem)": "space-between",
+    },
+  },
+});
 export function ProfileInfoSection({ email }: { email?: string }) {
   const [isEditing, setIsEditing] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -28,7 +150,6 @@ export function ProfileInfoSection({ email }: { email?: string }) {
   const { data: accountSession } = useAccountSession();
   const queryClient = useQueryClient();
   const profile = accountSession?.profile;
-
   const updateDetailsMutation = useMutation({
     mutationFn: async (details: {
       fullName: string | null;
@@ -48,11 +169,12 @@ export function ProfileInfoSection({ email }: { email?: string }) {
       }
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: accountSessionQueryKey });
+      void queryClient.invalidateQueries({
+        queryKey: accountSessionQueryKey,
+      });
       setIsEditingDetails(false);
     },
   });
-
   const startEditingDetails = () => {
     setDraftName(profile?.fullName ?? "");
     setDraftLinkedin(profile?.linkedinUrl ?? "");
@@ -60,7 +182,6 @@ export function ProfileInfoSection({ email }: { email?: string }) {
     updateDetailsMutation.reset();
     setIsEditingDetails(true);
   };
-
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateDetailsMutation.mutate({
@@ -69,10 +190,13 @@ export function ProfileInfoSection({ email }: { email?: string }) {
       xHandle: normalizeXHandle(draftX),
     });
   };
-
   const updateEmailMutation = useMutation({
     mutationFn: async (email: string) => {
-      const res = await updateUserEmail({ data: { email } });
+      const res = await updateUserEmail({
+        data: {
+          email,
+        },
+      });
       if ("error" in res && res.error) {
         throw new Error(res.error);
       }
@@ -86,50 +210,44 @@ export function ProfileInfoSection({ email }: { email?: string }) {
       setNewEmail("");
     },
   });
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newEmail && newEmail !== email) {
       updateEmailMutation.mutate(newEmail);
     }
   };
-
   const handleCancel = () => {
     setIsEditing(false);
     setNewEmail("");
     updateEmailMutation.reset();
   };
-
   return (
-    <div className={cn([accountCardClassName, "p-6 sm:p-8"])}>
-      <div className="flex flex-col gap-4">
+    <div {...stylex.props([accountStyles.card, "p-6 sm:p-8"])}>
+      <div {...stylex.props(styles.style1)}>
         <div
-          className={cn([
+          {...stylex.props([
             "flex flex-col gap-3 md:flex-row md:justify-between",
             isEditing ? "md:items-start" : "md:items-center",
           ])}
         >
-          <span className="text-sm font-medium text-[#756b5d]">Email</span>
+          <span {...stylex.props(styles.style2)}>Email</span>
           {isEditing ? (
-            <form
-              onSubmit={handleSubmit}
-              className="flex w-full flex-col gap-3 md:max-w-[420px]"
-            >
+            <form onSubmit={handleSubmit} {...stylex.props(styles.style3)}>
               <input
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder={email || "Enter new email"}
-                className={authInputClassName}
+                {...stylex.props(authStyles.input)}
                 autoFocus
               />
               {updateEmailMutation.isError && (
-                <p className="text-sm text-red-600">
+                <p {...stylex.props(styles.style4)}>
                   {updateEmailMutation.error?.message ||
                     "Failed to update email"}
                 </p>
               )}
-              <div className="flex justify-start gap-2 md:justify-end">
+              <div {...stylex.props(styles.style5)}>
                 <button
                   type="submit"
                   disabled={
@@ -137,7 +255,10 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                     !newEmail ||
                     newEmail === email
                   }
-                  className={accountPillPrimaryClassName}
+                  {...stylex.props([
+                    accountStyles.pill,
+                    accountStyles.pillPrimary,
+                  ])}
                 >
                   {updateEmailMutation.isPending ? "Saving..." : "Save"}
                 </button>
@@ -145,15 +266,18 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                   type="button"
                   onClick={handleCancel}
                   disabled={updateEmailMutation.isPending}
-                  className={accountPillSecondaryClassName}
+                  {...stylex.props([
+                    accountStyles.pill,
+                    accountStyles.pillSecondary,
+                  ])}
                 >
                   Cancel
                 </button>
               </div>
             </form>
           ) : (
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-base text-[#181613]">
+            <div {...stylex.props(styles.style6)}>
+              <span {...stylex.props(styles.style7)}>
                 {email || "Not available"}
               </span>
               <button
@@ -161,7 +285,10 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                   setIsEditing(true);
                   setSuccessMessage(null);
                 }}
-                className={accountPillSecondaryClassName}
+                {...stylex.props([
+                  accountStyles.pill,
+                  accountStyles.pillSecondary,
+                ])}
               >
                 Change
               </button>
@@ -170,18 +297,16 @@ export function ProfileInfoSection({ email }: { email?: string }) {
         </div>
 
         {successMessage && (
-          <div className={authNoticeClassName}>
-            <p className="text-sm font-medium text-[#4f4940]">
-              {successMessage}
-            </p>
+          <div {...stylex.props(authStyles.notice)}>
+            <p {...stylex.props(styles.style8)}>{successMessage}</p>
           </div>
         )}
 
-        <div className="flex flex-col gap-4 border-t border-[#ede7dc] pt-4">
+        <div {...stylex.props(styles.style9)}>
           {isEditingDetails ? (
             <form
               onSubmit={handleDetailsSubmit}
-              className="flex flex-col gap-4"
+              {...stylex.props(styles.style1)}
             >
               <DetailsField
                 label="Full name"
@@ -202,16 +327,19 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                 placeholder="@yourhandle"
               />
               {updateDetailsMutation.isError && (
-                <p className="text-sm text-red-600">
+                <p {...stylex.props(styles.style4)}>
                   {updateDetailsMutation.error?.message ||
                     "Failed to update profile"}
                 </p>
               )}
-              <div className="flex justify-start gap-2 md:justify-end">
+              <div {...stylex.props(styles.style5)}>
                 <button
                   type="submit"
                   disabled={updateDetailsMutation.isPending}
-                  className={accountPillPrimaryClassName}
+                  {...stylex.props([
+                    accountStyles.pill,
+                    accountStyles.pillPrimary,
+                  ])}
                 >
                   {updateDetailsMutation.isPending ? "Saving..." : "Save"}
                 </button>
@@ -219,7 +347,10 @@ export function ProfileInfoSection({ email }: { email?: string }) {
                   type="button"
                   onClick={() => setIsEditingDetails(false)}
                   disabled={updateDetailsMutation.isPending}
-                  className={accountPillSecondaryClassName}
+                  {...stylex.props([
+                    accountStyles.pill,
+                    accountStyles.pillSecondary,
+                  ])}
                 >
                   Cancel
                 </button>
@@ -227,52 +358,51 @@ export function ProfileInfoSection({ email }: { email?: string }) {
             </form>
           ) : (
             <>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="text-sm font-medium text-[#756b5d]">
-                  Full name
-                </span>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-base text-[#181613]">
+              <div {...stylex.props(styles.style10)}>
+                <span {...stylex.props(styles.style2)}>Full name</span>
+                <div {...stylex.props(styles.style6)}>
+                  <span {...stylex.props(styles.style7)}>
                     {profile?.fullName || "Not set"}
                   </span>
                   <button
                     onClick={startEditingDetails}
-                    className={accountPillSecondaryClassName}
+                    {...stylex.props([
+                      accountStyles.pill,
+                      accountStyles.pillSecondary,
+                    ])}
                   >
                     Edit
                   </button>
                 </div>
               </div>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="text-sm font-medium text-[#756b5d]">
-                  LinkedIn
-                </span>
+              <div {...stylex.props(styles.style10)}>
+                <span {...stylex.props(styles.style2)}>LinkedIn</span>
                 {profile?.linkedinUrl ? (
                   <a
                     href={profile.linkedinUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
+                    {...stylex.props(styles.style11)}
                   >
                     {profile.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
                   </a>
                 ) : (
-                  <span className="text-base text-[#756b5d]">Not set</span>
+                  <span {...stylex.props(styles.style12)}>Not set</span>
                 )}
               </div>
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <span className="text-sm font-medium text-[#756b5d]">X</span>
+              <div {...stylex.props(styles.style10)}>
+                <span {...stylex.props(styles.style2)}>X</span>
                 {profile?.xHandle ? (
                   <a
                     href={`https://x.com/${profile.xHandle}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-base text-[#181613] underline decoration-[#d9cdb8] underline-offset-4"
+                    {...stylex.props(styles.style11)}
                   >
                     @{profile.xHandle}
                   </a>
                 ) : (
-                  <span className="text-base text-[#756b5d]">Not set</span>
+                  <span {...stylex.props(styles.style12)}>Not set</span>
                 )}
               </div>
             </>
@@ -280,11 +410,9 @@ export function ProfileInfoSection({ email }: { email?: string }) {
         </div>
 
         {accountSession?.createdAt && (
-          <div className="flex flex-col gap-3 border-t border-[#ede7dc] pt-4 md:flex-row md:items-center md:justify-between">
-            <span className="text-sm font-medium text-[#756b5d]">
-              Member since
-            </span>
-            <span className="text-base text-[#181613]">
+          <div {...stylex.props(styles.style13)}>
+            <span {...stylex.props(styles.style2)}>Member since</span>
+            <span {...stylex.props(styles.style7)}>
               {new Date(accountSession.createdAt).toLocaleDateString("en-US", {
                 month: "long",
                 year: "numeric",
@@ -296,7 +424,6 @@ export function ProfileInfoSection({ email }: { email?: string }) {
     </div>
   );
 }
-
 function DetailsField({
   label,
   value,
@@ -309,19 +436,18 @@ function DetailsField({
   placeholder: string;
 }) {
   return (
-    <label className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <span className="text-sm font-medium text-[#756b5d]">{label}</span>
+    <label {...stylex.props(styles.style14)}>
+      <span {...stylex.props(styles.style2)}>{label}</span>
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className={cn([authInputClassName, "md:max-w-[420px]"])}
+        {...stylex.props([authStyles.input, "md:max-w-[420px]"])}
       />
     </label>
   );
 }
-
 function normalizeLinkedinUrl(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) {
@@ -337,7 +463,6 @@ function normalizeLinkedinUrl(input: string): string | null {
   const handle = bare.replace(/^@/, "");
   return `https://www.linkedin.com/in/${handle}`;
 }
-
 function normalizeXHandle(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) {

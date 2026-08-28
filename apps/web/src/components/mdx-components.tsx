@@ -1,8 +1,103 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ComponentType } from "react";
 
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+
+const styles = stylex.create({
+  style1: {
+    marginBlock: "1.5rem",
+    width: "100%",
+    borderRadius: ".375rem",
+  },
+  style2: {
+    marginBlock: "1.5rem",
+    display: "block",
+    borderRadius: ".375rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: {
+      default: "#e5e5e5",
+      ":hover": "#a8a29e",
+    },
+    padding: "1.5rem",
+    textDecorationLine: "none",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
+    transitionDuration: ".15s",
+    backgroundColor: {
+      default: null,
+      ":hover": "#fafaf9",
+    },
+  },
+  style3: {
+    marginBottom: ".25rem",
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontSize: "1rem",
+    lineHeight: "1.5rem",
+    color: "#292524",
+  },
+  style4: {
+    marginBottom: ".75rem",
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#525252",
+  },
+  style5: {
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: "#57534e",
+  },
+  style6: {
+    marginBlock: "1.5rem",
+    borderRadius: ".375rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    padding: "1rem",
+  },
+  style7: {
+    marginBlock: "1.5rem",
+    width: "100%",
+    overflow: "hidden",
+    borderRadius: ".375rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    borderColor: "#e5e5e5",
+  },
+  style8: {
+    height: "100%",
+    width: "100%",
+  },
+  style9: {
+    borderRadius: radii.sm,
+    backgroundColor: colors.muted,
+    paddingInline: ".375rem",
+    paddingBlock: ".125rem",
+    fontFamily: fonts.mono,
+    fontSize: ".875rem",
+    lineHeight: "1.25rem",
+    color: colors.foreground,
+  },
+  calloutNote: {
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
+  },
+  calloutTip: {
+    backgroundColor: "oklch(96.2% 0.044 156.7)",
+    borderColor: "oklch(87.1% 0.15 154.4)",
+  },
+  calloutWarning: {
+    backgroundColor: "oklch(98.7% 0.022 95.3)",
+    borderColor: "oklch(87.9% 0.169 91.6)",
+  },
+});
 function Image({
   src,
   alt,
+  className,
+  style,
   ...rest
 }: {
   src: string;
@@ -11,14 +106,13 @@ function Image({
 }) {
   return (
     <img
+      {...rest}
+      {...mergeStyleXProps(styles.style1, className, style)}
       src={src}
       alt={alt ?? ""}
-      className="my-6 w-full rounded-md"
-      {...rest}
     />
   );
 }
-
 function CtaCard({
   href,
   title,
@@ -32,21 +126,13 @@ function CtaCard({
 }) {
   if (!href) return null;
   return (
-    <a
-      href={href}
-      className="my-6 block rounded-md border border-neutral-200 p-6 no-underline transition-colors hover:border-stone-400 hover:bg-stone-50"
-    >
-      {title && (
-        <div className="mb-1 font-mono text-base text-stone-800">{title}</div>
-      )}
-      {description && (
-        <div className="mb-3 text-sm text-neutral-600">{description}</div>
-      )}
-      {cta && <div className="text-sm text-stone-600">{cta} →</div>}
+    <a href={href} {...stylex.props(styles.style2)}>
+      {title && <div {...stylex.props(styles.style3)}>{title}</div>}
+      {description && <div {...stylex.props(styles.style4)}>{description}</div>}
+      {cta && <div {...stylex.props(styles.style5)}>{cta} →</div>}
     </a>
   );
 }
-
 function Callout({
   type = "note",
   children,
@@ -56,23 +142,20 @@ function Callout({
 }) {
   const tone =
     type === "warning"
-      ? "bg-amber-50 border-amber-200"
+      ? styles.calloutWarning
       : type === "tip"
-        ? "bg-emerald-50 border-emerald-200"
-        : "bg-stone-50 border-stone-200";
-  return (
-    <aside className={`my-6 rounded-md border p-4 ${tone}`}>{children}</aside>
-  );
+        ? styles.calloutTip
+        : styles.calloutNote;
+  return <aside {...stylex.props(styles.style6, tone)}>{children}</aside>;
 }
-
 function Clip({ src }: { src: string }) {
   const ytMatch = src.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
   if (ytMatch) {
     return (
-      <div className="my-6 aspect-video w-full overflow-hidden rounded-md border border-neutral-200">
+      <div {...stylex.props(styles.style7)}>
         <iframe
           src={`https://www.youtube.com/embed/${ytMatch[1]}`}
-          className="h-full w-full"
+          {...stylex.props(styles.style8)}
           allowFullScreen
         />
       </div>
@@ -80,22 +163,19 @@ function Clip({ src }: { src: string }) {
   }
   return null;
 }
-
 const Noop = () => null;
-
-function InlineCode({ children, ...props }: React.ComponentProps<"code">) {
+function InlineCode({
+  children,
+  className,
+  style,
+  ...props
+}: React.ComponentProps<"code">) {
   return (
-    <code
-      {...props}
-      className={`rounded bg-stone-100 px-1.5 py-0.5 font-mono text-sm text-stone-800 ${
-        props.className ?? ""
-      }`}
-    >
+    <code {...props} {...mergeStyleXProps(styles.style9, className, style)}>
       {children}
     </code>
   );
 }
-
 export const mdxComponents: Record<string, ComponentType<any>> = {
   Image,
   img: Image,
