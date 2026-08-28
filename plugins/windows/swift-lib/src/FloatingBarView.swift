@@ -475,9 +475,6 @@ struct FloatingBarView: View {
   private func setExpanded(_ expanded: Bool) {
     model.isExpanded = expanded
     settings.setLiveCaptionMinimized(!expanded)
-    if !expanded {
-      LiveCaptionManager.shared.hide(clearText: false)
-    }
   }
 
   private func showsSpeakerLabel(at index: Int) -> Bool {
