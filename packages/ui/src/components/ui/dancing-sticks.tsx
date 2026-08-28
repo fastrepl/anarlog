@@ -1,4 +1,8 @@
-import { memo, useMemo, type CSSProperties } from "react";
+import * as stylex from "@stylexjs/stylex";
+import { memo, useMemo } from "react";
+
+import { radii } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 function mulberry32(seed: number): () => number {
   let value = seed;
@@ -18,7 +22,7 @@ type DancingSticksProps = {
   width?: number;
   stickWidth?: number;
   gap?: number;
-};
+} & StyleXProps;
 
 function generatePattern(count: number): number[] {
   if (count <= 1) {
@@ -41,6 +45,7 @@ export const DancingSticks = memo(function DancingSticks({
   width,
   stickWidth,
   gap,
+  sx,
 }: DancingSticksProps) {
   const resolvedHeight = height ?? 16;
   const resolvedStickWidth = stickWidth ?? 2;
@@ -60,18 +65,6 @@ export const DancingSticks = memo(function DancingSticks({
     return 0.2 + 0.8 * clamped;
   }, [amplitude]);
 
-  const containerStyle = useMemo(
-    () =>
-      ({
-        height: resolvedHeight,
-        width: resolvedWidth,
-        gap: resolvedGap,
-        transform: `scaleY(${amplitudeScale})`,
-        transformOrigin: "center",
-      }) as CSSProperties,
-    [amplitudeScale, resolvedGap, resolvedHeight, resolvedWidth],
-  );
-
   const stickParams = useMemo(
     () =>
       pattern.map((baseLength, index) => {
@@ -89,16 +82,17 @@ export const DancingSticks = memo(function DancingSticks({
   if (isFlat) {
     return (
       <div
-        className="flex items-center justify-center"
-        style={{ height: resolvedHeight, width: resolvedWidth }}
+        {...mergeStyleXProps([
+          styles.container,
+          styles.containerSize(resolvedHeight, resolvedWidth),
+          sx,
+        ])}
       >
         <div
-          className="rounded-full"
-          style={{
-            width: resolvedWidth,
-            height: 1,
-            backgroundColor: color,
-          }}
+          {...stylex.props(
+            styles.flatIndicator,
+            styles.flatIndicatorAppearance(resolvedWidth, color),
+          )}
         />
       </div>
     );
@@ -106,32 +100,118 @@ export const DancingSticks = memo(function DancingSticks({
 
   return (
     <div
-      className="flex origin-center items-center justify-center"
-      style={containerStyle}
+      {...mergeStyleXProps([
+        styles.container,
+        styles.animatedContainer(
+          resolvedHeight,
+          resolvedWidth,
+          resolvedGap,
+          `scaleY(${amplitudeScale})`,
+        ),
+        sx,
+      ])}
     >
       {stickParams.map(
         ({ maxScaleY, durationSeconds, delaySeconds }, index) => (
           <div
             key={index}
-            className="flex origin-center items-center justify-center"
-            style={{
-              width: resolvedStickWidth,
-              height: resolvedHeight,
-              transform: `scaleY(${maxScaleY})`,
-            }}
+            {...stylex.props(
+              styles.stickContainer,
+              styles.stickContainerSize(
+                resolvedStickWidth,
+                resolvedHeight,
+                `scaleY(${maxScaleY})`,
+              ),
+            )}
           >
             <div
-              className="animate-anarlog-dancing-stick w-full origin-center rounded-full"
-              style={{
-                height: resolvedHeight,
-                backgroundColor: color,
-                animationDuration: `${durationSeconds}s`,
-                animationDelay: `${delaySeconds}s`,
-              }}
+              {...stylex.props(
+                styles.stick,
+                styles.stickAppearance(
+                  resolvedHeight,
+                  color,
+                  `${durationSeconds}s`,
+                  `${delaySeconds}s`,
+                ),
+              )}
             />
           </div>
         ),
       )}
     </div>
   );
+});
+
+const dancingStick = stylex.keyframes({
+  "0%": {
+    transform: "scaleY(0.2)",
+  },
+  "50%": {
+    transform: "scaleY(1)",
+  },
+  "100%": {
+    transform: "scaleY(0.2)",
+  },
+});
+
+const styles = stylex.create({
+  container: {
+    alignItems: "center",
+    display: "flex",
+    justifyContent: "center",
+  },
+  containerSize: (height: number, width: number) => ({
+    height,
+    width,
+  }),
+  animatedContainer: (
+    height: number,
+    width: number,
+    gap: number,
+    transform: string,
+  ) => ({
+    gap,
+    height,
+    transform,
+    transformOrigin: "center",
+    width,
+  }),
+  flatIndicator: {
+    borderRadius: radii.full,
+    height: 1,
+  },
+  flatIndicatorAppearance: (width: number, backgroundColor: string) => ({
+    backgroundColor,
+    width,
+  }),
+  stickContainer: {
+    alignItems: "center",
+    display: "flex",
+    justifyContent: "center",
+    transformOrigin: "center",
+  },
+  stickContainerSize: (width: number, height: number, transform: string) => ({
+    height,
+    transform,
+    width,
+  }),
+  stick: {
+    animationIterationCount: "infinite",
+    animationName: dancingStick,
+    animationTimingFunction: "ease-in-out",
+    borderRadius: radii.full,
+    transformOrigin: "center",
+    width: "100%",
+  },
+  stickAppearance: (
+    height: number,
+    backgroundColor: string,
+    animationDuration: string,
+    animationDelay: string,
+  ) => ({
+    animationDelay,
+    animationDuration,
+    backgroundColor,
+    height,
+  }),
 });

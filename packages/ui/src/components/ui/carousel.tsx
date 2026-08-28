@@ -1,10 +1,12 @@
 import { ArrowLeft, ArrowRight } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import useEmblaCarousel, {
   type UseEmblaCarouselType,
 } from "embla-carousel-react";
 import * as React from "react";
 
-import { cn } from "@anlg/utils";
+import { radii } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 import { Button } from "./button";
 
@@ -43,7 +45,7 @@ function useCarousel() {
 
 const Carousel = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & CarouselProps
+  React.HTMLAttributes<HTMLDivElement> & CarouselProps & StyleXProps
 >(
   (
     {
@@ -52,6 +54,8 @@ const Carousel = React.forwardRef<
       setApi,
       plugins,
       className,
+      style,
+      sx,
       children,
       ...props
     },
@@ -137,10 +141,10 @@ const Carousel = React.forwardRef<
         <div
           ref={ref}
           onKeyDownCapture={handleKeyDown}
-          className={cn(["relative", className])}
           role="region"
           aria-roledescription="carousel"
           {...props}
+          {...mergeStyleXProps([styles.root, sx], className, style)}
         >
           {children}
         </div>
@@ -152,20 +156,24 @@ Carousel.displayName = "Carousel";
 
 const CarouselContent = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
+  React.HTMLAttributes<HTMLDivElement> & StyleXProps
+>(({ className, style, sx, ...props }, ref) => {
   const { carouselRef, orientation } = useCarousel();
 
   return (
-    <div ref={carouselRef} className="overflow-hidden">
+    <div ref={carouselRef} {...mergeStyleXProps(styles.viewport)}>
       <div
         ref={ref}
-        className={cn([
-          "flex",
-          orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
-          className,
-        ])}
         {...props}
+        {...mergeStyleXProps(
+          [
+            styles.content,
+            carouselContentOrientationStyles[orientation ?? "horizontal"],
+            sx,
+          ],
+          className,
+          style,
+        )}
       />
     </div>
   );
@@ -174,8 +182,8 @@ CarouselContent.displayName = "CarouselContent";
 
 const CarouselItem = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => {
+  React.HTMLAttributes<HTMLDivElement> & StyleXProps
+>(({ className, style, sx, ...props }, ref) => {
   const { orientation } = useCarousel();
 
   return (
@@ -183,12 +191,16 @@ const CarouselItem = React.forwardRef<
       ref={ref}
       role="group"
       aria-roledescription="slide"
-      className={cn([
-        "min-w-0 shrink-0 grow-0 basis-full",
-        orientation === "horizontal" ? "pl-4" : "pt-4",
-        className,
-      ])}
       {...props}
+      {...mergeStyleXProps(
+        [
+          styles.item,
+          carouselItemOrientationStyles[orientation ?? "horizontal"],
+          sx,
+        ],
+        className,
+        style,
+      )}
     />
   );
 });
@@ -197,68 +209,172 @@ CarouselItem.displayName = "CarouselItem";
 const CarouselPrevious = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof Button>
->(({ className, variant = "outline", size = "icon", ...props }, ref) => {
-  const { orientation, scrollPrev, canScrollPrev } = useCarousel();
+>(
+  (
+    { className, style, sx, variant = "outline", size = "icon", ...props },
+    ref,
+  ) => {
+    const { orientation, scrollPrev, canScrollPrev } = useCarousel();
+    const iconStyle = mergeStyleXProps(styles.navigationIcon);
 
-  if (!canScrollPrev) {
-    return null;
-  }
+    if (!canScrollPrev) {
+      return null;
+    }
 
-  return (
-    <Button
-      ref={ref}
-      variant={variant}
-      size={size}
-      className={cn([
-        "absolute h-8 w-8 rounded-full",
-        orientation === "horizontal"
-          ? "top-1/2 -left-12 -translate-y-1/2"
-          : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
-        className,
-      ])}
-      disabled={!canScrollPrev}
-      onClick={scrollPrev}
-      {...props}
-    >
-      <ArrowLeft className="h-4 w-4" />
-      <span className="sr-only">Previous slide</span>
-    </Button>
-  );
-});
+    return (
+      <Button
+        ref={ref}
+        variant={variant}
+        size={size}
+        disabled={!canScrollPrev}
+        onClick={scrollPrev}
+        {...props}
+        className={className}
+        style={style}
+        sx={[
+          styles.navigationButton,
+          carouselPreviousOrientationStyles[orientation ?? "horizontal"],
+          sx,
+        ]}
+      >
+        <ArrowLeft className={iconStyle.className} style={iconStyle.style} />
+        <span {...stylex.props(styles.visuallyHidden)}>Previous slide</span>
+      </Button>
+    );
+  },
+);
 CarouselPrevious.displayName = "CarouselPrevious";
 
 const CarouselNext = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<typeof Button>
->(({ className, variant = "outline", size = "icon", ...props }, ref) => {
-  const { orientation, scrollNext, canScrollNext } = useCarousel();
+>(
+  (
+    { className, style, sx, variant = "outline", size = "icon", ...props },
+    ref,
+  ) => {
+    const { orientation, scrollNext, canScrollNext } = useCarousel();
+    const iconStyle = mergeStyleXProps(styles.navigationIcon);
 
-  if (!canScrollNext) {
-    return null;
-  }
+    if (!canScrollNext) {
+      return null;
+    }
 
-  return (
-    <Button
-      ref={ref}
-      variant={variant}
-      size={size}
-      className={cn([
-        "absolute h-8 w-8 rounded-full",
-        orientation === "horizontal"
-          ? "top-1/2 -right-12 -translate-y-1/2"
-          : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
-        className,
-      ])}
-      disabled={!canScrollNext}
-      onClick={scrollNext}
-      {...props}
-    >
-      <ArrowRight className="h-4 w-4" />
-      <span className="sr-only">Next slide</span>
-    </Button>
-  );
-});
+    return (
+      <Button
+        ref={ref}
+        variant={variant}
+        size={size}
+        disabled={!canScrollNext}
+        onClick={scrollNext}
+        {...props}
+        className={className}
+        style={style}
+        sx={[
+          styles.navigationButton,
+          carouselNextOrientationStyles[orientation ?? "horizontal"],
+          sx,
+        ]}
+      >
+        <ArrowRight className={iconStyle.className} style={iconStyle.style} />
+        <span {...stylex.props(styles.visuallyHidden)}>Next slide</span>
+      </Button>
+    );
+  },
+);
 CarouselNext.displayName = "CarouselNext";
+
+const styles = stylex.create({
+  root: {
+    position: "relative",
+  },
+  viewport: {
+    overflow: "hidden",
+  },
+  content: {
+    display: "flex",
+  },
+  contentHorizontal: {
+    marginLeft: "-1rem",
+  },
+  contentVertical: {
+    flexDirection: "column",
+    marginTop: "-1rem",
+  },
+  item: {
+    flexBasis: "100%",
+    flexGrow: 0,
+    flexShrink: 0,
+    minWidth: 0,
+  },
+  itemHorizontal: {
+    paddingLeft: "1rem",
+  },
+  itemVertical: {
+    paddingTop: "1rem",
+  },
+  navigationButton: {
+    borderRadius: radii.full,
+    height: "2rem",
+    position: "absolute",
+    width: "2rem",
+  },
+  previousHorizontal: {
+    left: "-3rem",
+    top: "50%",
+    transform: "translateY(-50%)",
+  },
+  previousVertical: {
+    left: "50%",
+    top: "-3rem",
+    transform: "translateX(-50%) rotate(90deg)",
+  },
+  nextHorizontal: {
+    right: "-3rem",
+    top: "50%",
+    transform: "translateY(-50%)",
+  },
+  nextVertical: {
+    bottom: "-3rem",
+    left: "50%",
+    transform: "translateX(-50%) rotate(90deg)",
+  },
+  navigationIcon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  visuallyHidden: {
+    borderWidth: 0,
+    clip: "rect(0, 0, 0, 0)",
+    height: "1px",
+    margin: "-1px",
+    overflow: "hidden",
+    padding: 0,
+    position: "absolute",
+    whiteSpace: "nowrap",
+    width: "1px",
+  },
+});
+
+const carouselContentOrientationStyles = {
+  horizontal: styles.contentHorizontal,
+  vertical: styles.contentVertical,
+};
+
+const carouselItemOrientationStyles = {
+  horizontal: styles.itemHorizontal,
+  vertical: styles.itemVertical,
+};
+
+const carouselPreviousOrientationStyles = {
+  horizontal: styles.previousHorizontal,
+  vertical: styles.previousVertical,
+};
+
+const carouselNextOrientationStyles = {
+  horizontal: styles.nextHorizontal,
+  vertical: styles.nextVertical,
+};
 
 export {
   Carousel,

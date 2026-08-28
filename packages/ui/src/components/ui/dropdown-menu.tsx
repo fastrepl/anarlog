@@ -1,12 +1,16 @@
 import { CaretRight, Check, Circle } from "@phosphor-icons/react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
+import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 import { cn } from "@anlg/utils";
 
 import {
   AppFloatingPanel,
-  appFloatingContentClassName,
+  appFloatingContentStyle,
+  floatingContentStyle,
   type FloatingContentVariant,
 } from "./floating-content";
 
@@ -17,23 +21,26 @@ const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 const DropdownMenuSub = DropdownMenuPrimitive.Sub;
 const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
+const descendantIconClassName =
+  "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
+
 const DropdownMenuSubTrigger = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.SubTrigger>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
     inset?: boolean;
-  }
->(({ className, inset, children, ...props }, ref) => (
+  } & StyleXProps
+>(({ className, inset, children, style, sx, ...props }, ref) => (
   <DropdownMenuPrimitive.SubTrigger
-    ref={ref}
-    className={cn([
-      "focus:bg-accent data-[state=open]:bg-accent flex cursor-default items-center gap-2 rounded-full px-2 py-1.5 text-sm outline-hidden [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-      inset && "pl-8",
-      className,
-    ])}
     {...props}
+    {...mergeStyleXProps(
+      [styles.subTrigger, styles.outlineHidden, inset && styles.inset, sx],
+      cn([descendantIconClassName, className]),
+      style,
+    )}
+    ref={ref}
   >
     {children}
-    <CaretRight className="ml-auto" />
+    <CaretRight {...stylex.props(styles.subTriggerCaret)} />
   </DropdownMenuPrimitive.SubTrigger>
 ));
 DropdownMenuSubTrigger.displayName =
@@ -43,18 +50,21 @@ const DropdownMenuSubContent = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.SubContent>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent> & {
     variant?: FloatingContentVariant;
-  }
->(({ className, variant = "default", ...props }, ref) => (
+  } & StyleXProps
+>(({ className, style, sx, variant = "default", ...props }, ref) => (
   <DropdownMenuPrimitive.SubContent
-    ref={ref}
-    className={cn([
-      "text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-32 overflow-hidden",
-      variant === "app"
-        ? appFloatingContentClassName
-        : "bg-popover rounded-[18px] border p-1 shadow-lg",
-      className,
-    ])}
     {...props}
+    {...mergeStyleXProps(
+      [
+        floatingContentStyle,
+        styles.content,
+        variant === "app" ? appFloatingContentStyle : styles.defaultSubContent,
+        sx,
+      ],
+      className,
+      style,
+    )}
+    ref={ref}
   />
 ));
 DropdownMenuSubContent.displayName =
@@ -64,59 +74,69 @@ const DropdownMenuContent = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content> & {
     variant?: FloatingContentVariant;
-  }
->(({ className, sideOffset = 4, variant = "default", ...props }, ref) => (
-  <DropdownMenuPrimitive.Portal>
-    <DropdownMenuPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn([
-        "text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 min-w-32 overflow-hidden",
-        variant === "app"
-          ? appFloatingContentClassName
-          : "bg-popover rounded-[18px] border p-1 shadow-md",
-        className,
-      ])}
-      {...props}
-    />
-  </DropdownMenuPrimitive.Portal>
-));
+  } & StyleXProps
+>(
+  (
+    { className, sideOffset = 4, style, sx, variant = "default", ...props },
+    ref,
+  ) => (
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.Content
+        {...props}
+        {...mergeStyleXProps(
+          [
+            floatingContentStyle,
+            styles.content,
+            variant === "app" ? appFloatingContentStyle : styles.defaultContent,
+            sx,
+          ],
+          className,
+          style,
+        )}
+        ref={ref}
+        sideOffset={sideOffset}
+      />
+    </DropdownMenuPrimitive.Portal>
+  ),
+);
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
 const DropdownMenuItem = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean;
-  }
->(({ className, inset, ...props }, ref) => (
+  } & StyleXProps
+>(({ className, inset, style, sx, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
-    ref={ref}
-    className={cn([
-      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center gap-2 rounded-full px-2 py-1.5 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-      inset && "pl-8",
-      className,
-    ])}
     {...props}
+    {...mergeStyleXProps(
+      [styles.item, styles.outlineHidden, inset && styles.inset, sx],
+      cn([descendantIconClassName, className]),
+      style,
+    )}
+    ref={ref}
   />
 ));
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName;
 
 const DropdownMenuCheckboxItem = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.CheckboxItem>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
->(({ className, children, checked, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem> &
+    StyleXProps
+>(({ className, children, checked, style, sx, ...props }, ref) => (
   <DropdownMenuPrimitive.CheckboxItem
-    ref={ref}
-    className={cn([
-      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center rounded-full py-1.5 pr-2 pl-8 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50",
-      className,
-    ])}
-    checked={checked}
     {...props}
+    {...mergeStyleXProps(
+      [styles.choiceItem, styles.outlineHidden, sx],
+      className,
+      style,
+    )}
+    ref={ref}
+    checked={checked}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span {...stylex.props(styles.leftIndicator)}>
       <DropdownMenuPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
+        <Check {...stylex.props(styles.icon)} />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -127,19 +147,21 @@ DropdownMenuCheckboxItem.displayName =
 
 const DropdownMenuRadioItem = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.RadioItem>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem> &
+    StyleXProps
+>(({ className, children, style, sx, ...props }, ref) => (
   <DropdownMenuPrimitive.RadioItem
-    ref={ref}
-    className={cn([
-      "focus:bg-accent focus:text-accent-foreground relative flex cursor-default items-center rounded-full py-1.5 pr-2 pl-8 text-sm outline-hidden transition-colors data-disabled:pointer-events-none data-disabled:opacity-50",
-      className,
-    ])}
     {...props}
+    {...mergeStyleXProps(
+      [styles.choiceItem, styles.outlineHidden, sx],
+      className,
+      style,
+    )}
+    ref={ref}
   >
-    <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+    <span {...stylex.props(styles.leftIndicator)}>
       <DropdownMenuPrimitive.ItemIndicator>
-        <Circle className="h-2 w-2" weight="fill" />
+        <Circle {...stylex.props(styles.radioIcon)} weight="fill" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -151,44 +173,218 @@ const DropdownMenuLabel = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Label>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
     inset?: boolean;
-  }
->(({ className, inset, ...props }, ref) => (
+  } & StyleXProps
+>(({ className, inset, style, sx, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
-    ref={ref}
-    className={cn([
-      "px-2 py-1.5 text-sm font-semibold",
-      inset && "pl-8",
-      className,
-    ])}
     {...props}
+    {...mergeStyleXProps(
+      [styles.label, inset && styles.inset, sx],
+      className,
+      style,
+    )}
+    ref={ref}
   />
 ));
 DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName;
 
 const DropdownMenuSeparator = React.forwardRef<
   React.ComponentRef<typeof DropdownMenuPrimitive.Separator>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
->(({ className, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator> &
+    StyleXProps
+>(({ className, style, sx, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
-    ref={ref}
-    className={cn(["bg-muted -mx-1 my-1 h-px", className])}
     {...props}
+    {...mergeStyleXProps([styles.separator, sx], className, style)}
+    ref={ref}
   />
 ));
 DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName;
 
 const DropdownMenuShortcut = ({
   className,
+  style,
+  sx,
   ...props
-}: React.HTMLAttributes<HTMLSpanElement>) => {
+}: React.HTMLAttributes<HTMLSpanElement> & StyleXProps) => {
   return (
     <span
-      className={cn(["ml-auto text-xs tracking-widest opacity-60", className])}
       {...props}
+      {...mergeStyleXProps([styles.shortcut, sx], className, style)}
     />
   );
 };
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut";
+
+const styles = stylex.create({
+  choiceItem: {
+    alignItems: "center",
+    backgroundColor: {
+      default: null,
+      ":focus": colors.accent,
+    },
+    borderRadius: radii.full,
+    color: {
+      default: null,
+      ":focus": colors.accentForeground,
+    },
+    cursor: "default",
+    display: "flex",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    opacity: {
+      default: 1,
+      ":is([data-disabled])": 0.5,
+    },
+    paddingBlock: "0.375rem",
+    paddingLeft: "2rem",
+    paddingRight: "0.5rem",
+    pointerEvents: {
+      default: null,
+      ":is([data-disabled])": "none",
+    },
+    position: "relative",
+    transitionDuration: "150ms",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  content: {
+    minWidth: "8rem",
+    overflow: "hidden",
+    zIndex: 50,
+  },
+  defaultContent: {
+    backgroundColor: colors.popover,
+    borderColor: colors.border,
+    borderRadius: "18px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow:
+      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+    padding: "0.25rem",
+  },
+  defaultSubContent: {
+    backgroundColor: colors.popover,
+    borderColor: colors.border,
+    borderRadius: "18px",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.lg,
+    padding: "0.25rem",
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  inset: {
+    paddingLeft: "2rem",
+  },
+  item: {
+    alignItems: "center",
+    backgroundColor: {
+      default: null,
+      ":focus": colors.accent,
+    },
+    borderRadius: radii.full,
+    color: {
+      default: null,
+      ":focus": colors.accentForeground,
+    },
+    cursor: "default",
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    lineHeight: "1.25rem",
+    opacity: {
+      default: 1,
+      ":is([data-disabled])": 0.5,
+    },
+    paddingBlock: "0.375rem",
+    paddingLeft: "0.5rem",
+    paddingRight: "0.5rem",
+    pointerEvents: {
+      default: null,
+      ":is([data-disabled])": "none",
+    },
+    position: "relative",
+    transitionDuration: "150ms",
+    transitionProperty:
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+    transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
+  },
+  outlineHidden: {
+    outlineColor: {
+      default: null,
+      "@media (forced-colors: active)": "transparent",
+    },
+    outlineOffset: {
+      default: null,
+      "@media (forced-colors: active)": "2px",
+    },
+    outlineStyle: {
+      default: "none",
+      "@media (forced-colors: active)": "solid",
+    },
+    outlineWidth: {
+      default: null,
+      "@media (forced-colors: active)": "2px",
+    },
+  },
+  label: {
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    lineHeight: "1.25rem",
+    paddingBlock: "0.375rem",
+    paddingLeft: "0.5rem",
+    paddingRight: "0.5rem",
+  },
+  leftIndicator: {
+    alignItems: "center",
+    display: "flex",
+    height: "0.875rem",
+    justifyContent: "center",
+    left: "0.5rem",
+    position: "absolute",
+    width: "0.875rem",
+  },
+  radioIcon: {
+    height: "0.5rem",
+    width: "0.5rem",
+  },
+  separator: {
+    backgroundColor: colors.muted,
+    height: "1px",
+    marginBlock: "0.25rem",
+    marginInline: "-0.25rem",
+  },
+  shortcut: {
+    fontSize: "0.75rem",
+    letterSpacing: "0.1em",
+    lineHeight: "1rem",
+    marginLeft: "auto",
+    opacity: 0.6,
+  },
+  subTrigger: {
+    alignItems: "center",
+    backgroundColor: {
+      default: null,
+      ":focus": colors.accent,
+      ':is([data-state="open"])': colors.accent,
+    },
+    borderRadius: radii.full,
+    cursor: "default",
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    lineHeight: "1.25rem",
+    paddingBlock: "0.375rem",
+    paddingLeft: "0.5rem",
+    paddingRight: "0.5rem",
+  },
+  subTriggerCaret: {
+    marginLeft: "auto",
+  },
+});
 
 export {
   AppFloatingPanel,

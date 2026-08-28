@@ -1,9 +1,14 @@
+import * as stylex from "@stylexjs/stylex";
 import type { ComponentProps, CSSProperties } from "react";
 import {
   Toaster as Sonner,
   toast as rawSonnerToast,
   type ExternalToast,
 } from "sonner";
+
+import { colors, radii, spacing } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
+import { cn } from "@anlg/utils";
 
 export const TOAST_DURATIONS = {
   success: 3_000,
@@ -81,36 +86,88 @@ export const sonnerToast: typeof rawSonnerToast = Object.assign(
   },
 );
 
-type ToasterProps = ComponentProps<typeof Sonner>;
+type ToasterProps = ComponentProps<typeof Sonner> & StyleXProps;
 
 const Toaster = ({
   theme = "system",
   position = "bottom-right",
   richColors = true,
   closeButton = true,
+  className,
   style,
+  sx,
+  toastOptions,
   ...props
-}: ToasterProps) => (
-  <Sonner
-    theme={theme}
-    position={position}
-    richColors={richColors}
-    closeButton={closeButton}
-    className="toaster group"
-    style={{ "--width": "300px", ...style } as CSSProperties}
-    toastOptions={{
-      classNames: {
-        toast:
-          "group toast pointer-events-auto group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border group-[.toaster]:border-border group-[.toaster]:shadow-md group-[.toaster]:rounded-xl group-[.toaster]:overflow-visible group-[.toaster]:w-[300px] group-[.toaster]:p-3.5 group-[.toaster]:gap-3",
-        description: "group-[.toast]:text-muted-foreground",
-        actionButton:
-          "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
-        cancelButton:
-          "group-[.toast]:bg-transparent group-[.toast]:text-muted-foreground",
-      },
-    }}
-    {...props}
-  />
-);
+}: ToasterProps) => {
+  const classNames = toastOptions?.classNames;
+
+  return (
+    <Sonner
+      {...props}
+      theme={theme}
+      position={position}
+      richColors={richColors}
+      closeButton={closeButton}
+      toastOptions={{
+        ...toastOptions,
+        classNames: {
+          ...classNames,
+          toast: mergeStyleXProps(
+            styles.toast,
+            cn(["toast", classNames?.toast]),
+          ).className,
+          description: mergeStyleXProps(
+            styles.description,
+            classNames?.description,
+          ).className,
+          actionButton: mergeStyleXProps(
+            styles.actionButton,
+            classNames?.actionButton,
+          ).className,
+          cancelButton: mergeStyleXProps(
+            styles.cancelButton,
+            classNames?.cancelButton,
+          ).className,
+        },
+      }}
+      {...mergeStyleXProps([styles.toaster, sx], cn(["toaster", className]), {
+        "--width": "300px",
+        ...style,
+      } as CSSProperties)}
+    />
+  );
+};
+
+const styles = stylex.create({
+  toaster: {
+    width: "300px",
+  },
+  toast: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow:
+      "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+    color: colors.foreground,
+    gap: spacing.md,
+    overflow: "visible",
+    padding: "0.875rem",
+    pointerEvents: "auto",
+    width: "300px",
+  },
+  description: {
+    color: colors.mutedForeground,
+  },
+  actionButton: {
+    backgroundColor: colors.primary,
+    color: colors.primaryForeground,
+  },
+  cancelButton: {
+    backgroundColor: "transparent",
+    color: colors.mutedForeground,
+  },
+});
 
 export { Toaster };

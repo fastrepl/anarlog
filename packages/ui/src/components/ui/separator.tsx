@@ -1,29 +1,57 @@
 import * as SeparatorPrimitive from "@radix-ui/react-separator";
+import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
-import { cn } from "@anlg/utils";
+import { colors } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 const Separator = React.forwardRef<
   React.ComponentRef<typeof SeparatorPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root>
+  React.ComponentPropsWithoutRef<typeof SeparatorPrimitive.Root> & StyleXProps
 >(
   (
-    { className, orientation = "horizontal", decorative = true, ...props },
+    {
+      className,
+      style,
+      sx,
+      orientation = "horizontal",
+      decorative = true,
+      ...props
+    },
     ref,
   ) => (
     <SeparatorPrimitive.Root
+      {...props}
+      {...mergeStyleXProps(
+        [
+          styles.root,
+          orientation === "horizontal" ? styles.horizontal : styles.vertical,
+          sx,
+        ],
+        className,
+        style,
+      )}
       ref={ref}
       decorative={decorative}
       orientation={orientation}
-      className={cn(
-        "bg-border shrink-0",
-        orientation === "horizontal" ? "h-px w-full" : "h-full w-px",
-        className,
-      )}
-      {...props}
     />
   ),
 );
 Separator.displayName = SeparatorPrimitive.Root.displayName;
+
+const styles = stylex.create({
+  root: {
+    backgroundColor: colors.border,
+    flexShrink: 0,
+  },
+  horizontal: {
+    height: "1px",
+    width: "100%",
+  },
+  vertical: {
+    height: "100%",
+    width: "1px",
+  },
+});
 
 export { Separator };
