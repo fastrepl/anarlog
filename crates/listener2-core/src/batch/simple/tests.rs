@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{Router, extract::State, http::StatusCode};
-use owhisper_client::BatchSttAdapter;
+use owhisper_client::{AdapterKind, BatchSttAdapter};
 use owhisper_interface::batch::Response;
 use tokio::sync::Notify;
 
@@ -197,6 +197,48 @@ fn segments_only_when_a_provider_limit_is_exceeded() {
             limit(size, Duration::from_secs(60))
         ),
         Some(Duration::from_secs(60))
+    );
+}
+
+#[test]
+fn openai_diarize_meetings_just_over_25_minutes_are_split() {
+    let source = tempfile::Builder::new().suffix(".wav").tempfile().unwrap();
+    write_test_wav_samples(source.path(), TARGET_SAMPLE_RATE as usize);
+    let path = source.path().to_str().unwrap();
+    let size = std::fs::metadata(source.path()).unwrap().len();
+    let diarize = AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe-diarize"))
+        .expect("openai has an upload limit");
+    let transcribe = AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe"))
+        .expect("openai has an upload limit");
+
+    let just_over_25_min = Duration::from_millis(1_500_012);
+    assert_eq!(
+        segment_plan(
+            path,
+            Some(just_over_25_min),
+            Some(owhisper_client::BatchUploadLimit {
+                max_bytes: size,
+                max_duration: diarize.max_duration,
+            })
+        ),
+        Some(diarize.max_duration)
+    );
+    assert_eq!(
+        segment_plan(
+            path,
+            Some(just_over_25_min),
+            Some(owhisper_client::BatchUploadLimit {
+                max_bytes: size,
+                max_duration: transcribe.max_duration,
+            })
+        ),
+        Some(transcribe.max_duration)
+    );
+    assert!(
+        diarize.max_duration < Duration::from_secs(1400),
+        "diarize segments must stay under OpenAI's 1400s hard cap"
     );
 }
 

@@ -67,7 +67,7 @@ pub(in crate::batch) async fn run_direct_batch_for_adapter_kind(
         return run_anarlog_batch(params, listen_params).await;
     }
 
-    let limit = adapter_kind.batch_upload_limit();
+    let limit = adapter_kind.batch_upload_limit(listen_params.model.as_deref());
 
     dispatch_batch!(adapter_kind, params, listen_params, limit, {
         Argmax => ArgmaxAdapter,

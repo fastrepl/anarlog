@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use super::*;
 
 #[test]
@@ -534,4 +536,31 @@ fn test_append_provider_param_no_existing_provider() {
     let url = append_provider_param("https://api.anarlog.so/stt", "anarlog");
     assert!(url.contains("provider=anarlog"));
     assert_eq!(url.matches("provider=").count(), 1);
+}
+
+#[test]
+fn openai_diarize_batch_limit_is_tighter_than_other_openai_models() {
+    let diarize = AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe-diarize"))
+        .expect("openai has an upload limit");
+    let transcribe = AdapterKind::OpenAI
+        .batch_upload_limit(Some("gpt-4o-transcribe"))
+        .expect("openai has an upload limit");
+    let default = AdapterKind::OpenAI
+        .batch_upload_limit(None)
+        .expect("openai has an upload limit");
+
+    assert_eq!(diarize.max_duration, Duration::from_secs(1390));
+    assert_eq!(transcribe.max_duration, Duration::from_secs(25 * 60));
+    assert_eq!(default.max_duration, Duration::from_secs(25 * 60));
+    assert!(diarize.max_duration < Duration::from_secs(1400));
+}
+
+#[test]
+fn groq_keeps_the_shared_openai_compatible_duration_for_any_model() {
+    let limit = AdapterKind::Groq
+        .batch_upload_limit(Some("gpt-4o-transcribe-diarize"))
+        .expect("groq has an upload limit");
+
+    assert_eq!(limit.max_duration, Duration::from_secs(25 * 60));
 }

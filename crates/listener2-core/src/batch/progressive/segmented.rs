@@ -24,9 +24,10 @@ pub(super) struct SegmentedPlan {
 pub(super) async fn plan_openai_segments(
     file_path: &str,
     provider: &str,
+    model: Option<&str>,
 ) -> crate::Result<Option<SegmentedPlan>> {
     let total_duration = audio_duration(file_path);
-    let limit = AdapterKind::OpenAI.batch_upload_limit();
+    let limit = AdapterKind::OpenAI.batch_upload_limit(model);
 
     let Some(segment_duration) = segment_plan(file_path, total_duration, limit) else {
         return Ok(None);
