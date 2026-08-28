@@ -1177,10 +1177,6 @@ msgstr ""
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr ""
 
-#: src/instruction/index.tsx
-msgid "Complete your purchase"
-msgstr ""
-
 #: src/composer/index.tsx
 msgid "Composer"
 msgstr ""
@@ -2040,7 +2036,7 @@ msgid "Find key decisions."
 msgstr ""
 
 #: src/instruction/index.tsx
-msgid "Finish checkout in your browser, then return to Anarlog."
+msgid "Finish checkout in your browser to unlock more, then return to Anarlog."
 msgstr ""
 
 #: src/settings/general/account.tsx
@@ -4989,6 +4985,7 @@ msgstr ""
 
 #: src/billing/trial-ended-dialog.tsx
 #: src/calendar/components/sidebar.tsx
+#: src/instruction/index.tsx
 #: src/session-sharing/index.tsx
 #: src/settings/developers/cloud-api.tsx
 #: src/settings/dictionary/index.tsx

@@ -161,8 +161,8 @@ export function InstructionScreen({
   if (type === "billing") {
     return (
       <ExternalInstruction
-        title={t`Complete your purchase`}
-        description={t`Finish checkout in your browser, then return to Anarlog.`}
+        title={t`Upgrade to Pro`}
+        description={t`Finish checkout in your browser to unlock more, then return to Anarlog.`}
         actionLabel={t`Reopen checkout page`}
         onBack={onBack}
         url={url}

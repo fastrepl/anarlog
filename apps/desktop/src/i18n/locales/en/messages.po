@@ -1177,10 +1177,6 @@ msgstr "Compare Free and Pro before you sign in."
 msgid "Complete sign-in in your browser, then return to Anarlog."
 msgstr "Complete sign-in in your browser, then return to Anarlog."
 
-#: src/instruction/index.tsx
-msgid "Complete your purchase"
-msgstr "Complete your purchase"
-
 #: src/composer/index.tsx
 msgid "Composer"
 msgstr "Composer"
@@ -2040,8 +2036,8 @@ msgid "Find key decisions."
 msgstr "Find key decisions."
 
 #: src/instruction/index.tsx
-msgid "Finish checkout in your browser, then return to Anarlog."
-msgstr "Finish checkout in your browser, then return to Anarlog."
+msgid "Finish checkout in your browser to unlock more, then return to Anarlog."
+msgstr "Finish checkout in your browser to unlock more, then return to Anarlog."
 
 #: src/settings/general/account.tsx
 msgid "Finish in your browser, then return to Anarlog."
@@ -4989,6 +4985,7 @@ msgstr "Upgrade to enable"
 
 #: src/billing/trial-ended-dialog.tsx
 #: src/calendar/components/sidebar.tsx
+#: src/instruction/index.tsx
 #: src/session-sharing/index.tsx
 #: src/settings/developers/cloud-api.tsx
 #: src/settings/dictionary/index.tsx
