@@ -302,7 +302,7 @@ const styles = stylex.create({
     maxHeight: "100%",
   },
   rightPanelRoot: {
-    flex: 1,
+    flex: "1",
   },
   queue: {
     flexShrink: 0,

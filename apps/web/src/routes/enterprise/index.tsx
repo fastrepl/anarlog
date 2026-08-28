@@ -2,6 +2,9 @@ import { BellRinging, CheckCircle, HardDrives } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { fonts, media, radii } from "@anlg/design-system/tokens.stylex";
+import type { StyleXProps } from "@anlg/ui/lib/stylex";
+
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import {
   LocalFilesVisual,
@@ -10,6 +13,43 @@ import {
 import { SiteFooter } from "@/components/site-footer";
 import { BOOK_CALL_URL } from "@/lib/enterprise";
 import { getCanonicalUrl } from "@/lib/seo";
+
+const partnerHandLeft = stylex.keyframes({
+  "0%": {
+    transform: "translateX(-3.5rem) rotate(-9deg)",
+  },
+  "55%": {
+    transform: "translateX(0) rotate(0deg)",
+  },
+  "70%": {
+    transform: "translateX(0) translateY(-0.2rem) rotate(-1.5deg)",
+  },
+  "85%": {
+    transform: "translateX(0) translateY(0.15rem) rotate(1deg)",
+  },
+  "100%": {
+    transform: "translateX(0) translateY(0) rotate(0deg)",
+  },
+});
+
+const partnerHandRight = stylex.keyframes({
+  "0%": {
+    transform: "translateX(3.5rem) rotate(9deg)",
+  },
+  "55%": {
+    transform: "translateX(0) rotate(0deg)",
+  },
+  "70%": {
+    transform: "translateX(0) translateY(0.2rem) rotate(1.5deg)",
+  },
+  "85%": {
+    transform: "translateX(0) translateY(-0.15rem) rotate(-1deg)",
+  },
+  "100%": {
+    transform: "translateX(0) translateY(0) rotate(0deg)",
+  },
+});
+
 const styles = stylex.create({
   style1: {
     minHeight: "100vh",
@@ -34,7 +74,7 @@ const styles = stylex.create({
     },
   },
   style3: {
-    minWidth: "0",
+    minWidth: 0,
     textAlign: "center",
   },
   style4: {
@@ -62,17 +102,16 @@ const styles = stylex.create({
       default: "3rem",
       "@media (width >= 48rem)": "4rem",
     },
+    fontFamily: fonts.hand,
     fontSize: {
       default: "2.25rem",
       "@media (width >= 48rem)": "3rem",
     },
     lineHeight: {
-      default: "1",
-      "@media (width >= 48rem)": "1",
+      default: 1,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#181613",
   },
   style8: {
@@ -80,7 +119,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style9: {
@@ -103,11 +141,10 @@ const styles = stylex.create({
     },
   },
   style12: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style13: {
@@ -116,7 +153,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     width: "100vw",
     maxWidth: "1120px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
   },
   style14: {
@@ -149,8 +185,7 @@ const styles = stylex.create({
     },
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#4f4940",
   },
   style17: {
@@ -159,7 +194,6 @@ const styles = stylex.create({
     maxWidth: "17rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#4f4940",
   },
   style18: {
@@ -177,10 +211,16 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "center",
     paddingBottom: "1rem",
-    WebkitUserSelect: "none",
     userSelect: "none",
   },
   style20: {
+    animationFillMode: "both",
+    animationName: {
+      default: partnerHandLeft,
+      [media.reducedMotion]: "none",
+    },
+    animationTimeline: "view()",
+    animationTimingFunction: "linear",
     display: "inline-flex",
   },
   style21: {
@@ -191,6 +231,13 @@ const styles = stylex.create({
     width: "auto",
   },
   style22: {
+    animationFillMode: "both",
+    animationName: {
+      default: partnerHandRight,
+      [media.reducedMotion]: "none",
+    },
+    animationTimeline: "view()",
+    animationTimingFunction: "linear",
     marginTop: ".625rem",
     marginLeft: {
       default: "-3rem",
@@ -204,15 +251,13 @@ const styles = stylex.create({
       "@media (width >= 48rem)": "3.5rem",
     },
     width: "auto",
-    "--tw-scale-x": "calc(100% * -1)",
     scale: "calc(100% * -1) 1",
   },
   style24: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#181613",
   },
   style25: {
@@ -220,7 +265,6 @@ const styles = stylex.create({
     marginTop: "1.25rem",
     fontSize: "1rem",
     lineHeight: "1.75rem",
-    "--tw-leading": "1.75rem",
     color: "#4f4940",
   },
   style26: {
@@ -238,7 +282,6 @@ const styles = stylex.create({
     marginTop: "1.25rem",
     fontSize: "1rem",
     lineHeight: "1.75rem",
-    "--tw-leading": "1.75rem",
     color: "#4f4940",
   },
   style28: {
@@ -259,7 +302,7 @@ const styles = stylex.create({
     textDecorationColor: "#d9cdb8",
     textUnderlineOffset: "4px",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -271,7 +314,6 @@ const styles = stylex.create({
     },
     alignItems: "center",
     justifyContent: "center",
-    WebkitUserSelect: "none",
     userSelect: "none",
     width: {
       default: null,
@@ -293,9 +335,7 @@ const styles = stylex.create({
     paddingRight: ".75rem",
     paddingLeft: "1rem",
     textAlign: "left",
-    "--tw-shadow": "0 3px 10px #1816130a",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 3px 10px var(--tw-shadow-color, #1816130a)",
+    boxShadow: "0 3px 10px #1816130a",
   },
   style32: {
     color: "#44403c",
@@ -308,8 +348,7 @@ const styles = stylex.create({
   style34: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#292524",
   },
   style35: {
@@ -324,21 +363,23 @@ const styles = stylex.create({
   style37: {
     display: "flex",
   },
+  overlappingAvatar: {
+    marginLeft: "-.625rem",
+  },
   style38: {
     display: "flex",
     height: "1.75rem",
     width: "1.75rem",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "2px",
     borderColor: "#fff",
     backgroundColor: "#eadfce",
     fontSize: ".75rem",
     lineHeight: "1rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#756b5d",
     cornerShape: "round",
   },
@@ -346,7 +387,7 @@ const styles = stylex.create({
     marginLeft: "auto",
     height: ".625rem",
     width: ".625rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#10b981",
     cornerShape: "round",
   },
@@ -355,7 +396,7 @@ const styles = stylex.create({
     height: "2.75rem",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
       default: "#181613",
       ":hover": "#4f4940",
@@ -363,16 +404,15 @@ const styles = stylex.create({
     paddingInline: "1.5rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
     transitionProperty: "all",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     scale: {
       default: null,
-      ":hover": "1.02",
-      ":active": ".98",
+      ":hover": 1.02,
+      ":active": 0.98,
     },
   },
   pillarRow: {
@@ -541,16 +581,10 @@ function EnterprisePage() {
           <section {...stylex.props(styles.style18)}>
             <div {...stylex.props(styles.style19)} aria-hidden="true">
               <span {...stylex.props(styles.style20)}>
-                <PartnerHandSvg
-                  sleeve="#181613"
-                  {...stylex.props(styles.style21)}
-                />
+                <PartnerHandSvg sleeve="#181613" sx={styles.style21} />
               </span>
               <span {...stylex.props(styles.style22)}>
-                <PartnerHandSvg
-                  sleeve="#eadfce"
-                  {...stylex.props(styles.style23)}
-                />
+                <PartnerHandSvg sleeve="#eadfce" sx={styles.style23} />
               </span>
             </div>
             <h2 {...stylex.props(styles.style24)}>Built with early partners</h2>
@@ -584,16 +618,15 @@ function EnterprisePage() {
 }
 function PartnerHandSvg({
   sleeve,
-  className,
+  sx,
 }: {
   sleeve: string;
-  className?: string;
-}) {
+} & StyleXProps) {
   return (
     <svg
       viewBox="0 0 128 60"
       fill="none"
-      className={className}
+      {...stylex.props(sx)}
       aria-hidden="true"
     >
       <path
@@ -658,8 +691,14 @@ function WorkspaceAdminVisual() {
     <div {...stylex.props(styles.style30)}>
       <div {...stylex.props(styles.style31)}>
         <div {...stylex.props(styles.style37)} aria-hidden="true">
-          {["S", "B", "A"].map((initial) => (
-            <span key={initial} {...stylex.props(styles.style38)}>
+          {["S", "B", "A"].map((initial, index) => (
+            <span
+              key={initial}
+              {...stylex.props(
+                styles.style38,
+                index > 0 && styles.overlappingAvatar,
+              )}
+            >
               {initial}
             </span>
           ))}

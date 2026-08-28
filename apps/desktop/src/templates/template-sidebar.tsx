@@ -335,8 +335,6 @@ export function TemplatesSidebarContent({
     });
   }, [effectiveSelectedMineId, effectiveSelectedWebIndex]);
 
-  const scrollProps = stylex.props(styles.scroller);
-
   return (
     <div {...stylex.props(styles.root)}>
       <div>
@@ -344,11 +342,7 @@ export function TemplatesSidebarContent({
           {userTemplates.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  sx={styles.headerButton}
-                >
+                <Button size="icon" variant="ghost" sx={styles.headerButton}>
                   <ArrowsDownUp size={16} />
                 </Button>
               </DropdownMenuTrigger>
@@ -407,17 +401,10 @@ export function TemplatesSidebarContent({
         </div>
       </div>
 
-      <div
-        ref={scrollContainerRef}
-        {...scrollProps}
-        className={`scrollbar-hide ${scrollProps.className ?? ""}`}
-      >
+      <div ref={scrollContainerRef} {...stylex.props(styles.scroller)}>
         {isEmpty ? (
           <div {...stylex.props(styles.emptyState)}>
-            <BookOpenText
-              size={32}
-              {...stylex.props(styles.emptyIcon)}
-            />
+            <BookOpenText size={32} {...stylex.props(styles.emptyIcon)} />
             <p {...stylex.props(styles.emptyText)}>
               {search ? "No templates found" : "No templates yet"}
             </p>
@@ -505,10 +492,7 @@ export function TemplatesSidebarContent({
               <div {...stylex.props(styles.listSection)}>
                 <div {...stylex.props(styles.skeletonList)}>
                   {[0, 1, 2, 3].map((index) => (
-                    <div
-                      key={index}
-                      {...stylex.props(styles.skeleton)}
-                    >
+                    <div key={index} {...stylex.props(styles.skeleton)}>
                       <div {...stylex.props(styles.skeletonTitle)} />
                       <div {...stylex.props(styles.skeletonDescription)} />
                     </div>
@@ -664,7 +648,7 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   itemIdentity: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   itemTitle: {
@@ -701,8 +685,13 @@ const styles = stylex.create({
     width: "100%",
   },
   scroller: {
-    flex: 1,
+    display: {
+      default: null,
+      "::-webkit-scrollbar": "none",
+    },
+    flex: "1",
     overflowY: "auto",
+    scrollbarWidth: "none",
   },
   searchContainer: {
     paddingBottom: "0.5rem",
@@ -739,7 +728,7 @@ const styles = stylex.create({
       fontSize: "0.875rem",
     },
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,

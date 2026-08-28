@@ -1295,13 +1295,13 @@ const styles = stylex.create({
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
   },
   modelControl: {
-    flex: 3,
+    flex: "3",
     minWidth: 0,
   },
   modelItemContent: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.75rem",
     justifyContent: "space-between",
     minWidth: 0,
@@ -1310,7 +1310,7 @@ const styles = stylex.create({
     paddingRight: "5rem",
   },
   modelLabel: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   modelMetadata: {
@@ -1363,7 +1363,7 @@ const styles = stylex.create({
     width: "0.75rem",
   },
   providerControl: {
-    flex: 2,
+    flex: "2",
     minWidth: 0,
   },
   providerIdentity: {
@@ -1418,7 +1418,7 @@ const styles = stylex.create({
   },
   unavailableContent: {
     color: colors.mutedForeground,
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   unavailableModel: {
@@ -1437,7 +1437,9 @@ const styles = stylex.create({
     fontSize: "0.875rem",
     justifyContent: "space-between",
     lineHeight: "1.25rem",
-    outline: "2px solid transparent",
+    outlineWidth: "2px",
+    outlineStyle: "solid",
+    outlineColor: "transparent",
     outlineOffset: "2px",
     paddingBlock: "0.375rem",
     position: "relative",

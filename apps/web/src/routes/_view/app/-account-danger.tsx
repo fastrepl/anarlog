@@ -3,6 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { radii } from "@anlg/design-system/tokens.stylex";
+
 import { deleteAccount } from "@/functions/billing";
 import { captureOperationalError } from "@/lib/error-reporting";
 
@@ -11,7 +13,7 @@ const styles = stylex.create({
   style1: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#7f1d1d",
   },
   style2: {
@@ -21,7 +23,10 @@ const styles = stylex.create({
     color: "#7f1d1d",
   },
   style3: {
-    marginTop: "1rem",
+    marginTop: {
+      default: "1rem",
+      ":is(*) > :not(:first-child)": ".75rem",
+    },
   },
   style4: {
     fontSize: ".875rem",
@@ -47,7 +52,7 @@ const styles = stylex.create({
     },
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
       default: "#b91c1c",
       ":hover": "#991b1b",
@@ -55,14 +60,14 @@ const styles = stylex.create({
     paddingInline: "1rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
     transitionProperty: "color, background-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     opacity: {
       default: null,
-      ":disabled": ".5",
+      ":disabled": 0.5,
     },
   },
   dangerCard: {

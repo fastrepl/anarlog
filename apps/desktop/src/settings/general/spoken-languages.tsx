@@ -3,7 +3,7 @@ import { MagnifyingGlass, X } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 
-import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { colors } from "@anlg/design-system/tokens.stylex";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 
@@ -271,7 +271,7 @@ const styles = stylex.create({
       color: colors.mutedForeground,
     },
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: "120px",
@@ -322,7 +322,8 @@ const styles = stylex.create({
     left: 0,
     marginTop: "0.25rem",
     maxHeight: "15rem",
-    overflow: "hidden auto",
+    overflowX: "hidden",
+    overflowY: "auto",
     position: "absolute",
     right: 0,
     top: "100%",

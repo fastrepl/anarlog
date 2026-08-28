@@ -11,7 +11,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TooltipProvider } from "@anlg/ui/components/ui/tooltip";
 
-import { TitleInput } from "./title-input";
+import { TitleInput, titleInputStyles } from "./title-input";
+
+import { expectNotStyle, expectStyle } from "~/session/stylex-test";
 
 const hoisted = vi.hoisted(() => ({
   clearLiveTitle: vi.fn(),
@@ -248,12 +250,10 @@ describe("TitleInput", () => {
     renderTitleInput();
 
     const input = screen.getByPlaceholderText("Untitled");
-    expect(input.parentElement?.className).toContain("relative");
-    expect(input.parentElement?.className).toContain("max-w-full");
-    expect(input.parentElement?.className).toContain("text-xl");
-    expect(input.parentElement?.className).toContain("font-semibold");
-    expect(input.parentElement?.classList.contains("w-full")).toBe(false);
-    expect(input.className).toContain("text-left");
+    expectStyle(input.parentElement, titleInputStyles.shell);
+    expectStyle(input.parentElement, titleInputStyles.titleText);
+    expectStyle(input, titleInputStyles.input);
+    expectStyle(input, titleInputStyles.titleText);
     expect(
       screen.queryByRole("button", { name: "Regenerate title" }),
     ).toBeNull();
@@ -275,16 +275,10 @@ describe("TitleInput", () => {
 
     const input = screen.getByPlaceholderText("Untitled");
 
-    expect(input.parentElement?.className).toContain("text-sm");
-    expect(input.parentElement?.className).toContain("leading-5");
-    expect(input.parentElement?.className).not.toContain("font-mono");
-    expect(input.className).toContain("text-sm");
-    expect(input.className).toContain("leading-5");
-    expect(input.className).toContain("appearance-none");
-    expect(input.className).toContain("p-0");
-    expect(input.className).toContain("truncate");
-    expect(input.className).toContain("dark:text-white");
-    expect(input.className).not.toContain("font-mono");
+    expectStyle(input.parentElement, titleInputStyles.breadcrumbText);
+    expectStyle(input, titleInputStyles.breadcrumbInput);
+    expectStyle(input, titleInputStyles.breadcrumbText);
+    expectStyle(input, titleInputStyles.breadcrumbInputTruncated);
   });
 
   it("keeps focused breadcrumb titles horizontally scrollable", () => {
@@ -293,9 +287,8 @@ describe("TitleInput", () => {
     const input = screen.getByPlaceholderText("Untitled");
     fireEvent.focus(input);
 
-    expect(input.className).not.toContain("truncate");
-    expect(input.className).toContain("overflow-x-auto");
-    expect(input.className).toContain("whitespace-nowrap");
+    expectStyle(input, titleInputStyles.breadcrumbInputFocused);
+    expectNotStyle(input, titleInputStyles.breadcrumbInputTruncated);
   });
 
   it("uses the flexible title layout for whitespace-only titles", () => {
@@ -304,7 +297,7 @@ describe("TitleInput", () => {
     renderTitleInput();
 
     const input = screen.getByPlaceholderText("Untitled");
-    expect(input.className).toContain("w-full");
+    expectStyle(input, titleInputStyles.input);
     expect(input.parentElement?.style.width).toBe("calc(10ch + 2px)");
     expect(
       screen.queryByRole("button", { name: "Regenerate title" }),
@@ -331,14 +324,12 @@ describe("TitleInput", () => {
 
     const hoverTitle = screen.getByText(title);
     const overlay = hoverTitle.parentElement;
-    expect(input.className).toContain("text-transparent");
+    expectStyle(input, titleInputStyles.concealedInput);
     expect(input.parentElement?.style.maskImage).toBe(
       "linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%)",
     );
-    expect(overlay?.className).toContain("justify-start");
-    expect(hoverTitle.className).toContain(
-      "group-hover/title-input:animate-title-hover-scroll",
-    );
+    expectStyle(overlay, titleInputStyles.hoverOverlay);
+    expectStyle(hoverTitle, titleInputStyles.hoverTitle);
     expect(
       hoverTitle.style.getPropertyValue("--title-hover-scroll-distance"),
     ).toBe("-260px");

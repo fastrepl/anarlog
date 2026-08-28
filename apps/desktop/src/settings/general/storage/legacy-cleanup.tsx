@@ -205,7 +205,12 @@ export function LegacyMigrationCleanupRow() {
           }}
         >
           <DialogContent
-            className="[&>button:last-child]:hidden"
+            ref={(node) => {
+              const closeButton = node?.querySelector<HTMLElement>(
+                ":scope > button:last-child",
+              );
+              if (closeButton) closeButton.hidden = true;
+            }}
             sx={styles.dialog}
           >
             <DialogHeader sx={styles.dialogHeader}>

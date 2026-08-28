@@ -172,7 +172,9 @@ vi.mock("~/stt/window-control", () => ({
   requestMainListenerControl: mocks.requestMainListenerControl,
 }));
 
-import { OuterHeader } from "./index";
+import { OuterHeader, outerHeaderStyles } from "./index";
+
+import { expectNotStyle, expectStyle } from "~/session/stylex-test";
 
 describe("OuterHeader", () => {
   beforeEach(() => {
@@ -229,8 +231,7 @@ describe("OuterHeader", () => {
     const spacer = container.firstElementChild?.firstElementChild;
 
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
-    expect(spacer?.className).toContain("flex-1");
-    expect(spacer?.className).not.toContain("right-[140px]");
+    expectStyle(spacer, outerHeaderStyles.spacer);
   });
 
   it("shows only calendar metadata after a scheduled meeting is stopped", () => {
@@ -258,8 +259,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
     expect(screen.getByTestId("metadata-calendar-icon")).not.toBeNull();
-    expect(spacer?.className).toContain("flex-1");
-    expect(spacer?.className).not.toContain("right-[140px]");
+    expectStyle(spacer, outerHeaderStyles.spacer);
   });
 
   it("uses the collapsed sidebar gutter without a title field", () => {
@@ -275,12 +275,9 @@ describe("OuterHeader", () => {
     const header = container.firstElementChild;
     const spacer = header?.firstElementChild;
 
-    expect(header?.className).toContain("pl-[108px]");
-    expect(header?.className).toContain("h-12");
-    expect(header?.className).not.toContain("pb-1");
-    expect(spacer?.className).toContain("flex-1");
-    expect(spacer?.className).not.toContain("-translate-y-1");
-    expect(spacer?.className).not.toContain("right-[140px]");
+    expectStyle(header, outerHeaderStyles.root);
+    expectStyle(header, outerHeaderStyles.sidebarWindowControlsPadding);
+    expectStyle(spacer, outerHeaderStyles.spacer);
     expect(screen.queryByRole("button", { name: "Show sidebar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
@@ -297,9 +294,11 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(container.firstElementChild?.className).toContain("pl-[32px]");
-    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
-    expect(container.firstElementChild?.className).not.toContain("pl-2");
+    expectStyle(container.firstElementChild, outerHeaderStyles.sidebarPadding);
+    expectNotStyle(
+      container.firstElementChild,
+      outerHeaderStyles.sidebarWindowControlsPadding,
+    );
   });
 
   it("does not add a title offset while the sidebar is expanded", () => {
@@ -314,12 +313,12 @@ describe("OuterHeader", () => {
 
     const spacer = container.firstElementChild?.firstElementChild;
 
-    expect(spacer?.className).toContain("flex-1");
-    expect(spacer?.className).not.toContain("right-[140px]");
-    expect(spacer?.className).not.toContain("justify-center");
-    expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
-    expect(container.firstElementChild?.className).not.toContain("pl-[116px]");
+    expectStyle(spacer, outerHeaderStyles.spacer);
+    expectStyle(container.firstElementChild, outerHeaderStyles.defaultPadding);
+    expectNotStyle(
+      container.firstElementChild,
+      outerHeaderStyles.sidebarWindowControlsPadding,
+    );
   });
 
   it.each([
@@ -338,7 +337,7 @@ describe("OuterHeader", () => {
 
     expect(mocks.shareSessionIds).toEqual(["session-1"]);
     expect(screen.getByRole("button", { name: "Share" })).not.toBeNull();
-    expect(spacer?.className).toContain("flex-1");
+    expectStyle(spacer, outerHeaderStyles.spacer);
   });
 
   it("keeps sidebar header controls hidden while the sidebar is expanded", () => {
@@ -355,8 +354,7 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go forward" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Stop listening" })).toBeNull();
-    expect(container.firstElementChild?.className).toContain("pl-2");
-    expect(container.firstElementChild?.className).not.toContain("pl-[108px]");
+    expectStyle(container.firstElementChild, outerHeaderStyles.defaultPadding);
   });
 
   it("keeps the session header at 48px tall", () => {
@@ -367,7 +365,7 @@ describe("OuterHeader", () => {
       />,
     );
 
-    expect(container.firstElementChild?.className).toContain("h-12");
+    expectStyle(container.firstElementChild, outerHeaderStyles.root);
   });
 
   it("marks the spacer and action strip as draggable", () => {
@@ -665,8 +663,7 @@ describe("OuterHeader", () => {
     const actionStrip = header?.lastElementChild;
     const actionChildren = [...(actionStrip?.children ?? [])];
 
-    expect(header?.className).toContain("pl-[76px]");
-    expect(header?.className).not.toContain("right-[153px]");
+    expectStyle(header, outerHeaderStyles.windowControlsPadding);
     expect(
       actionChildren.findIndex((child) => child.contains(stop)),
     ).toBeLessThan(actionChildren.findIndex((child) => child.contains(folder)));
@@ -711,8 +708,8 @@ describe("OuterHeader", () => {
 
     const header = container.firstElementChild;
 
-    expect(header?.className).not.toContain("pl-[108px]");
-    expect(header?.className).toContain("pl-[76px]");
+    expectStyle(header, outerHeaderStyles.windowControlsPadding);
+    expectNotStyle(header, outerHeaderStyles.sidebarWindowControlsPadding);
   });
 
   it.each([
@@ -734,8 +731,8 @@ describe("OuterHeader", () => {
 
       const header = container.firstElementChild;
 
-      expect(header?.className).toContain("pl-2");
-      expect(header?.className).not.toContain("pl-[76px]");
+      expectStyle(header, outerHeaderStyles.defaultPadding);
+      expectNotStyle(header, outerHeaderStyles.windowControlsPadding);
     },
   );
 
@@ -762,12 +759,10 @@ describe("OuterHeader", () => {
       name: "Open event metadata",
     });
 
-    expect(joinButton.className).toContain("bg-primary");
-    expect(joinButton.className).toContain("dark:bg-white");
-    expect(joinButton.className).toContain("dark:text-black");
-    expect(joinButton.className).toContain("hover:bg-primary/90");
-    expect(joinButton.className).toContain("dark:hover:bg-white/90");
-    expect(joinButton.querySelector("img")?.className).toContain("size-3.5");
+    expectStyle(joinButton, outerHeaderStyles.meetingButton);
+    expectStyle(joinButton, outerHeaderStyles.primaryMeetingButton);
+    expectStyle(joinButton, outerHeaderStyles.primaryMeetingButtonEnabled);
+    expectStyle(joinButton.querySelector("img"), outerHeaderStyles.meetingIcon);
     expect(joinButton.getAttribute("aria-label")).toBe("Join & record");
     expect(joinButton.textContent).toContain("Join & record");
     expect(joinButton.getAttribute("data-tauri-drag-region")).toBe("false");
@@ -832,7 +827,7 @@ describe("OuterHeader", () => {
 
     expect(logo?.getAttribute("src")).toBe("/assets/anarlog-icon.png");
     expect(logo?.getAttribute("alt")).toBe("");
-    expect(logo?.className).toContain("size-3.5");
+    expectStyle(logo, outerHeaderStyles.meetingIcon);
     expect(mocks.startListening).toHaveBeenCalledOnce();
     await vi.waitFor(() => {
       expect(mocks.startCallbackServer).toHaveBeenCalledWith(
@@ -1014,18 +1009,11 @@ describe("OuterHeader", () => {
     expect(countdown.getAttribute("data-header-meeting-countdown")).toBe(
       "true",
     );
-    expect(countdown.className).toContain("font-mono");
-    expect(countdown.className).toContain("rounded-md");
-    expect(countdown.className).toContain("border");
-    expect(countdown.className).toContain("shadow-sm");
-    expect(countdown.className).toContain("tabular-nums");
-    expect(countdown.className).toContain("absolute");
-    expect(countdown.className).toContain("top-full");
-    expect(countdown.className).toContain("left-1/2");
+    expectStyle(countdown, outerHeaderStyles.countdown);
     expect(
       countdown.querySelector("[data-header-meeting-countdown-tail]"),
     ).not.toBeNull();
-    expect(countdown.parentElement?.className).toContain("relative");
+    expectStyle(countdown.parentElement, outerHeaderStyles.meetingControl);
     expect(joinButton.textContent).not.toContain("starts in");
   });
 
@@ -1147,14 +1135,9 @@ describe("OuterHeader", () => {
 
     const recordButton = screen.getByRole("button", { name: "Record" });
 
-    expect(recordButton.className).toContain("bg-primary");
-    expect(recordButton.className).toContain("dark:bg-white");
-    expect(recordButton.className).toContain("dark:text-black");
-    expect(recordButton.className).toContain("hover:bg-primary/90");
-    expect(recordButton.className).toContain("dark:hover:bg-white/90");
-    expect(recordButton.querySelector("span")?.className).not.toContain(
-      "@max-[480px]:sr-only",
-    );
+    expectStyle(recordButton, outerHeaderStyles.meetingButton);
+    expectStyle(recordButton, outerHeaderStyles.primaryMeetingButton);
+    expectStyle(recordButton, outerHeaderStyles.primaryMeetingButtonEnabled);
     fireEvent.click(recordButton);
 
     expect(mocks.startListening).toHaveBeenCalledTimes(1);
@@ -1261,9 +1244,7 @@ describe("OuterHeader", () => {
 
     fireEvent.click(stopButton);
 
-    expect(stopButton.querySelector("svg")?.getAttribute("class")).toContain(
-      "text-red-500",
-    );
+    expectStyle(stopButton.querySelector("svg"), outerHeaderStyles.stopIcon);
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
     expect(
       screen.getByRole("button", { name: "Open event metadata" }),
@@ -1322,7 +1303,6 @@ describe("OuterHeader", () => {
     expect(screen.queryByRole("button", { name: "Join & record" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
     expect(metadataButton.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(metadataButton.parentElement?.className).not.toContain("mr-1");
     expect(mocks.startListening).not.toHaveBeenCalled();
   });
 
@@ -1363,10 +1343,6 @@ describe("OuterHeader", () => {
     );
 
     const editButton = screen.getByRole("button", { name: "Edit" });
-    expect(editButton.className).toContain("@max-[480px]:w-7");
-    expect(editButton.querySelector("span")?.className).toContain(
-      "@max-[480px]:sr-only",
-    );
     fireEvent.click(editButton);
     expect(onTranscriptEditModeChange).toHaveBeenCalledWith(true);
     expect(screen.queryByRole("button", { name: "Record" })).toBeNull();

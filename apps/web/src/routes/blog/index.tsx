@@ -2,6 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import allArticleSummaries from "article-summaries";
 
+import { fonts } from "@anlg/design-system/tokens.stylex";
+
 import { SiteFooter } from "@/components/site-footer";
 import { formatBlogDate } from "@/lib/blog-date";
 import { getCanonicalUrl } from "@/lib/seo";
@@ -42,17 +44,17 @@ const styles = stylex.create({
     paddingBottom: "4rem",
   },
   style6: {
+    fontFamily: fonts.hand,
     fontSize: {
       default: "3.75rem",
       "@media (width >= 48rem)": "6rem",
     },
     lineHeight: {
-      default: ".98",
-      "@media (width >= 48rem)": "1",
+      default: 0.98,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": ".98",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
     color: "#000",
   },
@@ -60,7 +62,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     fontSize: "1.25rem",
     lineHeight: "2.25rem",
-    "--tw-leading": "2.25rem",
     color: "#363029",
   },
   style8: {
@@ -79,11 +80,11 @@ const styles = stylex.create({
     paddingTop: "1.5rem",
   },
   style11: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1.05",
-    "--tw-leading": "1.05",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1.05,
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
     color: {
       default: "#756b5d",
@@ -91,11 +92,10 @@ const styles = stylex.create({
     },
   },
   style12: {
-    WebkitLineClamp: "2",
+    WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     display: "-webkit-box",
     overflow: "hidden",
-    "--tw-leading": "1.75rem",
     lineHeight: "1.75rem",
     color: "#4f4940",
   },

@@ -509,7 +509,7 @@ const styles = stylex.create({
       color: colors.mutedForeground,
     },
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     minWidth: "120px",
     outline: "none",

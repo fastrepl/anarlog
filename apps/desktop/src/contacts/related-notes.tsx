@@ -224,7 +224,7 @@ const styles = stylex.create({
     lineHeight: "1rem",
   },
   noteTitle: {
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,
@@ -267,7 +267,7 @@ const styles = stylex.create({
       color: colors.mutedForeground,
     },
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,

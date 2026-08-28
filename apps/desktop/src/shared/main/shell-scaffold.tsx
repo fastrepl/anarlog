@@ -84,3 +84,5 @@ const styles = stylex.create({
     [mainSurface.radiusBottomRight]: "0px",
   },
 });
+
+export { styles as mainShellScaffoldStyles };

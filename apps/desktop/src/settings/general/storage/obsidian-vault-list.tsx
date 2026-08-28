@@ -70,7 +70,7 @@ const styles = stylex.create({
     gap: "0.375rem",
   },
   path: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",

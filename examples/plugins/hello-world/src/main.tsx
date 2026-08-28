@@ -4,6 +4,75 @@ if (!window.__char_react || !window.__char_plugins) {
 
 const React = window.__char_react;
 
+const viewStyles = {
+  root: {
+    alignItems: "center",
+    backgroundColor: "#fafafa",
+    display: "flex",
+    height: "100%",
+    justifyContent: "center",
+  },
+  card: {
+    backgroundColor: "#ffffff",
+    border: "1px solid #e5e5e5",
+    borderRadius: "0.75rem",
+    boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+    boxSizing: "border-box",
+    maxWidth: "28rem",
+    padding: "1.5rem",
+    width: "100%",
+  },
+  title: {
+    color: "#171717",
+    fontSize: "1.125rem",
+    fontWeight: 600,
+    lineHeight: "1.75rem",
+    margin: 0,
+  },
+  description: {
+    color: "#525252",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    margin: "0.5rem 0 0",
+  },
+  lifecycle: {
+    color: "#404040",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    margin: "1rem 0 0",
+  },
+  lifecycleStatus: {
+    fontWeight: 500,
+  },
+  session: {
+    color: "#737373",
+    fontSize: "0.75rem",
+    lineHeight: "1rem",
+    margin: "0.25rem 0 0",
+  },
+  actions: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+    marginTop: "1rem",
+  },
+  button: {
+    backgroundColor: "transparent",
+    border: "1px solid #d4d4d4",
+    borderRadius: "0.375rem",
+    color: "#404040",
+    cursor: "pointer",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    padding: "0.375rem 0.75rem",
+  },
+  count: {
+    color: "#737373",
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+} satisfies Record<string, React.CSSProperties>;
+
 type LifecycleState = {
   status: string;
   sessionId: string | null;
@@ -49,31 +118,29 @@ function HelloWorldView() {
   }, []);
 
   return (
-    <div className="flex h-full items-center justify-center bg-neutral-50">
-      <div className="w-full max-w-md rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <h1 className="text-lg font-semibold text-neutral-900">
-          Hello from plugin
-        </h1>
-        <p className="mt-2 text-sm text-neutral-600">
+    <div style={viewStyles.root}>
+      <div style={viewStyles.card}>
+        <h1 style={viewStyles.title}>Hello from plugin</h1>
+        <p style={viewStyles.description}>
           This tab is rendered from <code>examples/plugins/hello-world</code>.
         </p>
-        <p className="mt-4 text-sm text-neutral-700">
+        <p style={viewStyles.lifecycle}>
           Listener lifecycle:{" "}
-          <span className="font-medium">{lifecycle.status}</span>
+          <span style={viewStyles.lifecycleStatus}>{lifecycle.status}</span>
         </p>
-        <p className="mt-1 text-xs text-neutral-500">
+        <p style={viewStyles.session}>
           Session: {lifecycle.sessionId ?? "none"} / Events seen:{" "}
           {lifecycle.eventCount}
         </p>
-        <div className="mt-4 flex items-center gap-3">
+        <div style={viewStyles.actions}>
           <button
-            className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700"
+            style={viewStyles.button}
             onClick={() => setCount((value) => value + 1)}
             type="button"
           >
             Increment
           </button>
-          <span className="text-sm text-neutral-500">Count: {count}</span>
+          <span style={viewStyles.count}>Count: {count}</span>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Streamdown } from "streamdown";
 
 import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { markdownComponents } from "@anlg/ui/components/markdown";
 
 import { extractMcpOutputText } from "~/chat/mcp/mcp-output-parser";
 
@@ -134,6 +135,8 @@ export function MarkdownPreview({ children }: { children: string }) {
       <div {...stylex.props(styles.markdownViewport)}>
         <Streamdown
           {...stylex.props(styles.markdown)}
+          components={markdownComponents}
+          controls={false}
           linkSafety={{ enabled: false }}
         >
           {children}

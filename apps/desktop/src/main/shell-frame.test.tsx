@@ -90,7 +90,7 @@ describe("ClassicMainShellFrame", () => {
       expect(titleBar.compareDocumentPosition(scaffold)).toBe(
         Node.DOCUMENT_POSITION_FOLLOWING,
       );
-      expect(titleBar.parentElement?.className).toContain("flex-col");
+      expect(titleBar.parentElement?.contains(scaffold)).toBe(true);
     },
   );
 

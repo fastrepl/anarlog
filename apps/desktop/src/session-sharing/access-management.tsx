@@ -485,7 +485,7 @@ const styles = stylex.create({
     width: "auto",
   },
   content: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   description: {

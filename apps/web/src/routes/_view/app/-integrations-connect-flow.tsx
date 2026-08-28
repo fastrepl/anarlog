@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { createSession } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
+import { fonts, media } from "@anlg/design-system/tokens.stylex";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
@@ -23,6 +24,11 @@ import {
 
 import { IntegrationButton, IntegrationPageLayout } from "./-integration-ui";
 import { getIntegrationDisplay, Route } from "./integration";
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
 const styles = stylex.create({
   style1: {
     display: "flex",
@@ -30,10 +36,10 @@ const styles = stylex.create({
     gap: ".75rem",
   },
   style2: {
-    fontFamily:
-      "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+    fontFamily: fonts.sans,
     fontSize: "1.875rem",
     lineHeight: "2.25rem",
+    letterSpacing: "-.025em",
     color: "#44403c",
   },
   style3: {
@@ -52,7 +58,6 @@ const styles = stylex.create({
     textAlign: "left",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#44403c",
   },
   style5: {
@@ -61,14 +66,20 @@ const styles = stylex.create({
   style6: {
     height: "1rem",
     width: "1rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: spin,
+      [media.reducedMotion]: "none",
+    },
     color: "#fff",
   },
   style7: {
-    opacity: ".25",
+    opacity: 0.25,
   },
   style8: {
-    opacity: ".75",
+    opacity: 0.75,
   },
   style9: {
     display: "flex",

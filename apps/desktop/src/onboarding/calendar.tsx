@@ -683,7 +683,7 @@ const styles = stylex.create({
   },
   providerActionContainer: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     minWidth: "14rem",
     order: 2,
   },
@@ -700,7 +700,7 @@ const styles = stylex.create({
   },
   providerError: {
     color: "rgb(220 38 38)",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: "14rem",
@@ -777,8 +777,8 @@ const styles = stylex.create({
     alignItems: "center",
     display: "flex",
     gap: "0.75rem",
-    gridColumnStart: 1,
-    gridRowStart: 1,
+    gridColumnStart: "1",
+    gridRowStart: "1",
     justifyContent: "center",
   },
   troubleshooting: {

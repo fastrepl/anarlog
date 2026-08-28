@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import {
   memo,
   useCallback,
@@ -6,9 +7,9 @@ import {
   useMemo,
   useRef,
 } from "react";
-import * as stylex from "@stylexjs/stylex";
 
 import type { RenderTranscriptRequest } from "@anlg/plugin-transcription";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { useSearch } from "../../search/context";
 import {
@@ -343,8 +344,9 @@ const SegmentsList = memo(
       <div
         ref={virtual.listRef}
         data-transcript-virtual-total={segments.length}
-        {...stylex.props(styles.list)}
-        style={{ height: virtual.totalHeight }}
+        {...mergeStyleXProps(styles.list, undefined, {
+          height: virtual.totalHeight,
+        })}
       >
         {virtual.virtualItems.map(({ index, key, top }) => {
           const segment = segments[index]!;

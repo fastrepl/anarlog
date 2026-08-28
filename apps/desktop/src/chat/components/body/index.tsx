@@ -125,10 +125,12 @@ const styles = stylex.create({
     position: "relative",
   },
   floatingRoot: {
-    flex: "1 1 auto",
+    flexGrow: "1",
+    flexShrink: "1",
+    flexBasis: "auto",
   },
   rightPanelRoot: {
-    flex: 1,
+    flex: "1",
   },
   scrollArea: {
     display: "flex",
@@ -137,11 +139,13 @@ const styles = stylex.create({
     overflowY: "auto",
   },
   floatingScrollArea: {
-    flex: "1 1 auto",
+    flexGrow: "1",
+    flexShrink: "1",
+    flexBasis: "auto",
     maxHeight: "min(36rem, 70vh)",
   },
   rightPanelScrollArea: {
-    flex: 1,
+    flex: "1",
   },
   content: {
     display: "flex",
@@ -152,12 +156,12 @@ const styles = stylex.create({
     paddingBlock: "0.75rem",
   },
   rightPanelContent: {
-    flex: 1,
+    flex: "1",
     minHeight: "100%",
     paddingBlock: "1.25rem",
   },
   spacer: {
-    flex: 1,
+    flex: "1",
   },
   goToRecent: {
     alignItems: "center",

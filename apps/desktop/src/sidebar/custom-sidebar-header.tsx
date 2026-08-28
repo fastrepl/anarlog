@@ -149,7 +149,7 @@ const styles = stylex.create({
   leading: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.25rem",
     minWidth: 0,
   },

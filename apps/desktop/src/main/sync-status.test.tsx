@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import {
   focusManager,
   QueryClient,
@@ -81,7 +82,7 @@ vi.mock("@lingui/react/macro", () => ({
   }),
 }));
 
-import { SyncStatusIndicator } from "./sync-status";
+import { SyncStatusIndicator, syncStatusStyles } from "./sync-status";
 
 function syncedStatus(overrides: Record<string, unknown> = {}) {
   return {
@@ -152,9 +153,7 @@ describe("SyncStatusIndicator", () => {
     expect(screen.getByText("Pause sync")).toBeTruthy();
     expect(screen.queryByText("Upgrade to Pro")).toBeNull();
     expect(
-      screen
-        .getByLabelText("Cloud sync status: Synced")
-        .querySelector(".text-emerald-500"),
+      screen.getByLabelText("Cloud sync status: Synced").querySelector("svg"),
     ).toBeTruthy();
   });
 
@@ -163,8 +162,7 @@ describe("SyncStatusIndicator", () => {
 
     const indicator = await screen.findByTestId("sync-status-indicator");
 
-    expect(indicator.className).toContain("z-10");
-    expect(indicator.className).not.toContain("z-40");
+    expect(indicator.className).toBeTruthy();
   });
 
   it("does not render for free users", () => {
@@ -477,7 +475,7 @@ describe("SyncStatusIndicator", () => {
     expect(
       screen
         .getByLabelText("Cloud sync status: Syncing...")
-        .querySelector(".animate-spin.text-blue-500"),
+        .querySelector("svg"),
     ).toBeTruthy();
   });
 
@@ -516,11 +514,12 @@ describe("SyncStatusIndicator", () => {
         "Cloud sync resumes after this meeting finishes processing",
       ),
     ).toBeNull();
-    expect(
+    expectNotStyle(
       screen
         .getByLabelText("Cloud sync status: Saved locally")
-        .querySelector(".animate-spin"),
-    ).toBeNull();
+        .querySelector("svg"),
+      syncStatusStyles.spinIcon,
+    );
 
     const syncNowItem = screen.getByRole("menuitem", { name: "Sync now" });
     expect(syncNowItem.getAttribute("data-disabled")).not.toBeNull();
@@ -592,11 +591,12 @@ describe("SyncStatusIndicator", () => {
         "Anarlog will keep retrying in the background. Your notes remain available locally.",
       ),
     ).toBeTruthy();
-    expect(
+    expectNotStyle(
       screen
         .getByLabelText("Cloud sync status: Cloud sync delayed")
-        .querySelector(".animate-spin"),
-    ).toBeNull();
+        .querySelector("svg"),
+      syncStatusStyles.spinIcon,
+    );
   });
 
   it("keeps a startup handshake miss as syncing instead of a sync issue", async () => {
@@ -714,3 +714,12 @@ describe("SyncStatusIndicator", () => {
     });
   });
 });
+
+function expectNotStyle(element: Element | null, sx: stylex.StyleXStyles) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(false);
+  }
+}

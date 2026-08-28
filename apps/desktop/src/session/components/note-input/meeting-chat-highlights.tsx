@@ -1,5 +1,7 @@
 import { t } from "@lingui/core/macro";
+import * as stylex from "@stylexjs/stylex";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 
 import {
@@ -18,13 +20,11 @@ export function MeetingChatHighlights({ sessionId }: { sessionId: string }) {
     <section
       aria-label={t`Meeting chat`}
       data-meeting-chat-highlights
-      className="border-border/70 bg-muted/30 mx-auto mt-4 mb-6 w-full max-w-3xl rounded-xl border px-3 py-2.5"
+      {...stylex.props(styles.root)}
       onClick={(event) => event.stopPropagation()}
     >
-      <h2 className="text-muted-foreground mb-2 text-xs font-medium">
-        {t`Meeting chat`}
-      </h2>
-      <div className="flex flex-col gap-2">
+      <h2 {...stylex.props(styles.heading)}>{t`Meeting chat`}</h2>
+      <div {...stylex.props(styles.rows)}>
         {records.map((record) => (
           <MeetingChatRow key={record.id} record={record} />
         ))}
@@ -46,12 +46,12 @@ function MeetingChatRow({ record }: { record: MeetingChatRecord }) {
     .join(" · ");
 
   return (
-    <div className="text-foreground text-sm leading-5">
-      <div className="text-muted-foreground text-xs">
+    <div {...stylex.props(styles.row)}>
+      <div {...stylex.props(styles.metadata)}>
         {platform}
         {metadata ? ` · ${metadata}` : null}
       </div>
-      <p className="whitespace-pre-wrap">
+      <p {...stylex.props(styles.text)}>
         <MeetingChatText record={record} />
       </p>
     </div>
@@ -66,7 +66,7 @@ function MeetingChatText({ record }: { record: MeetingChatRecord }) {
       <a
         key={`${segment.text}-${index}`}
         href={segment.link}
-        className="text-primary underline underline-offset-2"
+        {...stylex.props(styles.link)}
         onClick={(event) => {
           event.preventDefault();
           void openerCommands.openUrl(segment.link!, null);
@@ -106,3 +106,48 @@ function splitMeetingChatText(text: string, links: string[]) {
 
   return segments.length > 0 ? segments : [{ text }];
 }
+
+const styles = stylex.create({
+  heading: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    marginBottom: "0.5rem",
+  },
+  link: {
+    color: colors.primary,
+    textDecorationLine: "underline",
+    textUnderlineOffset: "2px",
+  },
+  metadata: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+  },
+  root: {
+    backgroundColor: `color-mix(in oklab, ${colors.muted} 30%, transparent)`,
+    borderColor: `color-mix(in oklab, ${colors.border} 70%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    marginBlockEnd: "1.5rem",
+    marginBlockStart: "1rem",
+    marginInline: "auto",
+    maxWidth: "48rem",
+    paddingBlock: "0.625rem",
+    paddingInline: "0.75rem",
+    width: "100%",
+  },
+  row: {
+    color: colors.foreground,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+  },
+  rows: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  text: {
+    whiteSpace: "pre-wrap",
+  },
+});

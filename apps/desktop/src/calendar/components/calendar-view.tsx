@@ -226,7 +226,6 @@ export function CalendarView() {
   }, [cols, days]);
 
   const compactContentWidth = `${(days.length / cols) * 100}%`;
-  const compactScrollProps = stylex.props(styles.compactScroll);
 
   return (
     <div ref={containerRef} {...stylex.props(styles.root)}>
@@ -302,8 +301,7 @@ export function CalendarView() {
       ) : (
         <div
           ref={compactScrollRef}
-          {...compactScrollProps}
-          className={`scrollbar-hide ${compactScrollProps.className ?? ""}`}
+          {...stylex.props(styles.compactScroll)}
           onScroll={handleCompactScroll}
         >
           <div
@@ -456,11 +454,16 @@ const styles = stylex.create({
     textAlign: "center",
   },
   compactScroll: {
-    flex: 1,
+    display: {
+      default: null,
+      "::-webkit-scrollbar": "none",
+    },
+    flex: "1",
     minHeight: 0,
     overflowX: "auto",
     overflowY: "hidden",
     overscrollBehaviorX: "contain",
+    scrollbarWidth: "none",
     scrollSnapType: "x mandatory",
   },
   header: {
@@ -482,7 +485,7 @@ const styles = stylex.create({
   },
   monthGrid: (columns: number) => ({
     display: "grid",
-    flex: 1,
+    flex: "1",
     gridAutoRows: "1fr",
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     overflow: "hidden",

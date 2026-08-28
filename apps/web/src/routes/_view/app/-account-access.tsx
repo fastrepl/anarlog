@@ -31,15 +31,13 @@ const styles = stylex.create({
   style2: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style3: {
     marginTop: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style4: {

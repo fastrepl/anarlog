@@ -10,11 +10,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
-import {
-  colors,
-  fonts,
-  radii,
-} from "@anlg/design-system/tokens.stylex";
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
   Dialog,

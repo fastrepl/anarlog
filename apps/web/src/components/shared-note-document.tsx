@@ -11,6 +11,8 @@ import {
   useState,
 } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 // The read surface that otherwise carries these styles is lazy-loaded, so the
 // static document would render unstyled during SSR and on the fallback paths.
 import "@anlg/editor/styles.css";
@@ -23,15 +25,19 @@ import {
   type SharedNoteNode,
 } from "@/lib/shared-notes";
 const styles = stylex.create({
-  style1: {},
+  style1: {
+    color: colors.foreground,
+  },
   style2: {
     marginTop: "2.5rem",
+    borderColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: "1px",
     paddingTop: "1.5rem",
   },
   style3: {
     marginBlock: "2rem",
+    borderColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: "1px",
   },
@@ -43,11 +49,14 @@ const styles = stylex.create({
     listStyleType: "decimal",
     paddingLeft: "1.5rem",
   },
-  style6: {},
-  style7: {},
+  orderedListStart: (start: number) => ({
+    counterReset: `ol-counter ${start - 1}`,
+  }),
   style8: {
-    minWidth: "0",
-    flex: "1",
+    minWidth: 0,
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
   },
   style9: {
     marginBlock: "1.5rem",
@@ -56,6 +65,7 @@ const styles = stylex.create({
   style10: {
     width: "100%",
     borderCollapse: "collapse",
+    borderColor: colors.border,
     borderStyle: "solid",
     borderWidth: "1px",
     textAlign: "left",
@@ -63,6 +73,7 @@ const styles = stylex.create({
     lineHeight: "1.25rem",
   },
   style11: {
+    borderColor: colors.border,
     borderStyle: "solid",
     borderWidth: "1px",
     paddingInline: ".75rem",
@@ -70,16 +81,19 @@ const styles = stylex.create({
     verticalAlign: "top",
   },
   style12: {
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderStyle: "solid",
     borderWidth: "1px",
     paddingInline: ".75rem",
     paddingBlock: ".5rem",
     verticalAlign: "top",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style13: {
     marginBlock: "1rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
@@ -87,6 +101,7 @@ const styles = stylex.create({
     paddingBlock: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
+    color: colors.mutedForeground,
   },
   style14: {
     marginBlock: "1.5rem",
@@ -94,6 +109,7 @@ const styles = stylex.create({
   style15: {
     maxHeight: "70vh",
     maxWidth: "100%",
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
@@ -106,6 +122,7 @@ const styles = stylex.create({
     marginBottom: ".5rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
+    color: colors.mutedForeground,
   },
   style18: {
     width: "100%",
@@ -116,25 +133,28 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: "1rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
     paddingInline: "1rem",
     paddingBlock: ".75rem",
+    color: colors.foreground,
     textDecorationLine: "none",
   },
   style20: {
-    minWidth: "0",
+    minWidth: 0,
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     overflow: "hidden",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style21: {
-    flexShrink: "0",
+    flexShrink: 0,
     fontSize: ".75rem",
     lineHeight: "1rem",
+    color: colors.mutedForeground,
   },
 });
 export type SharedAttachmentResolver = (
@@ -181,7 +201,12 @@ export function SharedNoteDocument({
   }, [attachments, document, excludedAttachmentIds]);
   return (
     <AttachmentContext.Provider value={context}>
-      <div {...stylex.props(styles.style1)}>
+      <div
+        {...mergeStyleXProps(
+          styles.style1,
+          "ProseMirror prosemirror-editor note-typography session-note-editor shared-note-document",
+        )}
+      >
         {renderChildren(document.content, "document")}
         {unreferencedAttachments.length > 0 ? (
           <section {...stylex.props(styles.style2)}>
@@ -262,15 +287,11 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
       return (
         <ol
           key={key}
-          {...stylex.props(styles.style5)}
+          {...stylex.props(
+            styles.style5,
+            start !== 1 && styles.orderedListStart(start),
+          )}
           start={start}
-          style={
-            start === 1
-              ? undefined
-              : {
-                  counterReset: `ol-counter ${start - 1}`,
-                }
-          }
         >
           {children}
         </ol>
@@ -289,13 +310,13 @@ function renderNode(node: SharedNoteNode, key: string): ReactNode {
         node.attrs?.checked === true || node.attrs?.status === "done";
       return (
         <li key={key} data-checked={checked ? "true" : "false"}>
-          <label {...stylex.props(styles.style6)}>
+          <label className="task-checkbox-label">
             <input
               type="checkbox"
               checked={checked}
               disabled
               aria-label={checked ? "Completed task" : "Open task"}
-              {...stylex.props(styles.style7)}
+              className="task-checkbox"
             />
           </label>
           <div {...stylex.props(styles.style8)}>{children}</div>

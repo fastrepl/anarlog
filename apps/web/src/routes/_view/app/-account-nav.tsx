@@ -1,5 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
+import { radii } from "@anlg/design-system/tokens.stylex";
+
 import { ACCOUNT_TABS, type AccountTabId } from "@/lib/account-tabs";
 const styles = stylex.create({
   tabList: {
@@ -8,7 +10,7 @@ const styles = stylex.create({
     overflowX: "auto",
   },
   tab: {
-    borderRadius: "9999px",
+    borderRadius: radii.full,
     flexShrink: 0,
     fontSize: ".875rem",
     lineHeight: "1.25rem",

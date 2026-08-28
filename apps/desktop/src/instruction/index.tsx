@@ -388,7 +388,7 @@ const styles = stylex.create({
   main: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     justifyContent: "center",
     padding: "1.5rem",
     position: "relative",

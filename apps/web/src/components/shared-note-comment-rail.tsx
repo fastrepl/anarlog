@@ -27,18 +27,21 @@ const styles = stylex.create({
   },
   style2: {
     position: "absolute",
-    insetInline: "0",
+    insetInline: 0,
     transitionProperty: "top",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".2s",
   },
+  cardTop: (top: number) => ({
+    top,
+  }),
   style3: {
     padding: ".875rem",
   },
   style4: {
     marginTop: ".75rem",
     fontSize: ".875rem",
-    lineHeight: "1.5",
+    lineHeight: 1.5,
     whiteSpace: "pre-wrap",
     color: colors.primary,
   },
@@ -56,15 +59,17 @@ const styles = stylex.create({
     },
     borderBottomWidth: {
       default: "1px",
-      ":last-child": "0",
+      ":last-child": 0,
     },
     borderColor: colors.muted,
     paddingInline: ".875rem",
     paddingBlock: ".75rem",
   },
   style7: {
-    minWidth: "0",
-    flex: "1",
+    minWidth: 0,
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
   },
   style8: {
     display: "flex",
@@ -73,22 +78,22 @@ const styles = stylex.create({
     gap: ".5rem",
   },
   style9: {
-    minWidth: "0",
+    minWidth: 0,
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     overflow: "hidden",
     fontSize: "11px",
-    fontWeight: "600",
+    fontWeight: 600,
     color: colors.cardForeground,
   },
   style10: {
-    fontWeight: "400",
+    fontWeight: 400,
     color: colors.mutedForeground,
   },
   style11: {
     marginTop: ".25rem",
     fontSize: ".75rem",
-    lineHeight: "1.45",
+    lineHeight: 1.45,
     whiteSpace: "pre-wrap",
     color: colors.cardForeground,
   },
@@ -100,23 +105,23 @@ const styles = stylex.create({
   },
   style13: {
     display: "flex",
-    minWidth: "0",
+    minWidth: 0,
     alignItems: "center",
     gap: ".5rem",
   },
   style14: {
-    minWidth: "0",
+    minWidth: 0,
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     overflow: "hidden",
     fontSize: ".75rem",
     lineHeight: "1rem",
-    fontWeight: "600",
+    fontWeight: 600,
     color: colors.primary,
   },
   style15: {
     position: "relative",
-    flexShrink: "0",
+    flexShrink: 0,
   },
   style16: {
     display: "grid",
@@ -160,8 +165,8 @@ const styles = stylex.create({
   style19: {
     position: "absolute",
     top: "1.75rem",
-    right: "0",
-    zIndex: "20",
+    right: 0,
+    zIndex: 20,
     width: "7rem",
     borderRadius: radii.lg,
     borderStyle: "solid",
@@ -214,8 +219,10 @@ const styles = stylex.create({
   style23: {
     maxHeight: "5rem",
     minHeight: "1.5rem",
-    minWidth: "0",
-    flex: "1",
+    minWidth: 0,
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
     resize: "none",
     backgroundColor: "transparent",
     paddingBlock: ".125rem",
@@ -238,7 +245,7 @@ const styles = stylex.create({
     display: "grid",
     width: "1.5rem",
     height: "1.5rem",
-    flexShrink: "0",
+    flexShrink: 0,
     placeItems: "center",
     borderRadius: radii.full,
     backgroundColor: {
@@ -265,8 +272,7 @@ const styles = stylex.create({
     borderRadius: "22px",
     borderStyle: "solid",
     borderWidth: "1px",
-    boxShadow:
-      `0 7px 22px color-mix(in srgb, ${colors.foreground} 8%, transparent)`,
+    boxShadow: `0 7px 22px color-mix(in srgb, ${colors.foreground} 8%, transparent)`,
     overflow: "hidden",
     textAlign: "left",
     transitionDuration: "150ms",
@@ -396,10 +402,10 @@ export function SharedNoteCommentRail({
       {composer ? (
         <div
           ref={measureRef(DRAFT_COMMENT_ID)}
-          {...stylex.props(styles.style2)}
-          style={{
-            top: topById.get(DRAFT_COMMENT_ID) ?? composer.top,
-          }}
+          {...stylex.props(
+            styles.style2,
+            styles.cardTop(topById.get(DRAFT_COMMENT_ID) ?? composer.top),
+          )}
         >
           {composerNode}
         </div>
@@ -410,10 +416,10 @@ export function SharedNoteCommentRail({
           <div
             key={thread.id}
             ref={measureRef(thread.id)}
-            {...stylex.props(styles.style2)}
-            style={{
-              top: topById.get(thread.id) ?? 0,
-            }}
+            {...stylex.props(
+              styles.style2,
+              styles.cardTop(topById.get(thread.id) ?? 0),
+            )}
           >
             <SharedNoteCommentCard
               active={active}

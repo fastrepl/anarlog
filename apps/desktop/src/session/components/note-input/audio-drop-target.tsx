@@ -2,15 +2,8 @@ import { Waveform } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import type { HTMLAttributes, ReactNode } from "react";
 
-import {
-  colors,
-  radii,
-  shadows,
-} from "@anlg/design-system/tokens.stylex";
-import {
-  mergeStyleXProps,
-  type StyleXProps,
-} from "@anlg/ui/lib/stylex";
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 import { AUDIO_EXTENSIONS } from "~/stt/useUploadFile";
 
@@ -123,3 +116,5 @@ const styles = stylex.create({
     fontWeight: 500,
   },
 });
+
+export { styles as audioDropTargetStyles };

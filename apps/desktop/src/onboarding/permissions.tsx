@@ -340,7 +340,7 @@ const styles = stylex.create({
     width: "1.5rem",
   },
   label: {
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     fontWeight: 500,
     lineHeight: "1.25rem",

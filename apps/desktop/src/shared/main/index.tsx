@@ -79,7 +79,7 @@ const styles = stylex.create({
     backgroundColor: colors.card,
     containerType: "inline-size",
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     minHeight: 0,
     overflow: "hidden",
@@ -107,7 +107,7 @@ const styles = stylex.create({
   },
   mainPanel: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     minHeight: 0,
     position: "relative",
@@ -116,7 +116,7 @@ const styles = stylex.create({
     minHeight: 0,
   },
   panelGroup: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
   },
   root: {
@@ -125,3 +125,5 @@ const styles = stylex.create({
     height: "100%",
   },
 });
+
+export { styles as mainStyles };

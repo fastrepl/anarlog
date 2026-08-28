@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -140,7 +141,7 @@ vi.mock("~/chat/components/persistent-chat", () => ({
   },
 }));
 
-import { MainChatPanels } from "./chat-panels";
+import { chatPanelStyles, MainChatPanels } from "./chat-panels";
 
 let restorePanelWidths: (() => void) | null = null;
 
@@ -205,14 +206,7 @@ describe("MainChatPanels", () => {
     const rightPanel = document.querySelector("[data-chat-right-panel]");
 
     expect(rightPanel).toBeInstanceOf(HTMLDivElement);
-    expect(rightPanel?.className).toContain("bg-card");
-    expect(rightPanel?.className).toContain("border-x");
-    expect(rightPanel?.className).toContain("border-border");
-    expect(rightPanel?.className).not.toContain("border-b-0");
-    expect(rightPanel?.className).toContain("rounded-tr-xl");
-    expect(rightPanel?.className).not.toContain("rounded-t-xl");
-    expect(rightPanel?.className).not.toContain("ml-2");
-    expect(rightPanel?.className).not.toContain("mr-1");
+    expectStyle(rightPanel, chatPanelStyles.rightPanelContent);
   });
 
   it("keeps Automations chat docked without a floating chat host", () => {
@@ -643,4 +637,13 @@ function rectWithWidth(width: number) {
     y: 0,
     toJSON: () => ({}),
   };
+}
+
+function expectStyle(element: Element | null, sx: stylex.StyleXStyles) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(true);
+  }
 }

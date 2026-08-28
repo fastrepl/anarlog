@@ -110,7 +110,7 @@ const styles = stylex.create({
       default: null,
       "::-webkit-search-cancel-button": "none",
     },
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,

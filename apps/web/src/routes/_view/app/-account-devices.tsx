@@ -13,10 +13,19 @@ const styles = stylex.create({
     },
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
-  style2: {},
+  style2: {
+    borderBottomColor: {
+      ":is(*) > :not(:last-child)": "#ede7dc",
+    },
+    borderBottomStyle: {
+      ":is(*) > :not(:last-child)": "solid",
+    },
+    borderBottomWidth: {
+      ":is(*) > :not(:last-child)": "1px",
+    },
+  },
   style3: {
     display: "flex",
     flexDirection: {
@@ -41,15 +50,13 @@ const styles = stylex.create({
   style4: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style5: {
     marginTop: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style6: {

@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+import { fonts, radii } from "@anlg/design-system/tokens.stylex";
 
 import { mdxComponents } from "@/components/mdx-components";
 import { SiteFooter } from "@/components/site-footer";
@@ -68,17 +68,17 @@ const styles = stylex.create({
     paddingBottom: "3rem",
   },
   style7: {
+    fontFamily: fonts.hand,
     fontSize: {
       default: "3rem",
       "@media (width >= 48rem)": "3.75rem",
     },
     lineHeight: {
-      default: "1.02",
-      "@media (width >= 48rem)": "1",
+      default: 1.02,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": "1.02",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
     color: "#000",
   },
@@ -99,14 +99,16 @@ const styles = stylex.create({
     paddingBlock: "1.25rem",
   },
   style10: {
+    fontFamily: fonts.hand,
     fontSize: "1.125rem",
     lineHeight: "1.75rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     color: "#756b5d",
   },
   style11: {
     marginTop: ".75rem",
+    fontFamily: fonts.hand,
     fontSize: {
       default: "1.25rem",
       "@media (width >= 48rem)": "1.5rem",
@@ -115,25 +117,153 @@ const styles = stylex.create({
       default: "1.75rem",
       "@media (width >= 48rem)": "2rem",
     },
-    "--tw-leading": {
-      default: "1.75rem",
-      "@media (width >= 48rem)": "2rem",
-    },
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#363029",
   },
   style12: {
-    maxWidth: "none",
+    backgroundColor: {
+      ":is(*) pre": "#2b2523",
+      ":is(*) pre code": "transparent",
+      ":is(*) th": "#eee7db",
+      ":is(*) td": "#faf7f1",
+      ":is(*) tbody tr td:first-child": "#f3eee6",
+    },
+    borderRadius: {
+      ":is(*) img": ".375rem",
+      ":is(*) pre": ".375rem",
+      ":is(*) pre code": 0,
+    },
+    borderCollapse: {
+      ":is(*) table": "separate",
+    },
+    borderSpacing: {
+      ":is(*) table": "0 .25rem",
+    },
+    color: {
+      default: "#4f4940",
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": "#756b5d",
+      ":is(*) :is(p, li)": "#363029",
+      ":is(*) strong": "#181613",
+      ":is(*) a": "#181613",
+      ":is(*) a:hover": "#4f4940",
+      ":is(*) pre code": "#f8f4ef",
+      ":is(*) th": "#4f4940",
+      ":is(*) td": "#363029",
+    },
+    display: {
+      ":is(*) pre code": "block",
+    },
+    fontFamily: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": fonts.hand,
+      ":is(*) :is(table, th, td)": fonts.sans,
+      ":is(*) pre code": fonts.mono,
+    },
+    fontSize: {
+      default: "1.125rem",
+      ":is(*) :is(p, li)": "1.125rem",
+      ":is(*) pre code": ".9375rem",
+      ":is(*) table": "1rem",
+      ":is(*) th": "1.0625rem",
+      ":is(*) h2": "clamp(2.125rem, 1.75rem + 1.25vw, 2.5rem)",
+      ":is(*) h3": "clamp(1.75rem, 1.5rem + .85vw, 2rem)",
+      ":is(*) h4": "1.375rem",
+    },
+    fontWeight: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": 600,
+      ":is(*) th": 650,
+      ":is(*) tbody tr td:first-child": 600,
+    },
+    letterSpacing: {
+      ":is(*) :is(h2, h3, h4)": 0,
+    },
+    lineHeight: {
+      default: 1.6,
+      ":is(*) :is(p, li)": 1.6,
+      ":is(*) pre code": 1.65,
+      ":is(*) th": 1.25,
+      ":is(*) td": 1.35,
+      ":is(*) :is(h2, h3)": 1.05,
+      ":is(*) h4": 1.1,
+    },
+    listStyleType: {
+      ":is(*) ul": "disc",
+      ":is(*) ol": "decimal",
+    },
+    marginBlock: {
+      ":is(*) :is(p, ul, ol, blockquote, figure, hr)": "1.25rem",
+      ":is(*) img": "2rem",
+      ":is(*) hr": "3rem",
+      ":is(*) pre": "1.5rem",
+    },
+    maxWidth: {
+      default: "none",
+      ":is(*) img": "100%",
+    },
+    marginBottom: {
+      ":is(*) h2": "1.25rem",
+      ":is(*) h3": "1rem",
+      ":is(*) h4": ".75rem",
+    },
+    marginTop: {
+      ":is(*) h2": "4rem",
+      ":is(*) h3": "3.5rem",
+      ":is(*) h4": "2.5rem",
+      ":is(*) :is(h2 + h3, h3 + h4)": "1.5rem",
+    },
+    minWidth: {
+      ":is(*) table": "100%",
+    },
+    overflowWrap: {
+      ":is(*) pre code": "anywhere",
+    },
+    overflowX: {
+      ":is(*) pre": "hidden",
+    },
+    padding: {
+      ":is(*) pre code": 0,
+    },
+    paddingBlock: {
+      ":is(*) :is(th, td)": ".625rem",
+      ":is(*) pre": "1rem",
+    },
+    paddingInline: {
+      ":is(*) :is(th, td)": ".75rem",
+      ":is(*) pre": "1.125rem",
+    },
+    paddingLeft: {
+      ":is(*) :is(ul, ol)": "1.5rem",
+      ":is(*) blockquote": "1.25rem",
+    },
+    textAlign: {
+      ":is(*) th": "left",
+    },
+    textDecorationLine: {
+      ":is(*) a": "underline",
+      ":is(*) :is(h2, h3, h4) a": "none",
+    },
+    verticalAlign: {
+      ":is(*) td": "top",
+    },
+    whiteSpace: {
+      ":is(*) pre code": "pre-wrap",
+      ":is(*) table": "nowrap",
+    },
+    width: {
+      ":is(*) table": "max-content",
+    },
+    wordBreak: {
+      ":is(*) pre code": "normal",
+    },
   },
   style13: {
     marginTop: "5rem",
   },
   style14: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
     lineHeight: "2.25rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     color: "#756b5d",
   },
   style15: {
@@ -153,11 +283,10 @@ const styles = stylex.create({
     paddingTop: "1rem",
   },
   style17: {
+    fontFamily: fonts.hand,
     fontSize: "1.25rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: {
       default: "#756b5d",
       [stylex.when.ancestor(":hover")]: "#4f4940",
@@ -203,34 +332,33 @@ const styles = stylex.create({
     },
   },
   style22: {
+    fontFamily: fonts.hand,
     fontSize: {
       default: "1.875rem",
       "@media (width >= 48rem)": "2.25rem",
     },
     lineHeight: {
-      default: "1",
+      default: 1,
       "@media (width >= 48rem)": "2.5rem",
     },
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     color: "#756b5d",
   },
   style23: {
     marginTop: ".75rem",
     fontSize: "1rem",
     lineHeight: "1.75rem",
-    "--tw-leading": "1.75rem",
     color: "#4f4940",
   },
   style24: {
     display: "inline-flex",
     height: "3rem",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
     gap: ".5rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
       default: "#181613",
       ":hover": "#363029",
@@ -238,11 +366,10 @@ const styles = stylex.create({
     paddingInline: "1.25rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#fff",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -420,12 +547,7 @@ function Component() {
           </aside>
         )}
 
-        <article
-          {...mergeStyleXProps(
-            styles.style12,
-            "prose prose-lg prose-stone blog-prose",
-          )}
-        >
+        <article {...stylex.props(styles.style12)}>
           <MDXContent code={article.mdx} components={blogMdxComponents} />
         </article>
 

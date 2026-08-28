@@ -263,7 +263,7 @@ const styles = stylex.create({
     flexShrink: 0,
   },
   summaryTitle: {
-    flex: 1,
+    flex: "1",
     fontWeight: {
       default: 400,
       ":is([data-chat-disclosure][open] *)": 500,

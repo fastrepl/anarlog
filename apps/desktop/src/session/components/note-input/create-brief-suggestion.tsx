@@ -67,3 +67,5 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
 });
+
+export { styles as createBriefSuggestionStyles };

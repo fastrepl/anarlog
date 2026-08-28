@@ -16,9 +16,11 @@ import {
   UsersThree,
   WarningCircle,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import {
@@ -29,7 +31,6 @@ import {
   SelectValue,
 } from "@anlg/ui/components/ui/select";
 import { Switch } from "@anlg/ui/components/ui/switch";
-import { cn } from "@anlg/utils";
 
 import {
   claimWorkspaceDomain,
@@ -100,9 +101,9 @@ export function SettingsTeam() {
 
   if (!signedIn) {
     return (
-      <div className="flex flex-col gap-8">
+      <div {...stylex.props(styles.page)}>
         <SettingsPageTitle title={<Trans>Team</Trans>} />
-        <p className="text-muted-foreground text-sm">
+        <p {...stylex.props(styles.muted)}>
           <Trans>Sign in to create a shared workspace for your team.</Trans>
         </p>
       </div>
@@ -111,7 +112,7 @@ export function SettingsTeam() {
 
   if (!billing.isReady) {
     return (
-      <div className="flex flex-col gap-8">
+      <div {...stylex.props(styles.page)}>
         <SettingsPageTitle title={<Trans>Team</Trans>} />
         <TeamSkeleton />
       </div>
@@ -124,18 +125,18 @@ export function SettingsTeam() {
     (!workspaces.data || workspaces.data.length === 0)
   ) {
     return (
-      <div className="flex flex-col gap-8">
+      <div {...stylex.props(styles.page)}>
         <SettingsPageTitle title={<Trans>Team</Trans>} />
-        <div className="border-border/60 bg-card/50 flex max-w-2xl items-center justify-between gap-6 rounded-xl border p-5 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
-              <LockSimple className="text-muted-foreground size-5" />
+        <div {...stylex.props(styles.proUpsell)}>
+          <div {...stylex.props(styles.row)}>
+            <div {...stylex.props(styles.largeMutedIconFrame)}>
+              <LockSimple {...stylex.props(styles.largeMutedIcon)} />
             </div>
             <div>
-              <h3 className="text-sm font-medium">
+              <h3 {...stylex.props(styles.heading)}>
                 <Trans>Anarlog Pro required</Trans>
               </h3>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <p {...stylex.props(styles.description)}>
                 <Trans>
                   Invite teammates, share notes across the workspace, and manage
                   who has access. Your personal notes stay private.
@@ -150,7 +151,7 @@ export function SettingsTeam() {
             disabled={billing.isUpgradingToPro}
           >
             {billing.isUpgradingToPro ? (
-              <CircleNotch className="size-4 animate-spin" />
+              <CircleNotch {...stylex.props(styles.icon, styles.spinning)} />
             ) : null}
             <Trans>Upgrade to Pro</Trans>
           </Button>
@@ -160,7 +161,7 @@ export function SettingsTeam() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div {...stylex.props(styles.page)}>
       <SettingsPageTitle title={<Trans>Team</Trans>} />
 
       {workspaces.isPending ? (
@@ -216,16 +217,16 @@ function CreateWorkspaceForm({
   const trimmed = name.trim();
 
   return (
-    <div className="border-border/60 bg-card/50 max-w-2xl rounded-xl border p-5 shadow-sm">
-      <div className="flex items-start gap-4">
-        <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <Buildings className="size-5" />
+    <div {...stylex.props(styles.createCard)}>
+      <div {...stylex.props(styles.createHeader)}>
+        <div {...stylex.props(styles.largePrimaryIconFrame)}>
+          <Buildings {...stylex.props(styles.largeIcon)} />
         </div>
         <div>
-          <h3 className="text-sm font-medium">
+          <h3 {...stylex.props(styles.heading)}>
             <Trans>Create a shared workspace</Trans>
           </h3>
-          <p className="text-muted-foreground mt-1 text-xs leading-5">
+          <p {...stylex.props(styles.description)}>
             <Trans>
               Invite teammates, share notes across the workspace, and manage who
               has access. Your personal notes stay private.
@@ -234,7 +235,7 @@ function CreateWorkspaceForm({
         </div>
       </div>
       <form
-        className="mt-5 flex gap-2"
+        {...stylex.props(styles.createForm)}
         onSubmit={(event) => {
           event.preventDefault();
           if (trimmed) onCreate(trimmed);
@@ -245,18 +246,18 @@ function CreateWorkspaceForm({
           onChange={(event) => setName(event.target.value)}
           placeholder={placeholder}
           maxLength={120}
-          className="bg-card h-9 max-w-xs shadow-none"
+          sx={styles.createInput}
         />
         <Button type="submit" size="sm" disabled={!trimmed || pending}>
           {pending ? (
-            <CircleNotch className="size-4 animate-spin" />
+            <CircleNotch {...stylex.props(styles.icon, styles.spinning)} />
           ) : (
-            <Plus className="size-4" />
+            <Plus {...stylex.props(styles.icon)} />
           )}
           <Trans>Create</Trans>
         </Button>
       </form>
-      {error && <p className="text-destructive mt-2 text-xs">{error}</p>}
+      {error && <p {...stylex.props(styles.errorWithMargin)}>{error}</p>}
     </div>
   );
 }
@@ -425,20 +426,20 @@ function WorkspacePanel({
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="border-border/60 bg-card/60 flex items-center gap-4 rounded-xl border p-4 shadow-sm">
-        <div className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
-          <Buildings className="size-5" />
+    <div {...stylex.props(styles.workspace)}>
+      <div {...stylex.props(styles.workspaceHeader)}>
+        <div {...stylex.props(styles.largePrimaryIconFrame)}>
+          <Buildings {...stylex.props(styles.largeIcon)} />
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+        <div {...stylex.props(styles.flexible)}>
+          <div {...stylex.props(styles.rowSmall)}>
             {isRenaming ? (
               <Input
                 autoFocus
                 defaultValue={workspaceName}
                 maxLength={120}
                 aria-label={t`Workspace name`}
-                className="bg-background h-9 max-w-sm shadow-none"
+                sx={styles.workspaceControl}
                 onBlur={(event) => submitRename(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
@@ -451,7 +452,7 @@ function WorkspacePanel({
             ) : (
               <>
                 <Select value={workspaceId} onValueChange={onSelectWorkspace}>
-                  <SelectTrigger className="bg-background h-9 max-w-sm shadow-none">
+                  <SelectTrigger sx={styles.workspaceControl}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -473,9 +474,11 @@ function WorkspacePanel({
                     onClick={() => setIsRenaming(true)}
                   >
                     {rename.isPending ? (
-                      <CircleNotch className="size-4 animate-spin" />
+                      <CircleNotch
+                        {...stylex.props(styles.icon, styles.spinning)}
+                      />
                     ) : (
-                      <PencilSimple className="size-4" />
+                      <PencilSimple {...stylex.props(styles.icon)} />
                     )}
                   </Button>
                 )}
@@ -483,36 +486,34 @@ function WorkspacePanel({
             )}
           </div>
         </div>
-        <span className="border-border bg-background text-muted-foreground shrink-0 rounded-full border px-2.5 py-1 text-xs capitalize">
-          {workspaceRole}
-        </span>
+        <span {...stylex.props(styles.roleBadge)}>{workspaceRole}</span>
       </div>
 
-      {actionError && <p className="text-destructive text-xs">{actionError}</p>}
+      {actionError && <p {...stylex.props(styles.error)}>{actionError}</p>}
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <section className="border-border/60 bg-card/50 overflow-hidden rounded-xl border shadow-sm">
-            <div className="flex items-center justify-between gap-3 p-4">
-              <div className="flex items-center gap-3">
-                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-                  <UsersThree className="text-muted-foreground size-4" />
+      <div {...stylex.props(styles.workspaceGrid)}>
+        <div {...stylex.props(styles.column)}>
+          <section {...stylex.props(styles.membersCard)}>
+            <div {...stylex.props(styles.cardHeader)}>
+              <div {...stylex.props(styles.cardTitleRow)}>
+                <div {...stylex.props(styles.mutedIconFrame)}>
+                  <UsersThree {...stylex.props(styles.mutedIcon)} />
                 </div>
-                <h3 className="text-sm font-medium">
+                <h3 {...stylex.props(styles.heading)}>
                   <Trans>Members</Trans>
                 </h3>
               </div>
               {members.data && (
-                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs tabular-nums">
+                <span {...stylex.props(styles.countBadge)}>
                   {members.data.length + (invitations.data?.length ?? 0)}
                 </span>
               )}
             </div>
 
-            <div className="border-border/60 border-t p-4">
+            <div {...stylex.props(styles.membersBody)}>
               {canManage && (
                 <form
-                  className="relative mb-4 max-w-sm"
+                  {...stylex.props(styles.inviteForm)}
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (trimmedEmail) invite.mutate(trimmedEmail);
@@ -523,19 +524,21 @@ function WorkspacePanel({
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder={t`teammate@company.com`}
-                    className="bg-background h-9 rounded-full pr-24 pl-4 shadow-none"
+                    sx={styles.inviteInput}
                   />
                   <Button
                     type="submit"
                     size="sm"
                     variant="outline"
-                    className="absolute top-1 right-1"
+                    sx={styles.inviteButton}
                     disabled={!trimmedEmail || invite.isPending}
                   >
                     {invite.isPending ? (
-                      <CircleNotch className="size-4 animate-spin" />
+                      <CircleNotch
+                        {...stylex.props(styles.icon, styles.spinning)}
+                      />
                     ) : (
-                      <UserPlus className="size-4" />
+                      <UserPlus {...stylex.props(styles.icon)} />
                     )}
                     <Trans>Invite</Trans>
                   </Button>
@@ -545,14 +548,14 @@ function WorkspacePanel({
               {members.isPending ? (
                 <TeamSkeleton />
               ) : members.isError ? (
-                <p className="text-muted-foreground border-border rounded-lg border p-4 text-sm">
+                <p {...stylex.props(styles.membersError)}>
                   <Trans>
                     Only workspace admins can see who has access. You are a
                     member of this workspace.
                   </Trans>
                 </p>
               ) : (
-                <ul className="border-border divide-border divide-y overflow-hidden rounded-lg border">
+                <ul {...stylex.props(styles.memberList)}>
                   {members.data?.map((member) => (
                     <MemberRow
                       key={member.userId}
@@ -569,18 +572,18 @@ function WorkspacePanel({
                   {invitations.data?.map((invitation) => (
                     <li
                       key={invitation.invitationId}
-                      className="flex items-center justify-between gap-3 px-3 py-2.5"
+                      {...stylex.props(styles.memberRow)}
                     >
-                      <div className="min-w-0">
-                        <p className="text-muted-foreground truncate text-sm">
+                      <div {...stylex.props(styles.minWidth)}>
+                        <p {...stylex.props(styles.invitationEmail)}>
                           {invitation.email}
                         </p>
-                        <p className="text-muted-foreground text-xs">
+                        <p {...stylex.props(styles.mutedSmall)}>
                           <Trans>Invitation pending</Trans>
                         </p>
                       </div>
                       {canManage && (
-                        <div className="flex shrink-0 items-center gap-1">
+                        <div {...stylex.props(styles.memberActions)}>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -595,9 +598,11 @@ function WorkspacePanel({
                             {resendInvite.isPending &&
                             resendInvite.variables?.email ===
                               invitation.email ? (
-                              <CircleNotch className="size-4 animate-spin" />
+                              <CircleNotch
+                                {...stylex.props(styles.icon, styles.spinning)}
+                              />
                             ) : (
-                              <PaperPlaneTilt className="size-4" />
+                              <PaperPlaneTilt {...stylex.props(styles.icon)} />
                             )}
                           </Button>
                           <Button
@@ -609,7 +614,7 @@ function WorkspacePanel({
                             }
                             disabled={cancelInvite.isPending}
                           >
-                            <Trash className="size-4" />
+                            <Trash {...stylex.props(styles.icon)} />
                           </Button>
                         </div>
                       )}
@@ -629,7 +634,7 @@ function WorkspacePanel({
           )}
         </div>
 
-        <div className="flex min-w-0 flex-col gap-4">
+        <div {...stylex.props(styles.column)}>
           {canManage && (
             <WorkspaceShareDomainForm
               workspaceId={workspaceId}
@@ -642,22 +647,22 @@ function WorkspacePanel({
           )}
 
           {canManage && usage.data && (
-            <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-                  <ChartBar className="text-muted-foreground size-4" />
+            <section {...stylex.props(styles.card)}>
+              <div {...stylex.props(styles.cardTitleRow)}>
+                <div {...stylex.props(styles.mutedIconFrame)}>
+                  <ChartBar {...stylex.props(styles.mutedIcon)} />
                 </div>
-                <h3 className="text-sm font-medium">
+                <h3 {...stylex.props(styles.heading)}>
                   <Trans>Usage</Trans>
                 </h3>
               </div>
-              <p className="text-muted-foreground mt-3 text-xs leading-5">
+              <p {...stylex.props(styles.cardDescription)}>
                 <Trans>
                   Workspace activity from metadata only. Note content stays
                   unreadable on the server.
                 </Trans>
               </p>
-              <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
+              <dl {...stylex.props(styles.usageGrid)}>
                 {[
                   [t`Members`, usage.data.memberCount],
                   [
@@ -669,12 +674,9 @@ function WorkspacePanel({
                   [t`Devices`, usage.data.enrolledDevices],
                   [t`Shares (30d)`, usage.data.sharesCreated30d],
                 ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="bg-muted/60 rounded-lg px-3 py-2.5"
-                  >
-                    <dt className="text-muted-foreground text-xs">{label}</dt>
-                    <dd className="mt-1 font-medium tabular-nums">{value}</dd>
+                  <div key={label} {...stylex.props(styles.usageItem)}>
+                    <dt {...stylex.props(styles.mutedSmall)}>{label}</dt>
+                    <dd {...stylex.props(styles.usageValue)}>{value}</dd>
                   </div>
                 ))}
               </dl>
@@ -685,10 +687,10 @@ function WorkspacePanel({
         </div>
       </div>
 
-      <div className="border-destructive/20 bg-destructive/5 flex items-center justify-between gap-4 rounded-xl border px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <WarningCircle className="text-destructive/70 size-4 shrink-0" />
-          <p className="text-muted-foreground text-xs">
+      <div {...stylex.props(styles.dangerZone)}>
+        <div {...stylex.props(styles.dangerCopy)}>
+          <WarningCircle {...stylex.props(styles.dangerIcon)} />
+          <p {...stylex.props(styles.mutedSmall)}>
             {viewerRole === "owner" ? (
               <Trans>
                 Deleting removes the workspace for everyone. Transfer ownership
@@ -703,7 +705,7 @@ function WorkspacePanel({
           <Button
             size="sm"
             variant="destructive"
-            className="shrink-0"
+            sx={styles.noShrink}
             disabled={destroy.isPending}
             onClick={() => {
               if (confirm(t`Delete ${workspaceName} for everyone?`)) {
@@ -717,7 +719,7 @@ function WorkspacePanel({
           <Button
             size="sm"
             variant="destructive"
-            className="shrink-0"
+            sx={styles.noShrink}
             disabled={leave.isPending}
             onClick={() => {
               if (confirm(t`Leave ${workspaceName}?`)) leave.mutate();
@@ -770,42 +772,40 @@ function UpcomingCaptureBots({ workspaceId }: { workspaceId: string }) {
   );
 
   return (
-    <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-          <CalendarBlank className="text-muted-foreground size-4" />
+    <section {...stylex.props(styles.card)}>
+      <div {...stylex.props(styles.cardTitleRow)}>
+        <div {...stylex.props(styles.mutedIconFrame)}>
+          <CalendarBlank {...stylex.props(styles.mutedIcon)} />
         </div>
-        <h3 className="text-sm font-medium">
+        <h3 {...stylex.props(styles.heading)}>
           <Trans>Upcoming bot attendance</Trans>
         </h3>
       </div>
-      <p className="text-muted-foreground mt-3 text-xs leading-5">
+      <p {...stylex.props(styles.cardDescription)}>
         <Trans>
           Calendar-scheduled capture jobs. Canceling stops the bot from joining.
         </Trans>
       </p>
       {upcoming.isPending ? (
-        <p className="text-muted-foreground mt-3 text-sm">
+        <p {...stylex.props(styles.cardStatus)}>
           <Trans>Loading scheduled captures…</Trans>
         </p>
       ) : upcoming.error ? (
-        <p className="text-destructive mt-3 text-xs">
-          {upcoming.error.message}
-        </p>
+        <p {...stylex.props(styles.cardError)}>{upcoming.error.message}</p>
       ) : visible.length === 0 ? (
-        <p className="text-muted-foreground mt-3 text-sm">
+        <p {...stylex.props(styles.cardStatus)}>
           <Trans>No upcoming bots.</Trans>
         </p>
       ) : (
-        <ul className="border-border divide-border mt-3 divide-y overflow-hidden rounded-lg border">
+        <ul {...stylex.props(styles.captureList)}>
           {visible.map((capture) => (
             <li
               key={capture.calendarEventId}
-              className="flex items-center justify-between gap-3 px-3 py-2.5"
+              {...stylex.props(styles.memberRow)}
             >
-              <div className="min-w-0">
-                <p className="truncate text-sm">{capture.title}</p>
-                <p className="text-muted-foreground text-xs">
+              <div {...stylex.props(styles.minWidth)}>
+                <p {...stylex.props(styles.truncated)}>{capture.title}</p>
+                <p {...stylex.props(styles.mutedSmall)}>
                   {new Date(capture.startsAt).toLocaleString()}
                 </p>
               </div>
@@ -889,35 +889,35 @@ function WorkspacePolicyForm({
   });
 
   return (
-    <section className="border-border/60 bg-card/50 rounded-xl border p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
-          <ShieldCheck className="text-muted-foreground size-4" />
+    <section {...stylex.props(styles.card)}>
+      <div {...stylex.props(styles.cardTitleRow)}>
+        <div {...stylex.props(styles.mutedIconFrame)}>
+          <ShieldCheck {...stylex.props(styles.mutedIcon)} />
         </div>
-        <h3 className="text-sm font-medium">
+        <h3 {...stylex.props(styles.heading)}>
           <Trans>Policies</Trans>
         </h3>
       </div>
-      <p className="text-muted-foreground mt-3 text-xs leading-5">
+      <p {...stylex.props(styles.cardDescription)}>
         <Trans>
           These rules apply to every member. Sharing changes fail closed on the
           server.
         </Trans>
       </p>
-      <div className="mt-4 flex flex-col gap-4">
-        <div className="border-border divide-border divide-y overflow-hidden rounded-lg border">
-          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
+      <div {...stylex.props(styles.policyContent)}>
+        <div {...stylex.props(styles.policyOptions)}>
+          <label {...stylex.props(styles.policyOption)}>
             <Trans>Allow anyone-with-the-link sharing</Trans>
             <Switch checked={allowLink} onCheckedChange={setAllowLink} />
           </label>
-          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
+          <label {...stylex.props(styles.policyOption)}>
             <Trans>Allow public indexing</Trans>
             <Switch checked={allowPublic} onCheckedChange={setAllowPublic} />
           </label>
-          <label className="flex items-center justify-between gap-4 px-3 py-2.5 text-sm">
-            <span className="flex min-w-0 flex-col gap-0.5">
+          <label {...stylex.props(styles.policyOption)}>
+            <span {...stylex.props(styles.policyOptionCopy)}>
               <Trans>Require SSO</Trans>
-              <span className="text-muted-foreground text-xs font-normal">
+              <span {...stylex.props(styles.policyOptionDescription)}>
                 <Trans>
                   Members on a claimed email domain must sign in with SSO
                   instead of Google, GitHub, or email.
@@ -927,60 +927,60 @@ function WorkspacePolicyForm({
             <Switch checked={requireSso} onCheckedChange={setRequireSso} />
           </label>
         </div>
-        <label className="flex max-w-sm flex-col gap-1 text-sm">
+        <label {...stylex.props(styles.fieldLabel)}>
           <Trans>Retention (days)</Trans>
           <Input
             value={retention}
             onChange={(event) => setRetention(event.target.value)}
             placeholder={t`Keep forever`}
             inputMode="numeric"
-            className="bg-background h-9 shadow-none"
+            sx={styles.fieldInput}
           />
         </label>
         <Button
           type="button"
           size="sm"
-          className="w-fit"
+          sx={styles.fitButton}
           disabled={save.isPending}
           onClick={() => save.mutate()}
         >
           {save.isPending ? (
-            <CircleNotch className="size-4 animate-spin" />
+            <CircleNotch {...stylex.props(styles.icon, styles.spinning)} />
           ) : null}
           <Trans>Save policies</Trans>
         </Button>
         {save.error?.message ? (
-          <p className="text-destructive text-xs">{save.error.message}</p>
+          <p {...stylex.props(styles.error)}>{save.error.message}</p>
         ) : null}
-        <div className="border-border/60 grid gap-4 border-t pt-4 sm:grid-cols-2">
+        <div {...stylex.props(styles.policyForms)}>
           <form
-            className="flex flex-col gap-2"
+            {...stylex.props(styles.formStack)}
             onSubmit={(event) => {
               event.preventDefault();
               if (domain.trim()) claimDomain.mutate(domain.trim());
             }}
           >
-            <label className="flex flex-col gap-1 text-sm">
+            <label {...stylex.props(styles.fieldLabel)}>
               <Trans>Claim email domain</Trans>
               <Input
                 value={domain}
                 onChange={(event) => setDomain(event.target.value)}
                 placeholder="company.com"
-                className="bg-background h-9 shadow-none"
+                sx={styles.fieldInput}
               />
             </label>
             <Button
               type="submit"
               size="sm"
               variant="outline"
-              className="w-fit"
+              sx={styles.fitButton}
               disabled={!domain.trim() || claimDomain.isPending}
             >
               <Trans>Verify domain</Trans>
             </Button>
           </form>
           <form
-            className="flex flex-col gap-2"
+            {...stylex.props(styles.formStack)}
             onSubmit={(event) => {
               event.preventDefault();
               if (domain.trim() && scimToken.trim().length >= 32) {
@@ -988,21 +988,21 @@ function WorkspacePolicyForm({
               }
             }}
           >
-            <label className="flex flex-col gap-1 text-sm">
+            <label {...stylex.props(styles.fieldLabel)}>
               <Trans>SCIM bearer token</Trans>
               <Input
                 value={scimToken}
                 onChange={(event) => setScimToken(event.target.value)}
                 type="password"
                 autoComplete="off"
-                className="bg-background h-9 shadow-none"
+                sx={styles.fieldInput}
               />
             </label>
             <Button
               type="submit"
               size="sm"
               variant="outline"
-              className="w-fit"
+              sx={styles.fitButton}
               disabled={
                 !domain.trim() ||
                 scimToken.trim().length < 32 ||
@@ -1041,27 +1041,27 @@ function WorkspaceShareDomainForm({
 
   return (
     <form
-      className="border-border/60 bg-card/50 flex flex-col gap-3 rounded-xl border p-4 shadow-sm"
+      {...stylex.props(styles.shareDomainForm)}
       onSubmit={(event) => {
         event.preventDefault();
         if (shareSlug.trim()) save.mutate(shareSlug.trim());
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
-          <Globe className="size-4" />
+      <div {...stylex.props(styles.cardTitleRow)}>
+        <div {...stylex.props(styles.primaryIconFrame)}>
+          <Globe {...stylex.props(styles.icon)} />
         </div>
-        <h3 className="text-sm font-medium">
+        <h3 {...stylex.props(styles.heading)}>
           <Trans>Sharing domain</Trans>
         </h3>
       </div>
-      <p className="text-muted-foreground text-xs">
+      <p {...stylex.props(styles.mutedSmall)}>
         <Trans>Use this domain for links shared from this workspace.</Trans>
       </p>
-      <label htmlFor={inputId} className="text-xs font-medium">
+      <label htmlFor={inputId} {...stylex.props(styles.smallLabel)}>
         <Trans>Workspace subdomain</Trans>
       </label>
-      <div className="flex min-w-0 items-center">
+      <div {...stylex.props(styles.slugRow)}>
         <Input
           id={inputId}
           value={shareSlug}
@@ -1073,26 +1073,24 @@ function WorkspaceShareDomainForm({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          className="bg-background h-9 min-w-0 rounded-r-none shadow-none"
+          sx={styles.slugInput}
         />
-        <span className="border-input bg-muted text-muted-foreground flex h-9 shrink-0 items-center rounded-r-md border border-l-0 px-3 text-xs">
-          .anarlog.so
-        </span>
+        <span {...stylex.props(styles.slugSuffix)}>.anarlog.so</span>
       </div>
       <Button
         type="submit"
         size="sm"
         variant="outline"
-        className="w-fit"
+        sx={styles.fitButton}
         disabled={!shareSlug.trim() || save.isPending}
       >
         {save.isPending ? (
-          <CircleNotch className="size-4 animate-spin" />
+          <CircleNotch {...stylex.props(styles.icon, styles.spinning)} />
         ) : null}
         <Trans>Save subdomain</Trans>
       </Button>
       {save.error?.message ? (
-        <p className="text-destructive text-xs">{save.error.message}</p>
+        <p {...stylex.props(styles.error)}>{save.error.message}</p>
       ) : null}
     </form>
   );
@@ -1129,20 +1127,18 @@ function MemberRow({
   const canTransfer = viewerRole === "owner" && !isOwner;
 
   return (
-    <li className="flex items-center justify-between gap-3 px-3 py-2.5">
-      <div className="min-w-0">
-        <p className="truncate text-sm">{member.email}</p>
+    <li {...stylex.props(styles.memberRow)}>
+      <div {...stylex.props(styles.minWidth)}>
+        <p {...stylex.props(styles.truncated)}>{member.email}</p>
         {isViewer && (
-          <p className="text-muted-foreground text-xs">
+          <p {...stylex.props(styles.mutedSmall)}>
             <Trans>You</Trans>
           </p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div {...stylex.props(styles.memberRoleActions)}>
         {!canEditRole ? (
-          <span className={cn(["text-muted-foreground text-xs capitalize"])}>
-            {member.role}
-          </span>
+          <span {...stylex.props(styles.roleText)}>{member.role}</span>
         ) : (
           <Select
             value={member.role}
@@ -1150,7 +1146,7 @@ function MemberRow({
               onRoleChange(value === "admin" ? "admin" : "member")
             }
           >
-            <SelectTrigger className="bg-card h-8 w-28 shadow-none">
+            <SelectTrigger sx={styles.roleSelect}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1170,12 +1166,12 @@ function MemberRow({
             onClick={onTransfer}
             title={t`Make owner`}
           >
-            <Crown className="size-4" />
+            <Crown {...stylex.props(styles.icon)} />
           </Button>
         )}
         {canRemove && (
           <Button size="sm" variant="ghost" onClick={onRemove}>
-            <Trash className="size-4" />
+            <Trash {...stylex.props(styles.icon)} />
           </Button>
         )}
       </div>
@@ -1185,10 +1181,565 @@ function MemberRow({
 
 function TeamSkeleton() {
   return (
-    <div className="space-y-2" aria-hidden="true">
+    <div {...stylex.props(styles.skeleton)} aria-hidden="true">
       {[0, 1, 2].map((row) => (
-        <div key={row} className="bg-muted h-11 animate-pulse rounded-lg" />
+        <div key={row} {...stylex.props(styles.skeletonRow)} />
       ))}
     </div>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const pulse = stylex.keyframes({
+  "50%": {
+    opacity: 0.5,
+  },
+});
+
+const styles = stylex.create({
+  captureList: {
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    marginTop: "0.75rem",
+    overflow: "hidden",
+  },
+  card: {
+    backgroundColor: `color-mix(in srgb, ${colors.card} 50%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.sm,
+    padding: "1rem",
+  },
+  cardDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1.25rem",
+    marginTop: "0.75rem",
+  },
+  cardError: {
+    color: colors.destructive,
+    fontSize: "0.75rem",
+    marginTop: "0.75rem",
+  },
+  cardHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    padding: "1rem",
+  },
+  cardStatus: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    marginTop: "0.75rem",
+  },
+  cardTitleRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+  },
+  column: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+    minWidth: 0,
+  },
+  countBadge: {
+    backgroundColor: colors.muted,
+    borderRadius: radii.full,
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    fontVariantNumeric: "tabular-nums",
+    paddingBlock: "0.125rem",
+    paddingInline: "0.5rem",
+  },
+  createCard: {
+    backgroundColor: `color-mix(in srgb, ${colors.card} 50%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.sm,
+    maxWidth: "42rem",
+    padding: "1.25rem",
+  },
+  createForm: {
+    display: "flex",
+    gap: "0.5rem",
+    marginTop: "1.25rem",
+  },
+  createHeader: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "1rem",
+  },
+  createInput: {
+    backgroundColor: colors.card,
+    boxShadow: "none",
+    height: "2.25rem",
+    maxWidth: "20rem",
+  },
+  dangerCopy: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+    minWidth: 0,
+  },
+  dangerIcon: {
+    color: `color-mix(in srgb, ${colors.destructive} 70%, transparent)`,
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  dangerZone: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in srgb, ${colors.destructive} 5%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.destructive} 20%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1.25rem",
+    marginTop: "0.25rem",
+  },
+  error: {
+    color: colors.destructive,
+    fontSize: "0.75rem",
+  },
+  errorWithMargin: {
+    color: colors.destructive,
+    fontSize: "0.75rem",
+    marginTop: "0.5rem",
+  },
+  fieldInput: {
+    backgroundColor: colors.background,
+    boxShadow: "none",
+    height: "2.25rem",
+  },
+  fieldLabel: {
+    display: "flex",
+    flexDirection: "column",
+    fontSize: "0.875rem",
+    gap: "0.25rem",
+    maxWidth: "24rem",
+  },
+  fitButton: {
+    width: "fit-content",
+  },
+  flexible: {
+    flex: "1",
+    minWidth: 0,
+  },
+  formStack: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  heading: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  invitationEmail: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  inviteButton: {
+    position: "absolute",
+    right: "0.25rem",
+    top: "0.25rem",
+  },
+  inviteForm: {
+    marginBottom: "1rem",
+    maxWidth: "24rem",
+    position: "relative",
+  },
+  inviteInput: {
+    backgroundColor: colors.background,
+    borderRadius: radii.full,
+    boxShadow: "none",
+    height: "2.25rem",
+    paddingLeft: "1rem",
+    paddingRight: "6rem",
+  },
+  largeIcon: {
+    height: "1.25rem",
+    width: "1.25rem",
+  },
+  largeMutedIcon: {
+    color: colors.mutedForeground,
+    height: "1.25rem",
+    width: "1.25rem",
+  },
+  largeMutedIconFrame: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderRadius: radii.xl,
+    display: "flex",
+    flexShrink: 0,
+    height: "2.5rem",
+    justifyContent: "center",
+    width: "2.5rem",
+  },
+  largePrimaryIconFrame: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in srgb, ${colors.primary} 10%, transparent)`,
+    borderRadius: radii.xl,
+    color: colors.primary,
+    display: "flex",
+    flexShrink: 0,
+    height: "2.5rem",
+    justifyContent: "center",
+    width: "2.5rem",
+  },
+  memberActions: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.25rem",
+  },
+  memberList: {
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    overflow: "hidden",
+  },
+  memberRoleActions: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.5rem",
+  },
+  memberRow: {
+    alignItems: "center",
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: {
+      default: "1px",
+      ":first-child": 0,
+    },
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    paddingBlock: "0.625rem",
+    paddingInline: "0.75rem",
+  },
+  membersBody: {
+    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    padding: "1rem",
+  },
+  membersCard: {
+    backgroundColor: `color-mix(in srgb, ${colors.card} 50%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.sm,
+    overflow: "hidden",
+  },
+  membersError: {
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    padding: "1rem",
+  },
+  minWidth: {
+    minWidth: 0,
+  },
+  muted: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+  },
+  mutedIcon: {
+    color: colors.mutedForeground,
+    height: "1rem",
+    width: "1rem",
+  },
+  mutedIconFrame: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderRadius: radii.lg,
+    display: "flex",
+    flexShrink: 0,
+    height: "2.25rem",
+    justifyContent: "center",
+    width: "2.25rem",
+  },
+  mutedSmall: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+  },
+  noShrink: {
+    flexShrink: 0,
+  },
+  page: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2rem",
+  },
+  policyContent: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+    marginTop: "1rem",
+  },
+  policyForms: {
+    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    display: "grid",
+    gap: "1rem",
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      "@media (min-width: 40rem)": "repeat(2, minmax(0, 1fr))",
+    },
+    paddingTop: "1rem",
+  },
+  policyOption: {
+    alignItems: "center",
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: {
+      default: "1px",
+      ":first-child": 0,
+    },
+    display: "flex",
+    fontSize: "0.875rem",
+    gap: "1rem",
+    justifyContent: "space-between",
+    paddingBlock: "0.625rem",
+    paddingInline: "0.75rem",
+  },
+  policyOptionCopy: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+    minWidth: 0,
+  },
+  policyOptionDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    fontWeight: 400,
+  },
+  policyOptions: {
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    overflow: "hidden",
+  },
+  primaryIconFrame: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in srgb, ${colors.primary} 10%, transparent)`,
+    borderRadius: radii.lg,
+    color: colors.primary,
+    display: "flex",
+    flexShrink: 0,
+    height: "2.25rem",
+    justifyContent: "center",
+    width: "2.25rem",
+  },
+  proUpsell: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in srgb, ${colors.card} 50%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.sm,
+    display: "flex",
+    gap: "1.5rem",
+    justifyContent: "space-between",
+    maxWidth: "42rem",
+    padding: "1.25rem",
+  },
+  roleBadge: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    paddingBlock: "0.25rem",
+    paddingInline: "0.625rem",
+    textTransform: "capitalize",
+  },
+  roleSelect: {
+    backgroundColor: colors.card,
+    boxShadow: "none",
+    height: "2rem",
+    width: "7rem",
+  },
+  roleText: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    textTransform: "capitalize",
+  },
+  row: {
+    alignItems: "center",
+    display: "flex",
+    gap: "1rem",
+  },
+  rowSmall: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+  shareDomainForm: {
+    backgroundColor: `color-mix(in srgb, ${colors.card} 50%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.sm,
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.75rem",
+    padding: "1rem",
+  },
+  skeleton: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+  },
+  skeletonRow: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: pulse,
+    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
+    backgroundColor: colors.muted,
+    borderRadius: radii.lg,
+    height: "2.75rem",
+  },
+  slugInput: {
+    backgroundColor: colors.background,
+    borderBottomRightRadius: 0,
+    borderTopRightRadius: 0,
+    boxShadow: "none",
+    height: "2.25rem",
+    minWidth: 0,
+  },
+  slugRow: {
+    alignItems: "center",
+    display: "flex",
+    minWidth: 0,
+  },
+  slugSuffix: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderBottomColor: colors.input,
+    borderBottomRightRadius: radii.md,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    borderRightColor: colors.input,
+    borderRightStyle: "solid",
+    borderRightWidth: "1px",
+    borderTopColor: colors.input,
+    borderTopRightRadius: radii.md,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    color: colors.mutedForeground,
+    display: "flex",
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    height: "2.25rem",
+    paddingInline: "0.75rem",
+  },
+  smallLabel: {
+    fontSize: "0.75rem",
+    fontWeight: 500,
+  },
+  spinning: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+  truncated: {
+    fontSize: "0.875rem",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  usageGrid: {
+    display: "grid",
+    fontSize: "0.875rem",
+    gap: "0.5rem",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    marginTop: "1rem",
+  },
+  usageItem: {
+    backgroundColor: `color-mix(in srgb, ${colors.muted} 60%, transparent)`,
+    borderRadius: radii.lg,
+    paddingBlock: "0.625rem",
+    paddingInline: "0.75rem",
+  },
+  usageValue: {
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: 500,
+    marginTop: "0.25rem",
+  },
+  workspace: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  workspaceControl: {
+    backgroundColor: colors.background,
+    boxShadow: "none",
+    height: "2.25rem",
+    maxWidth: "24rem",
+  },
+  workspaceGrid: {
+    alignItems: "start",
+    display: "grid",
+    gap: "1rem",
+    gridTemplateColumns: {
+      default: "minmax(0, 1fr)",
+      "@media (min-width: 64rem)": "minmax(0, 1.35fr) minmax(18rem, 0.65fr)",
+    },
+  },
+  workspaceHeader: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in srgb, ${colors.card} 60%, transparent)`,
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.sm,
+    display: "flex",
+    gap: "1rem",
+    padding: "1rem",
+  },
+});

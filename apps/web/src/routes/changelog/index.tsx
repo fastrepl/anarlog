@@ -2,6 +2,8 @@ import { ArrowRight } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { fonts, radii } from "@anlg/design-system/tokens.stylex";
+
 import { SiteFooter } from "@/components/site-footer";
 import { changelogEntries, formatChangelogDate } from "@/lib/changelog";
 import { getEntrySummary } from "@/lib/changelog-summary";
@@ -43,17 +45,17 @@ const styles = stylex.create({
     paddingBottom: "4rem",
   },
   style6: {
+    fontFamily: fonts.hand,
     fontSize: {
       default: "3.75rem",
       "@media (width >= 48rem)": "6rem",
     },
     lineHeight: {
-      default: ".98",
-      "@media (width >= 48rem)": "1",
+      default: 0.98,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": ".98",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
     color: "#000",
   },
@@ -61,7 +63,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     fontSize: "1.25rem",
     lineHeight: "2.25rem",
-    "--tw-leading": "2.25rem",
     color: "#363029",
   },
   style8: {
@@ -77,7 +78,7 @@ const styles = stylex.create({
     },
     borderBottomWidth: {
       default: "1px",
-      ":last-child": "0",
+      ":last-child": 0,
     },
     borderColor: "#eee8df",
   },
@@ -107,29 +108,27 @@ const styles = stylex.create({
     gap: ".625rem",
   },
   style12: {
+    fontFamily: fonts.hand,
     fontSize: "2.25rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
+    letterSpacing: 0,
     color: {
       default: "#756b5d",
       [stylex.when.ancestor(":hover")]: "#181613",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
   style13: {
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#f3eee6",
     paddingInline: ".5rem",
     paddingBlock: ".25rem",
     fontSize: ".65rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
-    "--tw-tracking": ".12em",
+    fontWeight: 600,
     letterSpacing: ".12em",
     color: "#756b5d",
     textTransform: "uppercase",
@@ -150,16 +149,12 @@ const styles = stylex.create({
       default: "1.75rem",
       "@media (width >= 48rem)": "2rem",
     },
-    "--tw-leading": {
-      default: "1.75rem",
-      "@media (width >= 48rem)": "2rem",
-    },
     color: {
       default: "#4f4940",
       [stylex.when.ancestor(":hover")]: "#363029",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -174,13 +169,9 @@ const styles = stylex.create({
       [stylex.when.ancestor(":hover")]: "#181613",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
-    "--tw-translate-x": {
-      default: null,
-      [stylex.when.ancestor(":hover")]: ".25rem",
-    },
     translate: {
       default: null,
       [stylex.when.ancestor(":hover")]: ".25rem 0",

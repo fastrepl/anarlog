@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -237,7 +238,11 @@ vi.mock("./realtime", async () => {
   };
 });
 
-import { TimelineView } from ".";
+import { TimelineView, timelineStyles } from ".";
+import { timelineBucketStyles } from "./buckets";
+import { timelineChipStyles } from "./chips";
+
+import { glassDialogStyles } from "~/shared/ui/glass-dialog";
 
 describe("TimelineView", () => {
   beforeEach(() => {
@@ -292,15 +297,16 @@ describe("TimelineView", () => {
     });
 
     expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(calendarButton.className).toContain("rounded-full");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-4");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-14");
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
+    expectStyle(calendarButton, timelineChipStyles.topChip);
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]"),
+      timelineStyles.topChipStackChrome,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-spacer]"),
+      timelineStyles.topSpacerTall,
+    );
+    expectStyle(queryTopOccluder(container), timelineStyles.topOccluder);
 
     fireEvent.click(calendarButton);
 
@@ -326,7 +332,7 @@ describe("TimelineView", () => {
     );
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(topSpacer?.className).toContain("h-14");
+    expectStyle(topSpacer, timelineStyles.topSpacerTall);
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -340,9 +346,9 @@ describe("TimelineView", () => {
     fireEvent.scroll(scroller!);
 
     expect(screen.queryByRole("button", { name: "Open calendar" })).toBeNull();
-    expect(topSpacer?.className).toContain("h-14");
+    expectStyle(topSpacer, timelineStyles.topSpacerTall);
     expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("bg-background");
+    expectStyle(queryTopOccluder(container), timelineStyles.topOccluder);
   });
 
   it("routes wheel gestures from the open calendar chip into the timeline scroller", () => {
@@ -393,14 +399,15 @@ describe("TimelineView", () => {
 
     const { container } = render(<TimelineView topChromeInset />);
 
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
-    expect(
-      container.querySelector("[data-sidebar-timeline-bucket-header]")
-        ?.className,
-    ).toContain("top-12");
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-spacer]"),
+      timelineStyles.topSpacerChrome,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-bucket-header]"),
+      timelineStyles.bucketHeaderChrome,
+    );
+    expectStyle(queryTopOccluder(container), timelineStyles.topOccluder);
   });
 
   it("pins bucket headers to the sidebar chrome while scrolled", () => {
@@ -426,7 +433,7 @@ describe("TimelineView", () => {
     );
 
     expect(scroller).toBeInstanceOf(HTMLDivElement);
-    expect(header?.className).toContain("top-12");
+    expectStyle(header, timelineStyles.bucketHeaderChrome);
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -439,12 +446,9 @@ describe("TimelineView", () => {
     scroller!.scrollTop = 120;
     fireEvent.scroll(scroller!);
 
-    expect(header?.className).toContain("top-12");
-    expect(header?.className).toContain("z-20");
-    expect(header?.className).toContain("bg-background");
-    expect(header?.className).not.toContain("backdrop-blur");
-    expect(container.querySelector("[class*='backdrop-blur']")).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("z-10");
+    expectStyle(header, timelineStyles.bucketHeaderChrome);
+    expectStyle(header, timelineBucketStyles.bucketHeader);
+    expectStyle(queryTopOccluder(container), timelineStyles.topOccluder);
   });
 
   it("shows the open calendar chip without top chrome", () => {
@@ -465,13 +469,14 @@ describe("TimelineView", () => {
     });
 
     expect(getSidebarActionTabsOrNull()).toBeNull();
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-2");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-8");
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]"),
+      timelineStyles.topChipStackDefault,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-spacer]"),
+      timelineStyles.topSpacerDefault,
+    );
 
     fireEvent.click(calendarButton);
 
@@ -492,16 +497,18 @@ describe("TimelineView", () => {
 
     const { container } = render(<TimelineView topChipsOverlapHeader />);
 
-    expect(
-      container.querySelector("[data-sidebar-timeline-root]")?.className,
-    ).not.toContain("-mt-3");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-1");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-9");
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-root]"),
+      timelineStyles.root,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]"),
+      timelineStyles.topChipStackOverlap,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-spacer]"),
+      timelineStyles.topSpacerOverlap,
+    );
   });
 
   it("selects all visible notes with Cmd+A after a sidebar note selection", () => {
@@ -571,7 +578,7 @@ describe("TimelineView", () => {
           name: "Delete 2 selected notes?",
         }),
       ).toBeTruthy();
-      expect(screen.getByRole("dialog").className).toContain("max-w-[320px]");
+      expectStyle(screen.getByRole("dialog"), glassDialogStyles.content);
 
       fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
@@ -791,7 +798,7 @@ describe("TimelineView", () => {
     expect(scroller).toBeInstanceOf(HTMLDivElement);
     expect(getSidebarActionTabsOrNull()).toBeNull();
     expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
+    expectStyle(queryTopOccluder(container), timelineStyles.topOccluder);
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -806,7 +813,7 @@ describe("TimelineView", () => {
 
     expect(getSidebarActionTabsOrNull()).toBeNull();
     expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
+    expectStyle(queryTopOccluder(container), timelineStyles.topOccluder);
   });
 
   it("does not show a top scroll fade when there are no hidden future notes", () => {
@@ -875,7 +882,7 @@ describe("TimelineView", () => {
 
     expect(screen.getByText("Today")).toBeTruthy();
     expect(queryTopFade(container)).toBeNull();
-    expect(queryTopOccluder(container)?.className).toContain("h-12");
+    expectStyle(queryTopOccluder(container), timelineStyles.topOccluder);
     expect(scroller!.style.maskImage).toBe("");
     expect(queryBottomFade(container)).toBeTruthy();
   });
@@ -944,8 +951,8 @@ describe("TimelineView", () => {
     fireEvent.scroll(scroller);
     const nowChip = screen.getByRole("button", { name: "Go back to now" });
 
-    expect(queryBottomFade(container)?.className).toContain("z-30");
-    expect(nowChip.className).toContain("z-40");
+    expectStyle(queryBottomFade(container), timelineStyles.bottomFade);
+    expectStyle(nowChip, timelineStyles.bottomNowChip);
   });
 
   it("shows an imminent meeting chip over the sidebar timeline", () => {
@@ -1002,8 +1009,7 @@ describe("TimelineView", () => {
     });
 
     expect(chip?.textContent).toBe("In 51s");
-    expect(chip?.className).toContain("bg-destructive");
-    expect(chip?.className).toContain("w-28");
+    expectStyle(chip, timelineChipStyles.upcomingChip);
     expect(chip?.querySelector("svg")).toBeTruthy();
     expect(chip?.getAttribute("aria-label")).toBe("Team standup in 51s");
     expect(screen.getByTestId("timeline-item-standup").dataset.upcoming).toBe(
@@ -1015,13 +1021,14 @@ describe("TimelineView", () => {
     expect(
       screen.getByTestId("timeline-item-standup").dataset.upcomingProgress,
     ).toBe("0.17");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-4");
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-spacer]"),
+      timelineStyles.topSpacerChrome,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]"),
+      timelineStyles.topChipStackChrome,
+    );
     expect(screen.queryByText("Now")).toBeNull();
 
     fireEvent.click(chip!);
@@ -1177,19 +1184,19 @@ describe("TimelineView", () => {
     expect(scroller).toBeInstanceOf(HTMLDivElement);
 
     const nowButton = screen.getByRole("button", { name: "Go back to now" });
-    expect(nowButton.className).toContain("bg-card");
-    expect(nowButton.className).not.toContain("backdrop-blur");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-chip-stack]")
-        ?.className,
-    ).toContain("top-4");
-    expect(
-      container.querySelector("[data-sidebar-timeline-top-spacer]")?.className,
-    ).toContain("h-12");
-    expect(
-      container.querySelector("[data-sidebar-timeline-bucket-header]")
-        ?.className,
-    ).toContain("top-12");
+    expectStyle(nowButton, timelineChipStyles.nowChip);
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-chip-stack]"),
+      timelineStyles.topChipStackChrome,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-top-spacer]"),
+      timelineStyles.topSpacerChrome,
+    );
+    expectStyle(
+      container.querySelector("[data-sidebar-timeline-bucket-header]"),
+      timelineStyles.bucketHeaderChrome,
+    );
 
     Object.defineProperty(scroller, "clientHeight", {
       configurable: true,
@@ -1238,9 +1245,10 @@ describe("TimelineView", () => {
     expect(isBefore(tomorrowHeading, indicator)).toBe(true);
     expect(isBefore(indicator, yesterdayHeading)).toBe(true);
     expect(isBefore(indicator, twoDaysAgoHeading)).toBe(true);
-    expect(
-      indicator.closest("[data-sidebar-current-time-header-gap]")?.className,
-    ).toContain("py-3");
+    expectStyle(
+      indicator.closest("[data-sidebar-current-time-header-gap]"),
+      timelineBucketStyles.indicatorHeaderGap,
+    );
   });
 
   it("does not auto-scroll to the fallback now indicator without a today bucket", () => {
@@ -1427,6 +1435,15 @@ function queryTopOccluder(container: HTMLElement) {
 
 function queryBottomFade(container: HTMLElement) {
   return container.querySelector("[data-sidebar-timeline-bottom-fade]");
+}
+
+function expectStyle(element: Element | null, sx: stylex.StyleXStyles) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(true);
+  }
 }
 
 function isBefore(first: Element, second: Element) {

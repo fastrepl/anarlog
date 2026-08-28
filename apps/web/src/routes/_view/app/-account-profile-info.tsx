@@ -17,7 +17,7 @@ const styles = stylex.create({
   style2: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#756b5d",
   },
   style3: {
@@ -57,7 +57,7 @@ const styles = stylex.create({
   style8: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#4f4940",
   },
   style9: {

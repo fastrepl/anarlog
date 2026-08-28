@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as sfxCommands } from "@anlg/plugin-sfx";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { LoginSection } from "./account";
 import { CalendarSection } from "./calendar";
@@ -144,8 +145,6 @@ function OnboardingScreenContent({
     [currentPlatform, onFinish, queryClient],
   );
 
-  const scrollProps = stylex.props(styles.scroll);
-
   return (
     <div {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.backdrop)}>
@@ -207,10 +206,7 @@ function OnboardingScreenContent({
         </h1>
       </div>
 
-      <div
-        {...scrollProps}
-        className={`scroll-fade-y ${scrollProps.className ?? ""}`}
-      >
+      <div {...mergeStyleXProps(styles.scroll, "scroll-fade-y")}>
         <div {...stylex.props(styles.sections)}>
           <OnboardingSection
             title={<Trans>Start with permissions</Trans>}
@@ -403,7 +399,7 @@ const styles = stylex.create({
     position: "relative",
   },
   scroll: {
-    flex: 1,
+    flex: "1",
     overflowY: "auto",
     position: "relative",
     zIndex: 10,

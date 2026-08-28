@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
+
 import {
   collectSharedNoteComments,
   useSharedNoteComments,
@@ -34,14 +36,15 @@ const styles = stylex.create({
   },
   style2: {
     marginBottom: "1.5rem",
+    backgroundColor: colors.muted,
     borderRadius: "1rem",
     borderStyle: "solid",
     borderWidth: "1px",
+    borderColor: colors.border,
     paddingInline: "1rem",
     paddingBlock: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
   },
 });
 export function SharedNoteEditableViewer({

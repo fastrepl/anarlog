@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import {
   cleanup,
   fireEvent,
@@ -180,7 +181,11 @@ vi.mock("~/stt/contexts", () => ({
     }),
 }));
 
-import { ManagedSharedSessionIdsContext, TimelineItemComponent } from "./item";
+import {
+  ManagedSharedSessionIdsContext,
+  TimelineItemComponent,
+  timelineItemStyles,
+} from "./item";
 
 describe("TimelineItemComponent", () => {
   beforeEach(() => {
@@ -227,14 +232,11 @@ describe("TimelineItemComponent", () => {
 
     const rowButton = screen.getByText("Live Note").closest("button");
 
-    expect(rowButton?.className).toContain("bg-destructive");
-    expect(rowButton?.className).toContain("text-destructive-foreground");
-    expect(rowButton?.className).not.toContain("bg-accent");
+    expectStyle(rowButton, timelineItemStyles.itemLive);
     expect(screen.getByTestId("dancing-sticks").dataset.amplitude).toBe("0.5");
 
     const stopButton = screen.getByRole("button", { name: "Stop listening" });
-    expect(stopButton.className).toContain("text-white/80");
-    expect(stopButton.className).toContain("hover:text-white");
+    expectStyle(stopButton, timelineItemStyles.stopButton);
 
     fireEvent.click(stopButton);
 
@@ -271,8 +273,7 @@ describe("TimelineItemComponent", () => {
     expect(row?.getAttribute("data-sidebar-timeline-session-id")).toBe(
       "session-live",
     );
-    expect(row?.className).toContain("[content-visibility:auto]");
-    expect(row?.className).toContain("[contain-intrinsic-size:auto_56px]");
+    expectStyle(row, timelineItemStyles.root);
     expect(selectedNodeRef.mock.calls.some(([node]) => node === row)).toBe(
       true,
     );
@@ -310,14 +311,8 @@ describe("TimelineItemComponent", () => {
       "[data-sidebar-timeline-upcoming-gauge-fill]",
     );
 
-    expect(rowButton?.className).toContain("bg-destructive/8");
-    expect(rowButton?.className).toContain("hover:bg-accent/50");
-    expect(rowButton?.className).not.toContain("hover:bg-destructive/12");
-    expect(rowButton?.className).toContain("pl-4");
-    expect(rowButton?.className).not.toContain("motion-safe:animate-pulse");
-    expect(rowButton?.className).not.toContain("shadow-[0_0_22px");
-    expect(rowButton?.className).not.toContain("ring-1");
-    expect(rowButton?.className).not.toContain("opacity-65");
+    expectStyle(rowButton, timelineItemStyles.itemUpcoming);
+    expectStyle(rowButton, timelineItemStyles.itemWithGauge);
     expect(screen.queryByText("In 4 minutes")).toBeNull();
     expect(gauge).not.toBeNull();
     expect(gaugeFill?.style.height).toBe("80%");
@@ -505,9 +500,8 @@ describe("TimelineItemComponent", () => {
     const rowButton = screen.getByText("Finalizing Note").closest("button");
     const spinnerSlot = screen.getByTestId("spinner").parentElement;
 
-    expect(rowButton?.className).toContain("pr-10");
-    expect(spinnerSlot?.className).toContain("absolute");
-    expect(spinnerSlot?.className).toContain("right-3");
+    expectStyle(rowButton, timelineItemStyles.itemWithTrailingStatus);
+    expectStyle(spinnerSlot, timelineItemStyles.trailingSlot);
   });
 
   it("marks a locally owned shared note with a people icon", () => {
@@ -772,3 +766,15 @@ describe("TimelineItemComponent", () => {
     expect(screen.queryByLabelText("Locked note")).toBeNull();
   });
 });
+
+function expectStyle(
+  element: Element | null | undefined,
+  sx: stylex.StyleXStyles,
+) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(true);
+  }
+}

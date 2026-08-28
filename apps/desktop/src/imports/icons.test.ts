@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   PROVIDER_BRAND_ICONS,
-  providerIconOpticalClass,
+  providerIconOpticalScale,
   providerIconSrc,
 } from "./icons";
 
@@ -54,32 +54,28 @@ describe("providerIconSrc", () => {
   });
 });
 
-describe("providerIconOpticalClass", () => {
+describe("providerIconOpticalScale", () => {
   it("enlarges line-art brand marks so they match filled app icons", () => {
-    expect(providerIconOpticalClass({ id: "chatgpt-record" })).toBe(
-      "scale-[1.22]",
-    );
-    expect(providerIconOpticalClass({ id: "slack-huddles" })).toBe(
-      "scale-[1.12]",
-    );
+    expect(providerIconOpticalScale({ id: "chatgpt-record" })).toBe(1.22);
+    expect(providerIconOpticalScale({ id: "slack-huddles" })).toBe(1.12);
   });
 
   it("leaves filled brand marks and native app icons unscaled", () => {
-    expect(providerIconOpticalClass({ id: "google-meet" })).toBeUndefined();
+    expect(providerIconOpticalScale({ id: "google-meet" })).toBeUndefined();
     expect(
-      providerIconOpticalClass({
+      providerIconOpticalScale({
         id: "zoom",
         iconUrl: "data:image/png;base64,zoom-wordmark",
       }),
     ).toBeUndefined();
     expect(
-      providerIconOpticalClass({
+      providerIconOpticalScale({
         id: "granola",
         iconUrl: "data:image/png;base64,granola",
       }),
     ).toBeUndefined();
     expect(
-      providerIconOpticalClass({
+      providerIconOpticalScale({
         id: "chatgpt-record",
         iconUrl: "data:image/png;base64,chatgpt",
       }),

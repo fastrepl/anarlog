@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,7 +49,7 @@ vi.mock("@anlg/ui/components/ui/resizable", () => {
   };
 });
 
-import { StandardContentWrapper } from "./index";
+import { mainStyles, StandardContentWrapper } from "./index";
 
 describe("StandardContentWrapper", () => {
   beforeEach(() => {
@@ -70,9 +71,10 @@ describe("StandardContentWrapper", () => {
     expect(screen.getByTestId("panel").dataset.defaultSize).toBe("100");
     expect(screen.getByTestId("panel").dataset.minSize).toBe("35");
     expect(screen.getByTestId("main-area")).toBeTruthy();
-    expect(
-      document.querySelector("[data-chat-floating-anchor]")?.className,
-    ).toContain("rounded-xl");
+    expectStyle(
+      document.querySelector("[data-chat-floating-anchor]"),
+      mainStyles.floatingAnchorMacos,
+    );
   });
 
   it.each(["windows", "linux"] as const)(
@@ -86,9 +88,10 @@ describe("StandardContentWrapper", () => {
         </StandardContentWrapper>,
       );
 
-      expect(
-        document.querySelector("[data-chat-floating-anchor]")?.className,
-      ).not.toContain("rounded-xl");
+      expectNotStyle(
+        document.querySelector("[data-chat-floating-anchor]"),
+        mainStyles.floatingAnchorMacos,
+      );
     },
   );
 
@@ -102,3 +105,21 @@ describe("StandardContentWrapper", () => {
     expect(screen.getByRole("button", { name: "Record" })).toBeTruthy();
   });
 });
+
+function expectStyle(element: Element | null, sx: stylex.StyleXStyles) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(true);
+  }
+}
+
+function expectNotStyle(element: Element | null, sx: stylex.StyleXStyles) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(false);
+  }
+}

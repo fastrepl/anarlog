@@ -22,7 +22,7 @@ export const contactItemStyles = stylex.create({
     width: "1rem",
   },
   body: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   icon: {

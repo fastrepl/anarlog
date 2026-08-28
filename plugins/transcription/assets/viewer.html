@@ -4,14 +4,276 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Diff Viewer</title>
-    <script src="https://cdn.twind.style" crossorigin></script>
     <style>
-      *, ::before, ::after { corner-shape: squircle; }
+      .diff-viewer,
+      .diff-viewer *,
+      .diff-viewer *::before,
+      .diff-viewer *::after {
+        box-sizing: border-box;
+        corner-shape: squircle;
+      }
+
+      .diff-viewer {
+        --viewer-neutral-100: #f5f5f5;
+        --viewer-neutral-300: #d4d4d4;
+        --viewer-neutral-400: #a3a3a3;
+        --viewer-neutral-500: #737373;
+        --viewer-neutral-600: #525252;
+        --viewer-neutral-800: #262626;
+        --viewer-neutral-900: #171717;
+        height: 100vh;
+        margin: 0;
+        overflow: hidden;
+        background: linear-gradient(
+          to bottom right,
+          var(--viewer-neutral-900),
+          var(--viewer-neutral-800),
+          var(--viewer-neutral-900)
+        );
+        color: var(--viewer-neutral-100);
+        font-family:
+          ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        line-height: 1.5;
+      }
+
+      .diff-viewer button,
+      .diff-viewer select {
+        color: inherit;
+        font: inherit;
+      }
+
+      .diff-viewer__shell {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 1.5rem;
+      }
+
+      .diff-viewer__toolbar {
+        margin-bottom: 1rem;
+        border: 1px solid rgb(64 64 64 / 0.5);
+        border-radius: 0.75rem;
+        background: rgb(38 38 38 / 0.5);
+        padding: 1rem;
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+      }
+
+      .diff-viewer__toolbar-content {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .diff-viewer__control-group {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .diff-viewer__label {
+        color: var(--viewer-neutral-400);
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.25rem;
+      }
+
+      .diff-viewer__file-select,
+      .diff-viewer__nav-button,
+      .diff-viewer__position,
+      .diff-viewer__step-control {
+        border: 1px solid var(--viewer-neutral-600);
+        background: rgb(23 23 23 / 0.5);
+      }
+
+      .diff-viewer__file-select {
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .diff-viewer__file-select:hover,
+      .diff-viewer__nav-button:not(:disabled):hover {
+        background: rgb(23 23 23 / 0.7);
+      }
+
+      .diff-viewer__file-select:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 2px rgb(59 130 246 / 0.5);
+      }
+
+      .diff-viewer__nav-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        transition:
+          background-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+          border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
+          opacity 150ms cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .diff-viewer__nav-button:not(:disabled):hover {
+        border-color: rgb(59 130 246 / 0.5);
+      }
+
+      .diff-viewer__nav-button:disabled {
+        cursor: not-allowed;
+        opacity: 0.4;
+      }
+
+      .diff-viewer__nav-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+
+      .diff-viewer__position {
+        min-width: 100px;
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        text-align: center;
+      }
+
+      .diff-viewer__position-current,
+      .diff-viewer__position-total,
+      .diff-viewer__legend {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+      }
+
+      .diff-viewer__position-current {
+        color: #60a5fa;
+        font-weight: 600;
+      }
+
+      .diff-viewer__position-total,
+      .diff-viewer__label--small {
+        color: var(--viewer-neutral-400);
+      }
+
+      .diff-viewer__step-control {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: 0.5rem;
+        border-radius: 0.5rem;
+        padding: 0.25rem 0.75rem;
+      }
+
+      .diff-viewer__label--small {
+        font-size: 0.75rem;
+        line-height: 1rem;
+      }
+
+      .diff-viewer__step-select {
+        border: 0;
+        outline: none;
+        background: transparent;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+      }
+
+      .diff-viewer__legend,
+      .diff-viewer__legend-item {
+        display: flex;
+        align-items: center;
+      }
+
+      .diff-viewer__legend {
+        gap: 1rem;
+      }
+
+      .diff-viewer__legend-item {
+        gap: 0.5rem;
+      }
+
+      .diff-viewer__legend-dot {
+        width: 0.75rem;
+        height: 0.75rem;
+        border-radius: 9999px;
+      }
+
+      .diff-viewer__legend-dot--final {
+        background: #fb7185;
+      }
+
+      .diff-viewer__legend-dot--partial {
+        background: #34d399;
+      }
+
+      .diff-viewer__legend-label {
+        color: var(--viewer-neutral-300);
+      }
+
+      .diff-viewer__content-panel {
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid rgb(64 64 64 / 0.5);
+        border-radius: 0.75rem;
+        background: rgb(38 38 38 / 0.3);
+        padding: 2rem;
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+      }
+
+      .diff-viewer__content-scroll {
+        min-height: 0;
+        flex: 1;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+      }
+
+      .diff-viewer__content {
+        overflow-wrap: break-word;
+        color: var(--viewer-neutral-100);
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        font-size: 1.125rem;
+        line-height: 1.75rem;
+        white-space: pre-wrap;
+      }
+
+      .diff-viewer__content-flow {
+        line-height: 1.625;
+      }
+
+      .diff-viewer__final,
+      .diff-viewer__partial {
+        font-weight: 500;
+      }
+
+      .diff-viewer__final {
+        color: #fb7185;
+      }
+
+      .diff-viewer__partial {
+        color: #34d399;
+      }
+
+      .diff-viewer__empty {
+        color: var(--viewer-neutral-500);
+        font-style: italic;
+      }
+
+      .diff-viewer__hint {
+        margin-top: 0.75rem;
+        color: var(--viewer-neutral-500);
+        font-size: 0.75rem;
+        line-height: 1rem;
+        text-align: center;
+      }
     </style>
   </head>
-  <body
-    class="bg-linear-to-br from-neutral-900 via-neutral-800 to-neutral-900 text-neutral-100 h-screen overflow-hidden"
-  >
+  <body class="diff-viewer">
     <div id="app"></div>
 
     <script type="module">
@@ -65,37 +327,37 @@
 
           for (let i = 0; i <= currentIndex && i < data.length; i++) {
             Object.entries(data[i].final_content || {}).forEach(([key, value]) => {
-              parts.push(html`<span class="text-rose-400 font-medium">${value}</span>`);
+              parts.push(html`<span class="diff-viewer__final">${value}</span>`);
             });
           }
 
           if (data[currentIndex]) {
             Object.entries(data[currentIndex].partial_content || {}).forEach(([key, value]) => {
-              parts.push(html`<span class="text-emerald-400 font-medium">${value}</span>`);
+              parts.push(html`<span class="diff-viewer__partial">${value}</span>`);
             });
           }
 
           if (parts.length === 0) {
-            return html`<span class="text-neutral-500 italic">No content to display</span>`;
+            return html`<span class="diff-viewer__empty">No content to display</span>`;
           }
 
-          return html`<div class="leading-relaxed">${parts.map((part, i) =>
+          return html`<div class="diff-viewer__content-flow">${parts.map((part, i) =>
             html`<span key=${i}>${i > 0 ? ' ' : ''}${part}</span>`
           )}</div>`;
         };
 
         return html`
-          <div class="h-screen flex flex-col p-6">
+          <div class="diff-viewer__shell">
             <!-- Header Controls -->
-            <div class="bg-neutral-800/50 backdrop-blur-sm rounded-xl border border-neutral-700/50 p-4 mb-4">
-              <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="diff-viewer__toolbar">
+              <div class="diff-viewer__toolbar-content">
                 <!-- File Selector -->
-                <div class="flex items-center gap-3">
-                  <label class="text-sm text-neutral-400 font-medium">File:</label>
+                <div class="diff-viewer__control-group">
+                  <label class="diff-viewer__label">File:</label>
                   <select
                     value=${selectedFile}
                     onChange=${e => setSelectedFile(e.target.value)}
-                    class="bg-neutral-900/50 border border-neutral-600 rounded-lg px-4 py-2 text-neutral-100 hover:bg-neutral-900/70 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    class="diff-viewer__file-select"
                   >
                     <option value="council_011320_2022003V">council_011320_2022003V</option>
                     <option value="f7952672-5d18-4f75-8aa0-74ab8b02dac3">f7952672-5d18-4f75-8aa0-74ab8b02dac3</option>
@@ -103,43 +365,43 @@
                 </div>
 
                 <!-- Navigation Controls -->
-                <div class="flex items-center gap-3">
+                <div class="diff-viewer__control-group">
                   <button
                     onClick=${() => setCurrentIndex(Math.max(0, currentIndex - stepSize))}
                     disabled=${currentIndex === 0}
-                    class="bg-neutral-900/50 hover:bg-neutral-900/70 px-4 py-2 rounded-lg border border-neutral-600 transition-all ${currentIndex === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:border-blue-500/50'}"
+                    class="diff-viewer__nav-button"
                     title="Previous (← arrow key)"
                   >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="diff-viewer__nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                   </button>
 
-                  <div class="bg-neutral-900/50 px-4 py-2 rounded-lg border border-neutral-600 min-w-[100px] text-center">
-                    <span class="text-sm font-semibold text-blue-400">
+                  <div class="diff-viewer__position">
+                    <span class="diff-viewer__position-current">
                       ${data.length > 0 ? `${currentIndex + 1}` : '0'}
                     </span>
-                    <span class="text-sm text-neutral-400"> / ${data.length}</span>
+                    <span class="diff-viewer__position-total"> / ${data.length}</span>
                   </div>
 
                   <button
                     onClick=${() => setCurrentIndex(Math.min(data.length - 1, currentIndex + stepSize))}
                     disabled=${currentIndex >= data.length - 1}
-                    class="bg-neutral-900/50 hover:bg-neutral-900/70 px-4 py-2 rounded-lg border border-neutral-600 transition-all ${currentIndex >= data.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:border-blue-500/50'}"
+                    class="diff-viewer__nav-button"
                     title="Next (→ arrow key)"
                   >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="diff-viewer__nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
 
                   <!-- Step Size Control -->
-                  <div class="flex items-center gap-2 ml-2 px-3 py-1 bg-neutral-900/50 rounded-lg border border-neutral-600">
-                    <label class="text-xs text-neutral-400">Step:</label>
+                  <div class="diff-viewer__step-control">
+                    <label class="diff-viewer__label--small">Step:</label>
                     <select
                       value=${stepSize}
                       onChange=${e => setStepSize(Number(e.target.value))}
-                      class="bg-transparent text-sm text-neutral-100 focus:outline-none"
+                      class="diff-viewer__step-select"
                     >
                       <option value="1">1</option>
                       <option value="2">2</option>
@@ -150,30 +412,30 @@
                 </div>
 
                 <!-- Legend -->
-                <div class="flex items-center gap-4 text-sm">
-                  <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 bg-rose-400 rounded-full"></div>
-                    <span class="text-neutral-300">Final</span>
+                <div class="diff-viewer__legend">
+                  <div class="diff-viewer__legend-item">
+                    <div class="diff-viewer__legend-dot diff-viewer__legend-dot--final"></div>
+                    <span class="diff-viewer__legend-label">Final</span>
                   </div>
-                  <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 bg-emerald-400 rounded-full"></div>
-                    <span class="text-neutral-300">Partial</span>
+                  <div class="diff-viewer__legend-item">
+                    <div class="diff-viewer__legend-dot diff-viewer__legend-dot--partial"></div>
+                    <span class="diff-viewer__legend-label">Partial</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- Content Area -->
-            <div class="flex-1 bg-neutral-800/30 backdrop-blur-sm rounded-xl border border-neutral-700/50 p-8 overflow-hidden flex flex-col">
-              <div ref=${el => contentRef.current = el} class="flex-1 overflow-y-auto scroll-smooth">
-                <div class="font-mono text-lg text-neutral-100 whitespace-pre-wrap break-words">
+            <div class="diff-viewer__content-panel">
+              <div ref=${el => contentRef.current = el} class="diff-viewer__content-scroll">
+                <div class="diff-viewer__content">
                   ${renderContent()}
                 </div>
               </div>
             </div>
 
             <!-- Keyboard Hint -->
-            <div class="mt-3 text-center text-xs text-neutral-500">
+            <div class="diff-viewer__hint">
               Use arrow keys (← →) for navigation • Step size controls how many items to skip
             </div>
           </div>

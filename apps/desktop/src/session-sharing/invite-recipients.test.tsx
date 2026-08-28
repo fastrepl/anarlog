@@ -1,7 +1,13 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ShareInviteForm, ShareInviteSuggestions } from "./invite-recipients";
+import {
+  ShareInviteForm,
+  ShareInviteSuggestions,
+  shareInviteStyles,
+} from "./invite-recipients";
+
+import { expectStyle } from "~/session/stylex-test";
 
 vi.mock("~/contacts/queries", () => ({
   useHumans: () => [],
@@ -27,10 +33,8 @@ describe("ShareInviteForm", () => {
     const emailField = screen.getByRole("textbox", { name: "Invitee email" });
     const inviteButton = screen.getByRole("button", { name: "Invite" });
 
-    expect(emailField.parentElement?.className).toContain("rounded-full");
-    expect(inviteButton.className).toContain("rounded-full");
-    expect(emailField.parentElement?.className).not.toContain("rounded-md");
-    expect(inviteButton.className).not.toContain("rounded-md");
+    expectStyle(emailField.parentElement, shareInviteStyles.inputShell);
+    expectStyle(inviteButton, shareInviteStyles.submitButton);
   });
 
   it("shows how many recipients the action will invite", () => {

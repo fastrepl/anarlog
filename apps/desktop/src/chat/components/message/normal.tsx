@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
 
 import { colors } from "@anlg/design-system/tokens.stylex";
+import { markdownComponents } from "@anlg/ui/components/markdown";
 
 import { Disclosure, MessageBubble, MessageContainer } from "./shared";
 import { Tool } from "./tool";
@@ -155,6 +156,7 @@ function Reasoning({ part }: { part: Extract<Part, { type: "reasoning" }> }) {
 }
 
 const chatComponents = {
+  ...markdownComponents,
   h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => {
     return (
       <h1 {...stylex.props(styles.headingOne)}>
@@ -213,7 +215,7 @@ function Text({ part }: { part: Extract<Part, { type: "text" }> }) {
     <Streamdown
       components={chatComponents}
       {...stylex.props(styles.streamdown)}
-      caret="block"
+      controls={false}
       isAnimating={isAnimating}
       linkSafety={{ enabled: false }}
     >

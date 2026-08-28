@@ -3,6 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type CSSProperties, useEffect, useRef } from "react";
 
 import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 type DropdownOption = {
   id: string;
@@ -47,8 +48,7 @@ export function ParticipantDropdown({
   return (
     <div
       ref={floatingRef}
-      {...stylex.props(styles.root)}
-      style={floatingStyles}
+      {...mergeStyleXProps(styles.root, undefined, floatingStyles)}
       onMouseDown={(event) => {
         event.preventDefault();
         event.stopPropagation();

@@ -5,11 +5,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import {
-  colors,
-  fonts,
-  radii,
-} from "@anlg/design-system/tokens.stylex";
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import {
   commands as webhookCommands,
   type WebhookInfo,
@@ -203,16 +199,11 @@ function WebhookRow({
     <li {...stylex.props(styles.row)}>
       <div {...stylex.props(styles.identity)}>
         <span
-          {...stylex.props(
-            styles.url,
-            !webhook.active && styles.inactiveUrl,
-          )}
+          {...stylex.props(styles.url, !webhook.active && styles.inactiveUrl)}
         >
           {webhook.url}
         </span>
-        <span {...stylex.props(styles.meta)}>
-          {statusParts.join(" · ")}
-        </span>
+        <span {...stylex.props(styles.meta)}>{statusParts.join(" · ")}</span>
       </div>
       <div {...stylex.props(styles.actions)}>
         <Button
@@ -264,7 +255,6 @@ const styles = stylex.create({
     },
     fontSize: "0.75rem",
     lineHeight: "1rem",
-    msOverflowStyle: "none",
     overflowX: "auto",
     paddingBlock: "0.125rem",
     paddingInline: "0.375rem",

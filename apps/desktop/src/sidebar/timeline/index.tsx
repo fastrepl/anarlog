@@ -675,3 +675,5 @@ const styles = stylex.create({
     height: "3.5rem",
   },
 });
+
+export { styles as timelineStyles };

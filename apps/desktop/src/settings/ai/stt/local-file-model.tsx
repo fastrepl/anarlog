@@ -150,7 +150,7 @@ const styles = stylex.create({
   chooseButton: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.5rem",
     minWidth: 0,
     textAlign: "left",
@@ -188,7 +188,7 @@ const styles = stylex.create({
     textAlign: "left",
   },
   filename: {
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,

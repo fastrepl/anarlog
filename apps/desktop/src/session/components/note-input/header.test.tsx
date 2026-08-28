@@ -314,7 +314,15 @@ vi.mock("~/templates", () => ({
   useUserTemplates: () => hoisted.userTemplates,
 }));
 
-import { Header, SessionViewSwitcher, useEditorTabs } from "./header";
+import {
+  Header,
+  SessionViewSwitcher,
+  sessionViewSwitcherStyles,
+  useEditorTabs,
+} from "./header";
+import { headerViewStyles } from "./header-shared";
+
+import { expectStyle } from "~/session/stylex-test";
 
 describe("Header", () => {
   beforeEach(() => {
@@ -378,35 +386,21 @@ describe("Header", () => {
 
     expect(summaryTab.getAttribute("data-state")).toBeNull();
     expect(viewSwitcher.getAttribute("data-tauri-drag-region")).toBe("false");
-    expect(viewSwitcher.className).toContain("h-[30px]");
-    expect(viewSwitcher.className).toContain("p-[2px]");
-    expect(viewSwitcher.className).toContain("gap-[2px]");
-    expect(viewSwitcher.className).toContain("bg-foreground/10");
-    expect(viewSwitcher.className).toContain("dark:bg-accent/55");
+    expectStyle(viewSwitcher, sessionViewSwitcherStyles.switcher);
     expect(summaryTab.getAttribute("aria-current")).toBeNull();
     expect(memoTab.getAttribute("aria-current")).toBe("page");
     expect(memoTab.textContent).toBe("Memos");
-    expect(memoTab.className).toContain("h-[26px]");
-    expect(memoTab.className).not.toContain("-my-px");
-    expect(memoTab.className).toContain("bg-white");
-    expect(memoTab.className).toContain("text-foreground");
-    expect(memoTab.className).toContain("shadow-xs");
-    expect(memoTab.className).toContain("dark:text-foreground");
-    expect(memoTab.className).toContain("dark:bg-accent");
-    expect(memoTab.className).toContain("dark:shadow-none");
-    expect(memoTab.className).toContain("@max-[480px]:max-w-10");
-    expect(memoTab.querySelector("span")?.className).toContain(
-      "@max-[480px]:sr-only",
-    );
-    expect(summaryTab.className).toContain("h-[26px]");
-    expect(summaryTab.className).toContain("px-2");
-    expect(summaryTab.className).not.toContain("min-w-10");
-    expect(summaryTab.className).toContain("dark:hover:bg-accent/80");
+    expectStyle(memoTab, headerViewStyles.active);
+    expectStyle(memoTab, headerViewStyles.activeContent);
+    expectStyle(memoTab, headerViewStyles.tray);
+    expectStyle(screen.getByText("Memos"), headerViewStyles.label);
+    expectStyle(summaryTab, headerViewStyles.inactive);
+    expectStyle(summaryTab, headerViewStyles.tray);
     expect(summaryTab.querySelector("svg")).not.toBeNull();
     expect(summaryTab.querySelectorAll("svg")).toHaveLength(1);
     expect(transcriptTab.querySelector("svg")).not.toBeNull();
-    expect(transcriptTab.className).toContain("px-2");
-    expect(transcriptTab.className).not.toContain("min-w-10");
+    expectStyle(transcriptTab, headerViewStyles.inactive);
+    expectStyle(transcriptTab, headerViewStyles.tray);
     expect(summaryTab.textContent).toBe("");
     expect(transcriptTab.textContent).toBe("");
     expect(summaryTab.getAttribute("title")).toBe(
@@ -433,18 +427,10 @@ describe("Header", () => {
       name: "Customer Call",
     });
     expect(activeSummaryTab.textContent).toBe("Customer Call");
-    expect(activeSummaryTab.className).toContain("text-foreground");
-    expect(activeSummaryTab.className).toContain("dark:text-foreground");
-    expect(activeSummaryTab.className).toContain("dark:bg-accent");
-    expect(activeSummaryTab.className).toContain("@max-[480px]:max-w-12");
-    expect(activeSummaryTab.querySelector("span")?.className).toContain(
-      "@max-[480px]:sr-only",
-    );
+    expectStyle(activeSummaryTab, headerViewStyles.headerView);
+    expectStyle(activeSummaryTab, headerViewStyles.tray);
     const activeSummaryIcons = activeSummaryTab.querySelectorAll("svg");
     expect(activeSummaryIcons).toHaveLength(2);
-    expect(activeSummaryIcons[1]?.getAttribute("class")).not.toContain(
-      "@max-[480px]:hidden",
-    );
 
     fireEvent.click(activeSummaryTab);
 

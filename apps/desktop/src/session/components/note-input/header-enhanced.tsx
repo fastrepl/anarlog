@@ -1,14 +1,15 @@
 import { CaretDown, Sparkle } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
 
+import { colors } from "@anlg/design-system/tokens.stylex";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
-import { cn } from "@anlg/utils";
 
 import {
   copyTextToClipboard,
+  getIconHeaderViewStyles,
   getEnhancedNoteTitle,
   getStoredNoteMarkdown,
-  iconHeaderViewClassName,
 } from "./header-shared";
 import {
   TemplatePickerPopover,
@@ -109,12 +110,15 @@ function HeaderViewEnhancedInactive({
       aria-label={viewTitle}
       onClick={onClick}
       title={templateTooltip}
-      className={iconHeaderViewClassName(false, "tray", "px-2")}
+      data-header-view
+      {...stylex.props(
+        getIconHeaderViewStyles(false, "tray", styles.inactiveButton),
+      )}
     >
       {isGenerating ? (
-        <Spinner size={16} className="shrink-0" />
+        <Spinner size={16} sx={styles.shrinkIcon} />
       ) : (
-        <Sparkle className="size-4" />
+        <Sparkle {...stylex.props(styles.icon)} />
       )}
     </button>
   );
@@ -240,33 +244,22 @@ function HeaderViewEnhancedActive({
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={showContextMenu}
       title={templateTooltip}
-      className={iconHeaderViewClassName(
-        true,
-        "tray",
-        cn([
-          "max-w-56 min-w-[62px] gap-1.5 px-2 @max-[480px]:max-w-12 @max-[480px]:min-w-12 @max-[480px]:gap-0 @max-[480px]:px-1.5",
-          isGenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
-          isError
-            ? [
-                "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50",
-                "dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 dark:focus-visible:bg-red-950/50",
-              ]
-            : [
-                "focus-visible:text-foreground focus-visible:bg-white",
-                "dark:focus-visible:text-primary dark:focus-visible:bg-white",
-              ],
+      data-header-view
+      {...stylex.props(
+        getIconHeaderViewStyles(true, "tray", [
+          styles.activeButton,
+          isGenerating ? styles.generating : styles.interactive,
+          isError ? styles.error : styles.normal,
         ]),
       )}
     >
       {isGenerating ? (
-        <Spinner size={16} className="shrink-0" />
+        <Spinner size={16} sx={styles.shrinkIcon} />
       ) : (
-        <Sparkle className="size-4" />
+        <Sparkle {...stylex.props(styles.icon)} />
       )}
-      <span className="min-w-0 truncate text-xs font-medium @max-[480px]:sr-only">
-        {viewTitle}
-      </span>
-      <CaretDown className="size-3.5" />
+      <span {...stylex.props(styles.label)}>{viewTitle}</span>
+      <CaretDown {...stylex.props(styles.caret)} />
     </button>
   );
 
@@ -283,3 +276,105 @@ function HeaderViewEnhancedActive({
 
 const useEnhanceLogic = (sessionId: string, enhancedNoteId: string) =>
   useEnhancedNoteActions({ sessionId, enhancedNoteId });
+
+const compact = "@container (max-width: 480px)";
+
+const styles = stylex.create({
+  activeButton: {
+    gap: {
+      default: "0.375rem",
+      [compact]: 0,
+    },
+    maxWidth: {
+      default: "14rem",
+      [compact]: "3rem",
+    },
+    minWidth: {
+      default: "62px",
+      [compact]: "3rem",
+    },
+    paddingInline: {
+      default: "0.5rem",
+      [compact]: "0.375rem",
+    },
+  },
+  caret: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  error: {
+    backgroundColor: {
+      default: null,
+      ":hover": "rgb(254 242 242)",
+      ":focus-visible": "rgb(254 242 242)",
+      ":is(.dark *):hover": "rgb(69 10 10 / 0.5)",
+      ":is(.dark *):focus-visible": "rgb(69 10 10 / 0.5)",
+    },
+    color: {
+      default: "rgb(220 38 38)",
+      ":hover": "rgb(185 28 28)",
+      ":is(.dark *)": "rgb(248 113 113)",
+      ":is(.dark *):hover": "rgb(252 165 165)",
+    },
+  },
+  generating: {
+    cursor: "not-allowed",
+    opacity: 0.7,
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  inactiveButton: {
+    paddingInline: "0.5rem",
+  },
+  interactive: {
+    cursor: "pointer",
+  },
+  label: {
+    clip: {
+      default: null,
+      [compact]: "rect(0, 0, 0, 0)",
+    },
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    height: {
+      default: null,
+      [compact]: "1px",
+    },
+    margin: {
+      default: null,
+      [compact]: "-1px",
+    },
+    minWidth: 0,
+    overflow: "hidden",
+    padding: {
+      default: null,
+      [compact]: 0,
+    },
+    position: {
+      default: null,
+      [compact]: "absolute",
+    },
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    width: {
+      default: null,
+      [compact]: "1px",
+    },
+  },
+  normal: {
+    backgroundColor: {
+      default: null,
+      ":focus-visible": "white",
+    },
+    color: {
+      default: null,
+      ":focus-visible": colors.foreground,
+      ":is(.dark *):focus-visible": colors.primary,
+    },
+  },
+  shrinkIcon: {
+    flexShrink: 0,
+  },
+});

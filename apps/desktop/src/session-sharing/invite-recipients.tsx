@@ -317,7 +317,7 @@ const styles = stylex.create({
       default: "text",
       ":disabled": "not-allowed",
     },
-    flex: 1,
+    flex: "1",
     fontSize: "0.75rem",
     minWidth: 0,
     outline: "none",
@@ -334,7 +334,7 @@ const styles = stylex.create({
       ":focus-within": `0 0 0 1px ${colors.ring}`,
     },
     display: "flex",
-    flex: 1,
+    flex: "1",
     height: "2rem",
     minWidth: 0,
     paddingInline: "0.75rem",
@@ -343,7 +343,7 @@ const styles = stylex.create({
     opacity: 0.5,
   },
   recipientContent: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   recipientEmail: {
@@ -456,3 +456,5 @@ const styles = stylex.create({
     padding: "0.25rem",
   },
 });
+
+export { styles as shareInviteStyles };

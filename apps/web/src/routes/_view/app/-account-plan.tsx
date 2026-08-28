@@ -3,6 +3,8 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 
+import { radii } from "@anlg/design-system/tokens.stylex";
+
 import { authStyles } from "@/components/auth-shell";
 import { getAccountSubscription } from "@/functions/billing";
 import { applyYcPerk } from "@/functions/yc-perk";
@@ -40,13 +42,13 @@ const styles = stylex.create({
   style3: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style4: {
     backgroundColor: "#fff0b3",
     paddingInline: ".25rem",
-    fontWeight: "600",
+    fontWeight: 600,
   },
   style5: {
     marginTop: ".25rem",
@@ -78,17 +80,17 @@ const styles = stylex.create({
     },
   },
   style8: {
-    minWidth: "0",
+    minWidth: 0,
     flexGrow: 1,
   },
   style9: {
     clipPath: "inset(50%)",
     whiteSpace: "nowrap",
-    borderWidth: "0",
+    borderWidth: 0,
     width: "1px",
     height: "1px",
     margin: "-1px",
-    padding: "0",
+    padding: 0,
     position: "absolute",
     overflow: "hidden",
   },
@@ -124,7 +126,7 @@ const styles = stylex.create({
     color: "#b91c1c",
   },
   perkInput: {
-    borderRadius: "9999px",
+    borderRadius: radii.full,
     fontSize: ".875rem",
     height: "2.25rem",
     paddingInline: "1rem",

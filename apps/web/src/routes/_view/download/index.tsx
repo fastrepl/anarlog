@@ -3,6 +3,8 @@ import { ArrowSquareOut, DownloadSimple } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
+
 import { SiteFooter } from "@/components/site-footer";
 import { useAnalytics } from "@/hooks/use-posthog";
 import { comingSoonPlatforms, desktopDownloadSections } from "@/lib/download";
@@ -10,6 +12,8 @@ import { getCanonicalUrl } from "@/lib/seo";
 const styles = stylex.create({
   style1: {
     minHeight: "100vh",
+    backgroundColor: colors.card,
+    color: colors.foreground,
   },
   style2: {
     marginInline: "auto",
@@ -36,17 +40,17 @@ const styles = stylex.create({
     paddingBottom: "4rem",
   },
   style5: {
+    fontFamily: fonts.hand,
     fontSize: {
       default: "3.75rem",
       "@media (width >= 48rem)": "6rem",
     },
     lineHeight: {
-      default: ".98",
-      "@media (width >= 48rem)": "1",
+      default: 0.98,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": ".98",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
   },
   style6: {
@@ -59,34 +63,46 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: ".625rem",
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
+    letterSpacing: 0,
   },
   style8: {
     fontSize: "1.5rem",
     lineHeight: "2rem",
   },
   style9: {
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "1px",
+    borderColor: colors.border,
     paddingInline: ".625rem",
     paddingBlock: ".25rem",
-    fontFamily:
-      "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+    fontFamily: fonts.sans,
     fontSize: ".75rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    lineHeight: 1,
+    fontWeight: 500,
+    letterSpacing: ".025em",
+    color: colors.mutedForeground,
     textTransform: "uppercase",
   },
   style10: {
     borderBlockStyle: "solid",
     borderBlockWidth: "1px",
+    borderColor: colors.border,
+  },
+  downloadRow: {
+    borderBottomColor: colors.border,
+    borderBottomStyle: {
+      default: "solid",
+      ":last-child": "none",
+    },
+    borderBottomWidth: {
+      default: "1px",
+      ":last-child": 0,
+    },
   },
   style11: {
     display: "flex",
@@ -97,15 +113,14 @@ const styles = stylex.create({
     paddingBlock: "1.25rem",
   },
   style12: {
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style13: {
     display: "inline-flex",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
     gap: ".375rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#181613",
     paddingInline: {
       default: "1rem",
@@ -116,8 +131,7 @@ const styles = stylex.create({
       default: "13px",
       "@media (width >= 40rem)": ".875rem",
     },
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
     lineHeight: {
       default: null,
@@ -128,19 +142,20 @@ const styles = stylex.create({
     marginTop: "1rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
+    color: colors.mutedForeground,
   },
   style15: {
+    color: colors.foreground,
     textDecorationLine: "underline",
     textUnderlineOffset: "4px",
   },
   style16: {
     marginBottom: "1.25rem",
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
+    letterSpacing: 0,
   },
   style17: {
     display: "flex",
@@ -148,15 +163,16 @@ const styles = stylex.create({
     gap: ".5rem",
   },
   style18: {
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "1px",
+    borderColor: colors.border,
     paddingInline: "1rem",
     paddingBlock: ".5rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
+    color: colors.mutedForeground,
   },
 });
 const platformIcons = {
@@ -233,7 +249,10 @@ function Component() {
 
                 <ul {...stylex.props(styles.style10)}>
                   {section.downloads.map((download) => (
-                    <li key={download.name}>
+                    <li
+                      key={download.name}
+                      {...stylex.props(styles.downloadRow)}
+                    >
                       <div {...stylex.props(styles.style11)}>
                         <span {...stylex.props(styles.style12)}>
                           {download.name}

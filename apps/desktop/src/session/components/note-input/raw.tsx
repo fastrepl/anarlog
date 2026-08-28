@@ -1,8 +1,10 @@
 import { useLingui } from "@lingui/react/macro";
 import { Plus } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import type { EditorView } from "prosemirror-view";
 import { forwardRef, useCallback, useMemo, useRef, useState } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { parseJsonContent } from "@anlg/editor/markdown";
 import {
   NoteEditor,
@@ -284,7 +286,7 @@ export const RawEditor = forwardRef<
         isActive={isAudioDragActive}
       >
         <>
-          <div className="relative min-h-full">
+          <div {...stylex.props(styles.editorContainer)}>
             <NoteEditor
               ref={setEditorRef}
               className={cn(["session-note-editor", className])}
@@ -315,7 +317,7 @@ export const RawEditor = forwardRef<
               }}
             />
             {isMemoEmpty && !isGenerating ? (
-              <div className="pointer-events-none absolute inset-x-0 top-8 z-10 flex flex-col">
+              <div {...stylex.props(styles.emptyActions)}>
                 {briefVisible ? (
                   <CreateBriefSuggestion onCreate={createBrief} />
                 ) : null}
@@ -472,13 +474,10 @@ function TemplateEmptyState({
       <button
         type="button"
         onClick={handleCreateTemplate}
-        className={cn([
-          "hover:bg-accent focus-visible:bg-accent pointer-events-auto -ml-2 flex h-8 w-fit max-w-full items-center gap-2 rounded-md px-2 text-left",
-          "text-muted-foreground hover:text-foreground focus-visible:text-foreground transition-colors focus-visible:outline-hidden",
-        ])}
+        {...stylex.props(styles.templateButton)}
       >
-        <Plus aria-hidden className="size-4" />
-        <span className="text-sm font-medium">{t`New template`}</span>
+        <Plus aria-hidden {...stylex.props(styles.icon)} />
+        <span {...stylex.props(styles.buttonLabel)}>{t`New template`}</span>
       </button>
     </>
   );
@@ -500,21 +499,16 @@ function TemplateSection({
 
   return (
     <>
-      <p className="text-muted-foreground flex h-8 items-center text-xs">
-        {label}
-      </p>
+      <p {...stylex.props(styles.sectionLabel)}>{label}</p>
       {templates.map((template) => (
         <button
           key={template.id}
           type="button"
           onClick={() => onApply(template)}
-          className={cn([
-            "hover:bg-accent focus-visible:bg-accent pointer-events-auto -ml-2 flex h-8 w-fit max-w-full items-center gap-2 rounded-md px-2 text-left",
-            "text-muted-foreground hover:text-foreground focus-visible:text-foreground transition-colors focus-visible:outline-hidden",
-          ])}
+          {...stylex.props(styles.templateButton)}
         >
-          <TemplateIconGlyph icon={template.icon} className="size-4 text-sm" />
-          <span className="min-w-0 truncate text-sm font-medium">
+          <TemplateIconGlyph icon={template.icon} sx={styles.templateIcon} />
+          <span {...stylex.props(styles.templateTitle)}>
             {template.title || t`Untitled`}
           </span>
         </button>
@@ -533,3 +527,78 @@ async function trackNoteEdited() {
     console.error("[raw-editor] failed to record note analytics", error);
   }
 }
+
+const styles = stylex.create({
+  buttonLabel: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+  },
+  editorContainer: {
+    minHeight: "100%",
+    position: "relative",
+  },
+  emptyActions: {
+    display: "flex",
+    flexDirection: "column",
+    insetInline: 0,
+    pointerEvents: "none",
+    position: "absolute",
+    top: "2rem",
+    zIndex: 10,
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  sectionLabel: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.75rem",
+    height: "2rem",
+  },
+  templateButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: null,
+      ":hover": colors.accent,
+      ":focus-visible": colors.accent,
+    },
+    borderRadius: radii.md,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+      ":focus-visible": colors.foreground,
+    },
+    display: "flex",
+    gap: "0.5rem",
+    height: "2rem",
+    marginLeft: "-0.5rem",
+    maxWidth: "100%",
+    outline: {
+      default: null,
+      ":focus-visible": "none",
+    },
+    paddingInline: "0.5rem",
+    pointerEvents: "auto",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color, border-color",
+    width: "fit-content",
+  },
+  templateIcon: {
+    fontSize: "0.875rem",
+    height: "1rem",
+    width: "1rem",
+  },
+  templateTitle: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+});
+
+export { styles as rawEditorStyles };

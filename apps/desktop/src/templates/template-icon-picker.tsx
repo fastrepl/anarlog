@@ -12,6 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import {
   DEFAULT_TEMPLATE_ICON,
@@ -255,8 +256,6 @@ export function TemplateIconPicker({
     onChange({ type: "emoji", value: emoji.native });
     setOpen(false);
   };
-  const iconScrollProps = stylex.props(styles.iconScroll);
-  const emojiScrollProps = stylex.props(styles.emojiScroll);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -352,9 +351,7 @@ export function TemplateIconPicker({
                           styles.dynamicBackground(iconColor),
                         ])}
                       />
-                      <span {...stylex.props(styles.hexLabel)}>
-                        HEX
-                      </span>
+                      <span {...stylex.props(styles.hexLabel)}>HEX</span>
                       <HexColorInput
                         color={iconColor}
                         onChange={selectColor}
@@ -376,10 +373,7 @@ export function TemplateIconPicker({
                 onChange={setIconSearch}
                 placeholder={t`Search icons...`}
               />
-              <div
-                {...iconScrollProps}
-                className={`scroll-fade-y ${iconScrollProps.className ?? ""}`}
-              >
+              <div {...mergeStyleXProps(styles.iconScroll, "scroll-fade-y")}>
                 <div {...stylex.props(styles.grid)}>
                   {filteredIcons.map((icon) => (
                     <button
@@ -418,10 +412,7 @@ export function TemplateIconPicker({
                 onChange={setEmojiSearch}
                 placeholder={t`Search emoji...`}
               />
-              <div
-                {...emojiScrollProps}
-                className={`scroll-fade-y ${emojiScrollProps.className ?? ""}`}
-              >
+              <div {...mergeStyleXProps(styles.emojiScroll, "scroll-fade-y")}>
                 {!emojiSearch.trim() ? (
                   <EmojiSection
                     title={t`Frequently used`}
@@ -462,9 +453,7 @@ function EmojiSection({
 }) {
   return (
     <section {...stylex.props(styles.emojiSection)}>
-      <h3 {...stylex.props(styles.emojiHeading)}>
-        {title}
-      </h3>
+      <h3 {...stylex.props(styles.emojiHeading)}>{title}</h3>
       <div {...stylex.props(styles.grid)}>
         {emojis.map((emoji) => (
           <button
@@ -656,7 +645,7 @@ const styles = stylex.create({
   },
   hexInput: {
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,
@@ -714,7 +703,7 @@ const styles = stylex.create({
       color: colors.mutedForeground,
     },
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,

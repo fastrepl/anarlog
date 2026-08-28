@@ -26,6 +26,6 @@ const styles = stylex.create({
     borderStyle: "solid",
     borderWidth: 0,
     borderTopWidth: "1px",
-    flex: 1,
+    flex: "1",
   },
 });

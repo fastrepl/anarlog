@@ -36,7 +36,8 @@ SQLite is the primary data store (schema and migrations in `crates/db-app/`, des
 
 - Avoid creating types/interfaces unless shared. Inline function props.
 - Do not write comments unless code is non-obvious. Comments should explain "why", not "what".
-- Use `cn` from `@anlg/utils` for conditional classNames. Always pass an array, split by logical grouping.
+- Use StyleX for component styling and shared tokens from `@anlg/design-system/tokens.stylex`.
+- Use `mergeStyleXProps` only when bridging a third-party `className` or inline `style` contract.
 - Use `motion/react` instead of `framer-motion`.
 - Prefer DOM order for local overlap and portals for cross-tree floating UI. Use `z-index` only inside a bounded stacking context with explicit sibling ordering; do not add arbitrary global or escalating values.
 

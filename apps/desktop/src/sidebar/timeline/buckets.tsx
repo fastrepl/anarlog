@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { type ReactNode, type RefCallback, useMemo } from "react";
 
 import { colors, spacing } from "@anlg/design-system/tokens.stylex";
-import type { StyleXProps } from "@anlg/ui/lib/stylex";
+import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 import { TimelineItemComponent } from "./item";
 import { CurrentTimeIndicator, useCurrentTimeMs } from "./realtime";
@@ -164,13 +164,14 @@ function CurrentTimeAnchor({
       ref={registerIndicator}
       aria-hidden
       data-sidebar-current-time-anchor
-      {...stylex.props(
-        styles.anchor,
-        variant === "inside" ? styles.anchorInside : styles.anchorSeam,
+      {...mergeStyleXProps(
+        [
+          styles.anchor,
+          variant === "inside" ? styles.anchorInside : styles.anchorSeam,
+        ],
+        undefined,
+        variant === "inside" ? { top: `${(1 - progress) * 100}%` } : undefined,
       )}
-      style={
-        variant === "inside" ? { top: `${(1 - progress) * 100}%` } : undefined
-      }
     />
   );
 }
@@ -403,3 +404,5 @@ const styles = stylex.create({
     paddingTop: spacing.md,
   },
 });
+
+export { styles as timelineBucketStyles };

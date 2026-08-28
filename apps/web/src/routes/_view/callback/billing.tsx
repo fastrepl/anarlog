@@ -4,6 +4,8 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import { fonts, radii } from "@anlg/design-system/tokens.stylex";
+
 import {
   DEFAULT_DESKTOP_SCHEME,
   desktopSchemeSchema,
@@ -26,6 +28,7 @@ const styles = stylex.create({
   style2: {
     display: "flex",
     width: "100%",
+    maxWidth: "28rem",
     flexDirection: "column",
     gap: "2rem",
     textAlign: "center",
@@ -36,10 +39,10 @@ const styles = stylex.create({
     gap: ".75rem",
   },
   style4: {
-    fontFamily:
-      "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+    fontFamily: fonts.sans,
     fontSize: "1.875rem",
     lineHeight: "2.25rem",
+    letterSpacing: "-.025em",
     color: "#44403c",
   },
   style5: {
@@ -62,7 +65,7 @@ const styles = stylex.create({
   primaryButton: {
     alignItems: "center",
     backgroundImage: "linear-gradient(to top, #57534e, #78716c)",
-    borderRadius: "9999px",
+    borderRadius: radii.full,
     boxShadow: {
       default:
         "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
@@ -114,7 +117,7 @@ const styles = stylex.create({
   copyPill: {
     alignItems: "center",
     backgroundImage: "linear-gradient(to top, #e5e5e5, #f5f5f5)",
-    borderRadius: "9999px",
+    borderRadius: radii.full,
     boxShadow: "0 1px 2px rgb(0 0 0 / 0.05)",
     color: "#171717",
     display: "flex",

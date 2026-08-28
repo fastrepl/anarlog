@@ -1,13 +1,11 @@
+import * as stylex from "@stylexjs/stylex";
 import type { MouseEvent, ReactNode } from "react";
 
-import { cn } from "@anlg/utils";
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 export function TimelineMeta({ children }: { children: ReactNode }) {
-  return (
-    <div className="text-muted-foreground inline-flex shrink-0 items-center gap-1 font-mono text-xs tabular-nums select-none">
-      {children}
-    </div>
-  );
+  return <div {...stylex.props(styles.meta)}>{children}</div>;
 }
 
 export function TimelineShell({
@@ -24,21 +22,45 @@ export function TimelineShell({
   onContextMenu?: (event: MouseEvent<HTMLDivElement>) => void;
 }) {
   return (
-    <div
-      className="w-full rounded-xl bg-transparent select-none"
-      onContextMenu={onContextMenu}
-    >
-      <div
-        className={cn([
-          "flex items-center gap-2 px-2 py-1",
-          "w-full max-w-full",
-          contentClassName,
-        ])}
-      >
+    <div {...stylex.props(styles.root)} onContextMenu={onContextMenu}>
+      <div {...mergeStyleXProps(styles.content, contentClassName)}>
         {leading}
         {meta}
-        <div className="min-w-0 flex-1">{main}</div>
+        <div {...stylex.props(styles.main)}>{main}</div>
       </div>
     </div>
   );
 }
+
+const styles = stylex.create({
+  content: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    maxWidth: "100%",
+    paddingBlock: "0.25rem",
+    paddingInline: "0.5rem",
+    width: "100%",
+  },
+  main: {
+    flex: "1",
+    minWidth: 0,
+  },
+  meta: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "inline-flex",
+    flexShrink: 0,
+    fontFamily: fonts.mono,
+    fontSize: "0.75rem",
+    fontVariantNumeric: "tabular-nums",
+    gap: "0.25rem",
+    userSelect: "none",
+  },
+  root: {
+    backgroundColor: "transparent",
+    borderRadius: radii.xl,
+    userSelect: "none",
+    width: "100%",
+  },
+});

@@ -130,6 +130,7 @@ export const changelogComponents = {
       >
         <Streamdown
           components={baseChangelogComponents}
+          controls={false}
           isAnimating={false}
           linkSafety={{ enabled: false }}
         >

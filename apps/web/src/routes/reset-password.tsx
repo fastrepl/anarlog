@@ -11,15 +11,13 @@ import { flowSearchSchema } from "@/functions/desktop-flow";
 import { toAuthFlowSearch } from "@/lib/auth-flow-context";
 const styles = stylex.create({
   style1: {
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#4f4940",
   },
   style2: {
     marginTop: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style3: {
@@ -46,7 +44,7 @@ const styles = stylex.create({
       ":hover": "#181613",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },

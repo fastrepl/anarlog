@@ -118,7 +118,7 @@ const styles = stylex.create({
   identity: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.5rem",
     minWidth: 0,
   },

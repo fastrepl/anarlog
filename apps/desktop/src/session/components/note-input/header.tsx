@@ -1,6 +1,9 @@
 import { useLingui } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
+import type { CSSProperties } from "react";
 
-import { cn } from "@anlg/utils";
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { HeaderViewEnhanced } from "./header-enhanced";
 import { HeaderViewRaw } from "./header-raw";
@@ -45,10 +48,9 @@ export function SessionViewSwitcher({
       role="group"
       aria-label={t`Session note views`}
       data-tauri-drag-region="false"
-      className={cn([
-        "pointer-events-auto relative z-10 w-fit max-w-full shrink-0 overflow-visible",
-        "bg-foreground/10 dark:bg-accent/55 flex h-[30px] items-center gap-[2px] rounded-full p-[2px] [corner-shape:round]",
-      ])}
+      {...mergeStyleXProps(styles.switcher, undefined, {
+        cornerShape: "round",
+      } as CSSProperties)}
     >
       {editorTabs.map((view, index) => {
         if (view.type === "enhanced") {
@@ -158,3 +160,27 @@ export function createEditorTabs({
     ...(canShowTranscript ? [{ type: "transcript" } as const] : []),
   ];
 }
+
+const styles = stylex.create({
+  switcher: {
+    alignItems: "center",
+    backgroundColor: {
+      default: `color-mix(in oklab, ${colors.foreground} 10%, transparent)`,
+      ":is(.dark *)": `color-mix(in oklab, ${colors.accent} 55%, transparent)`,
+    },
+    borderRadius: radii.full,
+    display: "flex",
+    flexShrink: 0,
+    gap: "2px",
+    height: "30px",
+    maxWidth: "100%",
+    overflow: "visible",
+    padding: "2px",
+    pointerEvents: "auto",
+    position: "relative",
+    width: "fit-content",
+    zIndex: 10,
+  },
+});
+
+export { styles as sessionViewSwitcherStyles };

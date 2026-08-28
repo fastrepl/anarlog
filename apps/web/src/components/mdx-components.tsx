@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { ComponentType } from "react";
+import type { ComponentProps, ComponentType } from "react";
 
 import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
@@ -23,7 +23,7 @@ const styles = stylex.create({
     padding: "1.5rem",
     textDecorationLine: "none",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     backgroundColor: {
@@ -33,8 +33,7 @@ const styles = stylex.create({
   },
   style3: {
     marginBottom: ".25rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontFamily: fonts.mono,
     fontSize: "1rem",
     lineHeight: "1.5rem",
     color: "#292524",
@@ -79,6 +78,108 @@ const styles = stylex.create({
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     color: colors.foreground,
+    overflowWrap: "anywhere",
+    wordBreak: "break-all",
+  },
+  proseLink: {
+    color: {
+      default: "#181613",
+      ":hover": "#4f4940",
+    },
+    textDecorationLine: "underline",
+  },
+  headingAnchor: {
+    color: "inherit",
+    textDecorationLine: {
+      default: "none",
+      ":hover": "underline",
+    },
+    textDecorationStyle: {
+      default: "solid",
+      ":hover": "dotted",
+    },
+  },
+  taskList: {
+    listStyleType: "none",
+    marginLeft: 0,
+    paddingLeft: 0,
+  },
+  taskListItem: {
+    alignItems: "baseline",
+    display: "flex",
+    gap: ".5rem",
+    marginLeft: 0,
+    paddingLeft: 0,
+  },
+  taskCheckbox: {
+    accentColor: colors.primary,
+    appearance: "none",
+    backgroundColor: {
+      default: "transparent",
+      ":checked": colors.primary,
+    },
+    borderColor: {
+      default: colors.border,
+      ":checked": colors.primary,
+    },
+    borderRadius: ".25rem",
+    borderStyle: "solid",
+    borderWidth: "1.5px",
+    cursor: "pointer",
+    margin: 0,
+    minWidth: "1rem",
+    borderBottomColor: {
+      default: null,
+      ":checked::after": colors.primaryForeground,
+    },
+    borderBottomStyle: {
+      default: null,
+      ":checked::after": "solid",
+    },
+    borderBottomWidth: {
+      default: null,
+      ":checked::after": "2px",
+    },
+    borderRightColor: {
+      default: null,
+      ":checked::after": colors.primaryForeground,
+    },
+    borderRightStyle: {
+      default: null,
+      ":checked::after": "solid",
+    },
+    borderRightWidth: {
+      default: null,
+      ":checked::after": "2px",
+    },
+    content: {
+      default: null,
+      ":checked::after": '""',
+    },
+    height: {
+      default: "1rem",
+      ":checked::after": ".6rem",
+    },
+    left: {
+      default: null,
+      ":checked::after": ".2rem",
+    },
+    position: {
+      default: "relative",
+      ":checked::after": "absolute",
+    },
+    top: {
+      default: ".125rem",
+      ":checked::after": ".05rem",
+    },
+    transform: {
+      default: null,
+      ":checked::after": "rotate(45deg)",
+    },
+    width: {
+      default: "1rem",
+      ":checked::after": ".35rem",
+    },
   },
   calloutNote: {
     backgroundColor: colors.muted,
@@ -176,7 +277,90 @@ function InlineCode({
     </code>
   );
 }
+
+function hasSemanticClass(className: string | undefined, name: string) {
+  return className?.split(/\s+/).includes(name) ?? false;
+}
+
+function MdxLink({
+  node: _,
+  className,
+  style,
+  ...props
+}: ComponentProps<"a"> & { node?: unknown }) {
+  return (
+    <a
+      {...props}
+      {...mergeStyleXProps(
+        [
+          styles.proseLink,
+          hasSemanticClass(className, "anchor") && styles.headingAnchor,
+        ],
+        className,
+        style,
+      )}
+    />
+  );
+}
+
+function MdxUnorderedList({
+  node: _,
+  className,
+  style,
+  ...props
+}: ComponentProps<"ul"> & { node?: unknown }) {
+  return (
+    <ul
+      {...props}
+      {...mergeStyleXProps(
+        [hasSemanticClass(className, "contains-task-list") && styles.taskList],
+        className,
+        style,
+      )}
+    />
+  );
+}
+
+function MdxListItem({
+  node: _,
+  className,
+  style,
+  ...props
+}: ComponentProps<"li"> & { node?: unknown }) {
+  return (
+    <li
+      {...props}
+      {...mergeStyleXProps(
+        [hasSemanticClass(className, "task-list-item") && styles.taskListItem],
+        className,
+        style,
+      )}
+    />
+  );
+}
+
+function MdxInput({
+  node: _,
+  className,
+  style,
+  type,
+  ...props
+}: ComponentProps<"input"> & { node?: unknown }) {
+  return (
+    <input
+      {...props}
+      {...mergeStyleXProps(
+        type === "checkbox" && styles.taskCheckbox,
+        className,
+        style,
+      )}
+      type={type}
+    />
+  );
+}
+
 export const mdxComponents: Record<string, ComponentType<any>> = {
+  a: MdxLink,
   Image,
   img: Image,
   CtaCard,
@@ -190,4 +374,7 @@ export const mdxComponents: Record<string, ComponentType<any>> = {
   Tabs: Noop,
   Video: Noop,
   code: InlineCode,
+  input: MdxInput,
+  li: MdxListItem,
+  ul: MdxUnorderedList,
 };

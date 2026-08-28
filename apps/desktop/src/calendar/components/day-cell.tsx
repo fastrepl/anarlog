@@ -213,7 +213,7 @@ const styles = stylex.create({
   },
   items: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     gap: "0.125rem",
     minHeight: 0,

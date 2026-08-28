@@ -221,7 +221,7 @@ const styles = stylex.create({
     fontSize: "0.875rem",
   },
   dateContainer: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   editButton: {
@@ -264,7 +264,7 @@ const styles = stylex.create({
       default: "none",
       ":focus-visible": "none",
     },
-    flex: 1,
+    flex: "1",
     height: "1.75rem",
     padding: 0,
   },
@@ -286,3 +286,5 @@ const styles = stylex.create({
     },
   },
 });
+
+export { styles as dateEditorStyles };

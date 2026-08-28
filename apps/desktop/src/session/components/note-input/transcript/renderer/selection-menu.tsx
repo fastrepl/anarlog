@@ -9,6 +9,7 @@ import {
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { ArrowsMerge, Play, UserSwitch, X } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import {
   type MouseEvent,
   useCallback,
@@ -19,12 +20,13 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { colors, radii, shadows } from "@anlg/design-system/tokens.stylex";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { cn } from "@anlg/utils";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { getTranscriptSelectionFromRange } from "./selection";
 import type { TranscriptWordSelection } from "./selection";
@@ -36,16 +38,6 @@ import {
 } from "~/session/components/floating/selection-slot";
 import { useAutoCloser } from "~/shared/hooks/useAutoCloser";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
-
-const MENU_CONTAINER_CLASSES = [
-  "pointer-events-auto",
-  "bg-card shadow-lg rounded-md border border-border p-1",
-];
-
-const MENU_BUTTON_CLASSES = [
-  "flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs rounded-xs",
-  "hover:bg-accent transition-colors",
-];
 
 export type TranscriptContextMenuRequest = {
   id: string;
@@ -139,24 +131,18 @@ export function MultiSelectionBar({
 
   const bar = (
     <div
-      className={cn([
-        "border-border bg-card flex items-center gap-2 rounded-full border p-1 pl-3 shadow-lg",
-        "text-xs",
-        fabSelectionHost
-          ? null
-          : "absolute bottom-4 left-1/2 z-40 -translate-x-1/2",
-      ])}
+      {...stylex.props(
+        styles.selectionBar,
+        !fabSelectionHost && styles.floating,
+      )}
     >
-      <span className="text-muted-foreground whitespace-nowrap">
+      <span {...stylex.props(styles.selectionCount)}>
         <Trans>{entryCount} selected</Trans>
       </span>
       <Popover open={speakerPickerOpen} onOpenChange={setSpeakerPickerOpen}>
         <PopoverTrigger asChild>
-          <button
-            type="button"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 flex h-7 items-center gap-1.5 rounded-full px-3 font-medium"
-          >
-            <UserSwitch className="size-3.5" />
+          <button type="button" {...stylex.props(styles.primaryButton)}>
+            <UserSwitch {...stylex.props(styles.icon)} />
             <Trans>Change speaker</Trans>
           </button>
         </PopoverTrigger>
@@ -165,7 +151,7 @@ export function MultiSelectionBar({
           side="top"
           align="center"
           sideOffset={8}
-          className="w-80"
+          sx={styles.speakerPopover}
         >
           <SpeakerParticipantPicker
             sessionId={selection.sessionId}
@@ -178,23 +164,20 @@ export function MultiSelectionBar({
         <button
           type="button"
           disabled={!canMerge}
-          className={cn([
-            "hover:bg-accent flex h-7 items-center gap-1.5 rounded-full px-2 font-medium",
-            "disabled:pointer-events-none disabled:opacity-50",
-          ])}
+          {...stylex.props(styles.secondaryButton)}
           onClick={() => void handleMerge()}
         >
-          <ArrowsMerge className="size-3.5" />
+          <ArrowsMerge {...stylex.props(styles.icon)} />
           <Trans>Merge</Trans>
         </button>
       ) : null}
       <button
         type="button"
         aria-label={t`Clear selection`}
-        className="hover:bg-accent flex size-7 items-center justify-center rounded-full"
+        {...stylex.props(styles.clearButton)}
         onClick={onClear}
       >
-        <X className="size-3.5" />
+        <X {...stylex.props(styles.icon)} />
       </button>
     </div>
   );
@@ -384,43 +367,44 @@ function SelectionFloatingMenu({
       <FloatingPortal>
         <div
           ref={floatingRef}
-          style={{ ...floatingStyles, zIndex: 50 }}
-          className={cn([
-            MENU_CONTAINER_CLASSES,
-            view === "speaker"
-              ? "max-h-[min(28rem,calc(100vh-1rem))] w-80"
-              : "min-w-40",
-          ])}
+          {...mergeStyleXProps(
+            [
+              styles.menu,
+              view === "speaker" ? styles.speakerMenu : styles.actionsMenu,
+            ],
+            undefined,
+            { ...floatingStyles, zIndex: 50 },
+          )}
           onMouseDown={view === "actions" ? handleMouseDown : undefined}
         >
           {view === "actions" ? (
-            <div className="flex flex-col gap-0.5">
+            <div {...stylex.props(styles.actionList)}>
               {selection.sessionId && onAssignSpeaker && (
                 <button
                   type="button"
-                  className={cn(MENU_BUTTON_CLASSES)}
+                  {...stylex.props(styles.menuButton)}
                   onClick={() => setView("speaker")}
                 >
-                  <UserSwitch className="size-3.5" />
+                  <UserSwitch {...stylex.props(styles.icon)} />
                   <Trans>Change speaker</Trans>
                 </button>
               )}
               {audioExists && (
                 <button
                   type="button"
-                  className={cn(MENU_BUTTON_CLASSES)}
+                  {...stylex.props(styles.menuButton)}
                   onClick={() => handleAction("play")}
                 >
-                  <Play className="size-3.5" />
+                  <Play {...stylex.props(styles.icon)} />
                   <Trans>Play from here</Trans>
                 </button>
               )}
               <button
                 type="button"
-                className={cn(MENU_BUTTON_CLASSES)}
+                {...stylex.props(styles.menuButton)}
                 onClick={() => handleAction("copy")}
               >
-                <span className="w-3.5 text-center">⌘</span>
+                <span {...stylex.props(styles.commandIcon)}>⌘</span>
                 <Trans>Copy</Trans>
               </button>
             </div>
@@ -593,3 +577,132 @@ function getSelectionHighlightKey(
     range?.endOffset ?? 0,
   ].join(":");
 }
+
+const styles = stylex.create({
+  actionList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+  },
+  actionsMenu: {
+    minWidth: "10rem",
+  },
+  clearButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.full,
+    display: "flex",
+    height: "1.75rem",
+    justifyContent: "center",
+    width: "1.75rem",
+  },
+  commandIcon: {
+    textAlign: "center",
+    width: "0.875rem",
+  },
+  floating: {
+    bottom: "1rem",
+    left: "50%",
+    position: "absolute",
+    transform: "translateX(-50%)",
+    zIndex: 40,
+  },
+  icon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  menu: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.lg,
+    padding: "0.25rem",
+    pointerEvents: "auto",
+  },
+  menuButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: "0.125rem",
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.5rem",
+    paddingBlock: "0.375rem",
+    paddingInline: "0.5rem",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color",
+    width: "100%",
+  },
+  primaryButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: colors.primary,
+      ":hover": `color-mix(in srgb, ${colors.primary} 90%, transparent)`,
+    },
+    borderRadius: radii.full,
+    color: colors.primaryForeground,
+    display: "flex",
+    fontWeight: 500,
+    gap: "0.375rem",
+    height: "1.75rem",
+    paddingInline: "0.75rem",
+  },
+  secondaryButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.full,
+    display: "flex",
+    fontWeight: 500,
+    gap: "0.375rem",
+    height: "1.75rem",
+    opacity: {
+      default: 1,
+      ":disabled": 0.5,
+    },
+    paddingInline: "0.5rem",
+    pointerEvents: {
+      default: "auto",
+      ":disabled": "none",
+    },
+  },
+  selectionBar: {
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    boxShadow: shadows.lg,
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.5rem",
+    paddingBottom: "0.25rem",
+    paddingLeft: "0.75rem",
+    paddingRight: "0.25rem",
+    paddingTop: "0.25rem",
+  },
+  selectionCount: {
+    color: colors.mutedForeground,
+    whiteSpace: "nowrap",
+  },
+  speakerMenu: {
+    maxHeight: "min(28rem, calc(100vh - 1rem))",
+    width: "20rem",
+  },
+  speakerPopover: {
+    width: "20rem",
+  },
+});
+
+export { styles as selectionMenuStyles };

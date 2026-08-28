@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 
+import { fonts, radii } from "@anlg/design-system/tokens.stylex";
+
 import { useAnalytics } from "@/hooks/use-posthog";
 import { useMountEffect } from "@/hooks/useMountEffect";
 
@@ -22,14 +24,14 @@ const styles = stylex.create({
     gap: ".5rem",
   },
   style3: {
-    fontFamily:
-      "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+    fontFamily: fonts.sans,
     fontSize: "1.875rem",
     lineHeight: "2.25rem",
+    letterSpacing: "-.025em",
     color: "#44403c",
   },
   style4: {
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "1px",
     borderColor: "#fde68a",
@@ -38,8 +40,7 @@ const styles = stylex.create({
     paddingBlock: ".125rem",
     fontSize: ".75rem",
     lineHeight: "1rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#b45309",
   },
   style5: {
@@ -54,7 +55,7 @@ const styles = stylex.create({
       ":hover": "#404040",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -66,7 +67,7 @@ const styles = stylex.create({
       ":hover": "#404040",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },

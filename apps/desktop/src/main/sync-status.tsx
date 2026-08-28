@@ -400,7 +400,9 @@ const styles = stylex.create({
     display: "flex",
     height: "1.75rem",
     justifyContent: "center",
-    outline: "2px solid transparent",
+    outlineWidth: "2px",
+    outlineStyle: "solid",
+    outlineColor: "transparent",
     outlineOffset: "2px",
     position: "absolute",
     right: spacing.sm,
@@ -440,3 +442,5 @@ const styles = stylex.create({
     color: "rgb(59 130 246)",
   },
 });
+
+export { styles as syncStatusStyles };

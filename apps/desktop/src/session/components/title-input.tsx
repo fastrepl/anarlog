@@ -1,6 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { usePrevious } from "@uidotdev/usehooks";
 import * as stylex from "@stylexjs/stylex";
+import { usePrevious } from "@uidotdev/usehooks";
 import {
   type CSSProperties,
   forwardRef,
@@ -15,6 +15,7 @@ import {
 import { useResizeObserver } from "usehooks-ts";
 
 import { colors } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { useTitleGenerating } from "~/ai/hooks";
 import { useSession, useUpdateSession } from "~/session/queries";
@@ -405,12 +406,15 @@ const TitleInputInner = memo(
       return (
         <div
           data-tauri-drag-region="false"
-          style={titleShellStyle}
-          {...stylex.props(
-            styles.shell,
-            variant === "breadcrumb"
-              ? [styles.breadcrumbHeight, styles.breadcrumbText]
-              : [styles.titleHeight, styles.titleText],
+          {...mergeStyleXProps(
+            [
+              styles.shell,
+              variant === "breadcrumb"
+                ? [styles.breadcrumbHeight, styles.breadcrumbText]
+                : [styles.titleHeight, styles.titleText],
+            ],
+            undefined,
+            titleShellStyle,
           )}
         >
           <input
@@ -462,17 +466,17 @@ const TitleInputInner = memo(
             )}
           />
           {showHoverReveal ? (
-            <div
-              aria-hidden="true"
-              {...stylex.props(styles.hoverOverlay)}
-            >
+            <div aria-hidden="true" {...stylex.props(styles.hoverOverlay)}>
               <span
-                style={titleHoverScrollStyle}
-                {...stylex.props(
-                  styles.hoverTitle,
-                  variant === "breadcrumb"
-                    ? styles.breadcrumbText
-                    : styles.titleText,
+                {...mergeStyleXProps(
+                  [
+                    styles.hoverTitle,
+                    variant === "breadcrumb"
+                      ? styles.breadcrumbText
+                      : styles.titleText,
+                  ],
+                  undefined,
+                  titleHoverScrollStyle,
                 )}
               >
                 {title}
@@ -656,3 +660,5 @@ const styles = stylex.create({
     fontWeight: 600,
   },
 });
+
+export { styles as titleInputStyles };

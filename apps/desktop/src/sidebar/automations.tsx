@@ -534,12 +534,12 @@ const styles = stylex.create({
     backgroundColor: colors.accent,
   },
   listItemText: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   listItemTitle: {
     display: "block",
-    flex: 1,
+    flex: "1",
     fontWeight: 500,
     minWidth: 0,
     overflow: "hidden",
@@ -565,7 +565,7 @@ const styles = stylex.create({
     "::-webkit-scrollbar": {
       display: "none",
     },
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflowY: "auto",
     paddingTop: spacing.xs,
@@ -603,7 +603,7 @@ const styles = stylex.create({
       fontSize: "0.875rem",
     },
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     minWidth: 0,
     outline: {

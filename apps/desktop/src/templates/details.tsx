@@ -258,7 +258,7 @@ const styles = stylex.create({
   },
   root: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     height: "100%",
   },

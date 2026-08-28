@@ -248,7 +248,7 @@ const styles = stylex.create({
     },
   },
   copy: {
-    flex: 1,
+    flex: "1",
   },
   description: {
     color: colors.mutedForeground,

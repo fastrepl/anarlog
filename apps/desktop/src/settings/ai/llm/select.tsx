@@ -448,11 +448,11 @@ const styles = stylex.create({
     fontSize: "11px",
   },
   modelControl: {
-    flex: 3,
+    flex: "3",
     minWidth: 0,
   },
   providerControl: {
-    flex: 2,
+    flex: "2",
     minWidth: 0,
   },
   providerIdentity: {

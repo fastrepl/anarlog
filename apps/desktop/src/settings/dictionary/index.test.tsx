@@ -48,7 +48,13 @@ vi.mock("~/shared/config", () => ({
   useConfigValue: () => [],
 }));
 
-import { DictionarySettings, SettingsDictionary } from "./index";
+import {
+  DictionarySettings,
+  SettingsDictionary,
+  dictionarySettingsStyles,
+} from "./index";
+
+import { expectStyle } from "~/session/stylex-test";
 
 describe("DictionarySettings", () => {
   beforeEach(() => {
@@ -78,11 +84,12 @@ describe("DictionarySettings", () => {
       name: "Add",
     }) as HTMLButtonElement;
     expect(input).toBeTruthy();
-    expect(input.closest("[data-slot='input-group']")?.className).toContain(
-      "border-border",
+    expectStyle(
+      input.closest("[data-slot='input-group']"),
+      dictionarySettingsStyles.inputGroup,
     );
     expect(addButton.disabled).toBe(true);
-    expect(addButton.className).toContain("bg-black");
+    expectStyle(addButton, dictionarySettingsStyles.addButton);
     expect(screen.getByText("Add")).toBeTruthy();
     expect(screen.getByText("Your dictionary is empty")).toBeTruthy();
     expect(

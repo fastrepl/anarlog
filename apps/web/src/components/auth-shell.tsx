@@ -23,7 +23,9 @@ export const authStyles = stylex.create({
   layout: {
     alignItems: "center",
     display: "grid",
-    flex: "1",
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
     gap: {
       default: "3rem",
       "@media (min-width: 64rem)": "5rem",
@@ -57,6 +59,7 @@ export const authStyles = stylex.create({
       "@media (min-width: 64rem)": "4.5rem",
     },
     fontWeight: 600,
+    letterSpacing: 0,
     lineHeight: {
       default: 0.95,
       "@media (min-width: 64rem)": 1,

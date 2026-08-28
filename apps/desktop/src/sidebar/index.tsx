@@ -96,13 +96,13 @@ const styles = stylex.create({
   },
   content: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     gap: "0.25rem",
     overflow: "hidden",
   },
   nav: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflow: "hidden",
     position: "relative",
@@ -129,7 +129,7 @@ const styles = stylex.create({
     minHeight: 0,
   },
   timelineContent: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     position: "relative",
   },

@@ -252,7 +252,7 @@ const styles = stylex.create({
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
   },
   optionCopy: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   optionDescription: {
@@ -296,7 +296,7 @@ const styles = stylex.create({
   },
   previewContent: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.75rem",
   },
   previewHeadingLine: {
@@ -310,7 +310,7 @@ const styles = stylex.create({
   },
   previewLines: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     gap: "0.5rem",
     paddingBlock: "0.25rem",

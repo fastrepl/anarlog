@@ -174,7 +174,7 @@ const styles = stylex.create({
   content: {
     alignItems: "baseline",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.5rem",
     minWidth: {
       default: 0,

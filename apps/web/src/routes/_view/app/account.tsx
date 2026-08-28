@@ -5,6 +5,7 @@ import { jwtDecode } from "jwt-decode";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { z } from "zod";
 
+import { fonts, media } from "@anlg/design-system/tokens.stylex";
 import { deriveBillingInfo, type SupabaseJwtPayload } from "@anlg/supabase";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
@@ -23,6 +24,12 @@ import { checkoutSourceSchema } from "@/lib/checkout-source";
 
 import { AccountTabs } from "./-account-nav";
 import { accountSessionQueryKey } from "./-account-session";
+
+const pulse = stylex.keyframes({
+  "0%, 100%": { opacity: 1 },
+  "50%": { opacity: 0.5 },
+});
+
 const styles = stylex.create({
   style1: {
     minHeight: "100vh",
@@ -60,26 +67,25 @@ const styles = stylex.create({
     },
   },
   style6: {
+    fontFamily: fonts.hand,
     fontSize: "1.5rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style7: {
     marginTop: "1rem",
+    fontFamily: fonts.hand,
     fontSize: {
       default: "3rem",
       "@media (width >= 48rem)": "3.75rem",
     },
     lineHeight: {
-      default: ".98",
-      "@media (width >= 48rem)": "1",
+      default: 0.98,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": ".98",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
   },
   style8: {
@@ -96,8 +102,8 @@ const styles = stylex.create({
   },
   style10: {
     position: "sticky",
-    top: "0",
-    zIndex: "10",
+    top: 0,
+    zIndex: 10,
     marginInline: {
       default: "-1.25rem",
       "@media (width >= 48rem)": "-2rem",
@@ -115,33 +121,38 @@ const styles = stylex.create({
   style11: {
     marginTop: "2.5rem",
     display: "flex",
-    minWidth: "0",
+    minWidth: 0,
     flexDirection: "column",
     gap: "3.5rem",
   },
   style12: {
     clipPath: "inset(50%)",
     whiteSpace: "nowrap",
-    borderWidth: "0",
+    borderWidth: 0,
     width: "1px",
     height: "1px",
     margin: "-1px",
-    padding: "0",
+    padding: 0,
     position: "absolute",
     overflow: "hidden",
   },
   style13: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style14: {
     marginTop: "1.5rem",
     height: "7rem",
-    animation: "2s cubic-bezier(.4, 0, .6, 1) infinite pulse",
+    animationDuration: "2s",
+    animationTimingFunction: "cubic-bezier(.4, 0, .6, 1)",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: pulse,
+      [media.reducedMotion]: "none",
+    },
     borderRadius: "24px",
     borderStyle: "solid",
     borderWidth: "1px",

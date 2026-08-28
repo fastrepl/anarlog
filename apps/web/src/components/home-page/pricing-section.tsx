@@ -23,18 +23,16 @@ const styles = stylex.create({
   style2: {
     fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style3: {
     marginInline: "auto",
     marginTop: "1.5rem",
+    maxWidth: "42rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style4: {
@@ -44,7 +42,6 @@ const styles = stylex.create({
     display: "grid",
     width: "100vw",
     maxWidth: "760px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
     gridTemplateColumns: {
       default: "repeat(1, minmax(0, 1fr))",
@@ -63,7 +60,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     width: "100vw",
     maxWidth: "760px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
     paddingInline: {
       default: "1.25rem",
@@ -84,7 +80,7 @@ const styles = stylex.create({
     textDecorationColor: "#d9cdb8",
     textUnderlineOffset: "4px",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -95,10 +91,8 @@ const styles = stylex.create({
   style9: {
     fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#181613",
   },
   style10: {
@@ -106,7 +100,6 @@ const styles = stylex.create({
     minHeight: "4.5rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#4f4940",
   },
   style11: {
@@ -121,11 +114,10 @@ const styles = stylex.create({
     rowGap: ".25rem",
   },
   style13: {
+    fontFamily: fonts.hand,
     fontSize: "3rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#181613",
   },
   style14: {

@@ -275,7 +275,7 @@ const styles = stylex.create({
   emptyState: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     justifyContent: "center",
   },
   emptyText: {
@@ -284,7 +284,7 @@ const styles = stylex.create({
     lineHeight: "1.25rem",
   },
   fieldControl: {
-    flex: 1,
+    flex: "1",
   },
   fieldLabel: {
     color: colors.mutedForeground,
@@ -394,7 +394,7 @@ const styles = stylex.create({
   },
   root: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     height: "100%",
   },
@@ -402,7 +402,7 @@ const styles = stylex.create({
     paddingBottom: "24rem",
   },
   scroller: {
-    flex: 1,
+    flex: "1",
     overflowY: "auto",
   },
 });

@@ -186,3 +186,5 @@ const styles = stylex.create({
     fontWeight: 500,
   },
 });
+
+export { styles as transcriptEmptyStateStyles };

@@ -7,15 +7,17 @@ import {
   Plus,
   X,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import {
   AppFloatingPanel,
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
-import { cn } from "@anlg/utils";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { useWebResources } from "~/shared/ui/resource-list";
 import {
@@ -309,7 +311,7 @@ export function TemplatePickerPopover({
       {
         key: "create",
         title: "Create new template",
-        icon: <Plus className="h-3.5 w-3.5 text-blue-500" />,
+        icon: <Plus {...stylex.props(styles.createIcon)} />,
         uppercase: false,
         items: [
           {
@@ -390,16 +392,12 @@ export function TemplatePickerPopover({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent variant="app" className="w-80" align="start">
-        <div className="flex flex-col gap-1">
-          <AppFloatingPanel className="flex flex-col overflow-hidden">
-            <div className="border-border border-b py-1">
-              <div
-                className={cn([
-                  "flex h-8 items-center gap-2 rounded-md px-2.5",
-                ])}
-              >
-                <MagnifyingGlass className="text-muted-foreground h-4 w-4" />
+      <PopoverContent variant="app" sx={styles.popover} align="start">
+        <div {...stylex.props(styles.root)}>
+          <AppFloatingPanel sx={styles.panel}>
+            <div {...stylex.props(styles.searchFrame)}>
+              <div {...stylex.props(styles.searchRow)}>
+                <MagnifyingGlass {...stylex.props(styles.searchIcon)} />
                 <input
                   ref={searchInputRef}
                   autoFocus
@@ -408,24 +406,22 @@ export function TemplatePickerPopover({
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={handleSearchInputKeyDown}
                   placeholder={t`Search templates...`}
-                  className="placeholder:text-muted-foreground flex-1 bg-transparent text-sm focus:outline-hidden"
+                  {...stylex.props(styles.searchInput)}
                 />
                 {search && (
                   <button
                     onClick={() => setSearch("")}
-                    className="hover:bg-accent rounded-xs p-0.5"
+                    {...stylex.props(styles.clearButton)}
                   >
-                    <X className="text-muted-foreground h-3 w-3" />
+                    <X {...stylex.props(styles.clearIcon)} />
                   </button>
                 )}
               </div>
             </div>
 
-            <div className="relative">
-              <div
-                className={cn(["scroll-fade-y max-h-80 overflow-y-auto p-1.5"])}
-              >
-                <div className="flex flex-col gap-0">
+            <div {...stylex.props(styles.resultsFrame)}>
+              <div {...mergeStyleXProps(styles.resultsScroll, "scroll-fade-y")}>
+                <div {...stylex.props(styles.sectionList)}>
                   {resultSections.map((section) => (
                     <TemplateSection
                       key={section.key}
@@ -471,7 +467,7 @@ export function TemplatePickerPopover({
                           );
                         })
                       ) : (
-                        <div className="text-muted-foreground px-2 py-3 text-sm">
+                        <div {...stylex.props(styles.empty)}>
                           {section.emptyMessage}
                         </div>
                       )}
@@ -484,13 +480,10 @@ export function TemplatePickerPopover({
 
           <button
             onClick={handleSeeAllTemplates}
-            className={cn([
-              "flex h-7 w-full items-center justify-center gap-1 rounded-lg px-3 text-xs font-medium",
-              "text-muted-foreground hover:bg-accent hover:text-foreground transition-colors",
-            ])}
+            {...stylex.props(styles.seeAllButton)}
           >
             {t`See all templates`}
-            <CaretRight className="h-3.5 w-3.5" />
+            <CaretRight {...stylex.props(styles.smallIcon)} />
           </button>
         </div>
       </PopoverContent>
@@ -552,21 +545,21 @@ function TemplateSection({
   showHeader?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div {...stylex.props(styles.section)}>
       {showHeader ? (
-        <div className="flex items-center gap-2 px-2">
+        <div {...stylex.props(styles.sectionHeader)}>
           {icon}
           <p
-            className={cn([
-              "text-muted-foreground font-mono text-[11px] font-medium tracking-wide",
-              uppercase && "uppercase",
-            ])}
+            {...stylex.props(
+              styles.sectionTitle,
+              uppercase && styles.uppercase,
+            )}
           >
             {title}
           </p>
         </div>
       ) : null}
-      <div className="flex flex-col gap-0">{children}</div>
+      <div {...stylex.props(styles.sectionItems)}>{children}</div>
     </div>
   );
 }
@@ -593,27 +586,17 @@ function TemplateResultButton({
   onRegenerate?: () => void;
 }) {
   return (
-    <div
-      className={cn([
-        "hover:bg-accent focus-within:bg-muted h-8 w-full rounded-md px-2.5",
-        "flex items-center gap-1.5",
-      ])}
-    >
+    <div {...stylex.props(styles.result)}>
       <button
         ref={buttonRef}
-        className="flex min-w-0 flex-1 items-center gap-1.5 text-left focus:outline-hidden"
+        {...stylex.props(styles.resultMain)}
         onClick={onClick}
         onKeyDown={onKeyDown}
       >
-        <TemplateIconGlyph icon={icon} className="size-4 text-sm" />
-        <span className="text-foreground min-w-0 truncate text-sm font-medium">
-          {title}
-        </span>
+        <TemplateIconGlyph icon={icon} sx={styles.resultIcon} />
+        <span {...stylex.props(styles.resultTitle)}>{title}</span>
         {isFavorite ? (
-          <Heart
-            aria-hidden
-            className="size-3.5 shrink-0 fill-rose-500 text-rose-500"
-          />
+          <Heart aria-hidden {...stylex.props(styles.favoriteIcon)} />
         ) : null}
       </button>
       {regenerateLabel && onRegenerate ? (
@@ -626,13 +609,18 @@ function TemplateResultButton({
             event.stopPropagation();
             onRegenerate();
           }}
-          className={cn([
-            "text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium",
-            isRegenerating ? "cursor-not-allowed opacity-70" : "cursor-pointer",
-          ])}
+          {...stylex.props(
+            styles.regenerateButton,
+            isRegenerating
+              ? styles.regenerateDisabled
+              : styles.regenerateEnabled,
+          )}
         >
           <ArrowClockwise
-            className={cn(["size-3", isRegenerating && "animate-spin"])}
+            {...stylex.props(
+              styles.regenerateIcon,
+              isRegenerating && styles.spinning,
+            )}
           />
           {regenerateLabel}
         </button>
@@ -640,3 +628,225 @@ function TemplateResultButton({
     </div>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  clearButton: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: "0.125rem",
+    padding: "0.125rem",
+  },
+  clearIcon: {
+    color: colors.mutedForeground,
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  createIcon: {
+    color: "rgb(59 130 246)",
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    paddingBlock: "0.75rem",
+    paddingInline: "0.5rem",
+  },
+  favoriteIcon: {
+    color: "rgb(244 63 94)",
+    fill: "rgb(244 63 94)",
+    flexShrink: 0,
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  panel: {
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+  },
+  popover: {
+    width: "20rem",
+  },
+  regenerateButton: {
+    alignItems: "center",
+    borderRadius: radii.md,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    display: "inline-flex",
+    flexShrink: 0,
+    fontSize: "0.6875rem",
+    fontWeight: 500,
+    gap: "0.25rem",
+    paddingBlock: "0.125rem",
+    paddingInline: "0.375rem",
+  },
+  regenerateDisabled: {
+    cursor: "not-allowed",
+    opacity: 0.7,
+  },
+  regenerateEnabled: {
+    cursor: "pointer",
+  },
+  regenerateIcon: {
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  result: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":focus-within": colors.muted,
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.md,
+    display: "flex",
+    gap: "0.375rem",
+    height: "2rem",
+    paddingInline: "0.625rem",
+    width: "100%",
+  },
+  resultIcon: {
+    fontSize: "0.875rem",
+    height: "1rem",
+    width: "1rem",
+  },
+  resultMain: {
+    alignItems: "center",
+    display: "flex",
+    flex: "1",
+    gap: "0.375rem",
+    minWidth: 0,
+    outline: {
+      default: null,
+      ":focus": "none",
+    },
+    textAlign: "left",
+  },
+  resultTitle: {
+    color: colors.foreground,
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  resultsFrame: {
+    position: "relative",
+  },
+  resultsScroll: {
+    maxHeight: "20rem",
+    overflowY: "auto",
+    padding: "0.375rem",
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+  },
+  searchFrame: {
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    paddingBlock: "0.25rem",
+  },
+  searchIcon: {
+    color: colors.mutedForeground,
+    height: "1rem",
+    width: "1rem",
+  },
+  searchInput: {
+    backgroundColor: "transparent",
+    color: {
+      default: null,
+      "::placeholder": colors.mutedForeground,
+    },
+    flex: "1",
+    fontSize: "0.875rem",
+    outline: {
+      default: null,
+      ":focus": "none",
+    },
+  },
+  searchRow: {
+    alignItems: "center",
+    borderRadius: radii.md,
+    display: "flex",
+    gap: "0.5rem",
+    height: "2rem",
+    paddingInline: "0.625rem",
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.125rem",
+  },
+  sectionHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    paddingInline: "0.5rem",
+  },
+  sectionItems: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+  },
+  sectionList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+  },
+  sectionTitle: {
+    color: colors.mutedForeground,
+    fontFamily: fonts.mono,
+    fontSize: "0.6875rem",
+    fontWeight: 500,
+    letterSpacing: "0.025em",
+  },
+  seeAllButton: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.lg,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    display: "flex",
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    gap: "0.25rem",
+    height: "1.75rem",
+    justifyContent: "center",
+    paddingInline: "0.75rem",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color",
+    width: "100%",
+  },
+  smallIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  spinning: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+  uppercase: {
+    textTransform: "uppercase",
+  },
+});

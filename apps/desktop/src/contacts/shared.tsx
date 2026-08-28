@@ -228,7 +228,7 @@ const styles = stylex.create({
       fontSize: "0.875rem",
     },
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,

@@ -15,6 +15,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
+import { colors, fonts } from "@anlg/design-system/tokens.stylex";
 import {
   captureCommentAnchor,
   type CommentAnchor,
@@ -31,6 +32,7 @@ import {
   setCommentAnchors,
 } from "@anlg/editor/note";
 import { Avatar } from "@anlg/ui/components/avatar";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import {
   DRAFT_COMMENT_ID,
@@ -74,12 +76,16 @@ import {
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
 } from "@/lib/shared-notes";
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
 const styles = stylex.create({
   style1: {
     position: "relative",
   },
   style2: {
-    "--tw-outline-style": "none",
     outlineStyle: "none",
     outlineOffset: {
       default: null,
@@ -92,22 +98,21 @@ const styles = stylex.create({
   },
   style3: {
     marginTop: "2.5rem",
+    borderColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: "1px",
     paddingTop: "1.5rem",
   },
   style4: {
     marginBottom: ".75rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style5: {
     position: "absolute",
-    insetBlock: "0",
+    insetBlock: 0,
     left: "100%",
     marginLeft: "1.5rem",
     display: {
@@ -120,7 +125,7 @@ const styles = stylex.create({
     position: "fixed",
     insetInline: "1rem",
     bottom: "6rem",
-    zIndex: "40",
+    zIndex: 40,
     marginInline: "auto",
     width: "auto",
     display: {
@@ -129,13 +134,13 @@ const styles = stylex.create({
     },
   },
   style7: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
     borderRadius: "1rem",
     borderStyle: "solid",
     borderWidth: "1px",
     padding: "1rem",
-    "--tw-shadow": "0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 4px 6px -1px var(--tw-shadow-color, #0000001a), 0 2px 4px -2px var(--tw-shadow-color, #0000001a)",
+    boxShadow: "0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a",
   },
   style8: {
     display: "flex",
@@ -161,7 +166,10 @@ const styles = stylex.create({
     marginRight: ".375rem",
     width: ".875rem",
     height: ".875rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: spin,
   },
   style13: {
     marginBlock: "1.5rem",
@@ -169,6 +177,7 @@ const styles = stylex.create({
   style14: {
     maxHeight: "70vh",
     maxWidth: "100%",
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
@@ -180,31 +189,36 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: "1rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
     paddingInline: "1rem",
     paddingBlock: ".75rem",
+    color: colors.foreground,
     textDecorationLine: "none",
   },
   style16: {
-    minWidth: "0",
+    minWidth: 0,
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     overflow: "hidden",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style17: {
-    flexShrink: "0",
+    flexShrink: 0,
     fontSize: ".75rem",
     lineHeight: "1rem",
+    color: colors.mutedForeground,
   },
   style18: {
     marginBlock: ".75rem",
     display: "flex",
     alignItems: "center",
     gap: ".75rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
@@ -215,17 +229,19 @@ const styles = stylex.create({
     display: "flex",
     width: "2.5rem",
     height: "2.5rem",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: colors.card,
     borderRadius: ".5rem",
   },
   style20: {
+    color: colors.mutedForeground,
     width: "1.25rem",
     height: "1.25rem",
   },
   style21: {
-    minWidth: "0",
+    minWidth: 0,
     flexGrow: 1,
   },
   style22: {
@@ -234,18 +250,19 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
+    color: colors.foreground,
   },
   style23: {
     marginTop: ".125rem",
     fontSize: ".75rem",
     lineHeight: "1rem",
+    color: colors.mutedForeground,
   },
   commentTextarea: {
-    backgroundColor: "var(--color-surface-subtle)",
+    backgroundColor: colors.muted,
     borderColor: {
-      default: "var(--color-border-subtle)",
+      default: colors.border,
       ":focus": "#a8a29e",
     },
     borderRadius: ".75rem",
@@ -255,7 +272,7 @@ const styles = stylex.create({
       default: null,
       ":focus": "0 0 0 2px #d6d3d1",
     },
-    color: "var(--color-fg)",
+    color: colors.foreground,
     flexGrow: 1,
     fontSize: ".875rem",
     lineHeight: "1.5rem",
@@ -269,7 +286,7 @@ const styles = stylex.create({
     paddingInline: ".75rem",
     resize: "vertical",
     "::placeholder": {
-      color: "var(--color-fg-muted)",
+      color: colors.mutedForeground,
     },
   },
   compactCommentButton: {
@@ -575,7 +592,7 @@ export function SharedNoteReadSurface({
     >
       <SharedReadAttachmentsContext.Provider value={attachmentContext}>
         <NoteEditor
-          {...stylex.props(styles.style2)}
+          {...mergeStyleXProps(styles.style2, "session-note-editor")}
           commentAnchorsEnabled
           enforceTitleHeading={false}
           extraNodeViews={readAttachmentNodeViews}
@@ -732,7 +749,7 @@ function DraftComposer({
                   seed="shared-note:you"
                   label="You"
                   size={28}
-                  {...stylex.props(styles.style9)}
+                  sx={styles.style9}
                 />
                 <textarea
                   autoFocus

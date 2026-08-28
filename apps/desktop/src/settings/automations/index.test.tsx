@@ -107,7 +107,9 @@ vi.mock("@anlg/ui/components/ui/toast", () => ({
   },
 }));
 
-import { AutomationsContent } from ".";
+import { AutomationsContent, automationSettingsStyles } from ".";
+
+import { expectStyle } from "~/session/stylex-test";
 
 function renderAutomations() {
   const queryClient = new QueryClient({
@@ -234,8 +236,7 @@ describe("AutomationsContent", () => {
         .getByRole("button", { name: "Automation actions" })
         .closest("header"),
     ).toBe(header);
-    expect(slackIcon?.parentElement?.className).not.toContain("bg-muted");
-    expect(slackIcon?.parentElement?.className).not.toContain("rounded");
+    expectStyle(slackIcon?.parentElement, automationSettingsStyles.detailIcon);
   });
 
   it("matches the templates header and body gutters", () => {
@@ -251,11 +252,8 @@ describe("AutomationsContent", () => {
       .closest("header");
     const body = header?.nextElementSibling;
 
-    expect(header?.className).toContain("h-12");
-    expect(header?.className).toContain("pl-3");
-    expect(header?.className).toContain("pr-1");
-    expect(body?.className).toContain("px-6");
-    expect(body?.className).toContain("pt-3");
+    expectStyle(header, automationSettingsStyles.detailHeader);
+    expectStyle(body, automationSettingsStyles.detailScroller);
   });
 
   it("saves the selected draft for Pro users", async () => {

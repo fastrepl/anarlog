@@ -16,6 +16,7 @@ import {
 } from "@anlg/ui/components/ui/dropdown-menu";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import {
   type UserTemplate,
@@ -193,8 +194,6 @@ export function TemplateForm({
     },
   });
 
-  const scrollProps = stylex.props(styles.scroll);
-
   return (
     <div {...stylex.props(styles.root)}>
       <div {...stylex.props(styles.header)}>
@@ -297,10 +296,7 @@ export function TemplateForm({
       </div>
 
       <div {...stylex.props(styles.body)}>
-        <div
-          {...scrollProps}
-          className={`scroll-fade-y ${scrollProps.className ?? ""}`}
-        >
+        <div {...mergeStyleXProps(styles.scroll, "scroll-fade-y")}>
           <div {...stylex.props(styles.metadata)}>
             <form.Field name="description">
               {(field) => (
@@ -361,7 +357,7 @@ const styles = stylex.create({
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
   },
   body: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflow: "hidden",
     position: "relative",
@@ -426,7 +422,7 @@ const styles = stylex.create({
   headerIdentity: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.5rem",
     minWidth: 0,
   },
@@ -477,7 +473,7 @@ const styles = stylex.create({
   },
   root: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     height: "100%",
   },
@@ -511,7 +507,7 @@ const styles = stylex.create({
   targetInput: {
     backgroundColor: "transparent",
     color: colors.mutedForeground,
-    flex: 1,
+    flex: "1",
     fontSize: "0.75rem",
     lineHeight: 1,
     minWidth: "84px",

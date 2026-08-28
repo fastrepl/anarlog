@@ -95,3 +95,5 @@ const styles = stylex.create({
     backgroundColor: "rgb(0 0 0 / 0.4)",
   },
 });
+
+export { styles as glassDialogStyles };

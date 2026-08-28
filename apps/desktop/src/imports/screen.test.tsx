@@ -128,7 +128,13 @@ vi.mock("./termination-pause", () => ({
 }));
 
 import { MEETING_IMPORT_PROVIDERS } from "./providers";
-import { MeetingImportScreen } from "./screen";
+import { MeetingImportScreen, meetingImportScreenStyles } from "./screen";
+
+import {
+  closestWithStyle,
+  expectNotStyle,
+  expectStyle,
+} from "~/session/stylex-test";
 
 function renderImports(
   props: {
@@ -264,17 +270,21 @@ describe("MeetingImportScreen", () => {
     expect(
       container.querySelector('img[src="/assets/zoom-icon.svg"]'),
     ).toBeTruthy();
-    expect(
-      container.querySelector('img[src="data:image/png;base64,granola"]')
-        ?.className,
-    ).not.toContain("scale-");
-    expect(
-      container.querySelector('img[src="/assets/model-icons/openai-logo.svg"]')
-        ?.className,
-    ).toContain("scale-[1.22]");
-    expect(
-      container.querySelector('img[src="/assets/slack-icon.svg"]')?.className,
-    ).toContain("scale-[1.12]");
+    const granolaIcon = container.querySelector(
+      'img[src="data:image/png;base64,granola"]',
+    );
+    const chatGptIcon = container.querySelector(
+      'img[src="/assets/model-icons/openai-logo.svg"]',
+    );
+    const slackIcon = container.querySelector(
+      'img[src="/assets/slack-icon.svg"]',
+    );
+    expectNotStyle(
+      granolaIcon,
+      meetingImportScreenStyles.providerIconScale(1.22),
+    );
+    expectStyle(chatGptIcon, meetingImportScreenStyles.providerIconScale(1.22));
+    expectStyle(slackIcon, meetingImportScreenStyles.providerIconScale(1.12));
     expect(container.querySelector("iconify-icon")).toBeNull();
   });
 
@@ -317,7 +327,7 @@ describe("MeetingImportScreen", () => {
   it("renders the same detected list in the compact onboarding layout", async () => {
     mockDetected(["granola", "slack-huddles"]);
 
-    const { container } = renderImports({ compact: true });
+    renderImports({ compact: true });
 
     expect(await screen.findByText("Granola")).toBeTruthy();
     expect(screen.getByText("Slack Huddles")).toBeTruthy();
@@ -329,11 +339,15 @@ describe("MeetingImportScreen", () => {
       screen.getAllByRole("button", { name: "Choose files" }),
     ).toHaveLength(1);
 
-    const list = container.querySelector(".rounded-2xl");
-    expect(list).toBeTruthy();
-    expect(list?.className).toContain("overflow-hidden");
-    expect(list?.className).not.toContain("overflow-y-auto");
-    expect(list?.querySelector(".overflow-y-auto")).toBeTruthy();
+    const list = closestWithStyle(
+      screen.getByText("Granola"),
+      meetingImportScreenStyles.providersCard,
+    );
+    expectStyle(list, meetingImportScreenStyles.providersCard);
+    expectStyle(
+      list?.firstElementChild,
+      meetingImportScreenStyles.providerListCompact,
+    );
   });
 
   it("renders the secondary action even before anything is imported", async () => {

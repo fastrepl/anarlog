@@ -4,7 +4,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 
-import { colors, media, radii } from "@anlg/design-system/tokens.stylex";
+import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
 
@@ -60,10 +60,12 @@ const styles = stylex.create({
       "@media (width >= 48rem)": "4.5rem",
     },
     lineHeight: {
-      default: ".98",
-      "@media (width >= 48rem)": "1",
+      default: 0.98,
+      "@media (width >= 48rem)": 1,
     },
-    fontWeight: "600",
+    fontFamily: fonts.hand,
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
     position: {
       default: null,
@@ -78,7 +80,7 @@ const styles = stylex.create({
       "@media (width >= 64rem)": "max-content",
     },
     maxWidth: {
-      default: null,
+      default: "48rem",
       "@media (width >= 64rem)": "none",
     },
     transform: {
@@ -95,10 +97,13 @@ const styles = stylex.create({
       default: "block",
       "@media (width >= 64rem)": "inline",
     },
+    fontFamily: fonts.hand,
+    letterSpacing: 0,
   },
   style6: {
     marginInline: "auto",
     marginTop: "1.5rem",
+    maxWidth: "42rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
     color: "#4f4940",
@@ -188,18 +193,21 @@ const styles = stylex.create({
     width: ".75rem",
     borderRadius: radii.full,
     backgroundColor: "#f87171",
+    cornerShape: "round",
   },
   style15: {
     height: ".75rem",
     width: ".75rem",
     borderRadius: radii.full,
     backgroundColor: "#facc15",
+    cornerShape: "round",
   },
   style16: {
     height: ".75rem",
     width: ".75rem",
     borderRadius: radii.full,
     backgroundColor: "#4ade80",
+    cornerShape: "round",
   },
   style17: {
     marginLeft: "auto",
@@ -257,10 +265,10 @@ const styles = stylex.create({
     borderRadius: ".75rem",
   },
   workflowBottomFade: {
-    insetInline: "0",
+    insetInline: 0,
     pointerEvents: "none",
     position: "absolute",
-    bottom: "0",
+    bottom: 0,
     height: "7rem",
     backgroundImage: `linear-gradient(to top, ${colors.card}, transparent)`,
   },
@@ -269,7 +277,7 @@ const styles = stylex.create({
     display: "inline-flex",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style29: {
     display: "inline-flex",
@@ -310,13 +318,15 @@ const styles = stylex.create({
   style31: {
     position: "absolute",
     top: "calc(100% + .5rem)",
-    left: "0",
-    zIndex: "10",
+    left: 0,
+    zIndex: 10,
     width: "18rem",
     maxWidth: "calc(100vw - 2.5rem)",
     borderRadius: "1rem",
     borderStyle: "solid",
     borderWidth: "1px",
+    borderColor: colors.border,
+    backgroundColor: colors.card,
     padding: ".5rem",
     textAlign: "left",
     boxShadow: "0 14px 40px rgb(24 22 19 / 0.12)",
@@ -331,18 +341,26 @@ const styles = stylex.create({
     transitionProperty: "color, background-color, border-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.muted,
+    },
+    color: colors.foreground,
   },
   style33: {
     marginLeft: "auto",
     borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "1px",
+    borderColor: colors.border,
     paddingInline: ".5rem",
     paddingBlock: ".125rem",
     fontSize: "11px",
-    lineHeight: "1",
-    fontWeight: "500",
+    lineHeight: 1,
+    fontWeight: 500,
+    letterSpacing: ".025em",
     textTransform: "uppercase",
+    color: colors.mutedForeground,
   },
   style34: {
     marginTop: ".25rem",
@@ -355,9 +373,14 @@ const styles = stylex.create({
     transitionProperty: "color, background-color, border-color",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.muted,
+    },
+    color: colors.mutedForeground,
   },
   style35: {
-    flexShrink: "0",
+    flexShrink: 0,
   },
   draftNotesLayer: {
     display: "flex",

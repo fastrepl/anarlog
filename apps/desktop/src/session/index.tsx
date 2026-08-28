@@ -484,7 +484,7 @@ const styles = stylex.create({
     paddingTop: "0.375rem",
   },
   content: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
   },
   loading: {

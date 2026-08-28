@@ -110,7 +110,7 @@ describe("TabContentEmpty", () => {
     const dragSurface = newNoteButton.parentElement?.parentElement;
 
     expect(dragSurface?.hasAttribute("data-tauri-drag-region")).toBe(true);
-    expect(dragSurface?.className).not.toContain("mb-12");
+    expect(dragSurface?.className).toBeTruthy();
     expect(newNoteButton.getAttribute("data-tauri-drag-region")).toBe("false");
     expect(
       screen

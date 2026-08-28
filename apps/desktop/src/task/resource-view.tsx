@@ -135,8 +135,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
               {issue.labels.map((label) => (
                 <span
                   key={label.id}
-                  {...stylex.props(styles.label)}
-                  style={{
+                  {...mergeStyleXProps(styles.label, undefined, {
                     backgroundColor: label.color
                       ? `#${label.color}20`
                       : "#e5e5e5",
@@ -144,7 +143,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                     border: `1px solid ${
                       label.color ? `#${label.color}40` : "#d4d4d4"
                     }`,
-                  }}
+                  })}
                 >
                   {label.name}
                 </span>
@@ -177,6 +176,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
               <Streamdown
                 {...mergeStyleXProps(styles.markdown, "note-typography")}
                 components={streamdownComponents}
+                controls={false}
                 isAnimating={false}
                 rehypePlugins={rehypePlugins}
               >
@@ -236,6 +236,7 @@ export function ResourceView({ resource }: { resource: TaskResource }) {
                             "note-typography",
                           )}
                           components={streamdownComponents}
+                          controls={false}
                           isAnimating={false}
                           rehypePlugins={rehypePlugins}
                         >

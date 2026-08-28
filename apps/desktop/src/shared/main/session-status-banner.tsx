@@ -10,6 +10,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
+
 import { useMainContentCenterOffset } from "./content-offset";
 
 type SessionStatusBannerState = {
@@ -74,8 +76,9 @@ export function MainSessionStatusBannerHost() {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        style={{ left: `calc(50% + ${contentOffset}px)` }}
-        {...stylex.props(styles.banner)}
+        {...mergeStyleXProps(styles.banner, undefined, {
+          left: `calc(50% + ${contentOffset}px)`,
+        })}
       >
         {banner.skipReason}
       </motion.div>
@@ -96,3 +99,5 @@ const styles = stylex.create({
     zIndex: 50,
   },
 });
+
+export { styles as sessionStatusBannerStyles };

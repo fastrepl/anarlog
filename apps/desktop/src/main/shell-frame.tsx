@@ -74,7 +74,7 @@ const ClassicMainBodyHost = memo(function ClassicMainBodyHost({
 
 const styles = stylex.create({
   content: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
   },
   root: {

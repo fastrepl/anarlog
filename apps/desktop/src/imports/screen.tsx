@@ -6,6 +6,7 @@ import {
   DownloadSimple,
   PlugsConnected,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import {
   useMutation,
   useQueries,
@@ -15,6 +16,7 @@ import {
 import { open as selectFiles } from "@tauri-apps/plugin-dialog";
 import { type ReactNode, useEffect, useRef } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as importerCommands } from "@anlg/plugin-importer";
 import { Button } from "@anlg/ui/components/ui/button";
 import { ButtonGroup } from "@anlg/ui/components/ui/button-group";
@@ -25,7 +27,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
-import { cn } from "@anlg/utils";
 
 import {
   cancelConnectedImport,
@@ -44,7 +45,7 @@ import {
   nangoImportSyncQueryOptions,
 } from "./connected-import";
 import { detectImportSources } from "./detection";
-import { providerIconOpticalClass, providerIconSrc } from "./icons";
+import { providerIconOpticalScale, providerIconSrc } from "./icons";
 import type {
   DetectedMeetingImportProvider,
   MeetingImportProvider,
@@ -81,19 +82,16 @@ function ProviderIcon({
       <img
         src={src}
         alt=""
-        className={cn([
-          "size-8 object-contain object-center",
-          providerIconOpticalClass(provider),
-        ])}
+        {...stylex.props(
+          styles.providerIcon,
+          styles.providerIconScale(providerIconOpticalScale(provider)),
+        )}
       />
     );
   }
 
   return (
-    <span
-      className="bg-muted text-muted-foreground flex size-8 items-center justify-center rounded-lg text-xs font-semibold"
-      aria-hidden="true"
-    >
+    <span {...stylex.props(styles.providerFallback)} aria-hidden="true">
       {provider.name.charAt(0)}
     </span>
   );
@@ -320,28 +318,28 @@ export function MeetingImportScreen({
     null;
 
   return (
-    <div className={cn(["flex flex-col gap-4", compact && "max-w-3xl"])}>
+    <div {...stylex.props(styles.root, compact && styles.compact)}>
       {detectionQuery.isLoading ? (
-        <p className="text-muted-foreground flex items-center gap-2 text-xs">
-          <CircleNotch className="size-3.5 animate-spin" />
+        <p {...stylex.props(styles.loading)}>
+          <CircleNotch {...stylex.props(styles.smallIcon, styles.spinning)} />
           <Trans>Checking installed meeting assistants…</Trans>
         </p>
       ) : detectionQuery.error ? (
-        <p className="text-destructive text-xs">
+        <p {...stylex.props(styles.errorSmall)}>
           {detectionQuery.error.message}
         </p>
       ) : null}
 
       {fileImportMutation.error ? (
-        <p className="text-destructive text-sm">
+        <p {...stylex.props(styles.error)}>
           {fileImportMutation.error.message}
         </p>
       ) : null}
       {connectedError ? (
-        <p className="text-destructive text-sm">{connectedError.message}</p>
+        <p {...stylex.props(styles.error)}>{connectedError.message}</p>
       ) : null}
       {latestResult ? (
-        <div className="border-border bg-card rounded-xl border px-4 py-3 text-sm">
+        <div {...stylex.props(styles.result)}>
           {latestResult.imported > 0 ? (
             <Trans>
               Brought in {latestResult.imported} new meetings.{" "}
@@ -361,21 +359,16 @@ export function MeetingImportScreen({
         .flatMap((query) => query.data?.warnings ?? [])
         .concat(nangoSyncQueries.flatMap((query) => query.data?.warnings ?? []))
         .map((warning) => (
-          <p key={warning} className="text-muted-foreground text-xs">
+          <p key={warning} {...stylex.props(styles.mutedSmall)}>
             {warning}
           </p>
         ))}
 
       {displayedProviders.length > 0 || detectionSettled ? (
-        <div className="border-border bg-card overflow-hidden rounded-2xl border">
-          <div
-            className={cn([
-              "divide-border divide-y",
-              compact && "max-h-80 overflow-y-auto",
-            ])}
-          >
+        <div {...stylex.props(styles.providersCard)}>
+          <div {...stylex.props(compact && styles.providerListCompact)}>
             {displayedProviders.length === 0 ? (
-              <p className="text-muted-foreground px-4 py-6 text-center text-sm">
+              <p {...stylex.props(styles.empty)}>
                 <Trans>No apps found.</Trans>
               </p>
             ) : (
@@ -429,19 +422,16 @@ export function MeetingImportScreen({
                 );
 
                 return (
-                  <div
-                    key={provider.id}
-                    className="flex min-h-16 items-center gap-3 px-4 py-3"
-                  >
-                    <span className="flex size-8 shrink-0 items-center justify-center">
+                  <div key={provider.id} {...stylex.props(styles.providerRow)}>
+                    <span {...stylex.props(styles.providerIconSlot)}>
                       <ProviderIcon provider={provider} />
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
+                    <div {...stylex.props(styles.providerCopy)}>
+                      <span {...stylex.props(styles.providerName)}>
                         {provider.name}
                       </span>
                       {connectedProvider ? (
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <p {...stylex.props(styles.providerDescription)}>
                           {connected ? (
                             <Trans>
                               Connected · New meetings are imported
@@ -456,18 +446,18 @@ export function MeetingImportScreen({
                           )}
                         </p>
                       ) : lastRun ? (
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <p {...stylex.props(styles.providerDescription)}>
                           <Trans>
                             Last import: {lastRun.imported} added,{" "}
                             {lastRun.matched} unchanged
                           </Trans>
                         </p>
                       ) : provider.access === "Export" ? (
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <p {...stylex.props(styles.providerDescription)}>
                           <Trans>Choose files exported from this app.</Trans>
                         </p>
                       ) : (
-                        <p className="text-muted-foreground mt-1 text-xs">
+                        <p {...stylex.props(styles.providerDescription)}>
                           <Trans>
                             Direct connection is not available yet. You can
                             still bring your history over with files.
@@ -476,7 +466,7 @@ export function MeetingImportScreen({
                       )}
                     </div>
                     {connectedProvider ? (
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div {...stylex.props(styles.providerActions)}>
                         {connected ? (
                           <>
                             <Button
@@ -487,9 +477,16 @@ export function MeetingImportScreen({
                               onClick={() => void syncQuery?.refetch()}
                             >
                               {syncQuery?.isFetching ? (
-                                <CircleNotch className="size-3.5 animate-spin" />
+                                <CircleNotch
+                                  {...stylex.props(
+                                    styles.smallIcon,
+                                    styles.spinning,
+                                  )}
+                                />
                               ) : (
-                                <ArrowsClockwise className="size-3.5" />
+                                <ArrowsClockwise
+                                  {...stylex.props(styles.smallIcon)}
+                                />
                               )}
                               <Trans>Sync now</Trans>
                             </Button>
@@ -517,6 +514,7 @@ export function MeetingImportScreen({
                               type="button"
                               size="sm"
                               variant={signedIn ? "default" : "outline"}
+                              data-sign-in={!signedIn || undefined}
                               aria-label={
                                 signedIn ? undefined : t`Sign in to connect`
                               }
@@ -528,10 +526,7 @@ export function MeetingImportScreen({
                                     (connectMutation.isPending && !connecting)
                                   : signInMutation.isPending
                               }
-                              className={cn([
-                                !signedIn &&
-                                  "group/sign-in bg-muted hover:border-primary hover:bg-primary hover:text-primary-foreground focus-visible:border-primary focus-visible:bg-primary focus-visible:text-primary-foreground",
-                              ])}
+                              sx={!signedIn ? styles.signInButton : undefined}
                               onClick={() => {
                                 if (!signedIn) {
                                   signInMutation.mutate();
@@ -550,19 +545,30 @@ export function MeetingImportScreen({
                               {!signedIn ? (
                                 signInMutation.isPending ? (
                                   <>
-                                    <CircleNotch className="size-3.5 animate-spin" />
+                                    <CircleNotch
+                                      {...stylex.props(
+                                        styles.smallIcon,
+                                        styles.spinning,
+                                      )}
+                                    />
                                     <Trans>Opening…</Trans>
                                   </>
                                 ) : (
-                                  <span className="grid items-center overflow-hidden">
-                                    <span className="invisible col-start-1 row-start-1">
+                                  <span {...stylex.props(styles.signInLabels)}>
+                                    <span
+                                      {...stylex.props(styles.signInMeasure)}
+                                    >
                                       <Trans>Sign in to connect</Trans>
                                     </span>
-                                    <span className="col-start-1 row-start-1 flex items-center justify-center gap-2 transition-transform duration-200 group-hover/sign-in:translate-y-full group-focus-visible/sign-in:translate-y-full">
-                                      <PlugsConnected className="size-3.5" />
+                                    <span
+                                      {...stylex.props(styles.connectLabel)}
+                                    >
+                                      <PlugsConnected
+                                        {...stylex.props(styles.smallIcon)}
+                                      />
                                       <Trans>Connect & import</Trans>
                                     </span>
-                                    <span className="col-start-1 row-start-1 flex -translate-y-full items-center justify-center transition-transform duration-200 group-hover/sign-in:translate-y-0 group-focus-visible/sign-in:translate-y-0">
+                                    <span {...stylex.props(styles.signInLabel)}>
                                       <Trans>Sign in to connect</Trans>
                                     </span>
                                   </span>
@@ -570,9 +576,16 @@ export function MeetingImportScreen({
                               ) : checkingConnection ||
                                 connecting ||
                                 cancellingConnection ? (
-                                <CircleNotch className="size-3.5 animate-spin" />
+                                <CircleNotch
+                                  {...stylex.props(
+                                    styles.smallIcon,
+                                    styles.spinning,
+                                  )}
+                                />
                               ) : (
-                                <PlugsConnected className="size-3.5" />
+                                <PlugsConnected
+                                  {...stylex.props(styles.smallIcon)}
+                                />
                               )}
                               {!signedIn ? null : connecting ||
                                 cancellingConnection ? (
@@ -591,22 +604,28 @@ export function MeetingImportScreen({
                                   variant={signedIn ? "default" : "outline"}
                                   aria-label={t`Use files`}
                                   disabled={fileImportMutation.isPending}
-                                  className={cn([
-                                    "relative w-6 px-0 before:absolute before:inset-y-1.5 before:left-0 before:w-px",
-                                    signedIn
-                                      ? "before:bg-primary-foreground/20"
-                                      : "before:bg-border",
-                                  ])}
+                                  sx={styles.fileMenuButton}
                                 >
-                                  <CaretDown className="size-3.5" />
+                                  <span
+                                    aria-hidden="true"
+                                    {...stylex.props(
+                                      styles.fileMenuDivider,
+                                      signedIn
+                                        ? styles.fileMenuDividerSignedIn
+                                        : styles.fileMenuDividerSignedOut,
+                                    )}
+                                  />
+                                  <CaretDown
+                                    {...stylex.props(styles.smallIcon)}
+                                  />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent
                                 variant="app"
                                 align="end"
-                                className="w-40"
+                                sx={styles.fileMenu}
                               >
-                                <AppFloatingPanel className="p-1">
+                                <AppFloatingPanel sx={styles.fileMenuPanel}>
                                   <DropdownMenuItem
                                     onClick={() =>
                                       fileImportMutation.mutate(provider)
@@ -628,7 +647,9 @@ export function MeetingImportScreen({
                             disabled={fileImportMutation.isPending}
                             onClick={() => fileImportMutation.mutate(provider)}
                           >
-                            <DownloadSimple className="size-3.5" />
+                            <DownloadSimple
+                              {...stylex.props(styles.smallIcon)}
+                            />
                             <Trans>Use files</Trans>
                           </Button>
                         ) : null}
@@ -642,9 +663,11 @@ export function MeetingImportScreen({
                         onClick={() => fileImportMutation.mutate(provider)}
                       >
                         {importing ? (
-                          <CircleNotch className="size-3.5 animate-spin" />
+                          <CircleNotch
+                            {...stylex.props(styles.smallIcon, styles.spinning)}
+                          />
                         ) : (
-                          <DownloadSimple className="size-3.5" />
+                          <DownloadSimple {...stylex.props(styles.smallIcon)} />
                         )}
                         <Trans>Choose files</Trans>
                       </Button>
@@ -658,11 +681,11 @@ export function MeetingImportScreen({
       ) : null}
 
       {secondaryAction || (onContinue && latestResult) ? (
-        <div className="flex items-center gap-3">
+        <div {...stylex.props(styles.secondaryActions)}>
           {onContinue && latestResult ? (
             <Button
               type="button"
-              className="w-fit rounded-full"
+              sx={styles.continueButton}
               onClick={onContinue}
             >
               <Trans>Continue</Trans>
@@ -674,3 +697,235 @@ export function MeetingImportScreen({
     </div>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  compact: {
+    maxWidth: "48rem",
+  },
+  connectLabel: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    gridColumnStart: "1",
+    gridRowStart: "1",
+    justifyContent: "center",
+    transform: {
+      default: "translateY(0)",
+      ":is([data-sign-in]:focus-visible *)": "translateY(100%)",
+      ":is([data-sign-in]:hover *)": "translateY(100%)",
+    },
+    transitionDuration: "200ms",
+    transitionProperty: "transform",
+  },
+  continueButton: {
+    borderRadius: radii.full,
+    width: "fit-content",
+  },
+  empty: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    paddingBlock: "1.5rem",
+    paddingInline: "1rem",
+    textAlign: "center",
+  },
+  error: {
+    color: colors.destructive,
+    fontSize: "0.875rem",
+  },
+  errorSmall: {
+    color: colors.destructive,
+    fontSize: "0.75rem",
+  },
+  fileMenu: {
+    width: "10rem",
+  },
+  fileMenuButton: {
+    paddingInline: 0,
+    position: "relative",
+    width: "1.5rem",
+  },
+  fileMenuDivider: {
+    bottom: "0.375rem",
+    left: 0,
+    position: "absolute",
+    top: "0.375rem",
+    width: "1px",
+  },
+  fileMenuDividerSignedIn: {
+    backgroundColor: `color-mix(in srgb, ${colors.primaryForeground} 20%, transparent)`,
+  },
+  fileMenuDividerSignedOut: {
+    backgroundColor: colors.border,
+  },
+  fileMenuPanel: {
+    padding: "0.25rem",
+  },
+  loading: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.5rem",
+  },
+  mutedSmall: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+  },
+  providerActions: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.25rem",
+  },
+  providerCopy: {
+    flex: "1",
+    minWidth: 0,
+  },
+  providerDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    marginTop: "0.25rem",
+  },
+  providerFallback: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderRadius: radii.lg,
+    color: colors.mutedForeground,
+    display: "flex",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    height: "2rem",
+    justifyContent: "center",
+    width: "2rem",
+  },
+  providerIcon: {
+    height: "2rem",
+    objectFit: "contain",
+    objectPosition: "center",
+    width: "2rem",
+  },
+  providerIconScale: (scale: number | undefined) => ({
+    transform: scale === undefined ? null : `scale(${scale})`,
+  }),
+  providerIconSlot: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    height: "2rem",
+    justifyContent: "center",
+    width: "2rem",
+  },
+  providerListCompact: {
+    maxHeight: "20rem",
+    overflowY: "auto",
+  },
+  providerName: {
+    display: "block",
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  providerRow: {
+    alignItems: "center",
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: {
+      default: "1px",
+      ":first-child": 0,
+    },
+    display: "flex",
+    gap: "0.75rem",
+    minHeight: "4rem",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  providersCard: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    overflow: "hidden",
+  },
+  result: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    fontSize: "0.875rem",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  secondaryActions: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.75rem",
+  },
+  signInButton: {
+    backgroundColor: {
+      default: colors.muted,
+      ":focus-visible": colors.primary,
+      ":hover": colors.primary,
+    },
+    borderColor: {
+      default: null,
+      ":focus-visible": colors.primary,
+      ":hover": colors.primary,
+    },
+    color: {
+      default: null,
+      ":focus-visible": colors.primaryForeground,
+      ":hover": colors.primaryForeground,
+    },
+  },
+  signInLabel: {
+    alignItems: "center",
+    display: "flex",
+    gridColumnStart: "1",
+    gridRowStart: "1",
+    justifyContent: "center",
+    transform: {
+      default: "translateY(-100%)",
+      ":is([data-sign-in]:focus-visible *)": "translateY(0)",
+      ":is([data-sign-in]:hover *)": "translateY(0)",
+    },
+    transitionDuration: "200ms",
+    transitionProperty: "transform",
+  },
+  signInLabels: {
+    alignItems: "center",
+    display: "grid",
+    overflow: "hidden",
+  },
+  signInMeasure: {
+    gridColumnStart: "1",
+    gridRowStart: "1",
+    visibility: "hidden",
+  },
+  smallIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  spinning: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+});
+
+export { styles as meetingImportScreenStyles };

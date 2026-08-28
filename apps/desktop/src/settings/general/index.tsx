@@ -1,9 +1,11 @@
 import { t } from "@lingui/core/macro";
 import { Trans } from "@lingui/react/macro";
 import { CircleNotch } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 
+import { colors, fonts } from "@anlg/design-system/tokens.stylex";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import { commands as listenerCommands } from "@anlg/plugin-transcription";
 
@@ -160,10 +162,10 @@ function SettingsSectionPage({ section }: { section: SettingsSection }) {
   }
   if (isLoading || !data) {
     return (
-      <div className="flex min-h-48 items-center justify-center">
+      <div {...stylex.props(styles.loading)}>
         <CircleNotch
           aria-label={t`Loading settings`}
-          className="text-muted-foreground size-5 animate-spin"
+          {...stylex.props(styles.spinner)}
         />
       </div>
     );
@@ -216,7 +218,7 @@ function SettingsSectionContent({
   });
 
   return (
-    <div className="flex flex-col gap-8">
+    <div {...stylex.props(styles.section)}>
       <SettingsPageTitle
         title={
           section === "app" ? <Trans>General</Trans> : <Trans>Meetings</Trans>
@@ -253,10 +255,10 @@ function SettingsSectionContent({
           </form.Subscribe>
 
           <div>
-            <h2 className="mb-4 font-sans text-lg font-semibold">
+            <h2 {...stylex.props(styles.heading)}>
               <Trans>Language &amp; Region</Trans>
             </h2>
-            <div className="flex flex-col gap-6">
+            <div {...stylex.props(styles.settings)}>
               <form.Field name="ai_language">
                 {(field) => (
                   <MainLanguageView
@@ -341,14 +343,14 @@ function SettingsSectionContent({
           </form.Subscribe>
 
           <div>
-            <h2 className="mb-4 font-sans text-lg font-semibold">
+            <h2 {...stylex.props(styles.heading)}>
               <Trans>Summaries</Trans>
             </h2>
             <SummaryLengthSelector />
           </div>
 
           <div>
-            <h2 className="mb-4 font-sans text-lg font-semibold">
+            <h2 {...stylex.props(styles.heading)}>
               <Trans>Audio</Trans>
             </h2>
             <AudioSettingsView
@@ -387,7 +389,7 @@ function SettingsSectionContent({
 
 export function SettingsNotifications() {
   return (
-    <div className="flex flex-col gap-6">
+    <div {...stylex.props(styles.settings)}>
       <SettingsPageTitle title={<Trans>Notifications</Trans>} />
       <NotificationSettingsView />
     </div>
@@ -396,9 +398,47 @@ export function SettingsNotifications() {
 
 export function SettingsPermissions() {
   return (
-    <div className="flex flex-col gap-8">
+    <div {...stylex.props(styles.section)}>
       <SettingsPageTitle title={<Trans>Permissions</Trans>} />
       <Permissions />
     </div>
   );
 }
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
+const styles = stylex.create({
+  heading: {
+    fontFamily: fonts.sans,
+    fontSize: "1.125rem",
+    fontWeight: 600,
+    marginBottom: "1rem",
+  },
+  loading: {
+    alignItems: "center",
+    display: "flex",
+    justifyContent: "center",
+    minHeight: "12rem",
+  },
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2rem",
+  },
+  settings: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.5rem",
+  },
+  spinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    color: colors.mutedForeground,
+    height: "1.25rem",
+    width: "1.25rem",
+  },
+});

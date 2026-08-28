@@ -205,7 +205,7 @@ const styles = stylex.create({
     justifyContent: "center",
   },
   diff: {
-    flex: 1,
+    flex: "1",
     overflow: "auto",
   },
   error: {
@@ -227,7 +227,7 @@ const styles = stylex.create({
     paddingInline: "1rem",
   },
   headerContent: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   root: {

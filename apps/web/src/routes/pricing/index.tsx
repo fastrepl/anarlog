@@ -2,7 +2,7 @@ import { CheckCircle, XCircle } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { colors, fonts } from "@anlg/design-system/tokens.stylex";
+import { radii, colors, fonts } from "@anlg/design-system/tokens.stylex";
 import { MARKETING_PLAN_TIERS } from "@anlg/pricing";
 
 import { AnarlogLogo } from "@/components/anarlog-logo";
@@ -39,7 +39,7 @@ const styles = stylex.create({
     },
   },
   style3: {
-    minWidth: "0",
+    minWidth: 0,
     textAlign: "center",
   },
   style4: {
@@ -73,12 +73,10 @@ const styles = stylex.create({
       "@media (width >= 48rem)": "3rem",
     },
     lineHeight: {
-      default: "1",
-      "@media (width >= 48rem)": "1",
+      default: 1,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#181613",
   },
   style8: {
@@ -86,7 +84,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style9: {
@@ -97,7 +94,7 @@ const styles = stylex.create({
     height: "2.75rem",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
       default: "#181613",
       ":hover": "#4f4940",
@@ -105,16 +102,15 @@ const styles = stylex.create({
     paddingInline: "1.5rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
     transitionProperty: "all",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     scale: {
       default: null,
-      ":hover": "1.02",
-      ":active": ".98",
+      ":hover": 1.02,
+      ":active": 0.98,
     },
   },
   style11: {
@@ -130,10 +126,8 @@ const styles = stylex.create({
   style12: {
     fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style13: {
@@ -142,7 +136,6 @@ const styles = stylex.create({
     marginTop: "2rem",
     width: "100vw",
     maxWidth: "980px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
     paddingInline: {
       default: "1.25rem",
@@ -175,7 +168,6 @@ const styles = stylex.create({
     textAlign: "left",
     fontSize: ".75rem",
     lineHeight: "1.25rem",
-    "--tw-leading": "1.25rem",
     color: "#756b5d",
   },
   style18: {
@@ -183,7 +175,6 @@ const styles = stylex.create({
     textAlign: "left",
     fontSize: ".75rem",
     lineHeight: "1.25rem",
-    "--tw-leading": "1.25rem",
     color: "#756b5d",
   },
   style19: {
@@ -204,7 +195,7 @@ const styles = stylex.create({
   style21: {
     width: "1.25rem",
     height: "1.25rem",
-    flexShrink: "0",
+    flexShrink: 0,
     borderRadius: "5px",
     objectFit: "contain",
   },
@@ -212,19 +203,17 @@ const styles = stylex.create({
     display: "flex",
     width: "1.25rem",
     height: "1.25rem",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: "5px",
     backgroundColor: "#f4efe6",
     fontSize: "10px",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#756b5d",
   },
   style23: {
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#181613",
   },
   style24: {

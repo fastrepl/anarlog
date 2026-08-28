@@ -20,7 +20,7 @@ const styles = stylex.create({
     "::-webkit-scrollbar": {
       display: "none",
     },
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflowY: "auto",
     paddingInline: "0.75rem",

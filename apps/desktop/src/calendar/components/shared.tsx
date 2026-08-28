@@ -15,6 +15,15 @@ export type CalendarProvider = {
   nangoIntegrationId?: string;
 };
 
+const styles = stylex.create({
+  appleIcon: {
+    borderRadius: "4px",
+    height: "1.25rem",
+    objectFit: "cover",
+    width: "1.25rem",
+  },
+});
+
 const _PROVIDERS = [
   {
     disabled: false,
@@ -75,12 +84,3 @@ export function getCalendarConnectionKey(
     .sort()
     .join(",");
 }
-
-const styles = stylex.create({
-  appleIcon: {
-    borderRadius: "4px",
-    height: "1.25rem",
-    objectFit: "cover",
-    width: "1.25rem",
-  },
-});

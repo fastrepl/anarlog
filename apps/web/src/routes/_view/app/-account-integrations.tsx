@@ -33,10 +33,19 @@ const styles = stylex.create({
     },
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
-  style2: {},
+  style2: {
+    borderBottomColor: {
+      ":is(*) > :not(:last-child)": "#ede7dc",
+    },
+    borderBottomStyle: {
+      ":is(*) > :not(:last-child)": "solid",
+    },
+    borderBottomWidth: {
+      ":is(*) > :not(:last-child)": "1px",
+    },
+  },
   style3: {
     display: "flex",
     alignItems: "center",
@@ -50,7 +59,7 @@ const styles = stylex.create({
   },
   style4: {
     display: "flex",
-    minWidth: "0",
+    minWidth: 0,
     alignItems: "center",
     gap: "1rem",
   },
@@ -58,7 +67,7 @@ const styles = stylex.create({
     display: "flex",
     width: "2.5rem",
     height: "2.5rem",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: ".75rem",
@@ -71,13 +80,12 @@ const styles = stylex.create({
     color: "#756b5d",
   },
   style7: {
-    minWidth: "0",
+    minWidth: 0,
   },
   style8: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style9: {
@@ -87,7 +95,6 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style10: {
@@ -243,15 +250,11 @@ function IntegrationRowMenu({
           <DotsThree size={16} aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        variant="app"
-        align="end"
-        {...stylex.props(styles.style10)}
-      >
-        <AppFloatingPanel {...stylex.props(styles.style11)}>
+      <DropdownMenuContent variant="app" align="end" sx={styles.style10}>
+        <AppFloatingPanel sx={styles.style11}>
           {needsReconnect && (
             <>
-              <DropdownMenuItem asChild {...stylex.props(styles.style12)}>
+              <DropdownMenuItem asChild sx={styles.style12}>
                 <Link
                   to="/app/integration/"
                   search={{
@@ -273,7 +276,7 @@ function IntegrationRowMenu({
               <DropdownMenuSeparator />
             </>
           )}
-          <DropdownMenuItem asChild {...stylex.props(styles.style13)}>
+          <DropdownMenuItem asChild sx={styles.style13}>
             <Link
               to="/app/integration/"
               search={{

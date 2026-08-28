@@ -17,11 +17,17 @@ export function SessionSurface({
     <StandardContentWrapper floatingButton={floatingButton}>
       <div data-session-surface {...stylex.props(styles.root)}>
         <div
-          {...stylex.props(styles.shell, overlay && styles.shellWithOverlay)}
+          {...stylex.props(
+            styles.shell,
+            Boolean(overlay) && styles.shellWithOverlay,
+          )}
           {...(overlay ? { inert: true, "aria-hidden": true } : {})}
         >
           <div
-            {...stylex.props(styles.shell, overlay && styles.blurredContent)}
+            {...stylex.props(
+              styles.shell,
+              Boolean(overlay) && styles.blurredContent,
+            )}
           >
             {header ? (
               <div data-tauri-drag-region {...stylex.props(styles.header)}>
@@ -47,7 +53,7 @@ const styles = stylex.create({
     userSelect: "none",
   },
   content: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     paddingInline: "0.5rem",
   },
@@ -69,7 +75,7 @@ const styles = stylex.create({
   },
   shell: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     height: "100%",
     minHeight: 0,
@@ -80,3 +86,5 @@ const styles = stylex.create({
     zIndex: 0,
   },
 });
+
+export { styles as sessionSurfaceStyles };

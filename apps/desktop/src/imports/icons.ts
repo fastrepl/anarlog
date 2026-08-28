@@ -10,9 +10,9 @@ export const PROVIDER_BRAND_ICONS: Record<string, string> = {
 const BRAND_ICON_OVERRIDES = new Set(["google-meet", "zoom"]);
 
 // Line-art marks read smaller than filled app icons in the same 32px slot.
-const BRAND_ICON_OPTICAL_CLASS: Record<string, string> = {
-  "chatgpt-record": "scale-[1.22]",
-  "slack-huddles": "scale-[1.12]",
+const BRAND_ICON_OPTICAL_SCALE: Record<string, number> = {
+  "chatgpt-record": 1.22,
+  "slack-huddles": 1.12,
 };
 
 export function providerIconSrc(provider: {
@@ -29,11 +29,11 @@ export function providerIconSrc(provider: {
   return provider.iconUrl ?? brandIcon;
 }
 
-export function providerIconOpticalClass(provider: {
+export function providerIconOpticalScale(provider: {
   id: string;
   iconUrl?: string;
-}): string | undefined {
+}): number | undefined {
   const src = providerIconSrc(provider);
   if (src !== PROVIDER_BRAND_ICONS[provider.id]) return undefined;
-  return BRAND_ICON_OPTICAL_CLASS[provider.id];
+  return BRAND_ICON_OPTICAL_SCALE[provider.id];
 }

@@ -410,7 +410,7 @@ const styles = stylex.create({
   navContent: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: spacing.sm,
     minWidth: 0,
     transitionDuration: "150ms",
@@ -427,7 +427,7 @@ const styles = stylex.create({
     flexShrink: 0,
   },
   navLabel: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -447,7 +447,7 @@ const styles = stylex.create({
     "::-webkit-scrollbar": {
       display: "none",
     },
-    flex: 1,
+    flex: "1",
     overflowY: "auto",
     scrollbarWidth: "none",
   },
@@ -479,7 +479,7 @@ const styles = stylex.create({
   },
   searchInput: {
     backgroundColor: "transparent",
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     minWidth: 0,
     outline: {

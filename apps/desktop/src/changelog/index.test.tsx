@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -47,7 +48,7 @@ vi.mock("~/store/zustand/tabs", () => ({
     selector({ close: mocks.close }),
 }));
 
-import { TabContentChangelog } from "./index";
+import { changelogStyles, TabContentChangelog } from "./index";
 
 import type { Tab } from "~/store/zustand/tabs";
 
@@ -73,19 +74,16 @@ describe("TabContentChangelog", () => {
     });
     const titleSlot = heading.parentElement;
 
-    expect(getHeader().className).toContain("pl-[156px]");
-    expect(titleSlot?.className).toContain("left-[104px]");
-    expect(titleSlot?.className).not.toContain("-translate-y-1");
-    expect(titleSlot?.className).toContain("right-[70px]");
-    expect(titleSlot?.className).toContain("justify-start");
-    expect(titleSlot?.className).not.toContain("left-1/2");
-    expect(heading.className).toContain("text-left");
+    expectStyle(getHeader(), changelogStyles.headerMacosGutter);
+    expectStyle(titleSlot, changelogStyles.titleSlotGutter);
+    expectStyle(titleSlot, changelogStyles.titleSlotMacos);
+    expectStyle(heading, changelogStyles.titleLeft);
   });
 
   it("does not add the collapsed sidebar gutter while the left sidebar is expanded", () => {
     render(<TabContentChangelog tab={buildChangelogTab()} />);
 
-    expect(getHeader().className).not.toContain("pl-[156px]");
+    expectNotStyle(getHeader(), changelogStyles.headerMacosGutter);
   });
 
   it("uses the left-edge title slot while the sidebar is expanded", () => {
@@ -98,11 +96,8 @@ describe("TabContentChangelog", () => {
     });
     const titleSlot = heading.parentElement;
 
-    expect(titleSlot?.className).toContain("left-0");
-    expect(titleSlot?.className).toContain("right-[70px]");
-    expect(titleSlot?.className).toContain("justify-start");
-    expect(titleSlot?.className).not.toContain("left-1/2");
-    expect(heading.className).toContain("text-left");
+    expectStyle(titleSlot, changelogStyles.titleSlotExpanded);
+    expectStyle(heading, changelogStyles.titleLeft);
   });
 
   it("marks the full top header area as draggable while keeping close clickable", () => {
@@ -144,4 +139,28 @@ function buildChangelogTab(): Extract<Tab, { type: "changelog" }> {
     },
     type: "changelog",
   };
+}
+
+function expectStyle(
+  element: Element | null | undefined,
+  sx: stylex.StyleXStyles,
+) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(true);
+  }
+}
+
+function expectNotStyle(
+  element: Element | null | undefined,
+  sx: stylex.StyleXStyles,
+) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(false);
+  }
 }

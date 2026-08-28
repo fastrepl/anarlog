@@ -10,6 +10,7 @@ import {
   radii,
   shadows,
 } from "@anlg/design-system/tokens.stylex";
+import { markdownComponents } from "@anlg/ui/components/markdown";
 import {
   Dialog,
   DialogContent,
@@ -74,11 +75,13 @@ const styles = stylex.create({
     fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style6: {
-    minHeight: "0",
-    flex: "1",
+    minHeight: 0,
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
     overflowY: "auto",
     paddingInline: "1.25rem",
     paddingBlock: "1rem",
@@ -107,7 +110,7 @@ const styles = stylex.create({
     whiteSpace: "pre-wrap",
   },
   style10: {
-    minWidth: "0",
+    minWidth: 0,
     fontSize: ".875rem",
     lineHeight: "1.5rem",
     color: colors.foreground,
@@ -147,7 +150,9 @@ const styles = stylex.create({
   },
   style16: {
     minHeight: "2.75rem",
-    flex: "1",
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
     resize: "none",
     borderRadius: "1rem",
     backgroundColor: colors.muted,
@@ -182,7 +187,7 @@ const styles = stylex.create({
     fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style19: {
     marginTop: ".25rem",
@@ -245,7 +250,9 @@ const styles = stylex.create({
   },
   triggerLabel: {
     color: colors.mutedForeground,
-    flex: 1,
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
     minWidth: 0,
     opacity: {
       default: 0,
@@ -508,7 +515,9 @@ function ChatBody({
             </div>
           ) : (
             <div key={index} {...stylex.props(styles.style10)}>
-              <Streamdown>{message.content}</Streamdown>
+              <Streamdown components={markdownComponents} controls={false}>
+                {message.content}
+              </Streamdown>
             </div>
           ),
         )}
@@ -523,7 +532,9 @@ function ChatBody({
             </p>
           ) : (
             <div {...stylex.props(styles.style10)}>
-              <Streamdown>{streaming}</Streamdown>
+              <Streamdown components={markdownComponents} controls={false}>
+                {streaming}
+              </Streamdown>
             </div>
           ))}
         {errorMessage && (

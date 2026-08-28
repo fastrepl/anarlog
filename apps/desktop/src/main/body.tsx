@@ -14,6 +14,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@anlg/ui/components/ui/resizable";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import {
   createFixedLeftSidebarPanelConstraints,
@@ -426,16 +427,18 @@ export function ClassicMainBody({
   return (
     <div
       ref={bodyRootRef}
-      style={leftSidebarSizeStyle}
-      {...stylex.props(styles.root)}
+      {...mergeStyleXProps(styles.root, undefined, leftSidebarSizeStyle)}
     >
       {isOnboarding ||
       showSidebarTimeline ? null : showCollapsedSidebarTimelineChrome ? (
         <div
           data-tauri-drag-region
           data-left-sidebar-chrome
-          style={leftSidebarChromeStyle}
-          {...stylex.props(styles.collapsedSidebarChrome)}
+          {...mergeStyleXProps(
+            styles.collapsedSidebarChrome,
+            undefined,
+            leftSidebarChromeStyle,
+          )}
         >
           <div
             data-tauri-drag-region
@@ -463,10 +466,13 @@ export function ClassicMainBody({
         <div
           data-tauri-drag-region
           data-left-sidebar-chrome
-          style={leftSidebarChromeStyle}
-          {...stylex.props(
-            styles.customSidebarChrome,
-            sidebarOwnsChromeRow && styles.pointerEventsNone,
+          {...mergeStyleXProps(
+            [
+              styles.customSidebarChrome,
+              sidebarOwnsChromeRow && styles.pointerEventsNone,
+            ],
+            undefined,
+            leftSidebarChromeStyle,
           )}
         />
       ) : (
@@ -617,7 +623,7 @@ const styles = stylex.create({
     paddingTop: "0.25rem",
   },
   mainContent: {
-    flex: 1,
+    flex: "1",
     height: "100%",
     minHeight: 0,
     minWidth: 0,
@@ -625,7 +631,7 @@ const styles = stylex.create({
     position: "relative",
   },
   mainPanel: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflow: "hidden",
   },
@@ -634,7 +640,7 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   panelGroup: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflow: "hidden",
   },
@@ -660,7 +666,7 @@ const styles = stylex.create({
   },
   root: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     height: "100%",
     minWidth: 0,
@@ -693,3 +699,5 @@ const styles = stylex.create({
     paddingLeft: "76px",
   },
 });
+
+export { styles as classicMainBodyStyles };

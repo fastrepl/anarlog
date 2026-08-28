@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EMPTY_TRANSCRIPT_SEARCH,
   SegmentRenderer,
+  transcriptSegmentStyles,
   type TranscriptSearchRenderState,
 } from "./segment";
 import { TranscriptSelectionProvider } from "./selection-context";
 
+import { expectStyle } from "~/session/stylex-test";
 import type { Segment, SegmentWord } from "~/stt/live-segment";
 
 const mocks = vi.hoisted(() => ({
@@ -258,9 +260,7 @@ describe("SegmentRenderer", () => {
     const section = view.container.querySelector(
       "[data-transcript-selected='true']",
     );
-    expect(section?.className).toContain("ring-inset");
-    expect(section?.className).toContain("ring-1");
-    expect(section?.className).toContain("ring-primary/30");
+    expectStyle(section, transcriptSegmentStyles.segment);
   });
 
   it("persists text corrections when leaving write mode content", async () => {

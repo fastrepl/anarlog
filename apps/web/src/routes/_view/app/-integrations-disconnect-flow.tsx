@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { deleteConnection } from "@anlg/api-client";
 import { createClient } from "@anlg/api-client/client";
+import { fonts } from "@anlg/design-system/tokens.stylex";
 
 import { env } from "@/env";
 import { getAccessToken } from "@/functions/access-token";
@@ -20,10 +21,10 @@ const styles = stylex.create({
     gap: ".75rem",
   },
   style2: {
-    fontFamily:
-      "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+    fontFamily: fonts.sans,
     fontSize: "1.875rem",
     lineHeight: "2.25rem",
+    letterSpacing: "-.025em",
     color: "#44403c",
   },
   style3: {

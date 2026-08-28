@@ -199,7 +199,7 @@ const styles = stylex.create({
     fontSize: "10px",
   },
   optionLabel: {
-    flex: 1,
+    flex: "1",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

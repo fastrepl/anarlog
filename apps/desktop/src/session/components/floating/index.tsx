@@ -82,3 +82,5 @@ const styles = stylex.create({
     zIndex: 10,
   },
 });
+
+export { styles as floatingActionButtonStyles };

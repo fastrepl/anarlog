@@ -23,6 +23,7 @@ import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { commands as analyticsCommands } from "@anlg/plugin-analytics";
 import type { AIProvider } from "@anlg/store";
 import { aiProviderSchema } from "@anlg/store";
+import { markdownComponents } from "@anlg/ui/components/markdown";
 import {
   AccordionContent,
   AccordionItem,
@@ -734,6 +735,7 @@ function ProviderBadge({ badge }: { badge: string }) {
 }
 
 const streamdownComponents = {
+  ...markdownComponents,
   ul: (props: React.HTMLAttributes<HTMLUListElement>) => {
     return (
       <ul {...stylex.props(styles.unorderedList)}>
@@ -789,6 +791,7 @@ export function StyledStreamdown({
     <Streamdown
       components={streamdownComponents}
       {...stylex.props(styles.streamdown, sx)}
+      controls={false}
       isAnimating={false}
     >
       {children}
@@ -928,7 +931,7 @@ const styles = stylex.create({
   },
   dividerLine: {
     backgroundColor: colors.border,
-    flex: 1,
+    flex: "1",
     height: "1px",
   },
   errorText: {

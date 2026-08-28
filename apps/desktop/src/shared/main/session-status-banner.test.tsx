@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -8,6 +9,7 @@ vi.mock("./content-offset", () => ({
 import {
   MainSessionStatusBannerHost,
   SessionStatusBannerProvider,
+  sessionStatusBannerStyles,
   useSessionStatusBanner,
 } from "./session-status-banner";
 
@@ -41,7 +43,9 @@ describe("MainSessionStatusBannerHost", () => {
     const banners = screen.getAllByText("Microphone access is disabled");
     const banner = banners[banners.length - 1];
     expect(banner).toBeTruthy();
-    expect(banner?.className).toContain("bottom-6");
+    expect(banner?.className).toContain(
+      stylex.props(sessionStatusBannerStyles.banner).className,
+    );
     expect(banner?.getAttribute("style")).toContain("calc(50% + 24px)");
   });
 });

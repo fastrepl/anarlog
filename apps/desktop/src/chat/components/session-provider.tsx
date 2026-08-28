@@ -764,7 +764,7 @@ function ChatSessionLifecycle({
 const styles = stylex.create({
   root: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     minHeight: 0,
   },

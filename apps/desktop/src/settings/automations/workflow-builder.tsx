@@ -1,7 +1,9 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ArrowRight, Plus, Trash } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useMutation } from "@tanstack/react-query";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { Badge } from "@anlg/ui/components/ui/badge";
 import { Button } from "@anlg/ui/components/ui/button";
 import {
@@ -12,7 +14,6 @@ import {
   SelectValue,
 } from "@anlg/ui/components/ui/select";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { cn } from "@anlg/utils";
 
 import {
   AutomationLastRunLine,
@@ -61,16 +62,13 @@ export function WorkflowBuilder({
 
   return (
     <section
-      className="border-border bg-background overflow-hidden rounded-2xl border"
+      {...stylex.props(styles.root)}
       aria-labelledby="workflow-builder-title"
     >
-      <div className="border-border flex flex-wrap items-start justify-between gap-3 border-b px-5 py-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3
-              id="workflow-builder-title"
-              className="truncate text-sm font-semibold"
-            >
+      <div {...stylex.props(styles.header)}>
+        <div {...stylex.props(styles.minWidth)}>
+          <div {...stylex.props(styles.titleRow)}>
+            <h3 id="workflow-builder-title" {...stylex.props(styles.title)}>
               <Trans>Workflow</Trans>
             </h3>
             {workflow.enabled ? (
@@ -83,13 +81,13 @@ export function WorkflowBuilder({
               </Badge>
             )}
           </div>
-          <p className="text-muted-foreground mt-1 text-xs">
+          <p {...stylex.props(styles.description)}>
             <Trans>Add a trigger, then stack actions like Zapier.</Trans>
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 p-5">
+      <div {...stylex.props(styles.steps)}>
         <WorkflowCard
           kind="trigger"
           title={t`When this happens`}
@@ -101,7 +99,7 @@ export function WorkflowBuilder({
               update({ trigger: value as WorkflowTrigger })
             }
           >
-            <SelectTrigger className="h-8 w-full max-w-xs text-xs">
+            <SelectTrigger sx={styles.stepSelect}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -117,8 +115,8 @@ export function WorkflowBuilder({
 
         {workflow.steps.map((step, index) => (
           <div key={step.id}>
-            <div className="text-muted-foreground flex h-6 items-center pl-6">
-              <ArrowRight className="rotate-90" size={13} />
+            <div {...stylex.props(styles.connector)}>
+              <ArrowRight {...stylex.props(styles.connectorIcon)} size={13} />
             </div>
             <WorkflowCard
               kind="action"
@@ -136,7 +134,7 @@ export function WorkflowBuilder({
                   )
                 }
               >
-                <SelectTrigger className="h-8 w-full max-w-xs text-xs">
+                <SelectTrigger sx={styles.stepSelect}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -154,7 +152,7 @@ export function WorkflowBuilder({
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <div className="mt-3">
+              <div {...stylex.props(styles.config)}>
                 <WorkflowStepConfig
                   step={step}
                   onChange={(next) => updateStep(step.id, next)}
@@ -164,16 +162,16 @@ export function WorkflowBuilder({
           </div>
         ))}
 
-        <div className="text-muted-foreground flex h-6 items-center pl-6">
-          <ArrowRight className="rotate-90" size={13} />
+        <div {...stylex.props(styles.connector)}>
+          <ArrowRight {...stylex.props(styles.connectorIcon)} size={13} />
         </div>
 
         <AddWorkflowStep onAdd={addStep} />
       </div>
 
-      <div className="border-border border-t px-5 py-4">
+      <div {...stylex.props(styles.footer)}>
         {!isWorkflowReady(workflow) ? (
-          <p className="text-muted-foreground text-xs">
+          <p {...stylex.props(styles.mutedText)}>
             <Trans>Add at least one configured action before enabling.</Trans>
           </p>
         ) : null}
@@ -230,18 +228,18 @@ function AddWorkflowStep({
   const { t } = useLingui();
 
   return (
-    <div className="border-border bg-muted/20 flex items-center justify-between gap-3 rounded-xl border border-dashed p-4">
+    <div {...stylex.props(styles.addStep)}>
       <div>
-        <p className="text-sm font-medium">
+        <p {...stylex.props(styles.cardTitle)}>
           <Trans>Add an action</Trans>
         </p>
-        <p className="text-muted-foreground mt-1 text-xs">
+        <p {...stylex.props(styles.description)}>
           <Trans>Stack another destination. Steps run top to bottom.</Trans>
         </p>
       </div>
       <Select onValueChange={(value) => onAdd(value as WorkflowStepType)}>
-        <SelectTrigger className="h-8 w-44 text-xs">
-          <span className="flex items-center gap-1.5">
+        <SelectTrigger sx={styles.addStepSelect}>
+          <span {...stylex.props(styles.addStepLabel)}>
             <Plus size={12} />
             {t`Add step`}
           </span>
@@ -281,20 +279,18 @@ function WorkflowCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="border-border bg-card flex items-start gap-3 rounded-xl border p-4">
+    <div {...stylex.props(styles.card)}>
       <span
-        className={cn([
-          "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-          kind === "trigger"
-            ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-            : "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-        ])}
+        {...stylex.props(
+          styles.stepBadge,
+          kind === "trigger" ? styles.triggerBadge : styles.actionBadge,
+        )}
       >
         {kind === "trigger" ? "1" : "+"}
       </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium">{title}</span>
+      <div {...stylex.props(styles.cardContent)}>
+        <div {...stylex.props(styles.cardHeader)}>
+          <span {...stylex.props(styles.cardTitle)}>{title}</span>
           <Badge variant="outline" size="sm">
             {badge}
           </Badge>
@@ -308,7 +304,7 @@ function WorkflowCard({
               type="button"
               size="icon"
               variant="ghost"
-              className="text-muted-foreground ml-auto size-7"
+              sx={styles.removeButton}
               onClick={onRemove}
               aria-label="Remove step"
             >
@@ -316,7 +312,7 @@ function WorkflowCard({
             </Button>
           ) : null}
         </div>
-        <div className="mt-3">{children}</div>
+        <div {...stylex.props(styles.config)}>{children}</div>
       </div>
     </div>
   );
@@ -346,3 +342,171 @@ export function useSaveWorkflow() {
     onError: () => sonnerToast.error(t`Could not update the automation`),
   });
 }
+
+const styles = stylex.create({
+  actionBadge: {
+    backgroundColor: {
+      default: "rgb(219 234 254)",
+      ":is(.dark *)": "rgb(23 37 84)",
+    },
+    color: {
+      default: "rgb(29 78 216)",
+      ":is(.dark *)": "rgb(147 197 253)",
+    },
+  },
+  addStep: {
+    alignItems: "center",
+    backgroundColor: `color-mix(in srgb, ${colors.muted} 20%, transparent)`,
+    borderColor: colors.border,
+    borderRadius: radii.xl,
+    borderStyle: "dashed",
+    borderWidth: "1px",
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    padding: "1rem",
+  },
+  addStepLabel: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.375rem",
+  },
+  addStepSelect: {
+    fontSize: "0.75rem",
+    height: "2rem",
+    width: "11rem",
+  },
+  card: {
+    alignItems: "flex-start",
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    display: "flex",
+    gap: "0.75rem",
+    padding: "1rem",
+  },
+  cardContent: {
+    flex: "1",
+    minWidth: 0,
+  },
+  cardHeader: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.5rem",
+  },
+  cardTitle: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+  },
+  config: {
+    marginTop: "0.75rem",
+  },
+  connector: {
+    alignItems: "center",
+    color: colors.mutedForeground,
+    display: "flex",
+    height: "1.5rem",
+    paddingLeft: "1.5rem",
+  },
+  connectorIcon: {
+    transform: "rotate(90deg)",
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    marginTop: "0.25rem",
+  },
+  footer: {
+    borderTopColor: colors.border,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingBottom: "1rem",
+    paddingLeft: "1.25rem",
+    paddingRight: "1.25rem",
+    paddingTop: "1rem",
+  },
+  header: {
+    alignItems: "flex-start",
+    borderBottomColor: colors.border,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    paddingBottom: "1rem",
+    paddingLeft: "1.25rem",
+    paddingRight: "1.25rem",
+    paddingTop: "1rem",
+  },
+  minWidth: {
+    minWidth: 0,
+  },
+  mutedText: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+  },
+  removeButton: {
+    color: colors.mutedForeground,
+    height: "1.75rem",
+    marginLeft: "auto",
+    width: "1.75rem",
+  },
+  root: {
+    backgroundColor: colors.background,
+    borderColor: colors.border,
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    overflow: "hidden",
+  },
+  stepBadge: {
+    alignItems: "center",
+    borderRadius: radii.full,
+    display: "flex",
+    flexShrink: 0,
+    fontSize: "0.75rem",
+    fontWeight: 600,
+    height: "1.75rem",
+    justifyContent: "center",
+    marginTop: "0.125rem",
+    width: "1.75rem",
+  },
+  steps: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.5rem",
+    padding: "1.25rem",
+  },
+  stepSelect: {
+    fontSize: "0.75rem",
+    height: "2rem",
+    maxWidth: "20rem",
+    width: "100%",
+  },
+  title: {
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  titleRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+  triggerBadge: {
+    backgroundColor: {
+      default: "rgb(254 243 199)",
+      ":is(.dark *)": "rgb(69 26 3)",
+    },
+    color: {
+      default: "rgb(180 83 9)",
+      ":is(.dark *)": "rgb(252 211 77)",
+    },
+  },
+});

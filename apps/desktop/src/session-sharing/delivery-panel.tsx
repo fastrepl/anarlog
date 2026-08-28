@@ -361,7 +361,7 @@ const styles = stylex.create({
     gap: "0.375rem",
   },
   channelTrigger: {
-    flex: 1,
+    flex: "1",
     fontSize: "0.75rem",
     height: "2rem",
     minWidth: 0,

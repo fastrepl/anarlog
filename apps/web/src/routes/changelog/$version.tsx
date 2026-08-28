@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 
 import { ChangelogContent } from "@anlg/changelog";
+import { fonts } from "@anlg/design-system/tokens.stylex";
 
 import { SiteFooter } from "@/components/site-footer";
 import { formatChangelogDate, getChangelogEntry } from "@/lib/changelog";
@@ -66,25 +67,23 @@ const styles = stylex.create({
     color: "#756b5d",
   },
   style8: {
-    "--tw-font-weight": "500",
-    fontWeight: "500",
-    "--tw-tracking": ".14em",
+    fontWeight: 500,
     letterSpacing: ".14em",
     textTransform: "uppercase",
   },
   style9: {
     marginTop: "1.25rem",
+    fontFamily: fonts.hand,
     fontSize: {
       default: "3rem",
       "@media (width >= 48rem)": "4.5rem",
     },
     lineHeight: {
-      default: "1.02",
-      "@media (width >= 48rem)": "1",
+      default: 1.02,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": "1.02",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
     color: "#000",
   },
@@ -99,10 +98,6 @@ const styles = stylex.create({
       default: "2rem",
       "@media (width >= 48rem)": "2.25rem",
     },
-    "--tw-leading": {
-      default: "2rem",
-      "@media (width >= 48rem)": "2.25rem",
-    },
     color: "#4f4940",
   },
   style11: {
@@ -113,6 +108,115 @@ const styles = stylex.create({
     paddingTop: {
       default: "2.5rem",
       "@media (width >= 48rem)": "3rem",
+    },
+  },
+  content: {
+    backgroundColor: {
+      ":is(*) code": "#f7f4ef",
+      ":is(*) [data-changelog-banner]": "#f3f7fc",
+      ':is(*) [data-changelog-banner][data-variant="warning"]': "#fcf8ed",
+    },
+    borderColor: {
+      ":is(*) code": "#ded7cc",
+      ":is(*) img": "#eee8df",
+      ":is(*) [data-changelog-banner]": "#c9d9ec",
+      ':is(*) [data-changelog-banner][data-variant="warning"]': "#e8d6a8",
+    },
+    borderLeftColor: {
+      ":is(*) blockquote": "#b1a798",
+    },
+    borderRadius: {
+      ":is(*) img": ".75rem",
+      ":is(*) [data-changelog-banner]": ".75rem",
+    },
+    color: {
+      default: "#4f4940",
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": "#756b5d",
+      ":is(*) :is(p, li, ul, ol)": "#4f4940",
+      ":is(*) li::marker": "#b1a798",
+      ":is(*) strong": "#181613",
+      ":is(*) code": "#363029",
+      ":is(*) a": "#181613",
+      ":is(*) a:hover": "#756b5d",
+      ":is(*) blockquote": "#756b5d",
+      ":is(*) [data-changelog-banner]": "#29466c",
+      ':is(*) [data-changelog-banner][data-variant="warning"]': "#684f1e",
+      ":is(*) [data-changelog-banner-title]": "inherit",
+      ":is(*) [data-changelog-banner-content] :is(p, ul, ol, li, strong, a, a:hover, li::marker)":
+        "inherit",
+    },
+    fontFamily: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": fonts.hand,
+    },
+    fontSize: {
+      default: "1.0625rem",
+      ":is(*) :is(h1, h2)": "clamp(2rem, 1.75rem + .85vw, 2.25rem)",
+      ":is(*) :is(h3, h4, h5, h6)": "1.625rem",
+      ":is(*) :is(p, li)": "1.0625rem",
+      ":is(*) code": ".875em",
+      ":is(*) [data-changelog-banner-title]": ".75rem",
+      ":is(*) [data-changelog-banner-content] :is(p, ul, ol, li, strong, a)":
+        "1rem",
+    },
+    fontWeight: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": 600,
+      ":is(*) strong": 650,
+      ":is(*) [data-changelog-banner-title]": 700,
+    },
+    letterSpacing: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": 0,
+      ":is(*) [data-changelog-banner-title]": ".12em",
+    },
+    lineHeight: {
+      default: 1.75,
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": 1.1,
+      ":is(*) :is(p, li)": 1.75,
+      ":is(*) [data-changelog-banner-content] :is(p, ul, ol, li, strong, a)": 1.6,
+    },
+    marginBlock: {
+      ":is(*) blockquote": "2rem",
+      ":is(*) img": "2.5rem",
+    },
+    marginBottom: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": "1rem",
+      ":is(*) p": "1.25rem",
+      ":is(*) :is(ul, ol)": "2rem",
+      ":is(*) li": ".75rem",
+      ":is(*) [data-changelog-banner]": "3rem",
+      ":is(*) [data-changelog-banner-title]": ".375rem",
+      ":is(*) [data-changelog-banner-content] :is(ul, ol, li)": ".25rem",
+      ":is(*) [data-changelog-banner-content] :is(p, ul, ol):last-child": 0,
+    },
+    marginTop: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": "3.5rem",
+      ":is(*) > :first-child:is(h1, h2, h3)": 0,
+    },
+    minHeight: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": 0,
+    },
+    paddingBlock: {
+      ":is(*) [data-changelog-banner]": "1.25rem",
+    },
+    paddingInline: {
+      ":is(*) [data-changelog-banner]": "1.5rem",
+    },
+    paddingLeft: {
+      ":is(*) :is(ul, ol)": "1.5rem",
+      ":is(*) li": ".25rem",
+      ":is(*) blockquote": "1.25rem",
+    },
+    textDecorationColor: {
+      ":is(*) a": "#b1a798",
+      ":is(*) [data-changelog-banner-content] a": "currentColor",
+    },
+    textTransform: {
+      ":is(*) [data-changelog-banner-title]": "uppercase",
+    },
+    textUnderlineOffset: {
+      ":is(*) a": "0.2em",
+    },
+    width: {
+      ":is(*) img": "100%",
     },
   },
 });
@@ -211,7 +315,7 @@ function Component() {
         <article {...stylex.props(styles.style11)}>
           <ChangelogContent
             content={entry.content}
-            className="changelog-prose"
+            {...stylex.props(styles.content)}
           />
         </article>
       </div>

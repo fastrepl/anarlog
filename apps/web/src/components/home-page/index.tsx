@@ -3,6 +3,8 @@ import { ArrowRight } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 
+import { radii, fonts } from "@anlg/design-system/tokens.stylex";
+
 import { SiteFooter } from "@/components/site-footer";
 import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
 import { MANIFESTO_SIGNERS } from "@/lib/team";
@@ -35,7 +37,7 @@ const styles = stylex.create({
     },
   },
   style3: {
-    minWidth: "0",
+    minWidth: 0,
     textAlign: "center",
   },
   style4: {
@@ -50,12 +52,17 @@ const styles = stylex.create({
   },
   style5: {
     marginInline: "auto",
+    maxWidth: "48rem",
     overflow: "hidden",
     borderRadius: "3px",
     borderStyle: "solid",
     borderWidth: "1px",
     borderColor: "#eadfce",
     backgroundColor: "#fffaf0",
+    backgroundImage:
+      "linear-gradient(115deg, rgba(255, 250, 240, 0.9), rgba(246, 236, 218, 0.82)), url('/textures/crumpled-paper.webp')",
+    backgroundPosition: "center",
+    backgroundSize: "cover",
     paddingInline: {
       default: "1.75rem",
       "@media (width >= 40rem)": "2.5rem",
@@ -65,16 +72,16 @@ const styles = stylex.create({
       "@media (width >= 40rem)": "3rem",
     },
     textAlign: "left",
-    "--tw-shadow": "0 18px 50px #4436241f",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 18px 50px var(--tw-shadow-color, #4436241f)",
+    boxShadow: "0 18px 50px #4436241f",
   },
   style6: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.5rem",
     color: "#363029",
   },
   style7: {
     fontSize: "18px",
-    "--tw-leading": "2rem",
     lineHeight: "2rem",
   },
   style8: {
@@ -101,16 +108,12 @@ const styles = stylex.create({
     display: "block",
     width: "30px",
     height: "30px",
-    flexShrink: "0",
+    flexShrink: 0,
     overflow: "hidden",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     transitionProperty: "transform, translate, scale, rotate",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
-    "--tw-translate-y": {
-      default: null,
-      ":hover": "calc(.125rem * -1)",
-    },
     translate: {
       default: null,
       ":hover": "0 calc(.125rem * -1)",
@@ -141,15 +144,13 @@ const styles = stylex.create({
     display: "block",
     width: "30px",
     height: "30px",
-    flexShrink: "0",
+    flexShrink: 0,
     overflow: "hidden",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
   },
   style14: {
     fontSize: "12px",
-    "--tw-leading": "1",
-    lineHeight: "1",
-    "--tw-tracking": ".04em",
+    lineHeight: 1,
     letterSpacing: ".04em",
     color: "#756b5d",
   },
@@ -161,7 +162,6 @@ const styles = stylex.create({
       "@media (width >= 48rem)": "3rem",
     },
     width: "100vw",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
     paddingBlock: {
       default: "5rem",
@@ -179,26 +179,27 @@ const styles = stylex.create({
   },
   style17: {
     marginInline: "auto",
+    maxWidth: "48rem",
+    fontFamily: fonts.hand,
     fontSize: {
       default: "2.25rem",
       "@media (width >= 48rem)": "3rem",
     },
     lineHeight: {
-      default: ".98",
-      "@media (width >= 48rem)": "1",
+      default: 0.98,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": ".98",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
     color: "#181613",
   },
   style18: {
     marginInline: "auto",
     marginTop: "1.5rem",
+    maxWidth: "42rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style19: {
@@ -206,14 +207,13 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: ".5rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#181613",
     paddingInline: "1.25rem",
     paddingBlock: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
   },
   style20: {
@@ -221,7 +221,6 @@ const styles = stylex.create({
     left: "50%",
     width: "100vw",
     maxWidth: "880px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
     paddingBlock: {
       default: "3rem",
@@ -237,19 +236,18 @@ const styles = stylex.create({
     },
   },
   style22: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style23: {
     marginInline: "auto",
     marginTop: "1.25rem",
+    maxWidth: "42rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style24: {
@@ -257,7 +255,7 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: ".5rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "1px",
     borderColor: {
@@ -272,19 +270,18 @@ const styles = stylex.create({
     paddingBlock: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: {
       default: "#171717",
       ":hover": "#fff",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
   style25: {
-    flexShrink: "0",
+    flexShrink: 0,
   },
 });
 const manifestoLetter = [
@@ -315,15 +312,7 @@ export function HomePage({
           <PricingSection compareLink />
 
           <section id="manifesto" {...stylex.props(styles.style4)}>
-            <article
-              {...stylex.props(styles.style5)}
-              style={{
-                backgroundImage:
-                  "linear-gradient(115deg, rgba(255, 250, 240, 0.9), rgba(246, 236, 218, 0.82)), url('/textures/crumpled-paper.webp')",
-                backgroundPosition: "center",
-                backgroundSize: "cover",
-              }}
-            >
+            <article {...stylex.props(styles.style5)}>
               <div {...stylex.props(styles.style6)}>
                 {manifestoLetter.map((paragraph) => (
                   <p key={paragraph} {...stylex.props(styles.style7)}>

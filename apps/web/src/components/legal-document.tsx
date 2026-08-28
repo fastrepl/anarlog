@@ -4,7 +4,6 @@ import { Link } from "@tanstack/react-router";
 import type { Legal } from "content-collections";
 
 import { colors, fonts, media } from "@anlg/design-system/tokens.stylex";
-import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { getCanonicalUrl } from "@/lib/seo";
 
@@ -38,7 +37,7 @@ const styles = stylex.create({
       ":hover": "#181613",
     },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -48,17 +47,15 @@ const styles = stylex.create({
   style5: {
     fontFamily: fonts.hand,
     fontSize: "3rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: colors.foreground,
   },
   style6: {
     marginTop: "1.25rem",
+    maxWidth: "42rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: colors.mutedForeground,
   },
   style7: {
@@ -70,11 +67,92 @@ const styles = stylex.create({
   },
   article: {
     maxWidth: "none",
+    backgroundColor: {
+      ":is(*) blockquote": "#fffaf0",
+    },
+    borderColor: {
+      ":is(*) blockquote": "#eadfce",
+    },
+    borderRadius: {
+      ":is(*) blockquote": "3px",
+    },
+    borderStyle: {
+      ":is(*) blockquote": "solid",
+    },
+    borderWidth: {
+      ":is(*) blockquote": "1px",
+    },
+    boxShadow: {
+      ":is(*) blockquote": "0 18px 50px rgb(68 54 36 / 0.08)",
+    },
+    color: {
+      default: "#4f4940",
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": "#181613",
+      ":is(*) :is(p, li)": "#4f4940",
+      ":is(*) strong": "#181613",
+      ":is(*) a": "#181613",
+      ":is(*) a:hover": "#4f4940",
+      ":is(*) blockquote": "#363029",
+    },
+    content: {
+      ":is(*) blockquote p::before": "none",
+      ":is(*) blockquote p::after": "none",
+    },
+    fontFamily: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": fonts.hand,
+    },
+    fontSize: {
+      default: "1.125rem",
+      ":is(*) h2": "2.25rem",
+      ":is(*) h3": "1.5rem",
+      ":is(*) h4": "1.125rem",
+    },
+    fontStyle: {
+      ":is(*) blockquote": "normal",
+    },
+    fontWeight: {
+      ":is(*) :is(h1, h2, h3, h4, h5, h6)": 600,
+      ":is(*) strong": 600,
+      ":is(*) blockquote": 400,
+    },
+    lineHeight: {
+      default: 1.75,
+      ":is(*) :is(p, li)": 1.75,
+      ":is(*) :is(h2, h3, h4)": 1.25,
+    },
+    listStyleType: {
+      ":is(*) ul": "disc",
+      ":is(*) ol": "decimal",
+    },
+    marginBlock: {
+      ":is(*) :is(p, ul, ol, pre, table)": "1.25rem",
+      ":is(*) blockquote": "2rem",
+      ":is(*) hr": "3rem",
+    },
+    marginBottom: {
+      ":is(*) :is(h2, h3, h4)": ".75rem",
+    },
+    marginTop: {
+      ":is(*) h2": "2.5rem",
+      ":is(*) h3": "2rem",
+      ":is(*) h4": "1.5rem",
+      ":is(*) > :first-child": 0,
+    },
+    paddingBlock: {
+      ":is(*) blockquote": ".25rem",
+    },
+    paddingInline: {
+      ":is(*) blockquote": "1.5rem",
+    },
+    paddingLeft: {
+      ":is(*) :is(ul, ol)": "1.5rem",
+    },
+    textDecorationLine: {
+      ":is(*) a": "underline",
+    },
   },
 });
 
-const legalProseClassName =
-  "prose prose-lg prose-stone prose-headings:font-hand prose-headings:font-semibold prose-headings:text-[#181613] prose-h2:text-4xl prose-h3:text-2xl prose-p:text-[#4f4940] prose-li:text-[#4f4940] prose-strong:text-[#181613] prose-a:text-[#181613] prose-a:underline hover:prose-a:text-[#4f4940] prose-blockquote:rounded-[3px] prose-blockquote:border prose-blockquote:border-[#eadfce] prose-blockquote:bg-[#fffaf0] prose-blockquote:px-6 prose-blockquote:py-1 prose-blockquote:font-normal prose-blockquote:not-italic prose-blockquote:text-[#363029] prose-blockquote:shadow-[0_18px_50px_rgba(68,54,36,0.08)] [&_blockquote_p]:before:content-none [&_blockquote_p]:after:content-none";
 export function legalHead(doc: Legal, path: "/privacy" | "/terms") {
   const url = getCanonicalUrl(path);
   return {
@@ -130,7 +208,7 @@ export function LegalDocument({ doc }: { doc: Legal }) {
           </time>
         </header>
 
-        <article {...mergeStyleXProps(styles.article, legalProseClassName)}>
+        <article {...stylex.props(styles.article)}>
           <MDXContent code={doc.mdx} components={mdxComponents} />
         </article>
       </div>

@@ -1,304 +1,189 @@
 # Anarlog Brand
 
-This document is the single source of truth for Anarlog's visual identity on the web. All tokens referenced here are defined in `src/styles.css` and available as Tailwind utilities.
+This document is the source of truth for Anarlog's web identity. Component
+styles are written with StyleX. Shared constants come from
+`@anlg/design-system/tokens.stylex`; web-only global variables and browser
+resets live in `src/styles.css`.
 
----
+## Styling contract
 
-## Review
+- Use `stylex.create` and `stylex.props` for component styling.
+- Prefer `colors`, `fonts`, `media`, `radii`, `shadows`, and `spacing` from the
+  shared StyleX token module.
+- Use `mergeStyleXProps` when a component must combine StyleX with a third-party
+  `className` or inline `style` prop.
+- Keep global CSS limited to browser resets and root-level variables.
+- Do not add utility-class styling, generated `--tw-*` properties, or numeric CSS
+  values encoded as strings when StyleX expects numbers.
+- Define animations with `stylex.keyframes` and animation longhands.
 
-Overall feeling from the marketing websites should be like from carefully crafted notebook that lives in the digital space: lines and grids from the notebook with handwritten patterns or dropped graphic on it (like cut from other sources) stays near the mono fonts, structured outputs and interfaces.
-Char is brand that values place for thoughts and slow pace of exploration. It transforms into layouts with a lot of air in them and free spaces. Less distracting colors and small elements.
+## Visual direction
+
+The marketing site should feel like a carefully crafted notebook in a digital
+space: restrained grids and lines, handwritten details beside structured
+interfaces, generous whitespace, and few distracting colors. The product
+should feel calm, local, and deliberate.
 
 ## Color
 
-The palette is warm neutral — built on an oklch grey scale with off-white and stone tones. The one moment of warmth is the brand yellow used for hero gradients and the footer. CTAs use a stone gradient. Everything else recedes.
+The palette is warm neutral. Brand yellow is reserved for broad atmospheric
+washes; interactive emphasis uses dark stone tones.
 
-### Grey scale (foundation)
-
-These oklch values power most semantic tokens through `var()` references.
+### Foundation
 
 | Token        | Value                         |
 | ------------ | ----------------------------- |
 | `--grey-900` | `oklch(0.3 0.0197 81.53)`     |
 | `--grey-700` | `oklch(0.4922 0.0127 67.79)`  |
+| `--grey-600` | `oklch(0.6182 0.0018 67.8)`   |
 | `--grey-500` | `oklch(0.7782 0.0018 67.8)`   |
 | `--grey-300` | `oklch(0.9213 0.0027 106.45)` |
 | `--grey-100` | `oklch(0.9558 0.0045 78.3)`   |
 
 ### Semantic palette
 
-| Role                   | Token                    | Value                         | Tailwind / utility class               |
-| ---------------------- | ------------------------ | ----------------------------- | -------------------------------------- |
-| Page background        | `--color-page`           | `#f2f1ef`                     | `bg-page`                              |
-| Surface                | `--color-surface`        | `#ffffff`                     | `bg-surface`, `.surface`               |
-| Surface muted          | `--color-surface-subtle` | `var(--grey-100)`             | `bg-surface-subtle`, `.surface-subtle` |
-| Primary text           | `--color-fg`             | `var(--grey-900)`             | `text-fg`, `.text-color`               |
-| Secondary text         | `--color-fg-muted`       | `#57534e`                     | `text-fg-muted`, `.text-color-muted`   |
-| Placeholder / disabled | `--color-fg-subtle`      | `var(--color-border)`         | `text-fg-subtle`                       |
-| Default border         | `--color-border`         | `var(--grey-500)`             | `.border-color-brand`, `.divide-brand` |
-| Hairline border        | `--color-border-subtle`  | `var(--grey-300)`             | `.border-color-subtle`                 |
-| Accent border          | `--color-border-bright`  | `oklch(0.5959 0.0333 78.6)`   | `.border-color-bright`                 |
-| Active border          | `--color-border-active`  | `oklch(0.9213 0.0027 106.45)` | —                                      |
-| Brand dark             | `--color-brand-dark`     | `#57534e`                     | `bg-brand-dark`                        |
-| Brand yellow           | `--brand-yellow`         | `oklch(0.9484 0.0672 90.6)`   | `.brand-yellow`                        |
+| Role            | Web token                  | StyleX equivalent             |
+| --------------- | -------------------------- | ----------------------------- |
+| Page background | `--color-page`             | `colors.background`           |
+| Surface         | `--color-surface`          | `colors.card`                 |
+| Muted surface   | `--color-surface-subtle`   | `colors.muted`                |
+| Primary text    | `--color-fg`               | `colors.foreground`           |
+| Secondary text  | `--color-fg-muted`         | `colors.mutedForeground`      |
+| Default border  | `--color-border`           | `colors.border`               |
+| Accent border   | `--color-border-bright`    | Use the existing web variable |
+| Dark emphasis   | `--color-brand-dark`       | `colors.primary`              |
+| Warm wash       | `--brand-yellow`           | Use the existing web variable |
 
-### Usage rules
-
-- Never introduce a color outside this palette without updating the token set first.
-- `brand-dark` is used for checked states and emphasis. CTAs use `from-stone-600 to-stone-500` (Tailwind's stone scale), not a custom token gradient.
-- `brand-yellow` is the warm wash at the top of marketing pages and the footer gradient. It is **not** used for buttons or text.
-- Tailwind's `neutral-*` and `stone-*` scales appear in components as fallback, but semantic tokens above take precedence for brand-facing UI.
-- `--color-fg-subtle` deliberately aliases `--color-border` so that placeholder text and borders share the same value.
-
----
+Do not introduce a color outside this palette without first adding an
+intentional semantic token. Brand yellow is not a button or text color.
 
 ## Typography
 
-Six typefaces are loaded; the first three carry distinct roles. The rest are special-purpose.
+| Constant          | Face                                  | Role                              |
+| ----------------- | ------------------------------------- | --------------------------------- |
+| `fonts.sans`      | System UI / Segoe UI fallback stack   | Body, navigation, and UI labels   |
+| `fonts.mono`      | System monospace fallback stack       | Code and compact technical labels |
+| `fonts.hand`      | Caveat / handwritten fallback stack   | Editorial and marketing headings  |
+| `--font-signature`| Patrick Hand                           | Signature-like accents            |
 
-### Primary stack
+Use numeric `fontWeight` and unitless numeric `lineHeight` values in StyleX.
+Large marketing headings can use `fonts.hand`; product surfaces should default
+to `fonts.sans`.
 
-| Face  | Font       | Variable       | Role                                          |
-| ----- | ---------- | -------------- | --------------------------------------------- |
-| Serif | Fraunces   | `--font-serif` | Wordmark weight, editorial pull-quotes        |
-| Sans  | Geist      | `--font-sans`  | All body copy, UI labels, navigation          |
-| Mono  | Geist Mono | `--font-mono`  | Button labels, display headings (h1/h2), code |
+Minimum readable body text is 14px. Reserve 12px for uppercase labels or
+metadata, and pair heavier headings with normal-weight body copy.
 
-### Secondary / special-purpose
+## Borders, radii, and shadows
 
-| Face        | Font             | Variable              | Role                               |
-| ----------- | ---------------- | --------------------- | ---------------------------------- |
-| Serif 2     | Instrument Serif | `--font-serif2`       | Italic editorial accents           |
-| Display     | Redaction        | (local, `@font-face`) | Decorative / redacted text effects |
-| System      | SF Pro           | (local, `@font-face`) | System-matching UI contexts        |
-| Serif (alt) | Lora             | (Google Fonts import) | Loaded but sparingly used          |
+Use `radii.sm`, `radii.md`, `radii.lg`, `radii.xl`, and `radii.full` rather than
+large generated radius values. A deliberate 3px paper-card radius is acceptable
+where the visual calls for a physical sheet rather than a software panel.
 
-### Base layer rules (from `styles.css`)
-
-- `html, body` → `font-sans`
-- `h1, h2` → `font-mono`, weight 500, tracking -0.02em, line-height 1.3
-- `h3–h6, p, span, li` → `font-sans`
-- `p` → `font-size: 1.3rem`, `line-height: 1.5`
-- `button, [role="button"]` → `font-mono`
-
-### Type scale principles
-
-- **Heading hierarchy**: h1/h2 use `font-mono` by default (per base styles). Serif is used selectively for editorial or brand moments, not for all headings.
-- **Weight contrast**: Pair heavy display weight (`font-semibold` / `font-bold`) with light body weight (`font-normal`). Never use two heavy weights adjacently.
-- **Letter spacing**: Tight (`tracking-tight`) on large display type. Open (`tracking-wider`) on all-caps labels and category tags.
-- **Minimum readable size**: 14px for body, 12px only for all-caps labels or metadata.
-
----
-
-## Borders & Shadows
-
-| Token                | Value                              | Class            | Use                        |
-| -------------------- | ---------------------------------- | ---------------- | -------------------------- |
-| `--shadow-ring`      | `0 0 0 1px var(--color-border)`    | `.border-around` | Default card/panel outline |
-| `--shadow-ring-left` | `-1px 0 0 1px var(--color-border)` | —                | Left-edge only outline     |
-
-**Prefer `shadow-ring` over CSS `border`** when an element already has box-shadow — avoids double-border stacking issues.
-
-Border radius conventions:
-
-- `rounded-xs` — tight UI elements (small badges, dropdown panels)
-- `rounded-md` — cards, inputs, dropdowns
-- `rounded-lg` — modals, large cards, hero containers
-- `rounded-full` — pill buttons, avatars, tags
-
----
+`--shadow-ring` and `--shadow-ring-left` remain available for web-only outline
+effects. Prefer semantic `shadows.sm` or `shadows.lg` for product surfaces.
 
 ## Layout
 
-The marketing site uses a 3-column layout on large screens: left Sidebar, center content, right RightPanel.
+The marketing site uses a centered content column and expands into composed
+sections at larger widths.
 
-### Breakpoints
+| Constant   | Value  | Purpose                     |
+| ---------- | ------ | --------------------------- |
+| `media.sm` | 40rem  | Compact-to-tablet changes   |
+| `media.md` | 48rem  | Tablet and desktop changes  |
+| Wide tier  | 80rem  | Shared-note comment rail    |
+| `laptop`   | 72rem  | Legacy web layout threshold |
+| `wide`     | 87.5rem| Extra-wide layout threshold |
 
-| Name            | Value              | Purpose                       |
-| --------------- | ------------------ | ----------------------------- |
-| `laptop`        | `72rem` (1152px)   | General responsive breakpoint |
-| `wide`          | `87.5rem` (1400px) | Wide sidebar/panel sizing     |
-| `xl` (Tailwind) | `1280px`           | Desktop sidebar appears       |
-| `md` (Tailwind) | `768px`            | Tablet header bar appears     |
+Keep responsive conditions in StyleX property maps. Use DOM order for local
+overlap and portals for cross-tree floating UI; add `zIndex` only inside a
+bounded stacking context.
 
-### Key dimensions
+## Component patterns
 
-| Purpose                  | Value                                |
-| ------------------------ | ------------------------------------ |
-| Outer max-width          | `max-w-[1800px]` (3-column wrapper)  |
-| Content max-width        | `max-w-6xl` (footer, header bar)     |
-| Mobile top bar height    | `h-14` (56px)                        |
-| Scroll margin (anchors)  | `69px`                               |
-| Section vertical padding | `py-12` (mobile) / `py-16` (desktop) |
-| Card internal padding    | `p-4` (compact) / `p-8` (feature)    |
-
-### Responsive layout tiers
-
-| Range                  | Layout                                            |
-| ---------------------- | ------------------------------------------------- |
-| `< md` (< 768px)       | Fixed top bar + hamburger dropdown, single column |
-| `md – xl` (768–1280px) | Fixed horizontal header bar, single column        |
-| `xl+` (1280px+)        | Sticky left Sidebar + content + sticky RightPanel |
-
----
-
-## Brand yellow & noise
-
-Marketing pages (homepage, product pages, etc.) have a warm yellow gradient wash at the top, rendered as two overlapping layers:
-
-1. A CSS gradient from `var(--brand-yellow)` to `transparent` covering `h-[180vh]`.
-2. A repeating noise texture at 30% opacity with a mask that fades it out downward. The noise is generated from `src/lib/brand-noise.ts`.
-
-Resource pages (docs, blog, gallery, changelog, etc.) skip this background.
-
-The footer mirrors the effect in reverse: a gradient from `transparent` to `var(--brand-yellow)` with the same noise texture.
-
----
-
-## Background patterns
-
-Utility classes for decorative backgrounds applied to sections and cards:
-
-| Class                     | Pattern                                 |
-| ------------------------- | --------------------------------------- |
-| `.bg-lined-notebook`      | Horizontal lines (subtle border color)  |
-| `.bg-lined-notebook-dark` | Horizontal lines (default border color) |
-| `.bg-dotted`              | Dot grid (subtle)                       |
-| `.bg-dotted-dark`         | Dot grid (default)                      |
-| `.bg-grid`                | Full grid (subtle)                      |
-| `.bg-grid-dark`           | Full grid (default)                     |
-
-All patterns use 24px spacing (23px gap + 1px line) and reference border color tokens.
-
----
-
-## Components
-
-### Primary CTA button
-
-Warm stone gradient, pill shape, scales on hover. Used in header, hero, and CTA sections.
+### Primary action
 
 ```tsx
-<button
-  className={cn([
-    "flex h-8 items-center rounded-full px-4 text-sm text-white",
-    "bg-linear-to-t from-stone-600 to-stone-500",
-    "shadow-md hover:scale-[102%] hover:shadow-lg active:scale-[98%]",
-    "transition-all",
-  ])}
->
-  Download for free
-</button>;
+const styles = stylex.create({
+  primaryAction: {
+    alignItems: "center",
+    backgroundColor: {
+      default: colors.primary,
+      ":hover": colors.secondaryForeground,
+    },
+    borderRadius: radii.full,
+    color: colors.primaryForeground,
+    display: "inline-flex",
+    minHeight: "2.75rem",
+    paddingInline: "1.25rem",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color, transform",
+  },
+});
 ```
 
-Heights vary by context: `h-8` in header/sidebar, `h-9` in standalone, `h-12` in page-level CTA sections.
+### Secondary action
 
-### Secondary / ghost button
+Use `colors.card`, `colors.border`, and `radii.lg`. Hover states should change
+one semantic surface or foreground token, not introduce a new color.
 
-Outline style, no fill. Used for secondary actions.
+### Navigation link
 
-```tsx
-<button className="flex h-9 items-center rounded-lg border border-neutral-200 bg-white px-4 text-sm text-neutral-700 transition-colors hover:bg-neutral-50">
-  Get started
-</button>;
-```
-
-### Nav link
-
-Text-only, dotted underline on hover.
-
-```tsx
-<a className="text-fg-muted hover:text-fg text-sm decoration-dotted transition-colors hover:underline">
-  Link
-</a>;
-```
-
-The standard hover class used across navigation is:
-
-```tsx
-const MAIN_MENU_LINK_HOVER =
-  "hover:underline hover:decoration-dotted hover:underline-offset-4";
-```
-
-### Section label (category tag)
-
-All-caps mono, wide tracking, muted.
-
-```tsx
-<span className="text-fg-subtle font-mono text-xs font-semibold tracking-wider uppercase">
-  Features
-</span>;
-```
+Use muted foreground by default, primary foreground on hover, and a dotted
+underline when extra affordance is needed.
 
 ### Card
 
-No heavy shadow. Border ring or hairline border, surface background.
+Cards use a semantic surface, a quiet one-pixel border, and at most a small
+shadow. Feature cards may use a paper texture or notebook line pattern defined
+directly in their StyleX style.
 
-```tsx
-<div className="border-border bg-surface rounded-md border p-4">…</div>;
-```
+### Section label
 
-Or with `shadow-ring`:
+Section labels are small, wide-tracked, and restrained. Use `fonts.mono`, a
+numeric semibold weight, uppercase text, and `colors.mutedForeground`.
 
-```tsx
-<div className="border-around bg-surface rounded-md p-4">…</div>;
-```
+## Background treatments
 
-### Hero container
+Marketing pages may use two subtle layers:
 
-The homepage hero uses a bright-bordered rounded container at full viewport height:
+1. A gradient from `var(--brand-yellow)` to transparent.
+2. The generated noise texture from `src/lib/brand-noise.ts`, masked so it fades
+   into the page.
 
-```tsx
-<div className="border-brand-bright min-h-[80vh] rounded-lg border">…</div>;
-```
+Resource pages such as docs, blog, gallery, and changelog omit the yellow wash.
+Decorative notebook, dot, and grid patterns should be expressed in local StyleX
+`backgroundImage` declarations, not global utility classes.
 
----
+## Document content
+
+Blog and legal MDX use contextual selectors on their article StyleX styles.
+Changelog content accepts an `sx` prop and should be styled through that
+component API.
 
 ## Logo
 
-Use the official Anarlog wordmark SVG for website and public-facing artifacts.
-Do not re-render the wordmark as text in any font or alter its letterforms.
-
-- The website serves the black wordmark from `public/logo.svg` through the
-  `AnarlogLogo` component.
-- Public documentation uses `docs/logo/light.svg` on light backgrounds and
-  the white `docs/logo/dark.svg` variant on dark backgrounds.
-- Preserve the wordmark's aspect ratio and provide the accessible name
-  "Anarlog" when it is rendered as meaningful content.
-
----
+Use the official black wordmark from `public/logo.svg` through the
+`AnarlogLogo` component. Preserve its aspect ratio and use the accessible name
+“Anarlog” when the image is meaningful. Do not recreate or alter the wordmark.
 
 ## Motion
 
-- **Scale micro-interactions**: `hover:scale-[102%] active:scale-[98%]` — used on all interactive cards and CTA buttons.
-- **Opacity transitions**: `transition-opacity duration-200` — used for fade in/out on dynamic text.
-- **Page-level slide-in**: `animate-in slide-in-from-top duration-300` — used for mobile menu only.
-- **Scroll reveal**: RightPanel CTA fades in after scrolling past the viewport height (motion/react `AnimatePresence`).
-- **Flyout menus**: sidebar flyouts use `opacity + x` transitions (`duration: 0.15, ease: easeInOut`).
-- No bounce, no spring, no decorative keyframes on brand UI.
+- Use restrained opacity, transform, and color transitions.
+- Define keyframes with `stylex.keyframes`.
+- Set `animationName`, `animationDuration`, `animationTimingFunction`, and
+  `animationIterationCount` separately.
+- Disable non-essential motion under `media.reducedMotion`.
+- Avoid bounce and decorative spring motion in brand UI.
 
-### Animation utility classes
+## Component structure
 
-| Class                   | Description                                   |
-| ----------------------- | --------------------------------------------- |
-| `.animate-shake`        | Horizontal shake (validation feedback, 0.5s)  |
-| `.animate-scroll-left`  | Infinite horizontal scroll left (logo clouds) |
-| `.animate-scroll-right` | Infinite horizontal scroll right              |
-| `.animate-fade-in-out`  | 3s fade in/out loop (decorative)              |
-| `.animate-dot-wave`     | 3s opacity wave (loading indicators)          |
-
----
-
-## Component folder structure
-
-```
+```text
 src/components/
   admin/           # Internal admin tooling
   mdx/             # MDX renderer overrides
-  notepad/         # Notepad product feature demos
-  sections/        # Composed page sections
-  transcription/   # Transcription product feature demos
-  *.tsx            # Flat root — layout, navigation, and shared components
+  notepad/         # Notepad product demos
+  sections/        # Composed marketing sections
+  transcription/  # Transcription product demos
+  *.tsx            # Layout, navigation, and shared components
 ```
-
-Most components currently live flat in the `components/` root (sidebar, footer, CTA section, download button, etc.). The `layout/` and `ui/` subdirectories described in earlier plans have not been created yet. When touching a file, consider moving it to the appropriate subfolder as part of that PR.

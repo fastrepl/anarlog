@@ -8,7 +8,7 @@ import {
 import * as stylex from "@stylexjs/stylex";
 import { useSyncExternalStore } from "react";
 
-import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { Avatar } from "@anlg/ui/components/avatar";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
@@ -31,6 +31,16 @@ import {
   type SharedNoteSnapshot,
   withoutDuplicateLeadingTitle,
 } from "@/lib/shared-notes";
+
+const pulse = stylex.keyframes({
+  "0%, 100%": { opacity: 1 },
+  "50%": { opacity: 0.5 },
+});
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
 const styles = stylex.create({
   style1: {
     display: "flex",
@@ -47,15 +57,11 @@ const styles = stylex.create({
     marginBottom: "1.5rem",
   },
   style4: {
+    color: colors.foreground,
     fontSize: "1.5rem",
     lineHeight: "1.875rem",
-    "--tw-leading": "1.875rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     textWrap: "balance",
-  },
-  style5: {
-    marginTop: ".75rem",
   },
   style6: {
     display: "inline-flex",
@@ -69,18 +75,19 @@ const styles = stylex.create({
   },
   style8: {
     display: "flex",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
   },
   style9: {
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#44403c",
   },
   style10: {
+    backgroundColor: colors.card,
     borderRadius: "1.5rem",
     borderStyle: "solid",
     borderWidth: "1px",
+    borderColor: colors.border,
     paddingInline: {
       default: "1.5rem",
       "@media (width >= 40rem)": "2.5rem",
@@ -91,26 +98,53 @@ const styles = stylex.create({
     marginBottom: "1.5rem",
     width: "1.25rem",
     height: "1.25rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: spin,
+      [media.reducedMotion]: "none",
+    },
   },
   style12: {
+    backgroundColor: colors.muted,
     height: "1.75rem",
     width: "60%",
-    animation: "2s cubic-bezier(.4, 0, .6, 1) infinite pulse",
+    animationDuration: "2s",
+    animationTimingFunction: "cubic-bezier(.4, 0, .6, 1)",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: pulse,
+      [media.reducedMotion]: "none",
+    },
     borderRadius: ".5rem",
   },
   style13: {
+    backgroundColor: colors.muted,
     marginTop: "1.5rem",
     height: "1rem",
     width: "100%",
-    animation: "2s cubic-bezier(.4, 0, .6, 1) infinite pulse",
+    animationDuration: "2s",
+    animationTimingFunction: "cubic-bezier(.4, 0, .6, 1)",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: pulse,
+      [media.reducedMotion]: "none",
+    },
     borderRadius: ".25rem",
   },
   style14: {
+    backgroundColor: colors.muted,
     marginTop: ".75rem",
     height: "1rem",
     width: "80%",
-    animation: "2s cubic-bezier(.4, 0, .6, 1) infinite pulse",
+    animationDuration: "2s",
+    animationTimingFunction: "cubic-bezier(.4, 0, .6, 1)",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: pulse,
+      [media.reducedMotion]: "none",
+    },
     borderRadius: ".25rem",
   },
   style15: {
@@ -123,9 +157,11 @@ const styles = stylex.create({
     height: "1rem",
   },
   style17: {
+    backgroundColor: colors.card,
     borderRadius: "1.5rem",
     borderStyle: "solid",
     borderWidth: "1px",
+    borderColor: colors.border,
     paddingInline: {
       default: "1.5rem",
       "@media (width >= 40rem)": "2.5rem",
@@ -138,21 +174,22 @@ const styles = stylex.create({
     marginBottom: "1rem",
     display: "flex",
     justifyContent: "center",
+    color: colors.mutedForeground,
   },
   style19: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: "1.5rem",
     lineHeight: "2rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style20: {
     marginInline: "auto",
     marginTop: ".75rem",
+    maxWidth: "32rem",
+    color: colors.mutedForeground,
     fontSize: "1rem",
     lineHeight: "1.75rem",
-    "--tw-leading": "1.75rem",
   },
   style21: {
     marginTop: "1.75rem",
@@ -164,8 +201,8 @@ const styles = stylex.create({
   style22: {
     minHeight: "100vh",
     overflowX: "clip",
-    backgroundColor: "#fff",
-    color: "#1c1917",
+    backgroundColor: colors.card,
+    color: colors.foreground,
   },
   style23: {
     display: "inline-flex",
@@ -199,6 +236,9 @@ const styles = stylex.create({
     display: "inline-flex",
     position: "relative",
   },
+  participantAvatarLayer: (zIndex: number) => ({
+    zIndex,
+  }),
   participantAvatarOverlapping: {
     marginLeft: "-.5rem",
   },
@@ -253,8 +293,9 @@ const styles = stylex.create({
     marginInline: "auto",
     maxWidth: {
       default: "720px",
-      ":has([data-comment-rail])": {
-        "@media (min-width: 80rem)": "1028px",
+      "@media (min-width: 80rem)": {
+        default: "720px",
+        ":is(:has([data-comment-rail]))": "1028px",
       },
     },
     paddingBlock: {
@@ -264,15 +305,17 @@ const styles = stylex.create({
     paddingLeft: {
       default: "1.25rem",
       "@media (min-width: 40rem)": "2rem",
-      ":has([data-comment-rail])": {
-        "@media (min-width: 80rem)": 0,
+      "@media (min-width: 80rem)": {
+        default: "2rem",
+        ":is(:has([data-comment-rail]))": 0,
       },
     },
     paddingRight: {
       default: "1.25rem",
       "@media (min-width: 40rem)": "2rem",
-      ":has([data-comment-rail])": {
-        "@media (min-width: 80rem)": "372px",
+      "@media (min-width: 80rem)": {
+        default: "2rem",
+        ":is(:has([data-comment-rail]))": "372px",
       },
     },
     width: "100%",
@@ -455,12 +498,12 @@ function SharedNoteMeetingMetadata({
             <span
               {...stylex.props(
                 styles.participantAvatar,
+                styles.participantAvatarLayer(
+                  presentation.avatarParticipants.length - index,
+                ),
                 index > 0 && styles.participantAvatarOverlapping,
               )}
               key={participant}
-              style={{
-                zIndex: presentation.avatarParticipants.length - index,
-              }}
             >
               <Avatar label={participant} seed={participant} size={30} />
             </span>

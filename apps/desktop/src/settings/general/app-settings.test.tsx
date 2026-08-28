@@ -11,6 +11,9 @@ vi.mock("@tauri-apps/plugin-os", () => ({
 
 import { AppSettingsView } from "./app-settings";
 
+import { expectNotStyle, expectStyle } from "~/session/stylex-test";
+import { settingRowStyles } from "~/settings/setting-row";
+
 function setting(value = true) {
   return {
     value,
@@ -45,10 +48,11 @@ describe("AppSettingsView", () => {
   it("lets switch descriptions use the available row width", () => {
     renderAppSettings();
 
-    expect(
-      screen.getByRole("switch", { name: "Start Anarlog at login" })
-        .parentElement?.className,
-    ).not.toContain("w-48");
+    const control = screen.getByRole("switch", {
+      name: "Start Anarlog at login",
+    }).parentElement;
+    expectStyle(control, settingRowStyles.control);
+    expectNotStyle(control, settingRowStyles.fixedControl);
   });
 
   it("hides macOS-only Dock controls outside macOS", () => {

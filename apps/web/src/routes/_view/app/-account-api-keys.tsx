@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { createKey, listKeys, revokeKey } from "@anlg/api-client";
 import type { CreatedApiKey } from "@anlg/api-client";
+import { fonts } from "@anlg/design-system/tokens.stylex";
 
 import { authStyles } from "@/components/auth-shell";
 
@@ -36,7 +37,7 @@ const styles = stylex.create({
   },
   style3: {
     display: "flex",
-    flexShrink: "0",
+    flexShrink: 0,
     gap: ".5rem",
   },
   style4: {
@@ -48,7 +49,6 @@ const styles = stylex.create({
   style5: {
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style6: {
@@ -71,8 +71,7 @@ const styles = stylex.create({
   style8: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style9: {
@@ -92,8 +91,7 @@ const styles = stylex.create({
     backgroundColor: "#fff",
     paddingInline: ".75rem",
     paddingBlock: ".5rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     color: "#181613",
@@ -110,10 +108,19 @@ const styles = stylex.create({
     },
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
-  style13: {},
+  style13: {
+    borderBottomColor: {
+      ":is(*) > :not(:last-child)": "#ede7dc",
+    },
+    borderBottomStyle: {
+      ":is(*) > :not(:last-child)": "solid",
+    },
+    borderBottomWidth: {
+      ":is(*) > :not(:last-child)": "1px",
+    },
+  },
   style14: {
     display: "flex",
     flexDirection: {
@@ -138,13 +145,11 @@ const styles = stylex.create({
   style15: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style16: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     color: "#756b5d",
@@ -153,7 +158,6 @@ const styles = stylex.create({
     marginTop: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style18: {

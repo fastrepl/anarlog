@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { fonts } from "@anlg/design-system/tokens.stylex";
 import {
   AppFloatingPanel,
   DropdownMenu,
@@ -29,9 +30,10 @@ const styles = stylex.create({
     gap: "1rem",
   },
   style2: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style3: {
@@ -43,7 +45,17 @@ const styles = stylex.create({
     lineHeight: "1.5rem",
     color: "#756b5d",
   },
-  style4: {},
+  style4: {
+    borderBottomColor: {
+      ":is(*) > :not(:last-child)": "#ede7dc",
+    },
+    borderBottomStyle: {
+      ":is(*) > :not(:last-child)": "solid",
+    },
+    borderBottomWidth: {
+      ":is(*) > :not(:last-child)": "1px",
+    },
+  },
   style5: {
     display: "flex",
     alignItems: "center",
@@ -56,7 +68,7 @@ const styles = stylex.create({
     paddingBlock: "1.5rem",
   },
   style6: {
-    minWidth: "0",
+    minWidth: 0,
   },
   style7: {
     textOverflow: "ellipsis",
@@ -64,7 +76,7 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style8: {
@@ -322,13 +334,9 @@ function ShareRowMenu({
           <DotsThree size={16} aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        variant="app"
-        align="end"
-        {...stylex.props(styles.style10)}
-      >
-        <AppFloatingPanel {...stylex.props(styles.style11)}>
-          <DropdownMenuItem asChild {...stylex.props(styles.style12)}>
+      <DropdownMenuContent variant="app" align="end" sx={styles.style10}>
+        <AppFloatingPanel sx={styles.style11}>
+          <DropdownMenuItem asChild sx={styles.style12}>
             <Link
               to="/share/$shareId/"
               params={{
@@ -343,7 +351,7 @@ function ShareRowMenu({
           </DropdownMenuItem>
           {canRestrict && (
             <DropdownMenuItem
-              {...stylex.props(styles.style12)}
+              sx={styles.style12}
               disabled={restricting}
               onSelect={onRestrict}
             >
@@ -352,7 +360,7 @@ function ShareRowMenu({
           )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            {...stylex.props(styles.style13)}
+            sx={styles.style13}
             disabled={stopping}
             onSelect={onStopSharing}
           >

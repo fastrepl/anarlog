@@ -5,12 +5,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import {
-  colors,
-  fonts,
-  media,
-  radii,
-} from "@anlg/design-system/tokens.stylex";
+import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { Button } from "@anlg/ui/components/ui/button";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
@@ -190,9 +185,7 @@ function CloudEndpoint({
     <div {...stylex.props(styles.headingContainer)}>
       <p {...stylex.props(styles.endpointLabel)}>{label}</p>
       <div {...stylex.props(styles.endpointRow)}>
-        <code {...stylex.props(styles.code)}>
-          {value}
-        </code>
+        <code {...stylex.props(styles.code)}>{value}</code>
         <Button
           type="button"
           variant="ghost"
@@ -278,9 +271,7 @@ function CloudApiKeys() {
             <Trans>Copy this key now — it is only shown once.</Trans>
           </p>
           <div {...stylex.props(styles.secretRow)}>
-            <code {...stylex.props(styles.code)}>
-              {createdKey.key}
-            </code>
+            <code {...stylex.props(styles.code)}>{createdKey.key}</code>
             <Button
               type="button"
               variant="ghost"
@@ -339,7 +330,6 @@ const styles = stylex.create({
     fontSize: "0.75rem",
     lineHeight: "1rem",
     minWidth: 0,
-    msOverflowStyle: "none",
     overflowX: "auto",
     paddingBlock: "0.125rem",
     paddingInline: "0.375rem",

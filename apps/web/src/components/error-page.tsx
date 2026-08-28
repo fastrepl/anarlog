@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import type { ErrorRouteComponent } from "@tanstack/react-router";
 
+import { radii } from "@anlg/design-system/tokens.stylex";
+
 import { useMountEffect } from "@/hooks/useMountEffect";
 import { captureOperationalError } from "@/lib/error-reporting";
 const styles = stylex.create({
@@ -17,9 +19,7 @@ const styles = stylex.create({
   style2: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
-    "--tw-tracking": ".18em",
+    fontWeight: 500,
     letterSpacing: ".18em",
     color: "#756b5d",
     textTransform: "uppercase",
@@ -28,20 +28,19 @@ const styles = stylex.create({
     marginTop: ".75rem",
     fontSize: "2.25rem",
     lineHeight: "2.5rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
   },
   style4: {
     marginTop: "1.5rem",
     display: "inline-flex",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#181613",
     paddingInline: "1.25rem",
     paddingBlock: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
   },
 });

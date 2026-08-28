@@ -121,20 +121,20 @@ export function MainChatPanels({
 
 const styles = stylex.create({
   body: {
-    flex: 1,
+    flex: "1",
     height: "100%",
     minHeight: 0,
     minWidth: 0,
     overflow: "hidden",
   },
   bodyPanel: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflow: "hidden",
   },
   panelGroup: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflow: "hidden",
   },
@@ -160,6 +160,8 @@ const styles = stylex.create({
     overflow: "hidden",
   },
 });
+
+export { styles as chatPanelStyles };
 
 function getMainBodyMinWidth({
   currentTab,

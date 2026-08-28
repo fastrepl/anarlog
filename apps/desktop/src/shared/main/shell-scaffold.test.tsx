@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -22,7 +23,7 @@ vi.mock("~/store/zustand/tabs", () => ({
   ) => selector({ currentTab: mocks.currentTab }),
 }));
 
-import { MainShellScaffold } from "./shell-scaffold";
+import { MainShellScaffold, mainShellScaffoldStyles } from "./shell-scaffold";
 
 describe("MainShellScaffold", () => {
   afterEach(() => {
@@ -40,12 +41,7 @@ describe("MainShellScaffold", () => {
 
     const shell = screen.getByTestId("main-app-shell");
 
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:border-t",
-    );
-    expect(shell.className).not.toContain(
-      "[&_[data-chat-floating-anchor]]:!border-t-0",
-    );
+    expectStyle(shell, mainShellScaffoldStyles.topChrome);
   });
 
   it("removes the top border for borderless top chrome", () => {
@@ -57,20 +53,18 @@ describe("MainShellScaffold", () => {
 
     const shell = screen.getByTestId("main-app-shell");
 
-    expect(shell.className).toContain(
-      "[&_[data-chat-floating-anchor]]:!border-t-0",
-    );
-    expect(shell.className).not.toContain("pl-1");
+    expectStyle(shell, mainShellScaffoldStyles.topBorderlessChrome);
+    expectNotStyle(shell, mainShellScaffoldStyles.leftPadding);
   });
 
   it.each([
-    ["windows", "left", "rounded-l-xl"],
-    ["windows", "top", "rounded-t-xl"],
-    ["linux", "left", "rounded-l-xl"],
-    ["linux", "top", "rounded-t-xl"],
+    ["windows", "left"],
+    ["windows", "top"],
+    ["linux", "left"],
+    ["linux", "top"],
   ] as const)(
     "does not add %s main surface rounding for %s chrome",
-    (currentPlatform, mainSurfaceChrome, roundedClass) => {
+    (currentPlatform, mainSurfaceChrome) => {
       mocks.platform = currentPlatform;
 
       render(
@@ -79,9 +73,24 @@ describe("MainShellScaffold", () => {
         </MainShellScaffold>,
       );
 
-      expect(screen.getByTestId("main-app-shell").className).not.toContain(
-        roundedClass,
-      );
+      expect(screen.getByTestId("main-app-shell")).toBeTruthy();
+      expect(screen.getByTestId("main-surface").className).toBe("");
     },
   );
 });
+
+function expectStyle(element: Element, sx: stylex.StyleXStyles) {
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element.classList.contains(className)).toBe(true);
+  }
+}
+
+function expectNotStyle(element: Element, sx: stylex.StyleXStyles) {
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element.classList.contains(className)).toBe(false);
+  }
+}

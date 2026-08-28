@@ -93,6 +93,7 @@ export function AppIconSelector() {
             <button
               key={option}
               type="button"
+              data-app-icon-option
               role="radio"
               aria-checked={selected}
               aria-disabled={locked}
@@ -173,10 +174,6 @@ export function AppIconSelector() {
   );
 }
 
-const previewVars = stylex.defineVars({
-  scale: "scale(1.16)",
-});
-
 const spin = stylex.keyframes({
   to: { transform: "rotate(360deg)" },
 });
@@ -230,10 +227,6 @@ const styles = stylex.create({
     width: "0.75rem",
   },
   option: {
-    [previewVars.scale]: {
-      default: "scale(1.16)",
-      ":hover": "scale(1.21)",
-    },
     alignItems: "center",
     backgroundColor: "transparent",
     borderRadius: "22px",
@@ -267,7 +260,10 @@ const styles = stylex.create({
   },
   preview: {
     height: "4rem",
-    transform: previewVars.scale,
+    transform: {
+      default: "scale(1.16)",
+      ":is([data-app-icon-option]:hover *)": "scale(1.21)",
+    },
     transitionDuration: "150ms",
     transitionProperty: "transform",
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",

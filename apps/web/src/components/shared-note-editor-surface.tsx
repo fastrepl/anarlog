@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 
+import { colors, fonts } from "@anlg/design-system/tokens.stylex";
 import {
   NoteEditor,
   type NoteEditorProps,
@@ -25,6 +26,7 @@ import {
   schema,
   setCommentAnchors,
 } from "@anlg/editor/note";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import {
   collectSharedNoteComments,
@@ -48,36 +50,41 @@ import type {
   SharedNoteSnapshot,
   SharedNoteWebEditSnapshot,
 } from "@/lib/shared-notes";
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
 const styles = stylex.create({
-  style1: {},
   style2: {
     marginBottom: "1.25rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: "1rem",
     borderStyle: "solid",
     borderWidth: "1px",
     padding: "1rem",
   },
   style3: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style4: {
     marginTop: ".25rem",
+    color: colors.mutedForeground,
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
   },
   style5: {
     marginTop: ".75rem",
   },
   style6: {
+    color: colors.mutedForeground,
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
   },
   style7: {
     marginTop: ".75rem",
@@ -86,16 +93,15 @@ const styles = stylex.create({
     gap: ".75rem",
   },
   style8: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     textDecorationLine: "underline",
     textUnderlineOffset: "4px",
   },
   style9: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     color: "#b91c1c",
@@ -104,8 +110,8 @@ const styles = stylex.create({
   },
   style10: {
     marginTop: ".75rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
     textDecorationLine: "underline",
@@ -127,12 +133,11 @@ const styles = stylex.create({
     marginTop: ".125rem",
     width: "1rem",
     height: "1rem",
-    flexShrink: "0",
+    flexShrink: 0,
   },
   style13: {
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
   },
   style14: {
     marginBottom: "1.25rem",
@@ -151,24 +156,25 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "flex-start",
     gap: ".75rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
     paddingInline: "1rem",
     paddingBlock: ".75rem",
+    color: colors.mutedForeground,
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
   },
   style16: {
     marginTop: ".25rem",
     width: "1rem",
     height: "1rem",
-    flexShrink: "0",
+    flexShrink: 0,
   },
   style17: {
     minHeight: "20rem",
-    "--tw-outline-style": "none",
     outlineStyle: "none",
     outlineOffset: {
       default: null,
@@ -185,6 +191,7 @@ const styles = stylex.create({
     flexWrap: "wrap",
     justifyContent: "flex-end",
     gap: ".75rem",
+    borderColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: "1px",
     paddingTop: "1.25rem",
@@ -193,13 +200,18 @@ const styles = stylex.create({
     marginRight: ".5rem",
     width: "1rem",
     height: "1rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: spin,
   },
   style20: {
     marginBlock: ".75rem",
     display: "flex",
     alignItems: "center",
     gap: ".75rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: ".75rem",
     borderStyle: "solid",
     borderWidth: "1px",
@@ -210,18 +222,22 @@ const styles = stylex.create({
     display: "flex",
     width: "2.5rem",
     height: "2.5rem",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: colors.card,
     borderRadius: ".5rem",
   },
   style22: {
+    color: colors.mutedForeground,
     width: "1.25rem",
     height: "1.25rem",
   },
   style23: {
-    minWidth: "0",
-    flex: "1",
+    minWidth: 0,
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
   },
   style24: {
     textOverflow: "ellipsis",
@@ -229,33 +245,35 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
+    color: colors.foreground,
   },
   style25: {
     marginTop: ".125rem",
     fontSize: ".75rem",
     lineHeight: "1rem",
+    color: colors.mutedForeground,
   },
   style26: {
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: "1rem",
     borderStyle: "solid",
     borderWidth: "1px",
     padding: "1.25rem",
   },
   style27: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style28: {
     marginTop: ".5rem",
+    color: colors.mutedForeground,
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
   },
   style29: {
     marginTop: "1rem",
@@ -391,7 +409,7 @@ export function SharedNoteEditorSurface({
     );
   };
   return (
-    <div {...stylex.props(styles.style1)}>
+    <div>
       {conflict && (
         <div {...stylex.props(styles.style2)} role="alert">
           <p {...stylex.props(styles.style3)}>This note changed elsewhere.</p>
@@ -466,7 +484,7 @@ export function SharedNoteEditorSurface({
       <SharedEditorAttachmentsContext.Provider value={attachmentById}>
         <NoteEditor
           ref={editorRef}
-          {...stylex.props(styles.style17)}
+          {...mergeStyleXProps(styles.style17, "session-note-editor")}
           commentAnchorsEnabled
           extraNodeViews={lockedAttachmentNodeViews}
           initialContent={initialContent}

@@ -1,12 +1,14 @@
-import { parseImageMetadata } from "@anlg/editor/node-views";
 import * as stylex from "@stylexjs/stylex";
 
+import { parseImageMetadata } from "@anlg/editor/node-views";
+import { markdownComponents } from "@anlg/ui/components/markdown";
 import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 // Typography comes from the shared `.note-typography` scope (see
 // packages/editor styles) so the streaming view matches the editor exactly;
 // only structural concerns live here.
 export const streamdownComponents = {
+  ...markdownComponents,
   // Streamdown's built-in li carries `py-1` (4px/side); the editor's rhythm is
   // 0.125em/side on `li > p`. Padding the li itself (with `[&>p]:inline` so
   // loose lists don't double-pad) keeps the flat streaming gap identical.
@@ -21,10 +23,7 @@ export const streamdownComponents = {
     style,
     ...props
   }: React.LiHTMLAttributes<HTMLLIElement>) => (
-    <li
-      {...props}
-      {...mergeStyleXProps(styles.listItem, className, style)}
-    />
+    <li {...props} {...mergeStyleXProps(styles.listItem, className, style)} />
   ),
   img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
     const { editorWidth, title } = parseImageMetadata(props.title);

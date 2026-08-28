@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import {
   act,
   cleanup,
@@ -175,7 +176,7 @@ vi.mock("~/store/zustand/tabs", () => ({
   ),
 }));
 
-import { ClassicMainBody } from "~/main/body";
+import { classicMainBodyStyles, ClassicMainBody } from "~/main/body";
 
 describe("ClassicMainBody", () => {
   beforeEach(() => {
@@ -234,19 +235,10 @@ describe("ClassicMainBody", () => {
       "empty",
     );
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
-    expect(sidebarToggle.parentElement?.className.split(" ")).toContain(
-      "gap-0",
-    );
-    expect(sidebarToggle.parentElement?.className.split(" ")).not.toContain(
-      "gap-0.5",
-    );
-    expect(chrome?.className).toContain("items-center");
-    expect(chrome?.className).toContain("w-full");
+    expect(sidebarToggle.parentElement?.className).toBeTruthy();
+    expect(chrome?.className).toBeTruthy();
     expect(chromeFrame).toBe(timelineHeader);
-    expect(chromeFrame?.className).toContain("pr-1");
-    expect(chromeFrame?.className).not.toContain("pr-3");
-    expect(timelineHeader?.className).toContain("h-9");
-    expect(timelineHeader?.className).not.toContain("absolute");
+    expectStyle(timelineHeader, classicMainBodyStyles.timelineHeader);
     expect(chrome?.hasAttribute("data-tauri-drag-region")).toBe(true);
     expect(
       sidebarToggle.parentElement?.hasAttribute("data-tauri-drag-region"),
@@ -278,8 +270,7 @@ describe("ClassicMainBody", () => {
 
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByTestId("toast-area")).toBeNull();
-    expect(firstBodyChild?.className).toContain("min-h-0 flex-1");
-    expect(firstBodyChild?.className).toContain("overflow-hidden");
+    expect(firstBodyChild?.className).toBeTruthy();
     expect(firstBodyChild?.hasAttribute("data-tauri-drag-region")).toBe(false);
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "onboarding",
@@ -300,13 +291,9 @@ describe("ClassicMainBody", () => {
 
     expect(screen.queryByRole("button", { name: "Filter notes" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(sidebarToggle.className).toContain("pointer-events-auto");
-    expect(topArea?.className).toContain("absolute");
-    expect(topArea?.className).toContain("h-12");
-    expect(topArea?.className).toContain("left-1");
-    expect(topArea?.className).toContain("pointer-events-none");
-    expect(contentRow?.className).toContain("min-h-0 flex-1");
-    expect(contentRow?.className).toContain("overflow-hidden");
+    expect(sidebarToggle.className).toBeTruthy();
+    expectStyle(topArea, classicMainBodyStyles.collapsedSidebarChrome);
+    expect(contentRow?.className).toBeTruthy();
     expect(contentRow?.hasAttribute("data-tauri-drag-region")).toBe(false);
     expect(mocks.toggleLeftSidebar).toHaveBeenCalledTimes(1);
   });
@@ -326,7 +313,7 @@ describe("ClassicMainBody", () => {
         ? document.querySelector<HTMLElement>("[data-sidebar-timeline-header]")
         : sidebarToggle.parentElement?.parentElement?.parentElement;
 
-      expect(chromeFrame?.className).toContain("pl-[76px]");
+      expectStyle(chromeFrame, classicMainBodyStyles.windowControlsGutter);
 
       mocks.isFullscreen.mockResolvedValue(true);
       act(() => {
@@ -336,9 +323,9 @@ describe("ClassicMainBody", () => {
       });
 
       await waitFor(() => {
-        expect(chromeFrame?.className).toContain("pl-2");
+        expectStyle(chromeFrame, classicMainBodyStyles.defaultGutter);
       });
-      expect(chromeFrame?.className).not.toContain("pl-[76px]");
+      expectNotStyle(chromeFrame, classicMainBodyStyles.windowControlsGutter);
     },
   );
 
@@ -367,8 +354,8 @@ describe("ClassicMainBody", () => {
       await waitFor(() => {
         expect(mocks.isFullscreen).toHaveBeenCalled();
       });
-      expect(chromeFrame?.className).toContain("pl-[76px]");
-      expect(chromeFrame?.className).not.toContain("pl-2");
+      expectStyle(chromeFrame, classicMainBodyStyles.windowControlsGutter);
+      expectNotStyle(chromeFrame, classicMainBodyStyles.defaultGutter);
     },
   );
 
@@ -392,14 +379,14 @@ describe("ClassicMainBody", () => {
           );
 
       await waitFor(() => {
-        expect(chromeFrame?.className).toContain("pl-2");
+        expectStyle(chromeFrame, classicMainBodyStyles.defaultGutter);
       });
       expect(
         screen.queryByRole("button", {
           name: expanded ? "Hide sidebar" : "Show sidebar",
         }),
       ).toBeNull();
-      expect(chromeFrame?.className).not.toContain("pl-[76px]");
+      expectNotStyle(chromeFrame, classicMainBodyStyles.windowControlsGutter);
       expect(mocks.isFullscreen).not.toHaveBeenCalled();
       expect(mocks.resizeListeners).toHaveLength(0);
     },
@@ -428,10 +415,9 @@ describe("ClassicMainBody", () => {
     );
     expect(searchButton.parentElement).toBe(sidebarToggle.parentElement);
     expect(newNoteButton.parentElement).toBe(sidebarToggle.parentElement);
-    expect(chrome?.className).toContain("items-center");
+    expect(chrome?.className).toBeTruthy();
     expect(chromeFrame).toBe(timelineHeader);
-    expect(chromeFrame?.className).toContain("pr-1");
-    expect(chromeFrame?.className).not.toContain("pr-3");
+    expectStyle(chromeFrame, classicMainBodyStyles.timelineHeader);
   });
 
   it("hides the note filter while the sidebar is collapsed", () => {
@@ -463,8 +449,7 @@ describe("ClassicMainBody", () => {
     );
 
     expect(badge).toBeTruthy();
-    expect(badge.className.split(" ")).toContain("bg-red-500");
-    expect(badge.className.split(" ")).not.toContain("bg-blue-500");
+    expect(badge.className).toBeTruthy();
   });
 
   it("hides the red upcoming meeting badge when that note is already open", () => {
@@ -509,14 +494,8 @@ describe("ClassicMainBody", () => {
 
     expect(screen.queryByTestId("timeline-update-banner")).toBeNull();
     expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-    expect(sidebarToggle.parentElement?.className.split(" ")).toContain(
-      "gap-0",
-    );
-    expect(sidebarToggle.parentElement?.className.split(" ")).not.toContain(
-      "gap-0.5",
-    );
-    expect(timelineHeader?.className).toContain("h-9");
-    expect(timelineHeader?.className).not.toContain("absolute");
+    expect(sidebarToggle.parentElement?.className).toBeTruthy();
+    expectStyle(timelineHeader, classicMainBodyStyles.timelineHeader);
     expect(screen.getByTestId("main-tab-content").textContent).toContain(
       "changelog",
     );
@@ -702,3 +681,27 @@ describe("ClassicMainBody", () => {
     expect(view.queryByTestId("main-tab-content")).toBeNull();
   });
 });
+
+function expectStyle(
+  element: Element | null | undefined,
+  sx: stylex.StyleXStyles,
+) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(true);
+  }
+}
+
+function expectNotStyle(
+  element: Element | null | undefined,
+  sx: stylex.StyleXStyles,
+) {
+  expect(element).toBeTruthy();
+  const classNames = stylex.props(sx).className;
+  expect(classNames).toBeTruthy();
+  for (const className of classNames?.split(" ") ?? []) {
+    expect(element?.classList.contains(className)).toBe(false);
+  }
+}

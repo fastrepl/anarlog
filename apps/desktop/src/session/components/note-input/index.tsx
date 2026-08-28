@@ -1,3 +1,4 @@
+import * as stylex from "@stylexjs/stylex";
 import type { EditorView } from "prosemirror-view";
 import {
   forwardRef,
@@ -12,7 +13,6 @@ import {
 import { useHotkeys } from "react-hotkeys-hook";
 
 import type { JSONContent, NoteEditorRef } from "@anlg/editor/note";
-import { cn } from "@anlg/utils";
 
 import { Enhanced } from "./enhanced";
 import { Header, SessionViewSwitcher, useEditorTabs } from "./header";
@@ -329,10 +329,10 @@ const NoteInputContent = forwardRef<
     );
 
     return (
-      <div className="-mx-2 flex h-full flex-col">
+      <div {...stylex.props(styles.root)}>
         {!hideHeader && (
-          <div className="relative px-2">
-            <div className="flex items-center justify-between gap-1">
+          <div {...stylex.props(styles.header)}>
+            <div {...stylex.props(styles.headerRow)}>
               <SessionViewSwitcher
                 sessionId={sessionId}
                 editorTabs={editorTabs}
@@ -346,23 +346,22 @@ const NoteInputContent = forwardRef<
         )}
 
         {showSearchBar && isEditableTab && (
-          <div className="px-3 pt-1">
+          <div {...stylex.props(styles.search)}>
             <SearchBar editorRef={internalEditorRef} />
           </div>
         )}
 
-        <div className="relative flex-1 overflow-hidden">
+        <div {...stylex.props(styles.content)}>
           <div
             ref={scrollRef}
             onMouseDown={handleContainerMouseDown}
             onScroll={onScroll}
-            className={cn([
-              "h-full px-3",
-              "pt-2",
+            {...stylex.props(
+              styles.scroll,
               renderedCurrentTab.type === "transcript"
-                ? "overflow-hidden pb-0"
-                : "overflow-x-hidden overflow-y-auto pb-6",
-            ])}
+                ? styles.transcriptScroll
+                : styles.editorScroll,
+            )}
           >
             {renderedCurrentTab.type === "enhanced" && (
               <Enhanced
@@ -413,3 +412,45 @@ function isSameEditorView(left: TabEditorView, right: TabEditorView): boolean {
 
   return true;
 }
+
+const styles = stylex.create({
+  content: {
+    flex: "1",
+    overflow: "hidden",
+    position: "relative",
+  },
+  editorScroll: {
+    overflowX: "hidden",
+    overflowY: "auto",
+    paddingBottom: "1.5rem",
+  },
+  header: {
+    paddingInline: "0.5rem",
+    position: "relative",
+  },
+  headerRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.25rem",
+    justifyContent: "space-between",
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    marginInline: "-0.5rem",
+  },
+  scroll: {
+    height: "100%",
+    paddingInline: "0.75rem",
+    paddingTop: "0.5rem",
+  },
+  search: {
+    paddingInline: "0.75rem",
+    paddingTop: "0.25rem",
+  },
+  transcriptScroll: {
+    overflow: "hidden",
+    paddingBottom: 0,
+  },
+});

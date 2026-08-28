@@ -2,6 +2,7 @@ import { Check } from "@phosphor-icons/react";
 import * as stylex from "@stylexjs/stylex";
 
 import { colors, radii } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { useTranscriptSelectionState } from "./selection-context";
 import { SpeakerAssignPopover } from "./speaker-assign";
@@ -26,7 +27,7 @@ export function SegmentHeader({
   const colorVars = useSegmentColorVars(segment.key);
 
   return (
-    <div {...stylex.props(styles.root)} style={colorVars}>
+    <div {...mergeStyleXProps(styles.root, undefined, colorVars)}>
       {selectMode ? (
         <span
           aria-hidden="true"
@@ -85,3 +86,5 @@ const styles = stylex.create({
     borderColor: `color-mix(in srgb, ${colors.mutedForeground} 40%, transparent)`,
   },
 });
+
+export { styles as segmentHeaderStyles };

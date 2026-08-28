@@ -676,7 +676,7 @@ const styles = stylex.create({
     marginTop: "0.625rem",
   },
   conflictContent: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   conflictDescription: {
@@ -744,7 +744,7 @@ const styles = stylex.create({
     color: colors.mutedForeground,
   },
   ownerContent: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   ownerEmail: {
@@ -782,7 +782,7 @@ const styles = stylex.create({
     width: "440px",
   },
   scrollArea: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflowY: "auto",
     overscrollBehavior: "contain",
@@ -821,3 +821,5 @@ const styles = stylex.create({
     width: "1rem",
   },
 });
+
+export { styles as sessionShareManagementStyles };

@@ -28,6 +28,7 @@ export function ChangelogContent({
       {...resolved}
       className={cn([resolved.className, className])}
       components={merged}
+      controls={false}
       allowedTags={{ banner: ["title", "variant"] }}
       isAnimating={false}
       linkSafety={{ enabled: false }}

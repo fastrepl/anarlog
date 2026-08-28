@@ -297,7 +297,7 @@ const styles = stylex.create({
   historySlot: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "0.25rem",
     minWidth: 0,
   },
@@ -490,7 +490,7 @@ const styles = stylex.create({
     width: "0.875rem",
   },
   chatGroupText: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
     textAlign: "left",
   },

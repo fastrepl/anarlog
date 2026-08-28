@@ -36,7 +36,7 @@ export function ConfigureProviders() {
       <Accordion
         type="single"
         collapsible
-        sx={styles.providers}
+        {...stylex.props(styles.providers)}
         value={accordionValue}
         onValueChange={setAccordionValue}
       >

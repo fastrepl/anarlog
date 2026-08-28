@@ -16,7 +16,6 @@ const styles = stylex.create({
     },
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style2: {
@@ -31,10 +30,19 @@ const styles = stylex.create({
     paddingBlock: "1rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
-  style3: {},
+  style3: {
+    borderBottomColor: {
+      ":is(*) > :not(:last-child)": "#ede7dc",
+    },
+    borderBottomStyle: {
+      ":is(*) > :not(:last-child)": "solid",
+    },
+    borderBottomWidth: {
+      ":is(*) > :not(:last-child)": "1px",
+    },
+  },
   style4: {
     display: "flex",
     alignItems: "center",
@@ -49,15 +57,13 @@ const styles = stylex.create({
   style5: {
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#181613",
   },
   style6: {
     marginTop: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
   style7: {
@@ -76,7 +82,6 @@ const styles = stylex.create({
     paddingBlock: "1rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#756b5d",
   },
 });

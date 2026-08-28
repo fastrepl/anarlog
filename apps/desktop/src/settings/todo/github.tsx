@@ -367,7 +367,7 @@ const styles = stylex.create({
     transitionTimingFunction: "cubic-bezier(0.4, 0, 0.2, 1)",
   },
   input: {
-    flex: 1,
+    flex: "1",
   },
   plus: {
     height: "0.75rem",

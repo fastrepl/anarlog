@@ -24,6 +24,7 @@ import {
   PopoverContent,
 } from "@anlg/ui/components/ui/popover";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import {
   createSessionShareComment,
@@ -465,8 +466,10 @@ function CommentPopoverAnchor({ position }: { position: CommentPosition }) {
     <PopoverAnchor asChild>
       <span
         aria-hidden="true"
-        {...stylex.props(styles.anchor)}
-        style={{ left: position.left, top: position.top }}
+        {...mergeStyleXProps(styles.anchor, undefined, {
+          left: position.left,
+          top: position.top,
+        })}
       />
     </PopoverAnchor>
   );
@@ -759,7 +762,7 @@ const styles = stylex.create({
     width: "0.875rem",
   },
   textarea: {
-    flex: 1,
+    flex: "1",
     minHeight: "5rem",
     minWidth: 0,
     resize: "none",

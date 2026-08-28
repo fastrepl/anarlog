@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { forwardRef, useEffect, useMemo, useState } from "react";
 
 import { fonts, radii, shadows } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 import { TZDate, format, safeParseDate } from "@anlg/utils";
 
 import type { TimelineEventsTable, TimelineSessionsTable } from "./utils";
@@ -32,12 +33,15 @@ export const CurrentTimeIndicator = forwardRef<
     <div
       ref={ref}
       aria-hidden
-      {...stylex.props(
-        styles.root,
-        variant === "inside" ? styles.rootInside : styles.rootSeam,
-        stylex.defaultMarker(),
+      {...mergeStyleXProps(
+        [
+          styles.root,
+          variant === "inside" ? styles.rootInside : styles.rootSeam,
+          stylex.defaultMarker(),
+        ],
+        undefined,
+        variant === "inside" ? { top: insideOffset } : undefined,
       )}
-      style={variant === "inside" ? { top: insideOffset } : undefined}
     >
       <div {...stylex.props(styles.lineContainer)}>
         <div data-sidebar-current-time-line {...stylex.props(styles.line)} />

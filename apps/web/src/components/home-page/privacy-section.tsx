@@ -74,18 +74,16 @@ const styles = stylex.create({
   style2: {
     fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style3: {
     marginInline: "auto",
     marginTop: "1.5rem",
+    maxWidth: "42rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style4: {
@@ -94,7 +92,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     width: "100vw",
     maxWidth: "1120px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
   },
   style5: {
@@ -104,7 +101,7 @@ const styles = stylex.create({
     },
     gap: {
       default: "1rem",
-      "@media (width >= 48rem)": "0",
+      "@media (width >= 48rem)": 0,
     },
     alignItems: {
       default: null,
@@ -137,8 +134,7 @@ const styles = stylex.create({
     },
     fontSize: "1rem",
     lineHeight: "1.5rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#4f4940",
   },
   style8: {
@@ -147,7 +143,6 @@ const styles = stylex.create({
     maxWidth: "17rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     color: "#4f4940",
   },
   style9: {
@@ -158,7 +153,6 @@ const styles = stylex.create({
     },
     alignItems: "center",
     justifyContent: "center",
-    WebkitUserSelect: "none",
     userSelect: "none",
     width: {
       default: null,
@@ -236,7 +230,6 @@ const styles = stylex.create({
       default: ".5rem",
       "@media (width >= 48rem)": ".25rem",
     },
-    WebkitUserSelect: "none",
     userSelect: "none",
     width: {
       default: null,
@@ -253,7 +246,6 @@ const styles = stylex.create({
     transitionProperty: "transform, translate, scale, rotate",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".3s",
-    "--tw-duration": ".3s",
   },
   style16: {
     width: "2.5rem",
@@ -265,7 +257,6 @@ const styles = stylex.create({
     transitionProperty: "transform, translate, scale, rotate",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".3s",
-    "--tw-duration": ".3s",
   },
   style17: {
     width: "3.5rem",
@@ -273,7 +264,6 @@ const styles = stylex.create({
     transitionProperty: "transform, translate, scale, rotate",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".3s",
-    "--tw-duration": ".3s",
     rotate: {
       default: null,
       ":hover": "3deg",
@@ -289,7 +279,6 @@ const styles = stylex.create({
     transitionProperty: "transform, translate, scale, rotate",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".3s",
-    "--tw-duration": ".3s",
   },
   style19: {
     width: "2.5rem",
@@ -301,7 +290,6 @@ const styles = stylex.create({
     transitionProperty: "transform, translate, scale, rotate",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".3s",
-    "--tw-duration": ".3s",
   },
   style20: {
     display: "flex",
@@ -311,7 +299,6 @@ const styles = stylex.create({
     },
     alignItems: "center",
     justifyContent: "center",
-    WebkitUserSelect: "none",
     userSelect: "none",
     width: {
       default: null,
@@ -333,9 +320,7 @@ const styles = stylex.create({
     paddingRight: ".75rem",
     paddingLeft: "1rem",
     textAlign: "left",
-    "--tw-shadow": "0 3px 10px #1816130a",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 3px 10px var(--tw-shadow-color, #1816130a)",
+    boxShadow: "0 3px 10px #1816130a",
   },
   style22: {
     height: "1.75rem",
@@ -350,8 +335,7 @@ const styles = stylex.create({
   style24: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#292524",
   },
   style25: {

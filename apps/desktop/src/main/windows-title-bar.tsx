@@ -341,7 +341,7 @@ const styles = stylex.create({
     transform: "rotate(45deg)",
   },
   dragSpacer: {
-    flex: 1,
+    flex: "1",
     minWidth: "1rem",
   },
   header: {
@@ -357,7 +357,7 @@ const styles = stylex.create({
   leading: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     minWidth: 0,
     paddingLeft: "0.5rem",
   },

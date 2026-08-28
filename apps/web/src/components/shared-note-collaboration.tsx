@@ -15,6 +15,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { Avatar } from "@anlg/ui/components/avatar";
 
 import {
@@ -41,9 +42,16 @@ import type {
   SharedNoteCapability,
   SharedNoteComment,
 } from "@/lib/shared-notes";
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
 const styles = stylex.create({
   style1: {
     marginTop: "1.5rem",
+    backgroundColor: colors.card,
+    borderColor: colors.border,
     borderRadius: "1.5rem",
     borderStyle: "solid",
     borderWidth: "1px",
@@ -52,9 +60,7 @@ const styles = stylex.create({
       "@media (width >= 40rem)": "2.5rem",
     },
     paddingBlock: "1.75rem",
-    "--tw-shadow": "0 1px 2px 0 #0000000d",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 1px 2px 0 var(--tw-shadow-color, #0000000d)",
+    boxShadow: "0 1px 2px 0 #0000000d",
   },
   style2: {
     display: "flex",
@@ -66,51 +72,54 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: ".5rem",
+    color: colors.foreground,
   },
   style4: {
     width: "1.25rem",
     height: "1.25rem",
   },
   style5: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: "1.125rem",
     lineHeight: "1.75rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style6: {
     marginTop: ".25rem",
+    color: colors.mutedForeground,
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
   },
   style7: {
-    borderRadius: "3.40282e38px",
+    backgroundColor: colors.muted,
+    borderRadius: radii.full,
     paddingInline: ".75rem",
     paddingBlock: ".25rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.mutedForeground,
+    fontFamily: fonts.mono,
     fontSize: ".75rem",
     lineHeight: "1rem",
   },
   style8: {
     marginTop: "1.5rem",
+    backgroundColor: colors.muted,
     borderRadius: "1rem",
     paddingInline: "1rem",
     paddingBlock: "1rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
+    color: colors.mutedForeground,
   },
   style9: {
     marginTop: "1.5rem",
+    borderColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: "1px",
     paddingTop: "1.25rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
+    color: colors.mutedForeground,
   },
   style10: {
     marginTop: "1.5rem",
@@ -119,11 +128,15 @@ const styles = stylex.create({
     gap: ".5rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
+    color: colors.mutedForeground,
   },
   style11: {
     width: "1rem",
     height: "1rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: spin,
   },
   style12: {
     marginTop: "1.5rem",
@@ -139,6 +152,16 @@ const styles = stylex.create({
   },
   style14: {
     marginTop: "1.5rem",
+    borderBottomColor: {
+      ":is(*) > :not(:last-child)": colors.border,
+    },
+    borderBottomStyle: {
+      ":is(*) > :not(:last-child)": "solid",
+    },
+    borderBottomWidth: {
+      ":is(*) > :not(:last-child)": "1px",
+    },
+    borderColor: colors.border,
     borderBlockStyle: "solid",
     borderBlockWidth: "1px",
   },
@@ -153,47 +176,38 @@ const styles = stylex.create({
   },
   style17: {
     display: "flex",
-    minWidth: "0",
+    minWidth: 0,
     alignItems: "center",
     gap: ".625rem",
   },
   style18: {
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style19: {
     marginTop: ".125rem",
     display: "block",
     fontSize: ".75rem",
     lineHeight: "1rem",
+    color: colors.mutedForeground,
   },
   style20: {
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     padding: ".5rem",
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
-    "--tw-ring-shadow": {
-      default: null,
-      ":focus-visible": " 0 0 0 calc(2px + 0) currentcolor",
-    },
     boxShadow: {
       default: null,
-      ":focus-visible":
-        "0 0 #0000, 0 0 #0000, 0 0 #0000, var(--tw-ring-inset, ) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color, currentcolor), 0 0 #0000",
-    },
-    "--tw-ring-color": {
-      default: null,
-      ":focus-visible": "#78716c",
-    },
-    "--tw-outline-style": {
-      default: null,
-      ":focus-visible": "none",
+      ":focus-visible": "0 0 0 2px #78716c",
     },
     outlineStyle: {
       default: null,
@@ -215,7 +229,7 @@ const styles = stylex.create({
     },
     opacity: {
       default: null,
-      ":disabled": ".5",
+      ":disabled": 0.5,
     },
   },
   style21: {
@@ -229,20 +243,23 @@ const styles = stylex.create({
     overflow: "hidden",
     borderLeftStyle: "solid",
     borderLeftWidth: "2px",
+    borderColor: colors.border,
     paddingLeft: ".75rem",
     fontSize: ".75rem",
     lineHeight: "1.25rem",
-    "--tw-leading": "1.25rem",
+    color: colors.mutedForeground,
   },
   style23: {
     marginTop: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.5rem",
-    "--tw-leading": "1.5rem",
     whiteSpace: "pre-wrap",
+    color: colors.foreground,
   },
   style24: {
     marginTop: "1.5rem",
+    backgroundColor: colors.muted,
+    borderColor: colors.border,
     borderRadius: "1rem",
     borderStyle: "solid",
     borderWidth: "1px",
@@ -277,12 +294,15 @@ const styles = stylex.create({
     gap: ".5rem",
     borderTopStyle: "solid",
     borderTopWidth: "1px",
+    borderColor: colors.border,
     paddingTop: "1.25rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
+    color: colors.mutedForeground,
   },
   style27: {
     marginTop: "1.5rem",
+    borderColor: colors.border,
     borderTopStyle: "solid",
     borderTopWidth: "1px",
     paddingTop: "1.25rem",
@@ -309,26 +329,29 @@ const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: ".5rem",
-    fontFamily:
-      "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace",
+    color: colors.foreground,
+    fontFamily: fonts.mono,
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
   },
   style30: {
     marginTop: {
       default: "1rem",
-      "@media (width >= 40rem)": "0",
+      "@media (width >= 40rem)": 0,
     },
     display: "flex",
-    flexShrink: "0",
+    flexShrink: 0,
     gap: ".5rem",
   },
   style31: {
-    marginTop: ".75rem",
+    marginTop: {
+      default: ".75rem",
+      ":is(*) > :not(:first-child)": ".5rem",
+    },
   },
   style32: {
+    backgroundColor: colors.muted,
     borderRadius: "1rem",
     paddingInline: "1rem",
     paddingBlock: ".75rem",
@@ -352,18 +375,19 @@ const styles = stylex.create({
   style33: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
+    color: colors.foreground,
   },
   style34: {
     marginTop: ".125rem",
     fontSize: ".75rem",
     lineHeight: "1rem",
+    color: colors.mutedForeground,
   },
   style35: {
     marginTop: {
       default: ".75rem",
-      "@media (width >= 40rem)": "0",
+      "@media (width >= 40rem)": 0,
     },
     display: "flex",
     gap: ".5rem",
@@ -377,13 +401,19 @@ const styles = stylex.create({
     marginRight: ".375rem",
     width: "1rem",
     height: "1rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: spin,
   },
   style38: {
     marginRight: ".5rem",
     width: "1rem",
     height: "1rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: spin,
   },
   loadEarlierComments: {
     marginTop: "1.5rem",

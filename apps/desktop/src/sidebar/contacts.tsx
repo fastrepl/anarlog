@@ -326,7 +326,7 @@ const styles = stylex.create({
     "::-webkit-scrollbar": {
       display: "none",
     },
-    flex: 1,
+    flex: "1",
     overflowY: "auto",
     scrollbarWidth: "none",
   },

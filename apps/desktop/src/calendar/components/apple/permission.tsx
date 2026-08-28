@@ -313,7 +313,7 @@ const styles = stylex.create({
     width: "2rem",
   },
   permissionCopy: {
-    flex: 1,
+    flex: "1",
   },
   permissionRow: {
     display: "flex",

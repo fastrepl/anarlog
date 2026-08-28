@@ -19,6 +19,7 @@ import {
   PopoverTrigger,
 } from "@anlg/ui/components/ui/popover";
 import { Textarea } from "@anlg/ui/components/ui/textarea";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import {
   AvatarUploadButton,
@@ -645,8 +646,6 @@ function OrganizationControl({
     closePopover();
   };
 
-  const scrollListProps = stylex.props(styles.organizationListScrollable);
-
   return (
     <div {...stylex.props(styles.organizationControl)}>
       <div {...stylex.props(styles.organizationHeading)}>
@@ -729,8 +728,10 @@ function OrganizationControl({
 
           {!searchTerm.trim() && organizations.length > 0 && (
             <div
-              {...scrollListProps}
-              className={`custom-scrollbar ${scrollListProps.className ?? ""}`}
+              {...mergeStyleXProps(
+                styles.organizationListScrollable,
+                "custom-scrollbar",
+              )}
             >
               {organizations.map((org, index) => (
                 <button
@@ -884,7 +885,7 @@ const styles = stylex.create({
   emptyState: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     justifyContent: "center",
   },
   facts: {
@@ -898,7 +899,7 @@ const styles = stylex.create({
     paddingLeft: "1.25rem",
   },
   fieldControl: {
-    flex: 1,
+    flex: "1",
   },
   fieldInput: {
     borderWidth: 0,
@@ -1107,7 +1108,7 @@ const styles = stylex.create({
   },
   root: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     height: "100%",
   },
@@ -1115,7 +1116,7 @@ const styles = stylex.create({
     paddingBottom: "24rem",
   },
   scroller: {
-    flex: 1,
+    flex: "1",
     overflowY: "auto",
   },
   selectedOrganization: {

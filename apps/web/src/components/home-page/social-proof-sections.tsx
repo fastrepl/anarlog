@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { type CSSProperties, useState } from "react";
 
-import { colors, media, radii } from "@anlg/design-system/tokens.stylex";
+import { colors, fonts, media, radii } from "@anlg/design-system/tokens.stylex";
 import { mergeStyleXProps, type StyleXProps } from "@anlg/ui/lib/stylex";
 
 import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
@@ -12,11 +12,16 @@ import { getResizedImageSrcSet, getResizedImageUrl } from "@/lib/image-cdn";
 // can reserve the correct aspect ratio before the image loads (CLS). CSS still
 // controls the rendered size. `resizeWidth` routes oversized bitmap logos
 // through the Netlify Image CDN at ~2x their rendered width.
+const scrollLeft = stylex.keyframes({
+  from: { transform: "translateX(0)" },
+  to: { transform: "translateX(-50%)" },
+});
+
 const styles = stylex.create({
   style1: {
     backgroundColor: "#fff0b3",
-    WebkitBoxDecorationBreak: "clone",
     boxDecorationBreak: "clone",
+    borderRadius: ".125rem",
     paddingInline: ".25rem",
     paddingBlock: ".125rem",
     color: "#181613",
@@ -34,21 +39,19 @@ const styles = stylex.create({
   },
   style4: {
     display: "flex",
-    minWidth: "0",
+    minWidth: 0,
     alignItems: "center",
     gap: ".75rem",
   },
   style5: {
     width: "3rem",
     height: "3rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     objectFit: "cover",
-    "--tw-shadow": "0 1px 2px 0 #0000000d",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 1px 2px 0 var(--tw-shadow-color, #0000000d)",
+    boxShadow: "0 1px 2px 0 #0000000d",
   },
   style6: {
-    minWidth: "0",
+    minWidth: 0,
   },
   style7: {
     textOverflow: "ellipsis",
@@ -56,8 +59,7 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#181613",
   },
   style8: {
@@ -66,20 +68,19 @@ const styles = stylex.create({
     overflow: "hidden",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-leading": "1.25rem",
     color: "#756b5d",
   },
   style9: {
     display: "inline-flex",
     width: "2.25rem",
     height: "2.25rem",
-    flexShrink: "0",
+    flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     color: "#181613",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     backgroundColor: {
@@ -89,7 +90,9 @@ const styles = stylex.create({
   },
   style10: {
     display: "flex",
-    flex: "1",
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
     alignItems: "center",
     justifyContent: "flex-start",
     paddingBlock: ".75rem",
@@ -97,10 +100,8 @@ const styles = stylex.create({
   style11: {
     textAlign: "left",
     fontSize: "1.125rem",
-    lineHeight: "1.25",
-    "--tw-leading": "1.25",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1.25,
+    fontWeight: 600,
     textWrap: "balance",
     color: "#181613",
   },
@@ -111,25 +112,24 @@ const styles = stylex.create({
     paddingTop: ".75rem",
     fontSize: ".75rem",
     lineHeight: "1.25rem",
-    "--tw-leading": "1.25rem",
     color: "#756b5d",
   },
   style13: {
     position: "relative",
-    paddingTop: "0",
+    paddingTop: 0,
     paddingBottom: {
       default: ".5rem",
-      "@media (width >= 48rem)": "0",
+      "@media (width >= 48rem)": 0,
     },
   },
   style14: {
     clipPath: "inset(50%)",
     whiteSpace: "nowrap",
-    borderWidth: "0",
+    borderWidth: 0,
     width: "1px",
     height: "1px",
     margin: "-1px",
-    padding: "0",
+    padding: 0,
     position: "absolute",
     overflow: "hidden",
   },
@@ -138,10 +138,9 @@ const styles = stylex.create({
     position: "absolute",
     top: "-4.4rem",
     left: "50%",
-    zIndex: "20",
+    zIndex: 20,
     height: "5rem",
     width: "15rem",
-    "--tw-translate-x": "calc(160% * -1)",
     translate: "calc(160% * -1) 0",
     color: "#0a0a0a",
     display: {
@@ -151,8 +150,8 @@ const styles = stylex.create({
   },
   style16: {
     position: "absolute",
-    top: "0",
-    left: "0",
+    top: 0,
+    left: 0,
     width: "max-content",
     rotate: "-3deg",
     fontFamily: "Reenie Beanie, Patrick Hand, cursive",
@@ -160,10 +159,8 @@ const styles = stylex.create({
       default: "25px",
       "@media (width >= 64rem)": "28px",
     },
-    "--tw-leading": "1",
-    lineHeight: "1",
-    "--tw-font-weight": "400",
-    fontWeight: "400",
+    lineHeight: 1,
+    fontWeight: 400,
     whiteSpace: "nowrap",
   },
   style17: {
@@ -179,7 +176,6 @@ const styles = stylex.create({
     position: "relative",
     left: "50%",
     width: "100vw",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
     overflow: {
       default: "hidden",
@@ -193,15 +189,22 @@ const styles = stylex.create({
       default: "max-content",
       "@media (prefers-reduced-motion: reduce)": "100%",
     },
+    maxWidth: {
+      default: null,
+      [media.reducedMotion]: "72rem",
+    },
     alignItems: "center",
     marginInline: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": "auto",
     },
-    animation: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": "none",
+    animationDuration: "36s",
+    animationIterationCount: "infinite",
+    animationName: {
+      default: scrollLeft,
+      [media.reducedMotion]: "none",
     },
+    animationTimingFunction: "linear",
     justifyContent: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": "center",
@@ -214,22 +217,13 @@ const styles = stylex.create({
   style20: {
     pointerEvents: "none",
     position: "absolute",
-    insetBlock: "0",
-    left: "0",
+    insetBlock: 0,
+    left: 0,
     width: {
       default: "4rem",
       "@media (width >= 48rem)": "8rem",
     },
-    "--tw-gradient-position": {
-      default: "to right",
-      "@supports (background-image: linear-gradient(in lab, red, red))":
-        "to right in oklab",
-    },
-    backgroundImage: "linear-gradient(var(--tw-gradient-stops))",
-    "--tw-gradient-from": "#fff",
-    "--tw-gradient-stops":
-      "var(--tw-gradient-position, #0000 0%, transparent 100%)",
-    "--tw-gradient-to": "transparent",
+    backgroundImage: `linear-gradient(to right, ${colors.card}, transparent)`,
     display: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": "none",
@@ -238,22 +232,13 @@ const styles = stylex.create({
   style21: {
     pointerEvents: "none",
     position: "absolute",
-    insetBlock: "0",
-    right: "0",
+    insetBlock: 0,
+    right: 0,
     width: {
       default: "4rem",
       "@media (width >= 48rem)": "8rem",
     },
-    "--tw-gradient-position": {
-      default: "to left",
-      "@supports (background-image: linear-gradient(in lab, red, red))":
-        "to left in oklab",
-    },
-    backgroundImage: "linear-gradient(var(--tw-gradient-stops))",
-    "--tw-gradient-from": "#fff",
-    "--tw-gradient-stops":
-      "var(--tw-gradient-position, #0000 0%, transparent 100%)",
-    "--tw-gradient-to": "transparent",
+    backgroundImage: `linear-gradient(to left, ${colors.card}, transparent)`,
     display: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": "none",
@@ -263,10 +248,8 @@ const styles = stylex.create({
     marginTop: ".25rem",
     fontFamily: "Reenie Beanie, Patrick Hand, cursive",
     fontSize: "22px",
-    "--tw-leading": "1",
-    lineHeight: "1",
-    "--tw-font-weight": "400",
-    fontWeight: "400",
+    lineHeight: 1,
+    fontWeight: 400,
     color: "#0a0a0a",
     clipPath: {
       default: null,
@@ -278,7 +261,7 @@ const styles = stylex.create({
     },
     borderWidth: {
       default: null,
-      "@media (width >= 900px)": "0",
+      "@media (width >= 900px)": 0,
     },
     width: {
       default: null,
@@ -294,7 +277,7 @@ const styles = stylex.create({
     },
     padding: {
       default: null,
-      "@media (width >= 900px)": "0",
+      "@media (width >= 900px)": 0,
     },
     position: {
       default: null,
@@ -312,19 +295,18 @@ const styles = stylex.create({
     },
   },
   style24: {
+    fontFamily: fonts.hand,
     fontSize: "1.875rem",
-    lineHeight: "1",
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    lineHeight: 1,
+    fontWeight: 600,
     color: "#756b5d",
   },
   style25: {
     marginInline: "auto",
     marginTop: "1.5rem",
+    maxWidth: "42rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style26: {
@@ -338,16 +320,15 @@ const styles = stylex.create({
     },
     width: "100vw",
     maxWidth: "980px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: "calc(calc(1 / 2 * 100%) * -1) 0",
     overflow: "visible",
     paddingInline: "1.25rem",
   },
   style27: {
     position: "absolute",
-    top: "0",
+    top: 0,
     left: "50%",
-    zIndex: "0",
+    zIndex: 0,
     display: "flex",
     height: {
       default: "15.5rem",
@@ -358,7 +339,6 @@ const styles = stylex.create({
       "@media (width >= 40rem)": "380px",
     },
     maxWidth: "380px",
-    "--tw-translate-x": "calc(calc(1 / 2 * 100%) * -1)",
     translate: {
       default: "calc(calc(1 / 2 * 100%) * -1) 0",
       "@media (width >= 40rem)": "0 34px",
@@ -367,23 +347,18 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "center",
     textAlign: "center",
-    "--tw-translate-y": {
-      default: null,
-      "@media (width >= 40rem)": "34px",
-    },
   },
   style28: {
+    fontFamily: fonts.hand,
     fontSize: {
       default: "1.875rem",
       "@media (width >= 40rem)": "2.25rem",
     },
     lineHeight: {
-      default: "1",
+      default: 1,
       "@media (width >= 40rem)": "2.5rem",
     },
-    "--tw-leading": "1",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
     color: "#181613",
   },
   style29: {
@@ -396,7 +371,7 @@ const styles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: ".5rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
       default: "#181613",
       ":hover": "#4f4940",
@@ -405,11 +380,10 @@ const styles = stylex.create({
     paddingBlock: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -933,13 +907,7 @@ export function CredibilityLogoMarquee() {
       </div>
 
       <div {...stylex.props(styles.style18)}>
-        <div
-          {...stylex.props(styles.style19)}
-          style={{
-            animationDuration: "36s",
-          }}
-          aria-hidden="true"
-        >
+        <div {...stylex.props(styles.style19)} aria-hidden="true">
           {[0, 1].map((trackIndex) => (
             <div
               key={trackIndex}

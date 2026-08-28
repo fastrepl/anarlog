@@ -124,7 +124,7 @@ const styles = stylex.create({
   screen: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     height: "100%",
     justifyContent: "center",

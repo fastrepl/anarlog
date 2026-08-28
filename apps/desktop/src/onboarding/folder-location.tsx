@@ -204,7 +204,7 @@ const styles = stylex.create({
   },
   pathButton: {
     color: colors.mutedForeground,
-    flex: 1,
+    flex: "1",
     fontSize: "0.875rem",
     lineHeight: "1.25rem",
     minWidth: 0,

@@ -94,7 +94,7 @@ const styles = stylex.create({
     justifyContent: "flex-end",
   },
   copy: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   description: {
@@ -118,3 +118,5 @@ const styles = stylex.create({
     marginBottom: "0.25rem",
   },
 });
+
+export { styles as settingRowStyles };

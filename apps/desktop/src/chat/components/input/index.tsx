@@ -436,7 +436,7 @@ const styles = stylex.create({
     alignItems: "center",
   },
   floatingEditorContainer: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   elevatedEditorContainer: {
@@ -600,7 +600,7 @@ const styles = stylex.create({
   waveform: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: "3px",
     minWidth: 0,
     overflow: "hidden",

@@ -1,7 +1,9 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TranscriptEmptyState } from "./empty";
+import { TranscriptEmptyState, transcriptEmptyStateStyles } from "./empty";
+
+import { expectStyle } from "~/session/stylex-test";
 
 describe("TranscriptEmptyState", () => {
   afterEach(() => {
@@ -43,12 +45,14 @@ describe("TranscriptEmptyState", () => {
     );
 
     expect(screen.getByRole("alert")).not.toBeNull();
-    expect(screen.getByText("Transcription failed").className).toContain(
-      "text-base",
+    expectStyle(
+      screen.getByText("Transcription failed"),
+      transcriptEmptyStateStyles.title,
     );
-    expect(
-      screen.getByText("The transcription provider timed out.").className,
-    ).toContain("text-sm");
+    expectStyle(
+      screen.getByText("The transcription provider timed out."),
+      transcriptEmptyStateStyles.description,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Re-transcribe" }));
     expect(onRetranscribe).toHaveBeenCalledTimes(1);

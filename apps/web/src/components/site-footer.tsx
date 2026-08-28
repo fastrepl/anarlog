@@ -8,6 +8,7 @@ const styles = stylex.create({
     marginInline: "auto",
     display: "flex",
     width: "100%",
+    maxWidth: "72rem",
     flexDirection: {
       default: "column",
       "@media (width >= 40rem)": "row",
@@ -40,8 +41,8 @@ const styles = stylex.create({
     lineHeight: "1rem",
     color: "#756b5d",
     opacity: {
-      default: ".75",
-      ":hover": "1",
+      default: 0.75,
+      ":hover": 1,
     },
     transitionProperty: "opacity",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
@@ -76,7 +77,6 @@ const styles = stylex.create({
     gap: ".625rem",
   },
   style8: {
-    "--tw-tracking": ".04em",
     letterSpacing: ".04em",
     color: "#756b5d",
   },

@@ -36,6 +36,7 @@ const styles = stylex.create({
     textAlign: "right",
     fontSize: ".75rem",
     lineHeight: "1rem",
+    color: colors.mutedForeground,
   },
   tooltip: {
     backgroundColor: colors.card,

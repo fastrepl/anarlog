@@ -15,6 +15,7 @@ const styles = stylex.create({
   style2: {
     display: "flex",
     width: "100%",
+    maxWidth: "28rem",
     flexDirection: "column",
     gap: "2rem",
     textAlign: "center",

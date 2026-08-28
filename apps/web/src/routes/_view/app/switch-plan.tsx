@@ -2,6 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { z } from "zod";
 
+import { fonts, radii } from "@anlg/design-system/tokens.stylex";
+
 import { createPlanSwitchSession } from "@/functions/billing";
 import { desktopSchemeSchema } from "@/functions/desktop-flow";
 import { captureOperationalError } from "@/lib/error-reporting";
@@ -18,6 +20,7 @@ const styles = stylex.create({
   style2: {
     display: "flex",
     width: "100%",
+    maxWidth: "28rem",
     flexDirection: "column",
     gap: "2rem",
     textAlign: "center",
@@ -28,10 +31,10 @@ const styles = stylex.create({
     gap: ".75rem",
   },
   style4: {
-    fontFamily:
-      "ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji",
+    fontFamily: fonts.sans,
     fontSize: "1.875rem",
     lineHeight: "2.25rem",
+    letterSpacing: "-.025em",
     color: "#44403c",
   },
   style5: {
@@ -40,7 +43,7 @@ const styles = stylex.create({
   manageBillingLink: {
     alignItems: "center",
     backgroundImage: "linear-gradient(to top, #57534e, #78716c)",
-    borderRadius: "9999px",
+    borderRadius: radii.full,
     boxShadow: {
       default:
         "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",

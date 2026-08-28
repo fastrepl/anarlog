@@ -216,3 +216,5 @@ const styles = stylex.create({
     width: "7rem",
   },
 });
+
+export { styles as timelineChipStyles };

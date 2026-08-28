@@ -212,7 +212,7 @@ const styles = stylex.create({
     gap: "0.125rem",
   },
   resources: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
   },
   scrollContainer: {

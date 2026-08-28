@@ -1,7 +1,9 @@
 import { Trans } from "@lingui/react/macro";
+import * as stylex from "@stylexjs/stylex";
 import { Streamdown } from "streamdown";
 
-import { cn } from "@anlg/utils";
+import { colors } from "@anlg/design-system/tokens.stylex";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { streamdownComponents } from "../../streamdown";
 
@@ -12,18 +14,13 @@ import { isLocalModelProviderId } from "~/store/zustand/ai-task/tasks";
 
 function SummaryTitleSpace({ title }: { title: string }) {
   return (
-    <div
-      data-testid="summary-title-space"
-      className="pointer-events-none mb-4 flex min-h-[1.875rem] items-start"
-    >
+    <div data-testid="summary-title-space" {...stylex.props(styles.titleSpace)}>
       {title ? (
-        <h1 className="text-foreground text-[1.5rem] leading-[1.875rem] font-bold">
-          {title}
-        </h1>
+        <h1 {...stylex.props(styles.title)}>{title}</h1>
       ) : (
         <span
           aria-hidden="true"
-          className="text-muted-foreground animate-pulse text-[1.5rem] leading-[1.875rem] font-bold opacity-60"
+          {...stylex.props(styles.title, styles.placeholder)}
         >
           <Trans>Generating title...</Trans>
         </span>
@@ -60,23 +57,16 @@ export function StreamingView({
 
   if (streamedText.trim().length === 0) {
     return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="text-muted-foreground flex flex-col gap-0.5 pb-2 text-sm"
-      >
-        <p className="animate-pulse leading-5">
+      <div role="status" aria-live="polite" {...stylex.props(styles.status)}>
+        <p {...stylex.props(styles.pulse, styles.statusLine)}>
           {isReasoning ? (
             <Trans>Model is thinking...</Trans>
           ) : (
             <Trans>Analyzing structure...</Trans>
           )}
         </p>
-        <p className="flex items-start gap-1.5 pl-4 text-xs leading-5">
-          <span
-            aria-hidden="true"
-            className="border-muted-foreground/60 mt-[5px] h-2 w-2 shrink-0 rounded-bl-[2px] border-b border-l"
-          />
+        <p {...stylex.props(styles.tip)}>
+          <span aria-hidden="true" {...stylex.props(styles.tipBranch)} />
           <span>
             {isReasoning ? (
               <Trans>
@@ -97,13 +87,13 @@ export function StreamingView({
   }
 
   return (
-    <div className="pb-2">
-      <div className="flex flex-col gap-1">
+    <div {...stylex.props(styles.bottomPadding)}>
+      <div {...stylex.props(styles.result)}>
         <SummaryTitleSpace title={visibleTitle} />
         <Streamdown
           components={streamdownComponents}
-          className={cn(["note-typography", "flex flex-col"])}
-          caret="block"
+          {...mergeStyleXProps(styles.stream, "note-typography")}
+          controls={false}
           isAnimating={isGenerating}
         >
           {streamedText}
@@ -112,3 +102,82 @@ export function StreamingView({
     </div>
   );
 }
+
+const pulse = stylex.keyframes({
+  "0%, 100%": { opacity: 1 },
+  "50%": { opacity: 0.5 },
+});
+
+const styles = stylex.create({
+  bottomPadding: {
+    paddingBottom: "0.5rem",
+  },
+  placeholder: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: pulse,
+    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
+    color: colors.mutedForeground,
+    opacity: 0.6,
+  },
+  pulse: {
+    animationDuration: "2s",
+    animationIterationCount: "infinite",
+    animationName: pulse,
+    animationTimingFunction: "cubic-bezier(0.4, 0, 0.6, 1)",
+  },
+  result: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+  },
+  status: {
+    color: colors.mutedForeground,
+    display: "flex",
+    flexDirection: "column",
+    fontSize: "0.875rem",
+    gap: "0.125rem",
+    paddingBottom: "0.5rem",
+  },
+  statusLine: {
+    lineHeight: "1.25rem",
+  },
+  stream: {
+    display: "flex",
+    flexDirection: "column",
+  },
+  tip: {
+    alignItems: "flex-start",
+    display: "flex",
+    fontSize: "0.75rem",
+    gap: "0.375rem",
+    lineHeight: "1.25rem",
+    paddingLeft: "1rem",
+  },
+  tipBranch: {
+    borderBottomColor: `color-mix(in oklab, ${colors.mutedForeground} 60%, transparent)`,
+    borderBottomStyle: "solid",
+    borderBottomWidth: "1px",
+    borderLeftColor: `color-mix(in oklab, ${colors.mutedForeground} 60%, transparent)`,
+    borderLeftStyle: "solid",
+    borderLeftWidth: "1px",
+    borderBottomLeftRadius: "2px",
+    flexShrink: 0,
+    height: "0.5rem",
+    marginTop: "5px",
+    width: "0.5rem",
+  },
+  title: {
+    color: colors.foreground,
+    fontSize: "1.5rem",
+    fontWeight: 700,
+    lineHeight: "1.875rem",
+  },
+  titleSpace: {
+    alignItems: "flex-start",
+    display: "flex",
+    marginBottom: "1rem",
+    minHeight: "1.875rem",
+    pointerEvents: "none",
+  },
+});

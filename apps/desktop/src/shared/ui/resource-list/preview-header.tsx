@@ -131,7 +131,7 @@ const styles = stylex.create({
     height: "100%",
   },
   scrollContent: {
-    flex: 1,
+    flex: "1",
     minHeight: 0,
     overflowY: "auto",
     paddingBottom: spacing.xl,
@@ -168,7 +168,7 @@ const styles = stylex.create({
   titleRow: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
+    flex: "1",
     gap: spacing.sm,
     minWidth: 0,
   },

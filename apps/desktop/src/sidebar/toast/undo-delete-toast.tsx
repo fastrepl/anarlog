@@ -5,6 +5,7 @@ import { type CSSProperties, useCallback, useMemo } from "react";
 
 import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { restoreDeletedSession } from "~/session/queries";
 import { useMountEffect } from "~/shared/hooks/useMountEffect";
@@ -164,13 +165,10 @@ function UndoDeleteSonnerToast({ group }: { group: ToastGroup }) {
       description: (
         <span
           aria-hidden="true"
-          {...stylex.props(styles.gauge)}
-          style={
-            {
-              "--undo-delete-duration": `${remainingDuration}ms`,
-              "--undo-delete-progress": progress,
-            } as CSSProperties
-          }
+          {...mergeStyleXProps(styles.gauge, undefined, {
+            "--undo-delete-duration": `${remainingDuration}ms`,
+            "--undo-delete-progress": progress,
+          } as CSSProperties)}
         />
       ),
       descriptionClassName: stylex.props(styles.description).className,

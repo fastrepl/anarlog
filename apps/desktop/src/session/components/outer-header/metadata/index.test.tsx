@@ -1,8 +1,10 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, vi } from "vitest";
 
-import { DateEditor } from "./date";
-import { MetadataButton } from "./index";
+import { DateEditor, dateEditorStyles } from "./date";
+import { MetadataButton, metadataStyles } from "./index";
+
+import { expectStyle } from "~/session/stylex-test";
 
 const mocks = vi.hoisted(() => ({
   createdAt: "2026-07-02T03:53:00.000Z" as unknown,
@@ -72,8 +74,7 @@ describe("Metadata controls", () => {
       name: "Open note metadata",
     });
 
-    expect(metadataButton.className).toContain("size-7");
-    expect(metadataButton.className).toContain("rounded-full");
+    expectStyle(metadataButton, metadataStyles.trigger);
   });
 
   it("renders date edit action buttons as circles", () => {
@@ -81,11 +82,13 @@ describe("Metadata controls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Edit date" }));
 
-    expect(
-      screen.getByRole("button", { name: "Cancel date edit" }).className,
-    ).toContain("rounded-full");
-    expect(
-      screen.getByRole("button", { name: "Save date" }).className,
-    ).toContain("rounded-full");
+    expectStyle(
+      screen.getByRole("button", { name: "Cancel date edit" }),
+      dateEditorStyles.iconButton,
+    );
+    expectStyle(
+      screen.getByRole("button", { name: "Save date" }),
+      dateEditorStyles.iconButton,
+    );
   });
 });

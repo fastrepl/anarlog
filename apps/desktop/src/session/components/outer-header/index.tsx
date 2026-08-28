@@ -627,7 +627,7 @@ const styles = stylex.create({
     paddingLeft: "108px",
   },
   spacer: {
-    flex: 1,
+    flex: "1",
     minHeight: "100%",
     minWidth: 0,
   },
@@ -665,3 +665,5 @@ const styles = stylex.create({
     paddingLeft: "76px",
   },
 });
+
+export { styles as outerHeaderStyles };

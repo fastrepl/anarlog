@@ -6,6 +6,8 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useRef, useState, type ReactNode } from "react";
 import { z } from "zod";
 
+import { radii } from "@anlg/design-system/tokens.stylex";
+
 import { AuthShell, authStyles } from "@/components/auth-shell";
 import {
   createDesktopSession,
@@ -49,7 +51,7 @@ const styles = stylex.create({
   style4: {
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#4f4940",
   },
   style5: {
@@ -59,7 +61,7 @@ const styles = stylex.create({
     marginBottom: ".25rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#4f4940",
   },
   style7: {
@@ -111,7 +113,7 @@ const styles = stylex.create({
   style13: {
     display: "flex",
     gap: ".25rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#f4efe6",
     padding: ".25rem",
   },
@@ -121,7 +123,7 @@ const styles = stylex.create({
     color: "#b91c1c",
   },
   style15: {
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#4f4940",
   },
   style16: {
@@ -182,7 +184,10 @@ const styles = stylex.create({
     textAlign: "left",
   },
   style22: {
-    display: "flex",
+    display: {
+      default: "flex",
+      ":is(*) iconify-icon": "block",
+    },
     width: "18px",
     height: "18px",
     alignItems: "center",
@@ -190,7 +195,7 @@ const styles = stylex.create({
     overflow: "hidden",
   },
   modeTab: {
-    borderRadius: "9999px",
+    borderRadius: radii.full,
     cursor: "pointer",
     flexGrow: 1,
     fontSize: ".875rem",

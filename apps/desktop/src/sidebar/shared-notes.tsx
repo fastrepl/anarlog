@@ -109,7 +109,7 @@ const styles = stylex.create({
     paddingTop: spacing.sm,
   },
   title: {
-    flex: 1,
+    flex: "1",
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",

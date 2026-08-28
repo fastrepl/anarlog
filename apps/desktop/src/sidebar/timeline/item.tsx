@@ -23,6 +23,7 @@ import { commands as fsSyncCommands } from "@anlg/plugin-fs-sync";
 import { commands as openerCommands } from "@anlg/plugin-opener2";
 import { DancingSticks } from "@anlg/ui/components/ui/dancing-sticks";
 import { Spinner } from "@anlg/ui/components/ui/spinner";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 import { format, getYear, safeParseDate, TZDate } from "@anlg/utils";
 
 import {
@@ -284,8 +285,9 @@ const ItemBase = memo(function ItemBase({
         >
           <div
             data-sidebar-timeline-upcoming-gauge-fill
-            {...stylex.props(styles.upcomingGaugeFill)}
-            style={{ height: `${upcomingGaugePercent}%` }}
+            {...mergeStyleXProps(styles.upcomingGaugeFill, undefined, {
+              height: `${upcomingGaugePercent}%`,
+            })}
           />
         </div>
       ) : null}
@@ -820,7 +822,7 @@ const styles = stylex.create({
   },
   itemText: {
     display: "flex",
-    flex: 1,
+    flex: "1",
     flexDirection: "column",
     gap: "0.125rem",
     minWidth: 0,
@@ -959,3 +961,5 @@ const styles = stylex.create({
     width: "100%",
   },
 });
+
+export { styles as timelineItemStyles };

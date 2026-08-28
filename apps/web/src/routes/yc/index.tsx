@@ -4,12 +4,19 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 
+import { fonts, radii } from "@anlg/design-system/tokens.stylex";
+
 import { AnarlogLogo } from "@/components/anarlog-logo";
 import { SiteFooter } from "@/components/site-footer";
 import { fetchUser } from "@/functions/auth";
 import { applyYcPerk, submitYcPerkRequest } from "@/functions/yc-perk";
 import { getCanonicalUrl } from "@/lib/seo";
 import { validateYcVerificationUrl, ycPerkRequestSchema } from "@/lib/yc-perk";
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
 const styles = stylex.create({
   style1: {
     display: "flex",
@@ -22,7 +29,9 @@ const styles = stylex.create({
     marginInline: "auto",
     width: "100%",
     maxWidth: "700px",
-    flex: "1",
+    flexBasis: "0%",
+    flexGrow: 1,
+    flexShrink: 1,
     paddingInline: {
       default: "1.25rem",
       "@media (width >= 48rem)": "2rem",
@@ -68,8 +77,7 @@ const styles = stylex.create({
     gap: ".5rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#756b5d",
   },
   style7: {
@@ -80,17 +88,17 @@ const styles = stylex.create({
   style8: {
     marginInline: "auto",
     marginTop: "1.25rem",
+    fontFamily: fonts.hand,
     fontSize: {
       default: "3rem",
       "@media (width >= 48rem)": "4.5rem",
     },
     lineHeight: {
-      default: ".98",
-      "@media (width >= 48rem)": "1",
+      default: 0.98,
+      "@media (width >= 48rem)": 1,
     },
-    "--tw-leading": ".98",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: 0,
     textWrap: "balance",
   },
   style9: {
@@ -98,7 +106,6 @@ const styles = stylex.create({
     marginTop: "1.5rem",
     fontSize: "1.125rem",
     lineHeight: "2rem",
-    "--tw-leading": "2rem",
     color: "#4f4940",
   },
   style10: {
@@ -114,9 +121,7 @@ const styles = stylex.create({
     backgroundColor: "#fffaf0",
     padding: "1.5rem",
     textAlign: "left",
-    "--tw-shadow": "0 18px 50px #4436241f",
-    boxShadow:
-      "0 0 #0000, 0 0 #0000, 0 0 #0000, 0 0 #0000, 0 18px 50px var(--tw-shadow-color, #4436241f)",
+    boxShadow: "0 18px 50px #4436241f",
   },
   style12: {
     display: "flex",
@@ -124,7 +129,7 @@ const styles = stylex.create({
     height: "2.5rem",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: "#d1fae5",
     color: "#047857",
   },
@@ -132,14 +137,13 @@ const styles = stylex.create({
     marginTop: "1.25rem",
     fontSize: "1.25rem",
     lineHeight: "1.75rem",
-    "--tw-font-weight": "600",
-    fontWeight: "600",
+    fontWeight: 600,
+    letterSpacing: "-.025em",
   },
   style14: {
     marginTop: ".5rem",
     fontSize: "1rem",
     lineHeight: "1.75rem",
-    "--tw-leading": "1.75rem",
     color: "#4f4940",
   },
   style15: {
@@ -148,7 +152,7 @@ const styles = stylex.create({
     minHeight: "2.75rem",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
       default: "#181613",
       ":hover": "#363029",
@@ -156,11 +160,10 @@ const styles = stylex.create({
     paddingInline: "1.25rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -172,11 +175,11 @@ const styles = stylex.create({
   style17: {
     clipPath: "inset(50%)",
     whiteSpace: "nowrap",
-    borderWidth: "0",
+    borderWidth: 0,
     width: "1px",
     height: "1px",
     margin: "-1px",
-    padding: "0",
+    padding: 0,
     position: "absolute",
     overflow: "hidden",
   },
@@ -198,7 +201,7 @@ const styles = stylex.create({
     alignItems: "center",
     justifyContent: "center",
     gap: ".5rem",
-    borderRadius: "3.40282e38px",
+    borderRadius: radii.full,
     backgroundColor: {
       default: "#181613",
       ":hover": "#363029",
@@ -207,11 +210,10 @@ const styles = stylex.create({
     paddingBlock: ".75rem",
     fontSize: ".875rem",
     lineHeight: "1.25rem",
-    "--tw-font-weight": "500",
-    fontWeight: "500",
+    fontWeight: 500,
     color: "#fff",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
     cursor: {
@@ -220,13 +222,16 @@ const styles = stylex.create({
     },
     opacity: {
       default: null,
-      ":disabled": ".6",
+      ":disabled": 0.6,
     },
   },
   style21: {
     width: "1.25rem",
     height: "1.25rem",
-    animation: "1s linear infinite spin",
+    animationDuration: "1s",
+    animationTimingFunction: "linear",
+    animationIterationCount: "infinite",
+    animationName: spin,
   },
   style22: {
     marginInline: "auto",
@@ -245,7 +250,7 @@ const styles = stylex.create({
     textDecorationColor: "#b8afa4",
     textUnderlineOffset: "4px",
     transitionProperty:
-      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events",
+      "color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events",
     transitionTimingFunction: "cubic-bezier(.4, 0, .2, 1)",
     transitionDuration: ".15s",
   },
@@ -262,7 +267,7 @@ const styles = stylex.create({
       default: "#d8d3cc",
       ":focus": "#756b5d",
     },
-    borderRadius: "9999px",
+    borderRadius: radii.full,
     borderStyle: "solid",
     borderWidth: "1px",
     boxShadow: {

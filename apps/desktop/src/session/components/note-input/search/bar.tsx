@@ -8,9 +8,11 @@ import {
   Textbox,
   X,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef } from "react";
 
+import { colors, radii } from "@anlg/design-system/tokens.stylex";
 import type { NoteEditorRef } from "@anlg/editor/note";
 import { Kbd } from "@anlg/ui/components/ui/kbd";
 import {
@@ -18,7 +20,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@anlg/ui/components/ui/tooltip";
-import { cn } from "@anlg/utils";
 
 import { useSearch } from "./context";
 
@@ -40,17 +41,15 @@ function ToggleButton({
       <TooltipTrigger asChild>
         <button
           onClick={onClick}
-          className={cn([
-            "rounded-sm p-0.5 transition-colors",
-            active
-              ? "bg-accent text-muted-foreground"
-              : "text-muted-foreground hover:bg-accent hover:text-muted-foreground",
-          ])}
+          {...stylex.props(
+            styles.iconButton,
+            active ? styles.toggleActive : styles.toggleInactive,
+          )}
         >
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="flex items-center gap-2">
+      <TooltipContent side="bottom" sx={styles.tooltip}>
         {tooltip}
       </TooltipContent>
     </Tooltip>
@@ -72,12 +71,10 @@ function IconButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={cn([
-        "rounded-sm p-0.5 transition-colors",
-        disabled
-          ? "text-muted-foreground/70 cursor-not-allowed"
-          : "text-muted-foreground hover:bg-accent",
-      ])}
+      {...stylex.props(
+        styles.iconButton,
+        disabled ? styles.iconButtonDisabled : styles.iconButtonEnabled,
+      )}
     >
       {children}
     </button>
@@ -88,7 +85,7 @@ function IconButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{btn}</TooltipTrigger>
-      <TooltipContent side="bottom" className="flex items-center gap-2">
+      <TooltipContent side="bottom" sx={styles.tooltip}>
         {tooltip}
       </TooltipContent>
     </Tooltip>
@@ -205,8 +202,8 @@ export function SearchBar({
     totalMatches > 0 ? `${currentMatchIndex + 1}/${totalMatches}` : "0/0";
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="bg-muted flex h-7 items-center gap-1.5 rounded-lg px-2">
+    <div {...stylex.props(styles.root)}>
+      <div {...stylex.props(styles.row)}>
         <input
           ref={searchInputRef}
           type="text"
@@ -214,22 +211,22 @@ export function SearchBar({
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleSearchKeyDown}
           placeholder={t`Search...`}
-          className="placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent text-xs focus:outline-hidden"
+          {...stylex.props(styles.input)}
         />
-        <div className="flex items-center gap-0.5">
+        <div {...stylex.props(styles.controls)}>
           <ToggleButton
             active={caseSensitive}
             onClick={toggleCaseSensitive}
             tooltip={t`Match case`}
           >
-            <TextAa className="size-3.5" />
+            <TextAa {...stylex.props(styles.icon)} />
           </ToggleButton>
           <ToggleButton
             active={wholeWord}
             onClick={toggleWholeWord}
             tooltip={t`Match whole word`}
           >
-            <Textbox className="size-3.5" />
+            <Textbox {...stylex.props(styles.icon)} />
           </ToggleButton>
           <ToggleButton
             active={showReplace}
@@ -239,17 +236,15 @@ export function SearchBar({
                 <span>
                   <Trans>Replace</Trans>
                 </span>
-                <Kbd className="animate-kbd-press">{primaryModifier} H</Kbd>
+                <Kbd sx={styles.kbdPress}>{primaryModifier} H</Kbd>
               </>
             }
           >
-            <Swap className="size-3.5" />
+            <Swap {...stylex.props(styles.icon)} />
           </ToggleButton>
         </div>
-        <span className="text-muted-foreground text-[10px] whitespace-nowrap tabular-nums">
-          {displayCount}
-        </span>
-        <div className="flex items-center">
+        <span {...stylex.props(styles.count)}>{displayCount}</span>
+        <div {...stylex.props(styles.inlineControls)}>
           <IconButton
             onClick={onPrev}
             disabled={totalMatches === 0}
@@ -258,11 +253,11 @@ export function SearchBar({
                 <span>
                   <Trans>Previous match</Trans>
                 </span>
-                <Kbd className="animate-kbd-press">⇧ ↵</Kbd>
+                <Kbd sx={styles.kbdPress}>⇧ ↵</Kbd>
               </>
             }
           >
-            <CaretUp className="size-3.5" />
+            <CaretUp {...stylex.props(styles.icon)} />
           </IconButton>
           <IconButton
             onClick={onNext}
@@ -272,11 +267,11 @@ export function SearchBar({
                 <span>
                   <Trans>Next match</Trans>
                 </span>
-                <Kbd className="animate-kbd-press">↵</Kbd>
+                <Kbd sx={styles.kbdPress}>↵</Kbd>
               </>
             }
           >
-            <CaretDown className="size-3.5" />
+            <CaretDown {...stylex.props(styles.icon)} />
           </IconButton>
         </div>
         <IconButton
@@ -286,16 +281,16 @@ export function SearchBar({
               <span>
                 <Trans>Close</Trans>
               </span>
-              <Kbd className="animate-kbd-press">Esc</Kbd>
+              <Kbd sx={styles.kbdPress}>Esc</Kbd>
             </>
           }
         >
-          <X className="size-3.5" />
+          <X {...stylex.props(styles.icon)} />
         </IconButton>
       </div>
 
       {showReplace && (
-        <div className="bg-muted flex h-7 items-center gap-1.5 rounded-lg px-2">
+        <div {...stylex.props(styles.row)}>
           <input
             ref={replaceInputRef}
             type="text"
@@ -303,9 +298,9 @@ export function SearchBar({
             onChange={(e) => setReplaceQuery(e.target.value)}
             onKeyDown={handleReplaceKeyDown}
             placeholder={t`Replace with...`}
-            className="placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent text-xs focus:outline-hidden"
+            {...stylex.props(styles.input)}
           />
-          <div className="flex items-center gap-0.5">
+          <div {...stylex.props(styles.controls)}>
             <IconButton
               onClick={replaceCurrent}
               tooltip={
@@ -313,11 +308,11 @@ export function SearchBar({
                   <span>
                     <Trans>Replace</Trans>
                   </span>
-                  <Kbd className="animate-kbd-press">↵</Kbd>
+                  <Kbd sx={styles.kbdPress}>↵</Kbd>
                 </>
               }
             >
-              <Swap className="size-3.5" />
+              <Swap {...stylex.props(styles.icon)} />
             </IconButton>
             <IconButton
               onClick={replaceAll}
@@ -326,11 +321,11 @@ export function SearchBar({
                   <span>
                     <Trans>Replace all</Trans>
                   </span>
-                  <Kbd className="animate-kbd-press">{primaryModifier} ↵</Kbd>
+                  <Kbd sx={styles.kbdPress}>{primaryModifier} ↵</Kbd>
                 </>
               }
             >
-              <Repeat className="size-3.5" />
+              <Repeat {...stylex.props(styles.icon)} />
             </IconButton>
           </div>
         </div>
@@ -338,3 +333,110 @@ export function SearchBar({
     </div>
   );
 }
+
+const kbdPress = stylex.keyframes({
+  "0%": {
+    boxShadow: "none",
+    transform: "translateY(2px)",
+  },
+  "50%": {
+    boxShadow: "none",
+    transform: "translateY(2px)",
+  },
+  "100%": {
+    boxShadow:
+      "0 1px 0 0 var(--kbd-press-shadow-outer), inset 0 1px 0 0 var(--kbd-press-shadow-inset)",
+    transform: "translateY(0)",
+  },
+});
+
+const styles = stylex.create({
+  controls: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.125rem",
+  },
+  count: {
+    color: colors.mutedForeground,
+    fontSize: "0.625rem",
+    fontVariantNumeric: "tabular-nums",
+    whiteSpace: "nowrap",
+  },
+  icon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  iconButton: {
+    borderRadius: radii.sm,
+    padding: "0.125rem",
+    transitionDuration: "150ms",
+    transitionProperty: "color, background-color",
+  },
+  iconButtonDisabled: {
+    color: `color-mix(in srgb, ${colors.mutedForeground} 70%, transparent)`,
+    cursor: "not-allowed",
+  },
+  iconButtonEnabled: {
+    color: colors.mutedForeground,
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+  },
+  inlineControls: {
+    alignItems: "center",
+    display: "flex",
+  },
+  kbdPress: {
+    animationDuration: "0.4s",
+    animationFillMode: "forwards",
+    animationName: kbdPress,
+    animationTimingFunction: "ease-out",
+  },
+  input: {
+    backgroundColor: "transparent",
+    color: {
+      default: null,
+      "::placeholder": colors.mutedForeground,
+    },
+    flex: "1",
+    fontSize: "0.75rem",
+    height: "100%",
+    minWidth: 0,
+    outline: {
+      default: "none",
+      ":focus": "none",
+    },
+  },
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "0.25rem",
+  },
+  row: {
+    alignItems: "center",
+    backgroundColor: colors.muted,
+    borderRadius: radii.lg,
+    display: "flex",
+    gap: "0.375rem",
+    height: "1.75rem",
+    paddingLeft: "0.5rem",
+    paddingRight: "0.5rem",
+  },
+  toggleActive: {
+    backgroundColor: colors.accent,
+    color: colors.mutedForeground,
+  },
+  toggleInactive: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": colors.accent,
+    },
+    color: colors.mutedForeground,
+  },
+  tooltip: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+  },
+});

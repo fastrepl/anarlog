@@ -7,10 +7,12 @@ import {
   MagicWand,
   Sparkle,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import { PromptEditor, type PromptEditorHandle } from "@anlg/editor/prompt";
 import { commands as templateCommands } from "@anlg/plugin-template";
 import { Button } from "@anlg/ui/components/ui/button";
@@ -22,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@anlg/ui/components/ui/dropdown-menu";
 import { sonnerToast } from "@anlg/ui/components/ui/toast";
-import { cn } from "@anlg/utils";
+import { mergeStyleXProps } from "@anlg/ui/lib/stylex";
 
 import { AutoFormatExamplesDialog } from "./auto-format-examples-dialog";
 
@@ -44,7 +46,7 @@ export function AutoTemplateDetails() {
 
   if (sourceQuery.isLoading) {
     return (
-      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
+      <div {...stylex.props(styles.status, styles.loadingStatus)}>
         <Trans>Loading Auto format...</Trans>
       </div>
     );
@@ -52,7 +54,7 @@ export function AutoTemplateDetails() {
 
   if (sourceQuery.error || !sourceQuery.data) {
     return (
-      <div className="text-destructive flex h-full items-center justify-center px-6 text-center text-sm">
+      <div {...stylex.props(styles.status, styles.errorStatus)}>
         {sourceQuery.error?.message || "Auto format is unavailable."}
       </div>
     );
@@ -137,29 +139,27 @@ export function AutoFormatForm({
 
   return (
     <form
-      className="flex h-full min-h-0 flex-col"
+      {...stylex.props(styles.form)}
       onSubmit={(event) => {
         event.preventDefault();
         event.stopPropagation();
         void form.handleSubmit().catch(() => {});
       }}
     >
-      <div className="flex h-12 shrink-0 items-center justify-between gap-3 pr-1 pl-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Sparkle className="size-4 shrink-0 text-violet-500" />
-          <span className="truncate text-sm font-semibold">Auto</span>
+      <div {...stylex.props(styles.header)}>
+        <div {...stylex.props(styles.headerTitle)}>
+          <Sparkle {...stylex.props(styles.sparkle)} />
+          <span {...stylex.props(styles.truncatedLabel)}>Auto</span>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div {...stylex.props(styles.headerActions)}>
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className={cn([
-              "text-muted-foreground shrink-0 hover:text-black",
-              isDefault
-                ? "text-emerald-600 hover:bg-transparent hover:text-emerald-700 disabled:opacity-100 dark:text-emerald-400 dark:hover:text-emerald-300"
-                : null,
-            ])}
+            sx={[
+              styles.defaultButton,
+              isDefault && styles.currentDefaultButton,
+            ]}
             onClick={() => {
               void setSettingValue("selected_template_id", "").catch(
                 (error) => {
@@ -174,7 +174,7 @@ export function AutoFormatForm({
           >
             {isDefault ? (
               <>
-                <Check className="size-3.5" weight="bold" />
+                <Check {...stylex.props(styles.smallIcon)} weight="bold" />
                 <Trans>Current default</Trans>
               </>
             ) : (
@@ -190,15 +190,15 @@ export function AutoFormatForm({
                     size="icon"
                     variant="ghost"
                     aria-label={t`Template actions`}
-                    className="text-muted-foreground hover:bg-accent hover:text-foreground rounded-full"
+                    sx={styles.actionsButton}
                   >
                     <DotsThree size={16} />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent variant="app" align="end" className="w-56">
-                  <AppFloatingPanel className="overflow-hidden p-1">
+                <DropdownMenuContent variant="app" align="end" sx={styles.menu}>
+                  <AppFloatingPanel sx={styles.menuPanel}>
                     <DropdownMenuItem
-                      className="cursor-pointer"
+                      sx={styles.menuItem}
                       disabled={
                         !billing.isPro ||
                         (!isCustomized &&
@@ -219,14 +219,14 @@ export function AutoFormatForm({
         </div>
       </div>
 
-      <div className="scroll-fade-y min-h-0 flex-1 overflow-y-auto px-6 pt-3 pb-6">
-        <div className="flex max-w-4xl flex-col gap-5">
-          <div className="flex items-start justify-between gap-4">
+      <div {...mergeStyleXProps(styles.scroller, "scroll-fade-y")}>
+        <div {...stylex.props(styles.content)}>
+          <div {...stylex.props(styles.intro)}>
             <div>
-              <h1 className="text-lg font-semibold">
+              <h1 {...stylex.props(styles.heading)}>
                 <Trans>Summary format</Trans>
               </h1>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p {...stylex.props(styles.description)}>
                 {billing.isPro ? (
                   <Trans>
                     Choose how Auto structures and styles your summaries.
@@ -243,7 +243,7 @@ export function AutoFormatForm({
               type="button"
               size="sm"
               variant="outline"
-              className="shrink-0"
+              sx={styles.shrink}
               onClick={() => {
                 if (!billing.isPro) {
                   billing.upgradeToPro();
@@ -254,9 +254,9 @@ export function AutoFormatForm({
               disabled={billing.isUpgradingToPro}
             >
               {billing.isPro ? (
-                <MagicWand className="size-4" />
+                <MagicWand {...stylex.props(styles.icon)} />
               ) : (
-                <LockSimple className="size-4" />
+                <LockSimple {...stylex.props(styles.icon)} />
               )}
               <Trans>Improve with examples</Trans>
             </Button>
@@ -264,12 +264,15 @@ export function AutoFormatForm({
 
           <form.Field name="format">
             {(field) => (
-              <div className="border-border bg-card overflow-hidden rounded-2xl border">
-                <div className="group/editor relative">
+              <div {...stylex.props(styles.editorFrame)}>
+                <div
+                  data-auto-format-editor
+                  {...stylex.props(styles.editorSlot)}
+                >
                   <PromptEditor
                     ref={editorRef}
                     ariaLabel={t`Auto summary format`}
-                    className="min-h-[28rem] px-4 py-3 font-mono text-sm leading-5"
+                    sx={styles.editor}
                     initialValue={field.state.value}
                     maxLength={16000}
                     onChange={field.handleChange}
@@ -283,16 +286,19 @@ export function AutoFormatForm({
                       onClick={billing.upgradeToPro}
                       disabled={billing.isUpgradingToPro}
                       aria-label={t`Upgrade to Pro to customize Auto format`}
-                      className="focus-visible:ring-ring absolute inset-0 cursor-pointer rounded-2xl focus-visible:ring-2 focus-visible:outline-none"
+                      {...stylex.props(styles.upgradeOverlay)}
                     >
-                      <span className="border-primary bg-primary text-primary-foreground pointer-events-none absolute top-3 right-3 flex translate-x-1 items-center gap-1 rounded-full border-2 px-3 py-1 text-xs font-medium opacity-0 shadow-[0_4px_14px_rgba(87,83,78,0.18)] transition-all duration-150 group-focus-within/editor:translate-x-0 group-focus-within/editor:opacity-100 group-hover/editor:translate-x-0 group-hover/editor:opacity-100">
+                      <span {...stylex.props(styles.upgradeBadge)}>
                         {billing.isUpgradingToPro ? (
                           <CircleNotch
-                            className="size-3 animate-spin"
+                            {...stylex.props(styles.upgradeSpinner)}
                             aria-hidden
                           />
                         ) : (
-                          <LockSimple className="size-3" aria-hidden />
+                          <LockSimple
+                            {...stylex.props(styles.tinyIcon)}
+                            aria-hidden
+                          />
                         )}
                         <Trans>Upgrade to customize</Trans>
                       </span>
@@ -303,7 +309,7 @@ export function AutoFormatForm({
             )}
           </form.Field>
 
-          <div className="flex items-center justify-end gap-2">
+          <div {...stylex.props(styles.footer)}>
             {billing.isPro ? (
               <form.Subscribe
                 selector={(state) => [state.canSubmit, state.isDirty] as const}
@@ -323,7 +329,7 @@ export function AutoFormatForm({
                 onClick={billing.upgradeToPro}
                 disabled={billing.isUpgradingToPro}
               >
-                <LockSimple className="size-4" />
+                <LockSimple {...stylex.props(styles.icon)} />
                 <Trans>Get Pro to customize</Trans>
               </Button>
             )}
@@ -402,3 +408,233 @@ function headingSection(source: string, heading: string): string | null {
     .join("\n")
     .trim();
 }
+
+const spin = stylex.keyframes({
+  to: { transform: "rotate(360deg)" },
+});
+
+const styles = stylex.create({
+  actionsButton: {
+    backgroundColor: {
+      default: null,
+      ":hover": colors.accent,
+    },
+    borderRadius: radii.full,
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+  },
+  content: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1.25rem",
+    maxWidth: "56rem",
+  },
+  currentDefaultButton: {
+    backgroundColor: {
+      default: null,
+      ":hover": "transparent",
+    },
+    color: {
+      default: "rgb(5 150 105)",
+      ":hover": "rgb(4 120 87)",
+      ":is(.dark *)": "rgb(52 211 153)",
+      ":is(.dark *):hover": "rgb(110 231 183)",
+    },
+    opacity: {
+      default: 1,
+      ":disabled": 1,
+    },
+  },
+  defaultButton: {
+    color: {
+      default: colors.mutedForeground,
+      ":hover": "black",
+    },
+    flexShrink: 0,
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.875rem",
+    marginTop: "0.25rem",
+  },
+  editor: {
+    fontFamily: fonts.mono,
+    fontSize: "0.875rem",
+    lineHeight: "1.25rem",
+    minHeight: "28rem",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  editorFrame: {
+    backgroundColor: colors.card,
+    borderColor: colors.border,
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    overflow: "hidden",
+  },
+  editorSlot: {
+    position: "relative",
+  },
+  errorStatus: {
+    color: colors.destructive,
+    paddingInline: "1.5rem",
+    textAlign: "center",
+  },
+  footer: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    justifyContent: "flex-end",
+  },
+  form: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+  },
+  header: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.75rem",
+    height: "3rem",
+    justifyContent: "space-between",
+    paddingLeft: "0.75rem",
+    paddingRight: "0.25rem",
+  },
+  headerActions: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: "0.25rem",
+  },
+  headerTitle: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    minWidth: 0,
+  },
+  heading: {
+    fontSize: "1.125rem",
+    fontWeight: 600,
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  intro: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+  },
+  loadingStatus: {
+    color: colors.mutedForeground,
+  },
+  menu: {
+    width: "14rem",
+  },
+  menuItem: {
+    cursor: "pointer",
+  },
+  menuPanel: {
+    overflow: "hidden",
+    padding: "0.25rem",
+  },
+  scroller: {
+    flex: "1",
+    minHeight: 0,
+    overflowY: "auto",
+    paddingBottom: "1.5rem",
+    paddingInline: "1.5rem",
+    paddingTop: "0.75rem",
+  },
+  shrink: {
+    flexShrink: 0,
+  },
+  smallIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  sparkle: {
+    color: "rgb(139 92 246)",
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  status: {
+    alignItems: "center",
+    display: "flex",
+    fontSize: "0.875rem",
+    height: "100%",
+    justifyContent: "center",
+  },
+  tinyIcon: {
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+  truncatedLabel: {
+    fontSize: "0.875rem",
+    fontWeight: 600,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  upgradeBadge: {
+    alignItems: "center",
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    borderRadius: radii.full,
+    borderStyle: "solid",
+    borderWidth: "2px",
+    boxShadow: "0 4px 14px rgb(87 83 78 / 0.18)",
+    color: colors.primaryForeground,
+    display: "flex",
+    fontSize: "0.75rem",
+    fontWeight: 500,
+    gap: "0.25rem",
+    opacity: {
+      default: 0,
+      ":is([data-auto-format-editor]:focus-within *)": 1,
+      ":is([data-auto-format-editor]:hover *)": 1,
+    },
+    paddingBlock: "0.25rem",
+    paddingInline: "0.75rem",
+    pointerEvents: "none",
+    position: "absolute",
+    right: "0.75rem",
+    top: "0.75rem",
+    transform: {
+      default: "translateX(0.25rem)",
+      ":is([data-auto-format-editor]:focus-within *)": "translateX(0)",
+      ":is([data-auto-format-editor]:hover *)": "translateX(0)",
+    },
+    transitionDuration: "150ms",
+    transitionProperty: "all",
+  },
+  upgradeOverlay: {
+    borderRadius: "1rem",
+    boxShadow: {
+      default: null,
+      ":focus-visible": `inset 0 0 0 2px ${colors.ring}`,
+    },
+    cursor: "pointer",
+    inset: 0,
+    outline: {
+      default: null,
+      ":focus-visible": "none",
+    },
+    position: "absolute",
+  },
+  upgradeSpinner: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+    height: "0.75rem",
+    width: "0.75rem",
+  },
+});

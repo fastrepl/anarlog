@@ -15,11 +15,13 @@ import {
   Warning,
   Watch,
 } from "@phosphor-icons/react";
+import * as stylex from "@stylexjs/stylex";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { platform } from "@tauri-apps/plugin-os";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
+import { colors, fonts, radii } from "@anlg/design-system/tokens.stylex";
 import {
   getCloudsyncStatus,
   getE2eeIdentityStatus,
@@ -42,7 +44,7 @@ import {
 } from "@anlg/ui/components/ui/dialog";
 import { Input } from "@anlg/ui/components/ui/input";
 import { Switch } from "@anlg/ui/components/ui/switch";
-import { cn, formatDistanceToNow } from "@anlg/utils";
+import { formatDistanceToNow } from "@anlg/utils";
 
 import { E2eeSetupDialog } from "../general/e2ee-setup";
 import { detectCloudStorageService } from "../general/storage/path-utils";
@@ -97,12 +99,12 @@ function DeviceTitle({
 }) {
   const { t } = useLingui();
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <p className="truncate text-sm font-medium">
+    <div {...stylex.props(styles.deviceTitleRow)}>
+      <p {...stylex.props(styles.truncatedMedium)}>
         {name || t`Unnamed device`}
       </p>
       {current ? (
-        <Badge variant="secondary" size="sm" className="shrink-0">
+        <Badge variant="secondary" size="sm" sx={styles.noShrink}>
           <Trans>This device</Trans>
         </Badge>
       ) : null}
@@ -111,11 +113,11 @@ function DeviceTitle({
           type="button"
           variant="ghost"
           size="icon"
-          className="text-muted-foreground hover:text-foreground size-6 shrink-0"
+          sx={styles.renameButton}
           aria-label={t`Rename device`}
           onClick={onRename}
         >
-          <PencilSimple className="size-3.5" />
+          <PencilSimple {...stylex.props(styles.smallIcon)} />
         </Button>
       ) : null}
     </div>
@@ -152,7 +154,7 @@ function RenameDeviceDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent sx={styles.smallDialog}>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -176,7 +178,7 @@ function RenameDeviceDialog({
               <Input
                 autoFocus
                 aria-label={t`Device name`}
-                className="mt-4"
+                sx={styles.dialogInput}
                 maxLength={128}
                 value={field.state.value}
                 onBlur={field.handleBlur}
@@ -185,9 +187,9 @@ function RenameDeviceDialog({
             )}
           </form.Field>
           {error ? (
-            <p className="mt-2 text-xs text-red-500">{error.message}</p>
+            <p {...stylex.props(styles.errorWithMargin)}>{error.message}</p>
           ) : null}
-          <DialogFooter className="mt-5">
+          <DialogFooter sx={styles.dialogFooter}>
             <Button
               type="button"
               variant="outline"
@@ -203,7 +205,9 @@ function RenameDeviceDialog({
                   disabled={pending || !isValidDeviceName(value)}
                 >
                   {pending ? (
-                    <CircleNotch className="size-4 animate-spin" />
+                    <CircleNotch
+                      {...stylex.props(styles.icon, styles.spinning)}
+                    />
                   ) : null}
                   <Trans>Save</Trans>
                 </Button>
@@ -236,7 +240,7 @@ function DeviceKindIcon({ kind }: { kind?: string | null }) {
     <Icon
       aria-hidden="true"
       data-device-kind={resolved}
-      className="text-muted-foreground size-4 shrink-0"
+      {...stylex.props(styles.deviceKindIcon)}
     />
   );
 }
@@ -256,14 +260,14 @@ function DisconnectDeviceButton({
     <Button
       variant="outline"
       size="sm"
-      className="text-destructive hover:!border-destructive hover:!bg-destructive/10 hover:!text-destructive"
+      sx={styles.disconnectButton}
       disabled={isPending}
       onClick={() => onDisconnect(fingerprint)}
     >
       {isPending && pendingFingerprint === fingerprint ? (
-        <CircleNotch className="size-3.5 animate-spin" />
+        <CircleNotch {...stylex.props(styles.smallIcon, styles.spinning)} />
       ) : (
-        <Plugs className="size-3.5" />
+        <Plugs {...stylex.props(styles.smallIcon)} />
       )}
       <Trans>Disconnect</Trans>
     </Button>
@@ -295,25 +299,33 @@ function SyncLogEntry({ entry }: { entry: CloudsyncActivityEntry }) {
   const icon = (() => {
     switch (entry.status) {
       case "completed":
-        return <CheckCircle className="size-3.5 text-emerald-500" />;
+        return (
+          <CheckCircle
+            {...stylex.props(styles.smallIcon, styles.successIcon)}
+          />
+        );
       case "progress":
-        return <ArrowsClockwise className="size-3.5 text-blue-500" />;
+        return (
+          <ArrowsClockwise
+            {...stylex.props(styles.smallIcon, styles.progressIcon)}
+          />
+        );
       case "failed":
-        return <Warning className="size-3.5 text-amber-500" />;
+        return (
+          <Warning {...stylex.props(styles.smallIcon, styles.warningIcon)} />
+        );
     }
   })();
 
   return (
-    <li className="flex gap-3 py-3 first:pt-0 last:pb-0">
-      <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="text-xs font-medium">
+    <li {...stylex.props(styles.logEntry)}>
+      <div {...stylex.props(styles.logIcon)}>{icon}</div>
+      <div {...stylex.props(styles.logCopy)}>
+        <div {...stylex.props(styles.logHeading)}>
+          <p {...stylex.props(styles.mediumSmall)}>
             {entry.trigger === "manual" ? t`Manual sync` : t`Background sync`}
           </p>
-          <time className="text-muted-foreground shrink-0 text-[11px]">
+          <time {...stylex.props(styles.logTime)}>
             {new Date(entry.timestamp_ms).toLocaleTimeString(undefined, {
               hour: "numeric",
               minute: "2-digit",
@@ -321,9 +333,9 @@ function SyncLogEntry({ entry }: { entry: CloudsyncActivityEntry }) {
             })}
           </time>
         </div>
-        <p className="text-muted-foreground mt-0.5 text-xs">{summary}</p>
+        <p {...stylex.props(styles.logSummary)}>{summary}</p>
         {entry.error && (
-          <p className="mt-1 text-xs break-words text-red-500">
+          <p {...stylex.props(styles.logError)}>
             <Trans>
               Anarlog couldn't complete this sync. Your notes are safe on this
               device.
@@ -657,10 +669,10 @@ export function SettingsSync() {
   }
   if (settingsQuery.isLoading || !settingsQuery.data || !isReady) {
     return (
-      <div className="flex min-h-48 items-center justify-center">
+      <div {...stylex.props(styles.loading)}>
         <CircleNotch
           aria-label={t`Loading sync settings`}
-          className="text-muted-foreground size-5 animate-spin"
+          {...stylex.props(styles.loadingIcon, styles.spinning)}
         />
       </div>
     );
@@ -672,22 +684,22 @@ export function SettingsSync() {
 
   if (!session || !isPro) {
     return (
-      <div className="flex flex-col gap-8">
+      <div {...stylex.props(styles.page)}>
         <SettingsPageTitle title={<Trans>Sync</Trans>} />
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex gap-3">
-            <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-full">
-              <CloudSlash className="text-muted-foreground size-4" />
+        <div {...stylex.props(styles.upsell)}>
+          <div {...stylex.props(styles.upsellCopy)}>
+            <div {...stylex.props(styles.statusIconFrame, styles.mutedFrame)}>
+              <CloudSlash {...stylex.props(styles.mutedIcon)} />
             </div>
             <div>
-              <h3 className="text-sm font-medium">
+              <h3 {...stylex.props(styles.smallHeading)}>
                 {session ? (
                   <Trans>Cloud sync is available with Anarlog Pro</Trans>
                 ) : (
                   <Trans>Sign in to use cloud sync</Trans>
                 )}
               </h3>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <p {...stylex.props(styles.description)}>
                 <Trans>
                   Keep notes encrypted and synced across your devices.
                 </Trans>
@@ -809,15 +821,19 @@ export function SettingsSync() {
     switch (statusView.kind) {
       case "syncing":
         return (
-          <ArrowsClockwise className="size-4 animate-spin text-blue-500" />
+          <ArrowsClockwise
+            {...stylex.props(styles.icon, styles.spinning, styles.progressIcon)}
+          />
         );
       case "synced":
-        return <CheckCircle className="size-4 text-emerald-500" />;
+        return (
+          <CheckCircle {...stylex.props(styles.icon, styles.successIcon)} />
+        );
       case "error":
-        return <Warning className="size-4 text-amber-500" />;
+        return <Warning {...stylex.props(styles.icon, styles.warningIcon)} />;
       case "paused":
       case "local":
-        return <CloudSlash className="text-muted-foreground size-4" />;
+        return <CloudSlash {...stylex.props(styles.mutedIcon)} />;
     }
   })();
   const mutationError =
@@ -835,18 +851,16 @@ export function SettingsSync() {
       isKeychainAccessError(e2eeIdentityQuery.error));
 
   return (
-    <div className="flex flex-col gap-8">
+    <div {...stylex.props(styles.page)}>
       <SettingsPageTitle title={<Trans>Sync</Trans>} />
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
-              {statusIcon}
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-medium">{statusView.label}</h3>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
+      <section {...stylex.props(styles.syncSection)}>
+        <div {...stylex.props(styles.statusRow)}>
+          <div {...stylex.props(styles.statusCopy)}>
+            <div {...stylex.props(styles.statusIconFrame)}>{statusIcon}</div>
+            <div {...stylex.props(styles.minWidth)}>
+              <h3 {...stylex.props(styles.smallHeading)}>{statusView.label}</h3>
+              <p {...stylex.props(styles.description)}>
                 {statusView.description}
               </p>
             </div>
@@ -870,11 +884,11 @@ export function SettingsSync() {
         </div>
 
         {mutationError && (
-          <p className="text-xs text-red-500">{mutationError.message}</p>
+          <p {...stylex.props(styles.errorSmall)}>{mutationError.message}</p>
         )}
 
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-muted-foreground text-xs">
+        <div {...stylex.props(styles.syncNowRow)}>
+          <p {...stylex.props(styles.mutedSmall)}>
             <Trans>Keep notes current automatically.</Trans>
           </p>
           <Button
@@ -890,43 +904,43 @@ export function SettingsSync() {
             onClick={() => syncNowMutation.mutate()}
           >
             <ArrowsClockwise
-              className={cn([
-                "size-3.5",
-                syncNowMutation.isPending && "animate-spin",
-              ])}
+              {...stylex.props(
+                styles.smallIcon,
+                syncNowMutation.isPending && styles.spinning,
+              )}
             />
             <Trans>Sync now</Trans>
           </Button>
         </div>
 
-        <div className="border-border/60 overflow-hidden rounded-xl border">
+        <div {...stylex.props(styles.logPanel)}>
           <button
             type="button"
             aria-label={syncLogOpen ? t`Hide sync log` : t`View sync log`}
             aria-expanded={syncLogOpen}
-            className="hover:bg-muted/40 flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition-colors"
+            {...stylex.props(styles.logToggle)}
             onClick={() => setSyncLogOpen((open) => !open)}
           >
             <div>
-              <h3 className="text-xs font-medium">
+              <h3 {...stylex.props(styles.mediumSmall)}>
                 <Trans>Sync log</Trans>
               </h3>
-              <p className="text-muted-foreground mt-0.5 text-[11px]">
+              <p {...stylex.props(styles.logHint)}>
                 <Trans>Recent activity from this app session.</Trans>
               </p>
             </div>
             <CaretDown
-              className={cn([
-                "text-muted-foreground size-3.5 transition-transform",
-                syncLogOpen && "rotate-180",
-              ])}
+              {...stylex.props(
+                styles.logCaret,
+                syncLogOpen && styles.logCaretOpen,
+              )}
             />
           </button>
 
           {syncLogOpen && (
-            <div className="border-border/60 border-t px-4 py-3">
+            <div {...stylex.props(styles.logBody)}>
               {status?.activity_log?.length ? (
-                <ol className="divide-border/60 max-h-64 divide-y overflow-y-auto">
+                <ol {...stylex.props(styles.logList)}>
                   {status.activity_log.map((entry, index) => (
                     <SyncLogEntry
                       key={`${entry.timestamp_ms}-${index}`}
@@ -935,7 +949,7 @@ export function SettingsSync() {
                   ))}
                 </ol>
               ) : (
-                <p className="text-muted-foreground py-2 text-center text-xs">
+                <p {...stylex.props(styles.logEmpty)}>
                   <Trans>No sync activity yet.</Trans>
                 </p>
               )}
@@ -945,18 +959,18 @@ export function SettingsSync() {
       </section>
 
       {cloudStorageService && (
-        <section className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
-              <Warning className="size-4 text-amber-500" />
+        <section {...stylex.props(styles.storageWarning)}>
+          <div {...stylex.props(styles.warningRow)}>
+            <div {...stylex.props(styles.warningIconFrame)}>
+              <Warning {...stylex.props(styles.icon, styles.warningIcon)} />
             </div>
-            <div className="min-w-0">
-              <h3 className="text-sm font-medium">
+            <div {...stylex.props(styles.minWidth)}>
+              <h3 {...stylex.props(styles.smallHeading)}>
                 <Trans>
                   Your storage location is inside {cloudStorageService}
                 </Trans>
               </h3>
-              <p className="text-muted-foreground mt-1 text-xs leading-5">
+              <p {...stylex.props(styles.description)}>
                 <Trans>
                   Cloud sync and {cloudStorageService} can both change the same
                   files, which can create conflicted copies and incomplete
@@ -967,7 +981,7 @@ export function SettingsSync() {
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-3"
+                sx={styles.topMarginButton}
                 onClick={() =>
                   void openerCommands.openUrl(SYNC_GUIDE_URL, null)
                 }
@@ -980,8 +994,8 @@ export function SettingsSync() {
       )}
 
       <section>
-        <div className="mb-4 flex items-center justify-between gap-4">
-          <h2 className="font-sans text-lg font-semibold">
+        <div {...stylex.props(styles.sectionHeader)}>
+          <h2 {...stylex.props(styles.sectionHeading)}>
             <Trans>Devices</Trans>
           </h2>
           <Button
@@ -989,22 +1003,22 @@ export function SettingsSync() {
             size="sm"
             onClick={() => setAddDeviceOpen(true)}
           >
-            <Plus className="size-3.5" />
+            <Plus {...stylex.props(styles.smallIcon)} />
             <Trans>Add device</Trans>
           </Button>
         </div>
-        <div className="border-border/60 divide-border/60 divide-y overflow-hidden rounded-xl border">
+        <div {...stylex.props(styles.deviceList)}>
           {devicesQuery.isPending && (
-            <div className="flex items-center justify-center px-4 py-5">
+            <div {...stylex.props(styles.deviceLoading)}>
               <CircleNotch
                 aria-label={t`Loading devices`}
-                className="text-muted-foreground size-4 animate-spin"
+                {...stylex.props(styles.mutedIcon, styles.spinning)}
               />
             </div>
           )}
           {devicesQuery.isError && (
-            <div className="flex items-center justify-between gap-3 px-4 py-3">
-              <p className="text-xs text-red-500">
+            <div {...stylex.props(styles.deviceErrorRow)}>
+              <p {...stylex.props(styles.errorSmall)}>
                 <Trans>Could not load your devices.</Trans>
               </p>
               <Button
@@ -1024,10 +1038,10 @@ export function SettingsSync() {
             return (
               <div
                 key={device.deviceFingerprint}
-                className="flex items-center gap-3 px-4 py-3"
+                {...stylex.props(styles.deviceRow)}
               >
                 <DeviceKindIcon kind={device.deviceKind} />
-                <div className="min-w-0 flex-1">
+                <div {...stylex.props(styles.deviceCopy)}>
                   <DeviceTitle
                     name={device.deviceName}
                     current={current}
@@ -1043,7 +1057,9 @@ export function SettingsSync() {
                         : undefined
                     }
                   />
-                  <p className="text-muted-foreground text-[11px]">{t`Last seen ${formatDistanceToNow(new Date(device.lastSeenAt))}`}</p>
+                  <p
+                    {...stylex.props(styles.deviceDetail)}
+                  >{t`Last seen ${formatDistanceToNow(new Date(device.lastSeenAt))}`}</p>
                 </div>
                 {!current && (
                   <>
@@ -1059,7 +1075,12 @@ export function SettingsSync() {
                         {replaceDeviceMutation.isPending &&
                           replaceDeviceMutation.variables ===
                             device.deviceFingerprint && (
-                            <CircleNotch className="size-3.5 animate-spin" />
+                            <CircleNotch
+                              {...stylex.props(
+                                styles.smallIcon,
+                                styles.spinning,
+                              )}
+                            />
                           )}
                         <Trans>Replace</Trans>
                       </Button>
@@ -1082,12 +1103,9 @@ export function SettingsSync() {
               device.deviceFingerprint ===
               deviceIdentityQuery.data?.fingerprint;
             return (
-              <div
-                key={device.requestId}
-                className="flex items-center gap-3 px-4 py-3"
-              >
+              <div key={device.requestId} {...stylex.props(styles.deviceRow)}>
                 <DeviceKindIcon kind={device.deviceKind} />
-                <div className="min-w-0 flex-1">
+                <div {...stylex.props(styles.deviceCopy)}>
                   <DeviceTitle
                     name={device.deviceName}
                     current={current}
@@ -1103,7 +1121,7 @@ export function SettingsSync() {
                         : undefined
                     }
                   />
-                  <p className="text-muted-foreground text-[11px]">
+                  <p {...stylex.props(styles.deviceDetail)}>
                     {device.status === "sealed"
                       ? t`Approved — waiting for this device to finish`
                       : current
@@ -1129,13 +1147,15 @@ export function SettingsSync() {
                       {approveDeviceMutation.isPending &&
                         approveDeviceMutation.variables?.requestId ===
                           device.requestId && (
-                          <CircleNotch className="size-3.5 animate-spin" />
+                          <CircleNotch
+                            {...stylex.props(styles.smallIcon, styles.spinning)}
+                          />
                         )}
                       <Trans>Approve</Trans>
                     </Button>
                   )}
                 {!current && device.status === "sealed" && (
-                  <span className="text-xs text-emerald-500">
+                  <span {...stylex.props(styles.approved)}>
                     <Trans>Approved</Trans>
                   </span>
                 )}
@@ -1154,35 +1174,35 @@ export function SettingsSync() {
             !devicesQuery.isError &&
             !devicesQuery.data?.devices.length &&
             !devicesQuery.data?.pendingDevices.length && (
-              <p className="text-muted-foreground px-4 py-5 text-center text-xs">
+              <p {...stylex.props(styles.noDevices)}>
                 <Trans>No devices registered yet.</Trans>
               </p>
             )}
         </div>
         {deviceMutationError && (
-          <p className="mt-2 text-xs text-red-500">
+          <p {...stylex.props(styles.errorWithMargin)}>
             {deviceMutationError.message}
           </p>
         )}
       </section>
 
       <section>
-        <h2 className="mb-4 font-sans text-lg font-semibold">
+        <h2 {...stylex.props(styles.securityHeading)}>
           <Trans>Security</Trans>
         </h2>
-        <div className="flex items-start gap-3">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-full">
+        <div {...stylex.props(styles.securityRow)}>
+          <div {...stylex.props(styles.statusIconFrame)}>
             {e2eeIdentityQuery.data?.configured ? (
-              <ShieldCheck className="size-4 text-emerald-500" />
+              <ShieldCheck {...stylex.props(styles.icon, styles.successIcon)} />
             ) : (
-              <Shield className="text-muted-foreground size-4" />
+              <Shield {...stylex.props(styles.mutedIcon)} />
             )}
           </div>
           <div>
-            <h3 className="text-sm font-medium">
+            <h3 {...stylex.props(styles.smallHeading)}>
               <Trans>End-to-end encryption</Trans>
             </h3>
-            <p className="text-muted-foreground mt-1 text-xs leading-5">
+            <p {...stylex.props(styles.description)}>
               {e2eeIdentityQuery.data?.configured ? (
                 <Trans>Keep synced notes readable only on your devices.</Trans>
               ) : credentialBlock === "approval_pending" ? (
@@ -1205,12 +1225,14 @@ export function SettingsSync() {
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-3"
+                sx={styles.topMarginButton}
                 disabled={repairKeychainMutation.isPending}
                 onClick={() => repairKeychainMutation.mutate()}
               >
                 {repairKeychainMutation.isPending && (
-                  <CircleNotch className="size-3.5 animate-spin" />
+                  <CircleNotch
+                    {...stylex.props(styles.smallIcon, styles.spinning)}
+                  />
                 )}
                 <Trans>Repair Keychain Access</Trans>
               </Button>
@@ -1219,7 +1241,7 @@ export function SettingsSync() {
               <Button
                 variant="outline"
                 size="sm"
-                className="mt-3"
+                sx={styles.topMarginButton}
                 onClick={() => setE2eeSetupOpen(true)}
               >
                 <Trans>Use recovery key instead</Trans>
@@ -1260,7 +1282,7 @@ export function SettingsSync() {
         />
       ) : null}
       <Dialog open={addDeviceOpen} onOpenChange={setAddDeviceOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent sx={styles.smallDialog}>
           <DialogHeader>
             <DialogTitle>
               <Trans>Add another device</Trans>
@@ -1272,7 +1294,7 @@ export function SettingsSync() {
               </Trans>
             </DialogDescription>
           </DialogHeader>
-          <p className="text-muted-foreground text-xs leading-5">
+          <p {...stylex.props(styles.dialogDescription)}>
             <Trans>
               Keep your recovery key saved somewhere safe. You can still use it
               if another approved device is unavailable.
@@ -1288,3 +1310,414 @@ export function SettingsSync() {
     </div>
   );
 }
+
+const spin = stylex.keyframes({
+  to: {
+    transform: "rotate(360deg)",
+  },
+});
+
+const styles = stylex.create({
+  approved: {
+    color: "rgb(16 185 129)",
+    fontSize: "0.75rem",
+  },
+  description: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1.25rem",
+    marginTop: "0.25rem",
+  },
+  deviceCopy: {
+    flex: "1",
+    minWidth: 0,
+  },
+  deviceDetail: {
+    color: colors.mutedForeground,
+    fontSize: "0.6875rem",
+  },
+  deviceErrorRow: {
+    alignItems: "center",
+    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: {
+      default: "1px",
+      ":first-child": 0,
+    },
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  deviceKindIcon: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    height: "1rem",
+    width: "1rem",
+  },
+  deviceList: {
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    overflow: "hidden",
+  },
+  deviceLoading: {
+    alignItems: "center",
+    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: {
+      default: "1px",
+      ":first-child": 0,
+    },
+    display: "flex",
+    justifyContent: "center",
+    paddingBlock: "1.25rem",
+    paddingInline: "1rem",
+  },
+  deviceRow: {
+    alignItems: "center",
+    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: {
+      default: "1px",
+      ":first-child": 0,
+    },
+    display: "flex",
+    gap: "0.75rem",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  deviceTitleRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "0.5rem",
+    minWidth: 0,
+  },
+  dialogDescription: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    lineHeight: "1.25rem",
+  },
+  dialogFooter: {
+    marginTop: "1.25rem",
+  },
+  dialogInput: {
+    marginTop: "1rem",
+  },
+  disconnectButton: {
+    backgroundColor: {
+      default: null,
+      ":hover": `color-mix(in srgb, ${colors.destructive} 10%, transparent)`,
+    },
+    borderColor: {
+      default: null,
+      ":hover": colors.destructive,
+    },
+    color: {
+      default: colors.destructive,
+      ":hover": colors.destructive,
+    },
+  },
+  errorSmall: {
+    color: "rgb(239 68 68)",
+    fontSize: "0.75rem",
+  },
+  errorWithMargin: {
+    color: "rgb(239 68 68)",
+    fontSize: "0.75rem",
+    marginTop: "0.5rem",
+  },
+  icon: {
+    height: "1rem",
+    width: "1rem",
+  },
+  loading: {
+    alignItems: "center",
+    display: "flex",
+    justifyContent: "center",
+    minHeight: "12rem",
+  },
+  loadingIcon: {
+    color: colors.mutedForeground,
+    height: "1.25rem",
+    width: "1.25rem",
+  },
+  logBody: {
+    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: "1px",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+  },
+  logCaret: {
+    color: colors.mutedForeground,
+    height: "0.875rem",
+    transitionDuration: "150ms",
+    transitionProperty: "transform",
+    width: "0.875rem",
+  },
+  logCaretOpen: {
+    transform: "rotate(180deg)",
+  },
+  logCopy: {
+    flex: "1",
+    minWidth: 0,
+  },
+  logEmpty: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    paddingBlock: "0.5rem",
+    textAlign: "center",
+  },
+  logEntry: {
+    borderTopColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: {
+      default: "1px",
+      ":first-child": 0,
+    },
+    display: "flex",
+    gap: "0.75rem",
+    paddingBottom: {
+      default: "0.75rem",
+      ":last-child": 0,
+    },
+    paddingTop: {
+      default: "0.75rem",
+      ":first-child": 0,
+    },
+  },
+  logError: {
+    color: "rgb(239 68 68)",
+    fontSize: "0.75rem",
+    marginTop: "0.25rem",
+    overflowWrap: "anywhere",
+  },
+  logHeading: {
+    alignItems: "baseline",
+    display: "flex",
+    gap: "0.75rem",
+    justifyContent: "space-between",
+  },
+  logHint: {
+    color: colors.mutedForeground,
+    fontSize: "0.6875rem",
+    marginTop: "0.125rem",
+  },
+  logIcon: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    height: "1.25rem",
+    justifyContent: "center",
+    marginTop: "0.125rem",
+    width: "1.25rem",
+  },
+  logList: {
+    maxHeight: "16rem",
+    overflowY: "auto",
+  },
+  logPanel: {
+    borderColor: `color-mix(in srgb, ${colors.border} 60%, transparent)`,
+    borderRadius: radii.xl,
+    borderStyle: "solid",
+    borderWidth: "1px",
+    overflow: "hidden",
+  },
+  logSummary: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    marginTop: "0.125rem",
+  },
+  logTime: {
+    color: colors.mutedForeground,
+    flexShrink: 0,
+    fontSize: "0.6875rem",
+  },
+  logToggle: {
+    alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": `color-mix(in srgb, ${colors.muted} 40%, transparent)`,
+    },
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+    paddingBlock: "0.75rem",
+    paddingInline: "1rem",
+    textAlign: "left",
+    transitionDuration: "150ms",
+    transitionProperty: "background-color",
+    width: "100%",
+  },
+  mediumSmall: {
+    fontSize: "0.75rem",
+    fontWeight: 500,
+  },
+  minWidth: {
+    minWidth: 0,
+  },
+  mutedFrame: {
+    backgroundColor: colors.muted,
+  },
+  mutedIcon: {
+    color: colors.mutedForeground,
+    height: "1rem",
+    width: "1rem",
+  },
+  mutedSmall: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+  },
+  noDevices: {
+    color: colors.mutedForeground,
+    fontSize: "0.75rem",
+    paddingBlock: "1.25rem",
+    paddingInline: "1rem",
+    textAlign: "center",
+  },
+  noShrink: {
+    flexShrink: 0,
+  },
+  page: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "2rem",
+  },
+  progressIcon: {
+    color: "rgb(59 130 246)",
+  },
+  renameButton: {
+    color: {
+      default: colors.mutedForeground,
+      ":hover": colors.foreground,
+    },
+    flexShrink: 0,
+    height: "1.5rem",
+    width: "1.5rem",
+  },
+  sectionHeader: {
+    alignItems: "center",
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+    marginBottom: "1rem",
+  },
+  sectionHeading: {
+    fontFamily: fonts.sans,
+    fontSize: "1.125rem",
+    fontWeight: 600,
+  },
+  securityHeading: {
+    fontFamily: fonts.sans,
+    fontSize: "1.125rem",
+    fontWeight: 600,
+    marginBottom: "1rem",
+  },
+  securityRow: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "0.75rem",
+  },
+  smallDialog: {
+    maxWidth: "24rem",
+  },
+  smallHeading: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+  },
+  smallIcon: {
+    height: "0.875rem",
+    width: "0.875rem",
+  },
+  spinning: {
+    animationDuration: "1s",
+    animationIterationCount: "infinite",
+    animationName: spin,
+    animationTimingFunction: "linear",
+  },
+  statusCopy: {
+    display: "flex",
+    gap: "0.75rem",
+    minWidth: 0,
+  },
+  statusIconFrame: {
+    alignItems: "center",
+    borderRadius: radii.full,
+    display: "flex",
+    flexShrink: 0,
+    height: "2.25rem",
+    justifyContent: "center",
+    width: "2.25rem",
+  },
+  statusRow: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+  },
+  storageWarning: {
+    backgroundColor: "rgb(245 158 11 / 0.05)",
+    borderColor: "rgb(245 158 11 / 0.4)",
+    borderRadius: "1rem",
+    borderStyle: "solid",
+    borderWidth: "1px",
+    padding: "1.25rem",
+  },
+  successIcon: {
+    color: "rgb(16 185 129)",
+  },
+  syncNowRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+  },
+  syncSection: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1rem",
+  },
+  topMarginButton: {
+    marginTop: "0.75rem",
+  },
+  truncatedMedium: {
+    fontSize: "0.875rem",
+    fontWeight: 500,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  upsell: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "1rem",
+    justifyContent: "space-between",
+  },
+  upsellCopy: {
+    display: "flex",
+    gap: "0.75rem",
+  },
+  warningIcon: {
+    color: "rgb(245 158 11)",
+  },
+  warningIconFrame: {
+    alignItems: "center",
+    backgroundColor: "rgb(245 158 11 / 0.1)",
+    borderRadius: radii.full,
+    display: "flex",
+    flexShrink: 0,
+    height: "2.25rem",
+    justifyContent: "center",
+    width: "2.25rem",
+  },
+  warningRow: {
+    alignItems: "flex-start",
+    display: "flex",
+    gap: "0.75rem",
+  },
+});
+
+export { styles as settingsSyncStyles };
